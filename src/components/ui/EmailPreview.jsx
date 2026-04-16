@@ -1,27 +1,20 @@
-function normalizeList(value) {
-  if (Array.isArray(value)) {
+function formatPreviewValue(value) {
+  if (typeof value === 'number') {
     return value
   }
 
-  if (typeof value === 'string' && value.trim()) {
-    return [value]
-  }
-
-  return []
+  const normalizedValue = String(value ?? '').trim()
+  return normalizedValue || 'Not provided'
 }
 
 export function EmailPreview({
   clubName = 'Club Name',
   playerName = 'Player Name',
-  scoresSummary = [],
-  strengths = [],
-  areasToImprove = [],
-  decision = 'Pending',
+  team = '',
+  session = '',
+  decision = 'Progress',
+  responseItems = [],
 }) {
-  const scoreItems = normalizeList(scoresSummary)
-  const strengthItems = normalizeList(strengths)
-  const improvementItems = normalizeList(areasToImprove)
-
   return (
     <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-[24px] border border-[#dbe3d6] bg-white p-4 shadow-sm shadow-slate-200/40 sm:rounded-[28px] sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 border-b border-[#e7ece3] pb-5 sm:gap-6 sm:pb-6 md:flex-row md:items-center md:justify-between">
@@ -40,61 +33,41 @@ export function EmailPreview({
         </div>
       </div>
 
-      <div className="mt-6">
-        <p className="text-sm font-medium text-slate-500">Player</p>
-        <h3 className="mt-2 break-words text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{playerName}</h3>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div>
+          <p className="text-sm font-medium text-slate-500">Player</p>
+          <h3 className="mt-2 break-words text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{playerName}</h3>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Team</p>
+            <p className="mt-2 text-sm font-medium text-slate-700">{team || 'Not provided'}</p>
+          </div>
+          <div className="rounded-2xl border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Session</p>
+            <p className="mt-2 text-sm font-medium text-slate-700">{session || 'Not provided'}</p>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Scores Summary</p>
-          <div className="mt-4 space-y-3">
-            {scoreItems.length === 0 ? (
-              <p className="text-sm text-slate-500">No score summary provided.</p>
-            ) : (
-              scoreItems.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-[#e2e7de] bg-white px-4 py-3 text-sm font-medium text-slate-700"
-                >
-                  {item}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+      <div className="mt-6 rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Evaluation Responses</p>
 
-        <div className="space-y-6">
-          <div className="rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Strengths</p>
-            {strengthItems.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">No strengths provided.</p>
-            ) : (
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
-                {strengthItems.map((item) => (
-                  <li key={item} className="rounded-2xl border border-[#e2e7de] bg-white px-4 py-3">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            )}
+        {responseItems.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No responses provided.</p>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            {responseItems.map((item) => (
+              <div key={item.label} className="rounded-2xl border border-[#e2e7de] bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">{item.label}</p>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                  {formatPreviewValue(item.value)}
+                </p>
+              </div>
+            ))}
           </div>
-
-          <div className="rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Areas to Improve</p>
-            {improvementItems.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">No development notes provided.</p>
-            ) : (
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
-                {improvementItems.map((item) => (
-                  <li key={item} className="rounded-2xl border border-[#e2e7de] bg-white px-4 py-3">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </section>
   )

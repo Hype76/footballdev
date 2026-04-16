@@ -25,6 +25,10 @@ export function canAccessApprovals(user) {
   return isManager(user) || isSuperAdmin(user)
 }
 
+export function canManageFormFields(user) {
+  return isManager(user) || isSuperAdmin(user)
+}
+
 export function canEditEvaluation(user, evaluation) {
   if (!user || !evaluation) {
     return false

@@ -13,8 +13,9 @@ function buildParentEmailLink(playerName, evaluation) {
 
   const summary =
     evaluation.comments?.overall ||
-    evaluation.comments?.strengths ||
-    evaluation.comments?.improvements ||
+    Object.entries(evaluation.formResponses ?? {})
+      .map(([label, value]) => `${label}: ${value}`)
+      .join(', ') ||
     'No written summary provided.'
 
   const body = [
@@ -174,13 +175,19 @@ export function PlayerProfile() {
                 </div>
 
                 <div className="mt-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Comments</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {evaluation.comments?.overall ||
-                      evaluation.comments?.strengths ||
-                      evaluation.comments?.improvements ||
-                      'No comments provided.'}
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Responses</p>
+                  <div className="mt-3 space-y-2">
+                    {Object.entries(evaluation.formResponses ?? {}).length > 0 ? (
+                      Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => (
+                        <div key={label} className="rounded-2xl border border-[#e2e7de] bg-white px-4 py-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">{label}</p>
+                          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{String(value)}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm leading-6 text-slate-600">No responses provided.</p>
+                    )}
+                  </div>
                 </div>
 
                 {evaluation.parentEmail ? (

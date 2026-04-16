@@ -152,6 +152,7 @@ export function LoginPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
+                autoComplete="email"
                 className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
               />
             </label>
@@ -164,6 +165,7 @@ export function LoginPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
               />
             </label>

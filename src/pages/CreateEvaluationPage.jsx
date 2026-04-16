@@ -1,25 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import html2pdf from 'html2pdf.js'
+import { EmailPreview } from '../components/ui/EmailPreview.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth } from '../lib/auth.js'
-import { createEvaluation } from '../lib/supabase.js'
-
-const ratingFields = [
-  { key: 'technical', label: 'Technical' },
-  { key: 'tactical', label: 'Tactical' },
-  { key: 'physical', label: 'Physical' },
-  { key: 'mentality', label: 'Mentality' },
-  { key: 'coachability', label: 'Coachability' },
-]
-
-const strengthOptions = [
-  { key: 'ballControl', label: 'Ball control' },
-  { key: 'passingRange', label: 'Passing range' },
-  { key: 'decisionMaking', label: 'Decision making' },
-  { key: 'positioning', label: 'Positioning' },
-  { key: 'workRate', label: 'Work rate' },
-  { key: 'leadership', label: 'Leadership' },
-]
+import { createEvaluation, getFormFields } from '../lib/supabase.js'
 
 function createInitialFormData(user) {
   return {
@@ -28,26 +13,6 @@ function createInitialFormData(user) {
     coachName: user?.name || '',
     playerName: '',
     parentEmail: '',
-    scores: {
-      technical: '',
-      tactical: '',
-      physical: '',
-      mentality: '',
-      coachability: '',
-    },
-    strengths: {
-      ballControl: false,
-      passingRange: false,
-      decisionMaking: false,
-      positioning: false,
-      workRate: false,
-      leadership: false,
-    },
-    comments: {
-      strengths: '',
-      improvements: '',
-      overall: '',
-    },
     decision: 'Progress',
   }
 }
@@ -61,10 +26,50 @@ function normalizePlayerName(value) {
     .join(' ')
 }
 
-function getAverageScore(scores) {
-  const values = Object.values(scores)
+function createEmptyResponseValues(fields) {
+  return Object.fromEntries(fields.map((field) => [field.id, '']))
+}
+
+function normalizeResponseValue(field, value) {
+  if (field.type === 'number') {
+    const numericValue = Number(value)
+    return Number.isNaN(numericValue) ? '' : numericValue
+  }
+
+  return String(value ?? '').trim()
+}
+
+function buildFormResponses(fields, responseValues) {
+  return Object.fromEntries(
+    fields
+      .map((field) => [field.label, normalizeResponseValue(field, responseValues[field.id])])
+      .filter(([, value]) => value !== ''),
+  )
+}
+
+function buildScores(formResponses) {
+  return Object.fromEntries(
+    Object.entries(formResponses).filter(([, value]) => typeof value === 'number' && !Number.isNaN(value)),
+  )
+}
+
+function buildComments(formResponses) {
+  const entries = Object.entries(formResponses)
+  const findResponse = (patterns) =>
+    entries.find(([label]) => patterns.some((pattern) => label.toLowerCase().includes(pattern)))?.[1] ?? ''
+
+  return {
+    strengths: String(findResponse(['strength']))?.trim() || '',
+    improvements: String(findResponse(['improvement', 'weakness', 'development']))?.trim() || '',
+    overall: String(findResponse(['overall', 'summary', 'comment']))?.trim() || '',
+    selectedStrengths: [],
+  }
+}
+
+function getAverageScore(formResponses) {
+  const values = Object.values(formResponses)
     .map((value) => Number(value))
-    .filter((value) => !Number.isNaN(value) && value > 0)
+    .filter((value) => !Number.isNaN(value))
 
   if (values.length === 0) {
     return null
@@ -73,17 +78,164 @@ function getAverageScore(scores) {
   return values.reduce((sum, value) => sum + value, 0) / values.length
 }
 
+function createResponseItems(fields, responseValues, includeEmptyValues = false) {
+  return fields
+    .map((field) => {
+      const value = normalizeResponseValue(field, responseValues[field.id])
+
+      if (!includeEmptyValues && value === '') {
+        return null
+      }
+
+      return {
+        label: field.label,
+        value,
+      }
+    })
+    .filter(Boolean)
+}
+
+function FieldInput({ field, value, onChange }) {
+  const sharedClassName =
+    'min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white'
+
+  if (field.type === 'textarea') {
+    return (
+      <textarea
+        value={value}
+        onChange={(event) => onChange(field.id, event.target.value)}
+        required={field.required}
+        rows="4"
+        className="min-h-32 w-full rounded-3xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+      />
+    )
+  }
+
+  if (field.type === 'select') {
+    return (
+      <select
+        value={value}
+        onChange={(event) => onChange(field.id, event.target.value)}
+        required={field.required}
+        className={sharedClassName}
+      >
+        <option value="">Select option</option>
+        {field.options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    )
+  }
+
+  return (
+    <input
+      type={field.type === 'number' ? 'number' : 'text'}
+      value={value}
+      onChange={(event) => onChange(field.id, event.target.value)}
+      required={field.required}
+      min={field.type === 'number' ? '0' : undefined}
+      step={field.type === 'number' ? '1' : undefined}
+      className={sharedClassName}
+    />
+  )
+}
+
+function BlankPrintForm({ clubName, fields }) {
+  return (
+    <div className="print-only hidden bg-white text-slate-900">
+      <div className="mx-auto max-w-3xl p-8">
+        <div className="border-b border-slate-200 pb-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Printable Blank Form</p>
+          <h1 className="mt-3 text-3xl font-semibold">{clubName}</h1>
+        </div>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          {['Player Name', 'Team', 'Coach', 'Parent Email', 'Decision', 'Session'].map((label) => (
+            <div key={label} className="rounded-2xl border border-slate-200 px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+              <div className="mt-4 h-6 border-b border-slate-300" />
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 space-y-4">
+          {fields.map((field) => (
+            <div key={field.id} className="rounded-2xl border border-slate-200 px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{field.label}</p>
+              {field.type === 'textarea' ? (
+                <div className="mt-4 h-28 rounded-2xl border border-slate-200 bg-slate-50" />
+              ) : (
+                <div className="mt-4 h-10 rounded-2xl border border-slate-200 bg-slate-50" />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function CreateEvaluationPage() {
   const { user } = useAuth()
   const isPlatformOwner = isSuperAdmin(user)
+  const previewRef = useRef(null)
   const [formData, setFormData] = useState(() => createInitialFormData(user))
+  const [dynamicFields, setDynamicFields] = useState([])
+  const [responseValues, setResponseValues] = useState({})
+  const [isFallbackFields, setIsFallbackFields] = useState(false)
+  const [isLoadingFields, setIsLoadingFields] = useState(true)
   const [isSaved, setIsSaved] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const averageScore = getAverageScore(formData.scores)
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [isPrintingBlankView, setIsPrintingBlankView] = useState(false)
 
   useEffect(() => {
+    let isMounted = true
+
+    const loadFields = async () => {
+      if (!user || isPlatformOwner) {
+        setDynamicFields([])
+        setResponseValues({})
+        setIsLoadingFields(false)
+        return
+      }
+
+      setIsLoadingFields(true)
+
+      try {
+        const { fields, isFallback } = await getFormFields({ user })
+
+        if (!isMounted) {
+          return
+        }
+
+        setDynamicFields(fields)
+        setResponseValues(createEmptyResponseValues(fields))
+        setIsFallbackFields(isFallback)
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setDynamicFields([])
+          setResponseValues({})
+          setIsFallbackFields(true)
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingFields(false)
+        }
+      }
+    }
+
     setFormData(createInitialFormData(user))
-  }, [user])
+    void loadFields()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isPlatformOwner, user])
 
   useEffect(() => {
     if (!isSaved) {
@@ -97,6 +249,39 @@ export function CreateEvaluationPage() {
     return () => window.clearTimeout(timeoutId)
   }, [isSaved])
 
+  useEffect(() => {
+    if (!isPrintingBlankView) {
+      return undefined
+    }
+
+    const handleAfterPrint = () => {
+      setIsPrintingBlankView(false)
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      window.print()
+    }, 100)
+
+    window.addEventListener('afterprint', handleAfterPrint)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      window.removeEventListener('afterprint', handleAfterPrint)
+    }
+  }, [isPrintingBlankView])
+
+  const formResponses = useMemo(
+    () => buildFormResponses(dynamicFields, responseValues),
+    [dynamicFields, responseValues],
+  )
+  const scores = useMemo(() => buildScores(formResponses), [formResponses])
+  const comments = useMemo(() => buildComments(formResponses), [formResponses])
+  const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
+  const responseItems = useMemo(
+    () => createResponseItems(dynamicFields, responseValues),
+    [dynamicFields, responseValues],
+  )
+
   const handleFieldChange = (event) => {
     const { name, value } = event.target
     setIsSaved(false)
@@ -106,40 +291,37 @@ export function CreateEvaluationPage() {
     }))
   }
 
-  const handleScoreChange = (event) => {
-    const { name, value } = event.target
+  const handleResponseChange = (fieldId, value) => {
     setIsSaved(false)
-    setFormData((current) => ({
+    setResponseValues((current) => ({
       ...current,
-      scores: {
-        ...current.scores,
-        [name]: value,
-      },
+      [fieldId]: value,
     }))
   }
 
-  const handleStrengthChange = (event) => {
-    const { name, checked } = event.target
-    setIsSaved(false)
-    setFormData((current) => ({
-      ...current,
-      strengths: {
-        ...current.strengths,
-        [name]: checked,
-      },
-    }))
-  }
+  const handleDownloadPdf = async () => {
+    if (!previewRef.current) {
+      return
+    }
 
-  const handleCommentChange = (event) => {
-    const { name, value } = event.target
-    setIsSaved(false)
-    setFormData((current) => ({
-      ...current,
-      comments: {
-        ...current.comments,
-        [name]: value,
-      },
-    }))
+    setIsDownloadingPdf(true)
+
+    try {
+      await html2pdf()
+        .set({
+          margin: 10,
+          filename: `${normalizePlayerName(formData.playerName || 'evaluation')}-feedback.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        })
+        .from(previewRef.current)
+        .save()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsDownloadingPdf(false)
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -147,10 +329,6 @@ export function CreateEvaluationPage() {
     setIsSubmitting(true)
 
     try {
-      const selectedStrengths = strengthOptions
-        .filter((option) => formData.strengths[option.key])
-        .map((option) => option.label)
-
       const evaluation = {
         playerName: normalizePlayerName(formData.playerName),
         team: String(user?.team || formData.team).trim(),
@@ -160,16 +338,10 @@ export function CreateEvaluationPage() {
         parentEmail: formData.parentEmail.trim(),
         session: formData.session.trim(),
         date: new Date().toLocaleDateString(),
-        scores: Object.fromEntries(
-          Object.entries(formData.scores).map(([key, value]) => [key, Number(value)]),
-        ),
+        scores,
         averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
-        comments: {
-          strengths: formData.comments.strengths.trim(),
-          improvements: formData.comments.improvements.trim(),
-          overall: formData.comments.overall.trim(),
-          selectedStrengths,
-        },
+        comments,
+        formResponses,
         decision: formData.decision,
         status: 'Submitted',
         createdAt: new Date().toISOString(),
@@ -177,6 +349,7 @@ export function CreateEvaluationPage() {
 
       await createEvaluation(evaluation)
       setFormData(createInitialFormData(user))
+      setResponseValues(createEmptyResponseValues(dynamicFields))
       setIsSaved(true)
     } catch (error) {
       console.error(error)
@@ -188,236 +361,192 @@ export function CreateEvaluationPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Evaluation"
-        title="Create evaluation"
-        description="Capture a fast club-scoped coaching review and save it to Supabase."
-      />
+      <BlankPrintForm clubName={user?.clubName || user?.team || 'Club Form'} fields={dynamicFields} />
 
-      {isSaved ? (
-        <div className="rounded-[20px] border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#46604a]">
-          Evaluation saved
-        </div>
-      ) : null}
+      <div className={isPrintingBlankView ? 'no-print' : ''}>
+        <PageHeader
+          eyebrow="Evaluation"
+          title="Create evaluation"
+          description="Capture a club-specific evaluation form and export it when needed."
+        />
 
-      {isPlatformOwner ? (
-        <SectionCard
-          title="Platform account"
-          description="Super admins are not tied to one club, so evaluation creation stays with club users."
-        >
-          <div className="rounded-[20px] border border-[#dbe3d6] bg-[#f8faf7] px-4 py-4 text-sm leading-6 text-slate-600">
-            Use this account to oversee clubs, users, approvals, and platform-wide data. Create evaluations from a
-            manager or coach account inside the relevant club.
+        {isSaved ? (
+          <div className="rounded-[20px] border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#46604a]">
+            Evaluation saved
           </div>
-        </SectionCard>
-      ) : null}
+        ) : null}
 
-      {!isPlatformOwner ? (
-        <form className="space-y-5 sm:space-y-6" onSubmit={handleSubmit}>
-        <SectionCard
-          title="Player details"
-          description="Start with the team, coach, and player for this evaluation."
-        >
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Team</span>
-              <input
-                type="text"
-                name="team"
-                value={formData.team}
-                readOnly
-                required
-                className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm text-slate-900 outline-none"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Session</span>
-              <input
-                type="text"
-                name="session"
-                value={formData.session}
-                onChange={handleFieldChange}
-                placeholder="Saturday Trial - 12th April"
-                className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Coach Name</span>
-              <input
-                type="text"
-                name="coachName"
-                value={formData.coachName}
-                readOnly
-                required
-                className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm text-slate-900 outline-none"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Player Name</span>
-              <input
-                type="text"
-                name="playerName"
-                value={formData.playerName}
-                onChange={handleFieldChange}
-                required
-                className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Parent Email</span>
-              <input
-                type="email"
-                name="parentEmail"
-                value={formData.parentEmail}
-                onChange={handleFieldChange}
-                className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-              />
-            </label>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Ratings"
-          description="Use the 1 to 5 scale for the core coaching scores."
-        >
-          <div className="mb-4 rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm font-semibold text-slate-700">
-            Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {ratingFields.map((field) => (
-              <label key={field.key} className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">{field.label}</span>
-                <select
-                  name={field.key}
-                  value={formData.scores[field.key]}
-                  onChange={handleScoreChange}
-                  required
-                  className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-                >
-                  <option value="">Select rating</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                </select>
-              </label>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Strengths"
-          description="Mark the strongest parts of the player's current performance."
-        >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {strengthOptions.map((option) => (
-              <label
-                key={option.key}
-                className="flex min-h-11 items-center gap-3 rounded-2xl border border-[#dbe3d6] bg-[#fcfdfb] px-4 py-4 text-sm font-medium text-slate-700"
+        {isPlatformOwner ? (
+          <SectionCard
+            title="Platform account"
+            description="Super admins are not tied to one club, so evaluation creation stays with club users."
+          >
+            <div className="rounded-[20px] border border-[#dbe3d6] bg-[#f8faf7] px-4 py-4 text-sm leading-6 text-slate-600">
+              Use this account to oversee clubs, users, approvals, and platform-wide data. Create evaluations from a
+              manager or coach account inside the relevant club.
+            </div>
+          </SectionCard>
+        ) : isLoadingFields ? (
+          <SectionCard title="Form" description="Loading the configured evaluation fields for this club.">
+            <div className="rounded-[20px] border border-[#dbe3d6] bg-[#f8faf7] px-4 py-4 text-sm text-slate-600">
+              Loading form fields...
+            </div>
+          </SectionCard>
+        ) : (
+          <>
+            <form className="space-y-5 sm:space-y-6 no-print" onSubmit={handleSubmit}>
+              <SectionCard
+                title="Player details"
+                description="Locked fields stay consistent while the rest of the evaluation can be configured per club."
               >
-                <input
-                  type="checkbox"
-                  name={option.key}
-                  checked={formData.strengths[option.key]}
-                  onChange={handleStrengthChange}
-                  className="h-4 w-4 rounded border-[#bfcab8] text-slate-900"
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Player Name</span>
+                    <input
+                      type="text"
+                      name="playerName"
+                      value={formData.playerName}
+                      onChange={handleFieldChange}
+                      required
+                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Team</span>
+                    <input
+                      type="text"
+                      name="team"
+                      value={formData.team}
+                      readOnly
+                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm text-slate-900 outline-none"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Coach</span>
+                    <input
+                      type="text"
+                      name="coachName"
+                      value={formData.coachName}
+                      readOnly
+                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm text-slate-900 outline-none"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Parent Email</span>
+                    <input
+                      type="email"
+                      name="parentEmail"
+                      value={formData.parentEmail}
+                      onChange={handleFieldChange}
+                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Session</span>
+                    <input
+                      type="text"
+                      name="session"
+                      value={formData.session}
+                      onChange={handleFieldChange}
+                      placeholder="Saturday Trial - 12th April"
+                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-slate-700">Decision</span>
+                    <select
+                      name="decision"
+                      value={formData.decision}
+                      onChange={handleFieldChange}
+                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                    >
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                      <option value="Progress">Progress</option>
+                    </select>
+                  </label>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                title="Configured fields"
+                description={
+                  isFallbackFields
+                    ? 'No club-specific form fields found, so the default evaluation form is being used.'
+                    : 'These fields are loaded from the club form builder and saved as form responses.'
+                }
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  {dynamicFields.map((field) => (
+                    <label key={field.id} className={field.type === 'textarea' ? 'block md:col-span-2' : 'block'}>
+                      <span className="mb-2 block text-sm font-semibold text-slate-700">
+                        {field.label}
+                        {field.required ? ' *' : ''}
+                      </span>
+                      <FieldInput field={field} value={responseValues[field.id] ?? ''} onChange={handleResponseChange} />
+                    </label>
+                  ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                title="Submit"
+                description="Preview, export, or print the evaluation structure before saving it to Supabase."
+              >
+                <div className="mb-4 rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm font-semibold text-slate-700">
+                  Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500 sm:w-auto"
+                  >
+                    {isSubmitting ? 'Saving...' : 'Submit Evaluation'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloadingPdf}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] sm:w-auto"
+                  >
+                    {isDownloadingPdf ? 'Preparing PDF...' : 'Download PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPrintingBlankView(true)}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] sm:w-auto"
+                  >
+                    Print Blank Form
+                  </button>
+                </div>
+              </SectionCard>
+            </form>
+
+            <div ref={previewRef}>
+              <SectionCard
+                title="Preview"
+                description="This is the clean parent-facing layout used for PDF export."
+              >
+                <EmailPreview
+                  clubName={user?.clubName || user?.team || 'Club Name'}
+                  playerName={formData.playerName || 'Player Name'}
+                  team={formData.team}
+                  session={formData.session}
+                  decision={formData.decision}
+                  responseItems={responseItems}
                 />
-                <span>{option.label}</span>
-              </label>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Comments"
-          description="Use direct, specific coaching language that is useful for the next session."
-        >
-          <div className="grid gap-4 lg:gap-5">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Strengths</span>
-              <p className="mb-2 text-xs leading-5 text-slate-500">
-                Example: Strong passing under pressure, good awareness in midfield
-              </p>
-              <textarea
-                name="strengths"
-                rows="4"
-                value={formData.comments.strengths}
-                onChange={handleCommentChange}
-                className="min-h-32 w-full rounded-3xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Improvements</span>
-              <p className="mb-2 text-xs leading-5 text-slate-500">
-                Example: Needs to track runners more consistently when defending
-              </p>
-              <textarea
-                name="improvements"
-                rows="4"
-                value={formData.comments.improvements}
-                onChange={handleCommentChange}
-                className="min-h-32 w-full rounded-3xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Overall</span>
-              <textarea
-                name="overall"
-                rows="5"
-                value={formData.comments.overall}
-                onChange={handleCommentChange}
-                required
-                className="min-h-36 w-full rounded-3xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-              />
-            </label>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Decision"
-          description="Choose the current outcome for this evaluation."
-        >
-          <div className="grid gap-4 md:max-w-sm">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Decision</span>
-              <select
-                name="decision"
-                value={formData.decision}
-                onChange={handleFieldChange}
-                className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-              >
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-                <option value="Progress">Progress</option>
-              </select>
-            </label>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Submit"
-          description="This saves to Supabase and keeps the workflow fast for club-based coaching."
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 sm:w-auto"
-            >
-              {isSubmitting ? 'Saving...' : 'Submit Evaluation'}
-            </button>
-          </div>
-        </SectionCard>
-        </form>
-      ) : null}
+              </SectionCard>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

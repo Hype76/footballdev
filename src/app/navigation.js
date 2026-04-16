@@ -11,4 +11,8 @@ export const primaryNavigation = [
     label: 'Approvals',
     path: '/approvals',
   },
+  {
+    label: 'Form Builder',
+    path: '/form-builder',
+  },
 ]

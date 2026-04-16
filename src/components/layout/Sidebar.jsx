@@ -1,15 +1,19 @@
 import { NavLink } from 'react-router-dom'
 import { primaryNavigation } from '../../app/navigation.js'
-import { canAccessApprovals, useAuth } from '../../lib/auth.js'
+import { canAccessApprovals, canManageFormFields, useAuth } from '../../lib/auth.js'
 
 export function Sidebar({ isOpen, onClose }) {
   const { user } = useAuth()
   const navigationItems = primaryNavigation.filter((item) => {
-    if (item.path !== '/approvals') {
-      return true
+    if (item.path === '/approvals') {
+      return canAccessApprovals(user)
     }
 
-    return canAccessApprovals(user)
+    if (item.path === '/form-builder') {
+      return canManageFormFields(user)
+    }
+
+    return true
   })
 
   return (
