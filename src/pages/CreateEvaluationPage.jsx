@@ -271,15 +271,19 @@ export function CreateEvaluationPage() {
   }, [isPrintingBlankView])
 
   const formResponses = useMemo(
-    () => buildFormResponses(dynamicFields, responseValues),
+    () => buildFormResponses(dynamicFields.filter((field) => field.isEnabled), responseValues),
     [dynamicFields, responseValues],
   )
   const scores = useMemo(() => buildScores(formResponses), [formResponses])
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
   const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
+  const enabledFields = useMemo(
+    () => dynamicFields.filter((field) => field.isEnabled),
+    [dynamicFields],
+  )
   const responseItems = useMemo(
-    () => createResponseItems(dynamicFields, responseValues),
-    [dynamicFields, responseValues],
+    () => createResponseItems(enabledFields, responseValues),
+    [enabledFields, responseValues],
   )
 
   const handleFieldChange = (event) => {
@@ -361,7 +365,7 @@ export function CreateEvaluationPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <BlankPrintForm clubName={user?.clubName || user?.team || 'Club Form'} fields={dynamicFields} />
+      <BlankPrintForm clubName={user?.clubName || user?.team || 'Club Form'} fields={enabledFields} />
 
       <div className={isPrintingBlankView ? 'no-print' : ''}>
         <PageHeader
@@ -477,21 +481,27 @@ export function CreateEvaluationPage() {
                 title="Configured fields"
                 description={
                   isFallbackFields
-                    ? 'No club-specific form fields found, so the default evaluation form is being used.'
-                    : 'These fields are loaded from the club form builder and saved as form responses.'
+                    ? 'No club-specific form fields were found, so default fields were loaded for this club.'
+                    : 'These enabled fields are loaded from the club form builder and saved as form responses.'
                 }
               >
-                <div className="grid gap-4 md:grid-cols-2">
-                  {dynamicFields.map((field) => (
-                    <label key={field.id} className={field.type === 'textarea' ? 'block md:col-span-2' : 'block'}>
-                      <span className="mb-2 block text-sm font-semibold text-slate-700">
-                        {field.label}
-                        {field.required ? ' *' : ''}
-                      </span>
-                      <FieldInput field={field} value={responseValues[field.id] ?? ''} onChange={handleResponseChange} />
-                    </label>
-                  ))}
-                </div>
+                {enabledFields.length === 0 ? (
+                  <div className="rounded-[20px] border border-dashed border-[#cfd8c9] bg-[#f7faf5] px-4 py-6 text-sm text-slate-600">
+                    No evaluation fields are enabled for this club. Enable fields in the form builder first.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {enabledFields.map((field) => (
+                      <label key={field.id} className={field.type === 'textarea' ? 'block md:col-span-2' : 'block'}>
+                        <span className="mb-2 block text-sm font-semibold text-slate-700">
+                          {field.label}
+                          {field.required ? ' *' : ''}
+                        </span>
+                        <FieldInput field={field} value={responseValues[field.id] ?? ''} onChange={handleResponseChange} />
+                      </label>
+                    ))}
+                  </div>
+                )}
               </SectionCard>
 
               <SectionCard
@@ -505,7 +515,7 @@ export function CreateEvaluationPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || enabledFields.length === 0}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500 sm:w-auto"
                   >
                     {isSubmitting ? 'Saving...' : 'Submit Evaluation'}

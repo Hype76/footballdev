@@ -29,6 +29,7 @@ const DEFAULT_FORM_FIELDS = [
     required: true,
     orderIndex: 1,
     isDefault: true,
+    isEnabled: true,
   },
   {
     id: 'default-tactical',
@@ -38,6 +39,7 @@ const DEFAULT_FORM_FIELDS = [
     required: true,
     orderIndex: 2,
     isDefault: true,
+    isEnabled: true,
   },
   {
     id: 'default-physical',
@@ -47,6 +49,7 @@ const DEFAULT_FORM_FIELDS = [
     required: true,
     orderIndex: 3,
     isDefault: true,
+    isEnabled: true,
   },
   {
     id: 'default-mentality',
@@ -56,6 +59,7 @@ const DEFAULT_FORM_FIELDS = [
     required: true,
     orderIndex: 4,
     isDefault: true,
+    isEnabled: true,
   },
   {
     id: 'default-coachability',
@@ -65,6 +69,7 @@ const DEFAULT_FORM_FIELDS = [
     required: true,
     orderIndex: 5,
     isDefault: true,
+    isEnabled: true,
   },
   {
     id: 'default-strengths',
@@ -74,6 +79,7 @@ const DEFAULT_FORM_FIELDS = [
     required: false,
     orderIndex: 6,
     isDefault: true,
+    isEnabled: true,
   },
   {
     id: 'default-improvements',
@@ -83,6 +89,7 @@ const DEFAULT_FORM_FIELDS = [
     required: false,
     orderIndex: 7,
     isDefault: true,
+    isEnabled: true,
   },
   {
     id: 'default-overall',
@@ -92,6 +99,7 @@ const DEFAULT_FORM_FIELDS = [
     required: true,
     orderIndex: 8,
     isDefault: true,
+    isEnabled: true,
   },
 ]
 
@@ -319,24 +327,60 @@ function normalizeFormFieldRow(row) {
     required: Boolean(row.required),
     orderIndex: Number(row.order_index ?? row.orderIndex ?? 0),
     isDefault: Boolean(row.is_default ?? row.isDefault),
+    isEnabled: Boolean(row.is_enabled ?? row.isEnabled ?? true),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
 
 function mapFormFieldToRow(field, user, orderIndex) {
-  return {
-    club_id: field.clubId ?? user?.clubId ?? '',
-    label: String(field.label ?? '').trim(),
-    type: normalizeFieldType(field.type),
-    options: normalizeFieldOptions(field.options),
-    required: Boolean(field.required),
-    order_index: orderIndex,
-    is_default: Boolean(field.isDefault),
+  const payload = {}
+
+  if (field.clubId !== undefined || user?.clubId) {
+    payload.club_id = field.clubId ?? user?.clubId ?? ''
   }
+
+  if (field.label !== undefined) {
+    payload.label = String(field.label ?? '').trim()
+  }
+
+  if (field.type !== undefined) {
+    payload.type = normalizeFieldType(field.type)
+  }
+
+  if (field.options !== undefined) {
+    payload.options = normalizeFieldOptions(field.options)
+  }
+
+  if (field.required !== undefined) {
+    payload.required = Boolean(field.required)
+  }
+
+  if (orderIndex !== undefined) {
+    payload.order_index = orderIndex
+  }
+
+  if (field.isDefault !== undefined) {
+    payload.is_default = Boolean(field.isDefault)
+  }
+
+  if (field.isEnabled !== undefined) {
+    payload.is_enabled = Boolean(field.isEnabled)
+  }
+
+  return payload
 }
 
 export function getDefaultFormFields() {
   return DEFAULT_FORM_FIELDS.map((field) => ({ ...field }))
+}
+
+async function seedDefaultFormFields() {
+  const { error } = await supabase.rpc('seed_default_form_fields')
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
 }
 
 export function normalizeUserProfile(profile) {
@@ -437,28 +481,43 @@ export async function getConfiguredFormFields({ user } = {}) {
     return []
   }
 
-  const { data, error } = await supabase
-    .from('form_fields')
-    .select('*')
-    .eq('club_id', user.clubId)
-    .order('order_index', { ascending: true })
+  const loadConfiguredFields = async () => {
+    const { data, error } = await supabase
+      .from('form_fields')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .order('order_index', { ascending: true })
 
-  if (error) {
-    console.error(error)
-    throw error
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map(normalizeFormFieldRow)
   }
 
-  return (data ?? []).map(normalizeFormFieldRow)
+  const configuredFields = await loadConfiguredFields()
+
+  if (configuredFields.length > 0) {
+    return configuredFields
+  }
+
+  await seedDefaultFormFields()
+  return loadConfiguredFields()
 }
 
 export async function getFormFields({ user } = {}) {
-  const configuredFields = await getConfiguredFormFields({ user })
+  try {
+    const configuredFields = await getConfiguredFormFields({ user })
 
-  if (configuredFields.length > 0) {
-    return {
-      fields: configuredFields,
-      isFallback: false,
+    if (configuredFields.length > 0) {
+      return {
+        fields: configuredFields,
+        isFallback: false,
+      }
     }
+  } catch (error) {
+    console.error(error)
   }
 
   return {
@@ -480,9 +539,13 @@ export async function addFormField({ user, field }) {
   return normalizeFormFieldRow(data)
 }
 
-export async function updateFormField({ id, field, user }) {
-  const payload = mapFormFieldToRow(field, user, Number(field.orderIndex ?? 0))
-  const { data, error } = await supabase
+export async function updateFormField(id, fieldData, user) {
+  const payload = mapFormFieldToRow(
+    fieldData,
+    user,
+    fieldData.orderIndex !== undefined ? Number(fieldData.orderIndex) : undefined,
+  )
+  const { data: updatedRow, error } = await supabase
     .from('form_fields')
     .update(payload)
     .eq('id', id)
@@ -494,7 +557,7 @@ export async function updateFormField({ id, field, user }) {
     throw error
   }
 
-  return normalizeFormFieldRow(data)
+  return normalizeFormFieldRow(updatedRow)
 }
 
 export async function deleteFormField(id) {
@@ -509,15 +572,15 @@ export async function deleteFormField(id) {
 export async function reorderFormFields(fields, user) {
   await Promise.all(
     fields.map((field, index) =>
-      updateFormField({
-        id: field.id,
-        field: {
+      updateFormField(
+        field.id,
+        {
           ...field,
           clubId: field.clubId ?? user?.clubId ?? '',
           orderIndex: index + 1,
         },
         user,
-      }),
+      ),
     ),
   )
 }
