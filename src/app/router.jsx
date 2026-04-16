@@ -137,6 +137,13 @@ export const router = createBrowserRouter([
             },
           },
           {
+            path: 'create',
+            element: <CreateEvaluationPage />,
+            handle: {
+              title: 'Create Evaluation',
+            },
+          },
+          {
             element: <RequireFormBuilderAccess />,
             children: [
               {

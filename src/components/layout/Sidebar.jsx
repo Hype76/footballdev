@@ -5,6 +5,10 @@ import { canAccessApprovals, canManageClubSettings, canManageFormFields, useAuth
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
   const navigationItems = primaryNavigation.filter((item) => {
+    if (item.path === '/create-evaluation') {
+      return false
+    }
+
     if (item.path === '/approvals') {
       return canAccessApprovals(user)
     }

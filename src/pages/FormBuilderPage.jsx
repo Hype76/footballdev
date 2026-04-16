@@ -11,11 +11,19 @@ import {
   updateFormField,
 } from '../lib/supabase.js'
 
+const FIELD_TYPE_OPTIONS = [
+  { value: 'score_1_5', label: 'Score 1 to 5' },
+  { value: 'score_1_10', label: 'Score 1 to 10' },
+  { value: 'text', label: 'Text' },
+  { value: 'textarea', label: 'Textarea' },
+  { value: 'select', label: 'Select' },
+]
+
 const initialFieldForm = {
   label: '',
-  type: 'text',
+  type: 'score_1_5',
   required: false,
-  options: '',
+  options: '1, 2, 3, 4, 5',
 }
 
 function normalizeOptions(optionsText) {
@@ -23,6 +31,31 @@ function normalizeOptions(optionsText) {
     .split(',')
     .map((option) => option.trim())
     .filter(Boolean)
+}
+
+function isScoreType(type) {
+  return type === 'score_1_5' || type === 'score_1_10'
+}
+
+function createScoreOptions(type) {
+  const maxValue = type === 'score_1_10' ? 10 : 5
+  return Array.from({ length: maxValue }, (_, index) => String(index + 1))
+}
+
+function getOptionsForType(type, optionsText) {
+  if (isScoreType(type)) {
+    return createScoreOptions(type)
+  }
+
+  if (type === 'select') {
+    return normalizeOptions(optionsText)
+  }
+
+  return []
+}
+
+function getFieldTypeLabel(type) {
+  return FIELD_TYPE_OPTIONS.find((option) => option.value === type)?.label || type
 }
 
 function createDraftFromField(field) {
@@ -91,20 +124,46 @@ export function FormBuilderPage() {
 
   const handleFormChange = (event) => {
     const { name, value, type, checked } = event.target
-    setFieldForm((current) => ({
-      ...current,
-      [name]: type === 'checkbox' ? checked : value,
-    }))
+
+    setFieldForm((current) => {
+      const nextValue = type === 'checkbox' ? checked : value
+      const nextForm = {
+        ...current,
+        [name]: nextValue,
+      }
+
+      if (name === 'type' && isScoreType(value)) {
+        nextForm.options = createScoreOptions(value).join(', ')
+      }
+
+      if (name === 'type' && value !== 'select' && !isScoreType(value)) {
+        nextForm.options = ''
+      }
+
+      return nextForm
+    })
   }
 
   const handleDraftChange = (fieldId, name, value) => {
-    setFieldDrafts((current) => ({
-      ...current,
-      [fieldId]: {
+    setFieldDrafts((current) => {
+      const nextDraft = {
         ...current[fieldId],
         [name]: value,
-      },
-    }))
+      }
+
+      if (name === 'type' && isScoreType(value)) {
+        nextDraft.options = createScoreOptions(value).join(', ')
+      }
+
+      if (name === 'type' && value !== 'select' && !isScoreType(value)) {
+        nextDraft.options = ''
+      }
+
+      return {
+        ...current,
+        [fieldId]: nextDraft,
+      }
+    })
   }
 
   const syncFields = (nextFields) => {
@@ -121,7 +180,7 @@ export function FormBuilderPage() {
         user,
         field: {
           ...fieldForm,
-          options: fieldForm.type === 'select' ? normalizeOptions(fieldForm.options) : [],
+          options: getOptionsForType(fieldForm.type, fieldForm.options),
           orderIndex: fields.length + 1,
           isDefault: false,
           isEnabled: true,
@@ -238,7 +297,7 @@ export function FormBuilderPage() {
           label: draft.label,
           type: draft.type,
           required: draft.required,
-          options: draft.type === 'select' ? normalizeOptions(draft.options) : [],
+          options: getOptionsForType(draft.type, draft.options),
           isEnabled: draft.isEnabled,
           orderIndex: field.orderIndex,
           isDefault: false,
@@ -265,7 +324,7 @@ export function FormBuilderPage() {
 
       <SectionCard
         title="Add field"
-        description="Create text, textarea, number, or select fields for your club form."
+        description="Create fast-scoring dropdowns, text fields, or custom select fields for your club form."
       >
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleAddField}>
           <label className="block">
@@ -288,10 +347,11 @@ export function FormBuilderPage() {
               onChange={handleFormChange}
               className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
             >
-              <option value="text">Text</option>
-              <option value="textarea">Textarea</option>
-              <option value="number">Number</option>
-              <option value="select">Select</option>
+              {FIELD_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -307,6 +367,13 @@ export function FormBuilderPage() {
                 className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
               />
             </label>
+          ) : null}
+
+          {isScoreType(fieldForm.type) ? (
+            <div className="rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 md:col-span-2">
+              <p className="text-sm font-semibold text-slate-700">Score options</p>
+              <p className="mt-2 text-sm text-slate-600">{createScoreOptions(fieldForm.type).join(', ')}</p>
+            </div>
           ) : null}
 
           <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[#dbe3d6] bg-[#fcfdfb] px-4 py-3 text-sm font-medium text-slate-700">
@@ -364,7 +431,7 @@ export function FormBuilderPage() {
                           </div>
                           <div className="rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3">
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Type</p>
-                            <p className="mt-2 text-sm font-semibold text-slate-900">{field.type}</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">{getFieldTypeLabel(field.type)}</p>
                           </div>
                         </>
                       ) : (
@@ -385,10 +452,11 @@ export function FormBuilderPage() {
                               onChange={(event) => handleDraftChange(field.id, 'type', event.target.value)}
                               className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
                             >
-                              <option value="text">Text</option>
-                              <option value="textarea">Textarea</option>
-                              <option value="number">Number</option>
-                              <option value="select">Select</option>
+                              {FIELD_TYPE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
                             </select>
                           </label>
 
@@ -403,6 +471,13 @@ export function FormBuilderPage() {
                                 className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
                               />
                             </label>
+                          ) : null}
+
+                          {isScoreType(draft.type) ? (
+                            <div className="rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 md:col-span-2">
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Score options</p>
+                              <p className="mt-2 text-sm text-slate-700">{createScoreOptions(draft.type).join(', ')}</p>
+                            </div>
                           ) : null}
 
                           <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[#dbe3d6] bg-[#fcfdfb] px-4 py-3 text-sm font-medium text-slate-700">

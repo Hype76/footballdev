@@ -73,6 +73,13 @@
     background: white !important;
   }
 
+  body {
+    background: white !important;
+  }
+
+  button,
+  nav,
+  sidebar,
   header,
   aside,
   .no-print {
@@ -81,6 +88,15 @@
 
   .print-only {
     display: block !important;
+  }
+
+  .print-container {
+    max-width: 800px !important;
+    margin: 0 auto !important;
+  }
+
+  .section {
+    page-break-inside: avoid;
   }
 
   main,

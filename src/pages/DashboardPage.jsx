@@ -6,33 +6,6 @@ import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { useAuth } from '../lib/auth.js'
 import { getEvaluations } from '../lib/supabase.js'
 
-function buildParentEmailLink(evaluation) {
-  if (!evaluation.parentEmail) {
-    return ''
-  }
-
-  const summary =
-    evaluation.comments?.overall ||
-    evaluation.comments?.strengths ||
-    evaluation.comments?.improvements ||
-    `Overall score: ${evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : 'Not recorded'}`
-
-  const body = [
-    `Player: ${evaluation.playerName}`,
-    `Team: ${evaluation.team}`,
-    evaluation.session ? `Session: ${evaluation.session}` : null,
-    `Summary: ${summary}`,
-    `Decision: ${evaluation.decision || 'Progress'}`,
-    '',
-    'A PDF download option is also available in the system for sharing feedback.',
-  ]
-    .filter(Boolean)
-    .join('\n')
-
-  const subject = encodeURIComponent('Player Trial Feedback')
-  return `mailto:${encodeURIComponent(evaluation.parentEmail)}?subject=${subject}&body=${encodeURIComponent(body)}`
-}
-
 function getScoreIndicator(averageScore) {
   if (averageScore === null) {
     return {
@@ -130,7 +103,20 @@ export function DashboardPage() {
     selectedTeam === 'All'
       ? evaluations
       : evaluations.filter((evaluation) => evaluation.team === selectedTeam)
-  const teamPlayers = [...new Set(filteredEvaluations.map((evaluation) => evaluation.playerName))]
+  const playerSummaries = Array.from(
+    filteredEvaluations.reduce((map, evaluation) => {
+      if (!map.has(evaluation.playerName)) {
+        map.set(evaluation.playerName, {
+          playerName: evaluation.playerName,
+          lastScore: evaluation.averageScore,
+          team: evaluation.team,
+        })
+      }
+
+      return map
+    }, new Map()).values(),
+  )
+  const teamPlayers = playerSummaries.map((player) => player.playerName)
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -141,8 +127,8 @@ export function DashboardPage() {
       />
 
       <SectionCard
-        title="Latest submissions"
-        description="Supabase-backed evaluations are filtered by your role and club permissions."
+        title="Players"
+        description="Start a new evaluation from the player list, then use recent evaluations as a secondary review view."
       >
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="w-full xl:max-w-xs">
@@ -197,9 +183,42 @@ export function DashboardPage() {
             </p>
           </div>
         ) : (
-          <>
+          <div className="space-y-6">
+            <div className="overflow-hidden rounded-[20px] border border-[#dbe3d6]">
+              <div className="grid grid-cols-[1.4fr_0.8fr_1fr] bg-[#f2f6ef] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5a6b5b] lg:grid-cols-[1.5fr_1fr_1fr] lg:px-5 lg:py-4 lg:text-xs lg:tracking-[0.18em]">
+                <span>Player</span>
+                <span>Last score</span>
+                <span>Action</span>
+              </div>
+
+              <div className="divide-y divide-[#e5ebe1]">
+                {playerSummaries.map((player) => (
+                  <div
+                    key={player.playerName}
+                    className="grid grid-cols-[1.4fr_0.8fr_1fr] items-center gap-3 px-4 py-4 text-xs text-slate-700 lg:grid-cols-[1.5fr_1fr_1fr] lg:px-5 lg:text-sm"
+                  >
+                    <Link
+                      to={`/player/${encodeURIComponent(player.playerName)}`}
+                      className="font-semibold text-slate-900 transition hover:text-slate-700"
+                    >
+                      {player.playerName}
+                    </Link>
+                    <span>{player.lastScore !== null ? player.lastScore.toFixed(1) : '-'}</span>
+                    <div>
+                      <Link
+                        to={`/create?player=${encodeURIComponent(player.playerName)}`}
+                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1]"
+                      >
+                        New Evaluation
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="hidden overflow-hidden rounded-[20px] border border-[#dbe3d6] md:block">
-              <div className="grid grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_1fr] bg-[#f2f6ef] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5a6b5b] lg:grid-cols-[1.45fr_1fr_1fr_1fr_1fr_0.9fr_0.9fr_1.05fr] lg:px-5 lg:py-4 lg:text-xs lg:tracking-[0.18em]">
+              <div className="grid grid-cols-[1.35fr_0.9fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr] bg-[#f2f6ef] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5a6b5b] lg:grid-cols-[1.45fr_1fr_1fr_1fr_1fr_0.9fr_0.9fr] lg:px-5 lg:py-4 lg:text-xs lg:tracking-[0.18em]">
                 <span>Player</span>
                 <span>Team</span>
                 <span>Session</span>
@@ -207,7 +226,6 @@ export function DashboardPage() {
                 <span>Coach</span>
                 <span>Average</span>
                 <span>Status</span>
-                <span>Parent</span>
               </div>
 
               <div className="divide-y divide-[#e5ebe1]">
@@ -219,7 +237,7 @@ export function DashboardPage() {
                       key={evaluation.id}
                       to={`/player/${encodeURIComponent(evaluation.playerName)}`}
                       className={[
-                        'grid grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_1fr] items-center px-4 py-3 text-xs text-slate-700 transition hover:bg-[#f8faf7] lg:grid-cols-[1.45fr_1fr_1fr_1fr_1fr_0.9fr_0.9fr_1.05fr] lg:px-5 lg:py-4 lg:text-sm',
+                        'grid grid-cols-[1.35fr_0.9fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr] items-center px-4 py-3 text-xs text-slate-700 transition hover:bg-[#f8faf7] lg:grid-cols-[1.45fr_1fr_1fr_1fr_1fr_0.9fr_0.9fr] lg:px-5 lg:py-4 lg:text-sm',
                         scoreIndicator.rowClassName,
                       ].join(' ')}
                     >
@@ -245,19 +263,6 @@ export function DashboardPage() {
                       </span>
                       <span>
                         <StatusBadge status={evaluation.status} />
-                      </span>
-                      <span>
-                        {evaluation.parentEmail ? (
-                          <a
-                            href={buildParentEmailLink(evaluation)}
-                            onClick={(event) => event.stopPropagation()}
-                            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-[#f3f6f1] lg:text-sm"
-                          >
-                            Send to Parent
-                          </a>
-                        ) : (
-                          <span className="text-slate-400">No email</span>
-                        )}
                       </span>
                     </Link>
                   )
@@ -315,23 +320,11 @@ export function DashboardPage() {
                         {scoreIndicator.label}
                       </span>
                     </div>
-
-                    {evaluation.parentEmail ? (
-                      <div className="mt-5">
-                        <a
-                          href={buildParentEmailLink(evaluation)}
-                          onClick={(event) => event.stopPropagation()}
-                          className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1]"
-                        >
-                          Send to Parent
-                        </a>
-                      </div>
-                    ) : null}
                   </Link>
                 )
               })}
             </div>
-          </>
+          </div>
         )}
       </SectionCard>
     </div>

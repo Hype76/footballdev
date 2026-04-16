@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
@@ -96,7 +96,11 @@ export function PlayerProfile() {
         description="Review the evaluation history for this player with club-scoped Supabase visibility."
       />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-[20px] border border-[#dbe3d6] bg-[#fcfdfb] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Player name</p>
+          <p className="mt-3 text-2xl font-semibold text-slate-900">{routePlayerName}</p>
+        </div>
         <div className="rounded-[20px] border border-[#dbe3d6] bg-[#fcfdfb] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Total evaluations</p>
           <p className="mt-3 text-2xl font-semibold text-slate-900">{evaluations.length}</p>
@@ -107,6 +111,15 @@ export function PlayerProfile() {
             {overallAverage !== null ? overallAverage.toFixed(1) : '-'}
           </p>
         </div>
+      </div>
+
+      <div>
+        <Link
+          to={`/create?player=${encodeURIComponent(routePlayerName)}`}
+          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+        >
+          Add New Evaluation
+        </Link>
       </div>
 
       <SectionCard

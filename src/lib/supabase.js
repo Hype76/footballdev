@@ -19,12 +19,14 @@ if (
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const CLUB_LOGOS_BUCKET = 'club-logos'
+export const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024
 
 const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-technical',
     label: 'Technical',
-    type: 'number',
+    type: 'score_1_5',
     options: [],
     required: true,
     orderIndex: 1,
@@ -34,7 +36,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-tactical',
     label: 'Tactical',
-    type: 'number',
+    type: 'score_1_5',
     options: [],
     required: true,
     orderIndex: 2,
@@ -44,7 +46,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-physical',
     label: 'Physical',
-    type: 'number',
+    type: 'score_1_5',
     options: [],
     required: true,
     orderIndex: 3,
@@ -54,7 +56,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-mentality',
     label: 'Mentality',
-    type: 'number',
+    type: 'score_1_5',
     options: [],
     required: true,
     orderIndex: 4,
@@ -64,7 +66,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-coachability',
     label: 'Coachability',
-    type: 'number',
+    type: 'score_1_5',
     options: [],
     required: true,
     orderIndex: 5,
@@ -124,7 +126,11 @@ function normalizeRole(value) {
 
 function normalizeFieldType(value) {
   const normalizedValue = String(value ?? '').trim().toLowerCase()
-  const allowedTypes = ['text', 'textarea', 'number', 'select']
+  const allowedTypes = ['text', 'textarea', 'number', 'select', 'score_1_5', 'score_1_10']
+
+  if (normalizedValue === 'number') {
+    return 'score_1_5'
+  }
 
   return allowedTypes.includes(normalizedValue) ? normalizedValue : 'text'
 }
@@ -573,6 +579,44 @@ export async function updateClubSettings({ clubId, data }) {
     contactEmail: String(updatedClub.contact_email ?? '').trim(),
     contactPhone: String(updatedClub.contact_phone ?? '').trim(),
   }
+}
+
+export async function uploadClubLogo({ clubId, file }) {
+  if (!clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  if (!(file instanceof File)) {
+    throw new Error('A logo file is required.')
+  }
+
+  if (!String(file.type ?? '').toLowerCase().startsWith('image/')) {
+    throw new Error('Logo must be an image file.')
+  }
+
+  if (file.size > MAX_LOGO_FILE_SIZE_BYTES) {
+    throw new Error('Logo must be 2MB or smaller.')
+  }
+
+  const objectPath = `${clubId}/logo.png`
+  const { error: uploadError } = await supabase.storage.from(CLUB_LOGOS_BUCKET).upload(objectPath, file, {
+    cacheControl: '3600',
+    upsert: true,
+  })
+
+  if (uploadError) {
+    console.error(uploadError)
+    throw uploadError
+  }
+
+  const { data } = supabase.storage.from(CLUB_LOGOS_BUCKET).getPublicUrl(objectPath)
+  const publicUrl = String(data?.publicUrl ?? '').trim()
+
+  if (!publicUrl) {
+    throw new Error('Could not generate logo URL.')
+  }
+
+  return publicUrl
 }
 
 export async function getFormFields({ user } = {}) {
