@@ -17,8 +17,12 @@ export function isCoach(user) {
   return user?.role === 'coach'
 }
 
+export function isSuperAdmin(user) {
+  return user?.role === 'super_admin'
+}
+
 export function canAccessApprovals(user) {
-  return isManager(user)
+  return isManager(user) || isSuperAdmin(user)
 }
 
 export function canEditEvaluation(user, evaluation) {
@@ -26,7 +30,7 @@ export function canEditEvaluation(user, evaluation) {
     return false
   }
 
-  if (isManager(user)) {
+  if (isManager(user) || isSuperAdmin(user)) {
     return true
   }
 
@@ -44,7 +48,7 @@ export function canViewEvaluation(user, evaluation) {
     return false
   }
 
-  if (isManager(user)) {
+  if (isManager(user) || isSuperAdmin(user)) {
     return true
   }
 

@@ -30,7 +30,13 @@ function normalizeWords(value) {
 }
 
 function normalizeRole(value) {
-  return String(value ?? '').trim().toLowerCase() === 'manager' ? 'manager' : 'coach'
+  const normalizedValue = String(value ?? '').trim().toLowerCase()
+
+  if (normalizedValue === 'super_admin') {
+    return 'super_admin'
+  }
+
+  return normalizedValue === 'manager' ? 'manager' : 'coach'
 }
 
 function getClubName(clubs) {
@@ -54,13 +60,17 @@ function getDisplayName(profile) {
 }
 
 export function normalizeUserProfile(profile) {
-  const clubName = getClubName(profile.clubs) || String(profile.team ?? '').trim() || 'Unassigned Club'
+  const role = normalizeRole(profile.role)
+  const clubName =
+    getClubName(profile.clubs) ||
+    String(profile.team ?? '').trim() ||
+    (role === 'super_admin' ? 'Platform' : 'Unassigned Club')
 
   return {
     id: profile.id,
     email: String(profile.email ?? '').trim().toLowerCase(),
     name: getDisplayName(profile),
-    role: normalizeRole(profile.role),
+    role,
     clubId: profile.club_id ?? profile.clubId ?? '',
     clubName,
     team: clubName,
@@ -153,7 +163,7 @@ function mapEvaluationToRow(data) {
 export async function fetchUserProfile(authUser) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, role, club_id, clubs(name)')
+    .select('id, email, name, role, club_id, clubs(name)')
     .eq('id', authUser.id)
     .maybeSingle()
 
@@ -194,7 +204,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
       role: 'manager',
       club_id: club.id,
     })
-    .select('id, email, role, club_id, clubs(name)')
+    .select('id, email, name, role, club_id, clubs(name)')
     .single()
 
   if (userError) {
@@ -209,15 +219,19 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
 }
 
 export async function getEvaluations({ user, status, playerName } = {}) {
-  if (!user?.clubId) {
+  if (!user) {
     return []
   }
 
-  let query = supabase
-    .from('evaluations')
-    .select('*')
-    .eq('club_id', user.clubId)
-    .order('created_at', { ascending: false })
+  let query = supabase.from('evaluations').select('*').order('created_at', { ascending: false })
+
+  if (user.role !== 'super_admin') {
+    if (!user.clubId) {
+      return []
+    }
+
+    query = query.eq('club_id', user.clubId)
+  }
 
   if (status) {
     query = query.eq('status', status)

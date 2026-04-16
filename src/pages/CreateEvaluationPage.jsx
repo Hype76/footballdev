@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { useAuth } from '../lib/auth.js'
+import { isSuperAdmin, useAuth } from '../lib/auth.js'
 import { createEvaluation } from '../lib/supabase.js'
 
 const ratingFields = [
@@ -75,6 +75,7 @@ function getAverageScore(scores) {
 
 export function CreateEvaluationPage() {
   const { user } = useAuth()
+  const isPlatformOwner = isSuperAdmin(user)
   const [formData, setFormData] = useState(() => createInitialFormData(user))
   const [isSaved, setIsSaved] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -199,7 +200,20 @@ export function CreateEvaluationPage() {
         </div>
       ) : null}
 
-      <form className="space-y-5 sm:space-y-6" onSubmit={handleSubmit}>
+      {isPlatformOwner ? (
+        <SectionCard
+          title="Platform account"
+          description="Super admins are not tied to one club, so evaluation creation stays with club users."
+        >
+          <div className="rounded-[20px] border border-[#dbe3d6] bg-[#f8faf7] px-4 py-4 text-sm leading-6 text-slate-600">
+            Use this account to oversee clubs, users, approvals, and platform-wide data. Create evaluations from a
+            manager or coach account inside the relevant club.
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {!isPlatformOwner ? (
+        <form className="space-y-5 sm:space-y-6" onSubmit={handleSubmit}>
         <SectionCard
           title="Player details"
           description="Start with the team, coach, and player for this evaluation."
@@ -402,7 +416,8 @@ export function CreateEvaluationPage() {
             </button>
           </div>
         </SectionCard>
-      </form>
+        </form>
+      ) : null}
     </div>
   )
 }

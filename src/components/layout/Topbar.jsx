@@ -2,7 +2,13 @@ import { useAuth } from '../../lib/auth.js'
 
 export function Topbar({ title, onMenuClick }) {
   const { user } = useAuth()
-  const roleLabel = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Unknown'
+  const roleLabel = user?.role
+    ? user.role
+        .split('_')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ')
+    : 'Unknown'
+  const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
 
   return (
     <header className="sticky top-0 z-20 border-b border-[#dbe3d6] bg-[#f5f7f3] px-3 py-3 sm:px-4 md:px-6 lg:px-8">
@@ -25,7 +31,7 @@ export function Topbar({ title, onMenuClick }) {
 
         <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 sm:gap-3">
           <div className="min-h-11 rounded-2xl border border-[#dbe3d6] bg-[#fbfcf9] px-4 py-3 text-sm text-slate-600">
-            Club: {user?.clubName || user?.team || 'No club'}
+            Club: {clubLabel}
           </div>
           <div className="min-h-11 rounded-2xl border border-[#dbe3d6] bg-[#fbfcf9] px-4 py-3 text-sm text-slate-600">
             User: {user?.email || user?.name || 'No user'} ({roleLabel})
