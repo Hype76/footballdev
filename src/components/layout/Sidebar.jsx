@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { primaryNavigation } from '../../app/navigation.js'
-import { canAccessApprovals, canManageFormFields, useAuth } from '../../lib/auth.js'
+import { canAccessApprovals, canManageClubSettings, canManageFormFields, useAuth } from '../../lib/auth.js'
 
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
@@ -11,6 +11,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/form-builder') {
       return canManageFormFields(user)
+    }
+
+    if (item.path === '/club-settings') {
+      return canManageClubSettings(user)
     }
 
     return true

@@ -15,4 +15,8 @@ export const primaryNavigation = [
     label: 'Form Builder',
     path: '/form-builder',
   },
+  {
+    label: 'Club Settings',
+    path: '/club-settings',
+  },
 ]

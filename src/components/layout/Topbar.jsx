@@ -11,6 +11,7 @@ export function Topbar({ title, onMenuClick }) {
         .join(' ')
     : 'Unknown'
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
+  const logoUrl = user?.clubLogoUrl || ''
 
   const handleSignOut = async () => {
     try {
@@ -38,8 +39,19 @@ export function Topbar({ title, onMenuClick }) {
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">Football Coaching Tool</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{title}</h2>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#dbe3d6] bg-[#fbfcf9]">
+              {logoUrl ? (
+                <img src={logoUrl} alt={clubLabel} className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#5a6b5b]">Logo</span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">{clubLabel}</p>
+              <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{title}</h2>
+            </div>
+          </div>
         </div>
 
         <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 sm:gap-3">

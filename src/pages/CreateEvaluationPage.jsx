@@ -546,6 +546,7 @@ export function CreateEvaluationPage() {
               >
                 <EmailPreview
                   clubName={user?.clubName || user?.team || 'Club Name'}
+                  logoUrl={user?.clubLogoUrl || ''}
                   playerName={formData.playerName || 'Player Name'}
                   team={formData.team}
                   session={formData.session}

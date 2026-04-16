@@ -152,6 +152,14 @@ function getClubName(clubs) {
   return String(clubs?.name ?? '').trim()
 }
 
+function getClubValue(clubs, key) {
+  if (Array.isArray(clubs)) {
+    return clubs[0]?.[key]
+  }
+
+  return clubs?.[key]
+}
+
 function getDisplayName(profile) {
   const explicitName = String(profile?.name ?? '').trim()
 
@@ -398,6 +406,9 @@ export function normalizeUserProfile(profile) {
     clubId: profile.club_id ?? profile.clubId ?? '',
     clubName,
     team: clubName,
+    clubLogoUrl: String(getClubValue(profile.clubs, 'logo_url') ?? profile.clubLogoUrl ?? '').trim(),
+    clubContactEmail: String(getClubValue(profile.clubs, 'contact_email') ?? profile.clubContactEmail ?? '').trim(),
+    clubContactPhone: String(getClubValue(profile.clubs, 'contact_phone') ?? profile.clubContactPhone ?? '').trim(),
   }
 }
 
@@ -422,7 +433,7 @@ export async function fetchUserProfile(authUser) {
   if (data.club_id) {
     const { data: club, error: clubError } = await supabase
       .from('clubs')
-      .select('name')
+      .select('name, logo_url, contact_email, contact_phone')
       .eq('id', data.club_id)
       .maybeSingle()
 
@@ -446,7 +457,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     .insert({
       name: String(clubName ?? '').trim(),
     })
-    .select('id, name')
+    .select('id, name, logo_url, contact_email, contact_phone')
     .single()
 
   if (clubError) {
@@ -504,6 +515,64 @@ export async function getConfiguredFormFields({ user } = {}) {
 
   await seedDefaultFormFields()
   return loadConfiguredFields()
+}
+
+export async function getClubSettings(clubId) {
+  if (!clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  const { data, error } = await supabase
+    .from('clubs')
+    .select('id, name, logo_url, contact_email, contact_phone')
+    .eq('id', clubId)
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return {
+    id: data.id,
+    name: String(data.name ?? '').trim(),
+    logoUrl: String(data.logo_url ?? '').trim(),
+    contactEmail: String(data.contact_email ?? '').trim(),
+    contactPhone: String(data.contact_phone ?? '').trim(),
+  }
+}
+
+export async function updateClubSettings({ clubId, data }) {
+  if (!clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  const payload = {
+    name: String(data.name ?? '').trim(),
+    logo_url: String(data.logoUrl ?? '').trim(),
+    contact_email: String(data.contactEmail ?? '').trim(),
+    contact_phone: String(data.contactPhone ?? '').trim(),
+  }
+
+  const { data: updatedClub, error } = await supabase
+    .from('clubs')
+    .update(payload)
+    .eq('id', clubId)
+    .select('id, name, logo_url, contact_email, contact_phone')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return {
+    id: updatedClub.id,
+    name: String(updatedClub.name ?? '').trim(),
+    logoUrl: String(updatedClub.logo_url ?? '').trim(),
+    contactEmail: String(updatedClub.contact_email ?? '').trim(),
+    contactPhone: String(updatedClub.contact_phone ?? '').trim(),
+  }
 }
 
 export async function getFormFields({ user } = {}) {

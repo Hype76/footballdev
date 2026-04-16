@@ -9,6 +9,7 @@ function formatPreviewValue(value) {
 
 export function EmailPreview({
   clubName = 'Club Name',
+  logoUrl = '',
   playerName = 'Player Name',
   team = '',
   session = '',
@@ -19,8 +20,12 @@ export function EmailPreview({
     <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-[24px] border border-[#dbe3d6] bg-white p-4 shadow-sm shadow-slate-200/40 sm:rounded-[28px] sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 border-b border-[#e7ece3] pb-5 sm:gap-6 sm:pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-dashed border-[#c9d3c4] bg-[#f5f7f3] text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b] sm:h-16 sm:w-16">
-            Logo
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[#c9d3c4] bg-[#f5f7f3] text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b] sm:h-16 sm:w-16">
+            {logoUrl ? (
+              <img src={logoUrl} alt={clubName} className="h-full w-full object-cover" />
+            ) : (
+              'Logo'
+            )}
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">Feedback Preview</p>

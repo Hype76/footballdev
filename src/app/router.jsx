@@ -1,13 +1,14 @@
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import { ApprovalsPage } from '../pages/ApprovalsPage.jsx'
+import { ClubSettingsPage } from '../pages/ClubSettingsPage.jsx'
 import { CreateEvaluationPage } from '../pages/CreateEvaluationPage.jsx'
 import { DashboardPage } from '../pages/DashboardPage.jsx'
 import { FormBuilderPage } from '../pages/FormBuilderPage.jsx'
 import { LoginPage } from '../pages/LoginPage.jsx'
 import { NotFoundPage } from '../pages/NotFoundPage.jsx'
 import { PlayerProfile } from '../pages/PlayerProfile.jsx'
-import { canAccessApprovals, canManageFormFields, useAuth } from '../lib/auth.js'
+import { canAccessApprovals, canManageClubSettings, canManageFormFields, useAuth } from '../lib/auth.js'
 
 function LoadingScreen() {
   return (
@@ -83,6 +84,24 @@ function RequireFormBuilderAccess() {
   return <Outlet />
 }
 
+function RequireClubSettingsAccess() {
+  const { isLoading, user } = useAuth()
+
+  if (isLoading) {
+    return <LoadingScreen />
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!canManageClubSettings(user)) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <Outlet />
+}
+
 export const router = createBrowserRouter([
   {
     element: <PublicOnly />,
@@ -125,6 +144,18 @@ export const router = createBrowserRouter([
                 element: <FormBuilderPage />,
                 handle: {
                   title: 'Form Builder',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireClubSettingsAccess />,
+            children: [
+              {
+                path: 'club-settings',
+                element: <ClubSettingsPage />,
+                handle: {
+                  title: 'Club Settings',
                 },
               },
             ],

@@ -29,6 +29,10 @@ export function canManageFormFields(user) {
   return isManager(user)
 }
 
+export function canManageClubSettings(user) {
+  return isManager(user)
+}
+
 export function canEditEvaluation(user, evaluation) {
   if (!user || !evaluation) {
     return false
@@ -212,6 +216,23 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const updateCurrentClubDetails = (clubDetails) => {
+    setUser((current) => {
+      if (!current) {
+        return current
+      }
+
+      return {
+        ...current,
+        clubName: String(clubDetails.name ?? current.clubName ?? '').trim(),
+        team: String(clubDetails.name ?? current.team ?? '').trim(),
+        clubLogoUrl: String(clubDetails.logoUrl ?? current.clubLogoUrl ?? '').trim(),
+        clubContactEmail: String(clubDetails.contactEmail ?? current.clubContactEmail ?? '').trim(),
+        clubContactPhone: String(clubDetails.contactPhone ?? current.clubContactPhone ?? '').trim(),
+      }
+    })
+  }
+
   const value = useMemo(
     () => ({
       session,
@@ -221,6 +242,7 @@ export function AuthProvider({ children }) {
       signInWithPassword,
       signUpWithClub,
       signOut,
+      updateCurrentClubDetails,
     }),
     [authError, isLoading, session, user],
   )
