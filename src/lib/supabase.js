@@ -163,7 +163,7 @@ function mapEvaluationToRow(data) {
 export async function fetchUserProfile(authUser) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, name, role, club_id, clubs(name)')
+    .select('id, email, name, role, club_id')
     .eq('id', authUser.id)
     .maybeSingle()
 
@@ -176,8 +176,25 @@ export async function fetchUserProfile(authUser) {
     throw new Error('User profile not found.')
   }
 
+  let clubData = null
+
+  if (data.club_id) {
+    const { data: club, error: clubError } = await supabase
+      .from('clubs')
+      .select('name')
+      .eq('id', data.club_id)
+      .maybeSingle()
+
+    if (clubError) {
+      console.error(clubError)
+    } else {
+      clubData = club
+    }
+  }
+
   return normalizeUserProfile({
     ...data,
+    clubs: clubData,
     email: data.email || authUser.email,
   })
 }
@@ -204,7 +221,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
       role: 'manager',
       club_id: club.id,
     })
-    .select('id, email, name, role, club_id, clubs(name)')
+    .select('id, email, name, role, club_id')
     .single()
 
   if (userError) {
@@ -214,7 +231,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
 
   return normalizeUserProfile({
     ...userProfile,
-    clubs: userProfile.clubs || { name: club.name },
+    clubs: { name: club.name },
   })
 }
 
