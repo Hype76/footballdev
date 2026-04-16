@@ -137,6 +137,13 @@ export const router = createBrowserRouter([
             },
           },
           {
+            path: 'assess-player',
+            element: <CreateEvaluationPage />,
+            handle: {
+              title: 'Assess Player',
+            },
+          },
+          {
             path: 'create',
             element: <CreateEvaluationPage />,
             handle: {

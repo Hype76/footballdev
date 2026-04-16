@@ -4,8 +4,8 @@ export const primaryNavigation = [
     path: '/dashboard',
   },
   {
-    label: 'Create Evaluation',
-    path: '/create-evaluation',
+    label: 'Assess Player',
+    path: '/assess-player',
   },
   {
     label: 'Approvals',
