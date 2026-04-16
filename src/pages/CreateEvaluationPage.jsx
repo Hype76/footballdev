@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import html2pdf from 'html2pdf.js'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { EmailPreview } from '../components/ui/EmailPreview.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
@@ -283,6 +282,7 @@ function BlankPrintForm({ clubName, logoUrl, fields }) {
 export function CreateEvaluationPage() {
   const { user } = useAuth()
   const isPlatformOwner = isSuperAdmin(user)
+  const formRef = useRef(null)
   const previewRef = useRef(null)
   const hasInitializedRef = useRef(false)
   const navigate = useNavigate()
@@ -298,6 +298,7 @@ export function CreateEvaluationPage() {
   const [isPrintingBlankView, setIsPrintingBlankView] = useState(false)
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
 
   const draftStorageKey = getDraftStorageKey(user)
 
@@ -454,6 +455,7 @@ export function CreateEvaluationPage() {
   const handleFieldChange = (event) => {
     const { name, value } = event.target
     setIsSaved(false)
+    setErrorMessage('')
 
     if (name === 'session') {
       const nextSessionValue = normalizeSessionValue(value)
@@ -474,6 +476,7 @@ export function CreateEvaluationPage() {
 
   const handleResponseChange = (fieldId, value) => {
     setIsSaved(false)
+    setErrorMessage('')
     setResponseValues((current) => ({
       ...current,
       [fieldId]: value,
@@ -482,10 +485,13 @@ export function CreateEvaluationPage() {
 
   const handleDownloadPdf = async () => {
     if (!previewRef.current) {
+      console.error('PDF export failed: preview element is missing.')
+      setErrorMessage('Preview is not ready for PDF export yet.')
       return
     }
 
     setIsDownloadingPdf(true)
+    setErrorMessage('')
 
     try {
       await new Promise((resolve) => {
@@ -494,7 +500,10 @@ export function CreateEvaluationPage() {
         })
       })
 
-      await html2pdf()
+      const html2pdfModule = await import('html2pdf.js')
+      const pdfExporter = html2pdfModule.default || html2pdfModule
+
+      await pdfExporter()
         .set({
           margin: 10,
           filename: `${normalizePlayerName(formData.playerName || 'evaluation')}-feedback.pdf`,
@@ -506,6 +515,7 @@ export function CreateEvaluationPage() {
         .save()
     } catch (error) {
       console.error('PDF export failed', error)
+      setErrorMessage('Could not generate the PDF. Check the preview and try again.')
     } finally {
       setIsDownloadingPdf(false)
     }
@@ -517,7 +527,15 @@ export function CreateEvaluationPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+
+    if (!user?.clubId && !isPlatformOwner) {
+      console.error('Evaluation submit failed: missing club ID for current user.')
+      setErrorMessage('Your account is missing a club assignment.')
+      return
+    }
+
     setIsSubmitting(true)
+    setErrorMessage('')
 
     try {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
@@ -564,9 +582,20 @@ export function CreateEvaluationPage() {
     } catch (error) {
       console.error('Evaluation submit failed', error)
       setIsSaved(false)
+      setErrorMessage('Could not submit the evaluation. Check the console for details.')
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleSubmitClick = () => {
+    setErrorMessage('')
+
+    if (!formRef.current?.reportValidity()) {
+      return
+    }
+
+    formRef.current.requestSubmit()
   }
 
   return (
@@ -590,6 +619,12 @@ export function CreateEvaluationPage() {
           </div>
         ) : null}
 
+        {errorMessage ? (
+          <div className="rounded-[20px] border border-[#ead7d7] bg-[#faf2f2] px-4 py-3 text-sm font-medium text-[#8b4b4b]">
+            {errorMessage}
+          </div>
+        ) : null}
+
         {isPlatformOwner ? (
           <SectionCard
             title="Platform account"
@@ -608,7 +643,7 @@ export function CreateEvaluationPage() {
           </SectionCard>
         ) : (
           <>
-            <form className="space-y-5 sm:space-y-6 no-print" onSubmit={handleSubmit}>
+            <form ref={formRef} className="space-y-5 sm:space-y-6 no-print" onSubmit={handleSubmit}>
               <SectionCard
                 title="Player details"
                 description="Locked fields stay consistent while the rest of the evaluation can be configured per club."
@@ -724,7 +759,8 @@ export function CreateEvaluationPage() {
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handleSubmitClick}
                     disabled={isSubmitting || enabledFields.length === 0}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500 sm:w-auto"
                   >
