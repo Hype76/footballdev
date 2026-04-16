@@ -6,6 +6,7 @@ import { canManageFormFields, useAuth } from '../lib/auth.js'
 import {
   addFormField,
   deleteFormField,
+  getDefaultFormFields,
   getConfiguredFormFields,
   reorderFormFields,
   updateFormField,
@@ -74,6 +75,7 @@ function createDraftMap(fields) {
 
 export function FormBuilderPage() {
   const { user } = useAuth()
+  const defaultTemplateFields = getDefaultFormFields()
   const [fields, setFields] = useState([])
   const [fieldDrafts, setFieldDrafts] = useState({})
   const [fieldForm, setFieldForm] = useState(initialFieldForm)
@@ -117,6 +119,19 @@ export function FormBuilderPage() {
       isMounted = false
     }
   }, [user])
+
+  const refreshFields = async () => {
+    setIsSaving(true)
+
+    try {
+      const nextFields = await getConfiguredFormFields({ user })
+      syncFields(nextFields)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   if (!canManageFormFields(user)) {
     return <Navigate to="/dashboard" replace />
@@ -321,6 +336,38 @@ export function FormBuilderPage() {
         title="Configure evaluation fields"
         description="Default fields can be enabled or disabled. Custom fields can also be edited, reordered, or removed."
       />
+
+      <SectionCard
+        title="Default form"
+        description="Every club starts from this template. These fields become your editable default form once loaded."
+      >
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            {defaultTemplateFields.map((field) => (
+              <div key={field.id} className="rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">{field.label}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#5a6b5b]">{getFieldTypeLabel(field.type)}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-600">
+              {fields.length === 0
+                ? 'No fields are configured for this club yet. Load the default form to start.'
+                : 'Default fields are already available below and can be enabled, disabled, and reordered.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => void refreshFields()}
+              disabled={isSaving}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] disabled:cursor-not-allowed disabled:bg-slate-100 sm:w-auto"
+            >
+              {isSaving ? 'Loading...' : 'Load default form'}
+            </button>
+          </div>
+        </div>
+      </SectionCard>
 
       <SectionCard
         title="Add field"
