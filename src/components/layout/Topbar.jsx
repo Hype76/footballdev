@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useAuth } from '../../lib/auth.js'
 
 export function Topbar({ title, onMenuClick }) {
-  const { user } = useAuth()
+  const { signOut, user } = useAuth()
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const roleLabel = user?.role
     ? user.role
         .split('_')
@@ -9,6 +11,17 @@ export function Topbar({ title, onMenuClick }) {
         .join(' ')
     : 'Unknown'
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
+
+  const handleSignOut = async () => {
+    try {
+      setIsSigningOut(true)
+      await signOut()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-20 border-b border-[#dbe3d6] bg-[#f5f7f3] px-3 py-3 sm:px-4 md:px-6 lg:px-8">
@@ -33,8 +46,18 @@ export function Topbar({ title, onMenuClick }) {
           <div className="min-h-11 rounded-2xl border border-[#dbe3d6] bg-[#fbfcf9] px-4 py-3 text-sm text-slate-600">
             Club: {clubLabel}
           </div>
-          <div className="min-h-11 rounded-2xl border border-[#dbe3d6] bg-[#fbfcf9] px-4 py-3 text-sm text-slate-600">
-            User: {user?.email || user?.name || 'No user'} ({roleLabel})
+          <div className="rounded-2xl border border-[#dbe3d6] bg-[#fbfcf9] px-4 py-3 text-sm text-slate-600">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>User: {user?.email || user?.name || 'No user'} ({roleLabel})</span>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#dbe3d6] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                {isSigningOut ? 'Signing out...' : 'Sign out'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

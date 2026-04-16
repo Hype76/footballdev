@@ -3,7 +3,7 @@ import { primaryNavigation } from '../../app/navigation.js'
 import { canAccessApprovals, canManageFormFields, useAuth } from '../../lib/auth.js'
 
 export function Sidebar({ isOpen, onClose }) {
-  const { user } = useAuth()
+  const { signOut, user } = useAuth()
   const navigationItems = primaryNavigation.filter((item) => {
     if (item.path === '/approvals') {
       return canAccessApprovals(user)
@@ -15,6 +15,15 @@ export function Sidebar({ isOpen, onClose }) {
 
     return true
   })
+
+  const handleSignOut = async () => {
+    try {
+      onClose()
+      await signOut()
+    } catch (error) {
+      console.error(error)
+    }
+  }
 
   return (
     <>
@@ -71,12 +80,19 @@ export function Sidebar({ isOpen, onClose }) {
           ))}
         </nav>
 
-        <div className="mt-auto rounded-[24px] border border-[#dbe3d6] bg-[#fbfcf9] p-4">
+        <div className="mt-auto space-y-4 rounded-[24px] border border-[#dbe3d6] bg-[#fbfcf9] p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">Workspace</p>
           <p className="mt-3 text-sm font-medium text-slate-900">Supabase connected</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Auth, club scoping, and evaluation routing are active in this workspace.
           </p>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#dbe3d6] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1]"
+          >
+            Sign out
+          </button>
         </div>
       </aside>
     </>
