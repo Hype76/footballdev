@@ -1,5 +1,5 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useState } from 'react'
-import { fetchOrCreateUserProfile, supabase } from './supabase.js'
+import { createClubAndManagerProfile, fetchUserProfile, supabase } from './supabase.js'
 
 const AuthContext = createContext(null)
 
@@ -10,11 +10,11 @@ function normalizeName(value) {
 }
 
 export function isManager(user) {
-  return user?.role === 'Manager'
+  return user?.role === 'manager'
 }
 
 export function isCoach(user) {
-  return user?.role === 'Coach'
+  return user?.role === 'coach'
 }
 
 export function canAccessApprovals(user) {
@@ -48,14 +48,20 @@ export function canViewEvaluation(user, evaluation) {
     return true
   }
 
-  const evaluationTeam = evaluation.team || ''
-  return canEditEvaluation(user, evaluation) && normalizeName(evaluationTeam) === normalizeName(user.team)
+  const evaluationClubId = evaluation.clubId || evaluation.club_id || ''
+
+  if (evaluationClubId && user.clubId) {
+    return canEditEvaluation(user, evaluation) && String(evaluationClubId) === String(user.clubId)
+  }
+
+  return canEditEvaluation(user, evaluation)
 }
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [authError, setAuthError] = useState('')
 
   useEffect(() => {
     let isMounted = true
@@ -70,12 +76,13 @@ export function AuthProvider({ children }) {
       if (!nextSession?.user) {
         setSession(null)
         setUser(null)
+        setAuthError('')
         setIsLoading(false)
         return
       }
 
       try {
-        const profile = await fetchOrCreateUserProfile(nextSession.user)
+        const profile = await fetchUserProfile(nextSession.user)
 
         if (!isMounted) {
           return
@@ -83,6 +90,7 @@ export function AuthProvider({ children }) {
 
         setSession(nextSession)
         setUser(profile)
+        setAuthError('')
       } catch (error) {
         console.error(error)
 
@@ -92,6 +100,7 @@ export function AuthProvider({ children }) {
 
         setSession(nextSession)
         setUser(null)
+        setAuthError(error.message || 'Could not load user profile.')
       } finally {
         if (isMounted) {
           setIsLoading(false)
@@ -104,6 +113,9 @@ export function AuthProvider({ children }) {
       .then(({ data, error }) => {
         if (error) {
           console.error(error)
+          if (isMounted) {
+            setAuthError(error.message || 'Could not restore your session.')
+          }
         }
 
         return syncSession(data?.session ?? null)
@@ -111,6 +123,7 @@ export function AuthProvider({ children }) {
       .catch((error) => {
         console.error(error)
         if (isMounted) {
+          setAuthError(error.message || 'Could not restore your session.')
           setIsLoading(false)
         }
       })
@@ -129,17 +142,55 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const signInWithMagicLink = async (email) => {
-    const { error } = await supabase.auth.signInWithOtp({
+  const signInWithPassword = async ({ email, password }) => {
+    setAuthError('')
+
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-      },
+      password,
     })
 
     if (error) {
       console.error(error)
+      setAuthError(error.message || 'Login failed.')
       throw error
+    }
+  }
+
+  const signUpWithClub = async ({ email, password, clubName }) => {
+    setAuthError('')
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+
+    if (error) {
+      console.error(error)
+      setAuthError(error.message || 'Sign up failed.')
+      throw error
+    }
+
+    if (!data.user) {
+      const signupError = new Error('Account creation did not return a user.')
+      console.error(signupError)
+      setAuthError(signupError.message)
+      throw signupError
+    }
+
+    try {
+      const profile = await createClubAndManagerProfile({
+        authUser: data.user,
+        clubName,
+      })
+
+      setSession(data.session ?? null)
+      setUser(profile)
+      setAuthError('')
+    } catch (profileError) {
+      console.error(profileError)
+      setAuthError(profileError.message || 'Could not create your club.')
+      throw profileError
     }
   }
 
@@ -148,6 +199,7 @@ export function AuthProvider({ children }) {
 
     if (error) {
       console.error(error)
+      setAuthError(error.message || 'Sign out failed.')
       throw error
     }
   }
@@ -157,10 +209,12 @@ export function AuthProvider({ children }) {
       session,
       user,
       isLoading,
-      signInWithMagicLink,
+      authError,
+      signInWithPassword,
+      signUpWithClub,
       signOut,
     }),
-    [isLoading, session, user],
+    [authError, isLoading, session, user],
   )
 
   return createElement(AuthContext.Provider, { value }, children)

@@ -92,7 +92,7 @@ export function PlayerProfile() {
       <PageHeader
         eyebrow="Player Profile"
         title={routePlayerName}
-        description="Review the evaluation history for this player with role-based Supabase visibility."
+        description="Review the evaluation history for this player with club-scoped Supabase visibility."
       />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -130,7 +130,7 @@ export function PlayerProfile() {
 
       <SectionCard
         title="Past evaluations"
-        description="Supabase history filtered by the current user role."
+        description="Supabase history filtered by the current user role and club."
       >
         {isLoading ? (
           <div className="rounded-[24px] border border-[#dbe3d6] bg-[#f8faf7] px-6 py-10 text-center text-sm font-medium text-slate-600">

@@ -153,6 +153,7 @@ export function CreateEvaluationPage() {
       const evaluation = {
         playerName: normalizePlayerName(formData.playerName),
         team: String(user?.team || formData.team).trim(),
+        clubId: user?.clubId,
         coachId: user?.id,
         coach: String(user?.name || formData.coachName).trim(),
         parentEmail: formData.parentEmail.trim(),
@@ -189,7 +190,7 @@ export function CreateEvaluationPage() {
       <PageHeader
         eyebrow="Evaluation"
         title="Create evaluation"
-        description="Capture a fast team-based coaching review and save it locally."
+        description="Capture a fast club-scoped coaching review and save it to Supabase."
       />
 
       {isSaved ? (
@@ -389,7 +390,7 @@ export function CreateEvaluationPage() {
 
         <SectionCard
           title="Submit"
-          description="This saves locally and keeps the workflow fast for multi-team coaching."
+          description="This saves to Supabase and keeps the workflow fast for club-based coaching."
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button

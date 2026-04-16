@@ -4,10 +4,18 @@ const fallbackSupabaseUrl = 'https://placeholder.supabase.co'
 const fallbackSupabaseAnonKey = 'placeholder-anon-key'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || fallbackSupabaseUrl
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || fallbackSupabaseAnonKey
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  fallbackSupabaseAnonKey
 
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  console.error('Supabase environment variables are missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.')
+if (
+  !import.meta.env.VITE_SUPABASE_URL ||
+  (!import.meta.env.VITE_SUPABASE_ANON_KEY && !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY)
+) {
+  console.error(
+    'Supabase environment variables are missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY or VITE_SUPABASE_PUBLISHABLE_KEY.',
+  )
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
@@ -21,24 +29,41 @@ function normalizeWords(value) {
     .join(' ')
 }
 
-function createDefaultProfile(authUser) {
-  const email = String(authUser?.email ?? '').trim().toLowerCase()
-  const nameSource = email.split('@')[0]?.replace(/[._-]+/g, ' ') || 'Coach User'
-
-  return {
-    id: authUser.id,
-    name: normalizeWords(nameSource),
-    role: 'Coach',
-    team: 'Unassigned Team',
-  }
+function normalizeRole(value) {
+  return String(value ?? '').trim().toLowerCase() === 'manager' ? 'manager' : 'coach'
 }
 
-function normalizeUserProfile(profile) {
+function getClubName(clubs) {
+  if (Array.isArray(clubs)) {
+    return String(clubs[0]?.name ?? '').trim()
+  }
+
+  return String(clubs?.name ?? '').trim()
+}
+
+function getDisplayName(profile) {
+  const explicitName = String(profile?.name ?? '').trim()
+
+  if (explicitName) {
+    return explicitName
+  }
+
+  const email = String(profile?.email ?? '').trim().toLowerCase()
+  const emailPrefix = email.split('@')[0]?.replace(/[._-]+/g, ' ') || 'Coach User'
+  return normalizeWords(emailPrefix)
+}
+
+export function normalizeUserProfile(profile) {
+  const clubName = getClubName(profile.clubs) || String(profile.team ?? '').trim() || 'Unassigned Club'
+
   return {
     id: profile.id,
-    name: String(profile.name ?? '').trim() || 'Coach User',
-    role: profile.role === 'Manager' ? 'Manager' : 'Coach',
-    team: String(profile.team ?? '').trim() || 'Unassigned Team',
+    email: String(profile.email ?? '').trim().toLowerCase(),
+    name: getDisplayName(profile),
+    role: normalizeRole(profile.role),
+    clubId: profile.club_id ?? profile.clubId ?? '',
+    clubName,
+    team: clubName,
   }
 }
 
@@ -88,7 +113,8 @@ function normalizeEvaluationRow(row) {
   return {
     id: row.id,
     playerName: String(row.player_name ?? row.playerName ?? '').trim() || 'Unknown Player',
-    team: String(row.team ?? '').trim() || 'Unassigned Team',
+    team: String(row.team ?? '').trim() || 'Unassigned Club',
+    clubId: row.club_id ?? row.clubId ?? '',
     coachId: row.coach_id ?? row.coachId ?? '',
     coach: String(row.coach ?? row.coach_name ?? '').trim() || 'Unknown Coach',
     parentEmail: String(row.parent_email ?? row.parentEmail ?? '').trim(),
@@ -109,6 +135,7 @@ function mapEvaluationToRow(data) {
   return {
     player_name: data.playerName,
     team: data.team,
+    club_id: data.clubId,
     coach_id: data.coachId,
     coach: data.coach,
     parent_email: data.parentEmail,
@@ -123,39 +150,74 @@ function mapEvaluationToRow(data) {
   }
 }
 
-export async function fetchOrCreateUserProfile(authUser) {
-  const { data: existingProfile, error: selectError } = await supabase
+export async function fetchUserProfile(authUser) {
+  const { data, error } = await supabase
     .from('users')
-    .select('id, name, role, team')
+    .select('id, email, role, club_id, clubs(name)')
     .eq('id', authUser.id)
     .maybeSingle()
 
-  if (selectError) {
-    console.error(selectError)
-    throw selectError
+  if (error) {
+    console.error(error)
+    throw error
   }
 
-  if (existingProfile) {
-    return normalizeUserProfile(existingProfile)
+  if (!data) {
+    throw new Error('User profile not found.')
   }
 
-  const defaultProfile = createDefaultProfile(authUser)
-  const { data: createdProfile, error: insertError } = await supabase
-    .from('users')
-    .insert(defaultProfile)
-    .select('id, name, role, team')
+  return normalizeUserProfile({
+    ...data,
+    email: data.email || authUser.email,
+  })
+}
+
+export async function createClubAndManagerProfile({ authUser, clubName }) {
+  const { data: club, error: clubError } = await supabase
+    .from('clubs')
+    .insert({
+      name: String(clubName ?? '').trim(),
+    })
+    .select('id, name')
     .single()
 
-  if (insertError) {
-    console.error(insertError)
-    throw insertError
+  if (clubError) {
+    console.error(clubError)
+    throw clubError
   }
 
-  return normalizeUserProfile(createdProfile)
+  const { data: userProfile, error: userError } = await supabase
+    .from('users')
+    .insert({
+      id: authUser.id,
+      email: authUser.email,
+      role: 'manager',
+      club_id: club.id,
+    })
+    .select('id, email, role, club_id, clubs(name)')
+    .single()
+
+  if (userError) {
+    console.error(userError)
+    throw userError
+  }
+
+  return normalizeUserProfile({
+    ...userProfile,
+    clubs: userProfile.clubs || { name: club.name },
+  })
 }
 
 export async function getEvaluations({ user, status, playerName } = {}) {
-  let query = supabase.from('evaluations').select('*').order('created_at', { ascending: false })
+  if (!user?.clubId) {
+    return []
+  }
+
+  let query = supabase
+    .from('evaluations')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .order('created_at', { ascending: false })
 
   if (status) {
     query = query.eq('status', status)
@@ -165,8 +227,8 @@ export async function getEvaluations({ user, status, playerName } = {}) {
     query = query.eq('player_name', playerName)
   }
 
-  if (user?.role === 'Coach') {
-    query = query.eq('coach_id', user.id).eq('team', user.team)
+  if (user.role === 'coach') {
+    query = query.eq('coach_id', user.id)
   }
 
   const { data, error } = await query
@@ -195,14 +257,15 @@ export async function createEvaluation(data) {
   return normalizeEvaluationRow(createdRow)
 }
 
-export async function updateEvaluation(id, data) {
+export async function updateEvaluation(id, data, clubId) {
   const payload = mapEvaluationToRow(data)
-  const { data: updatedRow, error } = await supabase
-    .from('evaluations')
-    .update(payload)
-    .eq('id', id)
-    .select('*')
-    .single()
+  let query = supabase.from('evaluations').update(payload).eq('id', id)
+
+  if (clubId) {
+    query = query.eq('club_id', clubId)
+  }
+
+  const { data: updatedRow, error } = await query.select('*').single()
 
   if (error) {
     console.error(error)
@@ -212,13 +275,14 @@ export async function updateEvaluation(id, data) {
   return normalizeEvaluationRow(updatedRow)
 }
 
-export async function updateEvaluationStatus(id, status) {
-  const { data: updatedRow, error } = await supabase
-    .from('evaluations')
-    .update({ status })
-    .eq('id', id)
-    .select('*')
-    .single()
+export async function updateEvaluationStatus(id, status, clubId) {
+  let query = supabase.from('evaluations').update({ status }).eq('id', id)
+
+  if (clubId) {
+    query = query.eq('club_id', clubId)
+  }
+
+  const { data: updatedRow, error } = await query.select('*').single()
 
   if (error) {
     console.error(error)

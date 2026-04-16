@@ -69,9 +69,9 @@ export function Sidebar({ isOpen, onClose }) {
 
         <div className="mt-auto rounded-[24px] border border-[#dbe3d6] bg-[#fbfcf9] p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">Workspace</p>
-          <p className="mt-3 text-sm font-medium text-slate-900">No backend connected</p>
+          <p className="mt-3 text-sm font-medium text-slate-900">Supabase connected</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Layout only. Routing is active and ready for future product wiring.
+            Auth, club scoping, and evaluation routing are active in this workspace.
           </p>
         </div>
       </aside>

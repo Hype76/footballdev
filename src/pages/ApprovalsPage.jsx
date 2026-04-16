@@ -74,7 +74,7 @@ export function ApprovalsPage() {
     setIsUpdatingId(evaluationId)
 
     try {
-      await updateEvaluationStatus(evaluationId, nextStatus)
+      await updateEvaluationStatus(evaluationId, nextStatus, user?.clubId)
       setSubmittedEvaluations((current) => current.filter((evaluation) => evaluation.id !== evaluationId))
     } catch (error) {
       console.error(error)

@@ -137,12 +137,12 @@ export function DashboardPage() {
       <PageHeader
         eyebrow="Dashboard"
         title="Recent evaluations"
-        description="Review submissions across teams and jump straight into player history."
+        description="Review club evaluations and jump straight into player history."
       />
 
       <SectionCard
         title="Latest submissions"
-        description="Supabase-backed evaluations are filtered by your role and team permissions."
+        description="Supabase-backed evaluations are filtered by your role and club permissions."
       >
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="w-full xl:max-w-xs">

@@ -2,6 +2,7 @@ import { useAuth } from '../../lib/auth.js'
 
 export function Topbar({ title, onMenuClick }) {
   const { user } = useAuth()
+  const roleLabel = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Unknown'
 
   return (
     <header className="sticky top-0 z-20 border-b border-[#dbe3d6] bg-[#f5f7f3] px-3 py-3 sm:px-4 md:px-6 lg:px-8">
@@ -24,10 +25,10 @@ export function Topbar({ title, onMenuClick }) {
 
         <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 sm:gap-3">
           <div className="min-h-11 rounded-2xl border border-[#dbe3d6] bg-[#fbfcf9] px-4 py-3 text-sm text-slate-600">
-            Team: {user?.team || 'No team'}
+            Club: {user?.clubName || user?.team || 'No club'}
           </div>
           <div className="min-h-11 rounded-2xl border border-[#dbe3d6] bg-[#fbfcf9] px-4 py-3 text-sm text-slate-600">
-            User: {user?.name || 'No user'} ({user?.role || 'Unknown'})
+            User: {user?.email || user?.name || 'No user'} ({roleLabel})
           </div>
         </div>
       </div>
