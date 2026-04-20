@@ -3,11 +3,12 @@ import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
 
 export function Topbar({ title, onMenuClick, theme, onToggleTheme }) {
-  const { signOut, user } = useAuth()
+  const { authUser, signOut, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
-  const roleLabel = getRoleLabel(user)
+  const roleLabel = user ? getRoleLabel(user) : 'Loading access'
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
   const logoUrl = user?.clubLogoUrl || fallbackLogo
+  const userLabel = user?.email || authUser?.email || user?.name || 'Loading user'
 
   const handleSignOut = async () => {
     try {
@@ -48,10 +49,10 @@ export function Topbar({ title, onMenuClick, theme, onToggleTheme }) {
 
         <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3 sm:gap-3">
           <div className="min-h-11 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            Club: {clubLabel}
+            Club: {user ? clubLabel : 'Loading club...'}
           </div>
           <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            User: {user?.email || user?.name || 'No user'} ({roleLabel})
+            User: {userLabel} ({roleLabel})
           </div>
           <div className="flex flex-col gap-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <button

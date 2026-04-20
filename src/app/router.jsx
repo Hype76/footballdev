@@ -1,16 +1,26 @@
+import { Suspense, lazy } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
-import { ApprovalsPage } from '../pages/ApprovalsPage.jsx'
-import { ClubSettingsPage } from '../pages/ClubSettingsPage.jsx'
-import { CreateEvaluationPage } from '../pages/CreateEvaluationPage.jsx'
-import { DashboardPage } from '../pages/DashboardPage.jsx'
-import { FormBuilderPage } from '../pages/FormBuilderPage.jsx'
-import { LoginPage } from '../pages/LoginPage.jsx'
-import { NotFoundPage } from '../pages/NotFoundPage.jsx'
-import { PlayerProfile } from '../pages/PlayerProfile.jsx'
-import { TeamManagementPage } from '../pages/TeamManagementPage.jsx'
-import { UserAccessPage } from '../pages/UserAccessPage.jsx'
 import { canAccessApprovals, canManageClubSettings, canManageFormFields, canManageUsers, useAuth } from '../lib/auth.js'
+
+const ApprovalsPage = lazy(() => import('../pages/ApprovalsPage.jsx').then((module) => ({ default: module.ApprovalsPage })))
+const ClubSettingsPage = lazy(() =>
+  import('../pages/ClubSettingsPage.jsx').then((module) => ({ default: module.ClubSettingsPage })),
+)
+const CreateEvaluationPage = lazy(() =>
+  import('../pages/CreateEvaluationPage.jsx').then((module) => ({ default: module.CreateEvaluationPage })),
+)
+const DashboardPage = lazy(() => import('../pages/DashboardPage.jsx').then((module) => ({ default: module.DashboardPage })))
+const FormBuilderPage = lazy(() =>
+  import('../pages/FormBuilderPage.jsx').then((module) => ({ default: module.FormBuilderPage })),
+)
+const LoginPage = lazy(() => import('../pages/LoginPage.jsx').then((module) => ({ default: module.LoginPage })))
+const NotFoundPage = lazy(() => import('../pages/NotFoundPage.jsx').then((module) => ({ default: module.NotFoundPage })))
+const PlayerProfile = lazy(() => import('../pages/PlayerProfile.jsx').then((module) => ({ default: module.PlayerProfile })))
+const TeamManagementPage = lazy(() =>
+  import('../pages/TeamManagementPage.jsx').then((module) => ({ default: module.TeamManagementPage })),
+)
+const UserAccessPage = lazy(() => import('../pages/UserAccessPage.jsx').then((module) => ({ default: module.UserAccessPage })))
 
 function LoadingScreen() {
   return (
@@ -22,14 +32,49 @@ function LoadingScreen() {
   )
 }
 
-function RequireUser() {
-  const { isLoading, user } = useAuth()
+function RouteContentSkeleton() {
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+        <div className="h-4 w-28 rounded-full bg-[var(--panel-soft)]" />
+        <div className="mt-5 h-10 w-64 rounded-2xl bg-[var(--panel-soft)]" />
+        <div className="mt-4 h-5 w-full max-w-xl rounded-2xl bg-[var(--panel-soft)]" />
+      </div>
+      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-8">
+        <div className="h-8 w-40 rounded-2xl bg-[var(--panel-soft)]" />
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="h-28 rounded-[24px] bg-[var(--panel-soft)]" />
+          <div className="h-28 rounded-[24px] bg-[var(--panel-soft)]" />
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  if (isLoading && !user) {
+function RouteGateState({ title, message }) {
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Workspace</p>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{message}</p>
+      </div>
+    </div>
+  )
+}
+
+function PageSuspense({ children }) {
+  return <Suspense fallback={<RouteContentSkeleton />}>{children}</Suspense>
+}
+
+function RequireUser() {
+  const { isLoading, session } = useAuth()
+
+  if (isLoading && !session?.user) {
     return <LoadingScreen />
   }
 
-  if (!user) {
+  if (!session?.user) {
     return <Navigate to="/login" replace />
   }
 
@@ -37,13 +82,13 @@ function RequireUser() {
 }
 
 function PublicOnly() {
-  const { isLoading, user } = useAuth()
+  const { isLoading, session } = useAuth()
 
-  if (isLoading && !user) {
+  if (isLoading && !session?.user) {
     return <LoadingScreen />
   }
 
-  if (user) {
+  if (session?.user) {
     return <Navigate to="/dashboard" replace />
   }
 
@@ -51,14 +96,27 @@ function PublicOnly() {
 }
 
 function RequireManager() {
-  const { isLoading, user } = useAuth()
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
 
-  if (isLoading && !user) {
+  if (isLoading && !session?.user) {
     return <LoadingScreen />
   }
 
-  if (!user) {
+  if (!session?.user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
   }
 
   if (!canAccessApprovals(user)) {
@@ -69,14 +127,27 @@ function RequireManager() {
 }
 
 function RequireFormBuilderAccess() {
-  const { isLoading, user } = useAuth()
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
 
-  if (isLoading && !user) {
+  if (isLoading && !session?.user) {
     return <LoadingScreen />
   }
 
-  if (!user) {
+  if (!session?.user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
   }
 
   if (!canManageFormFields(user)) {
@@ -87,14 +158,27 @@ function RequireFormBuilderAccess() {
 }
 
 function RequireClubSettingsAccess() {
-  const { isLoading, user } = useAuth()
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
 
-  if (isLoading && !user) {
+  if (isLoading && !session?.user) {
     return <LoadingScreen />
   }
 
-  if (!user) {
+  if (!session?.user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
   }
 
   if (!canManageClubSettings(user)) {
@@ -105,14 +189,27 @@ function RequireClubSettingsAccess() {
 }
 
 function RequireUserAccess() {
-  const { isLoading, user } = useAuth()
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
 
-  if (isLoading && !user) {
+  if (isLoading && !session?.user) {
     return <LoadingScreen />
   }
 
-  if (!user) {
+  if (!session?.user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
   }
 
   if (!canManageUsers(user)) {
@@ -128,7 +225,11 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/login',
-        element: <LoginPage />,
+        element: (
+          <PageSuspense>
+            <LoginPage />
+          </PageSuspense>
+        ),
       },
     ],
   },
@@ -144,28 +245,44 @@ export const router = createBrowserRouter([
           },
           {
             path: 'dashboard',
-            element: <DashboardPage />,
+            element: (
+              <PageSuspense>
+                <DashboardPage />
+              </PageSuspense>
+            ),
             handle: {
               title: 'Dashboard',
             },
           },
           {
             path: 'create-evaluation',
-            element: <CreateEvaluationPage />,
+            element: (
+              <PageSuspense>
+                <CreateEvaluationPage />
+              </PageSuspense>
+            ),
             handle: {
               title: 'Create Evaluation',
             },
           },
           {
             path: 'assess-player',
-            element: <CreateEvaluationPage />,
+            element: (
+              <PageSuspense>
+                <CreateEvaluationPage />
+              </PageSuspense>
+            ),
             handle: {
               title: 'Assess Player',
             },
           },
           {
             path: 'create',
-            element: <CreateEvaluationPage />,
+            element: (
+              <PageSuspense>
+                <CreateEvaluationPage />
+              </PageSuspense>
+            ),
             handle: {
               title: 'Create Evaluation',
             },
@@ -175,14 +292,22 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: 'teams',
-                element: <TeamManagementPage />,
+                element: (
+                  <PageSuspense>
+                    <TeamManagementPage />
+                  </PageSuspense>
+                ),
                 handle: {
                   title: 'Teams',
                 },
               },
               {
                 path: 'user-access',
-                element: <UserAccessPage />,
+                element: (
+                  <PageSuspense>
+                    <UserAccessPage />
+                  </PageSuspense>
+                ),
                 handle: {
                   title: 'User Access',
                 },
@@ -194,7 +319,11 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: 'form-builder',
-                element: <FormBuilderPage />,
+                element: (
+                  <PageSuspense>
+                    <FormBuilderPage />
+                  </PageSuspense>
+                ),
                 handle: {
                   title: 'Form Builder',
                 },
@@ -206,7 +335,11 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: 'club-settings',
-                element: <ClubSettingsPage />,
+                element: (
+                  <PageSuspense>
+                    <ClubSettingsPage />
+                  </PageSuspense>
+                ),
                 handle: {
                   title: 'Club Settings',
                 },
@@ -218,7 +351,11 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: 'approvals',
-                element: <ApprovalsPage />,
+                element: (
+                  <PageSuspense>
+                    <ApprovalsPage />
+                  </PageSuspense>
+                ),
                 handle: {
                   title: 'Approvals',
                 },
@@ -227,7 +364,11 @@ export const router = createBrowserRouter([
           },
           {
             path: 'player/:id',
-            element: <PlayerProfile />,
+            element: (
+              <PageSuspense>
+                <PlayerProfile />
+              </PageSuspense>
+            ),
             handle: {
               title: 'Player Profile',
             },
@@ -238,6 +379,10 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <NotFoundPage />,
+    element: (
+      <PageSuspense>
+        <NotFoundPage />
+      </PageSuspense>
+    ),
   },
 ])

@@ -6,7 +6,6 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
-import { buildEvaluationSummary, exportEvaluationPdf } from '../lib/pdf.js'
 import {
   EVALUATION_SECTIONS,
   createEvaluation,
@@ -204,6 +203,19 @@ function formatSessionForDisplay(value) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(normalizedValue))
+}
+
+function buildPreviewSummary({ comments, formResponses }) {
+  const responseEntries = Object.entries(formResponses ?? {})
+
+  if (responseEntries.length > 0) {
+    return responseEntries
+      .slice(0, 4)
+      .map(([label, value]) => `${label}: ${value}`)
+      .join(', ')
+  }
+
+  return comments?.overall || comments?.strengths || comments?.improvements || 'No written summary provided.'
 }
 
 function FieldInput({ field, value, onChange }) {
@@ -569,7 +581,7 @@ export function CreateEvaluationPage() {
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
   const previewSummary = useMemo(
     () =>
-      buildEvaluationSummary({
+      buildPreviewSummary({
         comments,
         formResponses,
       }),
@@ -616,6 +628,8 @@ export function CreateEvaluationPage() {
     setActionErrorMessage('')
 
     try {
+      const { exportEvaluationPdf } = await import('../lib/pdf.js')
+
       await exportEvaluationPdf({
         filename: `${normalizePlayerName(formData.playerName || 'evaluation')}-${mode}.pdf`,
         mode,

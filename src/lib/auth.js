@@ -1,7 +1,16 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { createClubAndManagerProfile, fetchUserProfile, supabase } from './supabase.js'
+import { supabase } from './supabase-client.js'
 
 const AuthContext = createContext(null)
+let authDataModulePromise = null
+
+function loadAuthDataModule() {
+  if (!authDataModulePromise) {
+    authDataModulePromise = import('./supabase.js')
+  }
+
+  return authDataModulePromise
+}
 
 function normalizeName(value) {
   return String(value ?? '')
@@ -144,8 +153,10 @@ export function canViewEvaluation(user, evaluation) {
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
+  const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [authError, setAuthError] = useState('')
   const userRef = useRef(null)
   const hasBootstrappedRef = useRef(false)
@@ -174,7 +185,9 @@ export function AuthProvider({ children }) {
 
       activeSyncIdRef.current += 1
       setSession(null)
+      setAuthUser(null)
       setUser(null)
+      setIsProfileLoading(false)
       setAuthError('')
       finishBootstrap()
     }
@@ -189,22 +202,24 @@ export function AuthProvider({ children }) {
       const nextUserId = String(nextSession.user?.id ?? '')
       const currentUserId = String(userRef.current?.id ?? '')
       const isSameUser = Boolean(currentUserId) && Boolean(nextUserId) && currentUserId === nextUserId
+      const shouldLoadProfile = !options.background || !isSameUser || !userRef.current
 
       try {
+        setSession(nextSession)
+        setAuthUser(nextSession.user)
+        if (shouldLoadProfile) {
+          setIsProfileLoading(true)
+        }
+
+        const { fetchUserProfile } = await loadAuthDataModule()
         const profile = await fetchUserProfile(nextSession.user)
 
         if (!isMounted || activeSyncIdRef.current !== syncId) {
           return
         }
 
-        setSession((currentSession) => {
-          if (options.background && isSameUser && currentSession) {
-            return currentSession
-          }
-
-          return nextSession
-        })
         setUser((currentUser) => (areUsersEquivalent(currentUser, profile) ? currentUser : profile))
+        setIsProfileLoading(false)
         setAuthError('')
       } catch (error) {
         console.error(error)
@@ -213,16 +228,10 @@ export function AuthProvider({ children }) {
           return
         }
 
-        setSession((currentSession) => {
-          if (options.background && isSameUser && currentSession) {
-            return currentSession
-          }
-
-          return nextSession
-        })
         if (!(options.background && isSameUser)) {
           setUser(null)
         }
+        setIsProfileLoading(false)
         setAuthError(error.message || 'Could not load user profile.')
       } finally {
         finishBootstrap()
@@ -334,6 +343,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
+      const { createClubAndManagerProfile, fetchUserProfile } = await loadAuthDataModule()
       const profile = String(clubName ?? '').trim()
         ? await createClubAndManagerProfile({
             authUser: data.user,
@@ -342,7 +352,9 @@ export function AuthProvider({ children }) {
         : await fetchUserProfile(data.user)
 
       setSession(data.session ?? null)
+      setAuthUser(data.user)
       setUser(profile)
+      setIsProfileLoading(false)
       setAuthError('')
     } catch (profileError) {
       console.error(profileError)
@@ -382,15 +394,17 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       session,
+      authUser,
       user,
       isLoading,
+      isProfileLoading,
       authError,
       signInWithPassword,
       signUpWithClub,
       signOut,
       updateCurrentClubDetails,
     }),
-    [authError, isLoading, session, user],
+    [authError, authUser, isLoading, isProfileLoading, session, user],
   )
 
   return createElement(AuthContext.Provider, { value }, children)

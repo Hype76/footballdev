@@ -1,29 +1,15 @@
-import { createClient } from '@supabase/supabase-js'
-
-const fallbackSupabaseUrl = 'https://placeholder.supabase.co'
-const fallbackSupabaseAnonKey = 'placeholder-anon-key'
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || fallbackSupabaseUrl
-const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  fallbackSupabaseAnonKey
-
-if (
-  !import.meta.env.VITE_SUPABASE_URL ||
-  (!import.meta.env.VITE_SUPABASE_ANON_KEY && !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY)
-) {
-  console.error(
-    'Supabase environment variables are missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY or VITE_SUPABASE_PUBLISHABLE_KEY.',
-  )
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-export const CLUB_LOGOS_BUCKET = 'club-logos'
-export const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024
-export const EVALUATION_SECTIONS = ['Trial', 'Squad']
-export const REQUEST_TIMEOUT_MS = 8000
+import {
+  CLUB_LOGOS_BUCKET,
+  EVALUATION_SECTIONS,
+  MAX_LOGO_FILE_SIZE_BYTES,
+  REQUEST_TIMEOUT_MS,
+  supabase,
+} from './supabase-client.js'
+export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from './supabase-client.js'
 const VIEW_CACHE_PREFIX = 'view-cache:'
+const MEMORY_CACHE_TTL_MS = 30 * 1000
+const memoryCache = new Map()
+const inFlightMemoryRequests = new Map()
 
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Admin', rank: 90, isSystem: true },
@@ -115,6 +101,79 @@ const DEFAULT_FORM_FIELDS = [
     isEnabled: true,
   },
 ]
+
+function readMemoryCache(key) {
+  if (!key) {
+    return null
+  }
+
+  const cachedEntry = memoryCache.get(key)
+
+  if (!cachedEntry) {
+    return null
+  }
+
+  if (cachedEntry.expiresAt <= Date.now()) {
+    memoryCache.delete(key)
+    return null
+  }
+
+  return cachedEntry.value
+}
+
+function writeMemoryCache(key, value, ttlMs = MEMORY_CACHE_TTL_MS) {
+  if (!key) {
+    return value
+  }
+
+  memoryCache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs,
+  })
+  return value
+}
+
+function invalidateMemoryCacheByPrefix(prefix) {
+  if (!prefix) {
+    return
+  }
+
+  Array.from(memoryCache.keys()).forEach((key) => {
+    if (key.startsWith(prefix)) {
+      memoryCache.delete(key)
+    }
+  })
+
+  Array.from(inFlightMemoryRequests.keys()).forEach((key) => {
+    if (key.startsWith(prefix)) {
+      inFlightMemoryRequests.delete(key)
+    }
+  })
+}
+
+async function getCachedResource(cacheKey, task, ttlMs = MEMORY_CACHE_TTL_MS) {
+  const cachedValue = readMemoryCache(cacheKey)
+
+  if (cachedValue !== null) {
+    return cachedValue
+  }
+
+  const pendingRequest = inFlightMemoryRequests.get(cacheKey)
+
+  if (pendingRequest) {
+    return pendingRequest
+  }
+
+  const nextRequest = Promise.resolve()
+    .then(task)
+    .then((value) => writeMemoryCache(cacheKey, value, ttlMs))
+    .finally(() => {
+      inFlightMemoryRequests.delete(cacheKey)
+    })
+
+  inFlightMemoryRequests.set(cacheKey, nextRequest)
+  return nextRequest
+}
 
 function normalizeWords(value) {
   return String(value ?? '')
@@ -576,18 +635,20 @@ async function fetchClubDetails(clubId) {
     return null
   }
 
-  const { data, error } = await supabase
-    .from('clubs')
-    .select('id, name, logo_url, contact_email, contact_phone, require_approval')
-    .eq('id', clubId)
-    .maybeSingle()
+  return getCachedResource(`club:${clubId}`, async () => {
+    const { data, error } = await supabase
+      .from('clubs')
+      .select('id, name, logo_url, contact_email, contact_phone, require_approval')
+      .eq('id', clubId)
+      .maybeSingle()
 
-  if (error) {
-    console.error(error)
-    throw error
-  }
+    if (error) {
+      console.error(error)
+      throw error
+    }
 
-  return data
+    return data
+  })
 }
 
 export function normalizeUserProfile(profile) {
@@ -659,46 +720,54 @@ async function claimInvitedUserProfile(authUser) {
 }
 
 export async function fetchUserProfile(authUser) {
-  const loadUserRow = async () => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, email, name, role, role_label, role_rank, club_id')
-      .eq('id', authUser.id)
-      .maybeSingle()
+  const cacheKey = `user-profile:${authUser?.id || ''}`
 
-    if (error) {
-      console.error(error)
-      throw error
-    }
-
-    return data
-  }
-
-  let data = await loadUserRow()
-
-  if (!data) {
-    await claimInvitedUserProfile(authUser)
-    data = await loadUserRow()
-  }
-
-  if (!data) {
+  if (!authUser?.id) {
     throw new Error('User profile not found.')
   }
 
-  let clubData = null
+  return getCachedResource(cacheKey, async () => {
+    const loadUserRow = async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, name, role, role_label, role_rank, club_id')
+        .eq('id', authUser.id)
+        .maybeSingle()
 
-  if (data.club_id) {
-    try {
-      clubData = await fetchClubDetails(data.club_id)
-    } catch (error) {
-      console.error(error)
+      if (error) {
+        console.error(error)
+        throw error
+      }
+
+      return data
     }
-  }
 
-  return normalizeUserProfile({
-    ...data,
-    clubs: clubData,
-    email: data.email || authUser.email,
+    let data = await loadUserRow()
+
+    if (!data) {
+      await claimInvitedUserProfile(authUser)
+      data = await loadUserRow()
+    }
+
+    if (!data) {
+      throw new Error('User profile not found.')
+    }
+
+    let clubData = null
+
+    if (data.club_id) {
+      try {
+        clubData = await fetchClubDetails(data.club_id)
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    return normalizeUserProfile({
+      ...data,
+      clubs: clubData,
+      email: data.email || authUser.email,
+    })
   })
 }
 
@@ -747,7 +816,7 @@ export async function getClubSettings(clubId) {
     throw new Error('Club ID is required.')
   }
 
-  const data = await fetchClubDetails(clubId)
+  const data = await getCachedResource(`club-settings:${clubId}`, () => fetchClubDetails(clubId))
 
   if (!data) {
     throw new Error('Club not found.')
@@ -787,6 +856,10 @@ export async function updateClubSettings({ clubId, data }) {
     console.error(error)
     throw error
   }
+
+  invalidateMemoryCacheByPrefix(`club:${clubId}`)
+  invalidateMemoryCacheByPrefix(`club-settings:${clubId}`)
+  invalidateMemoryCacheByPrefix('user-profile:')
 
   return {
     id: updatedClub.id,
@@ -906,19 +979,21 @@ export async function getClubUsers(user) {
     return []
   }
 
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, email, name, role, role_label, role_rank, club_id')
-    .eq('club_id', user.clubId)
-    .order('role_rank', { ascending: false })
-    .order('email', { ascending: true })
+  return getCachedResource(`club-users:${user.clubId}`, async () => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, role_label, role_rank, club_id')
+      .eq('club_id', user.clubId)
+      .order('role_rank', { ascending: false })
+      .order('email', { ascending: true })
 
-  if (error) {
-    console.error(error)
-    throw error
-  }
+    if (error) {
+      console.error(error)
+      throw error
+    }
 
-  return (data ?? []).map((profile) => normalizeUserProfile(profile))
+    return (data ?? []).map((profile) => normalizeUserProfile(profile))
+  })
 }
 
 export async function getClubUserInvites(user) {
@@ -963,20 +1038,24 @@ export async function getTeams(user) {
     return []
   }
 
-  let query = supabase.from('teams').select('*').order('name', { ascending: true })
+  const cacheKey = user.role === 'super_admin' ? 'teams:super-admin' : `teams:${user.clubId}`
 
-  if (user.role !== 'super_admin') {
-    query = query.eq('club_id', user.clubId)
-  }
+  return getCachedResource(cacheKey, async () => {
+    let query = supabase.from('teams').select('*').order('name', { ascending: true })
 
-  const { data, error } = await query
+    if (user.role !== 'super_admin') {
+      query = query.eq('club_id', user.clubId)
+    }
 
-  if (error) {
-    console.error(error)
-    throw error
-  }
+    const { data, error } = await query
 
-  return (data ?? []).map(normalizeTeamRow)
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map(normalizeTeamRow)
+  })
 }
 
 export async function getAvailableTeamsForUser(user) {
@@ -992,35 +1071,37 @@ export async function getAvailableTeamsForUser(user) {
     return []
   }
 
-  const { data: assignmentRows, error: assignmentError } = await supabase
-    .from('team_staff')
-    .select('team_id')
-    .eq('user_id', user.id)
+  return getCachedResource(`available-teams:${user.id}:${user.clubId}`, async () => {
+    const { data: assignmentRows, error: assignmentError } = await supabase
+      .from('team_staff')
+      .select('team_id')
+      .eq('user_id', user.id)
 
-  if (assignmentError) {
-    console.error(assignmentError)
-    throw assignmentError
-  }
+    if (assignmentError) {
+      console.error(assignmentError)
+      throw assignmentError
+    }
 
-  const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
+    const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
 
-  if (teamIds.length === 0) {
-    return []
-  }
+    if (teamIds.length === 0) {
+      return []
+    }
 
-  const { data, error } = await supabase
-    .from('teams')
-    .select('*')
-    .eq('club_id', user.clubId)
-    .in('id', teamIds)
-    .order('name', { ascending: true })
+    const { data, error } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .in('id', teamIds)
+      .order('name', { ascending: true })
 
-  if (error) {
-    console.error(error)
-    throw error
-  }
+    if (error) {
+      console.error(error)
+      throw error
+    }
 
-  return (data ?? []).map(normalizeTeamRow)
+    return (data ?? []).map(normalizeTeamRow)
+  })
 }
 
 export async function createTeam({ user, name }) {
@@ -1042,6 +1123,9 @@ export async function createTeam({ user, name }) {
     throw error
   }
 
+  invalidateMemoryCacheByPrefix(`teams:${user.clubId}`)
+  invalidateMemoryCacheByPrefix('available-teams:')
+
   return normalizeTeamRow(data)
 }
 
@@ -1052,6 +1136,10 @@ export async function deleteTeam(teamId) {
     console.error(error)
     throw error
   }
+
+  invalidateMemoryCacheByPrefix('teams:')
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
 }
 
 export async function getTeamStaffAssignments(user) {
@@ -1062,17 +1150,19 @@ export async function getTeamStaffAssignments(user) {
   }
 
   const teamIds = teams.map((team) => team.id)
-  const { data, error } = await supabase
-    .from('team_staff')
-    .select('*')
-    .in('team_id', teamIds)
+  return getCachedResource(`team-assignments:${user.clubId || user.id}`, async () => {
+    const { data, error } = await supabase
+      .from('team_staff')
+      .select('*')
+      .in('team_id', teamIds)
 
-  if (error) {
-    console.error(error)
-    throw error
-  }
+    if (error) {
+      console.error(error)
+      throw error
+    }
 
-  return (data ?? []).map(normalizeTeamStaffRow)
+    return (data ?? []).map(normalizeTeamStaffRow)
+  })
 }
 
 export async function replaceTeamStaffAssignments(teamId, userIds) {
@@ -1098,6 +1188,9 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
     console.error(error)
     throw error
   }
+
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
 
   return (data ?? []).map(normalizeTeamStaffRow)
 }
@@ -1147,6 +1240,9 @@ export async function bulkCopyTeamStaff({ sourceTeamId, targetTeamIds, selectedU
       }
     }),
   )
+
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
 }
 
 export async function assignClubUserRole({ user, email, role }) {
