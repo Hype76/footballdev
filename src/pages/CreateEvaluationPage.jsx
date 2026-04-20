@@ -14,6 +14,7 @@ import {
   getDefaultFormFields,
   getFormFields,
   readViewCache,
+  readViewCacheValue,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -299,13 +300,22 @@ export function CreateEvaluationPage() {
   const hasInitializedRef = useRef(false)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
+  const searchParamsKey = searchParams.toString()
+  const teamsCacheKey = user ? `assessment-teams:${user.id}:${user.clubId || 'platform'}` : ''
+  const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}` : ''
+  const cachedTeams = readViewCacheValue(teamsCacheKey, 'availableTeams', [])
+  const cachedFields = readViewCache(fieldsCacheKey)
   const [formData, setFormData] = useState(() => createInitialFormData(user))
-  const [dynamicFields, setDynamicFields] = useState([])
-  const [availableTeams, setAvailableTeams] = useState([])
+  const [dynamicFields, setDynamicFields] = useState(() => {
+    const nextCachedFields = Array.isArray(cachedFields?.dynamicFields) ? cachedFields.dynamicFields : []
+    return nextCachedFields
+  })
+  const [availableTeams, setAvailableTeams] = useState(() => (Array.isArray(cachedTeams) ? cachedTeams : []))
   const [responseValues, setResponseValues] = useState({})
-  const [isFallbackFields, setIsFallbackFields] = useState(false)
-  const [isLoadingFields, setIsLoadingFields] = useState(true)
-  const [isLoadingTeams, setIsLoadingTeams] = useState(true)
+  const [isFallbackFields, setIsFallbackFields] = useState(() => Boolean(cachedFields?.isFallbackFields))
+  const [isLoadingFields, setIsLoadingFields] = useState(() => !cachedFields?.dynamicFields)
+  const [isLoadingTeams, setIsLoadingTeams] = useState(() => !cachedTeams?.length)
   const [isSaved, setIsSaved] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
@@ -314,8 +324,6 @@ export function CreateEvaluationPage() {
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
   const [errorMessage, setErrorMessage] = useState('')
-  const teamsCacheKey = user ? `assessment-teams:${user.id}:${user.clubId || 'platform'}` : ''
-  const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}` : ''
 
   const draftStorageKey = getDraftStorageKey(user)
 
@@ -352,16 +360,11 @@ export function CreateEvaluationPage() {
     )
     setLastUsedSession(nextSessionValue)
     hasInitializedRef.current = true
-  }, [draftStorageKey, searchParams, user])
+  }, [draftStorageKey, searchParamsKey, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
-    const cachedTeams = readViewCache(teamsCacheKey)
-
-    if (cachedTeams?.availableTeams) {
-      setAvailableTeams(Array.isArray(cachedTeams.availableTeams) ? cachedTeams.availableTeams : [])
-      setIsLoadingTeams(false)
-    }
+    const cachedTeamsValue = readViewCacheValue(teamsCacheKey, 'availableTeams', [])
 
     const loadTeams = async () => {
       if (!user || isPlatformOwner) {
@@ -410,7 +413,7 @@ export function CreateEvaluationPage() {
         console.error(error)
 
         if (isMounted) {
-          if (!cachedTeams?.availableTeams) {
+          if (!cachedTeamsValue?.length) {
             setAvailableTeams([])
           }
           setErrorMessage(error.message || 'Could not load teams.')
@@ -427,23 +430,11 @@ export function CreateEvaluationPage() {
     return () => {
       isMounted = false
     }
-  }, [isPlatformOwner, searchParams, teamsCacheKey, user])
+  }, [isPlatformOwner, searchParamsKey, teamsCacheKey, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
-    const cachedFields = readViewCache(fieldsCacheKey)
-
-    if (cachedFields?.dynamicFields) {
-      const nextCachedFields = Array.isArray(cachedFields.dynamicFields) ? cachedFields.dynamicFields : []
-      setDynamicFields(nextCachedFields)
-      setResponseValues((current) => {
-        const emptyValues = createEmptyResponseValues(nextCachedFields)
-
-        return Object.fromEntries(Object.keys(emptyValues).map((key) => [key, current[key] ?? '']))
-      })
-      setIsFallbackFields(Boolean(cachedFields.isFallbackFields))
-      setIsLoadingFields(false)
-    }
+    const cachedFieldsValue = readViewCache(fieldsCacheKey)
 
     const loadFields = async () => {
       if (!user || isPlatformOwner) {
@@ -481,7 +472,7 @@ export function CreateEvaluationPage() {
 
         if (isMounted) {
           const fallbackFields = getDefaultFormFields()
-          if (!cachedFields?.dynamicFields) {
+          if (!cachedFieldsValue?.dynamicFields) {
             setDynamicFields(fallbackFields)
             setResponseValues(createEmptyResponseValues(fallbackFields))
             setIsFallbackFields(true)
@@ -500,7 +491,7 @@ export function CreateEvaluationPage() {
     return () => {
       isMounted = false
     }
-  }, [fieldsCacheKey, isPlatformOwner, user])
+  }, [fieldsCacheKey, isPlatformOwner, user, userScopeKey])
 
   useEffect(() => {
     if (!isSaved) {

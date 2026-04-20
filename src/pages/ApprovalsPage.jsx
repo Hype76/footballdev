@@ -4,7 +4,14 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAccessApprovals, useAuth } from '../lib/auth.js'
-import { getEvaluations, readViewCache, updateEvaluationStatus, withRequestTimeout, writeViewCache } from '../lib/supabase.js'
+import {
+  getEvaluations,
+  readViewCache,
+  readViewCacheValue,
+  updateEvaluationStatus,
+  withRequestTimeout,
+  writeViewCache,
+} from '../lib/supabase.js'
 
 function getScoreSummary(scores = {}) {
   return Object.entries(scores)
@@ -14,21 +21,20 @@ function getScoreSummary(scores = {}) {
 
 export function ApprovalsPage() {
   const { user } = useAuth()
+  const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
+  const cacheKey = user ? `approvals:${user.id}:${user.clubId || 'platform'}` : ''
   const [selectedTeam, setSelectedTeam] = useState('All')
-  const [submittedEvaluations, setSubmittedEvaluations] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [submittedEvaluations, setSubmittedEvaluations] = useState(() => {
+    const cachedEvaluations = readViewCacheValue(cacheKey, 'submittedEvaluations', [])
+    return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
+  })
+  const [isLoading, setIsLoading] = useState(() => submittedEvaluations.length === 0)
   const [isUpdatingId, setIsUpdatingId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
-  const cacheKey = user ? `approvals:${user.id}:${user.clubId || 'platform'}` : ''
 
   useEffect(() => {
     let isMounted = true
     const cachedValue = readViewCache(cacheKey)
-
-    if (cachedValue?.submittedEvaluations) {
-      setSubmittedEvaluations(Array.isArray(cachedValue.submittedEvaluations) ? cachedValue.submittedEvaluations : [])
-      setIsLoading(false)
-    }
 
     const loadSubmittedEvaluations = async () => {
       setErrorMessage('')
@@ -74,7 +80,7 @@ export function ApprovalsPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, user])
+  }, [cacheKey, user, userScopeKey])
 
   if (!canAccessApprovals(user)) {
     return <Navigate to="/dashboard" replace />

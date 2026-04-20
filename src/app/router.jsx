@@ -25,7 +25,7 @@ function LoadingScreen() {
 function RequireUser() {
   const { isLoading, user } = useAuth()
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return <LoadingScreen />
   }
 
@@ -39,7 +39,7 @@ function RequireUser() {
 function PublicOnly() {
   const { isLoading, user } = useAuth()
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return <LoadingScreen />
   }
 
@@ -53,7 +53,7 @@ function PublicOnly() {
 function RequireManager() {
   const { isLoading, user } = useAuth()
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return <LoadingScreen />
   }
 
@@ -71,7 +71,7 @@ function RequireManager() {
 function RequireFormBuilderAccess() {
   const { isLoading, user } = useAuth()
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return <LoadingScreen />
   }
 
@@ -89,7 +89,7 @@ function RequireFormBuilderAccess() {
 function RequireClubSettingsAccess() {
   const { isLoading, user } = useAuth()
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return <LoadingScreen />
   }
 
@@ -107,7 +107,7 @@ function RequireClubSettingsAccess() {
 function RequireUserAccess() {
   const { isLoading, user } = useAuth()
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return <LoadingScreen />
   }
 

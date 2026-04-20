@@ -8,8 +8,11 @@ import {
   deleteFormField,
   getDefaultFormFields,
   getConfiguredFormFields,
+  readViewCache,
+  readViewCacheValue,
   reorderFormFields,
   updateFormField,
+  writeViewCache,
 } from '../lib/supabase.js'
 
 const FIELD_TYPE_OPTIONS = [
@@ -76,18 +79,29 @@ function createDraftMap(fields) {
 export function FormBuilderPage() {
   const { user } = useAuth()
   const defaultTemplateFields = getDefaultFormFields()
-  const [fields, setFields] = useState([])
-  const [fieldDrafts, setFieldDrafts] = useState({})
-  const [fieldForm, setFieldForm] = useState(initialFieldForm)
-  const [isLoading, setIsLoading] = useState(true)
+  const cacheKey = user?.clubId ? `form-builder:${user.clubId}` : ''
+  const cachedBuilderState = readViewCache(cacheKey)
+  const [fields, setFields] = useState(() => {
+    const cachedFields = readViewCacheValue(cacheKey, 'fields', [])
+    return Array.isArray(cachedFields) ? cachedFields : []
+  })
+  const [fieldDrafts, setFieldDrafts] = useState(() => {
+    const cachedDrafts = readViewCacheValue(cacheKey, 'fieldDrafts', null)
+    return cachedDrafts && typeof cachedDrafts === 'object' ? cachedDrafts : {}
+  })
+  const [fieldForm, setFieldForm] = useState(() => {
+    const cachedFieldForm = cachedBuilderState?.fieldForm
+    return cachedFieldForm && typeof cachedFieldForm === 'object' ? { ...initialFieldForm, ...cachedFieldForm } : initialFieldForm
+  })
+  const [isLoading, setIsLoading] = useState(() => fields.length === 0)
   const [isSaving, setIsSaving] = useState(false)
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
     let isMounted = true
+    const cachedValue = readViewCache(cacheKey)
 
     const loadFields = async () => {
-      setIsLoading(true)
-
       try {
         const nextFields = await getConfiguredFormFields({ user })
 
@@ -97,12 +111,18 @@ export function FormBuilderPage() {
 
         setFields(nextFields)
         setFieldDrafts(createDraftMap(nextFields))
+        writeViewCache(cacheKey, {
+          fields: nextFields,
+          fieldDrafts: createDraftMap(nextFields),
+        })
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setFields([])
-          setFieldDrafts({})
+          if (!cachedValue?.fields) {
+            setFields([])
+            setFieldDrafts({})
+          }
         }
       } finally {
         if (isMounted) {
@@ -118,7 +138,19 @@ export function FormBuilderPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [cacheKey, user, userScopeKey])
+
+  useEffect(() => {
+    if (!cacheKey) {
+      return
+    }
+
+    writeViewCache(cacheKey, {
+      fields,
+      fieldDrafts,
+      fieldForm,
+    })
+  }, [cacheKey, fieldDrafts, fieldForm, fields])
 
   const refreshFields = async () => {
     setIsSaving(true)
@@ -182,8 +214,13 @@ export function FormBuilderPage() {
   }
 
   const syncFields = (nextFields) => {
+    const nextDraftMap = createDraftMap(nextFields)
     setFields(nextFields)
-    setFieldDrafts(createDraftMap(nextFields))
+    setFieldDrafts(nextDraftMap)
+    writeViewCache(cacheKey, {
+      fields: nextFields,
+      fieldDrafts: nextDraftMap,
+    })
   }
 
   const handleAddField = async (event) => {

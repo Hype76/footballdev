@@ -10,6 +10,7 @@ import {
   deleteTeam,
   getClubUsers,
   readViewCache,
+  readViewCacheValue,
   getTeamStaffAssignments,
   getTeams,
   replaceTeamStaffAssignments,
@@ -19,30 +20,32 @@ import {
 
 export function TeamManagementPage() {
   const { user } = useAuth()
-  const [teams, setTeams] = useState([])
-  const [users, setUsers] = useState([])
-  const [assignments, setAssignments] = useState([])
+  const cacheKey = user?.clubId ? `team-management:${user.clubId}` : ''
+  const [teams, setTeams] = useState(() => {
+    const cachedTeams = readViewCacheValue(cacheKey, 'teams', [])
+    return Array.isArray(cachedTeams) ? cachedTeams : []
+  })
+  const [users, setUsers] = useState(() => {
+    const cachedUsers = readViewCacheValue(cacheKey, 'users', [])
+    return Array.isArray(cachedUsers) ? cachedUsers : []
+  })
+  const [assignments, setAssignments] = useState(() => {
+    const cachedAssignments = readViewCacheValue(cacheKey, 'assignments', [])
+    return Array.isArray(cachedAssignments) ? cachedAssignments : []
+  })
   const [newTeamName, setNewTeamName] = useState('')
-  const [copySourceTeamId, setCopySourceTeamId] = useState('')
+  const [copySourceTeamId, setCopySourceTeamId] = useState(() => readViewCacheValue(cacheKey, 'copySourceTeamId', ''))
   const [copyTargetTeamIds, setCopyTargetTeamIds] = useState([])
   const [copySelectedUserIds, setCopySelectedUserIds] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const cacheKey = user?.clubId ? `team-management:${user.clubId}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
     let isMounted = true
     const cachedValue = readViewCache(cacheKey)
-
-    if (cachedValue) {
-      setTeams(Array.isArray(cachedValue.teams) ? cachedValue.teams : [])
-      setUsers(Array.isArray(cachedValue.users) ? cachedValue.users : [])
-      setAssignments(Array.isArray(cachedValue.assignments) ? cachedValue.assignments : [])
-      setCopySourceTeamId(cachedValue.copySourceTeamId || '')
-      setIsLoading(false)
-    }
 
     const loadData = async () => {
       setErrorMessage('')
@@ -104,7 +107,7 @@ export function TeamManagementPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, user])
+  }, [cacheKey, user, userScopeKey])
 
   if (!canManageUsers(user)) {
     return <Navigate to="/dashboard" replace />

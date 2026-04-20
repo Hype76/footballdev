@@ -9,6 +9,7 @@ import {
   MAX_LOGO_FILE_SIZE_BYTES,
   getClubSettings,
   readViewCache,
+  readViewCacheValue,
   updateClubSettings,
   uploadClubLogo,
   withRequestTimeout,
@@ -27,24 +28,23 @@ function createInitialFormData() {
 
 export function ClubSettingsPage() {
   const { updateCurrentClubDetails, user } = useAuth()
-  const [formData, setFormData] = useState(createInitialFormData)
-  const [isLoading, setIsLoading] = useState(true)
+  const cacheKey = user?.clubId ? `club-settings:${user.clubId}` : ''
+  const [formData, setFormData] = useState(() => readViewCacheValue(cacheKey, 'formData', createInitialFormData()))
+  const [isLoading, setIsLoading] = useState(() => {
+    const cachedFormData = readViewCacheValue(cacheKey, 'formData', null)
+    return !cachedFormData
+  })
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedLogoFile, setSelectedLogoFile] = useState(null)
-  const cacheKey = user?.clubId ? `club-settings:${user.clubId}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
     let isMounted = true
     const cachedValue = readViewCache(cacheKey)
-
-    if (cachedValue?.formData) {
-      setFormData(cachedValue.formData)
-      setIsLoading(false)
-    }
 
     const loadClubSettings = async () => {
       if (!user?.clubId) {
@@ -101,7 +101,7 @@ export function ClubSettingsPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, user])
+  }, [cacheKey, user, userScopeKey])
 
   useEffect(() => {
     if (!isSaved) {

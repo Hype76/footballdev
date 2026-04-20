@@ -7,7 +7,14 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
 import { buildEvaluationSummary, exportEvaluationPdf } from '../lib/pdf.js'
-import { deletePlayer, getEvaluations, readViewCache, withRequestTimeout, writeViewCache } from '../lib/supabase.js'
+import {
+  deletePlayer,
+  getEvaluations,
+  readViewCache,
+  readViewCacheValue,
+  withRequestTimeout,
+  writeViewCache,
+} from '../lib/supabase.js'
 
 function buildParentEmailLink(playerName, evaluation) {
   if (!evaluation.parentEmail) {
@@ -36,21 +43,20 @@ export function PlayerProfile() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const routePlayerName = decodeURIComponent(id)
-  const [evaluations, setEvaluations] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${routePlayerName}` : ''
+  const [evaluations, setEvaluations] = useState(() => {
+    const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
+    return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
+  })
+  const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
   const [isDeleting, setIsDeleting] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${routePlayerName}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
     let isMounted = true
     const cachedValue = readViewCache(cacheKey)
-
-    if (cachedValue?.evaluations) {
-      setEvaluations(Array.isArray(cachedValue.evaluations) ? cachedValue.evaluations : [])
-      setIsLoading(false)
-    }
 
     const loadEvaluations = async () => {
       setErrorMessage('')
@@ -96,7 +102,7 @@ export function PlayerProfile() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, routePlayerName, user])
+  }, [cacheKey, routePlayerName, user, userScopeKey])
 
   const scoredEvaluations = useMemo(
     () => evaluations.filter((evaluation) => evaluation.averageScore !== null),

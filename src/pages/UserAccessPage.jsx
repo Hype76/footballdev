@@ -12,6 +12,7 @@ import {
   getClubUserInvites,
   getClubUsers,
   readViewCache,
+  readViewCacheValue,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -24,26 +25,29 @@ const initialFormState = {
 
 export function UserAccessPage() {
   const { user } = useAuth()
-  const [roles, setRoles] = useState([])
-  const [members, setMembers] = useState([])
-  const [pendingInvites, setPendingInvites] = useState([])
+  const cacheKey = user?.clubId ? `user-access:${user.clubId}` : ''
+  const [roles, setRoles] = useState(() => {
+    const cachedRoles = readViewCacheValue(cacheKey, 'roles', [])
+    return Array.isArray(cachedRoles) ? cachedRoles : []
+  })
+  const [members, setMembers] = useState(() => {
+    const cachedMembers = readViewCacheValue(cacheKey, 'members', [])
+    return Array.isArray(cachedMembers) ? cachedMembers : []
+  })
+  const [pendingInvites, setPendingInvites] = useState(() => {
+    const cachedInvites = readViewCacheValue(cacheKey, 'pendingInvites', [])
+    return Array.isArray(cachedInvites) ? cachedInvites : []
+  })
   const [formState, setFormState] = useState(initialFormState)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(() => roles.length === 0 && members.length === 0 && pendingInvites.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const cacheKey = user?.clubId ? `user-access:${user.clubId}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
     let isMounted = true
     const cachedValue = readViewCache(cacheKey)
-
-    if (cachedValue) {
-      setRoles(Array.isArray(cachedValue.roles) ? cachedValue.roles : [])
-      setMembers(Array.isArray(cachedValue.members) ? cachedValue.members : [])
-      setPendingInvites(Array.isArray(cachedValue.pendingInvites) ? cachedValue.pendingInvites : [])
-      setIsLoading(false)
-    }
 
     const loadAccessData = async () => {
       setErrorMessage('')
@@ -107,7 +111,7 @@ export function UserAccessPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, user])
+  }, [cacheKey, user, userScopeKey])
 
   if (!canManageUsers(user)) {
     return <Navigate to="/dashboard" replace />

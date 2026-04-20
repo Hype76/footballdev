@@ -148,6 +148,8 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
   const [authError, setAuthError] = useState('')
   const userRef = useRef(null)
+  const hasBootstrappedRef = useRef(false)
+  const activeSyncIdRef = useRef(0)
 
   useEffect(() => {
     userRef.current = user
@@ -156,86 +158,135 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let isMounted = true
 
-    const syncSession = async (nextSession, options = {}) => {
+    const finishBootstrap = () => {
+      if (!isMounted || hasBootstrappedRef.current) {
+        return
+      }
+
+      hasBootstrappedRef.current = true
+      setIsLoading(false)
+    }
+
+    const applySignedOutState = () => {
       if (!isMounted) {
         return
       }
 
-      const nextUserId = String(nextSession?.user?.id ?? '')
-      const currentUserId = String(userRef.current?.id ?? '')
-      const shouldKeepCurrentView =
-        options.background === true &&
-        Boolean(currentUserId) &&
-        Boolean(nextUserId) &&
-        currentUserId === nextUserId
+      activeSyncIdRef.current += 1
+      setSession(null)
+      setUser(null)
+      setAuthError('')
+      finishBootstrap()
+    }
 
-      if (!shouldKeepCurrentView) {
-        setIsLoading(true)
-      }
-
-      if (!nextSession?.user) {
-        setSession(null)
-        setUser(null)
-        setAuthError('')
-        setIsLoading(false)
+    const syncAuthenticatedSession = async (nextSession, options = {}) => {
+      if (!isMounted || !nextSession?.user) {
         return
       }
+
+      const syncId = activeSyncIdRef.current + 1
+      activeSyncIdRef.current = syncId
+      const nextUserId = String(nextSession.user?.id ?? '')
+      const currentUserId = String(userRef.current?.id ?? '')
+      const isSameUser = Boolean(currentUserId) && Boolean(nextUserId) && currentUserId === nextUserId
 
       try {
         const profile = await fetchUserProfile(nextSession.user)
 
-        if (!isMounted) {
+        if (!isMounted || activeSyncIdRef.current !== syncId) {
           return
         }
 
-        setSession(nextSession)
+        setSession((currentSession) => {
+          if (options.background && isSameUser && currentSession) {
+            return currentSession
+          }
+
+          return nextSession
+        })
         setUser((currentUser) => (areUsersEquivalent(currentUser, profile) ? currentUser : profile))
         setAuthError('')
       } catch (error) {
         console.error(error)
 
-        if (!isMounted) {
+        if (!isMounted || activeSyncIdRef.current !== syncId) {
           return
         }
 
-        setSession(nextSession)
-        if (!shouldKeepCurrentView) {
+        setSession((currentSession) => {
+          if (options.background && isSameUser && currentSession) {
+            return currentSession
+          }
+
+          return nextSession
+        })
+        if (!(options.background && isSameUser)) {
           setUser(null)
         }
         setAuthError(error.message || 'Could not load user profile.')
       } finally {
-        if (isMounted && !shouldKeepCurrentView) {
-          setIsLoading(false)
-        }
+        finishBootstrap()
       }
     }
 
-    supabase.auth
-      .getSession()
-      .then(({ data, error }) => {
+    const bootstrapAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession()
+
         if (error) {
           console.error(error)
+
           if (isMounted) {
             setAuthError(error.message || 'Could not restore your session.')
           }
+
+          applySignedOutState()
+          return
         }
 
-        return syncSession(data?.session ?? null)
-      })
-      .catch((error) => {
+        if (!data?.session?.user) {
+          applySignedOutState()
+          return
+        }
+
+        await syncAuthenticatedSession(data.session)
+      } catch (error) {
         console.error(error)
+
         if (isMounted) {
           setAuthError(error.message || 'Could not restore your session.')
-          setIsLoading(false)
         }
-      })
+
+        applySignedOutState()
+      }
+    }
+
+    void bootstrapAuth()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'INITIAL_SESSION') {
+        return
+      }
+
       window.setTimeout(() => {
-        void syncSession(nextSession, {
-          background: event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED',
+        if (!nextSession?.user) {
+          applySignedOutState()
+          return
+        }
+
+        const nextUserId = String(nextSession.user?.id ?? '')
+        const currentUserId = String(userRef.current?.id ?? '')
+        const isSameUser = Boolean(currentUserId) && Boolean(nextUserId) && currentUserId === nextUserId
+        const isBackgroundEvent =
+          // Supabase can emit SIGNED_IN again when a tab regains focus for the same user.
+          event === 'TOKEN_REFRESHED' ||
+          event === 'USER_UPDATED' ||
+          (event === 'SIGNED_IN' && isSameUser)
+
+        void syncAuthenticatedSession(nextSession, {
+          background: isBackgroundEvent,
         })
       }, 0)
     })

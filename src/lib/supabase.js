@@ -435,6 +435,16 @@ export function readViewCache(cacheKey) {
   }
 }
 
+export function readViewCacheValue(cacheKey, propertyName, fallbackValue) {
+  const cachedValue = readViewCache(cacheKey)
+
+  if (!cachedValue || !(propertyName in cachedValue)) {
+    return fallbackValue
+  }
+
+  return cachedValue[propertyName]
+}
+
 export function writeViewCache(cacheKey, value) {
   if (!cacheKey) {
     return

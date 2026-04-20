@@ -9,6 +9,7 @@ import {
   EVALUATION_SECTIONS,
   getEvaluations,
   readViewCache,
+  readViewCacheValue,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -45,21 +46,20 @@ function isNewEvaluation(evaluation) {
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
+  const cacheKey = user ? `dashboard:${user.id}:${user.clubId || 'platform'}` : ''
   const [selectedTeam, setSelectedTeam] = useState('All')
   const [selectedSection, setSelectedSection] = useState('Trial')
-  const [evaluations, setEvaluations] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [evaluations, setEvaluations] = useState(() => {
+    const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
+    return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
+  })
+  const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
-  const cacheKey = user ? `dashboard:${user.id}:${user.clubId || 'platform'}` : ''
 
   useEffect(() => {
     let isMounted = true
     const cachedValue = readViewCache(cacheKey)
-
-    if (cachedValue?.evaluations) {
-      setEvaluations(Array.isArray(cachedValue.evaluations) ? cachedValue.evaluations : [])
-      setIsLoading(false)
-    }
 
     const loadEvaluations = async () => {
       setErrorMessage('')
@@ -101,7 +101,7 @@ export function DashboardPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, user])
+  }, [cacheKey, user, userScopeKey])
 
   const filteredBySection = useMemo(
     () => evaluations.filter((evaluation) => (selectedSection ? evaluation.section === selectedSection : true)),
