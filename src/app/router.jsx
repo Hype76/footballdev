@@ -14,8 +14,8 @@ import { canAccessApprovals, canManageClubSettings, canManageFormFields, canMana
 
 function LoadingScreen() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f5f7f3] px-4 py-8">
-      <div className="rounded-[24px] border border-[#dbe3d6] bg-white px-6 py-5 text-sm font-medium text-slate-600">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8">
+      <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] px-6 py-5 text-sm font-medium text-[var(--text-muted)]">
         Loading...
       </div>
     </main>

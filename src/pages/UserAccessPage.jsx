@@ -34,9 +34,10 @@ export function UserAccessPage() {
 
     const loadAccessData = async () => {
       setIsLoading(true)
+      setErrorMessage('')
 
       try {
-        const [nextRoles, nextMembers, nextInvites] = await Promise.all([
+        const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
           getClubRoles(user),
           getClubUsers(user),
           getClubUserInvites(user),
@@ -46,6 +47,24 @@ export function UserAccessPage() {
           return
         }
 
+        const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : []
+        const nextMembers = membersResult.status === 'fulfilled' ? membersResult.value : []
+        const nextInvites = invitesResult.status === 'fulfilled' ? invitesResult.value : []
+        const hasFailure =
+          rolesResult.status === 'rejected' || membersResult.status === 'rejected' || invitesResult.status === 'rejected'
+
+        if (rolesResult.status === 'rejected') {
+          console.error(rolesResult.reason)
+        }
+
+        if (membersResult.status === 'rejected') {
+          console.error(membersResult.reason)
+        }
+
+        if (invitesResult.status === 'rejected') {
+          console.error(invitesResult.reason)
+        }
+
         setRoles(nextRoles)
         setMembers(nextMembers)
         setPendingInvites(nextInvites)
@@ -53,14 +72,9 @@ export function UserAccessPage() {
           ...current,
           roleKey: current.roleKey || nextRoles.find((role) => canAssignRole(user, role))?.roleKey || '',
         }))
-      } catch (error) {
-        console.error(error)
 
-        if (isMounted) {
-          setRoles([])
-          setMembers([])
-          setPendingInvites([])
-          setErrorMessage('Could not load club access data.')
+        if (hasFailure) {
+          setErrorMessage('Some club access data could not be loaded.')
         }
       } finally {
         if (isMounted) {
@@ -98,11 +112,27 @@ export function UserAccessPage() {
   }
 
   const refreshAccessData = async () => {
-    const [nextRoles, nextMembers, nextInvites] = await Promise.all([
+    const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
       getClubRoles(user),
       getClubUsers(user),
       getClubUserInvites(user),
     ])
+
+    const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : []
+    const nextMembers = membersResult.status === 'fulfilled' ? membersResult.value : []
+    const nextInvites = invitesResult.status === 'fulfilled' ? invitesResult.value : []
+
+    if (rolesResult.status === 'rejected') {
+      console.error(rolesResult.reason)
+    }
+
+    if (membersResult.status === 'rejected') {
+      console.error(membersResult.reason)
+    }
+
+    if (invitesResult.status === 'rejected') {
+      console.error(invitesResult.reason)
+    }
 
     setRoles(nextRoles)
     setMembers(nextMembers)

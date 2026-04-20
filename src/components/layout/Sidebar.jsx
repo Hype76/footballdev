@@ -88,16 +88,11 @@ export function Sidebar({ isOpen, onClose }) {
           ))}
         </nav>
 
-        <div className="mt-auto space-y-4 rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">Workspace</p>
-          <p className="mt-3 text-sm font-medium text-[var(--text-primary)]">Supabase connected</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-            Auth, club scoping, approvals, and structured role allocation are active in this workspace.
-          </p>
+        <div className="mt-auto pt-4">
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
           >
             Sign out
           </button>

@@ -3,16 +3,23 @@ import { Outlet, useMatches } from 'react-router-dom'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 
+const THEME_STORAGE_KEY = 'app-theme'
+
 export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [theme, setTheme] = useState(() => window.localStorage.getItem('app-theme') || 'light')
+  const [theme, setTheme] = useState(() => {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) || 'dark'
+    document.body.classList.remove('theme-light', 'theme-dark')
+    document.body.classList.add(storedTheme === 'dark' ? 'theme-dark' : 'theme-light')
+    return storedTheme
+  })
   const matches = useMatches()
   const activeTitle = [...matches].reverse().find((match) => match.handle?.title)?.handle?.title ?? 'Dashboard'
 
   useEffect(() => {
     document.body.classList.remove('theme-light', 'theme-dark')
     document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light')
-    window.localStorage.setItem('app-theme', theme)
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
 
   const toggleTheme = () => {
