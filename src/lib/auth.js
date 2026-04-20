@@ -9,6 +9,28 @@ function normalizeName(value) {
     .toLowerCase()
 }
 
+function areUsersEquivalent(leftUser, rightUser) {
+  if (!leftUser || !rightUser) {
+    return false
+  }
+
+  return (
+    String(leftUser.id ?? '') === String(rightUser.id ?? '') &&
+    String(leftUser.email ?? '') === String(rightUser.email ?? '') &&
+    String(leftUser.name ?? '') === String(rightUser.name ?? '') &&
+    String(leftUser.role ?? '') === String(rightUser.role ?? '') &&
+    String(leftUser.roleLabel ?? '') === String(rightUser.roleLabel ?? '') &&
+    Number(leftUser.roleRank ?? 0) === Number(rightUser.roleRank ?? 0) &&
+    String(leftUser.clubId ?? '') === String(rightUser.clubId ?? '') &&
+    String(leftUser.clubName ?? '') === String(rightUser.clubName ?? '') &&
+    String(leftUser.team ?? '') === String(rightUser.team ?? '') &&
+    String(leftUser.clubLogoUrl ?? '') === String(rightUser.clubLogoUrl ?? '') &&
+    String(leftUser.clubContactEmail ?? '') === String(rightUser.clubContactEmail ?? '') &&
+    String(leftUser.clubContactPhone ?? '') === String(rightUser.clubContactPhone ?? '') &&
+    Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval)
+  )
+}
+
 export function getRoleLabel(user) {
   if (!user) {
     return 'Unknown'
@@ -167,7 +189,7 @@ export function AuthProvider({ children }) {
         }
 
         setSession(nextSession)
-        setUser(profile)
+        setUser((currentUser) => (areUsersEquivalent(currentUser, profile) ? currentUser : profile))
         setAuthError('')
       } catch (error) {
         console.error(error)

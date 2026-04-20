@@ -12,7 +12,9 @@ import {
   getAvailableTeamsForUser,
   getDefaultFormFields,
   getFormFields,
+  readViewCache,
   withRequestTimeout,
+  writeViewCache,
 } from '../lib/supabase.js'
 
 function createInitialFormData(user, defaults = {}) {
@@ -311,6 +313,8 @@ export function CreateEvaluationPage() {
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
   const [errorMessage, setErrorMessage] = useState('')
+  const teamsCacheKey = user ? `assessment-teams:${user.id}:${user.clubId || 'platform'}` : ''
+  const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}` : ''
 
   const draftStorageKey = getDraftStorageKey(user)
 
@@ -351,6 +355,12 @@ export function CreateEvaluationPage() {
 
   useEffect(() => {
     let isMounted = true
+    const cachedTeams = readViewCache(teamsCacheKey)
+
+    if (cachedTeams?.availableTeams) {
+      setAvailableTeams(Array.isArray(cachedTeams.availableTeams) ? cachedTeams.availableTeams : [])
+      setIsLoadingTeams(false)
+    }
 
     const loadTeams = async () => {
       if (!user || isPlatformOwner) {
@@ -359,7 +369,6 @@ export function CreateEvaluationPage() {
         return
       }
 
-      setIsLoadingTeams(true)
       setErrorMessage('')
 
       try {
@@ -373,6 +382,9 @@ export function CreateEvaluationPage() {
         }
 
         setAvailableTeams(nextTeams)
+        writeViewCache(teamsCacheKey, {
+          availableTeams: nextTeams,
+        })
         setFormData((current) => {
           const requestedTeam = String(searchParams.get('team') ?? '').trim()
           const currentTeam = String(current.team ?? '').trim()
@@ -397,7 +409,9 @@ export function CreateEvaluationPage() {
         console.error(error)
 
         if (isMounted) {
-          setAvailableTeams([])
+          if (!cachedTeams?.availableTeams) {
+            setAvailableTeams([])
+          }
           setErrorMessage(error.message || 'Could not load teams.')
         }
       } finally {
@@ -412,10 +426,23 @@ export function CreateEvaluationPage() {
     return () => {
       isMounted = false
     }
-  }, [isPlatformOwner, searchParams, user])
+  }, [isPlatformOwner, searchParams, teamsCacheKey, user])
 
   useEffect(() => {
     let isMounted = true
+    const cachedFields = readViewCache(fieldsCacheKey)
+
+    if (cachedFields?.dynamicFields) {
+      const nextCachedFields = Array.isArray(cachedFields.dynamicFields) ? cachedFields.dynamicFields : []
+      setDynamicFields(nextCachedFields)
+      setResponseValues((current) => {
+        const emptyValues = createEmptyResponseValues(nextCachedFields)
+
+        return Object.fromEntries(Object.keys(emptyValues).map((key) => [key, current[key] ?? '']))
+      })
+      setIsFallbackFields(Boolean(cachedFields.isFallbackFields))
+      setIsLoadingFields(false)
+    }
 
     const loadFields = async () => {
       if (!user || isPlatformOwner) {
@@ -425,7 +452,6 @@ export function CreateEvaluationPage() {
         return
       }
 
-      setIsLoadingFields(true)
       setErrorMessage('')
 
       try {
@@ -445,14 +471,20 @@ export function CreateEvaluationPage() {
           return Object.fromEntries(Object.keys(emptyValues).map((key) => [key, current[key] ?? '']))
         })
         setIsFallbackFields(isFallback)
+        writeViewCache(fieldsCacheKey, {
+          dynamicFields: fields,
+          isFallbackFields: isFallback,
+        })
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
           const fallbackFields = getDefaultFormFields()
-          setDynamicFields(fallbackFields)
-          setResponseValues(createEmptyResponseValues(fallbackFields))
-          setIsFallbackFields(true)
+          if (!cachedFields?.dynamicFields) {
+            setDynamicFields(fallbackFields)
+            setResponseValues(createEmptyResponseValues(fallbackFields))
+            setIsFallbackFields(true)
+          }
           setErrorMessage(error.message || 'Could not load form fields.')
         }
       } finally {
@@ -467,7 +499,7 @@ export function CreateEvaluationPage() {
     return () => {
       isMounted = false
     }
-  }, [isPlatformOwner, user])
+  }, [fieldsCacheKey, isPlatformOwner, user])
 
   useEffect(() => {
     if (!isSaved) {

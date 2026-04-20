@@ -6,7 +6,7 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
 import { buildEvaluationSummary, exportEvaluationPdf } from '../lib/pdf.js'
-import { deletePlayer, getEvaluations, withRequestTimeout } from '../lib/supabase.js'
+import { deletePlayer, getEvaluations, readViewCache, withRequestTimeout, writeViewCache } from '../lib/supabase.js'
 
 function buildParentEmailLink(playerName, evaluation) {
   if (!evaluation.parentEmail) {
@@ -40,12 +40,18 @@ export function PlayerProfile() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${routePlayerName}` : ''
 
   useEffect(() => {
     let isMounted = true
+    const cachedValue = readViewCache(cacheKey)
+
+    if (cachedValue?.evaluations) {
+      setEvaluations(Array.isArray(cachedValue.evaluations) ? cachedValue.evaluations : [])
+      setIsLoading(false)
+    }
 
     const loadEvaluations = async () => {
-      setIsLoading(true)
       setErrorMessage('')
 
       try {
@@ -63,11 +69,16 @@ export function PlayerProfile() {
         }
 
         setEvaluations(nextEvaluations)
+        writeViewCache(cacheKey, {
+          evaluations: nextEvaluations,
+        })
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setEvaluations([])
+          if (!cachedValue?.evaluations) {
+            setEvaluations([])
+          }
           setErrorMessage('Could not load player history.')
         }
       } finally {
@@ -84,7 +95,7 @@ export function PlayerProfile() {
     return () => {
       isMounted = false
     }
-  }, [routePlayerName, user])
+  }, [cacheKey, routePlayerName, user])
 
   const scoredEvaluations = useMemo(
     () => evaluations.filter((evaluation) => evaluation.averageScore !== null),
@@ -139,6 +150,7 @@ export function PlayerProfile() {
 
     try {
       await deletePlayer(routePlayerName, user)
+      sessionStorage.removeItem(`view-cache:${cacheKey}`)
       navigate('/dashboard')
     } catch (error) {
       console.error(error)

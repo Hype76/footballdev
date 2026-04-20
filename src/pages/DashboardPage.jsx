@@ -4,7 +4,13 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { useAuth } from '../lib/auth.js'
-import { EVALUATION_SECTIONS, getEvaluations, withRequestTimeout } from '../lib/supabase.js'
+import {
+  EVALUATION_SECTIONS,
+  getEvaluations,
+  readViewCache,
+  withRequestTimeout,
+  writeViewCache,
+} from '../lib/supabase.js'
 
 function getScoreIndicator(averageScore) {
   if (averageScore === null) {
@@ -43,12 +49,18 @@ export function DashboardPage() {
   const [evaluations, setEvaluations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const cacheKey = user ? `dashboard:${user.id}:${user.clubId || 'platform'}` : ''
 
   useEffect(() => {
     let isMounted = true
+    const cachedValue = readViewCache(cacheKey)
+
+    if (cachedValue?.evaluations) {
+      setEvaluations(Array.isArray(cachedValue.evaluations) ? cachedValue.evaluations : [])
+      setIsLoading(false)
+    }
 
     const loadEvaluations = async () => {
-      setIsLoading(true)
       setErrorMessage('')
 
       try {
@@ -62,11 +74,16 @@ export function DashboardPage() {
         }
 
         setEvaluations(nextEvaluations)
+        writeViewCache(cacheKey, {
+          evaluations: nextEvaluations,
+        })
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setEvaluations([])
+          if (!cachedValue?.evaluations) {
+            setEvaluations([])
+          }
           setErrorMessage(error.message || 'Could not load evaluations.')
         }
       } finally {
@@ -83,7 +100,7 @@ export function DashboardPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [cacheKey, user])
 
   const filteredBySection = useMemo(
     () => evaluations.filter((evaluation) => (selectedSection ? evaluation.section === selectedSection : true)),
@@ -247,7 +264,7 @@ export function DashboardPage() {
                     <span>{evaluation.date || 'No date entered'}</span>
                     <span>{evaluation.coach}</span>
                     <span className="font-semibold text-[var(--text-primary)]">
-                      {evaluation.averageScore !== null ? `${evaluation.averageScore.toFixed(1)} · ${getScoreIndicator(evaluation.averageScore)}` : '-'}
+                      {evaluation.averageScore !== null ? `${evaluation.averageScore.toFixed(1)} | ${getScoreIndicator(evaluation.averageScore)}` : '-'}
                     </span>
                     <span>
                       <StatusBadge status={evaluation.status} />
@@ -292,7 +309,7 @@ export function DashboardPage() {
                   </div>
 
                   <div className="mt-5 text-sm font-semibold text-[var(--text-primary)]">
-                    {evaluation.averageScore !== null ? `${evaluation.averageScore.toFixed(1)} · ${getScoreIndicator(evaluation.averageScore)}` : '-'}
+                    {evaluation.averageScore !== null ? `${evaluation.averageScore.toFixed(1)} | ${getScoreIndicator(evaluation.averageScore)}` : '-'}
                   </div>
                 </Link>
               ))}

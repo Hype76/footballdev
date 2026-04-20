@@ -7,9 +7,11 @@ import { canManageClubSettings, useAuth } from '../lib/auth.js'
 import {
   MAX_LOGO_FILE_SIZE_BYTES,
   getClubSettings,
+  readViewCache,
   updateClubSettings,
   uploadClubLogo,
   withRequestTimeout,
+  writeViewCache,
 } from '../lib/supabase.js'
 
 function createInitialFormData() {
@@ -32,9 +34,16 @@ export function ClubSettingsPage() {
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedLogoFile, setSelectedLogoFile] = useState(null)
+  const cacheKey = user?.clubId ? `club-settings:${user.clubId}` : ''
 
   useEffect(() => {
     let isMounted = true
+    const cachedValue = readViewCache(cacheKey)
+
+    if (cachedValue?.formData) {
+      setFormData(cachedValue.formData)
+      setIsLoading(false)
+    }
 
     const loadClubSettings = async () => {
       if (!user?.clubId) {
@@ -42,7 +51,6 @@ export function ClubSettingsPage() {
         return
       }
 
-      setIsLoading(true)
       setErrorMessage('')
 
       try {
@@ -62,11 +70,22 @@ export function ClubSettingsPage() {
           contactPhone: club.contactPhone,
           requireApproval: Boolean(club.requireApproval ?? true),
         })
+        writeViewCache(cacheKey, {
+          formData: {
+            name: club.name,
+            logoUrl: club.logoUrl,
+            contactEmail: club.contactEmail,
+            contactPhone: club.contactPhone,
+            requireApproval: Boolean(club.requireApproval ?? true),
+          },
+        })
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setFormData(createInitialFormData())
+          if (!cachedValue?.formData) {
+            setFormData(createInitialFormData())
+          }
           setErrorMessage(error.message || 'Could not load club settings.')
         }
       } finally {
@@ -81,7 +100,7 @@ export function ClubSettingsPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [cacheKey, user])
 
   useEffect(() => {
     if (!isSaved) {
@@ -164,6 +183,15 @@ export function ClubSettingsPage() {
         contactPhone: updatedClub.contactPhone,
         requireApproval: Boolean(updatedClub.requireApproval ?? true),
       })
+      writeViewCache(cacheKey, {
+        formData: {
+          name: updatedClub.name,
+          logoUrl: updatedClub.logoUrl,
+          contactEmail: updatedClub.contactEmail,
+          contactPhone: updatedClub.contactPhone,
+          requireApproval: Boolean(updatedClub.requireApproval ?? true),
+        },
+      })
       updateCurrentClubDetails(updatedClub)
       setIsSaved(true)
     } catch (error) {
@@ -211,6 +239,15 @@ export function ClubSettingsPage() {
         contactEmail: updatedClub.contactEmail,
         contactPhone: updatedClub.contactPhone,
         requireApproval: Boolean(updatedClub.requireApproval ?? true),
+      })
+      writeViewCache(cacheKey, {
+        formData: {
+          name: updatedClub.name,
+          logoUrl: updatedClub.logoUrl,
+          contactEmail: updatedClub.contactEmail,
+          contactPhone: updatedClub.contactPhone,
+          requireApproval: Boolean(updatedClub.requireApproval ?? true),
+        },
       })
       updateCurrentClubDetails(updatedClub)
       setSelectedLogoFile(null)

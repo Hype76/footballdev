@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAccessApprovals, useAuth } from '../lib/auth.js'
-import { getEvaluations, updateEvaluationStatus, withRequestTimeout } from '../lib/supabase.js'
+import { getEvaluations, readViewCache, updateEvaluationStatus, withRequestTimeout, writeViewCache } from '../lib/supabase.js'
 
 function getScoreSummary(scores = {}) {
   return Object.entries(scores)
@@ -18,12 +18,18 @@ export function ApprovalsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdatingId, setIsUpdatingId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
+  const cacheKey = user ? `approvals:${user.id}:${user.clubId || 'platform'}` : ''
 
   useEffect(() => {
     let isMounted = true
+    const cachedValue = readViewCache(cacheKey)
+
+    if (cachedValue?.submittedEvaluations) {
+      setSubmittedEvaluations(Array.isArray(cachedValue.submittedEvaluations) ? cachedValue.submittedEvaluations : [])
+      setIsLoading(false)
+    }
 
     const loadSubmittedEvaluations = async () => {
-      setIsLoading(true)
       setErrorMessage('')
 
       try {
@@ -41,11 +47,16 @@ export function ApprovalsPage() {
         }
 
         setSubmittedEvaluations(nextEvaluations)
+        writeViewCache(cacheKey, {
+          submittedEvaluations: nextEvaluations,
+        })
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setSubmittedEvaluations([])
+          if (!cachedValue?.submittedEvaluations) {
+            setSubmittedEvaluations([])
+          }
           setErrorMessage(error.message || 'Could not load approvals.')
         }
       } finally {
@@ -62,7 +73,7 @@ export function ApprovalsPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [cacheKey, user])
 
   if (!canAccessApprovals(user)) {
     return <Navigate to="/dashboard" replace />
@@ -79,7 +90,13 @@ export function ApprovalsPage() {
 
     try {
       await updateEvaluationStatus(evaluationId, nextStatus, user?.clubId)
-      setSubmittedEvaluations((current) => current.filter((evaluation) => evaluation.id !== evaluationId))
+      setSubmittedEvaluations((current) => {
+        const nextEvaluations = current.filter((evaluation) => evaluation.id !== evaluationId)
+        writeViewCache(cacheKey, {
+          submittedEvaluations: nextEvaluations,
+        })
+        return nextEvaluations
+      })
     } catch (error) {
       console.error(error)
     } finally {

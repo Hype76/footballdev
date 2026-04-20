@@ -10,7 +10,9 @@ import {
   getClubRoles,
   getClubUserInvites,
   getClubUsers,
+  readViewCache,
   withRequestTimeout,
+  writeViewCache,
 } from '../lib/supabase.js'
 
 const initialFormState = {
@@ -29,12 +31,20 @@ export function UserAccessPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const cacheKey = user?.clubId ? `user-access:${user.clubId}` : ''
 
   useEffect(() => {
     let isMounted = true
+    const cachedValue = readViewCache(cacheKey)
+
+    if (cachedValue) {
+      setRoles(Array.isArray(cachedValue.roles) ? cachedValue.roles : [])
+      setMembers(Array.isArray(cachedValue.members) ? cachedValue.members : [])
+      setPendingInvites(Array.isArray(cachedValue.pendingInvites) ? cachedValue.pendingInvites : [])
+      setIsLoading(false)
+    }
 
     const loadAccessData = async () => {
-      setIsLoading(true)
       setErrorMessage('')
 
       try {
@@ -69,6 +79,11 @@ export function UserAccessPage() {
         setRoles(nextRoles)
         setMembers(nextMembers)
         setPendingInvites(nextInvites)
+        writeViewCache(cacheKey, {
+          roles: nextRoles,
+          members: nextMembers,
+          pendingInvites: nextInvites,
+        })
         setFormState((current) => ({
           ...current,
           roleKey: current.roleKey || nextRoles.find((role) => canAssignRole(user, role))?.roleKey || '',
@@ -91,7 +106,7 @@ export function UserAccessPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [cacheKey, user])
 
   if (!canManageUsers(user)) {
     return <Navigate to="/dashboard" replace />
@@ -138,6 +153,11 @@ export function UserAccessPage() {
     setRoles(nextRoles)
     setMembers(nextMembers)
     setPendingInvites(nextInvites)
+    writeViewCache(cacheKey, {
+      roles: nextRoles,
+      members: nextMembers,
+      pendingInvites: nextInvites,
+    })
   }
 
   const handleSubmit = async (event) => {

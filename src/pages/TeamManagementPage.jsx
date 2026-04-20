@@ -8,10 +8,12 @@ import {
   createTeam,
   deleteTeam,
   getClubUsers,
+  readViewCache,
   getTeamStaffAssignments,
   getTeams,
   replaceTeamStaffAssignments,
   withRequestTimeout,
+  writeViewCache,
 } from '../lib/supabase.js'
 
 export function TeamManagementPage() {
@@ -27,12 +29,21 @@ export function TeamManagementPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const cacheKey = user?.clubId ? `team-management:${user.clubId}` : ''
 
   useEffect(() => {
     let isMounted = true
+    const cachedValue = readViewCache(cacheKey)
+
+    if (cachedValue) {
+      setTeams(Array.isArray(cachedValue.teams) ? cachedValue.teams : [])
+      setUsers(Array.isArray(cachedValue.users) ? cachedValue.users : [])
+      setAssignments(Array.isArray(cachedValue.assignments) ? cachedValue.assignments : [])
+      setCopySourceTeamId(cachedValue.copySourceTeamId || '')
+      setIsLoading(false)
+    }
 
     const loadData = async () => {
-      setIsLoading(true)
       setErrorMessage('')
 
       try {
@@ -68,6 +79,12 @@ export function TeamManagementPage() {
         setUsers(nextUsers.filter((member) => member.role !== 'super_admin'))
         setAssignments(nextAssignments)
         setCopySourceTeamId(nextTeams[0]?.id || '')
+        writeViewCache(cacheKey, {
+          teams: nextTeams,
+          users: nextUsers.filter((member) => member.role !== 'super_admin'),
+          assignments: nextAssignments,
+          copySourceTeamId: nextTeams[0]?.id || '',
+        })
 
         if (hasFailure) {
           setErrorMessage('Some team data could not be loaded. Missing values will show as empty until data is entered.')
@@ -86,7 +103,7 @@ export function TeamManagementPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [cacheKey, user])
 
   if (!canManageUsers(user)) {
     return <Navigate to="/dashboard" replace />
@@ -116,7 +133,16 @@ export function TeamManagementPage() {
         name: newTeamName,
       })
 
-      setTeams((current) => [...current, createdTeam].sort((left, right) => left.name.localeCompare(right.name)))
+      setTeams((current) => {
+        const nextTeams = [...current, createdTeam].sort((left, right) => left.name.localeCompare(right.name))
+        writeViewCache(cacheKey, {
+          teams: nextTeams,
+          users,
+          assignments,
+          copySourceTeamId: nextTeams[0]?.id || '',
+        })
+        return nextTeams
+      })
       setNewTeamName('')
       setMessage('Team created.')
     } catch (error) {
@@ -138,8 +164,16 @@ export function TeamManagementPage() {
 
     try {
       await deleteTeam(teamId)
-      setTeams((current) => current.filter((team) => team.id !== teamId))
-      setAssignments((current) => current.filter((assignment) => assignment.teamId !== teamId))
+      const nextTeams = teams.filter((team) => team.id !== teamId)
+      const nextAssignments = assignments.filter((assignment) => assignment.teamId !== teamId)
+      setTeams(nextTeams)
+      setAssignments(nextAssignments)
+      writeViewCache(cacheKey, {
+        teams: nextTeams,
+        users,
+        assignments: nextAssignments,
+        copySourceTeamId: nextTeams[0]?.id || '',
+      })
       setMessage('Team deleted.')
     } catch (error) {
       console.error(error)
@@ -162,10 +196,16 @@ export function TeamManagementPage() {
 
     try {
       const nextAssignments = await replaceTeamStaffAssignments(teamId, nextStaffIds)
-      setAssignments((current) => [
-        ...current.filter((assignment) => assignment.teamId !== teamId),
-        ...nextAssignments,
-      ])
+      setAssignments((current) => {
+        const mergedAssignments = [...current.filter((assignment) => assignment.teamId !== teamId), ...nextAssignments]
+        writeViewCache(cacheKey, {
+          teams,
+          users,
+          assignments: mergedAssignments,
+          copySourceTeamId,
+        })
+        return mergedAssignments
+      })
       setMessage('Team staff updated.')
     } catch (error) {
       console.error(error)
@@ -189,6 +229,12 @@ export function TeamManagementPage() {
 
       const nextAssignments = await getTeamStaffAssignments(user)
       setAssignments(nextAssignments)
+      writeViewCache(cacheKey, {
+        teams,
+        users,
+        assignments: nextAssignments,
+        copySourceTeamId,
+      })
       setMessage('Staff copied to selected teams.')
     } catch (error) {
       console.error(error)

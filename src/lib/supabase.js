@@ -23,6 +23,7 @@ export const CLUB_LOGOS_BUCKET = 'club-logos'
 export const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024
 export const EVALUATION_SECTIONS = ['Trial', 'Squad']
 export const REQUEST_TIMEOUT_MS = 8000
+const VIEW_CACHE_PREFIX = 'view-cache:'
 
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Admin', rank: 90, isSystem: true },
@@ -411,6 +412,38 @@ export async function withRequestTimeout(task, message = 'Request timed out.', t
     if (timeoutId) {
       window.clearTimeout(timeoutId)
     }
+  }
+}
+
+export function readViewCache(cacheKey) {
+  if (!cacheKey) {
+    return null
+  }
+
+  try {
+    const storedValue = sessionStorage.getItem(`${VIEW_CACHE_PREFIX}${cacheKey}`)
+
+    if (!storedValue) {
+      return null
+    }
+
+    const parsedValue = JSON.parse(storedValue)
+    return parsedValue && typeof parsedValue === 'object' ? parsedValue : null
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+export function writeViewCache(cacheKey, value) {
+  if (!cacheKey) {
+    return
+  }
+
+  try {
+    sessionStorage.setItem(`${VIEW_CACHE_PREFIX}${cacheKey}`, JSON.stringify(value))
+  } catch (error) {
+    console.error(error)
   }
 }
 
