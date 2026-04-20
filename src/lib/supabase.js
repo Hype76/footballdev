@@ -22,6 +22,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export const CLUB_LOGOS_BUCKET = 'club-logos'
 export const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024
 export const EVALUATION_SECTIONS = ['Trial', 'Squad']
+export const REQUEST_TIMEOUT_MS = 8000
 
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Admin', rank: 90, isSystem: true },
@@ -360,7 +361,7 @@ function normalizeEvaluationRow(row) {
     session: String(row.session ?? '').trim(),
     date:
       String(row.date ?? '').trim() ||
-      (row.created_at ? new Date(row.created_at).toLocaleDateString() : new Date().toLocaleDateString()),
+      (row.created_at ? new Date(row.created_at).toLocaleDateString() : ''),
     scores,
     averageScore: averageScore !== null ? Number(averageScore) : null,
     comments,
@@ -389,6 +390,27 @@ function mapEvaluationToRow(data) {
     decision: data.decision,
     status: data.status,
     created_at: data.createdAt || new Date().toISOString(),
+  }
+}
+
+export async function withRequestTimeout(task, message = 'Request timed out.', timeoutMs = REQUEST_TIMEOUT_MS) {
+  let timeoutId
+
+  try {
+    const operation = typeof task === 'function' ? task() : task
+
+    return await Promise.race([
+      operation,
+      new Promise((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          reject(new Error(message))
+        }, timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId)
+    }
   }
 }
 

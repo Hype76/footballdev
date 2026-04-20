@@ -4,7 +4,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { useAuth } from '../lib/auth.js'
-import { EVALUATION_SECTIONS, getEvaluations } from '../lib/supabase.js'
+import { EVALUATION_SECTIONS, getEvaluations, withRequestTimeout } from '../lib/supabase.js'
 
 function getScoreIndicator(averageScore) {
   if (averageScore === null) {
@@ -42,15 +42,20 @@ export function DashboardPage() {
   const [selectedSection, setSelectedSection] = useState('Trial')
   const [evaluations, setEvaluations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     let isMounted = true
 
     const loadEvaluations = async () => {
       setIsLoading(true)
+      setErrorMessage('')
 
       try {
-        const nextEvaluations = await getEvaluations({ user })
+        const nextEvaluations = await withRequestTimeout(
+          () => getEvaluations({ user }),
+          'Could not load evaluations. No data entered yet, or the request took too long.',
+        )
 
         if (!isMounted) {
           return
@@ -62,6 +67,7 @@ export function DashboardPage() {
 
         if (isMounted) {
           setEvaluations([])
+          setErrorMessage(error.message || 'Could not load evaluations.')
         }
       } finally {
         if (isMounted) {
@@ -112,6 +118,12 @@ export function DashboardPage() {
         title="Club assessments"
         description="Switch between Trial and Squad sections, then start a new assessment or review recent activity."
       />
+
+      {errorMessage ? (
+        <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+          {errorMessage}
+        </div>
+      ) : null}
 
       <SectionCard
         title="Sections"
@@ -232,7 +244,7 @@ export function DashboardPage() {
                     </span>
                     <span>{evaluation.team}</span>
                     <span className="truncate">{evaluation.session || '-'}</span>
-                    <span>{evaluation.date}</span>
+                    <span>{evaluation.date || 'No date entered'}</span>
                     <span>{evaluation.coach}</span>
                     <span className="font-semibold text-[var(--text-primary)]">
                       {evaluation.averageScore !== null ? `${evaluation.averageScore.toFixed(1)} · ${getScoreIndicator(evaluation.averageScore)}` : '-'}
@@ -271,7 +283,7 @@ export function DashboardPage() {
                   <div className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Date</p>
-                      <p className="mt-2 text-[var(--text-muted)]">{evaluation.date}</p>
+                      <p className="mt-2 text-[var(--text-muted)]">{evaluation.date || 'No date entered'}</p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Coach</p>

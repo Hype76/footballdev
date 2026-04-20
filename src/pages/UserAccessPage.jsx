@@ -10,6 +10,7 @@ import {
   getClubRoles,
   getClubUserInvites,
   getClubUsers,
+  withRequestTimeout,
 } from '../lib/supabase.js'
 
 const initialFormState = {
@@ -38,9 +39,9 @@ export function UserAccessPage() {
 
       try {
         const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
-          getClubRoles(user),
-          getClubUsers(user),
-          getClubUserInvites(user),
+          withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
+          withRequestTimeout(() => getClubUsers(user), 'Could not load active users.'),
+          withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.'),
         ])
 
         if (!isMounted) {
@@ -113,9 +114,9 @@ export function UserAccessPage() {
 
   const refreshAccessData = async () => {
     const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
-      getClubRoles(user),
-      getClubUsers(user),
-      getClubUserInvites(user),
+      withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
+      withRequestTimeout(() => getClubUsers(user), 'Could not load active users.'),
+      withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.'),
     ])
 
     const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : []
@@ -229,6 +230,10 @@ export function UserAccessPage() {
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading roles...
+          </div>
+        ) : assignableRoles.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+            No role data entered yet, or role data could not be loaded.
           </div>
         ) : (
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>

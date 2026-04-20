@@ -6,7 +6,7 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
 import { buildEvaluationSummary, exportEvaluationPdf } from '../lib/pdf.js'
-import { deletePlayer, getEvaluations } from '../lib/supabase.js'
+import { deletePlayer, getEvaluations, withRequestTimeout } from '../lib/supabase.js'
 
 function buildParentEmailLink(playerName, evaluation) {
   if (!evaluation.parentEmail) {
@@ -46,12 +46,17 @@ export function PlayerProfile() {
 
     const loadEvaluations = async () => {
       setIsLoading(true)
+      setErrorMessage('')
 
       try {
-        const nextEvaluations = await getEvaluations({
-          user,
-          playerName: routePlayerName,
-        })
+        const nextEvaluations = await withRequestTimeout(
+          () =>
+            getEvaluations({
+              user,
+              playerName: routePlayerName,
+            }),
+          'Could not load player history. No data entered yet, or the request took too long.',
+        )
 
         if (!isMounted) {
           return
@@ -230,7 +235,7 @@ export function PlayerProfile() {
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date}</p>
+                      <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">Decision: {evaluation.decision}</p>
                       {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
                       <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>

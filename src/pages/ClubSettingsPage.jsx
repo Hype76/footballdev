@@ -9,6 +9,7 @@ import {
   getClubSettings,
   updateClubSettings,
   uploadClubLogo,
+  withRequestTimeout,
 } from '../lib/supabase.js'
 
 function createInitialFormData() {
@@ -42,9 +43,13 @@ export function ClubSettingsPage() {
       }
 
       setIsLoading(true)
+      setErrorMessage('')
 
       try {
-        const club = await getClubSettings(user.clubId)
+        const club = await withRequestTimeout(
+          () => getClubSettings(user.clubId),
+          'Could not load club settings. No data entered yet, or the request took too long.',
+        )
 
         if (!isMounted) {
           return
@@ -62,6 +67,7 @@ export function ClubSettingsPage() {
 
         if (isMounted) {
           setFormData(createInitialFormData())
+          setErrorMessage(error.message || 'Could not load club settings.')
         }
       } finally {
         if (isMounted) {

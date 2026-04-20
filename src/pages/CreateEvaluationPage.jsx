@@ -6,7 +6,14 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import { buildEvaluationSummary, exportEvaluationPdf } from '../lib/pdf.js'
-import { EVALUATION_SECTIONS, createEvaluation, getAvailableTeamsForUser, getFormFields } from '../lib/supabase.js'
+import {
+  EVALUATION_SECTIONS,
+  createEvaluation,
+  getAvailableTeamsForUser,
+  getDefaultFormFields,
+  getFormFields,
+  withRequestTimeout,
+} from '../lib/supabase.js'
 
 function createInitialFormData(user, defaults = {}) {
   return {
@@ -353,9 +360,13 @@ export function CreateEvaluationPage() {
       }
 
       setIsLoadingTeams(true)
+      setErrorMessage('')
 
       try {
-        const nextTeams = await getAvailableTeamsForUser(user)
+        const nextTeams = await withRequestTimeout(
+          () => getAvailableTeamsForUser(user),
+          'Could not load teams. No team data entered yet, or the request took too long.',
+        )
 
         if (!isMounted) {
           return
@@ -387,6 +398,7 @@ export function CreateEvaluationPage() {
 
         if (isMounted) {
           setAvailableTeams([])
+          setErrorMessage(error.message || 'Could not load teams.')
         }
       } finally {
         if (isMounted) {
@@ -414,9 +426,13 @@ export function CreateEvaluationPage() {
       }
 
       setIsLoadingFields(true)
+      setErrorMessage('')
 
       try {
-        const { fields, isFallback } = await getFormFields({ user })
+        const { fields, isFallback } = await withRequestTimeout(
+          () => getFormFields({ user }),
+          'Could not load form fields. Showing default empty form instead.',
+        )
 
         if (!isMounted) {
           return
@@ -433,9 +449,11 @@ export function CreateEvaluationPage() {
         console.error(error)
 
         if (isMounted) {
-          setDynamicFields([])
-          setResponseValues({})
+          const fallbackFields = getDefaultFormFields()
+          setDynamicFields(fallbackFields)
+          setResponseValues(createEmptyResponseValues(fallbackFields))
           setIsFallbackFields(true)
+          setErrorMessage(error.message || 'Could not load form fields.')
         }
       } finally {
         if (isMounted) {

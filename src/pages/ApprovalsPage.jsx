@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAccessApprovals, useAuth } from '../lib/auth.js'
-import { getEvaluations, updateEvaluationStatus } from '../lib/supabase.js'
+import { getEvaluations, updateEvaluationStatus, withRequestTimeout } from '../lib/supabase.js'
 
 function getScoreSummary(scores = {}) {
   return Object.entries(scores)
@@ -17,18 +17,24 @@ export function ApprovalsPage() {
   const [submittedEvaluations, setSubmittedEvaluations] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdatingId, setIsUpdatingId] = useState(null)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     let isMounted = true
 
     const loadSubmittedEvaluations = async () => {
       setIsLoading(true)
+      setErrorMessage('')
 
       try {
-        const nextEvaluations = await getEvaluations({
-          user,
-          status: 'Submitted',
-        })
+        const nextEvaluations = await withRequestTimeout(
+          () =>
+            getEvaluations({
+              user,
+              status: 'Submitted',
+            }),
+          'Could not load approvals. No submitted data entered yet, or the request took too long.',
+        )
 
         if (!isMounted) {
           return
@@ -40,6 +46,7 @@ export function ApprovalsPage() {
 
         if (isMounted) {
           setSubmittedEvaluations([])
+          setErrorMessage(error.message || 'Could not load approvals.')
         }
       } finally {
         if (isMounted) {
@@ -88,6 +95,12 @@ export function ApprovalsPage() {
         description="Managers and above can unlock sharing for coaches by approving submitted evaluations."
       />
 
+      {errorMessage ? (
+        <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+          {errorMessage}
+        </div>
+      ) : null}
+
       <SectionCard
         title="Pending review"
         description="Coaches cannot share this evaluation until approved."
@@ -134,7 +147,7 @@ export function ApprovalsPage() {
                     <span>Team: {evaluation.team || 'Unassigned Team'}</span>
                     <span>Section: {evaluation.section || 'Trial'}</span>
                     <span>Coach: {evaluation.coach || 'Unknown Coach'}</span>
-                    <span>Date: {evaluation.date || new Date().toLocaleDateString()}</span>
+                    <span>Date: {evaluation.date || 'No date entered'}</span>
                     <span>Average: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}</span>
                   </div>
                   <p className="mt-4 text-sm leading-6 text-[var(--text-muted)]">

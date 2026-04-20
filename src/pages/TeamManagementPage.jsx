@@ -11,6 +11,7 @@ import {
   getTeamStaffAssignments,
   getTeams,
   replaceTeamStaffAssignments,
+  withRequestTimeout,
 } from '../lib/supabase.js'
 
 export function TeamManagementPage() {
@@ -32,27 +33,44 @@ export function TeamManagementPage() {
 
     const loadData = async () => {
       setIsLoading(true)
+      setErrorMessage('')
 
       try {
-        const [nextTeams, nextUsers, nextAssignments] = await Promise.all([
-          getTeams(user),
-          getClubUsers(user),
-          getTeamStaffAssignments(user),
+        const [teamsResult, usersResult, assignmentsResult] = await Promise.allSettled([
+          withRequestTimeout(() => getTeams(user), 'Could not load teams.'),
+          withRequestTimeout(() => getClubUsers(user), 'Could not load club users.'),
+          withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
         ])
+
+        const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []
+        const nextUsers = usersResult.status === 'fulfilled' ? usersResult.value : []
+        const nextAssignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : []
+        const hasFailure =
+          teamsResult.status === 'rejected' || usersResult.status === 'rejected' || assignmentsResult.status === 'rejected'
 
         if (!isMounted) {
           return
+        }
+
+        if (teamsResult.status === 'rejected') {
+          console.error(teamsResult.reason)
+        }
+
+        if (usersResult.status === 'rejected') {
+          console.error(usersResult.reason)
+        }
+
+        if (assignmentsResult.status === 'rejected') {
+          console.error(assignmentsResult.reason)
         }
 
         setTeams(nextTeams)
         setUsers(nextUsers.filter((member) => member.role !== 'super_admin'))
         setAssignments(nextAssignments)
         setCopySourceTeamId(nextTeams[0]?.id || '')
-      } catch (error) {
-        console.error(error)
 
-        if (isMounted) {
-          setErrorMessage('Could not load teams.')
+        if (hasFailure) {
+          setErrorMessage('Some team data could not be loaded. Missing values will show as empty until data is entered.')
         }
       } finally {
         if (isMounted) {
