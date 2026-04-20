@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import fallbackLogo from '../assets/football-development-logo.png'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageClubSettings, useAuth } from '../lib/auth.js'
@@ -16,6 +17,7 @@ function createInitialFormData() {
     logoUrl: '',
     contactEmail: '',
     contactPhone: '',
+    requireApproval: true,
   }
 }
 
@@ -53,6 +55,7 @@ export function ClubSettingsPage() {
           logoUrl: club.logoUrl,
           contactEmail: club.contactEmail,
           contactPhone: club.contactPhone,
+          requireApproval: Boolean(club.requireApproval ?? true),
         })
       } catch (error) {
         console.error(error)
@@ -103,12 +106,12 @@ export function ClubSettingsPage() {
   }
 
   const handleChange = (event) => {
-    const { name, value } = event.target
+    const { name, value, type, checked } = event.target
     setIsSaved(false)
     setErrorMessage('')
     setFormData((current) => ({
       ...current,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     }))
   }
 
@@ -153,6 +156,7 @@ export function ClubSettingsPage() {
         logoUrl: updatedClub.logoUrl,
         contactEmail: updatedClub.contactEmail,
         contactPhone: updatedClub.contactPhone,
+        requireApproval: Boolean(updatedClub.requireApproval ?? true),
       })
       updateCurrentClubDetails(updatedClub)
       setIsSaved(true)
@@ -200,6 +204,7 @@ export function ClubSettingsPage() {
         logoUrl: updatedClub.logoUrl,
         contactEmail: updatedClub.contactEmail,
         contactPhone: updatedClub.contactPhone,
+        requireApproval: Boolean(updatedClub.requireApproval ?? true),
       })
       updateCurrentClubDetails(updatedClub)
       setSelectedLogoFile(null)
@@ -212,71 +217,67 @@ export function ClubSettingsPage() {
     }
   }
 
+  const resolvedLogoUrl = formData.logoUrl || fallbackLogo
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Club Settings"
         title="Club details"
-        description="Update the shared club information shown across the workspace and PDF preview."
+        description="Update the shared club information shown across the workspace and every exported PDF."
       />
 
       {isSaved ? (
-        <div className="rounded-[20px] border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#46604a]">
+        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           Saved successfully
         </div>
       ) : null}
 
       {uploadSuccessMessage ? (
-        <div className="rounded-[20px] border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#46604a]">
+        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           {uploadSuccessMessage}
         </div>
       ) : null}
 
       {errorMessage ? (
-        <div className="rounded-[20px] border border-[#ead7d7] bg-[#faf2f2] px-4 py-3 text-sm font-medium text-[#8b4b4b]">
+        <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
           {errorMessage}
         </div>
       ) : null}
 
       <SectionCard
         title="Club profile"
-        description="These details are used in the topbar and parent-facing preview."
+        description="These details are used in the topbar, parent-facing preview, and exported PDF files."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[#dbe3d6] bg-[#f8faf7] px-4 py-4 text-sm text-slate-600">
+          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading club settings...
           </div>
         ) : (
           <div className="grid gap-5 xl:grid-cols-[0.72fr_1fr]">
-            <div className="rounded-[24px] border border-[#dbe3d6] bg-[#f8faf7] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Logo preview</p>
-              <div className="mt-4 flex min-h-48 items-center justify-center overflow-hidden rounded-[24px] border border-dashed border-[#cfd8c9] bg-white p-4">
-                {formData.logoUrl ? (
-                  <img src={formData.logoUrl} alt={formData.name || 'Club logo'} className="max-h-40 w-auto object-contain" />
-                ) : (
-                  <div className="flex h-28 w-28 items-center justify-center rounded-[24px] border border-[#dbe3d6] bg-[#f5f7f3] text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
-                    Logo
-                  </div>
-                )}
+            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Logo preview</p>
+              <div className="mt-4 flex min-h-48 items-center justify-center overflow-hidden rounded-[24px] border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+                <img src={resolvedLogoUrl} alt={formData.name || 'Club logo'} className="max-h-40 w-auto object-contain" />
               </div>
 
               <div className="mt-5 space-y-4">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-slate-700">Upload new logo</span>
+                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Upload new logo</span>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    className="block min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-white px-4 py-3 text-sm text-slate-700 file:mr-4 file:rounded-xl file:border-0 file:bg-[#eef3ea] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[#46604a]"
+                    className="block min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] file:mr-4 file:rounded-xl file:border-0 file:bg-[var(--panel-soft)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[var(--text-primary)]"
                   />
-                  <p className="mt-2 text-xs leading-5 text-slate-500">PNG, JPG, or SVG. Maximum file size 2MB.</p>
+                  <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">PNG, JPG, or SVG. Maximum file size 2MB.</p>
                 </label>
 
                 <button
                   type="button"
                   onClick={handleLogoUpload}
                   disabled={isUploading || !selectedLogoFile}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#dbe3d6] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isUploading ? 'Uploading...' : 'Upload Logo'}
                 </button>
@@ -285,55 +286,66 @@ export function ClubSettingsPage() {
 
             <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Club Name</span>
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Club Name</span>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Logo URL</span>
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Logo URL</span>
                 <input
                   type="text"
                   name="logoUrl"
                   value={formData.logoUrl}
                   onChange={handleChange}
-                  className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Contact Email</span>
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Contact Email</span>
                 <input
                   type="email"
                   name="contactEmail"
                   value={formData.contactEmail}
                   onChange={handleChange}
-                  className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Contact Phone</span>
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Contact Phone</span>
                 <input
                   type="text"
                   name="contactPhone"
                   value={formData.contactPhone}
                   onChange={handleChange}
-                  className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
+              </label>
+
+              <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)] md:col-span-2">
+                <input
+                  type="checkbox"
+                  name="requireApproval"
+                  checked={formData.requireApproval}
+                  onChange={handleChange}
+                  className="h-4 w-4 rounded border-[var(--border-color)]"
+                />
+                <span>Require manager approval before sharing evaluations</span>
               </label>
 
               <div className="md:col-span-2">
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500 sm:w-auto"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {isSaving ? 'Saving...' : 'Save changes'}
                 </button>

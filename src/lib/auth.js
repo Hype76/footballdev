@@ -9,28 +9,79 @@ function normalizeName(value) {
     .toLowerCase()
 }
 
-export function isManager(user) {
-  return user?.role === 'manager'
-}
+export function getRoleLabel(user) {
+  if (!user) {
+    return 'Unknown'
+  }
 
-export function isCoach(user) {
-  return user?.role === 'coach'
+  return user.roleLabel || user.role || 'Unknown'
 }
 
 export function isSuperAdmin(user) {
   return user?.role === 'super_admin'
 }
 
+export function canManageUsers(user) {
+  if (!user) {
+    return false
+  }
+
+  return isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50
+}
+
+export function canAssignRole(user, targetRole) {
+  if (!user || !targetRole) {
+    return false
+  }
+
+  if (isSuperAdmin(user)) {
+    return targetRole.roleKey !== 'super_admin'
+  }
+
+  const currentRank = Number(user.roleRank ?? 0)
+  const targetRank = Number(targetRole.roleRank ?? targetRole.rank ?? 0)
+
+  return currentRank >= 50 && targetRank <= currentRank
+}
+
 export function canAccessApprovals(user) {
-  return isManager(user) || isSuperAdmin(user)
+  return isSuperAdmin(user) || Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canManageFormFields(user) {
-  return isManager(user)
+  return canAccessApprovals(user)
 }
 
 export function canManageClubSettings(user) {
-  return isManager(user)
+  return canAccessApprovals(user)
+}
+
+export function canDeletePlayer(user) {
+  return canAccessApprovals(user)
+}
+
+export function canShareEvaluation(user, evaluation) {
+  if (!user || !evaluation) {
+    return false
+  }
+
+  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
+    return true
+  }
+
+  if (!user.requireApproval) {
+    return true
+  }
+
+  return evaluation.status === 'Approved'
+}
+
+export function canCreateEvaluation(user) {
+  if (!user) {
+    return false
+  }
+
+  return !isSuperAdmin(user)
 }
 
 export function canEditEvaluation(user, evaluation) {
@@ -38,7 +89,7 @@ export function canEditEvaluation(user, evaluation) {
     return false
   }
 
-  if (isManager(user) || isSuperAdmin(user)) {
+  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
     return true
   }
 
@@ -56,7 +107,7 @@ export function canViewEvaluation(user, evaluation) {
     return false
   }
 
-  if (isManager(user) || isSuperAdmin(user)) {
+  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
     return true
   }
 
@@ -191,10 +242,12 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const profile = await createClubAndManagerProfile({
-        authUser: data.user,
-        clubName,
-      })
+      const profile = String(clubName ?? '').trim()
+        ? await createClubAndManagerProfile({
+            authUser: data.user,
+            clubName,
+          })
+        : await fetchUserProfile(data.user)
 
       setSession(data.session ?? null)
       setUser(profile)
@@ -229,6 +282,7 @@ export function AuthProvider({ children }) {
         clubLogoUrl: String(clubDetails.logoUrl ?? current.clubLogoUrl ?? '').trim(),
         clubContactEmail: String(clubDetails.contactEmail ?? current.clubContactEmail ?? '').trim(),
         clubContactPhone: String(clubDetails.contactPhone ?? current.clubContactPhone ?? '').trim(),
+        requireApproval: Boolean(clubDetails.requireApproval ?? current.requireApproval ?? true),
       }
     })
   }

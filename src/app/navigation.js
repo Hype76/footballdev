@@ -8,6 +8,10 @@ export const primaryNavigation = [
     path: '/assess-player',
   },
   {
+    label: 'User Access',
+    path: '/user-access',
+  },
+  {
     label: 'Approvals',
     path: '/approvals',
   },

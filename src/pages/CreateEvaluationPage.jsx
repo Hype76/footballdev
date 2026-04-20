@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import fallbackLogo from '../assets/football-development-logo.png'
 import { EmailPreview } from '../components/ui/EmailPreview.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { isSuperAdmin, useAuth } from '../lib/auth.js'
-import { createEvaluation, getFormFields } from '../lib/supabase.js'
+import { canCreateEvaluation, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { buildEvaluationSummary, exportEvaluationPdf } from '../lib/pdf.js'
+import { EVALUATION_SECTIONS, createEvaluation, getFormFields } from '../lib/supabase.js'
 
 function createInitialFormData(user, defaults = {}) {
   return {
     team: user?.team || '',
+    section: 'Trial',
     session: '',
     coachName: user?.name || '',
     playerName: '',
@@ -194,7 +197,7 @@ function formatSessionForDisplay(value) {
 
 function FieldInput({ field, value, onChange }) {
   const sharedClassName =
-    'min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white'
+    'min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]'
 
   if (field.type === 'textarea') {
     return (
@@ -203,7 +206,7 @@ function FieldInput({ field, value, onChange }) {
         onChange={(event) => onChange(field.id, event.target.value)}
         required={field.required}
         rows="4"
-        className="min-h-32 w-full rounded-3xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+        className="min-h-32 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
       />
     )
   }
@@ -240,21 +243,21 @@ function FieldInput({ field, value, onChange }) {
 }
 
 function BlankPrintForm({ clubName, logoUrl, fields }) {
+  const resolvedLogoUrl = logoUrl || fallbackLogo
+
   return (
     <div className="print-only hidden bg-white text-slate-900">
       <div className="print-container mx-auto max-w-3xl p-8">
         <div className="section border-b border-slate-200 pb-6">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Printable Blank Form</p>
-          {logoUrl ? (
-            <div className="mt-4">
-              <img src={logoUrl} alt={clubName} className="max-h-20 w-auto max-w-[150px] object-contain" />
-            </div>
-          ) : null}
+          <div className="mt-4">
+            <img src={resolvedLogoUrl} alt={clubName} className="max-h-20 w-auto max-w-[150px] object-contain" />
+          </div>
           <h1 className="mt-3 text-3xl font-semibold">{clubName}</h1>
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {['Player Name', 'Team', 'Coach', 'Parent Email', 'Decision', 'Session'].map((label) => (
+          {['Player Name', 'Team', 'Coach', 'Parent Email', 'Decision', 'Session', 'Section'].map((label) => (
             <div key={label} className="section rounded-2xl border border-slate-200 px-4 py-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
               <div className="mt-4 h-6 border-b border-slate-300" />
@@ -283,7 +286,6 @@ export function CreateEvaluationPage() {
   const { user } = useAuth()
   const isPlatformOwner = isSuperAdmin(user)
   const formRef = useRef(null)
-  const previewRef = useRef(null)
   const hasInitializedRef = useRef(false)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -294,10 +296,11 @@ export function CreateEvaluationPage() {
   const [isLoadingFields, setIsLoadingFields] = useState(true)
   const [isSaved, setIsSaved] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [isPrintingBlankView, setIsPrintingBlankView] = useState(false)
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
+  const [previewMode, setPreviewMode] = useState('scored')
   const [errorMessage, setErrorMessage] = useState('')
 
   const draftStorageKey = getDraftStorageKey(user)
@@ -309,6 +312,7 @@ export function CreateEvaluationPage() {
 
     const requestedPlayerName = String(searchParams.get('player') ?? '').trim()
     const requestedSession = normalizeSessionValue(searchParams.get('session'))
+    const requestedSection = String(searchParams.get('section') ?? '').trim()
     const storedDraft = parseStoredDraft(draftStorageKey)
     const restoredFormData =
       storedDraft?.formData && typeof storedDraft.formData === 'object' ? storedDraft.formData : {}
@@ -318,12 +322,16 @@ export function CreateEvaluationPage() {
     const nextFormData = createInitialFormData(user, {
       ...restoredFormData,
       playerName: requestedPlayerName || String(restoredFormData.playerName ?? '').trim(),
+      section: EVALUATION_SECTIONS.includes(requestedSection)
+        ? requestedSection
+        : String(restoredFormData.section ?? 'Trial'),
       session: nextSessionValue,
       team: user.team || '',
       coachName: user.name || '',
     })
 
     setFormData(nextFormData)
+    setPreviewMode(String(storedDraft?.previewMode ?? 'scored') === 'email' ? 'email' : 'scored')
     setResponseValues(
       storedDraft?.responseValues && typeof storedDraft.responseValues === 'object' ? storedDraft.responseValues : {},
     )
@@ -355,9 +363,7 @@ export function CreateEvaluationPage() {
         setResponseValues((current) => {
           const emptyValues = createEmptyResponseValues(fields)
 
-          return Object.fromEntries(
-            Object.keys(emptyValues).map((key) => [key, current[key] ?? '']),
-          )
+          return Object.fromEntries(Object.keys(emptyValues).map((key) => [key, current[key] ?? '']))
         })
         setIsFallbackFields(isFallback)
       } catch (error) {
@@ -427,30 +433,29 @@ export function CreateEvaluationPage() {
           formData,
           responseValues,
           lastUsedSession,
+          previewMode,
         }),
       )
     } catch (error) {
       console.error(error)
     }
-  }, [draftStorageKey, formData, isPlatformOwner, lastUsedSession, responseValues])
+  }, [draftStorageKey, formData, isPlatformOwner, lastUsedSession, previewMode, responseValues])
 
-  const enabledFields = useMemo(
-    () => dynamicFields.filter((field) => field.isEnabled),
-    [dynamicFields],
-  )
-
-  const formResponses = useMemo(
-    () => buildFormResponses(enabledFields, responseValues),
-    [enabledFields, responseValues],
-  )
+  const enabledFields = useMemo(() => dynamicFields.filter((field) => field.isEnabled), [dynamicFields])
+  const formResponses = useMemo(() => buildFormResponses(enabledFields, responseValues), [enabledFields, responseValues])
   const scores = useMemo(() => buildScores(formResponses), [formResponses])
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
   const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
-  const responseItems = useMemo(
-    () => createResponseItems(enabledFields, responseValues),
-    [enabledFields, responseValues],
-  )
+  const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
+  const previewSummary = useMemo(
+    () =>
+      buildEvaluationSummary({
+        comments,
+        formResponses,
+      }),
+    [comments, formResponses],
+  )
 
   const handleFieldChange = (event) => {
     const { name, value } = event.target
@@ -483,41 +488,31 @@ export function CreateEvaluationPage() {
     }))
   }
 
-  const handleDownloadPdf = async () => {
-    if (!previewRef.current) {
-      console.error('PDF export failed: preview element is missing.')
-      setErrorMessage('Preview is not ready for PDF export yet.')
-      return
-    }
-
-    setIsDownloadingPdf(true)
+  const handleDownloadPdf = async (mode = previewMode) => {
+    setIsGeneratingPdf(true)
     setErrorMessage('')
 
     try {
-      await new Promise((resolve) => {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(resolve)
-        })
+      await exportEvaluationPdf({
+        filename: `${normalizePlayerName(formData.playerName || 'evaluation')}-${mode}.pdf`,
+        mode,
+        previewProps: {
+          clubName: user?.clubName || user?.team || 'Club Name',
+          logoUrl: user?.clubLogoUrl || fallbackLogo,
+          playerName: formData.playerName || 'Player Name',
+          team: formData.team,
+          section: formData.section,
+          session: formData.session,
+          decision: formData.decision,
+          summary: previewSummary,
+          responseItems,
+        },
       })
-
-      const html2pdfModule = await import('html2pdf.js')
-      const pdfExporter = html2pdfModule.default || html2pdfModule
-
-      await pdfExporter()
-        .set({
-          margin: 10,
-          filename: `${normalizePlayerName(formData.playerName || 'evaluation')}-feedback.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        })
-        .from(previewRef.current)
-        .save()
     } catch (error) {
       console.error('PDF export failed', error)
-      setErrorMessage('Could not generate the PDF. Check the preview and try again.')
+      setErrorMessage('Could not generate the PDF. Check the console for details.')
     } finally {
-      setIsDownloadingPdf(false)
+      setIsGeneratingPdf(false)
     }
   }
 
@@ -542,6 +537,7 @@ export function CreateEvaluationPage() {
       const evaluation = {
         playerName: normalizedPlayerName,
         team: String(user?.team || formData.team).trim(),
+        section: formData.section,
         clubId: user?.clubId,
         coachId: user?.id,
         coach: String(user?.name || formData.coachName).trim(),
@@ -557,12 +553,11 @@ export function CreateEvaluationPage() {
         createdAt: new Date().toISOString(),
       }
 
-      console.log('Submitting evaluation', evaluation)
       await createEvaluation(evaluation)
-      console.log('Evaluation submitted successfully', evaluation.playerName)
 
       const queryPlayerName = String(searchParams.get('player') ?? '').trim()
       const querySession = normalizeSessionValue(searchParams.get('session'))
+      const querySection = String(searchParams.get('section') ?? '').trim()
       const nextSessionValue = querySession || lastUsedSession
 
       if (draftStorageKey) {
@@ -574,6 +569,7 @@ export function CreateEvaluationPage() {
         createInitialFormData(user, {
           playerName: queryPlayerName,
           session: nextSessionValue,
+          section: EVALUATION_SECTIONS.includes(querySection) ? querySection : formData.section,
         }),
       )
       setResponseValues(createEmptyResponseValues(dynamicFields))
@@ -602,42 +598,42 @@ export function CreateEvaluationPage() {
     <div className="space-y-5 sm:space-y-6">
       <BlankPrintForm
         clubName={user?.clubName || user?.team || 'Club Form'}
-        logoUrl={user?.clubLogoUrl || ''}
+        logoUrl={user?.clubLogoUrl || fallbackLogo}
         fields={enabledFields}
       />
 
       <div className={isPrintingBlankView ? 'no-print' : ''}>
         <PageHeader
-          eyebrow="Evaluation"
-          title="Create evaluation"
-          description="Capture a club-specific evaluation form and export it when needed."
+          eyebrow="Assessment"
+          title="Assess player"
+          description="Capture a trial or squad assessment, preview the export live, and save it when ready."
         />
 
         {isSaved ? (
-          <div className="rounded-[20px] border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#46604a]">
+          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
             Evaluation saved
           </div>
         ) : null}
 
         {errorMessage ? (
-          <div className="rounded-[20px] border border-[#ead7d7] bg-[#faf2f2] px-4 py-3 text-sm font-medium text-[#8b4b4b]">
+          <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
             {errorMessage}
           </div>
         ) : null}
 
-        {isPlatformOwner ? (
+        {!canCreateEvaluation(user) ? (
           <SectionCard
             title="Platform account"
-            description="Super admins are not tied to one club, so evaluation creation stays with club users."
+            description="Super admins oversee the platform. Assessments must be created from a club user account."
           >
-            <div className="rounded-[20px] border border-[#dbe3d6] bg-[#f8faf7] px-4 py-4 text-sm leading-6 text-slate-600">
-              Use this account to oversee clubs, users, approvals, and platform-wide data. Create evaluations from a
-              manager or coach account inside the relevant club.
+            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm leading-6 text-[var(--text-muted)]">
+              Use this account to manage clubs, users, and the wider workspace. Switch into a club-linked account to
+              assess players.
             </div>
           </SectionCard>
         ) : isLoadingFields ? (
           <SectionCard title="Form" description="Loading the configured evaluation fields for this club.">
-            <div className="rounded-[20px] border border-[#dbe3d6] bg-[#f8faf7] px-4 py-4 text-sm text-slate-600">
+            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
               Loading form fields...
             </div>
           </SectionCard>
@@ -646,73 +642,73 @@ export function CreateEvaluationPage() {
             <form ref={formRef} className="space-y-5 sm:space-y-6 no-print" onSubmit={handleSubmit}>
               <SectionCard
                 title="Player details"
-                description="Locked fields stay consistent while the rest of the evaluation can be configured per club."
+                description="Core details stay consistent while the club-configured evaluation fields adapt below."
               >
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-slate-700">Player Name</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
                     <input
                       type="text"
                       name="playerName"
                       value={formData.playerName}
                       onChange={handleFieldChange}
                       required
-                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-slate-700">Team</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
                     <input
                       type="text"
                       name="team"
                       value={formData.team}
                       readOnly
-                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm text-slate-900 outline-none"
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
                     />
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-slate-700">Coach</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach</span>
                     <input
                       type="text"
                       name="coachName"
                       value={formData.coachName}
                       readOnly
-                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm text-slate-900 outline-none"
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
                     />
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-slate-700">Parent Email</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Email</span>
                     <input
                       type="email"
                       name="parentEmail"
                       value={formData.parentEmail}
                       onChange={handleFieldChange}
-                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-slate-700">Session</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session</span>
                     <input
                       type="datetime-local"
                       name="session"
                       value={formatSessionForInput(formData.session)}
                       onChange={handleFieldChange}
-                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
-                    <p className="mt-2 text-xs leading-5 text-slate-500">Stored as ISO. Current session: {readableSession}</p>
+                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Stored as ISO. Current session: {readableSession}</p>
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-slate-700">Decision</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Decision</span>
                     <select
                       name="decision"
                       value={formData.decision}
                       onChange={handleFieldChange}
-                      className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     >
                       <option value="Yes">Yes</option>
                       <option value="No">No</option>
@@ -720,25 +716,43 @@ export function CreateEvaluationPage() {
                     </select>
                   </label>
                 </div>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  {EVALUATION_SECTIONS.map((section) => (
+                    <button
+                      key={section}
+                      type="button"
+                      onClick={() => setFormData((current) => ({ ...current, section }))}
+                      className={[
+                        'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                        formData.section === section
+                          ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                          : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                      ].join(' ')}
+                    >
+                      {section}
+                    </button>
+                  ))}
+                </div>
               </SectionCard>
 
               <SectionCard
                 title="Configured fields"
                 description={
                   isFallbackFields
-                    ? 'No club-specific form fields were found, so default fields were loaded for this club.'
-                    : 'These enabled fields are loaded from the club form builder and saved as form responses.'
+                    ? 'No club-specific form fields were found, so the default assessment fields were loaded.'
+                    : 'These enabled fields come from the club form builder and are saved as form responses.'
                 }
               >
                 {enabledFields.length === 0 ? (
-                  <div className="rounded-[20px] border border-dashed border-[#cfd8c9] bg-[#f7faf5] px-4 py-6 text-sm text-slate-600">
+                  <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
                     No evaluation fields are enabled for this club. Enable fields in the form builder first.
                   </div>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
                     {enabledFields.map((field) => (
                       <label key={field.id} className={field.type === 'textarea' ? 'block md:col-span-2' : 'block'}>
-                        <span className="mb-2 block text-sm font-semibold text-slate-700">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
                           {field.label}
                           {field.required ? ' *' : ''}
                         </span>
@@ -750,11 +764,32 @@ export function CreateEvaluationPage() {
               </SectionCard>
 
               <SectionCard
-                title="Submit"
-                description="Preview, export, or print the evaluation before saving it to Supabase."
+                title="Submit and export"
+                description="Choose the preview mode, export the PDF, or print the blank form before saving."
               >
-                <div className="mb-4 rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm font-semibold text-slate-700">
+                <div className="mb-4 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
                   Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
+                </div>
+
+                <div className="mb-4 flex flex-wrap gap-3">
+                  {[
+                    { key: 'scored', label: 'Scored Preview' },
+                    { key: 'email', label: 'Email Template Preview' },
+                  ].map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setPreviewMode(option.key)}
+                      className={[
+                        'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                        previewMode === option.key
+                          ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                          : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                      ].join(' ')}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -762,29 +797,29 @@ export function CreateEvaluationPage() {
                     type="button"
                     onClick={handleSubmitClick}
                     disabled={isSubmitting || enabledFields.length === 0}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500 sm:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isSubmitting ? 'Saving...' : 'Submit Evaluation'}
                   </button>
                   <button
                     type="button"
-                    onClick={handleDownloadPdf}
-                    disabled={isDownloadingPdf}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] sm:w-auto"
+                    onClick={() => void handleDownloadPdf(previewMode)}
+                    disabled={isGeneratingPdf}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
-                    {isDownloadingPdf ? 'Preparing PDF...' : 'Download PDF'}
+                    {isGeneratingPdf ? 'Preparing PDF...' : 'Download PDF'}
                   </button>
                   <button
                     type="button"
                     onClick={handlePrintPreview}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] sm:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                   >
                     Print
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsPrintingBlankView(true)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] sm:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                   >
                     Print Blank Form
                   </button>
@@ -792,7 +827,7 @@ export function CreateEvaluationPage() {
                     <button
                       type="button"
                       onClick={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#d7ddd3] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f6f1] sm:w-auto"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                     >
                       Save & Go to Player
                     </button>
@@ -801,19 +836,22 @@ export function CreateEvaluationPage() {
               </SectionCard>
             </form>
 
-            <div ref={previewRef} className="section">
+            <div className="section">
               <SectionCard
                 title="Preview"
-                description="This preview updates live and is used directly for PDF export and print."
+                description="This preview updates live. Switch between the full scored report and the parent email template."
               >
                 <EmailPreview
                   clubName={user?.clubName || user?.team || 'Club Name'}
-                  logoUrl={user?.clubLogoUrl || ''}
+                  logoUrl={user?.clubLogoUrl || fallbackLogo}
                   playerName={formData.playerName || 'Player Name'}
                   team={formData.team}
+                  section={formData.section}
                   session={formData.session}
                   decision={formData.decision}
+                  summary={previewSummary}
                   responseItems={responseItems}
+                  mode={previewMode}
                 />
               </SectionCard>
             </div>

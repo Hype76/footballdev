@@ -8,7 +8,8 @@ import { FormBuilderPage } from '../pages/FormBuilderPage.jsx'
 import { LoginPage } from '../pages/LoginPage.jsx'
 import { NotFoundPage } from '../pages/NotFoundPage.jsx'
 import { PlayerProfile } from '../pages/PlayerProfile.jsx'
-import { canAccessApprovals, canManageClubSettings, canManageFormFields, useAuth } from '../lib/auth.js'
+import { UserAccessPage } from '../pages/UserAccessPage.jsx'
+import { canAccessApprovals, canManageClubSettings, canManageFormFields, canManageUsers, useAuth } from '../lib/auth.js'
 
 function LoadingScreen() {
   return (
@@ -102,6 +103,24 @@ function RequireClubSettingsAccess() {
   return <Outlet />
 }
 
+function RequireUserAccess() {
+  const { isLoading, user } = useAuth()
+
+  if (isLoading) {
+    return <LoadingScreen />
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!canManageUsers(user)) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <Outlet />
+}
+
 export const router = createBrowserRouter([
   {
     element: <PublicOnly />,
@@ -149,6 +168,18 @@ export const router = createBrowserRouter([
             handle: {
               title: 'Create Evaluation',
             },
+          },
+          {
+            element: <RequireUserAccess />,
+            children: [
+              {
+                path: 'user-access',
+                element: <UserAccessPage />,
+                handle: {
+                  title: 'User Access',
+                },
+              },
+            ],
           },
           {
             element: <RequireFormBuilderAccess />,

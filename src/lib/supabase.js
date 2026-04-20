@@ -21,6 +21,15 @@ if (
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export const CLUB_LOGOS_BUCKET = 'club-logos'
 export const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024
+export const EVALUATION_SECTIONS = ['Trial', 'Squad']
+
+export const SYSTEM_ROLE_OPTIONS = [
+  { key: 'admin', label: 'Admin', rank: 90, isSystem: true },
+  { key: 'head_manager', label: 'Head Manager', rank: 70, isSystem: true },
+  { key: 'manager', label: 'Manager', rank: 50, isSystem: true },
+  { key: 'coach', label: 'Coach', rank: 30, isSystem: true },
+  { key: 'assistant_coach', label: 'Assistant Coach', rank: 20, isSystem: true },
+]
 
 const DEFAULT_FORM_FIELDS = [
   {
@@ -114,14 +123,64 @@ function normalizeWords(value) {
     .join(' ')
 }
 
-function normalizeRole(value) {
-  const normalizedValue = String(value ?? '').trim().toLowerCase()
+function slugifyRole(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
 
-  if (normalizedValue === 'super_admin') {
-    return 'super_admin'
+function getLegacyRoleDefaults(role) {
+  const normalizedRole = slugifyRole(role)
+
+  if (normalizedRole === 'super_admin') {
+    return { key: 'super_admin', label: 'Super Admin', rank: 100 }
   }
 
-  return normalizedValue === 'manager' ? 'manager' : 'coach'
+  if (normalizedRole === 'manager') {
+    return { key: 'manager', label: 'Manager', rank: 50 }
+  }
+
+  if (normalizedRole === 'coach') {
+    return { key: 'coach', label: 'Coach', rank: 30 }
+  }
+
+  const matchedSystemRole = SYSTEM_ROLE_OPTIONS.find((option) => option.key === normalizedRole)
+
+  if (matchedSystemRole) {
+    return matchedSystemRole
+  }
+
+  return {
+    key: normalizedRole || 'coach',
+    label: normalizeWords(normalizedRole.replace(/_/g, ' ')) || 'Coach',
+    rank: 10,
+  }
+}
+
+function normalizeRoleKey(value) {
+  return slugifyRole(value) || 'coach'
+}
+
+function normalizeRoleLabel(value, roleKey) {
+  const normalizedLabel = String(value ?? '').trim()
+
+  if (normalizedLabel) {
+    return normalizedLabel
+  }
+
+  return getLegacyRoleDefaults(roleKey).label
+}
+
+function normalizeRoleRank(value, roleKey) {
+  const numericValue = Number(value)
+
+  if (!Number.isNaN(numericValue) && numericValue > 0) {
+    return numericValue
+  }
+
+  return getLegacyRoleDefaults(roleKey).rank
 }
 
 function normalizeFieldType(value) {
@@ -293,6 +352,7 @@ function normalizeEvaluationRow(row) {
     id: row.id,
     playerName: String(row.player_name ?? row.playerName ?? '').trim() || 'Unknown Player',
     team: String(row.team ?? '').trim() || 'Unassigned Club',
+    section: String(row.section ?? row.evaluation_section ?? 'Trial').trim() || 'Trial',
     clubId: row.club_id ?? row.clubId ?? '',
     coachId: row.coach_id ?? row.coachId ?? '',
     coach: String(row.coach ?? row.coach_name ?? '').trim() || 'Unknown Coach',
@@ -315,6 +375,7 @@ function mapEvaluationToRow(data) {
   return {
     player_name: data.playerName,
     team: data.team,
+    section: data.section || 'Trial',
     club_id: data.clubId,
     coach_id: data.coachId,
     coach: data.coach,
@@ -384,8 +445,41 @@ function mapFormFieldToRow(field, user, orderIndex) {
   return payload
 }
 
+function normalizeClubRoleRow(row) {
+  const roleKey = normalizeRoleKey(row.role_key ?? row.roleKey)
+
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    roleKey,
+    roleLabel: normalizeRoleLabel(row.role_label ?? row.roleLabel, roleKey),
+    roleRank: normalizeRoleRank(row.role_rank ?? row.roleRank, roleKey),
+    isSystem: Boolean(row.is_system ?? row.isSystem),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+function normalizeClubInviteRow(row) {
+  const roleKey = normalizeRoleKey(row.role_key ?? row.roleKey)
+
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    email: String(row.email ?? '').trim().toLowerCase(),
+    roleKey,
+    roleLabel: normalizeRoleLabel(row.role_label ?? row.roleLabel, roleKey),
+    roleRank: normalizeRoleRank(row.role_rank ?? row.roleRank, roleKey),
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
 export function getDefaultFormFields() {
   return DEFAULT_FORM_FIELDS.map((field) => ({ ...field }))
+}
+
+export function getDefaultClubRoles() {
+  return SYSTEM_ROLE_OPTIONS.map((role) => ({ ...role }))
 }
 
 async function seedDefaultFormFields() {
@@ -397,37 +491,129 @@ async function seedDefaultFormFields() {
   }
 }
 
+export async function seedDefaultClubRolesForClub(clubId) {
+  if (!clubId) {
+    return
+  }
+
+  const { error } = await supabase.rpc('seed_default_club_roles', {
+    target_club_id: clubId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+}
+
+async function fetchClubDetails(clubId) {
+  if (!clubId) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('clubs')
+    .select('id, name, logo_url, contact_email, contact_phone, require_approval')
+    .eq('id', clubId)
+    .maybeSingle()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return data
+}
+
 export function normalizeUserProfile(profile) {
-  const role = normalizeRole(profile.role)
+  const baseRole = getLegacyRoleDefaults(profile.role)
+  const roleKey = normalizeRoleKey(profile.role ?? baseRole.key)
+  const roleLabel = normalizeRoleLabel(profile.role_label ?? profile.roleLabel, roleKey)
+  const roleRank = normalizeRoleRank(profile.role_rank ?? profile.roleRank, roleKey)
   const clubName =
     getClubName(profile.clubs) ||
     String(profile.team ?? '').trim() ||
-    (role === 'super_admin' ? 'Platform' : 'Unassigned Club')
+    (roleKey === 'super_admin' ? 'Platform' : 'Unassigned Club')
 
   return {
     id: profile.id,
     email: String(profile.email ?? '').trim().toLowerCase(),
     name: getDisplayName(profile),
-    role,
+    role: roleKey,
+    roleLabel,
+    roleRank,
     clubId: profile.club_id ?? profile.clubId ?? '',
     clubName,
     team: clubName,
     clubLogoUrl: String(getClubValue(profile.clubs, 'logo_url') ?? profile.clubLogoUrl ?? '').trim(),
     clubContactEmail: String(getClubValue(profile.clubs, 'contact_email') ?? profile.clubContactEmail ?? '').trim(),
     clubContactPhone: String(getClubValue(profile.clubs, 'contact_phone') ?? profile.clubContactPhone ?? '').trim(),
+    requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
   }
 }
 
-export async function fetchUserProfile(authUser) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, email, name, role, club_id')
-    .eq('id', authUser.id)
+async function claimInvitedUserProfile(authUser) {
+  const normalizedEmail = String(authUser?.email ?? '').trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    return null
+  }
+
+  const { data: inviteRow, error: inviteError } = await supabase
+    .from('club_user_invites')
+    .select('*')
+    .eq('email', normalizedEmail)
+    .is('accepted_at', null)
     .maybeSingle()
 
-  if (error) {
-    console.error(error)
-    throw error
+  if (inviteError) {
+    console.error(inviteError)
+    throw inviteError
+  }
+
+  if (!inviteRow) {
+    return null
+  }
+
+  const invite = normalizeClubInviteRow(inviteRow)
+  const { error: insertError } = await supabase.from('users').insert({
+    id: authUser.id,
+    email: normalizedEmail,
+    role: invite.roleKey,
+    role_label: invite.roleLabel,
+    role_rank: invite.roleRank,
+    club_id: invite.clubId,
+  })
+
+  if (insertError) {
+    console.error(insertError)
+    throw insertError
+  }
+
+  return invite
+}
+
+export async function fetchUserProfile(authUser) {
+  const loadUserRow = async () => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, role_label, role_rank, club_id')
+      .eq('id', authUser.id)
+      .maybeSingle()
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return data
+  }
+
+  let data = await loadUserRow()
+
+  if (!data) {
+    await claimInvitedUserProfile(authUser)
+    data = await loadUserRow()
   }
 
   if (!data) {
@@ -437,16 +623,10 @@ export async function fetchUserProfile(authUser) {
   let clubData = null
 
   if (data.club_id) {
-    const { data: club, error: clubError } = await supabase
-      .from('clubs')
-      .select('name, logo_url, contact_email, contact_phone')
-      .eq('id', data.club_id)
-      .maybeSingle()
-
-    if (clubError) {
-      console.error(clubError)
-    } else {
-      clubData = club
+    try {
+      clubData = await fetchClubDetails(data.club_id)
+    } catch (error) {
+      console.error(error)
     }
   }
 
@@ -463,7 +643,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     .insert({
       name: String(clubName ?? '').trim(),
     })
-    .select('id, name, logo_url, contact_email, contact_phone')
+    .select('id, name, logo_url, contact_email, contact_phone, require_approval')
     .single()
 
   if (clubError) {
@@ -471,15 +651,19 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     throw clubError
   }
 
+  await seedDefaultClubRolesForClub(club.id)
+
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .insert({
       id: authUser.id,
       email: authUser.email,
-      role: 'manager',
+      role: 'admin',
+      role_label: 'Admin',
+      role_rank: 90,
       club_id: club.id,
     })
-    .select('id, email, name, role, club_id')
+    .select('id, email, name, role, role_label, role_rank, club_id')
     .single()
 
   if (userError) {
@@ -489,38 +673,8 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
 
   return normalizeUserProfile({
     ...userProfile,
-    clubs: { name: club.name },
+    clubs: club,
   })
-}
-
-export async function getConfiguredFormFields({ user } = {}) {
-  if (!user?.clubId) {
-    return []
-  }
-
-  const loadConfiguredFields = async () => {
-    const { data, error } = await supabase
-      .from('form_fields')
-      .select('*')
-      .eq('club_id', user.clubId)
-      .order('order_index', { ascending: true })
-
-    if (error) {
-      console.error(error)
-      throw error
-    }
-
-    return (data ?? []).map(normalizeFormFieldRow)
-  }
-
-  const configuredFields = await loadConfiguredFields()
-
-  if (configuredFields.length > 0) {
-    return configuredFields
-  }
-
-  await seedDefaultFormFields()
-  return loadConfiguredFields()
 }
 
 export async function getClubSettings(clubId) {
@@ -528,15 +682,10 @@ export async function getClubSettings(clubId) {
     throw new Error('Club ID is required.')
   }
 
-  const { data, error } = await supabase
-    .from('clubs')
-    .select('id, name, logo_url, contact_email, contact_phone')
-    .eq('id', clubId)
-    .single()
+  const data = await fetchClubDetails(clubId)
 
-  if (error) {
-    console.error(error)
-    throw error
+  if (!data) {
+    throw new Error('Club not found.')
   }
 
   return {
@@ -545,6 +694,7 @@ export async function getClubSettings(clubId) {
     logoUrl: String(data.logo_url ?? '').trim(),
     contactEmail: String(data.contact_email ?? '').trim(),
     contactPhone: String(data.contact_phone ?? '').trim(),
+    requireApproval: Boolean(data.require_approval ?? true),
   }
 }
 
@@ -558,13 +708,14 @@ export async function updateClubSettings({ clubId, data }) {
     logo_url: String(data.logoUrl ?? '').trim(),
     contact_email: String(data.contactEmail ?? '').trim(),
     contact_phone: String(data.contactPhone ?? '').trim(),
+    require_approval: Boolean(data.requireApproval ?? true),
   }
 
   const { data: updatedClub, error } = await supabase
     .from('clubs')
     .update(payload)
     .eq('id', clubId)
-    .select('id, name, logo_url, contact_email, contact_phone')
+    .select('id, name, logo_url, contact_email, contact_phone, require_approval')
     .single()
 
   if (error) {
@@ -578,6 +729,7 @@ export async function updateClubSettings({ clubId, data }) {
     logoUrl: String(updatedClub.logo_url ?? '').trim(),
     contactEmail: String(updatedClub.contact_email ?? '').trim(),
     contactPhone: String(updatedClub.contact_phone ?? '').trim(),
+    requireApproval: Boolean(updatedClub.require_approval ?? true),
   }
 }
 
@@ -617,6 +769,225 @@ export async function uploadClubLogo({ clubId, file }) {
   }
 
   return publicUrl
+}
+
+export async function getClubRoles(user) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  const loadRoles = async () => {
+    const { data, error } = await supabase
+      .from('club_roles')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .order('role_rank', { ascending: false })
+      .order('role_label', { ascending: true })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map(normalizeClubRoleRow)
+  }
+
+  let roles = await loadRoles()
+
+  if (roles.length === 0) {
+    await seedDefaultClubRolesForClub(user.clubId)
+    roles = await loadRoles()
+  }
+
+  return roles
+}
+
+export async function createClubRole({ user, label, rank = 10 }) {
+  if (!user?.clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  const roleLabel = normalizeWords(label)
+  const roleKey = normalizeRoleKey(label)
+  const roleRank = Number(rank)
+
+  const { data, error } = await supabase
+    .from('club_roles')
+    .upsert(
+      {
+        club_id: user.clubId,
+        role_key: roleKey,
+        role_label: roleLabel,
+        role_rank: Number.isNaN(roleRank) ? 10 : roleRank,
+        is_system: false,
+      },
+      {
+        onConflict: 'club_id,role_key',
+      },
+    )
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return normalizeClubRoleRow(data)
+}
+
+export async function getClubUsers(user) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email, name, role, role_label, role_rank, club_id')
+    .eq('club_id', user.clubId)
+    .order('role_rank', { ascending: false })
+    .order('email', { ascending: true })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map((profile) => normalizeUserProfile(profile))
+}
+
+export async function getClubUserInvites(user) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('club_user_invites')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeClubInviteRow)
+}
+
+export async function assignClubUserRole({ user, email, role }) {
+  if (!user?.clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  const normalizedEmail = String(email ?? '').trim().toLowerCase()
+  const roleKey = normalizeRoleKey(role.roleKey ?? role.key)
+  const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)
+  const roleRank = normalizeRoleRank(role.roleRank ?? role.rank, roleKey)
+
+  const { data: existingUsers, error: existingUsersError } = await supabase
+    .from('users')
+    .select('id, email, name, role, role_label, role_rank, club_id')
+    .eq('club_id', user.clubId)
+    .eq('email', normalizedEmail)
+    .limit(1)
+
+  if (existingUsersError) {
+    console.error(existingUsersError)
+    throw existingUsersError
+  }
+
+  const existingUser = existingUsers?.[0]
+
+  if (existingUser) {
+    const { data: updatedUserRow, error: updateError } = await supabase
+      .from('users')
+      .update({
+        role: roleKey,
+        role_label: roleLabel,
+        role_rank: roleRank,
+      })
+      .eq('id', existingUser.id)
+      .select('id, email, name, role, role_label, role_rank, club_id')
+      .single()
+
+    if (updateError) {
+      console.error(updateError)
+      throw updateError
+    }
+
+    return {
+      kind: 'user',
+      record: normalizeUserProfile(updatedUserRow),
+    }
+  }
+
+  const { data: inviteRow, error: inviteError } = await supabase
+    .from('club_user_invites')
+    .upsert(
+      {
+        club_id: user.clubId,
+        email: normalizedEmail,
+        role_key: roleKey,
+        role_label: roleLabel,
+        role_rank: roleRank,
+        created_by: user.id,
+      },
+      {
+        onConflict: 'club_id,email',
+      },
+    )
+    .select('*')
+    .single()
+
+  if (inviteError) {
+    console.error(inviteError)
+    throw inviteError
+  }
+
+  return {
+    kind: 'invite',
+    record: normalizeClubInviteRow(inviteRow),
+  }
+}
+
+export async function deleteClubInvite(inviteId) {
+  const { error } = await supabase.from('club_user_invites').delete().eq('id', inviteId)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+}
+
+export async function getConfiguredFormFields({ user } = {}) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  const loadConfiguredFields = async () => {
+    const { data, error } = await supabase
+      .from('form_fields')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .order('order_index', { ascending: true })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map(normalizeFormFieldRow)
+  }
+
+  const configuredFields = await loadConfiguredFields()
+
+  if (configuredFields.length > 0) {
+    return configuredFields
+  }
+
+  await seedDefaultFormFields()
+  return loadConfiguredFields()
 }
 
 export async function getFormFields({ user } = {}) {
@@ -698,7 +1069,7 @@ export async function reorderFormFields(fields, user) {
   )
 }
 
-export async function getEvaluations({ user, status, playerName } = {}) {
+export async function getEvaluations({ user, status, playerName, section } = {}) {
   if (!user) {
     return []
   }
@@ -721,7 +1092,11 @@ export async function getEvaluations({ user, status, playerName } = {}) {
     query = query.eq('player_name', playerName)
   }
 
-  if (user.role === 'coach') {
+  if (section) {
+    query = query.eq('section', section)
+  }
+
+  if (user.roleRank < 50 && user.role !== 'super_admin') {
     query = query.eq('coach_id', user.id)
   }
 
@@ -784,4 +1159,23 @@ export async function updateEvaluationStatus(id, status, clubId) {
   }
 
   return normalizeEvaluationRow(updatedRow)
+}
+
+export async function deletePlayer(playerName, user) {
+  if (!user?.clubId && user?.role !== 'super_admin') {
+    throw new Error('Club ID is required.')
+  }
+
+  let query = supabase.from('evaluations').delete().eq('player_name', playerName)
+
+  if (user.role !== 'super_admin') {
+    query = query.eq('club_id', user.clubId)
+  }
+
+  const { error } = await query
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
 }

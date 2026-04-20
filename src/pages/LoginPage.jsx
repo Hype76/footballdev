@@ -71,14 +71,14 @@ export function LoginPage() {
           </h1>
 
           <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
-            Sign in with email and password. New signups create a club and seed the first manager account for that
-            club.
+            Sign in with email and password. Create a club if you are the first account, or sign up with your allocated
+            email to join an existing club.
           </p>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
             {[
               ['Login', 'email and password auth'],
-              ['Sign up', 'creates a club manager'],
+              ['Sign up', 'create club or join existing'],
               ['Club scoped', 'all data filtered per club'],
             ].map(([value, label]) => (
               <div key={label} className="rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -121,12 +121,12 @@ export function LoginPage() {
             {mode === 'signup' ? 'Create account' : 'Sign in'}
           </p>
           <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950">
-            {mode === 'signup' ? 'Create your club manager account' : 'Access your club workspace'}
+            {mode === 'signup' ? 'Create your account' : 'Access your club workspace'}
           </h2>
           <p className="mt-3 text-sm leading-6 text-slate-500">
             {mode === 'signup'
-              ? 'Your first signup creates the club record and stores your user as the manager.'
-              : 'Use the credentials already linked to your Supabase account.'}
+              ? 'Add a club name to create a new club admin account. Leave it blank if your email has already been allocated to an existing club.'
+              : 'Use the credentials already linked to your Supabase account or the email allocated to your club.'}
           </p>
 
           <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
@@ -138,7 +138,7 @@ export function LoginPage() {
                   name="clubName"
                   value={formData.clubName}
                   onChange={handleChange}
-                  required={mode === 'signup'}
+                  placeholder="Leave blank if joining an existing club"
                   className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
                 />
               </label>
@@ -187,7 +187,7 @@ export function LoginPage() {
               disabled={isSubmitting}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
             >
-              {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Club Account' : 'Login'}
+              {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
             </button>
           </form>
         </section>

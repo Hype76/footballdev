@@ -1,11 +1,12 @@
 const statusStyles = {
-  Approved: 'bg-[#e5efe2] text-[#46604a]',
-  Pending: 'bg-[#f4efe4] text-[#7b6238]',
-  Rejected: 'bg-[#f3e5e5] text-[#8b4b4b]',
+  Approved: 'bg-[#183521] text-[#bef264]',
+  Pending: 'bg-[#3b2f12] text-[#facc15]',
+  Submitted: 'bg-[#172c38] text-[#7dd3fc]',
+  Rejected: 'bg-[#3f1f24] text-[#fda4af]',
 }
 
 export function StatusBadge({ status }) {
-  const className = statusStyles[status] ?? 'bg-[#eef1ec] text-slate-700'
+  const className = statusStyles[status] ?? 'bg-[var(--panel-soft)] text-[var(--text-primary)]'
 
   return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>{status}</span>
 }
