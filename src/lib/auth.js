@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, createElement, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createClubAndManagerProfile, fetchUserProfile, supabase } from './supabase.js'
 
 const AuthContext = createContext(null)
@@ -125,16 +125,31 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [authError, setAuthError] = useState('')
+  const userRef = useRef(null)
+
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
 
   useEffect(() => {
     let isMounted = true
 
-    const syncSession = async (nextSession) => {
+    const syncSession = async (nextSession, options = {}) => {
       if (!isMounted) {
         return
       }
 
-      setIsLoading(true)
+      const nextUserId = String(nextSession?.user?.id ?? '')
+      const currentUserId = String(userRef.current?.id ?? '')
+      const shouldKeepCurrentView =
+        options.background === true &&
+        Boolean(currentUserId) &&
+        Boolean(nextUserId) &&
+        currentUserId === nextUserId
+
+      if (!shouldKeepCurrentView) {
+        setIsLoading(true)
+      }
 
       if (!nextSession?.user) {
         setSession(null)
@@ -162,10 +177,12 @@ export function AuthProvider({ children }) {
         }
 
         setSession(nextSession)
-        setUser(null)
+        if (!shouldKeepCurrentView) {
+          setUser(null)
+        }
         setAuthError(error.message || 'Could not load user profile.')
       } finally {
-        if (isMounted) {
+        if (isMounted && !shouldKeepCurrentView) {
           setIsLoading(false)
         }
       }
@@ -193,9 +210,11 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       window.setTimeout(() => {
-        void syncSession(nextSession)
+        void syncSession(nextSession, {
+          background: event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED',
+        })
       }, 0)
     })
 
