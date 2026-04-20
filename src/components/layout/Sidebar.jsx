@@ -9,7 +9,7 @@ export function Sidebar({ isOpen, onClose }) {
       return canAccessApprovals(user)
     }
 
-    if (item.path === '/user-access') {
+    if (item.path === '/user-access' || item.path === '/teams') {
       return canManageUsers(user)
     }
 

@@ -91,6 +91,7 @@ export function PlayerProfile() {
       : null
 
   const lastSection = evaluations[0]?.section || 'Trial'
+  const lastTeam = evaluations[0]?.team || ''
 
   const handleDownloadPdf = async (evaluation, mode) => {
     setPdfLoadingId(`${evaluation.id}:${mode}`)
@@ -179,7 +180,7 @@ export function PlayerProfile() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Link
-          to={`/create?player=${encodeURIComponent(routePlayerName)}&section=${encodeURIComponent(lastSection)}`}
+          to={`/create?player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(lastTeam)}&section=${encodeURIComponent(lastSection)}`}
           className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
         >
           Add New Evaluation

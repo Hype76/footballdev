@@ -12,6 +12,10 @@ export const primaryNavigation = [
     path: '/user-access',
   },
   {
+    label: 'Teams',
+    path: '/teams',
+  },
+  {
     label: 'Approvals',
     path: '/approvals',
   },

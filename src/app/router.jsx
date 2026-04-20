@@ -8,6 +8,7 @@ import { FormBuilderPage } from '../pages/FormBuilderPage.jsx'
 import { LoginPage } from '../pages/LoginPage.jsx'
 import { NotFoundPage } from '../pages/NotFoundPage.jsx'
 import { PlayerProfile } from '../pages/PlayerProfile.jsx'
+import { TeamManagementPage } from '../pages/TeamManagementPage.jsx'
 import { UserAccessPage } from '../pages/UserAccessPage.jsx'
 import { canAccessApprovals, canManageClubSettings, canManageFormFields, canManageUsers, useAuth } from '../lib/auth.js'
 
@@ -172,6 +173,13 @@ export const router = createBrowserRouter([
           {
             element: <RequireUserAccess />,
             children: [
+              {
+                path: 'teams',
+                element: <TeamManagementPage />,
+                handle: {
+                  title: 'Teams',
+                },
+              },
               {
                 path: 'user-access',
                 element: <UserAccessPage />,

@@ -193,7 +193,7 @@ export function DashboardPage() {
                     <span>{player.lastScore !== null ? player.lastScore.toFixed(1) : '-'}</span>
                     <div>
                       <Link
-                        to={`/create?player=${encodeURIComponent(player.playerName)}&section=${encodeURIComponent(selectedSection)}`}
+                        to={`/create?player=${encodeURIComponent(player.playerName)}&team=${encodeURIComponent(player.team || '')}&section=${encodeURIComponent(selectedSection)}`}
                         className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                       >
                         New Evaluation

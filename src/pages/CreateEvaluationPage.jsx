@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-development-logo.png'
 import { EmailPreview } from '../components/ui/EmailPreview.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canCreateEvaluation, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import { buildEvaluationSummary, exportEvaluationPdf } from '../lib/pdf.js'
-import { EVALUATION_SECTIONS, createEvaluation, getFormFields } from '../lib/supabase.js'
+import { EVALUATION_SECTIONS, createEvaluation, getAvailableTeamsForUser, getFormFields } from '../lib/supabase.js'
 
 function createInitialFormData(user, defaults = {}) {
   return {
-    team: user?.team || '',
+    team: '',
     section: 'Trial',
     session: '',
     coachName: user?.name || '',
@@ -291,9 +291,11 @@ export function CreateEvaluationPage() {
   const [searchParams] = useSearchParams()
   const [formData, setFormData] = useState(() => createInitialFormData(user))
   const [dynamicFields, setDynamicFields] = useState([])
+  const [availableTeams, setAvailableTeams] = useState([])
   const [responseValues, setResponseValues] = useState({})
   const [isFallbackFields, setIsFallbackFields] = useState(false)
   const [isLoadingFields, setIsLoadingFields] = useState(true)
+  const [isLoadingTeams, setIsLoadingTeams] = useState(true)
   const [isSaved, setIsSaved] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
@@ -311,6 +313,7 @@ export function CreateEvaluationPage() {
     }
 
     const requestedPlayerName = String(searchParams.get('player') ?? '').trim()
+    const requestedTeam = String(searchParams.get('team') ?? '').trim()
     const requestedSession = normalizeSessionValue(searchParams.get('session'))
     const requestedSection = String(searchParams.get('section') ?? '').trim()
     const storedDraft = parseStoredDraft(draftStorageKey)
@@ -322,11 +325,11 @@ export function CreateEvaluationPage() {
     const nextFormData = createInitialFormData(user, {
       ...restoredFormData,
       playerName: requestedPlayerName || String(restoredFormData.playerName ?? '').trim(),
+      team: requestedTeam || String(restoredFormData.team ?? '').trim(),
       section: EVALUATION_SECTIONS.includes(requestedSection)
         ? requestedSection
         : String(restoredFormData.section ?? 'Trial'),
       session: nextSessionValue,
-      team: user.team || '',
       coachName: user.name || '',
     })
 
@@ -338,6 +341,66 @@ export function CreateEvaluationPage() {
     setLastUsedSession(nextSessionValue)
     hasInitializedRef.current = true
   }, [draftStorageKey, searchParams, user])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadTeams = async () => {
+      if (!user || isPlatformOwner) {
+        setAvailableTeams([])
+        setIsLoadingTeams(false)
+        return
+      }
+
+      setIsLoadingTeams(true)
+
+      try {
+        const nextTeams = await getAvailableTeamsForUser(user)
+
+        if (!isMounted) {
+          return
+        }
+
+        setAvailableTeams(nextTeams)
+        setFormData((current) => {
+          const requestedTeam = String(searchParams.get('team') ?? '').trim()
+          const currentTeam = String(current.team ?? '').trim()
+
+          if (currentTeam && nextTeams.some((team) => team.name === currentTeam)) {
+            return current
+          }
+
+          if (requestedTeam && nextTeams.some((team) => team.name === requestedTeam)) {
+            return {
+              ...current,
+              team: requestedTeam,
+            }
+          }
+
+          return {
+            ...current,
+            team: nextTeams[0]?.name || '',
+          }
+        })
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setAvailableTeams([])
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingTeams(false)
+        }
+      }
+    }
+
+    void loadTeams()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isPlatformOwner, searchParams, user])
 
   useEffect(() => {
     let isMounted = true
@@ -456,6 +519,10 @@ export function CreateEvaluationPage() {
       }),
     [comments, formResponses],
   )
+  const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
+  const noTeamsMessage = canManageUsers(user)
+    ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
+    : 'No teams are assigned to your account yet. Ask a manager to allocate you to at least one team.'
 
   const handleFieldChange = (event) => {
     const { name, value } = event.target
@@ -497,7 +564,7 @@ export function CreateEvaluationPage() {
         filename: `${normalizePlayerName(formData.playerName || 'evaluation')}-${mode}.pdf`,
         mode,
         previewProps: {
-          clubName: user?.clubName || user?.team || 'Club Name',
+          clubName: user?.clubName || 'Club Name',
           logoUrl: user?.clubLogoUrl || fallbackLogo,
           playerName: formData.playerName || 'Player Name',
           team: formData.team,
@@ -529,6 +596,12 @@ export function CreateEvaluationPage() {
       return
     }
 
+    if (!String(formData.team ?? '').trim()) {
+      console.error('Evaluation submit failed: no team selected.')
+      setErrorMessage('Select a team before submitting the evaluation.')
+      return
+    }
+
     setIsSubmitting(true)
     setErrorMessage('')
 
@@ -536,7 +609,7 @@ export function CreateEvaluationPage() {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
       const evaluation = {
         playerName: normalizedPlayerName,
-        team: String(user?.team || formData.team).trim(),
+        team: String(formData.team).trim(),
         section: formData.section,
         clubId: user?.clubId,
         coachId: user?.id,
@@ -556,9 +629,14 @@ export function CreateEvaluationPage() {
       await createEvaluation(evaluation)
 
       const queryPlayerName = String(searchParams.get('player') ?? '').trim()
+      const queryTeam = String(searchParams.get('team') ?? '').trim()
       const querySession = normalizeSessionValue(searchParams.get('session'))
       const querySection = String(searchParams.get('section') ?? '').trim()
       const nextSessionValue = querySession || lastUsedSession
+      const nextTeamValue =
+        queryTeam && availableTeams.some((team) => team.name === queryTeam)
+          ? queryTeam
+          : String(formData.team ?? '').trim()
 
       if (draftStorageKey) {
         sessionStorage.removeItem(draftStorageKey)
@@ -568,6 +646,7 @@ export function CreateEvaluationPage() {
       setFormData(
         createInitialFormData(user, {
           playerName: queryPlayerName,
+          team: nextTeamValue,
           session: nextSessionValue,
           section: EVALUATION_SECTIONS.includes(querySection) ? querySection : formData.section,
         }),
@@ -597,7 +676,7 @@ export function CreateEvaluationPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <BlankPrintForm
-        clubName={user?.clubName || user?.team || 'Club Form'}
+        clubName={user?.clubName || 'Club Form'}
         logoUrl={user?.clubLogoUrl || fallbackLogo}
         fields={enabledFields}
       />
@@ -637,6 +716,31 @@ export function CreateEvaluationPage() {
               Loading form fields...
             </div>
           </SectionCard>
+        ) : isLoadingTeams ? (
+          <SectionCard title="Teams" description="Loading the available teams for this account.">
+            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+              Loading teams...
+            </div>
+          </SectionCard>
+        ) : availableTeams.length === 0 ? (
+          <SectionCard
+            title="No teams available"
+            description="Assessments now use real club teams so staff can be routed and filtered correctly."
+          >
+            <div className="space-y-4 rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
+              <p>{noTeamsMessage}</p>
+              {canManageUsers(user) ? (
+                <div>
+                  <Link
+                    to="/teams"
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                  >
+                    Open Team Management
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          </SectionCard>
         ) : (
           <>
             <form ref={formRef} className="space-y-5 sm:space-y-6 no-print" onSubmit={handleSubmit}>
@@ -659,13 +763,25 @@ export function CreateEvaluationPage() {
 
                   <label className="block">
                     <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
-                    <input
-                      type="text"
+                    <select
                       name="team"
                       value={formData.team}
-                      readOnly
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-                    />
+                      onChange={handleFieldChange}
+                      required
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    >
+                      <option value="">Select team</option>
+                      {availableTeams.map((team) => (
+                        <option key={team.id} value={team.name}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+                      {canManageUsers(user)
+                        ? 'Managers and admins can assess against any club team.'
+                        : 'You can only assess players for teams assigned to your account.'}
+                    </p>
                   </label>
 
                   <label className="block">
@@ -796,7 +912,7 @@ export function CreateEvaluationPage() {
                   <button
                     type="button"
                     onClick={handleSubmitClick}
-                    disabled={isSubmitting || enabledFields.length === 0}
+                    disabled={isSubmitting || !canSubmitEvaluation}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isSubmitting ? 'Saving...' : 'Submit Evaluation'}
@@ -842,7 +958,7 @@ export function CreateEvaluationPage() {
                 description="This preview updates live. Switch between the full scored report and the parent email template."
               >
                 <EmailPreview
-                  clubName={user?.clubName || user?.team || 'Club Name'}
+                  clubName={user?.clubName || 'Club Name'}
                   logoUrl={user?.clubLogoUrl || fallbackLogo}
                   playerName={formData.playerName || 'Player Name'}
                   team={formData.team}

@@ -875,6 +875,215 @@ export async function getClubUserInvites(user) {
   return (data ?? []).map(normalizeClubInviteRow)
 }
 
+function normalizeTeamRow(row) {
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    name: String(row.name ?? '').trim(),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+function normalizeTeamStaffRow(row) {
+  return {
+    id: row.id,
+    teamId: row.team_id ?? row.teamId ?? '',
+    userId: row.user_id ?? row.userId ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+export async function getTeams(user) {
+  if (!user?.clubId && user?.role !== 'super_admin') {
+    return []
+  }
+
+  let query = supabase.from('teams').select('*').order('name', { ascending: true })
+
+  if (user.role !== 'super_admin') {
+    query = query.eq('club_id', user.clubId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeTeamRow)
+}
+
+export async function getAvailableTeamsForUser(user) {
+  if (!user) {
+    return []
+  }
+
+  if (user.role === 'super_admin' || Number(user.roleRank ?? 0) >= 50) {
+    return getTeams(user)
+  }
+
+  if (!user.clubId) {
+    return []
+  }
+
+  const { data: assignmentRows, error: assignmentError } = await supabase
+    .from('team_staff')
+    .select('team_id')
+    .eq('user_id', user.id)
+
+  if (assignmentError) {
+    console.error(assignmentError)
+    throw assignmentError
+  }
+
+  const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
+
+  if (teamIds.length === 0) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .in('id', teamIds)
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeTeamRow)
+}
+
+export async function createTeam({ user, name }) {
+  if (!user?.clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  const { data, error } = await supabase
+    .from('teams')
+    .insert({
+      club_id: user.clubId,
+      name: String(name ?? '').trim(),
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return normalizeTeamRow(data)
+}
+
+export async function deleteTeam(teamId) {
+  const { error } = await supabase.from('teams').delete().eq('id', teamId)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+}
+
+export async function getTeamStaffAssignments(user) {
+  const teams = await getTeams(user)
+
+  if (teams.length === 0) {
+    return []
+  }
+
+  const teamIds = teams.map((team) => team.id)
+  const { data, error } = await supabase
+    .from('team_staff')
+    .select('*')
+    .in('team_id', teamIds)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeTeamStaffRow)
+}
+
+export async function replaceTeamStaffAssignments(teamId, userIds) {
+  const normalizedUserIds = [...new Set((userIds ?? []).map((userId) => String(userId).trim()).filter(Boolean))]
+
+  const { error: deleteError } = await supabase.from('team_staff').delete().eq('team_id', teamId)
+
+  if (deleteError) {
+    console.error(deleteError)
+    throw deleteError
+  }
+
+  if (normalizedUserIds.length === 0) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('team_staff')
+    .insert(normalizedUserIds.map((userId) => ({ team_id: teamId, user_id: userId })))
+    .select('*')
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeTeamStaffRow)
+}
+
+export async function bulkCopyTeamStaff({ sourceTeamId, targetTeamIds, selectedUserIds }) {
+  const normalizedTargetTeamIds = [...new Set((targetTeamIds ?? []).map((teamId) => String(teamId).trim()).filter(Boolean))]
+  const normalizedSelectedUserIds = [...new Set((selectedUserIds ?? []).map((userId) => String(userId).trim()).filter(Boolean))]
+
+  if (!sourceTeamId || normalizedTargetTeamIds.length === 0) {
+    return
+  }
+
+  const { data: sourceRows, error: sourceError } = await supabase
+    .from('team_staff')
+    .select('*')
+    .eq('team_id', sourceTeamId)
+
+  if (sourceError) {
+    console.error(sourceError)
+    throw sourceError
+  }
+
+  const rowsToCopy = (sourceRows ?? []).filter((row) =>
+    normalizedSelectedUserIds.length === 0 ? true : normalizedSelectedUserIds.includes(String(row.user_id)),
+  )
+
+  await Promise.all(
+    normalizedTargetTeamIds.map(async (teamId) => {
+      const { error: deleteError } = await supabase.from('team_staff').delete().eq('team_id', teamId)
+
+      if (deleteError) {
+        console.error(deleteError)
+        throw deleteError
+      }
+
+      if (rowsToCopy.length === 0) {
+        return
+      }
+
+      const { error: insertError } = await supabase
+        .from('team_staff')
+        .insert(rowsToCopy.map((row) => ({ team_id: teamId, user_id: row.user_id })))
+
+      if (insertError) {
+        console.error(insertError)
+        throw insertError
+      }
+    }),
+  )
+}
+
 export async function assignClubUserRole({ user, email, role }) {
   if (!user?.clubId) {
     throw new Error('Club ID is required.')
