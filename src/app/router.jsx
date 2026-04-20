@@ -1,16 +1,26 @@
+import { Suspense, lazy } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
-import { ApprovalsPage } from '../pages/ApprovalsPage.jsx'
-import { ClubSettingsPage } from '../pages/ClubSettingsPage.jsx'
-import { CreateEvaluationPage } from '../pages/CreateEvaluationPage.jsx'
-import { DashboardPage } from '../pages/DashboardPage.jsx'
-import { FormBuilderPage } from '../pages/FormBuilderPage.jsx'
-import { LoginPage } from '../pages/LoginPage.jsx'
-import { NotFoundPage } from '../pages/NotFoundPage.jsx'
-import { PlayerProfile } from '../pages/PlayerProfile.jsx'
-import { TeamManagementPage } from '../pages/TeamManagementPage.jsx'
-import { UserAccessPage } from '../pages/UserAccessPage.jsx'
 import { canAccessApprovals, canManageClubSettings, canManageFormFields, canManageUsers, useAuth } from '../lib/auth.js'
+
+const ApprovalsPage = lazy(() => import('../pages/ApprovalsPage.jsx').then((module) => ({ default: module.ApprovalsPage })))
+const ClubSettingsPage = lazy(() =>
+  import('../pages/ClubSettingsPage.jsx').then((module) => ({ default: module.ClubSettingsPage }))
+)
+const CreateEvaluationPage = lazy(() =>
+  import('../pages/CreateEvaluationPage.jsx').then((module) => ({ default: module.CreateEvaluationPage }))
+)
+const DashboardPage = lazy(() => import('../pages/DashboardPage.jsx').then((module) => ({ default: module.DashboardPage })))
+const FormBuilderPage = lazy(() =>
+  import('../pages/FormBuilderPage.jsx').then((module) => ({ default: module.FormBuilderPage }))
+)
+const LoginPage = lazy(() => import('../pages/LoginPage.jsx').then((module) => ({ default: module.LoginPage })))
+const NotFoundPage = lazy(() => import('../pages/NotFoundPage.jsx').then((module) => ({ default: module.NotFoundPage })))
+const PlayerProfile = lazy(() => import('../pages/PlayerProfile.jsx').then((module) => ({ default: module.PlayerProfile })))
+const TeamManagementPage = lazy(() =>
+  import('../pages/TeamManagementPage.jsx').then((module) => ({ default: module.TeamManagementPage }))
+)
+const UserAccessPage = lazy(() => import('../pages/UserAccessPage.jsx').then((module) => ({ default: module.UserAccessPage })))
 
 function LoadingScreen() {
   return (
@@ -20,6 +30,10 @@ function LoadingScreen() {
       </div>
     </main>
   )
+}
+
+function withPageLoader(element) {
+  return <Suspense fallback={<LoadingScreen />}>{element}</Suspense>
 }
 
 function RequireUser() {
@@ -128,7 +142,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/login',
-        element: <LoginPage />,
+        element: withPageLoader(<LoginPage />),
       },
     ],
   },
@@ -144,28 +158,28 @@ export const router = createBrowserRouter([
           },
           {
             path: 'dashboard',
-            element: <DashboardPage />,
+            element: withPageLoader(<DashboardPage />),
             handle: {
               title: 'Dashboard',
             },
           },
           {
             path: 'create-evaluation',
-            element: <CreateEvaluationPage />,
+            element: withPageLoader(<CreateEvaluationPage />),
             handle: {
               title: 'Create Evaluation',
             },
           },
           {
             path: 'assess-player',
-            element: <CreateEvaluationPage />,
+            element: withPageLoader(<CreateEvaluationPage />),
             handle: {
               title: 'Assess Player',
             },
           },
           {
             path: 'create',
-            element: <CreateEvaluationPage />,
+            element: withPageLoader(<CreateEvaluationPage />),
             handle: {
               title: 'Create Evaluation',
             },
@@ -175,14 +189,14 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: 'teams',
-                element: <TeamManagementPage />,
+                element: withPageLoader(<TeamManagementPage />),
                 handle: {
                   title: 'Teams',
                 },
               },
               {
                 path: 'user-access',
-                element: <UserAccessPage />,
+                element: withPageLoader(<UserAccessPage />),
                 handle: {
                   title: 'User Access',
                 },
@@ -194,7 +208,7 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: 'form-builder',
-                element: <FormBuilderPage />,
+                element: withPageLoader(<FormBuilderPage />),
                 handle: {
                   title: 'Form Builder',
                 },
@@ -206,7 +220,7 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: 'club-settings',
-                element: <ClubSettingsPage />,
+                element: withPageLoader(<ClubSettingsPage />),
                 handle: {
                   title: 'Club Settings',
                 },
@@ -218,7 +232,7 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: 'approvals',
-                element: <ApprovalsPage />,
+                element: withPageLoader(<ApprovalsPage />),
                 handle: {
                   title: 'Approvals',
                 },
@@ -227,7 +241,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'player/:id',
-            element: <PlayerProfile />,
+            element: withPageLoader(<PlayerProfile />),
             handle: {
               title: 'Player Profile',
             },
@@ -238,6 +252,6 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <NotFoundPage />,
+    element: withPageLoader(<NotFoundPage />),
   },
 ])

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import fallbackLogo from '../../assets/football-development-logo.png'
+import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
 
 export function Topbar({ title, onMenuClick, theme, onToggleTheme }) {
@@ -36,7 +36,7 @@ export function Topbar({ title, onMenuClick, theme, onToggleTheme }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)]">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)]">
               <img src={logoUrl} alt={clubLabel} className="h-full w-full object-cover" />
             </div>
             <div className="min-w-0">

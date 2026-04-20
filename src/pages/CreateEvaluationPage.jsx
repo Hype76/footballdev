@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import fallbackLogo from '../assets/football-development-logo.png'
+import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
 import { EmailPreview } from '../components/ui/EmailPreview.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'

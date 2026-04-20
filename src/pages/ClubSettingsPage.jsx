@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import fallbackLogo from '../assets/football-development-logo.png'
+import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageClubSettings, useAuth } from '../lib/auth.js'
