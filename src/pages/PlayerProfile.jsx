@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
+import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
@@ -169,9 +170,10 @@ export function PlayerProfile() {
       />
 
       {errorMessage ? (
-        <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
-          {errorMessage}
-        </div>
+        <NoticeBanner
+          title="Player history is unavailable right now"
+          message="We could not refresh this player's saved assessments. If no history has been entered yet, this page will remain empty."
+        />
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-4">

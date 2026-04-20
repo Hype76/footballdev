@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
@@ -259,9 +260,10 @@ export function TeamManagementPage() {
       ) : null}
 
       {errorMessage ? (
-        <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
-          {errorMessage}
-        </div>
+        <NoticeBanner
+          title="Team data is only partly available"
+          message="Some team or staff records could not be refreshed. Missing items will appear once the data is entered or the connection settles."
+        />
       ) : null}
 
       <SectionCard

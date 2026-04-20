@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
@@ -137,9 +138,10 @@ export function DashboardPage() {
       />
 
       {errorMessage ? (
-        <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
-          {errorMessage}
-        </div>
+        <NoticeBanner
+          title="Recent assessments are unavailable right now"
+          message="The dashboard could not refresh live data. If this club is new, add your first assessment. Otherwise try again in a moment."
+        />
       ) : null}
 
       <SectionCard

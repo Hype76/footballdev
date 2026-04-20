@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
+import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageClubSettings, useAuth } from '../lib/auth.js'
@@ -283,9 +284,10 @@ export function ClubSettingsPage() {
       ) : null}
 
       {errorMessage ? (
-        <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
-          {errorMessage}
-        </div>
+        <NoticeBanner
+          title="Club details are not available yet"
+          message="We could not refresh the latest club settings. You can still add the missing details here and save them."
+        />
       ) : null}
 
       <SectionCard

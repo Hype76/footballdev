@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
 import { EmailPreview } from '../components/ui/EmailPreview.jsx'
+import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
@@ -745,9 +746,10 @@ export function CreateEvaluationPage() {
         ) : null}
 
         {errorMessage ? (
-          <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
-            {errorMessage}
-          </div>
+          <NoticeBanner
+            title="Assessment setup is incomplete"
+            message="Some live club data could not be refreshed. You can keep working with anything already shown, or try again in a moment."
+          />
         ) : null}
 
         {!canCreateEvaluation(user) ? (
