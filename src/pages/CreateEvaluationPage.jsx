@@ -323,7 +323,9 @@ export function CreateEvaluationPage() {
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
-  const [errorMessage, setErrorMessage] = useState('')
+  const [actionErrorMessage, setActionErrorMessage] = useState('')
+  const [dataRefreshNotice, setDataRefreshNotice] = useState('')
+  const [teamsLoadErrorMessage, setTeamsLoadErrorMessage] = useState('')
 
   const draftStorageKey = getDraftStorageKey(user)
 
@@ -373,7 +375,7 @@ export function CreateEvaluationPage() {
         return
       }
 
-      setErrorMessage('')
+      setTeamsLoadErrorMessage('')
 
       try {
         const nextTeams = await withRequestTimeout(
@@ -386,6 +388,11 @@ export function CreateEvaluationPage() {
         }
 
         setAvailableTeams(nextTeams)
+        setDataRefreshNotice((current) =>
+          current.startsWith('Live team data') || current.startsWith('The latest team list')
+            ? ''
+            : current,
+        )
         writeViewCache(teamsCacheKey, {
           availableTeams: nextTeams,
         })
@@ -413,10 +420,12 @@ export function CreateEvaluationPage() {
         console.error(error)
 
         if (isMounted) {
-          if (!cachedTeamsValue?.length) {
+          if (cachedTeamsValue?.length) {
+            setDataRefreshNotice('The latest team list could not be refreshed. The last available team setup is still shown.')
+          } else {
             setAvailableTeams([])
+            setTeamsLoadErrorMessage('Team data could not be loaded right now. Try again in a moment.')
           }
-          setErrorMessage(error.message || 'Could not load teams.')
         }
       } finally {
         if (isMounted) {
@@ -444,8 +453,6 @@ export function CreateEvaluationPage() {
         return
       }
 
-      setErrorMessage('')
-
       try {
         const { fields, isFallback } = await withRequestTimeout(
           () => getFormFields({ user }),
@@ -463,6 +470,11 @@ export function CreateEvaluationPage() {
           return Object.fromEntries(Object.keys(emptyValues).map((key) => [key, current[key] ?? '']))
         })
         setIsFallbackFields(isFallback)
+        setDataRefreshNotice((current) =>
+          current.startsWith('Live form fields') || current.startsWith('Default assessment fields')
+            ? ''
+            : current,
+        )
         writeViewCache(fieldsCacheKey, {
           dynamicFields: fields,
           isFallbackFields: isFallback,
@@ -476,8 +488,10 @@ export function CreateEvaluationPage() {
             setDynamicFields(fallbackFields)
             setResponseValues(createEmptyResponseValues(fallbackFields))
             setIsFallbackFields(true)
+            setDataRefreshNotice('Default assessment fields are in use because the saved club form could not be loaded.')
+          } else {
+            setDataRefreshNotice('Live form fields could not be refreshed. The last available form setup is still shown.')
           }
-          setErrorMessage(error.message || 'Could not load form fields.')
         }
       } finally {
         if (isMounted) {
@@ -569,7 +583,7 @@ export function CreateEvaluationPage() {
   const handleFieldChange = (event) => {
     const { name, value } = event.target
     setIsSaved(false)
-    setErrorMessage('')
+    setActionErrorMessage('')
 
     if (name === 'session') {
       const nextSessionValue = normalizeSessionValue(value)
@@ -590,7 +604,7 @@ export function CreateEvaluationPage() {
 
   const handleResponseChange = (fieldId, value) => {
     setIsSaved(false)
-    setErrorMessage('')
+    setActionErrorMessage('')
     setResponseValues((current) => ({
       ...current,
       [fieldId]: value,
@@ -599,7 +613,7 @@ export function CreateEvaluationPage() {
 
   const handleDownloadPdf = async (mode = previewMode) => {
     setIsGeneratingPdf(true)
-    setErrorMessage('')
+    setActionErrorMessage('')
 
     try {
       await exportEvaluationPdf({
@@ -619,7 +633,7 @@ export function CreateEvaluationPage() {
       })
     } catch (error) {
       console.error('PDF export failed', error)
-      setErrorMessage('Could not generate the PDF. Check the console for details.')
+      setActionErrorMessage('The PDF could not be generated right now. Try again in a moment.')
     } finally {
       setIsGeneratingPdf(false)
     }
@@ -634,18 +648,18 @@ export function CreateEvaluationPage() {
 
     if (!user?.clubId && !isPlatformOwner) {
       console.error('Evaluation submit failed: missing club ID for current user.')
-      setErrorMessage('Your account is missing a club assignment.')
+      setActionErrorMessage('Your account is missing a club assignment.')
       return
     }
 
     if (!String(formData.team ?? '').trim()) {
       console.error('Evaluation submit failed: no team selected.')
-      setErrorMessage('Select a team before submitting the evaluation.')
+      setActionErrorMessage('Select a team before submitting the evaluation.')
       return
     }
 
     setIsSubmitting(true)
-    setErrorMessage('')
+    setActionErrorMessage('')
 
     try {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
@@ -699,14 +713,14 @@ export function CreateEvaluationPage() {
     } catch (error) {
       console.error('Evaluation submit failed', error)
       setIsSaved(false)
-      setErrorMessage('Could not submit the evaluation. Check the console for details.')
+      setActionErrorMessage('The evaluation could not be submitted right now. Try again in a moment.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleSubmitClick = () => {
-    setErrorMessage('')
+    setActionErrorMessage('')
 
     if (!formRef.current?.reportValidity()) {
       return
@@ -736,12 +750,14 @@ export function CreateEvaluationPage() {
           </div>
         ) : null}
 
-        {errorMessage ? (
+        {actionErrorMessage ? (
           <NoticeBanner
-            title="Assessment setup is incomplete"
-            message="Some live club data could not be refreshed. You can keep working with anything already shown, or try again in a moment."
+            title="Action not completed"
+            message={actionErrorMessage}
           />
         ) : null}
+
+        {dataRefreshNotice ? <NoticeBanner title="Using available club data" message={dataRefreshNotice} tone="info" /> : null}
 
         {!canCreateEvaluation(user) ? (
           <SectionCard
@@ -763,6 +779,22 @@ export function CreateEvaluationPage() {
           <SectionCard title="Teams" description="Loading the available teams for this account.">
             <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
               Loading teams...
+            </div>
+          </SectionCard>
+        ) : teamsLoadErrorMessage ? (
+          <SectionCard title="Teams unavailable" description="The team list could not be loaded for this account just now.">
+            <div className="space-y-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
+              <p>{teamsLoadErrorMessage}</p>
+              {canManageUsers(user) ? (
+                <div>
+                  <Link
+                    to="/teams"
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                  >
+                    Open Team Management
+                  </Link>
+                </div>
+              ) : null}
             </div>
           </SectionCard>
         ) : availableTeams.length === 0 ? (
