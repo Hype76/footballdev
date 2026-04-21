@@ -37,6 +37,8 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.clubLogoUrl ?? '') === String(rightUser.clubLogoUrl ?? '') &&
     String(leftUser.clubContactEmail ?? '') === String(rightUser.clubContactEmail ?? '') &&
     String(leftUser.clubContactPhone ?? '') === String(rightUser.clubContactPhone ?? '') &&
+    String(leftUser.clubStatus ?? '') === String(rightUser.clubStatus ?? '') &&
+    String(leftUser.clubSuspendedAt ?? '') === String(rightUser.clubSuspendedAt ?? '') &&
     Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval)
   )
 }

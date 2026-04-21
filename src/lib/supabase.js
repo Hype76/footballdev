@@ -647,6 +647,18 @@ function normalizeClubInviteRow(row) {
   }
 }
 
+function normalizePlatformClubRow(row) {
+  return {
+    id: row.id,
+    name: String(row.name ?? '').trim() || 'Unnamed club',
+    contactEmail: String(row.contact_email ?? '').trim(),
+    contactPhone: String(row.contact_phone ?? '').trim(),
+    status: String(row.status ?? 'active').trim() || 'active',
+    suspendedAt: row.suspended_at ?? '',
+    createdAt: row.created_at ?? '',
+  }
+}
+
 export function getDefaultFormFields() {
   return DEFAULT_FORM_FIELDS.map((field) => ({ ...field }))
 }
@@ -687,7 +699,7 @@ async function fetchClubDetails(clubId) {
   return getCachedResource(`club:${clubId}`, async () => {
     const { data, error } = await supabase
       .from('clubs')
-      .select('id, name, logo_url, contact_email, contact_phone, require_approval')
+      .select('id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at')
       .eq('id', clubId)
       .maybeSingle()
 
@@ -724,6 +736,8 @@ export function normalizeUserProfile(profile) {
     clubLogoUrl: String(getClubValue(profile.clubs, 'logo_url') ?? profile.clubLogoUrl ?? '').trim(),
     clubContactEmail: String(getClubValue(profile.clubs, 'contact_email') ?? profile.clubContactEmail ?? '').trim(),
     clubContactPhone: String(getClubValue(profile.clubs, 'contact_phone') ?? profile.clubContactPhone ?? '').trim(),
+    clubStatus: String(getClubValue(profile.clubs, 'status') ?? profile.clubStatus ?? 'active').trim() || 'active',
+    clubSuspendedAt: getClubValue(profile.clubs, 'suspended_at') ?? profile.clubSuspendedAt ?? '',
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
   }
 }
@@ -830,7 +844,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     .insert({
       name: String(clubName ?? '').trim(),
     })
-    .select('id, name, logo_url, contact_email, contact_phone, require_approval')
+    .select('id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at')
     .single()
 
   if (clubError) {
@@ -2153,6 +2167,134 @@ export async function deletePlayer(playerName, user) {
   }
 }
 
+export async function createPlatformClub({ user, name, contactEmail = '', contactPhone = '' }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can create clubs.')
+  }
+
+  const normalizedName = String(name ?? '').trim()
+
+  if (!normalizedName) {
+    throw new Error('Club name is required.')
+  }
+
+  const { data, error } = await supabase
+    .from('clubs')
+    .insert({
+      name: normalizedName,
+      contact_email: String(contactEmail ?? '').trim(),
+      contact_phone: String(contactPhone ?? '').trim(),
+      status: 'active',
+    })
+    .select('id, name, contact_email, contact_phone, status, suspended_at, created_at')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  await seedDefaultClubRolesForClub(data.id)
+  invalidateMemoryCacheByPrefix('platform-stats')
+  await createAuditLog({
+    user,
+    action: 'club_created',
+    entityType: 'club',
+    entityId: data.id,
+    metadata: {
+      clubName: data.name,
+    },
+  })
+
+  return normalizePlatformClubRow(data)
+}
+
+export async function updatePlatformClubStatus({ user, clubId, status }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can update club status.')
+  }
+
+  const nextStatus = status === 'suspended' ? 'suspended' : 'active'
+  const { data, error } = await supabase
+    .from('clubs')
+    .update({
+      status: nextStatus,
+      suspended_at: nextStatus === 'suspended' ? new Date().toISOString() : null,
+    })
+    .eq('id', clubId)
+    .select('id, name, contact_email, contact_phone, status, suspended_at, created_at')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-stats')
+  invalidateMemoryCacheByPrefix(`club:${clubId}`)
+  await createAuditLog({
+    user,
+    action: nextStatus === 'suspended' ? 'club_suspended' : 'club_reactivated',
+    entityType: 'club',
+    entityId: clubId,
+    metadata: {
+      clubName: data.name,
+      status: nextStatus,
+    },
+  })
+
+  return normalizePlatformClubRow(data)
+}
+
+export async function deletePlatformClub({ user, clubId }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can delete clubs.')
+  }
+
+  const { data: clubRow, error: clubError } = await supabase
+    .from('clubs')
+    .select('id, name')
+    .eq('id', clubId)
+    .single()
+
+  if (clubError) {
+    console.error(clubError)
+    throw clubError
+  }
+
+  const deleteOperations = [
+    supabase.from('evaluations').delete().eq('club_id', clubId),
+    supabase.from('users').delete().eq('club_id', clubId),
+  ]
+
+  const deleteResults = await Promise.all(deleteOperations)
+  const firstDeleteError = deleteResults.find((result) => result.error)?.error
+
+  if (firstDeleteError) {
+    console.error(firstDeleteError)
+    throw firstDeleteError
+  }
+
+  const { error: deleteClubError } = await supabase.from('clubs').delete().eq('id', clubId)
+
+  if (deleteClubError) {
+    console.error(deleteClubError)
+    throw deleteClubError
+  }
+
+  invalidateMemoryCacheByPrefix('platform-stats')
+  invalidateMemoryCacheByPrefix(`club:${clubId}`)
+  await createAuditLog({
+    user,
+    action: 'club_deleted',
+    entityType: 'club',
+    entityId: clubId,
+    metadata: {
+      clubName: clubRow.name,
+    },
+  })
+}
+
 export async function getPlatformStats(user) {
   if (user?.role !== 'super_admin') {
     return {
@@ -2170,7 +2312,10 @@ export async function getPlatformStats(user) {
 
   return getCachedResource('platform-stats', async () => {
     const [clubsResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult] = await Promise.all([
-      supabase.from('clubs').select('id, name, contact_email, contact_phone, created_at').order('name', { ascending: true }),
+      supabase
+        .from('clubs')
+        .select('id, name, contact_email, contact_phone, status, suspended_at, created_at')
+        .order('name', { ascending: true }),
       supabase.from('users').select('id, email, role_label, role_rank, club_id').order('email', { ascending: true }),
       supabase.from('teams').select('id, name, club_id').order('name', { ascending: true }),
       supabase.from('players').select('id, club_id, section, status, created_at'),
@@ -2234,6 +2379,8 @@ export async function getPlatformStats(user) {
           name: String(club.name ?? '').trim() || 'Unnamed club',
           contactEmail: String(club.contact_email ?? '').trim(),
           contactPhone: String(club.contact_phone ?? '').trim(),
+          status: String(club.status ?? 'active').trim() || 'active',
+          suspendedAt: club.suspended_at,
           createdAt: club.created_at,
           userCount: clubUsers.length,
           teamCount: clubTeams.length,

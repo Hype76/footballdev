@@ -82,6 +82,19 @@ function RouteGateState({ title, message }) {
   )
 }
 
+function ClubSuspendedState() {
+  return (
+    <RouteGateState
+      title="Club access suspended"
+      message="This club workspace has been suspended by the platform admin. Contact platform support if this should be reactivated."
+    />
+  )
+}
+
+function isClubSuspended(user) {
+  return user?.clubStatus === 'suspended'
+}
+
 function RouteErrorFallback({ error }) {
   const isChunkError = isDynamicImportError(error)
   const title = isChunkError ? 'App update needed' : 'This page could not load'
@@ -157,7 +170,15 @@ function DashboardEntry() {
     return <RouteContentSkeleton />
   }
 
-  return isSuperAdmin(user) ? <Navigate to="/platform-admin" replace /> : <DashboardPage />
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
+  }
+
+  return <DashboardPage />
 }
 
 function RequireUser() {
@@ -200,6 +221,10 @@ function RequireClubWorkspace() {
 
   if (isSuperAdmin(user)) {
     return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
   }
 
   return <Outlet />
@@ -247,6 +272,10 @@ function RequireManager() {
     return <Navigate to="/platform-admin" replace />
   }
 
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
+  }
+
   if (!canAccessApprovals(user)) {
     return <Navigate to="/dashboard" replace />
   }
@@ -280,6 +309,10 @@ function RequireFormBuilderAccess() {
 
   if (isSuperAdmin(user)) {
     return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
   }
 
   if (!canManageFormFields(user)) {
@@ -317,6 +350,10 @@ function RequireClubSettingsAccess() {
     return <Navigate to="/platform-admin" replace />
   }
 
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
+  }
+
   if (!canManageClubSettings(user)) {
     return <Navigate to="/dashboard" replace />
   }
@@ -350,6 +387,10 @@ function RequireUserAccess() {
 
   if (isSuperAdmin(user)) {
     return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
   }
 
   if (!canManageUsers(user)) {
