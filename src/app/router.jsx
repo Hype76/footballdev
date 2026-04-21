@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Component, Suspense, lazy } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
@@ -9,31 +9,36 @@ import {
   isSuperAdmin,
   useAuth,
 } from '../lib/auth.js'
+import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
 
-const ApprovalsPage = lazy(() => import('../pages/ApprovalsPage.jsx').then((module) => ({ default: module.ApprovalsPage })))
-const ClubSettingsPage = lazy(() =>
-  import('../pages/ClubSettingsPage.jsx').then((module) => ({ default: module.ClubSettingsPage })),
-)
-const CreateEvaluationPage = lazy(() =>
-  import('../pages/CreateEvaluationPage.jsx').then((module) => ({ default: module.CreateEvaluationPage })),
-)
-const DashboardPage = lazy(() => import('../pages/DashboardPage.jsx').then((module) => ({ default: module.DashboardPage })))
-const FormBuilderPage = lazy(() =>
-  import('../pages/FormBuilderPage.jsx').then((module) => ({ default: module.FormBuilderPage })),
-)
-const LoginPage = lazy(() => import('../pages/LoginPage.jsx').then((module) => ({ default: module.LoginPage })))
-const NotFoundPage = lazy(() => import('../pages/NotFoundPage.jsx').then((module) => ({ default: module.NotFoundPage })))
-const PlayerProfile = lazy(() => import('../pages/PlayerProfile.jsx').then((module) => ({ default: module.PlayerProfile })))
-const PlatformAdminPage = lazy(() =>
-  import('../pages/PlatformAdminPage.jsx').then((module) => ({ default: module.PlatformAdminPage })),
-)
-const TeamManagementPage = lazy(() =>
-  import('../pages/TeamManagementPage.jsx').then((module) => ({ default: module.TeamManagementPage })),
-)
-const UserAccessPage = lazy(() => import('../pages/UserAccessPage.jsx').then((module) => ({ default: module.UserAccessPage })))
-const UserSettingsPage = lazy(() =>
-  import('../pages/UserSettingsPage.jsx').then((module) => ({ default: module.UserSettingsPage })),
-)
+function lazyRoute(importer, exportName) {
+  return lazy(async () => {
+    try {
+      const module = await importer()
+      clearChunkRecoveryMarker()
+      return { default: module[exportName] }
+    } catch (error) {
+      if (recoverFromStaleChunk(error)) {
+        return new Promise(() => {})
+      }
+
+      throw error
+    }
+  })
+}
+
+const ApprovalsPage = lazyRoute(() => import('../pages/ApprovalsPage.jsx'), 'ApprovalsPage')
+const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
+const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
+const DashboardPage = lazyRoute(() => import('../pages/DashboardPage.jsx'), 'DashboardPage')
+const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
+const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
+const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
+const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
+const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx'), 'PlatformAdminPage')
+const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
+const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
+const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx'), 'UserSettingsPage')
 
 function LoadingScreen() {
   return (
@@ -76,8 +81,72 @@ function RouteGateState({ title, message }) {
   )
 }
 
+function RouteErrorFallback({ error }) {
+  const isChunkError = isDynamicImportError(error)
+  const title = isChunkError ? 'App update needed' : 'This page could not load'
+  const message = isChunkError
+    ? 'A new version has been deployed and this browser still has an old page file. Refresh once to load the latest version.'
+    : 'The page hit an unexpected error. Refresh the page or return to the dashboard.'
+
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Page Error</p>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{message}</p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+          >
+            Refresh App
+          </button>
+          <a
+            href="/dashboard"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+          >
+            Go To Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+class RouteErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = {
+      error: null,
+    }
+  }
+
+  static getDerivedStateFromError(error) {
+    return {
+      error,
+    }
+  }
+
+  componentDidCatch(error) {
+    console.error(error)
+  }
+
+  render() {
+    if (this.state.error) {
+      return <RouteErrorFallback error={this.state.error} />
+    }
+
+    return this.props.children
+  }
+}
+
 function PageSuspense({ children }) {
-  return <Suspense fallback={<RouteContentSkeleton />}>{children}</Suspense>
+  return (
+    <RouteErrorBoundary>
+      <Suspense fallback={<RouteContentSkeleton />}>{children}</Suspense>
+    </RouteErrorBoundary>
+  )
 }
 
 function DashboardEntry() {
