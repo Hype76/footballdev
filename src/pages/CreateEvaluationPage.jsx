@@ -740,9 +740,18 @@ export function CreateEvaluationPage() {
 
     try {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
+      const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
+      const matchingPlayer = savedPlayers.find(
+        (player) =>
+          player.playerName === normalizedPlayerName &&
+          player.section === formData.section &&
+          (!formData.team || player.team === String(formData.team).trim()),
+      )
       const evaluation = {
         playerName: normalizedPlayerName,
+        playerId: matchingPlayer?.id || '',
         team: String(formData.team).trim(),
+        teamId: matchingTeam?.id || '',
         section: formData.section,
         clubId: user?.clubId,
         coachId: user?.id,

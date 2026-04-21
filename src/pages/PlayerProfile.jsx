@@ -8,10 +8,12 @@ import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
 import {
   EVALUATION_SECTIONS,
+  createCommunicationLog,
   deletePlayerRecord,
   deletePlayer,
   getEvaluations,
   getPlayers,
+  promotePlayerToSquad,
   readViewCache,
   readViewCacheValue,
   updatePlayer,
@@ -86,6 +88,7 @@ export function PlayerProfile() {
   const [playerDrafts, setPlayerDrafts] = useState({})
   const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
   const [isSavingPlayer, setIsSavingPlayer] = useState(false)
+  const [isPromotingId, setIsPromotingId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -205,12 +208,37 @@ export function PlayerProfile() {
               : [],
         },
       })
+
+      await createCommunicationLog({
+        user,
+        playerId: evaluation.playerId || primaryPlayer?.id,
+        evaluationId: evaluation.id,
+        channel: 'pdf',
+        action: mode === 'scored' ? 'scored_pdf_downloaded' : 'email_template_pdf_downloaded',
+        recipientEmail: evaluation.parentEmail || profileParentEmail,
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not generate the PDF.')
     } finally {
       setPdfLoadingId('')
     }
+  }
+
+  const handleSendToParent = (event, evaluation, canShare) => {
+    if (!canShare) {
+      event.preventDefault()
+      return
+    }
+
+    void createCommunicationLog({
+      user,
+      playerId: evaluation.playerId || primaryPlayer?.id,
+      evaluationId: evaluation.id,
+      channel: 'email',
+      action: 'mailto_opened',
+      recipientEmail: evaluation.parentEmail || profileParentEmail,
+    })
   }
 
   const handlePlayerDraftChange = (playerId, fieldName, value) => {
@@ -257,6 +285,27 @@ export function PlayerProfile() {
       setErrorMessage(error.message || 'Could not save player details.')
     } finally {
       setIsSavingPlayer(false)
+    }
+  }
+
+  const handlePromotePlayer = async (playerId) => {
+    setIsPromotingId(playerId)
+    setErrorMessage('')
+
+    try {
+      const promotedPlayer = await promotePlayerToSquad({ user, playerId })
+      const nextPlayers = players.map((player) => (player.id === playerId ? promotedPlayer : player))
+      setPlayers(nextPlayers)
+      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, player])))
+      writeViewCache(cacheKey, {
+        evaluations,
+        players: nextPlayers,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not promote this player to Squad.')
+    } finally {
+      setIsPromotingId('')
     }
   }
 
@@ -427,7 +476,7 @@ export function PlayerProfile() {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                      <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Section</p>
                           <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.section}</p>
@@ -444,8 +493,24 @@ export function PlayerProfile() {
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Parent Email</p>
                           <p className="mt-2 break-words text-sm font-semibold text-[var(--text-primary)]">{player.parentEmail || 'No parent email entered'}</p>
                         </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Status</p>
+                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                            {player.status === 'promoted' ? 'Promoted' : 'Active'}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex flex-col gap-3 sm:flex-row">
+                        {player.section !== 'Squad' ? (
+                          <button
+                            type="button"
+                            disabled={isPromotingId === player.id}
+                            onClick={() => void handlePromotePlayer(player.id)}
+                            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isPromotingId === player.id ? 'Promoting...' : 'Promote to Squad'}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setEditingPlayerId(player.id)}
@@ -556,11 +621,7 @@ export function PlayerProfile() {
                       <a
                         href={canShare ? buildParentEmailLink(routePlayerName, evaluation) : undefined}
                         title={canShare ? 'Send to parent' : 'Requires manager approval'}
-                        onClick={(event) => {
-                          if (!canShare) {
-                            event.preventDefault()
-                          }
-                        }}
+                        onClick={(event) => handleSendToParent(event, evaluation, canShare)}
                         className={[
                           'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
                           canShare

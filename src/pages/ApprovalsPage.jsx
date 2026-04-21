@@ -93,10 +93,20 @@ export function ApprovalsPage() {
       : submittedEvaluations.filter((evaluation) => evaluation.team === selectedTeam)
 
   const handleStatusChange = async (evaluationId, nextStatus) => {
+    const rejectionReason =
+      nextStatus === 'Rejected' ? window.prompt('Reason for rejection? This will be saved with the evaluation.') : ''
+
+    if (nextStatus === 'Rejected' && rejectionReason === null) {
+      return
+    }
+
     setIsUpdatingId(evaluationId)
 
     try {
-      await updateEvaluationStatus(evaluationId, nextStatus, user?.clubId)
+      await updateEvaluationStatus(evaluationId, nextStatus, user?.clubId, {
+        user,
+        rejectionReason,
+      })
       setSubmittedEvaluations((current) => {
         const nextEvaluations = current.filter((evaluation) => evaluation.id !== evaluationId)
         writeViewCache(cacheKey, {

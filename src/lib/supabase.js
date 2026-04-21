@@ -417,6 +417,8 @@ function normalizeEvaluationRow(row) {
 
   return {
     id: row.id,
+    playerId: row.player_id ?? row.playerId ?? '',
+    teamId: row.team_id ?? row.teamId ?? '',
     playerName: String(row.player_name ?? row.playerName ?? '').trim() || 'Unknown Player',
     team: String(row.team ?? '').trim() || 'Unassigned Club',
     teamRequireApproval: Boolean(row.teamRequireApproval ?? row.team_require_approval ?? row.require_approval ?? true),
@@ -435,6 +437,9 @@ function normalizeEvaluationRow(row) {
     comments,
     decision: String(row.decision ?? 'Progress').trim() || 'Progress',
     status: String(row.status ?? 'Submitted').trim() || 'Submitted',
+    rejectionReason: String(row.rejection_reason ?? row.rejectionReason ?? '').trim(),
+    reviewedBy: row.reviewed_by ?? row.reviewedBy ?? '',
+    reviewedAt: row.reviewed_at ?? row.reviewedAt ?? '',
     createdAt: Number.isNaN(createdAtValue) ? Date.now() : createdAtValue,
     formResponses,
   }
@@ -443,7 +448,9 @@ function normalizeEvaluationRow(row) {
 function mapEvaluationToRow(data) {
   return {
     player_name: data.playerName,
+    player_id: data.playerId || null,
     team: data.team,
+    team_id: data.teamId || null,
     section: data.section || 'Trial',
     club_id: data.clubId,
     coach_id: data.coachId,
@@ -458,6 +465,9 @@ function mapEvaluationToRow(data) {
     form_responses: data.formResponses,
     decision: data.decision,
     status: data.status,
+    rejection_reason: data.rejectionReason || null,
+    reviewed_by: data.reviewedBy || null,
+    reviewed_at: data.reviewedAt || null,
     created_at: data.createdAt || new Date().toISOString(),
   }
 }
@@ -472,6 +482,9 @@ function normalizePlayerRow(row) {
     parentName: String(row.parent_name ?? row.parentName ?? '').trim(),
     parentEmail: String(row.parent_email ?? row.parentEmail ?? '').trim(),
     notes: String(row.notes ?? '').trim(),
+    status: String(row.status ?? 'active').trim() || 'active',
+    promotedAt: row.promoted_at ?? row.promotedAt ?? '',
+    promotedBy: row.promoted_by ?? row.promotedBy ?? '',
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
   }
@@ -1698,7 +1711,57 @@ export async function createPlayer({ user, player }) {
   }
 
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'player_created',
+    entityType: 'player',
+    entityId: data.id,
+    metadata: {
+      playerName: data.player_name,
+      section: data.section,
+      team: data.team,
+    },
+  })
   return normalizePlayerRow(data)
+}
+
+async function createAuditLog({ user, action, entityType, entityId, metadata = {} }) {
+  if (!user?.id || !action || !entityType) {
+    return
+  }
+
+  const { error } = await supabase.from('audit_logs').insert({
+    club_id: user.clubId || null,
+    actor_id: user.id,
+    action,
+    entity_type: entityType,
+    entity_id: entityId || null,
+    metadata,
+  })
+
+  if (error) {
+    console.error(error)
+  }
+}
+
+export async function createCommunicationLog({ user, playerId, evaluationId, channel = 'pdf', action, recipientEmail = '' }) {
+  if (!user?.clubId || !user?.id || !action) {
+    return
+  }
+
+  const { error } = await supabase.from('communication_logs').insert({
+    club_id: user.clubId,
+    player_id: playerId || null,
+    evaluation_id: evaluationId || null,
+    user_id: user.id,
+    channel,
+    action,
+    recipient_email: String(recipientEmail ?? '').trim(),
+  })
+
+  if (error) {
+    console.error(error)
+  }
 }
 
 export async function updatePlayer({ user, playerId, player }) {
@@ -1777,7 +1840,136 @@ export async function updatePlayer({ user, playerId, player }) {
   }
 
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: isPromotingToSquad ? 'player_promoted' : 'player_updated',
+    entityType: 'player',
+    entityId: data.id,
+    metadata: {
+      playerName: data.player_name,
+      section: data.section,
+      team: data.team,
+    },
+  })
   return normalizePlayerRow(data)
+}
+
+export async function promotePlayerToSquad({ user, playerId }) {
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to promote players.')
+  }
+
+  const { data: currentPlayerRow, error: currentPlayerError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (currentPlayerError) {
+    console.error(currentPlayerError)
+    throw currentPlayerError
+  }
+
+  const currentPlayer = normalizePlayerRow(currentPlayerRow)
+
+  if (currentPlayer.section === 'Squad') {
+    return currentPlayer
+  }
+
+  const targetTeamName = String(currentPlayer.team ?? '').trim()
+  let targetTeamRequiresApproval = true
+
+  if (targetTeamName) {
+    const { data: targetTeamRow, error: targetTeamError } = await supabase
+      .from('teams')
+      .select('id, name, require_approval')
+      .eq('club_id', user.clubId)
+      .eq('name', targetTeamName)
+      .maybeSingle()
+
+    if (targetTeamError) {
+      console.error(targetTeamError)
+      throw targetTeamError
+    }
+
+    targetTeamRequiresApproval = Boolean(targetTeamRow?.require_approval ?? true)
+  }
+
+  if (targetTeamRequiresApproval) {
+    const approvedByPlayerId = await supabase
+      .from('evaluations')
+      .select('id')
+      .eq('club_id', user.clubId)
+      .eq('player_id', playerId)
+      .eq('section', 'Trial')
+      .eq('status', 'Approved')
+      .limit(1)
+
+    if (approvedByPlayerId.error) {
+      console.error(approvedByPlayerId.error)
+      throw approvedByPlayerId.error
+    }
+
+    let approvedRows = approvedByPlayerId.data ?? []
+
+    if (approvedRows.length === 0) {
+      const approvedByName = await supabase
+        .from('evaluations')
+        .select('id')
+        .eq('club_id', user.clubId)
+        .eq('player_name', currentPlayer.playerName)
+        .eq('section', 'Trial')
+        .eq('status', 'Approved')
+        .limit(1)
+
+      if (approvedByName.error) {
+        console.error(approvedByName.error)
+        throw approvedByName.error
+      }
+
+      approvedRows = approvedByName.data ?? []
+    }
+
+    if (approvedRows.length === 0) {
+      throw new Error('This player needs an approved trial evaluation before promotion to Squad.')
+    }
+  }
+
+  const promotedAt = new Date().toISOString()
+  const { data: promotedRow, error: promoteError } = await supabase
+    .from('players')
+    .update({
+      section: 'Squad',
+      status: 'promoted',
+      promoted_at: promotedAt,
+      promoted_by: user.id,
+    })
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (promoteError) {
+    console.error(promoteError)
+    throw promoteError
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'player_promoted',
+    entityType: 'player',
+    entityId: promotedRow.id,
+    metadata: {
+      playerName: promotedRow.player_name,
+      fromSection: currentPlayer.section,
+      toSection: 'Squad',
+      team: promotedRow.team,
+    },
+  })
+
+  return normalizePlayerRow(promotedRow)
 }
 
 export async function deletePlayerRecord({ user, playerId }) {
@@ -1793,23 +1985,20 @@ export async function deletePlayerRecord({ user, playerId }) {
   }
 
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'player_record_deleted',
+    entityType: 'player',
+    entityId: playerId,
+  })
 }
 
 export async function createEvaluation(data) {
-  const payload = mapEvaluationToRow(data)
-  const { data: createdRow, error } = await supabase
-    .from('evaluations')
-    .insert(payload)
-    .select('*')
-    .single()
-
-  if (error) {
-    console.error(error)
-    throw error
-  }
+  let linkedPlayerId = data.playerId || ''
+  let linkedTeamId = data.teamId || ''
 
   if (data.clubId && data.playerName && data.section) {
-    const { error: playerError } = await supabase.from('players').upsert(
+    const { data: playerRow, error: playerError } = await supabase.from('players').upsert(
       {
         club_id: data.clubId,
         player_name: normalizeWords(data.playerName),
@@ -1821,14 +2010,61 @@ export async function createEvaluation(data) {
       {
         onConflict: 'club_id,section,player_name',
       },
-    )
+    ).select('id').single()
 
     if (playerError) {
       console.error(playerError)
+    } else {
+      linkedPlayerId = playerRow?.id || linkedPlayerId
     }
   }
 
+  if (data.clubId && data.team) {
+    const { data: teamRow, error: teamError } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('club_id', data.clubId)
+      .eq('name', String(data.team ?? '').trim())
+      .maybeSingle()
+
+    if (teamError) {
+      console.error(teamError)
+    } else {
+      linkedTeamId = teamRow?.id || linkedTeamId
+    }
+  }
+
+  const payload = mapEvaluationToRow({
+    ...data,
+    playerId: linkedPlayerId,
+    teamId: linkedTeamId,
+  })
+  const { data: createdRow, error } = await supabase
+    .from('evaluations')
+    .insert(payload)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
   invalidateMemoryCacheByPrefix(`players:${data.clubId}:`)
+  await createAuditLog({
+    user: {
+      id: data.coachId,
+      clubId: data.clubId,
+    },
+    action: 'evaluation_submitted',
+    entityType: 'evaluation',
+    entityId: createdRow.id,
+    metadata: {
+      playerName: data.playerName,
+      section: data.section,
+      team: data.team,
+    },
+  })
 
   return normalizeEvaluationRow(createdRow)
 }
@@ -1851,8 +2087,14 @@ export async function updateEvaluation(id, data, clubId) {
   return normalizeEvaluationRow(updatedRow)
 }
 
-export async function updateEvaluationStatus(id, status, clubId) {
-  let query = supabase.from('evaluations').update({ status }).eq('id', id)
+export async function updateEvaluationStatus(id, status, clubId, options = {}) {
+  const payload = {
+    status,
+    rejection_reason: status === 'Rejected' ? String(options.rejectionReason ?? '').trim() : null,
+    reviewed_by: options.user?.id || null,
+    reviewed_at: new Date().toISOString(),
+  }
+  let query = supabase.from('evaluations').update(payload).eq('id', id)
 
   if (clubId) {
     query = query.eq('club_id', clubId)
@@ -1864,6 +2106,17 @@ export async function updateEvaluationStatus(id, status, clubId) {
     console.error(error)
     throw error
   }
+
+  await createAuditLog({
+    user: options.user,
+    action: status === 'Approved' ? 'evaluation_approved' : 'evaluation_rejected',
+    entityType: 'evaluation',
+    entityId: id,
+    metadata: {
+      status,
+      rejectionReason: payload.rejection_reason,
+    },
+  })
 
   return normalizeEvaluationRow(updatedRow)
 }
@@ -1889,6 +2142,14 @@ export async function deletePlayer(playerName, user) {
   if (user.role !== 'super_admin') {
     await supabase.from('players').delete().eq('player_name', playerName).eq('club_id', user.clubId)
     invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+    await createAuditLog({
+      user,
+      action: 'player_deleted',
+      entityType: 'player',
+      metadata: {
+        playerName,
+      },
+    })
   }
 }
 
