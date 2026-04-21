@@ -157,7 +157,7 @@ function DashboardEntry() {
     return <RouteContentSkeleton />
   }
 
-  return isSuperAdmin(user) ? <PlatformAdminPage /> : <DashboardPage />
+  return isSuperAdmin(user) ? <Navigate to="/platform-admin" replace /> : <DashboardPage />
 }
 
 function RequireUser() {

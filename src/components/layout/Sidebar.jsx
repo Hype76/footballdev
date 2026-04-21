@@ -13,12 +13,12 @@ import {
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
   const navigationItems = primaryNavigation.filter((item) => {
-    if (item.path === '/platform-admin') {
-      return isSuperAdmin(user)
+    if (isSuperAdmin(user)) {
+      return item.path === '/platform-admin'
     }
 
-    if (isSuperAdmin(user)) {
-      return item.path === '/dashboard'
+    if (item.path === '/platform-admin') {
+      return false
     }
 
     if (item.path === '/assess-player' || item.path === '/add-player') {
