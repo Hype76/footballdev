@@ -21,7 +21,7 @@ export function Sidebar({ isOpen, onClose }) {
       return item.path === '/dashboard'
     }
 
-    if (item.path === '/assess-player') {
+    if (item.path === '/assess-player' || item.path === '/add-player') {
       return canCreateEvaluation(user)
     }
 

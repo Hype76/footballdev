@@ -28,6 +28,7 @@ function lazyRoute(importer, exportName) {
 }
 
 const ApprovalsPage = lazyRoute(() => import('../pages/ApprovalsPage.jsx'), 'ApprovalsPage')
+const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'AddPlayerPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const DashboardPage = lazyRoute(() => import('../pages/DashboardPage.jsx'), 'DashboardPage')
@@ -418,6 +419,17 @@ export const router = createBrowserRouter([
           {
             element: <RequireClubWorkspace />,
             children: [
+              {
+                path: 'add-player',
+                element: (
+                  <PageSuspense>
+                    <AddPlayerPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Add Player',
+                },
+              },
               {
                 path: 'create-evaluation',
                 element: (

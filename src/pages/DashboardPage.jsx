@@ -7,7 +7,6 @@ import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { useAuth } from '../lib/auth.js'
 import {
   EVALUATION_SECTIONS,
-  createPlayer,
   getAvailableTeamsForUser,
   getEvaluations,
   getPlayers,
@@ -19,7 +18,7 @@ import {
 
 function getScoreIndicator(averageScore) {
   if (averageScore === null) {
-    return 'Average'
+    return 'No score'
   }
 
   const isFivePointScale = averageScore <= 5
@@ -37,14 +36,32 @@ function getScoreIndicator(averageScore) {
   return 'Average'
 }
 
-function isNewEvaluation(evaluation) {
-  const timestamp = Number(evaluation.createdAt ?? evaluation.id)
+function isRecentEvaluation(evaluation, days = 7) {
+  const timestamp = Number(evaluation.createdAt ?? 0)
 
-  if (Number.isNaN(timestamp)) {
+  if (!timestamp || Number.isNaN(timestamp)) {
     return false
   }
 
-  return Date.now() - timestamp <= 10 * 60 * 1000
+  return Date.now() - timestamp <= days * 24 * 60 * 60 * 1000
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value)) {
+    return '0%'
+  }
+
+  return `${Math.round(value)}%`
+}
+
+function StatCard({ label, value, helper }) {
+  return (
+    <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{label}</p>
+      <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{value}</p>
+      {helper ? <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{helper}</p> : null}
+    </div>
+  )
 }
 
 export function DashboardPage() {
@@ -52,14 +69,6 @@ export function DashboardPage() {
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
   const cacheKey = user ? `dashboard:${user.id}:${user.clubId || 'platform'}` : ''
   const [selectedTeam, setSelectedTeam] = useState('All')
-  const [selectedSection, setSelectedSection] = useState('Trial')
-  const [playerForm, setPlayerForm] = useState({
-    playerName: '',
-    section: 'Trial',
-    team: '',
-    parentName: '',
-    parentEmail: '',
-  })
   const [players, setPlayers] = useState(() => {
     const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
     return Array.isArray(cachedPlayers) ? cachedPlayers : []
@@ -73,8 +82,6 @@ export function DashboardPage() {
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
   const [isLoading, setIsLoading] = useState(() => evaluations.length === 0 && players.length === 0)
-  const [isAddingPlayer, setIsAddingPlayer] = useState(false)
-  const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
@@ -98,8 +105,6 @@ export function DashboardPage() {
         const nextEvaluations = evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : []
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : []
         const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []
-        const hasFailure =
-          evaluationsResult.status === 'rejected' || playersResult.status === 'rejected' || teamsResult.status === 'rejected'
 
         if (evaluationsResult.status === 'rejected') {
           console.error(evaluationsResult.reason)
@@ -121,12 +126,12 @@ export function DashboardPage() {
           players: nextPlayers,
           availableTeams: nextTeams,
         })
-        setPlayerForm((current) => ({
-          ...current,
-          team: current.team || nextTeams[0]?.name || '',
-        }))
 
-        if (hasFailure) {
+        if (
+          evaluationsResult.status === 'rejected' ||
+          playersResult.status === 'rejected' ||
+          teamsResult.status === 'rejected'
+        ) {
           setErrorMessage('Some dashboard data could not be refreshed.')
         }
       } catch (error) {
@@ -139,7 +144,7 @@ export function DashboardPage() {
           if (!cachedValue?.players) {
             setPlayers([])
           }
-          setErrorMessage(error.message || 'Could not load evaluations.')
+          setErrorMessage(error.message || 'Could not load dashboard data.')
         }
       } finally {
         if (isMounted) {
@@ -157,374 +162,288 @@ export function DashboardPage() {
     }
   }, [cacheKey, user, userScopeKey])
 
-  const filteredBySection = useMemo(
-    () => evaluations.filter((evaluation) => (selectedSection ? evaluation.section === selectedSection : true)),
-    [evaluations, selectedSection],
+  const teamOptions = useMemo(
+    () => [
+      'All',
+      ...new Set([
+        ...availableTeams.map((team) => team.name).filter(Boolean),
+        ...players.map((player) => player.team).filter(Boolean),
+        ...evaluations.map((evaluation) => evaluation.team).filter(Boolean),
+      ]),
+    ],
+    [availableTeams, evaluations, players],
   )
 
-  const sectionPlayers = useMemo(
-    () => players.filter((player) => player.section === selectedSection),
-    [players, selectedSection],
-  )
-  const teamOptions = [
-    'All',
-    ...new Set([
-      ...availableTeams.map((team) => team.name).filter(Boolean),
-      ...sectionPlayers.map((player) => player.team).filter(Boolean),
-      ...filteredBySection.map((evaluation) => evaluation.team).filter(Boolean),
-    ]),
-  ]
+  const filteredPlayers = selectedTeam === 'All' ? players : players.filter((player) => player.team === selectedTeam)
   const filteredEvaluations =
-    selectedTeam === 'All'
-      ? filteredBySection
-      : filteredBySection.filter((evaluation) => evaluation.team === selectedTeam)
+    selectedTeam === 'All' ? evaluations : evaluations.filter((evaluation) => evaluation.team === selectedTeam)
 
-  const filteredPlayers =
-    selectedTeam === 'All'
-      ? sectionPlayers
-      : sectionPlayers.filter((player) => player.team === selectedTeam)
+  const averageScore = useMemo(() => {
+    const scoredEvaluations = filteredEvaluations
+      .map((evaluation) => Number(evaluation.averageScore))
+      .filter((score) => !Number.isNaN(score))
 
-  const playerSummaries = Array.from(
-    [...filteredPlayers, ...filteredEvaluations].reduce((map, item) => {
-      const playerName = item.playerName
-      const existing = map.get(playerName)
-      const matchingEvaluation = filteredEvaluations.find((evaluation) => evaluation.playerName === playerName)
+    if (scoredEvaluations.length === 0) {
+      return null
+    }
 
-      map.set(playerName, {
-        playerName,
-        lastScore: matchingEvaluation?.averageScore ?? item.averageScore ?? existing?.lastScore ?? null,
-        team: item.team || matchingEvaluation?.team || existing?.team || '',
-        section: item.section || matchingEvaluation?.section || selectedSection,
-        parentName: item.parentName || existing?.parentName || '',
-        parentEmail: item.parentEmail || existing?.parentEmail || '',
-      })
+    return scoredEvaluations.reduce((sum, score) => sum + score, 0) / scoredEvaluations.length
+  }, [filteredEvaluations])
+
+  const approvedCount = filteredEvaluations.filter((evaluation) => evaluation.status === 'Approved').length
+  const submittedCount = filteredEvaluations.filter((evaluation) => evaluation.status === 'Submitted').length
+  const rejectedCount = filteredEvaluations.filter((evaluation) => evaluation.status === 'Rejected').length
+  const recentCount = filteredEvaluations.filter((evaluation) => isRecentEvaluation(evaluation)).length
+  const trialPlayers = filteredPlayers.filter((player) => player.section === 'Trial').length
+  const squadPlayers = filteredPlayers.filter((player) => player.section === 'Squad').length
+  const assessedPlayerNames = new Set(filteredEvaluations.map((evaluation) => evaluation.playerName))
+  const unassessedPlayers = filteredPlayers.filter((player) => !assessedPlayerNames.has(player.playerName))
+  const approvalRate = filteredEvaluations.length ? (approvedCount / filteredEvaluations.length) * 100 : 0
+  const pendingShareCount = filteredEvaluations.filter(
+    (evaluation) => evaluation.teamRequireApproval && evaluation.status !== 'Approved',
+  ).length
+
+  const sectionStats = EVALUATION_SECTIONS.map((section) => {
+    const sectionPlayers = filteredPlayers.filter((player) => player.section === section)
+    const sectionEvaluations = filteredEvaluations.filter((evaluation) => evaluation.section === section)
+    const scored = sectionEvaluations
+      .map((evaluation) => Number(evaluation.averageScore))
+      .filter((score) => !Number.isNaN(score))
+
+    return {
+      section,
+      players: sectionPlayers.length,
+      evaluations: sectionEvaluations.length,
+      average: scored.length ? scored.reduce((sum, score) => sum + score, 0) / scored.length : null,
+      pending: sectionEvaluations.filter((evaluation) => evaluation.status === 'Submitted').length,
+    }
+  })
+
+  const teamStats = teamOptions
+    .filter((team) => team !== 'All')
+    .map((team) => {
+      const teamPlayers = players.filter((player) => player.team === team)
+      const teamEvaluations = evaluations.filter((evaluation) => evaluation.team === team)
+      const scored = teamEvaluations
+        .map((evaluation) => Number(evaluation.averageScore))
+        .filter((score) => !Number.isNaN(score))
+
+      return {
+        team,
+        players: teamPlayers.length,
+        evaluations: teamEvaluations.length,
+        average: scored.length ? scored.reduce((sum, score) => sum + score, 0) / scored.length : null,
+        pending: teamEvaluations.filter((evaluation) => evaluation.status === 'Submitted').length,
+      }
+    })
+    .sort((left, right) => right.evaluations - left.evaluations || left.team.localeCompare(right.team))
+
+  const recentEvaluations = [...filteredEvaluations]
+    .sort((left, right) => Number(right.createdAt ?? 0) - Number(left.createdAt ?? 0))
+    .slice(0, 8)
+
+  const topPlayers = Object.values(
+    filteredEvaluations.reduce((map, evaluation) => {
+      if (evaluation.averageScore === null) {
+        return map
+      }
+
+      const existing = map[evaluation.playerName]
+      if (!existing || Number(evaluation.averageScore) > Number(existing.averageScore)) {
+        map[evaluation.playerName] = evaluation
+      }
 
       return map
-    }, new Map()).values(),
+    }, {}),
   )
-
-  const handlePlayerFormChange = (event) => {
-    const { name, value } = event.target
-    setMessage('')
-    setErrorMessage('')
-    setPlayerForm((current) => ({
-      ...current,
-      [name]: value,
-    }))
-  }
-
-  const handleAddPlayer = async (event) => {
-    event.preventDefault()
-    setIsAddingPlayer(true)
-    setMessage('')
-    setErrorMessage('')
-
-    try {
-      const createdPlayer = await createPlayer({
-        user,
-        player: playerForm,
-      })
-      const nextPlayers = [...players.filter((player) => player.id !== createdPlayer.id), createdPlayer].sort((left, right) =>
-        left.playerName.localeCompare(right.playerName),
-      )
-      setPlayers(nextPlayers)
-      writeViewCache(cacheKey, {
-        evaluations,
-        players: nextPlayers,
-        availableTeams,
-      })
-      setPlayerForm({
-        playerName: '',
-        section: selectedSection,
-        team: playerForm.team,
-        parentName: '',
-        parentEmail: '',
-      })
-      setMessage('Player added.')
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Could not add player.')
-    } finally {
-      setIsAddingPlayer(false)
-    }
-  }
+    .sort((left, right) => Number(right.averageScore) - Number(left.averageScore))
+    .slice(0, 5)
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Dashboard"
-        title="Club assessments"
-        description="Switch between Trial and Squad sections, then start a new assessment or review recent activity."
+        title="Club stats"
+        description="A live overview of players, assessments, approvals, teams, and coaching activity."
       />
 
       {errorMessage ? (
         <NoticeBanner
-          title="Recent assessments are unavailable right now"
-          message="The dashboard could not refresh live data. If this club is new, add your first assessment. Otherwise try again in a moment."
+          title="Dashboard data is not fully available"
+          message="Some live data could not be refreshed. Cached or empty values are shown until the connection settles."
         />
       ) : null}
 
-      {message ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
-          {message}
-        </div>
-      ) : null}
-
       <SectionCard
-        title="Sections"
-        description="Trial and Squad stay separate so each workflow keeps its own player list and recent assessments."
+        title="Filters"
+        description="Use the team filter to narrow all dashboard stats."
       >
-        <div className="flex flex-wrap gap-3">
-          {EVALUATION_SECTIONS.map((section) => (
-            <button
-              key={section}
-              type="button"
-              onClick={() => setSelectedSection(section)}
-              className={[
-                'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
-                selectedSection === section
-                  ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                  : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-              ].join(' ')}
-            >
-              {section}
-            </button>
-          ))}
-        </div>
+        <label className="block max-w-sm">
+          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
+          <select
+            value={selectedTeam}
+            onChange={(event) => setSelectedTeam(event.target.value)}
+            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+          >
+            {teamOptions.map((team) => (
+              <option key={team} value={team}>
+                {team}
+              </option>
+            ))}
+          </select>
+        </label>
       </SectionCard>
 
-      <SectionCard
-        title="Add player"
-        description="Add a player to Trial or Squad before creating an assessment. Parent details can be edited later."
-      >
-        <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={handleAddPlayer}>
-          <label className="block xl:col-span-2">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
-            <input
-              type="text"
-              name="playerName"
-              value={playerForm.playerName}
-              onChange={handlePlayerFormChange}
-              required
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
-            <select
-              name="section"
-              value={playerForm.section}
-              onChange={handlePlayerFormChange}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            >
-              {EVALUATION_SECTIONS.map((section) => (
-                <option key={section} value={section}>
-                  {section}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
-            <select
-              name="team"
-              value={playerForm.team}
-              onChange={handlePlayerFormChange}
-              required
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            >
-              <option value="">Select team</option>
-              {availableTeams.map((team) => (
-                <option key={team.id} value={team.name}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={isAddingPlayer || availableTeams.length === 0}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isAddingPlayer ? 'Adding...' : 'Add Player'}
-            </button>
-          </div>
-          <label className="block xl:col-span-2">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Name</span>
-            <input
-              type="text"
-              name="parentName"
-              value={playerForm.parentName}
-              onChange={handlePlayerFormChange}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block xl:col-span-2">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Email</span>
-            <input
-              type="email"
-              name="parentEmail"
-              value={playerForm.parentEmail}
-              onChange={handlePlayerFormChange}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-        </form>
-      </SectionCard>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total players" value={filteredPlayers.length} helper={`${trialPlayers} Trial | ${squadPlayers} Squad`} />
+        <StatCard label="Evaluations" value={filteredEvaluations.length} helper={`${recentCount} in the last 7 days`} />
+        <StatCard
+          label="Average score"
+          value={averageScore !== null ? averageScore.toFixed(1) : '-'}
+          helper={getScoreIndicator(averageScore)}
+        />
+        <StatCard label="Pending approvals" value={submittedCount} helper={`${pendingShareCount} sharing locked`} />
+      </div>
 
-      <SectionCard
-        title={`${selectedSection} players`}
-        description="Start a new evaluation from the player list, then use recent evaluations as a secondary review view."
-      >
-        <div className="mb-6 w-full xl:max-w-xs">
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team filter</span>
-            <select
-              value={selectedTeam}
-              onChange={(event) => setSelectedTeam(event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            >
-              {teamOptions.map((team) => (
-                <option key={team} value={team}>
-                  {team}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Approved" value={approvedCount} helper={`${formatPercent(approvalRate)} approval rate`} />
+        <StatCard label="Rejected" value={rejectedCount} helper="Evaluations not moving forward" />
+        <StatCard label="Teams" value={teamStats.length} helper={selectedTeam === 'All' ? 'Active team groups' : selectedTeam} />
+        <StatCard label="Needs first assessment" value={unassessedPlayers.length} helper="Players with no evaluation yet" />
+      </div>
 
-        {isLoading ? (
-          <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center text-sm font-medium text-[var(--text-muted)]">
-            Loading evaluations...
-          </div>
-        ) : playerSummaries.length === 0 ? (
-          <div className="rounded-[24px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Dashboard</p>
-            <p className="mt-3 text-xl font-semibold text-[var(--text-primary)]">No players in this section yet.</p>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-              Add a player above, then start an evaluation when ready.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="overflow-hidden rounded-[20px] border border-[var(--border-color)]">
-              <div className="grid grid-cols-[1.4fr_0.8fr_1fr] bg-[var(--panel-soft)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)] lg:grid-cols-[1.5fr_1fr_1fr] lg:px-5 lg:py-4 lg:text-xs lg:tracking-[0.18em]">
-                <span>Player</span>
-                <span>Last score</span>
-                <span>Action</span>
+      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <SectionCard
+          title="Section breakdown"
+          description="Trial and Squad activity at a glance."
+        >
+          <div className="grid gap-3">
+            {sectionStats.map((section) => (
+              <div
+                key={section.section}
+                className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-lg font-semibold text-[var(--text-primary)]">{section.section}</p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">
+                      {section.players} players | {section.evaluations} evaluations
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      {section.average !== null ? section.average.toFixed(1) : '-'}
+                    </p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                      {section.pending} pending
+                    </p>
+                  </div>
+                </div>
               </div>
+            ))}
+          </div>
+        </SectionCard>
 
+        <SectionCard
+          title="Team performance"
+          description="Teams ordered by assessment activity."
+        >
+          {teamStats.length === 0 ? (
+            <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              No team data yet.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-[20px] border border-[var(--border-color)]">
+              <div className="grid grid-cols-[1.2fr_0.7fr_0.7fr_0.7fr] bg-[var(--panel-soft)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                <span>Team</span>
+                <span>Players</span>
+                <span>Avg</span>
+                <span>Pending</span>
+              </div>
               <div className="divide-y divide-[var(--border-color)]">
-                {playerSummaries.map((player) => (
+                {teamStats.map((team) => (
                   <div
-                    key={player.playerName}
-                    className="grid grid-cols-[1.4fr_0.8fr_1fr] items-center gap-3 px-4 py-4 text-xs text-[var(--text-muted)] lg:grid-cols-[1.5fr_1fr_1fr] lg:px-5 lg:text-sm"
+                    key={team.team}
+                    className="grid grid-cols-[1.2fr_0.7fr_0.7fr_0.7fr] px-4 py-3 text-sm text-[var(--text-muted)]"
                   >
-                    <Link
-                      to={`/player/${encodeURIComponent(player.playerName)}`}
-                      className="font-semibold text-[var(--text-primary)] transition hover:text-[var(--accent)]"
-                    >
-                      {player.playerName}
-                    </Link>
-                    <span>{player.lastScore !== null ? player.lastScore.toFixed(1) : '-'}</span>
-                    <div>
-                      <Link
-                        to={`/create?player=${encodeURIComponent(player.playerName)}&team=${encodeURIComponent(player.team || '')}&section=${encodeURIComponent(selectedSection)}`}
-                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                      >
-                        New Evaluation
-                      </Link>
-                    </div>
+                    <span className="font-semibold text-[var(--text-primary)]">{team.team}</span>
+                    <span>{team.players}</span>
+                    <span>{team.average !== null ? team.average.toFixed(1) : '-'}</span>
+                    <span>{team.pending}</span>
                   </div>
                 ))}
               </div>
             </div>
+          )}
+        </SectionCard>
+      </div>
 
-            <div className="hidden overflow-hidden rounded-[20px] border border-[var(--border-color)] md:block">
-              <div className="grid grid-cols-[1.35fr_0.9fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr] bg-[var(--panel-soft)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)] lg:grid-cols-[1.45fr_1fr_1fr_1fr_1fr_0.9fr_0.9fr] lg:px-5 lg:py-4 lg:text-xs lg:tracking-[0.18em]">
-                <span>Player</span>
-                <span>Team</span>
-                <span>Session</span>
-                <span>Date</span>
-                <span>Coach</span>
-                <span>Average</span>
-                <span>Status</span>
-              </div>
-
-              <div className="divide-y divide-[var(--border-color)]">
-                {filteredEvaluations.map((evaluation) => (
-                  <Link
-                    key={evaluation.id}
-                    to={`/player/${encodeURIComponent(evaluation.playerName)}`}
-                    className="grid grid-cols-[1.35fr_0.9fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr] items-center px-4 py-3 text-xs text-[var(--text-muted)] transition hover:bg-[var(--panel-soft)] lg:grid-cols-[1.45fr_1fr_1fr_1fr_1fr_0.9fr_0.9fr] lg:px-5 lg:py-4 lg:text-sm"
-                  >
-                    <span className="flex items-center gap-2 font-semibold text-[var(--text-primary)]">
-                      <span>{evaluation.playerName}</span>
-                      {isNewEvaluation(evaluation) ? (
-                        <span className="rounded-full bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-text)]">
-                          New
-                        </span>
-                      ) : null}
-                    </span>
-                    <span>{evaluation.team}</span>
-                    <span className="truncate">{evaluation.session || '-'}</span>
-                    <span>{evaluation.date || 'No date entered'}</span>
-                    <span>{evaluation.coach}</span>
-                    <span className="font-semibold text-[var(--text-primary)]">
-                      {evaluation.averageScore !== null ? `${evaluation.averageScore.toFixed(1)} | ${getScoreIndicator(evaluation.averageScore)}` : '-'}
-                    </span>
-                    <span>
-                      <StatusBadge status={evaluation.status} />
-                    </span>
-                  </Link>
-                ))}
-              </div>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <SectionCard
+          title="Top performers"
+          description="Highest latest recorded scores in the current filter."
+        >
+          {topPlayers.length === 0 ? (
+            <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              No scored evaluations yet.
             </div>
-
-            <div className="grid gap-4 md:hidden">
-              {filteredEvaluations.map((evaluation) => (
+          ) : (
+            <div className="grid gap-3">
+              {topPlayers.map((evaluation) => (
                 <Link
                   key={evaluation.id}
                   to={`/player/${encodeURIComponent(evaluation.playerName)}`}
-                  className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 transition hover:bg-[var(--panel-soft)] sm:p-5"
+                  className="flex items-center justify-between gap-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 transition hover:bg-[var(--panel-soft)]"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.playerName}</p>
-                        {isNewEvaluation(evaluation) ? (
-                          <span className="rounded-full bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-text)]">
-                            New
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">{evaluation.team}</p>
-                      {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">{evaluation.session}</p> : null}
-                    </div>
-                    <StatusBadge status={evaluation.status} />
+                  <div>
+                    <p className="font-semibold text-[var(--text-primary)]">{evaluation.playerName}</p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">{evaluation.team} | {evaluation.section}</p>
                   </div>
-
-                  <div className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Date</p>
-                      <p className="mt-2 text-[var(--text-muted)]">{evaluation.date || 'No date entered'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Coach</p>
-                      <p className="mt-2 text-[var(--text-muted)]">{evaluation.coach}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 text-sm font-semibold text-[var(--text-primary)]">
-                    {evaluation.averageScore !== null ? `${evaluation.averageScore.toFixed(1)} | ${getScoreIndicator(evaluation.averageScore)}` : '-'}
+                  <div className="text-right">
+                    <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.averageScore.toFixed(1)}</p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">{getScoreIndicator(evaluation.averageScore)}</p>
                   </div>
                 </Link>
               ))}
             </div>
-          </div>
-        )}
-      </SectionCard>
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="Recent activity"
+          description="Latest assessments across the selected team."
+        >
+          {isLoading ? (
+            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              Loading stats...
+            </div>
+          ) : recentEvaluations.length === 0 ? (
+            <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              No evaluations yet.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {recentEvaluations.map((evaluation) => (
+                <Link
+                  key={evaluation.id}
+                  to={`/player/${encodeURIComponent(evaluation.playerName)}`}
+                  className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 transition hover:bg-[var(--panel-soft)]"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-[var(--text-primary)]">{evaluation.playerName}</p>
+                      <p className="mt-1 text-sm text-[var(--text-muted)]">
+                        {evaluation.team} | {evaluation.date || 'No date entered'}
+                      </p>
+                    </div>
+                    <StatusBadge status={evaluation.status} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      </div>
     </div>
   )
 }
