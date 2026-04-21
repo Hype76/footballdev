@@ -14,6 +14,7 @@ import {
   getTeamStaffAssignments,
   getTeams,
   replaceTeamStaffAssignments,
+  updateTeamSettings,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -214,6 +215,38 @@ export function TeamManagementPage() {
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not update team staff.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleTeamApprovalToggle = async (teamId, requireApproval) => {
+    setIsSaving(true)
+    setMessage('')
+    setErrorMessage('')
+
+    try {
+      const updatedTeam = await updateTeamSettings({
+        teamId,
+        data: {
+          requireApproval,
+        },
+      })
+
+      setTeams((current) => {
+        const nextTeams = current.map((team) => (team.id === teamId ? updatedTeam : team))
+        writeViewCache(cacheKey, {
+          teams: nextTeams,
+          users,
+          assignments,
+          copySourceTeamId,
+        })
+        return nextTeams
+      })
+      setMessage('Team approval setting updated.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not update team approval setting.')
     } finally {
       setIsSaving(false)
     }
@@ -426,14 +459,26 @@ export function TeamManagementPage() {
                       {team.staffIds.length} staff allocated
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => void handleDeleteTeam(team.id)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Delete Team
-                  </button>
+                  <div className="flex flex-col gap-3 sm:items-end">
+                    <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={team.requireApproval}
+                        disabled={isSaving}
+                        onChange={(event) => void handleTeamApprovalToggle(team.id, event.target.checked)}
+                        className="h-4 w-4 rounded border-[var(--border-color)]"
+                      />
+                      <span>Require approval before sharing</span>
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => void handleDeleteTeam(team.id)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Delete Team
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">

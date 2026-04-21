@@ -413,6 +413,7 @@ function normalizeEvaluationRow(row) {
     id: row.id,
     playerName: String(row.player_name ?? row.playerName ?? '').trim() || 'Unknown Player',
     team: String(row.team ?? '').trim() || 'Unassigned Club',
+    teamRequireApproval: Boolean(row.teamRequireApproval ?? row.team_require_approval ?? row.require_approval ?? true),
     section: String(row.section ?? row.evaluation_section ?? 'Trial').trim() || 'Trial',
     clubId: row.club_id ?? row.clubId ?? '',
     coachId: row.coach_id ?? row.coachId ?? '',
@@ -871,7 +872,10 @@ export async function updateClubSettings({ clubId, data }) {
     logo_url: String(data.logoUrl ?? '').trim(),
     contact_email: String(data.contactEmail ?? '').trim(),
     contact_phone: String(data.contactPhone ?? '').trim(),
-    require_approval: Boolean(data.requireApproval ?? true),
+  }
+
+  if (data.requireApproval !== undefined) {
+    payload.require_approval = Boolean(data.requireApproval)
   }
 
   const { data: updatedClub, error } = await supabase
@@ -1049,6 +1053,7 @@ function normalizeTeamRow(row) {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
     name: String(row.name ?? '').trim(),
+    requireApproval: Boolean(row.require_approval ?? row.requireApproval ?? true),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
@@ -1085,6 +1090,39 @@ export async function getTeams(user) {
 
     return (data ?? []).map(normalizeTeamRow)
   })
+}
+
+export async function updateTeamSettings({ teamId, data }) {
+  if (!teamId) {
+    throw new Error('Team ID is required.')
+  }
+
+  const payload = {}
+
+  if (data.name !== undefined) {
+    payload.name = String(data.name ?? '').trim()
+  }
+
+  if (data.requireApproval !== undefined) {
+    payload.require_approval = Boolean(data.requireApproval)
+  }
+
+  const { data: updatedTeam, error } = await supabase
+    .from('teams')
+    .update(payload)
+    .eq('id', teamId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('teams:')
+  invalidateMemoryCacheByPrefix('available-teams:')
+
+  return normalizeTeamRow(updatedTeam)
 }
 
 export async function getAvailableTeamsForUser(user) {
@@ -1499,14 +1537,27 @@ export async function getEvaluations({ user, status, playerName, section } = {})
     query = query.eq('coach_id', user.id)
   }
 
-  const { data, error } = await query
+  const [{ data, error }, teams] = await Promise.all([
+    query,
+    user.role === 'super_admin' ? Promise.resolve([]) : getTeams(user).catch(() => []),
+  ])
 
   if (error) {
     console.error(error)
     throw error
   }
 
-  return (data ?? []).map(normalizeEvaluationRow)
+  const teamsByName = new Map(teams.map((team) => [String(team.name ?? '').trim().toLowerCase(), team]))
+
+  return (data ?? []).map((row) => {
+    const normalizedRow = normalizeEvaluationRow(row)
+    const matchingTeam = teamsByName.get(normalizedRow.team.toLowerCase())
+
+    return {
+      ...normalizedRow,
+      teamRequireApproval: Boolean(matchingTeam?.requireApproval ?? row.team_require_approval ?? true),
+    }
+  })
 }
 
 export async function getPlayers({ user, section, playerName } = {}) {

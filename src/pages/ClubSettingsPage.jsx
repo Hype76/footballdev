@@ -22,7 +22,6 @@ function createInitialFormData() {
     logoUrl: '',
     contactEmail: '',
     contactPhone: '',
-    requireApproval: true,
   }
 }
 
@@ -69,7 +68,6 @@ export function ClubSettingsPage() {
           logoUrl: club.logoUrl,
           contactEmail: club.contactEmail,
           contactPhone: club.contactPhone,
-          requireApproval: Boolean(club.requireApproval ?? true),
         })
         writeViewCache(cacheKey, {
           formData: {
@@ -77,7 +75,6 @@ export function ClubSettingsPage() {
             logoUrl: club.logoUrl,
             contactEmail: club.contactEmail,
             contactPhone: club.contactPhone,
-            requireApproval: Boolean(club.requireApproval ?? true),
           },
         })
       } catch (error) {
@@ -182,7 +179,6 @@ export function ClubSettingsPage() {
         logoUrl: updatedClub.logoUrl,
         contactEmail: updatedClub.contactEmail,
         contactPhone: updatedClub.contactPhone,
-        requireApproval: Boolean(updatedClub.requireApproval ?? true),
       })
       writeViewCache(cacheKey, {
         formData: {
@@ -190,7 +186,6 @@ export function ClubSettingsPage() {
           logoUrl: updatedClub.logoUrl,
           contactEmail: updatedClub.contactEmail,
           contactPhone: updatedClub.contactPhone,
-          requireApproval: Boolean(updatedClub.requireApproval ?? true),
         },
       })
       updateCurrentClubDetails(updatedClub)
@@ -239,7 +234,6 @@ export function ClubSettingsPage() {
         logoUrl: updatedClub.logoUrl,
         contactEmail: updatedClub.contactEmail,
         contactPhone: updatedClub.contactPhone,
-        requireApproval: Boolean(updatedClub.requireApproval ?? true),
       })
       writeViewCache(cacheKey, {
         formData: {
@@ -247,7 +241,6 @@ export function ClubSettingsPage() {
           logoUrl: updatedClub.logoUrl,
           contactEmail: updatedClub.contactEmail,
           contactPhone: updatedClub.contactPhone,
-          requireApproval: Boolean(updatedClub.requireApproval ?? true),
         },
       })
       updateCurrentClubDetails(updatedClub)
@@ -375,16 +368,9 @@ export function ClubSettingsPage() {
                 />
               </label>
 
-              <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)] md:col-span-2">
-                <input
-                  type="checkbox"
-                  name="requireApproval"
-                  checked={formData.requireApproval}
-                  onChange={handleChange}
-                  className="h-4 w-4 rounded border-[var(--border-color)]"
-                />
-                <span>Require manager approval before sharing evaluations</span>
-              </label>
+              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm leading-6 text-[var(--text-muted)] md:col-span-2">
+                Sharing approval is now managed per team from Team Management.
+              </div>
 
               <div className="md:col-span-2">
                 <button

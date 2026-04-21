@@ -100,7 +100,9 @@ export function canShareEvaluation(user, evaluation) {
     return true
   }
 
-  if (!user.requireApproval) {
+  const requiresApproval = evaluation.teamRequireApproval ?? evaluation.requireApproval ?? user.requireApproval ?? true
+
+  if (!requiresApproval) {
     return true
   }
 
