@@ -1706,7 +1706,63 @@ export async function updatePlayer({ user, playerId, player }) {
     throw new Error('A club user is required to update players.')
   }
 
+  const { data: currentPlayerRow, error: currentPlayerError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (currentPlayerError) {
+    console.error(currentPlayerError)
+    throw currentPlayerError
+  }
+
+  const currentPlayer = normalizePlayerRow(currentPlayerRow)
   const payload = mapPlayerToRow(player, user)
+  const isPromotingToSquad = currentPlayer.section !== 'Squad' && payload.section === 'Squad'
+
+  if (isPromotingToSquad) {
+    const targetTeamName = String(payload.team || currentPlayer.team || '').trim()
+    let targetTeamRequiresApproval = true
+
+    if (targetTeamName) {
+      const { data: targetTeamRow, error: targetTeamError } = await supabase
+        .from('teams')
+        .select('id, name, require_approval')
+        .eq('club_id', user.clubId)
+        .eq('name', targetTeamName)
+        .maybeSingle()
+
+      if (targetTeamError) {
+        console.error(targetTeamError)
+        throw targetTeamError
+      }
+
+      targetTeamRequiresApproval = Boolean(targetTeamRow?.require_approval ?? true)
+    }
+
+    if (targetTeamRequiresApproval) {
+      const { data: approvedRows, error: approvedError } = await supabase
+        .from('evaluations')
+        .select('id')
+        .eq('club_id', user.clubId)
+        .eq('player_name', currentPlayer.playerName)
+        .eq('section', 'Trial')
+        .eq('status', 'Approved')
+        .limit(1)
+
+      if (approvedError) {
+        console.error(approvedError)
+        throw approvedError
+      }
+
+      if (!approvedRows || approvedRows.length === 0) {
+        throw new Error('This player needs an approved trial evaluation before promotion to Squad.')
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from('players')
     .update(payload)

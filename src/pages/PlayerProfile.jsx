@@ -254,7 +254,7 @@ export function PlayerProfile() {
       }
     } catch (error) {
       console.error(error)
-      setErrorMessage('Could not save player details.')
+      setErrorMessage(error.message || 'Could not save player details.')
     } finally {
       setIsSavingPlayer(false)
     }
@@ -343,7 +343,7 @@ export function PlayerProfile() {
 
       <SectionCard
         title="Player details"
-        description="Edit section, team, and parent contact details here. Assessment history remains below."
+        description="Edit section, team, and parent contact details here. Promotion to Squad requires an approved Trial evaluation when approval is enabled for the team."
       >
         {players.length === 0 ? (
           <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">

@@ -17,10 +17,6 @@ export function Sidebar({ isOpen, onClose }) {
       return isSuperAdmin(user)
     }
 
-    if (item.path === '/user-settings') {
-      return true
-    }
-
     if (isSuperAdmin(user)) {
       return item.path === '/dashboard'
     }

@@ -8,10 +8,6 @@ export const primaryNavigation = [
     path: '/platform-admin',
   },
   {
-    label: 'User Settings',
-    path: '/user-settings',
-  },
-  {
     label: 'Assess Player',
     path: '/assess-player',
   },
