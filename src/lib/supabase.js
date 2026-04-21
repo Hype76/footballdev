@@ -287,6 +287,12 @@ function getClubValue(clubs, key) {
 }
 
 function getDisplayName(profile) {
+  const username = String(profile?.username ?? '').trim()
+
+  if (username) {
+    return username
+  }
+
   const explicitName = String(profile?.name ?? '').trim()
 
   if (explicitName) {
@@ -694,6 +700,7 @@ export function normalizeUserProfile(profile) {
   return {
     id: profile.id,
     email: String(profile.email ?? '').trim().toLowerCase(),
+    username: String(profile.username ?? '').trim(),
     name: getDisplayName(profile),
     role: roleKey,
     roleLabel,
@@ -732,9 +739,12 @@ async function claimInvitedUserProfile(authUser) {
   }
 
   const invite = normalizeClubInviteRow(inviteRow)
+  const displayName = getDisplayName(authUser)
   const { error: insertError } = await supabase.from('users').insert({
     id: authUser.id,
     email: normalizedEmail,
+    username: displayName,
+    name: displayName,
     role: invite.roleKey,
     role_label: invite.roleLabel,
     role_rank: invite.roleRank,
@@ -760,7 +770,7 @@ export async function fetchUserProfile(authUser) {
     const loadUserRow = async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, name, role, role_label, role_rank, club_id')
+        .select('id, email, username, name, role, role_label, role_rank, club_id')
         .eq('id', authUser.id)
         .maybeSingle()
 
@@ -822,12 +832,14 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     .insert({
       id: authUser.id,
       email: authUser.email,
+      username: getDisplayName(authUser),
+      name: getDisplayName(authUser),
       role: 'admin',
       role_label: 'Admin',
       role_rank: 90,
       club_id: club.id,
     })
-    .select('id, email, name, role, role_label, role_rank, club_id')
+    .select('id, email, username, name, role, role_label, role_rank, club_id')
     .single()
 
   if (userError) {
@@ -839,6 +851,78 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     ...userProfile,
     clubs: club,
   })
+}
+
+export async function updateOwnUserSettings({ authUser, username }) {
+  if (!authUser?.id) {
+    throw new Error('Signed in user is required.')
+  }
+
+  const normalizedUsername = normalizeWords(username)
+
+  if (!normalizedUsername) {
+    throw new Error('Username is required.')
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      username: normalizedUsername,
+      name: normalizedUsername,
+    })
+    .eq('id', authUser.id)
+    .select('id, email, username, name, role, role_label, role_rank, club_id')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const { error: authError } = await supabase.auth.updateUser({
+    data: {
+      username: normalizedUsername,
+      name: normalizedUsername,
+    },
+  })
+
+  if (authError) {
+    console.error(authError)
+  }
+
+  invalidateMemoryCacheByPrefix(`user-profile:${authUser.id}`)
+
+  let clubData = null
+
+  if (data.club_id) {
+    try {
+      clubData = await fetchClubDetails(data.club_id)
+    } catch (clubError) {
+      console.error(clubError)
+    }
+  }
+
+  return normalizeUserProfile({
+    ...data,
+    clubs: clubData,
+  })
+}
+
+export async function updateSignedInPassword(password) {
+  const normalizedPassword = String(password ?? '')
+
+  if (normalizedPassword.length < 8) {
+    throw new Error('Password must be at least 8 characters.')
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: normalizedPassword,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
 }
 
 export async function getClubSettings(clubId) {
@@ -1015,7 +1099,7 @@ export async function getClubUsers(user) {
   return getCachedResource(`club-users:${user.clubId}`, async () => {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role, role_label, role_rank, club_id')
+      .select('id, email, username, name, role, role_label, role_rank, club_id')
       .eq('club_id', user.clubId)
       .order('role_rank', { ascending: false })
       .order('email', { ascending: true })
@@ -1324,7 +1408,7 @@ export async function assignClubUserRole({ user, email, role }) {
 
   const { data: existingUsers, error: existingUsersError } = await supabase
     .from('users')
-    .select('id, email, name, role, role_label, role_rank, club_id')
+    .select('id, email, username, name, role, role_label, role_rank, club_id')
     .eq('club_id', user.clubId)
     .eq('email', normalizedEmail)
     .limit(1)
@@ -1345,7 +1429,7 @@ export async function assignClubUserRole({ user, email, role }) {
         role_rank: roleRank,
       })
       .eq('id', existingUser.id)
-      .select('id, email, name, role, role_label, role_rank, club_id')
+      .select('id, email, username, name, role, role_label, role_rank, club_id')
       .single()
 
     if (updateError) {

@@ -26,6 +26,7 @@ function areUsersEquivalent(leftUser, rightUser) {
   return (
     String(leftUser.id ?? '') === String(rightUser.id ?? '') &&
     String(leftUser.email ?? '') === String(rightUser.email ?? '') &&
+    String(leftUser.username ?? '') === String(rightUser.username ?? '') &&
     String(leftUser.name ?? '') === String(rightUser.name ?? '') &&
     String(leftUser.role ?? '') === String(rightUser.role ?? '') &&
     String(leftUser.roleLabel ?? '') === String(rightUser.roleLabel ?? '') &&
@@ -413,6 +414,19 @@ export function AuthProvider({ children }) {
     })
   }
 
+  const updateCurrentUserDetails = (profile) => {
+    setUser((current) => {
+      if (!current) {
+        return profile
+      }
+
+      return {
+        ...current,
+        ...profile,
+      }
+    })
+  }
+
   const value = useMemo(
     () => ({
       session,
@@ -426,6 +440,7 @@ export function AuthProvider({ children }) {
       resetPassword,
       signOut,
       updateCurrentClubDetails,
+      updateCurrentUserDetails,
     }),
     [authError, authUser, isLoading, isProfileLoading, session, user],
   )

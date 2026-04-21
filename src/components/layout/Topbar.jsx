@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
 
@@ -62,6 +63,12 @@ export function Topbar({ title, onMenuClick, theme, onToggleTheme }) {
             >
               {theme === 'dark' ? 'Light Theme' : 'Dark Theme'}
             </button>
+            <Link
+              to="/user-settings"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+            >
+              My Settings
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}

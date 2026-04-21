@@ -31,6 +31,9 @@ const TeamManagementPage = lazy(() =>
   import('../pages/TeamManagementPage.jsx').then((module) => ({ default: module.TeamManagementPage })),
 )
 const UserAccessPage = lazy(() => import('../pages/UserAccessPage.jsx').then((module) => ({ default: module.UserAccessPage })))
+const UserSettingsPage = lazy(() =>
+  import('../pages/UserSettingsPage.jsx').then((module) => ({ default: module.UserSettingsPage })),
+)
 
 function LoadingScreen() {
   return (
@@ -330,6 +333,17 @@ export const router = createBrowserRouter([
             ),
             handle: {
               title: 'Platform Admin',
+            },
+          },
+          {
+            path: 'user-settings',
+            element: (
+              <PageSuspense>
+                <UserSettingsPage />
+              </PageSuspense>
+            ),
+            handle: {
+              title: 'User Settings',
             },
           },
           {
