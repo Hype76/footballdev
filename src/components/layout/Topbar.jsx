@@ -23,12 +23,13 @@ export function Topbar({ title, onMenuClick, theme, onToggleTheme }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[var(--border-color)] bg-[var(--app-bg)] px-3 py-3 sm:px-4 md:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-start gap-3 sm:items-center">
+    <header className="sticky top-0 z-20 border-b border-[var(--border-color)] bg-[var(--app-bg)]/95 px-3 py-3 backdrop-blur sm:px-4 md:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] lg:hidden"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] lg:hidden"
           aria-label="Open navigation"
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -36,26 +37,26 @@ export function Topbar({ title, onMenuClick, theme, onToggleTheme }) {
           </svg>
         </button>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)]">
-              <img src={logoUrl} alt={clubLabel} className="h-full w-full object-cover" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{clubLabel}</p>
-              <h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-2xl">{title}</h2>
-            </div>
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/20">
+            <img src={logoUrl} alt={clubLabel} className="h-full w-full object-cover" />
+          </div>
+
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-secondary)]">
+              {clubLabel}
+            </p>
+            <h2 className="mt-1 truncate text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h2>
           </div>
         </div>
 
-        <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3 sm:gap-3">
-          <div className="min-h-11 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            Club: {user ? clubLabel : 'Loading club...'}
+        <div className="flex w-full flex-col gap-3 rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 md:flex-row md:items-center xl:w-auto">
+          <div className="min-w-0 flex-1 px-3 py-2 xl:min-w-80">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Signed in</p>
+            <p className="mt-1 truncate text-sm font-medium text-[var(--text-primary)]">{userLabel}</p>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{roleLabel}</p>
           </div>
-          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            User: {userLabel} ({roleLabel})
-          </div>
-          <div className="flex flex-col gap-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <button
               type="button"
               onClick={onToggleTheme}
