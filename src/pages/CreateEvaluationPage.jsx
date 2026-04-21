@@ -12,6 +12,7 @@ import {
   getAvailableTeamsForUser,
   getDefaultFormFields,
   getFormFields,
+  getPlayers,
   readViewCache,
   readViewCacheValue,
   withRequestTimeout,
@@ -25,6 +26,7 @@ function createInitialFormData(user, defaults = {}) {
     session: '',
     coachName: user?.name || '',
     playerName: '',
+    parentName: '',
     parentEmail: '',
     decision: 'Progress',
     ...defaults,
@@ -205,7 +207,11 @@ function formatSessionForDisplay(value) {
   }).format(new Date(normalizedValue))
 }
 
-function buildPreviewSummary({ comments, formResponses }) {
+function buildPreviewSummary({ comments, formResponses, mode = 'scored' }) {
+  if (mode === 'email') {
+    return comments?.overall || comments?.strengths || comments?.improvements || 'No written summary provided.'
+  }
+
   const responseEntries = Object.entries(formResponses ?? {})
 
   if (responseEntries.length > 0) {
@@ -324,6 +330,7 @@ export function CreateEvaluationPage() {
     return nextCachedFields
   })
   const [availableTeams, setAvailableTeams] = useState(() => (Array.isArray(cachedTeams) ? cachedTeams : []))
+  const [savedPlayers, setSavedPlayers] = useState([])
   const [responseValues, setResponseValues] = useState({})
   const [isFallbackFields, setIsFallbackFields] = useState(() => Boolean(cachedFields?.isFallbackFields))
   const [isLoadingFields, setIsLoadingFields] = useState(() => !cachedFields?.dynamicFields)
@@ -452,6 +459,47 @@ export function CreateEvaluationPage() {
       isMounted = false
     }
   }, [isPlatformOwner, searchParamsKey, teamsCacheKey, user, userScopeKey])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadSavedPlayers = async () => {
+      if (!user || isPlatformOwner) {
+        setSavedPlayers([])
+        return
+      }
+
+      try {
+        const nextPlayers = await withRequestTimeout(() => getPlayers({ user }), 'Could not load saved players.')
+
+        if (!isMounted) {
+          return
+        }
+
+        setSavedPlayers(nextPlayers)
+        const requestedPlayerName = String(searchParams.get('player') ?? '').trim()
+        const matchingPlayer = nextPlayers.find((player) => player.playerName === requestedPlayerName)
+
+        if (matchingPlayer) {
+          setFormData((current) => ({
+            ...current,
+            parentName: current.parentName || matchingPlayer.parentName,
+            parentEmail: current.parentEmail || matchingPlayer.parentEmail,
+            team: current.team || matchingPlayer.team,
+            section: current.section || matchingPlayer.section,
+          }))
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    void loadSavedPlayers()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isPlatformOwner, searchParamsKey, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -584,8 +632,9 @@ export function CreateEvaluationPage() {
       buildPreviewSummary({
         comments,
         formResponses,
+        mode: previewMode,
       }),
-    [comments, formResponses],
+    [comments, formResponses, previewMode],
   )
   const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
   const noTeamsMessage = canManageUsers(user)
@@ -605,6 +654,20 @@ export function CreateEvaluationPage() {
         session: nextSessionValue,
       }))
       setLastUsedSession(nextSessionValue)
+      return
+    }
+
+    if (name === 'playerName') {
+      const matchingPlayer = savedPlayers.find((player) => player.playerName === value)
+
+      setFormData((current) => ({
+        ...current,
+        playerName: value,
+        parentName: matchingPlayer?.parentName || current.parentName,
+        parentEmail: matchingPlayer?.parentEmail || current.parentEmail,
+        team: matchingPlayer?.team || current.team,
+        section: matchingPlayer?.section || current.section,
+      }))
       return
     }
 
@@ -642,7 +705,7 @@ export function CreateEvaluationPage() {
           session: formData.session,
           decision: formData.decision,
           summary: previewSummary,
-          responseItems,
+          responseItems: mode === 'scored' ? responseItems : [],
         },
       })
     } catch (error) {
@@ -684,6 +747,7 @@ export function CreateEvaluationPage() {
         clubId: user?.clubId,
         coachId: user?.id,
         coach: String(user?.name || formData.coachName).trim(),
+        parentName: formData.parentName.trim(),
         parentEmail: formData.parentEmail.trim(),
         session: formData.session,
         date: new Date().toLocaleDateString(),
@@ -846,8 +910,14 @@ export function CreateEvaluationPage() {
                       value={formData.playerName}
                       onChange={handleFieldChange}
                       required
+                      list="saved-player-list"
                       className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
+                    <datalist id="saved-player-list">
+                      {savedPlayers.map((player) => (
+                        <option key={player.id} value={player.playerName} />
+                      ))}
+                    </datalist>
                   </label>
 
                   <label className="block">
@@ -881,6 +951,17 @@ export function CreateEvaluationPage() {
                       value={formData.coachName}
                       readOnly
                       className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Name</span>
+                    <input
+                      type="text"
+                      name="parentName"
+                      value={formData.parentName}
+                      onChange={handleFieldChange}
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
                   </label>
 
@@ -1055,7 +1136,7 @@ export function CreateEvaluationPage() {
                   session={formData.session}
                   decision={formData.decision}
                   summary={previewSummary}
-                  responseItems={responseItems}
+                  responseItems={previewMode === 'scored' ? responseItems : []}
                   mode={previewMode}
                 />
               </SectionCard>

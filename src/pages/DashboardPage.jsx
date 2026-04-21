@@ -7,7 +7,10 @@ import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { useAuth } from '../lib/auth.js'
 import {
   EVALUATION_SECTIONS,
+  createPlayer,
+  getAvailableTeamsForUser,
   getEvaluations,
+  getPlayers,
   readViewCache,
   readViewCacheValue,
   withRequestTimeout,
@@ -50,40 +53,91 @@ export function DashboardPage() {
   const cacheKey = user ? `dashboard:${user.id}:${user.clubId || 'platform'}` : ''
   const [selectedTeam, setSelectedTeam] = useState('All')
   const [selectedSection, setSelectedSection] = useState('Trial')
+  const [playerForm, setPlayerForm] = useState({
+    playerName: '',
+    section: 'Trial',
+    team: '',
+    parentName: '',
+    parentEmail: '',
+  })
+  const [players, setPlayers] = useState(() => {
+    const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
+    return Array.isArray(cachedPlayers) ? cachedPlayers : []
+  })
+  const [availableTeams, setAvailableTeams] = useState(() => {
+    const cachedTeams = readViewCacheValue(cacheKey, 'availableTeams', [])
+    return Array.isArray(cachedTeams) ? cachedTeams : []
+  })
   const [evaluations, setEvaluations] = useState(() => {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
-  const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
+  const [isLoading, setIsLoading] = useState(() => evaluations.length === 0 && players.length === 0)
+  const [isAddingPlayer, setIsAddingPlayer] = useState(false)
+  const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     let isMounted = true
     const cachedValue = readViewCache(cacheKey)
 
-    const loadEvaluations = async () => {
+    const loadDashboardData = async () => {
       setErrorMessage('')
 
       try {
-        const nextEvaluations = await withRequestTimeout(
-          () => getEvaluations({ user }),
-          'Could not load evaluations. No data entered yet, or the request took too long.',
-        )
+        const [evaluationsResult, playersResult, teamsResult] = await Promise.allSettled([
+          withRequestTimeout(() => getEvaluations({ user }), 'Could not load evaluations.'),
+          withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
+          withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
+        ])
 
         if (!isMounted) {
           return
         }
 
+        const nextEvaluations = evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : []
+        const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : []
+        const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []
+        const hasFailure =
+          evaluationsResult.status === 'rejected' || playersResult.status === 'rejected' || teamsResult.status === 'rejected'
+
+        if (evaluationsResult.status === 'rejected') {
+          console.error(evaluationsResult.reason)
+        }
+
+        if (playersResult.status === 'rejected') {
+          console.error(playersResult.reason)
+        }
+
+        if (teamsResult.status === 'rejected') {
+          console.error(teamsResult.reason)
+        }
+
         setEvaluations(nextEvaluations)
+        setPlayers(nextPlayers)
+        setAvailableTeams(nextTeams)
         writeViewCache(cacheKey, {
           evaluations: nextEvaluations,
+          players: nextPlayers,
+          availableTeams: nextTeams,
         })
+        setPlayerForm((current) => ({
+          ...current,
+          team: current.team || nextTeams[0]?.name || '',
+        }))
+
+        if (hasFailure) {
+          setErrorMessage('Some dashboard data could not be refreshed.')
+        }
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
           if (!cachedValue?.evaluations) {
             setEvaluations([])
+          }
+          if (!cachedValue?.players) {
+            setPlayers([])
           }
           setErrorMessage(error.message || 'Could not load evaluations.')
         }
@@ -95,7 +149,7 @@ export function DashboardPage() {
     }
 
     if (user) {
-      void loadEvaluations()
+      void loadDashboardData()
     }
 
     return () => {
@@ -108,26 +162,92 @@ export function DashboardPage() {
     [evaluations, selectedSection],
   )
 
-  const teamOptions = ['All', ...new Set(filteredBySection.map((evaluation) => evaluation.team).filter(Boolean))]
+  const sectionPlayers = useMemo(
+    () => players.filter((player) => player.section === selectedSection),
+    [players, selectedSection],
+  )
+  const teamOptions = [
+    'All',
+    ...new Set([
+      ...availableTeams.map((team) => team.name).filter(Boolean),
+      ...sectionPlayers.map((player) => player.team).filter(Boolean),
+      ...filteredBySection.map((evaluation) => evaluation.team).filter(Boolean),
+    ]),
+  ]
   const filteredEvaluations =
     selectedTeam === 'All'
       ? filteredBySection
       : filteredBySection.filter((evaluation) => evaluation.team === selectedTeam)
 
+  const filteredPlayers =
+    selectedTeam === 'All'
+      ? sectionPlayers
+      : sectionPlayers.filter((player) => player.team === selectedTeam)
+
   const playerSummaries = Array.from(
-    filteredEvaluations.reduce((map, evaluation) => {
-      if (!map.has(evaluation.playerName)) {
-        map.set(evaluation.playerName, {
-          playerName: evaluation.playerName,
-          lastScore: evaluation.averageScore,
-          team: evaluation.team,
-          section: evaluation.section,
-        })
-      }
+    [...filteredPlayers, ...filteredEvaluations].reduce((map, item) => {
+      const playerName = item.playerName
+      const existing = map.get(playerName)
+      const matchingEvaluation = filteredEvaluations.find((evaluation) => evaluation.playerName === playerName)
+
+      map.set(playerName, {
+        playerName,
+        lastScore: matchingEvaluation?.averageScore ?? item.averageScore ?? existing?.lastScore ?? null,
+        team: item.team || matchingEvaluation?.team || existing?.team || '',
+        section: item.section || matchingEvaluation?.section || selectedSection,
+        parentName: item.parentName || existing?.parentName || '',
+        parentEmail: item.parentEmail || existing?.parentEmail || '',
+      })
 
       return map
     }, new Map()).values(),
   )
+
+  const handlePlayerFormChange = (event) => {
+    const { name, value } = event.target
+    setMessage('')
+    setErrorMessage('')
+    setPlayerForm((current) => ({
+      ...current,
+      [name]: value,
+    }))
+  }
+
+  const handleAddPlayer = async (event) => {
+    event.preventDefault()
+    setIsAddingPlayer(true)
+    setMessage('')
+    setErrorMessage('')
+
+    try {
+      const createdPlayer = await createPlayer({
+        user,
+        player: playerForm,
+      })
+      const nextPlayers = [...players.filter((player) => player.id !== createdPlayer.id), createdPlayer].sort((left, right) =>
+        left.playerName.localeCompare(right.playerName),
+      )
+      setPlayers(nextPlayers)
+      writeViewCache(cacheKey, {
+        evaluations,
+        players: nextPlayers,
+        availableTeams,
+      })
+      setPlayerForm({
+        playerName: '',
+        section: selectedSection,
+        team: playerForm.team,
+        parentName: '',
+        parentEmail: '',
+      })
+      setMessage('Player added.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not add player.')
+    } finally {
+      setIsAddingPlayer(false)
+    }
+  }
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -142,6 +262,12 @@ export function DashboardPage() {
           title="Recent assessments are unavailable right now"
           message="The dashboard could not refresh live data. If this club is new, add your first assessment. Otherwise try again in a moment."
         />
+      ) : null}
+
+      {message ? (
+        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+          {message}
+        </div>
       ) : null}
 
       <SectionCard
@@ -165,6 +291,86 @@ export function DashboardPage() {
             </button>
           ))}
         </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Add player"
+        description="Add a player to Trial or Squad before creating an assessment. Parent details can be edited later."
+      >
+        <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={handleAddPlayer}>
+          <label className="block xl:col-span-2">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
+            <input
+              type="text"
+              name="playerName"
+              value={playerForm.playerName}
+              onChange={handlePlayerFormChange}
+              required
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
+            <select
+              name="section"
+              value={playerForm.section}
+              onChange={handlePlayerFormChange}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            >
+              {EVALUATION_SECTIONS.map((section) => (
+                <option key={section} value={section}>
+                  {section}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
+            <select
+              name="team"
+              value={playerForm.team}
+              onChange={handlePlayerFormChange}
+              required
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            >
+              <option value="">Select team</option>
+              {availableTeams.map((team) => (
+                <option key={team.id} value={team.name}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={isAddingPlayer || availableTeams.length === 0}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isAddingPlayer ? 'Adding...' : 'Add Player'}
+            </button>
+          </div>
+          <label className="block xl:col-span-2">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Name</span>
+            <input
+              type="text"
+              name="parentName"
+              value={playerForm.parentName}
+              onChange={handlePlayerFormChange}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="block xl:col-span-2">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Email</span>
+            <input
+              type="email"
+              name="parentEmail"
+              value={playerForm.parentEmail}
+              onChange={handlePlayerFormChange}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+        </form>
       </SectionCard>
 
       <SectionCard
@@ -192,12 +398,12 @@ export function DashboardPage() {
           <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center text-sm font-medium text-[var(--text-muted)]">
             Loading evaluations...
           </div>
-        ) : filteredEvaluations.length === 0 ? (
+        ) : playerSummaries.length === 0 ? (
           <div className="rounded-[24px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Dashboard</p>
-            <p className="mt-3 text-xl font-semibold text-[var(--text-primary)]">No evaluations yet. Create your first one.</p>
+            <p className="mt-3 text-xl font-semibold text-[var(--text-primary)]">No players in this section yet.</p>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-              Start a new evaluation to build a working view for coaches, managers, and player follow-up.
+              Add a player above, then start an evaluation when ready.
             </p>
           </div>
         ) : (

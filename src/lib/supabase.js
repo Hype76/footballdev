@@ -417,6 +417,7 @@ function normalizeEvaluationRow(row) {
     clubId: row.club_id ?? row.clubId ?? '',
     coachId: row.coach_id ?? row.coachId ?? '',
     coach: String(row.coach ?? row.coach_name ?? '').trim() || 'Unknown Coach',
+    parentName: String(row.parent_name ?? row.parentName ?? '').trim(),
     parentEmail: String(row.parent_email ?? row.parentEmail ?? '').trim(),
     session: String(row.session ?? '').trim(),
     date:
@@ -440,6 +441,7 @@ function mapEvaluationToRow(data) {
     club_id: data.clubId,
     coach_id: data.coachId,
     coach: data.coach,
+    parent_name: data.parentName,
     parent_email: data.parentEmail,
     session: data.session,
     date: data.date,
@@ -450,6 +452,33 @@ function mapEvaluationToRow(data) {
     decision: data.decision,
     status: data.status,
     created_at: data.createdAt || new Date().toISOString(),
+  }
+}
+
+function normalizePlayerRow(row) {
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    playerName: String(row.player_name ?? row.playerName ?? '').trim(),
+    section: String(row.section ?? 'Trial').trim() || 'Trial',
+    team: String(row.team ?? '').trim(),
+    parentName: String(row.parent_name ?? row.parentName ?? '').trim(),
+    parentEmail: String(row.parent_email ?? row.parentEmail ?? '').trim(),
+    notes: String(row.notes ?? '').trim(),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
+function mapPlayerToRow(player, user) {
+  return {
+    club_id: player.clubId ?? user?.clubId ?? '',
+    player_name: normalizeWords(player.playerName),
+    section: EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Trial',
+    team: String(player.team ?? '').trim(),
+    parent_name: String(player.parentName ?? '').trim(),
+    parent_email: String(player.parentEmail ?? '').trim(),
+    notes: String(player.notes ?? '').trim(),
   }
 }
 
@@ -1480,6 +1509,101 @@ export async function getEvaluations({ user, status, playerName, section } = {})
   return (data ?? []).map(normalizeEvaluationRow)
 }
 
+export async function getPlayers({ user, section, playerName } = {}) {
+  if (!user?.clubId || user.role === 'super_admin') {
+    return []
+  }
+
+  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerName || 'all'}`
+
+  return getCachedResource(cacheKey, async () => {
+    let query = supabase
+      .from('players')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .order('section', { ascending: true })
+      .order('player_name', { ascending: true })
+
+    if (section) {
+      query = query.eq('section', section)
+    }
+
+    if (playerName) {
+      query = query.eq('player_name', playerName)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map(normalizePlayerRow)
+  })
+}
+
+export async function createPlayer({ user, player }) {
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to add players.')
+  }
+
+  const payload = mapPlayerToRow(player, user)
+  const { data, error } = await supabase
+    .from('players')
+    .upsert(payload, {
+      onConflict: 'club_id,section,player_name',
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  return normalizePlayerRow(data)
+}
+
+export async function updatePlayer({ user, playerId, player }) {
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to update players.')
+  }
+
+  const payload = mapPlayerToRow(player, user)
+  const { data, error } = await supabase
+    .from('players')
+    .update(payload)
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  return normalizePlayerRow(data)
+}
+
+export async function deletePlayerRecord({ user, playerId }) {
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to delete players.')
+  }
+
+  const { error } = await supabase.from('players').delete().eq('id', playerId).eq('club_id', user.clubId)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+}
+
 export async function createEvaluation(data) {
   const payload = mapEvaluationToRow(data)
   const { data: createdRow, error } = await supabase
@@ -1492,6 +1616,28 @@ export async function createEvaluation(data) {
     console.error(error)
     throw error
   }
+
+  if (data.clubId && data.playerName && data.section) {
+    const { error: playerError } = await supabase.from('players').upsert(
+      {
+        club_id: data.clubId,
+        player_name: normalizeWords(data.playerName),
+        section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
+        team: String(data.team ?? '').trim(),
+        parent_name: String(data.parentName ?? '').trim(),
+        parent_email: String(data.parentEmail ?? '').trim(),
+      },
+      {
+        onConflict: 'club_id,section,player_name',
+      },
+    )
+
+    if (playerError) {
+      console.error(playerError)
+    }
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${data.clubId}:`)
 
   return normalizeEvaluationRow(createdRow)
 }
@@ -1548,4 +1694,84 @@ export async function deletePlayer(playerName, user) {
     console.error(error)
     throw error
   }
+
+  if (user.role !== 'super_admin') {
+    await supabase.from('players').delete().eq('player_name', playerName).eq('club_id', user.clubId)
+    invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  }
+}
+
+export async function getPlatformStats(user) {
+  if (user?.role !== 'super_admin') {
+    return {
+      totals: {
+        clubs: 0,
+        users: 0,
+        teams: 0,
+        evaluations: 0,
+      },
+      clubs: [],
+    }
+  }
+
+  return getCachedResource('platform-stats', async () => {
+    const [clubsResult, usersResult, teamsResult, evaluationsResult] = await Promise.all([
+      supabase.from('clubs').select('id, name, contact_email, contact_phone, created_at').order('name', { ascending: true }),
+      supabase.from('users').select('id, email, role_label, role_rank, club_id').order('email', { ascending: true }),
+      supabase.from('teams').select('id, name, club_id').order('name', { ascending: true }),
+      supabase.from('evaluations').select('id, club_id, section, status, created_at'),
+    ])
+
+    const results = [clubsResult, usersResult, teamsResult, evaluationsResult]
+    const firstError = results.find((result) => result.error)?.error
+
+    if (firstError) {
+      console.error(firstError)
+      throw firstError
+    }
+
+    const clubs = clubsResult.data ?? []
+    const users = usersResult.data ?? []
+    const teams = teamsResult.data ?? []
+    const evaluations = evaluationsResult.data ?? []
+
+    return {
+      totals: {
+        clubs: clubs.length,
+        users: users.length,
+        teams: teams.length,
+        evaluations: evaluations.length,
+      },
+      clubs: clubs.map((club) => {
+        const clubUsers = users.filter((member) => member.club_id === club.id)
+        const clubTeams = teams.filter((team) => team.club_id === club.id)
+        const clubEvaluations = evaluations.filter((evaluation) => evaluation.club_id === club.id)
+
+        return {
+          id: club.id,
+          name: String(club.name ?? '').trim() || 'Unnamed club',
+          contactEmail: String(club.contact_email ?? '').trim(),
+          contactPhone: String(club.contact_phone ?? '').trim(),
+          createdAt: club.created_at,
+          userCount: clubUsers.length,
+          teamCount: clubTeams.length,
+          evaluationCount: clubEvaluations.length,
+          submittedCount: clubEvaluations.filter((evaluation) => evaluation.status === 'Submitted').length,
+          approvedCount: clubEvaluations.filter((evaluation) => evaluation.status === 'Approved').length,
+          trialCount: clubEvaluations.filter((evaluation) => evaluation.section === 'Trial').length,
+          squadCount: clubEvaluations.filter((evaluation) => evaluation.section === 'Squad').length,
+          users: clubUsers.map((member) => ({
+            id: member.id,
+            email: String(member.email ?? '').trim(),
+            roleLabel: String(member.role_label ?? '').trim() || 'User',
+            roleRank: Number(member.role_rank ?? 0),
+          })),
+          teams: clubTeams.map((team) => ({
+            id: team.id,
+            name: String(team.name ?? '').trim() || 'Unnamed team',
+          })),
+        }
+      }),
+    }
+  })
 }

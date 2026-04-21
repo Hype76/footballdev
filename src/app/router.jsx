@@ -1,7 +1,14 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
-import { canAccessApprovals, canManageClubSettings, canManageFormFields, canManageUsers, useAuth } from '../lib/auth.js'
+import {
+  canAccessApprovals,
+  canManageClubSettings,
+  canManageFormFields,
+  canManageUsers,
+  isSuperAdmin,
+  useAuth,
+} from '../lib/auth.js'
 
 const ApprovalsPage = lazy(() => import('../pages/ApprovalsPage.jsx').then((module) => ({ default: module.ApprovalsPage })))
 const ClubSettingsPage = lazy(() =>
@@ -17,6 +24,9 @@ const FormBuilderPage = lazy(() =>
 const LoginPage = lazy(() => import('../pages/LoginPage.jsx').then((module) => ({ default: module.LoginPage })))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage.jsx').then((module) => ({ default: module.NotFoundPage })))
 const PlayerProfile = lazy(() => import('../pages/PlayerProfile.jsx').then((module) => ({ default: module.PlayerProfile })))
+const PlatformAdminPage = lazy(() =>
+  import('../pages/PlatformAdminPage.jsx').then((module) => ({ default: module.PlatformAdminPage })),
+)
 const TeamManagementPage = lazy(() =>
   import('../pages/TeamManagementPage.jsx').then((module) => ({ default: module.TeamManagementPage })),
 )
@@ -67,6 +77,16 @@ function PageSuspense({ children }) {
   return <Suspense fallback={<RouteContentSkeleton />}>{children}</Suspense>
 }
 
+function DashboardEntry() {
+  const { user } = useAuth()
+
+  if (!user) {
+    return <RouteContentSkeleton />
+  }
+
+  return isSuperAdmin(user) ? <PlatformAdminPage /> : <DashboardPage />
+}
+
 function RequireUser() {
   const { isLoading, session } = useAuth()
 
@@ -76,6 +96,37 @@ function RequireUser() {
 
   if (!session?.user) {
     return <Navigate to="/login" replace />
+  }
+
+  return <Outlet />
+}
+
+function RequireClubWorkspace() {
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
+  }
+
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
   }
 
   return <Outlet />
@@ -119,6 +170,10 @@ function RequireManager() {
     )
   }
 
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
+  }
+
   if (!canAccessApprovals(user)) {
     return <Navigate to="/dashboard" replace />
   }
@@ -148,6 +203,10 @@ function RequireFormBuilderAccess() {
         message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
       />
     )
+  }
+
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
   }
 
   if (!canManageFormFields(user)) {
@@ -181,6 +240,10 @@ function RequireClubSettingsAccess() {
     )
   }
 
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
+  }
+
   if (!canManageClubSettings(user)) {
     return <Navigate to="/dashboard" replace />
   }
@@ -210,6 +273,10 @@ function RequireUserAccess() {
         message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
       />
     )
+  }
+
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
   }
 
   if (!canManageUsers(user)) {
@@ -247,7 +314,7 @@ export const router = createBrowserRouter([
             path: 'dashboard',
             element: (
               <PageSuspense>
-                <DashboardPage />
+                <DashboardEntry />
               </PageSuspense>
             ),
             handle: {
@@ -255,37 +322,64 @@ export const router = createBrowserRouter([
             },
           },
           {
-            path: 'create-evaluation',
+            path: 'platform-admin',
             element: (
               <PageSuspense>
-                <CreateEvaluationPage />
+                <PlatformAdminPage />
               </PageSuspense>
             ),
             handle: {
-              title: 'Create Evaluation',
+              title: 'Platform Admin',
             },
           },
           {
-            path: 'assess-player',
-            element: (
-              <PageSuspense>
-                <CreateEvaluationPage />
-              </PageSuspense>
-            ),
-            handle: {
-              title: 'Assess Player',
-            },
-          },
-          {
-            path: 'create',
-            element: (
-              <PageSuspense>
-                <CreateEvaluationPage />
-              </PageSuspense>
-            ),
-            handle: {
-              title: 'Create Evaluation',
-            },
+            element: <RequireClubWorkspace />,
+            children: [
+              {
+                path: 'create-evaluation',
+                element: (
+                  <PageSuspense>
+                    <CreateEvaluationPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Create Evaluation',
+                },
+              },
+              {
+                path: 'assess-player',
+                element: (
+                  <PageSuspense>
+                    <CreateEvaluationPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Assess Player',
+                },
+              },
+              {
+                path: 'create',
+                element: (
+                  <PageSuspense>
+                    <CreateEvaluationPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Create Evaluation',
+                },
+              },
+              {
+                path: 'player/:id',
+                element: (
+                  <PageSuspense>
+                    <PlayerProfile />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Player Profile',
+                },
+              },
+            ],
           },
           {
             element: <RequireUserAccess />,
@@ -361,17 +455,6 @@ export const router = createBrowserRouter([
                 },
               },
             ],
-          },
-          {
-            path: 'player/:id',
-            element: (
-              <PageSuspense>
-                <PlayerProfile />
-              </PageSuspense>
-            ),
-            handle: {
-              title: 'Player Profile',
-            },
           },
         ],
       },

@@ -1,10 +1,30 @@
 import { NavLink } from 'react-router-dom'
 import { primaryNavigation } from '../../app/navigation.js'
-import { canAccessApprovals, canManageClubSettings, canManageFormFields, canManageUsers, useAuth } from '../../lib/auth.js'
+import {
+  canAccessApprovals,
+  canCreateEvaluation,
+  canManageClubSettings,
+  canManageFormFields,
+  canManageUsers,
+  isSuperAdmin,
+  useAuth,
+} from '../../lib/auth.js'
 
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
   const navigationItems = primaryNavigation.filter((item) => {
+    if (item.path === '/platform-admin') {
+      return isSuperAdmin(user)
+    }
+
+    if (isSuperAdmin(user)) {
+      return item.path === '/dashboard'
+    }
+
+    if (item.path === '/assess-player') {
+      return canCreateEvaluation(user)
+    }
+
     if (item.path === '/approvals') {
       return canAccessApprovals(user)
     }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
 import { useAuth } from '../lib/auth.js'
 
 const initialFormData = {
@@ -8,10 +9,11 @@ const initialFormData = {
 }
 
 export function LoginPage() {
-  const { authError, signInWithPassword, signUpWithClub } = useAuth()
+  const { authError, resetPassword, signInWithPassword, signUpWithClub } = useAuth()
   const [mode, setMode] = useState('login')
   const [formData, setFormData] = useState(initialFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [localMessage, setLocalMessage] = useState('')
   const [localError, setLocalError] = useState('')
 
@@ -58,12 +60,34 @@ export function LoginPage() {
     }
   }
 
+  const handlePasswordReset = async () => {
+    setIsSubmitting(true)
+    setLocalError('')
+    setLocalMessage('')
+
+    try {
+      await resetPassword(formData.email)
+      setLocalMessage('Password reset email sent if that account exists.')
+    } catch (error) {
+      console.error(error)
+      setLocalError(error.message || 'Password reset failed.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f5f7f3] px-4 py-8 sm:px-6">
-      <div className="grid w-full max-w-6xl overflow-hidden rounded-[32px] border border-[#dbe3d6] bg-white shadow-xl shadow-slate-900/5 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="bg-slate-950 px-6 py-8 text-white sm:px-10 sm:py-10">
-          <div className="inline-flex min-h-11 items-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#d6dfd2]">
-            Supabase Auth
+    <main className="flex min-h-screen items-center justify-center bg-[#020702] px-4 py-8 text-white sm:px-6">
+      <div className="grid w-full max-w-6xl overflow-hidden rounded-[32px] border border-[#20301f] bg-[#071008] shadow-xl shadow-black/30 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="bg-[radial-gradient(circle_at_top,#1b2b1a,#020702_58%)] px-6 py-8 text-white sm:px-10 sm:py-10">
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-[#bfff2f]/30 bg-black/30">
+              <img src={fallbackLogo} alt="Football Development" className="h-full w-full object-cover" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#c6ff2f]">Football Development</p>
+              <p className="mt-2 text-sm text-slate-300">Club assessment platform</p>
+            </div>
           </div>
 
           <h1 className="mt-6 max-w-lg text-4xl font-bold tracking-tight sm:text-5xl">
@@ -89,7 +113,7 @@ export function LoginPage() {
           </div>
         </section>
 
-        <section className="px-6 py-8 sm:px-10 sm:py-10">
+        <section className="bg-[#0b140c] px-6 py-8 sm:px-10 sm:py-10">
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
@@ -97,8 +121,8 @@ export function LoginPage() {
               className={[
                 'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
                 mode === 'login'
-                  ? 'bg-slate-950 text-white'
-                  : 'border border-[#dbe3d6] bg-[#f8faf7] text-slate-700',
+                  ? 'bg-[#c6ff2f] text-black'
+                  : 'border border-[#20301f] bg-[#111d12] text-slate-200',
               ].join(' ')}
             >
               Login
@@ -109,21 +133,21 @@ export function LoginPage() {
               className={[
                 'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
                 mode === 'signup'
-                  ? 'bg-slate-950 text-white'
-                  : 'border border-[#dbe3d6] bg-[#f8faf7] text-slate-700',
+                  ? 'bg-[#c6ff2f] text-black'
+                  : 'border border-[#20301f] bg-[#111d12] text-slate-200',
               ].join(' ')}
             >
               Sign Up
             </button>
           </div>
 
-          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">
+          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.24em] text-[#c6ff2f]">
             {mode === 'signup' ? 'Create account' : 'Sign in'}
           </p>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950">
+          <h2 className="mt-4 text-3xl font-bold tracking-tight text-white">
             {mode === 'signup' ? 'Create your account' : 'Access your club workspace'}
           </h2>
-          <p className="mt-3 text-sm leading-6 text-slate-500">
+          <p className="mt-3 text-sm leading-6 text-slate-300">
             {mode === 'signup'
               ? 'Add a club name to create a new club admin account. Leave it blank if your email has already been allocated to an existing club.'
               : 'Use the credentials already linked to your Supabase account or the email allocated to your club.'}
@@ -132,20 +156,20 @@ export function LoginPage() {
           <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
             {mode === 'signup' ? (
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Club Name</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-200">Club Name</span>
                 <input
                   type="text"
                   name="clubName"
                   value={formData.clubName}
                   onChange={handleChange}
                   placeholder="Leave blank if joining an existing club"
-                  className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                  className="min-h-11 w-full rounded-2xl border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#c6ff2f]"
                 />
               </label>
             ) : null}
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Email</span>
+              <span className="mb-2 block text-sm font-semibold text-slate-200">Email</span>
               <input
                 type="email"
                 name="email"
@@ -153,42 +177,63 @@ export function LoginPage() {
                 onChange={handleChange}
                 required
                 autoComplete="email"
-                className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
+                className="min-h-11 w-full rounded-2xl border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#c6ff2f]"
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Password</span>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                className="min-h-11 w-full rounded-2xl border border-[#dbe3d6] bg-[#f8faf7] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-              />
+              <span className="mb-2 block text-sm font-semibold text-slate-200">Password</span>
+              <div className="flex rounded-2xl border border-[#20301f] bg-[#111d12] focus-within:border-[#c6ff2f]">
+                <input
+                  type={isPasswordVisible ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  className="min-h-11 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-white outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordVisible((current) => !current)}
+                  className="min-h-11 rounded-r-2xl px-4 py-3 text-sm font-semibold text-[#c6ff2f]"
+                >
+                  {isPasswordVisible ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </label>
 
             {localError || authError ? (
-              <div className="rounded-[20px] border border-[#efd1d1] bg-[#fbefef] px-4 py-3 text-sm font-medium text-[#8b4b4b]">
+              <div className="rounded-[20px] border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-medium text-[#ffc2cf]">
                 {localError || authError}
               </div>
             ) : null}
 
             {localMessage ? (
-              <div className="rounded-[20px] border border-[#dbe3d6] bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#46604a]">
+              <div className="rounded-[20px] border border-[#20301f] bg-[#142414] px-4 py-3 text-sm font-medium text-[#c6ff2f]">
                 {localMessage}
               </div>
             ) : null}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-            >
-              {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
-            </button>
+            <div className="space-y-3">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[#c6ff2f] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
+              </button>
+              {mode === 'login' ? (
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handlePasswordReset}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#20301f] bg-[#111d12] px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-[#162617] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Forgot password
+                </button>
+              ) : null}
+            </div>
           </form>
         </section>
       </div>

@@ -4,6 +4,10 @@ export const primaryNavigation = [
     path: '/dashboard',
   },
   {
+    label: 'Platform Admin',
+    path: '/platform-admin',
+  },
+  {
     label: 'Assess Player',
     path: '/assess-player',
   },

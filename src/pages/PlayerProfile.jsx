@@ -6,22 +6,52 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
-import { buildEvaluationSummary, exportEvaluationPdf } from '../lib/pdf.js'
 import {
+  EVALUATION_SECTIONS,
+  deletePlayerRecord,
   deletePlayer,
   getEvaluations,
+  getPlayers,
   readViewCache,
   readViewCacheValue,
+  updatePlayer,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+
+function buildEvaluationSummary(evaluation, mode = 'scored') {
+  if (mode === 'email') {
+    return (
+      evaluation.comments?.overall ||
+      evaluation.comments?.strengths ||
+      evaluation.comments?.improvements ||
+      'No written summary provided.'
+    )
+  }
+
+  const responseEntries = Object.entries(evaluation.formResponses ?? {})
+
+  if (responseEntries.length > 0) {
+    return responseEntries
+      .slice(0, 4)
+      .map(([label, value]) => `${label}: ${value}`)
+      .join(', ')
+  }
+
+  return (
+    evaluation.comments?.overall ||
+    evaluation.comments?.strengths ||
+    evaluation.comments?.improvements ||
+    'No written summary provided.'
+  )
+}
 
 function buildParentEmailLink(playerName, evaluation) {
   if (!evaluation.parentEmail) {
     return ''
   }
 
-  const summary = buildEvaluationSummary(evaluation)
+  const summary = buildEvaluationSummary(evaluation, 'email')
   const body = [
     `Player: ${playerName}`,
     `Section: ${evaluation.section || 'Trial'}`,
@@ -48,7 +78,14 @@ export function PlayerProfile() {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
+  const [players, setPlayers] = useState(() => {
+    const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
+    return Array.isArray(cachedPlayers) ? cachedPlayers : []
+  })
+  const [editingPlayerId, setEditingPlayerId] = useState('')
+  const [playerDrafts, setPlayerDrafts] = useState({})
   const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
+  const [isSavingPlayer, setIsSavingPlayer] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -62,22 +99,39 @@ export function PlayerProfile() {
       setErrorMessage('')
 
       try {
-        const nextEvaluations = await withRequestTimeout(
-          () =>
-            getEvaluations({
-              user,
-              playerName: routePlayerName,
-            }),
-          'Could not load player history. No data entered yet, or the request took too long.',
-        )
+        const [evaluationsResult, playersResult] = await Promise.allSettled([
+          withRequestTimeout(
+            () =>
+              getEvaluations({
+                user,
+                playerName: routePlayerName,
+              }),
+            'Could not load player history. No data entered yet, or the request took too long.',
+          ),
+          withRequestTimeout(() => getPlayers({ user, playerName: routePlayerName }), 'Could not load player details.'),
+        ])
 
         if (!isMounted) {
           return
         }
 
+        const nextEvaluations = evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : []
+        const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : []
+
+        if (evaluationsResult.status === 'rejected') {
+          console.error(evaluationsResult.reason)
+        }
+
+        if (playersResult.status === 'rejected') {
+          console.error(playersResult.reason)
+        }
+
         setEvaluations(nextEvaluations)
+        setPlayers(nextPlayers)
+        setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, player])))
         writeViewCache(cacheKey, {
           evaluations: nextEvaluations,
+          players: nextPlayers,
         })
       } catch (error) {
         console.error(error)
@@ -85,6 +139,9 @@ export function PlayerProfile() {
         if (isMounted) {
           if (!cachedValue?.evaluations) {
             setEvaluations([])
+          }
+          if (!cachedValue?.players) {
+            setPlayers([])
           }
           setErrorMessage('Could not load player history.')
         }
@@ -115,12 +172,18 @@ export function PlayerProfile() {
 
   const lastSection = evaluations[0]?.section || 'Trial'
   const lastTeam = evaluations[0]?.team || ''
+  const primaryPlayer = players[0]
+  const profileParentName = primaryPlayer?.parentName || evaluations.find((evaluation) => evaluation.parentName)?.parentName || ''
+  const profileParentEmail = primaryPlayer?.parentEmail || evaluations.find((evaluation) => evaluation.parentEmail)?.parentEmail || ''
 
   const handleDownloadPdf = async (evaluation, mode) => {
     setPdfLoadingId(`${evaluation.id}:${mode}`)
     setErrorMessage('')
 
     try {
+      const { exportEvaluationPdf } = await import('../lib/pdf.js')
+      const summary = buildEvaluationSummary(evaluation, mode)
+
       await exportEvaluationPdf({
         filename: `${routePlayerName}-${mode}.pdf`,
         mode,
@@ -132,11 +195,14 @@ export function PlayerProfile() {
           section: evaluation.section,
           session: evaluation.session,
           decision: evaluation.decision,
-          summary: buildEvaluationSummary(evaluation),
-          responseItems: Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
-            label,
-            value,
-          })),
+          summary,
+          responseItems:
+            mode === 'scored'
+              ? Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
+                  label,
+                  value,
+                }))
+              : [],
         },
       })
     } catch (error) {
@@ -144,6 +210,78 @@ export function PlayerProfile() {
       setErrorMessage('Could not generate the PDF.')
     } finally {
       setPdfLoadingId('')
+    }
+  }
+
+  const handlePlayerDraftChange = (playerId, fieldName, value) => {
+    setErrorMessage('')
+    setPlayerDrafts((current) => ({
+      ...current,
+      [playerId]: {
+        ...current[playerId],
+        [fieldName]: value,
+      },
+    }))
+  }
+
+  const handleSavePlayer = async (playerId) => {
+    const draft = playerDrafts[playerId]
+
+    if (!draft) {
+      return
+    }
+
+    setIsSavingPlayer(true)
+    setErrorMessage('')
+
+    try {
+      const savedPlayer = await updatePlayer({
+        user,
+        playerId,
+        player: draft,
+      })
+      const nextPlayers = players.map((player) => (player.id === playerId ? savedPlayer : player))
+      setPlayers(nextPlayers)
+      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, player])))
+      writeViewCache(cacheKey, {
+        evaluations,
+        players: nextPlayers,
+      })
+      setEditingPlayerId('')
+
+      if (savedPlayer.playerName !== routePlayerName) {
+        navigate(`/player/${encodeURIComponent(savedPlayer.playerName)}`)
+      }
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not save player details.')
+    } finally {
+      setIsSavingPlayer(false)
+    }
+  }
+
+  const handleDeletePlayerRecord = async (playerId) => {
+    if (!window.confirm('Delete this player record? Assessments will remain in history.')) {
+      return
+    }
+
+    setIsSavingPlayer(true)
+    setErrorMessage('')
+
+    try {
+      await deletePlayerRecord({ user, playerId })
+      const nextPlayers = players.filter((player) => player.id !== playerId)
+      setPlayers(nextPlayers)
+      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, player])))
+      writeViewCache(cacheKey, {
+        evaluations,
+        players: nextPlayers,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not delete player details.')
+    } finally {
+      setIsSavingPlayer(false)
     }
   }
 
@@ -202,6 +340,138 @@ export function PlayerProfile() {
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{lastSection}</p>
         </div>
       </div>
+
+      <SectionCard
+        title="Player details"
+        description="Edit section, team, and parent contact details here. Assessment history remains below."
+      >
+        {players.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+            No saved player details yet. This profile was created from assessment history.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {players.map((player) => {
+              const draft = playerDrafts[player.id] ?? player
+              const isEditing = editingPlayerId === player.id
+
+              return (
+                <div key={player.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                  {isEditing ? (
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
+                        <input
+                          value={draft.playerName}
+                          onChange={(event) => handlePlayerDraftChange(player.id, 'playerName', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
+                        <select
+                          value={draft.section}
+                          onChange={(event) => handlePlayerDraftChange(player.id, 'section', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        >
+                          {EVALUATION_SECTIONS.map((section) => (
+                            <option key={section} value={section}>
+                              {section}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
+                        <input
+                          value={draft.team}
+                          onChange={(event) => handlePlayerDraftChange(player.id, 'team', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Name</span>
+                        <input
+                          value={draft.parentName}
+                          onChange={(event) => handlePlayerDraftChange(player.id, 'parentName', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Email</span>
+                        <input
+                          type="email"
+                          value={draft.parentEmail}
+                          onChange={(event) => handlePlayerDraftChange(player.id, 'parentEmail', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        />
+                      </label>
+                      <div className="flex items-end gap-3">
+                        <button
+                          type="button"
+                          disabled={isSavingPlayer}
+                          onClick={() => void handleSavePlayer(player.id)}
+                          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSavingPlayer}
+                          onClick={() => setEditingPlayerId('')}
+                          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Section</p>
+                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.section}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Team</p>
+                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.team || 'No team entered'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Parent Name</p>
+                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.parentName || 'No parent name entered'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Parent Email</p>
+                          <p className="mt-2 break-words text-sm font-semibold text-[var(--text-primary)]">{player.parentEmail || 'No parent email entered'}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => setEditingPlayerId(player.id)}
+                          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                        >
+                          Edit Details
+                        </button>
+                        {canDeletePlayer(user) ? (
+                          <button
+                            type="button"
+                            disabled={isSavingPlayer}
+                            onClick={() => void handleDeletePlayerRecord(player.id)}
+                            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Delete Record
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </SectionCard>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Link
@@ -302,6 +572,16 @@ export function PlayerProfile() {
                       </a>
                     ) : null}
                   </div>
+
+                  {(evaluation.parentName || evaluation.parentEmail || profileParentName || profileParentEmail) ? (
+                    <div className="mt-5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Parent details</p>
+                      <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+                        {evaluation.parentName || profileParentName || 'No parent name entered'}
+                        {evaluation.parentEmail || profileParentEmail ? ` | ${evaluation.parentEmail || profileParentEmail}` : ''}
+                      </p>
+                    </div>
+                  ) : null}
 
                   <div className="mt-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Summary</p>

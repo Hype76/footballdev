@@ -373,6 +373,26 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const resetPassword = async (email) => {
+    const normalizedEmail = String(email ?? '').trim()
+
+    if (!normalizedEmail) {
+      throw new Error('Enter your email address first.')
+    }
+
+    setAuthError('')
+
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: `${window.location.origin}/login`,
+    })
+
+    if (error) {
+      console.error(error)
+      setAuthError(error.message || 'Password reset failed.')
+      throw error
+    }
+  }
+
   const updateCurrentClubDetails = (clubDetails) => {
     setUser((current) => {
       if (!current) {
@@ -401,6 +421,7 @@ export function AuthProvider({ children }) {
       authError,
       signInWithPassword,
       signUpWithClub,
+      resetPassword,
       signOut,
       updateCurrentClubDetails,
     }),
