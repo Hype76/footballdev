@@ -7,6 +7,34 @@ import { getPlatformStats, readViewCacheValue, withRequestTimeout, writeViewCach
 
 const cacheKey = 'platform-admin-dashboard'
 
+function formatDate(value) {
+  if (!value) {
+    return 'No activity yet'
+  }
+
+  const parsedDate = new Date(value)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return 'No activity yet'
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(parsedDate)
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value)) {
+    return '0%'
+  }
+
+  return `${Math.round(value)}%`
+}
+
 export function PlatformAdminPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState(() => readViewCacheValue(cacheKey, 'stats', null))
@@ -93,7 +121,11 @@ export function PlatformAdminPage() {
           ['Clubs', stats?.totals?.clubs ?? 0],
           ['Adult users', stats?.totals?.users ?? 0],
           ['Teams', stats?.totals?.teams ?? 0],
+          ['Players', stats?.totals?.players ?? 0],
           ['Assessments', stats?.totals?.evaluations ?? 0],
+          ['Shared exports', stats?.totals?.communications ?? 0],
+          ['7 day assessments', stats?.totals?.recentEvaluations ?? 0],
+          ['7 day shares', stats?.totals?.recentCommunications ?? 0],
         ].map(([label, value]) => (
           <div key={label} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{label}</p>
@@ -143,8 +175,11 @@ export function PlatformAdminPage() {
                       Contact: {club.contactEmail || 'No email entered'}
                       {club.contactPhone ? ` | ${club.contactPhone}` : ''}
                     </p>
+                    <p className="mt-2 text-sm text-[var(--text-muted)]">
+                      Latest activity: {formatDate(club.latestActivityAt)}
+                    </p>
                   </div>
-                  <div className="grid gap-2 text-sm sm:grid-cols-4 lg:min-w-[520px]">
+                  <div className="grid gap-2 text-sm sm:grid-cols-4 lg:min-w-[620px]">
                     <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Users</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.userCount}</p>
@@ -154,12 +189,30 @@ export function PlatformAdminPage() {
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.teamCount}</p>
                     </div>
                     <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Players</p>
+                      <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.playerCount}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Shares</p>
+                      <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.communicationCount}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Trial</p>
-                      <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.trialCount}</p>
+                      <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.trialPlayerCount}</p>
                     </div>
                     <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Squad</p>
-                      <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.squadCount}</p>
+                      <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.squadPlayerCount}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Pending</p>
+                      <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.submittedCount}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Approval</p>
+                      <p className="mt-2 font-semibold text-[var(--text-primary)]">
+                        {formatPercent(club.evaluationCount ? (club.approvedCount / club.evaluationCount) * 100 : 0)}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -182,7 +235,7 @@ export function PlatformAdminPage() {
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Teams</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Teams and role mix</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {club.teams.length === 0 ? (
                         <p className="text-sm text-[var(--text-muted)]">No teams found.</p>
@@ -194,6 +247,20 @@ export function PlatformAdminPage() {
                           >
                             {team.name}
                           </span>
+                        ))
+                      )}
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      {club.roleCounts.length === 0 ? (
+                        <p className="text-sm text-[var(--text-muted)]">No role data found.</p>
+                      ) : (
+                        club.roleCounts.map((role) => (
+                          <div key={role.label} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">{role.label}</p>
+                            <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                              {role.count} users
+                            </p>
+                          </div>
                         ))
                       )}
                     </div>

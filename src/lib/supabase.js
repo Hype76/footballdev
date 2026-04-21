@@ -2160,21 +2160,26 @@ export async function getPlatformStats(user) {
         clubs: 0,
         users: 0,
         teams: 0,
+        players: 0,
         evaluations: 0,
+        communications: 0,
       },
       clubs: [],
     }
   }
 
   return getCachedResource('platform-stats', async () => {
-    const [clubsResult, usersResult, teamsResult, evaluationsResult] = await Promise.all([
+    const [clubsResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult] = await Promise.all([
       supabase.from('clubs').select('id, name, contact_email, contact_phone, created_at').order('name', { ascending: true }),
       supabase.from('users').select('id, email, role_label, role_rank, club_id').order('email', { ascending: true }),
       supabase.from('teams').select('id, name, club_id').order('name', { ascending: true }),
+      supabase.from('players').select('id, club_id, section, status, created_at'),
       supabase.from('evaluations').select('id, club_id, section, status, created_at'),
+      supabase.from('communication_logs').select('id, club_id, channel, action, created_at'),
+      supabase.from('audit_logs').select('id, club_id, action, created_at'),
     ])
 
-    const results = [clubsResult, usersResult, teamsResult, evaluationsResult]
+    const results = [clubsResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult]
     const firstError = results.find((result) => result.error)?.error
 
     if (firstError) {
@@ -2185,19 +2190,44 @@ export async function getPlatformStats(user) {
     const clubs = clubsResult.data ?? []
     const users = usersResult.data ?? []
     const teams = teamsResult.data ?? []
+    const players = playersResult.data ?? []
     const evaluations = evaluationsResult.data ?? []
+    const communicationLogs = communicationLogsResult.data ?? []
+    const auditLogs = auditLogsResult.data ?? []
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const isRecent = (row) => {
+      const timestamp = new Date(row.created_at).getTime()
+      return !Number.isNaN(timestamp) && timestamp >= sevenDaysAgo
+    }
 
     return {
       totals: {
         clubs: clubs.length,
         users: users.length,
         teams: teams.length,
+        players: players.length,
         evaluations: evaluations.length,
+        communications: communicationLogs.length,
+        recentEvaluations: evaluations.filter(isRecent).length,
+        recentCommunications: communicationLogs.filter(isRecent).length,
       },
       clubs: clubs.map((club) => {
         const clubUsers = users.filter((member) => member.club_id === club.id)
         const clubTeams = teams.filter((team) => team.club_id === club.id)
+        const clubPlayers = players.filter((player) => player.club_id === club.id)
         const clubEvaluations = evaluations.filter((evaluation) => evaluation.club_id === club.id)
+        const clubCommunicationLogs = communicationLogs.filter((log) => log.club_id === club.id)
+        const clubAuditLogs = auditLogs.filter((log) => log.club_id === club.id)
+        const clubActivityTimestamps = [...clubEvaluations, ...clubCommunicationLogs, ...clubAuditLogs]
+          .map((row) => new Date(row.created_at).getTime())
+          .filter((timestamp) => !Number.isNaN(timestamp))
+        const latestActivityAt =
+          clubActivityTimestamps.length > 0 ? new Date(Math.max(...clubActivityTimestamps)).toISOString() : ''
+        const roleCounts = clubUsers.reduce((map, member) => {
+          const roleLabel = String(member.role_label ?? '').trim() || 'User'
+          map[roleLabel] = (map[roleLabel] ?? 0) + 1
+          return map
+        }, {})
 
         return {
           id: club.id,
@@ -2207,11 +2237,23 @@ export async function getPlatformStats(user) {
           createdAt: club.created_at,
           userCount: clubUsers.length,
           teamCount: clubTeams.length,
+          playerCount: clubPlayers.length,
           evaluationCount: clubEvaluations.length,
+          communicationCount: clubCommunicationLogs.length,
+          recentEvaluationCount: clubEvaluations.filter(isRecent).length,
+          recentCommunicationCount: clubCommunicationLogs.filter(isRecent).length,
           submittedCount: clubEvaluations.filter((evaluation) => evaluation.status === 'Submitted').length,
           approvedCount: clubEvaluations.filter((evaluation) => evaluation.status === 'Approved').length,
+          rejectedCount: clubEvaluations.filter((evaluation) => evaluation.status === 'Rejected').length,
           trialCount: clubEvaluations.filter((evaluation) => evaluation.section === 'Trial').length,
           squadCount: clubEvaluations.filter((evaluation) => evaluation.section === 'Squad').length,
+          trialPlayerCount: clubPlayers.filter((player) => player.section === 'Trial').length,
+          squadPlayerCount: clubPlayers.filter((player) => player.section === 'Squad').length,
+          promotedPlayerCount: clubPlayers.filter((player) => player.status === 'promoted').length,
+          latestActivityAt,
+          roleCounts: Object.entries(roleCounts)
+            .map(([label, count]) => ({ label, count }))
+            .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)),
           users: clubUsers.map((member) => ({
             id: member.id,
             email: String(member.email ?? '').trim(),
