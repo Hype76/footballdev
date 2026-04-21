@@ -1,29 +1,81 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useMatches } from 'react-router-dom'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 
-const THEME_STORAGE_KEY = 'app-theme'
+const THEME_MODE_STORAGE_KEY = 'app-theme-mode'
+const THEME_ACCENT_STORAGE_KEY = 'app-theme-accent'
+const THEME_MODES = ['system', 'dark', 'light']
+const THEME_ACCENTS = ['yellow', 'blue', 'green', 'red', 'purple']
+
+function getStoredThemeMode() {
+  const storedThemeMode = window.localStorage.getItem(THEME_MODE_STORAGE_KEY)
+  return THEME_MODES.includes(storedThemeMode) ? storedThemeMode : 'system'
+}
+
+function getStoredThemeAccent() {
+  const storedThemeAccent = window.localStorage.getItem(THEME_ACCENT_STORAGE_KEY)
+  return THEME_ACCENTS.includes(storedThemeAccent) ? storedThemeAccent : 'yellow'
+}
+
+function getSystemTheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
 
 export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [theme, setTheme] = useState(() => {
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) || 'dark'
-    document.body.classList.remove('theme-light', 'theme-dark')
-    document.body.classList.add(storedTheme === 'dark' ? 'theme-dark' : 'theme-light')
-    return storedTheme
-  })
+  const [themeMode, setThemeMode] = useState(getStoredThemeMode)
+  const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
+  const [systemTheme, setSystemTheme] = useState(getSystemTheme)
   const matches = useMatches()
   const activeTitle = [...matches].reverse().find((match) => match.handle?.title)?.handle?.title ?? 'Dashboard'
+  const resolvedTheme = useMemo(
+    () => (themeMode === 'system' ? systemTheme : themeMode),
+    [systemTheme, themeMode],
+  )
 
   useEffect(() => {
-    document.body.classList.remove('theme-light', 'theme-dark')
-    document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light')
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
-  }, [theme])
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleSystemThemeChange = () => {
+      setSystemTheme(mediaQuery.matches ? 'dark' : 'light')
+    }
 
-  const toggleTheme = () => {
-    setTheme((current) => (current === 'dark' ? 'light' : 'dark'))
+    mediaQuery.addEventListener('change', handleSystemThemeChange)
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    document.body.classList.remove(
+      'theme-light',
+      'theme-dark',
+      'accent-yellow',
+      'accent-blue',
+      'accent-green',
+      'accent-red',
+      'accent-purple',
+    )
+    document.body.classList.add(resolvedTheme === 'dark' ? 'theme-dark' : 'theme-light')
+    document.body.classList.add(`accent-${themeAccent}`)
+    window.localStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode)
+    window.localStorage.setItem(THEME_ACCENT_STORAGE_KEY, themeAccent)
+  }, [resolvedTheme, themeAccent, themeMode])
+
+  useEffect(() => {
+    const legacyTheme = window.localStorage.getItem('app-theme')
+
+    if (legacyTheme) {
+      window.localStorage.removeItem('app-theme')
+    }
+  }, [])
+
+  const handleThemeModeChange = (nextThemeMode) => {
+    setThemeMode(THEME_MODES.includes(nextThemeMode) ? nextThemeMode : 'system')
+  }
+
+  const handleThemeAccentChange = (nextThemeAccent) => {
+    setThemeAccent(THEME_ACCENTS.includes(nextThemeAccent) ? nextThemeAccent : 'yellow')
   }
 
   return (
@@ -32,7 +84,14 @@ export function Layout() {
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-72">
-          <Topbar title={activeTitle} onMenuClick={() => setIsSidebarOpen(true)} theme={theme} onToggleTheme={toggleTheme} />
+          <Topbar
+            title={activeTitle}
+            onMenuClick={() => setIsSidebarOpen(true)}
+            themeMode={themeMode}
+            themeAccent={themeAccent}
+            onThemeModeChange={handleThemeModeChange}
+            onThemeAccentChange={handleThemeAccentChange}
+          />
 
           <main className="flex-1 px-3 py-4 sm:px-4 sm:py-5 md:px-6 md:py-6 xl:px-8">
             <div className="mx-auto w-full max-w-7xl">
