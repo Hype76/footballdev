@@ -3,6 +3,7 @@ import { supabase } from './supabase-client.js'
 
 const AuthContext = createContext(null)
 let authDataModulePromise = null
+const PRODUCTION_APP_ORIGIN = 'https://playerfeedback.online'
 
 function loadAuthDataModule() {
   if (!authDataModulePromise) {
@@ -16,6 +17,14 @@ function normalizeName(value) {
   return String(value ?? '')
     .trim()
     .toLowerCase()
+}
+
+function getPasswordResetRedirectUrl() {
+  const configuredOrigin = String(import.meta.env.VITE_APP_URL ?? import.meta.env.VITE_PUBLIC_APP_URL ?? '').trim()
+  const currentOrigin = window.location.origin
+  const resolvedOrigin = configuredOrigin || (window.location.hostname === 'localhost' ? PRODUCTION_APP_ORIGIN : currentOrigin)
+
+  return `${resolvedOrigin.replace(/\/$/, '')}/reset-password`
 }
 
 function areUsersEquivalent(leftUser, rightUser) {
@@ -388,7 +397,7 @@ export function AuthProvider({ children }) {
     setAuthError('')
 
     const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: getPasswordResetRedirectUrl(),
     })
 
     if (error) {
