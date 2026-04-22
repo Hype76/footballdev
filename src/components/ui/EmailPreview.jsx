@@ -41,6 +41,8 @@ export function EmailPreview({
   session = '',
   decision = 'Progress',
   summary = '',
+  emailSubject = '',
+  emailBody = '',
   responseItems = [],
   mode = 'scored',
 }) {
@@ -91,9 +93,11 @@ export function EmailPreview({
         </div>
 
         <div className="section mt-6 rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Summary</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
+            {showScoring ? 'Summary' : 'Email Subject'}
+          </p>
           <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
-            {summary || 'No written summary provided.'}
+            {showScoring ? summary || 'No written summary provided.' : emailSubject || 'No email subject available.'}
           </p>
         </div>
 
@@ -120,8 +124,7 @@ export function EmailPreview({
           <div className="section mt-6 rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Parent Message</p>
             <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
-              Thank you for attending the session. Please see the coaching summary above for the latest feedback and next
-              steps for this player.
+              {emailBody || 'No parent email template is available for this assessment yet.'}
             </p>
           </div>
         )}

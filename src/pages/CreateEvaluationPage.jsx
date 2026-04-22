@@ -6,6 +6,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { buildParentEmailTemplate } from '../lib/email-templates.js'
 import {
   EVALUATION_SECTIONS,
   createEvaluation,
@@ -207,11 +208,7 @@ function formatSessionForDisplay(value) {
   }).format(new Date(normalizedValue))
 }
 
-function buildPreviewSummary({ comments, formResponses, mode = 'scored' }) {
-  if (mode === 'email') {
-    return comments?.overall || comments?.strengths || comments?.improvements || 'No written summary provided.'
-  }
-
+function buildPreviewSummary({ comments, formResponses }) {
   const responseEntries = Object.entries(formResponses ?? {})
 
   if (responseEntries.length > 0) {
@@ -632,9 +629,29 @@ export function CreateEvaluationPage() {
       buildPreviewSummary({
         comments,
         formResponses,
-        mode: previewMode,
       }),
-    [comments, formResponses, previewMode],
+    [comments, formResponses],
+  )
+  const parentEmailTemplate = useMemo(
+    () =>
+      buildParentEmailTemplate({
+        parentName: formData.parentName,
+        playerName: formData.playerName,
+        coachName: formData.coachName,
+        clubName: user?.clubName,
+        teamName: formData.team,
+        session: formData.session,
+        decision: formData.decision,
+      }),
+    [
+      formData.coachName,
+      formData.decision,
+      formData.parentName,
+      formData.playerName,
+      formData.session,
+      formData.team,
+      user?.clubName,
+    ],
   )
   const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
   const noTeamsMessage = canManageUsers(user)
@@ -705,6 +722,8 @@ export function CreateEvaluationPage() {
           session: formData.session,
           decision: formData.decision,
           summary: previewSummary,
+          emailSubject: parentEmailTemplate.subject,
+          emailBody: parentEmailTemplate.body,
           responseItems: mode === 'scored' ? responseItems : [],
         },
       })
@@ -1145,6 +1164,8 @@ export function CreateEvaluationPage() {
                   session={formData.session}
                   decision={formData.decision}
                   summary={previewSummary}
+                  emailSubject={parentEmailTemplate.subject}
+                  emailBody={parentEmailTemplate.body}
                   responseItems={previewMode === 'scored' ? responseItems : []}
                   mode={previewMode}
                 />

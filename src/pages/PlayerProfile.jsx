@@ -6,6 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
+import { buildParentEmailMailtoUrl, buildParentEmailTemplate } from '../lib/email-templates.js'
 import {
   EVALUATION_SECTIONS,
   createCommunicationLog,
@@ -48,26 +49,12 @@ function buildEvaluationSummary(evaluation, mode = 'scored') {
   )
 }
 
-function buildParentEmailLink(playerName, evaluation) {
-  if (!evaluation.parentEmail) {
+function buildParentEmailLink(template, recipientEmail) {
+  if (!recipientEmail) {
     return ''
   }
 
-  const summary = buildEvaluationSummary(evaluation, 'email')
-  const body = [
-    `Player: ${playerName}`,
-    `Section: ${evaluation.section || 'Trial'}`,
-    evaluation.session ? `Session: ${evaluation.session}` : null,
-    `Summary: ${summary}`,
-    `Decision: ${evaluation.decision || 'Progress'}`,
-    '',
-    'A PDF download option is also available in the system for sharing feedback.',
-  ]
-    .filter(Boolean)
-    .join('\n')
-
-  const subject = encodeURIComponent('Player Trial Feedback')
-  return `mailto:${encodeURIComponent(evaluation.parentEmail)}?subject=${subject}&body=${encodeURIComponent(body)}`
+  return buildParentEmailMailtoUrl(template, recipientEmail)
 }
 
 export function PlayerProfile() {
@@ -186,6 +173,15 @@ export function PlayerProfile() {
     try {
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
       const summary = buildEvaluationSummary(evaluation, mode)
+      const emailTemplate = buildParentEmailTemplate({
+        parentName: evaluation.parentName || profileParentName,
+        playerName: routePlayerName,
+        coachName: evaluation.coach,
+        clubName: user?.clubName,
+        teamName: evaluation.team,
+        session: evaluation.session,
+        decision: evaluation.decision,
+      })
 
       await exportEvaluationPdf({
         filename: `${routePlayerName}-${mode}.pdf`,
@@ -199,6 +195,8 @@ export function PlayerProfile() {
           session: evaluation.session,
           decision: evaluation.decision,
           summary,
+          emailSubject: emailTemplate.subject,
+          emailBody: emailTemplate.body,
           responseItems:
             mode === 'scored'
               ? Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
@@ -225,11 +223,21 @@ export function PlayerProfile() {
     }
   }
 
-  const handleSendToParent = (event, evaluation, canShare) => {
+  const handleSendToParent = (event, evaluation, canShare, template, recipientEmail) => {
+    event.preventDefault()
+
     if (!canShare) {
-      event.preventDefault()
       return
     }
+
+    const mailtoUrl = buildParentEmailLink(template, recipientEmail)
+
+    if (!mailtoUrl) {
+      setErrorMessage('Add a parent email address before sending.')
+      return
+    }
+
+    window.location.href = mailtoUrl
 
     void createCommunicationLog({
       user,
@@ -582,6 +590,16 @@ export function PlayerProfile() {
               }))
               const summary = buildEvaluationSummary(evaluation)
               const canShare = canShareEvaluation(user, evaluation)
+              const recipientEmail = evaluation.parentEmail || profileParentEmail
+              const emailTemplate = buildParentEmailTemplate({
+                parentName: evaluation.parentName || profileParentName,
+                playerName: routePlayerName,
+                coachName: evaluation.coach,
+                clubName: user?.clubName,
+                teamName: evaluation.team,
+                session: evaluation.session,
+                decision: evaluation.decision,
+              })
 
               return (
                 <div
@@ -617,20 +635,21 @@ export function PlayerProfile() {
                     >
                       {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
                     </button>
-                    {evaluation.parentEmail ? (
-                      <a
-                        href={canShare ? buildParentEmailLink(routePlayerName, evaluation) : undefined}
+                    {recipientEmail ? (
+                      <button
+                        type="button"
                         title={canShare ? 'Send to parent' : 'Requires manager approval'}
-                        onClick={(event) => handleSendToParent(event, evaluation, canShare)}
+                        disabled={!canShare}
+                        onClick={(event) => handleSendToParent(event, evaluation, canShare, emailTemplate, recipientEmail)}
                         className={[
                           'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
                           canShare
                             ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)] hover:opacity-90'
-                            : 'cursor-not-allowed border border-[var(--border-color)] bg-[var(--panel-soft)] text-[var(--text-muted)]',
+                            : 'cursor-not-allowed border border-[var(--border-color)] bg-[var(--panel-soft)] text-[var(--text-muted)] disabled:opacity-100',
                         ].join(' ')}
                       >
                         Send to Parent
-                      </a>
+                      </button>
                     ) : null}
                   </div>
 

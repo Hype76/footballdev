@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageFormFields, useAuth } from '../lib/auth.js'
@@ -95,6 +96,8 @@ export function FormBuilderPage() {
   })
   const [isLoading, setIsLoading] = useState(() => fields.length === 0)
   const [isSaving, setIsSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
@@ -154,12 +157,16 @@ export function FormBuilderPage() {
 
   const refreshFields = async () => {
     setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
     try {
       const nextFields = await getConfiguredFormFields({ user })
       syncFields(nextFields)
+      setSuccessMessage(nextFields.length > 0 ? 'Form fields loaded successfully.' : 'Default form is ready to be configured.')
     } catch (error) {
       console.error(error)
+      setErrorMessage(error.message || 'Could not load the form fields for this club.')
     } finally {
       setIsSaving(false)
     }
@@ -171,6 +178,8 @@ export function FormBuilderPage() {
 
   const handleFormChange = (event) => {
     const { name, value, type, checked } = event.target
+    setErrorMessage('')
+    setSuccessMessage('')
 
     setFieldForm((current) => {
       const nextValue = type === 'checkbox' ? checked : value
@@ -192,6 +201,8 @@ export function FormBuilderPage() {
   }
 
   const handleDraftChange = (fieldId, name, value) => {
+    setErrorMessage('')
+    setSuccessMessage('')
     setFieldDrafts((current) => {
       const nextDraft = {
         ...current[fieldId],
@@ -226,6 +237,8 @@ export function FormBuilderPage() {
   const handleAddField = async (event) => {
     event.preventDefault()
     setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
     try {
       const createdField = await addFormField({
@@ -242,8 +255,10 @@ export function FormBuilderPage() {
       const nextFields = [...fields, createdField].sort((left, right) => left.orderIndex - right.orderIndex)
       syncFields(nextFields)
       setFieldForm(initialFieldForm)
+      setSuccessMessage('Field added successfully.')
     } catch (error) {
       console.error(error)
+      setErrorMessage(error.message || 'Could not add this field.')
     } finally {
       setIsSaving(false)
     }
@@ -257,6 +272,8 @@ export function FormBuilderPage() {
     }
 
     setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
     try {
       await deleteFormField(fieldId)
@@ -269,8 +286,10 @@ export function FormBuilderPage() {
 
       await reorderFormFields(nextFields, user)
       syncFields(nextFields)
+      setSuccessMessage('Field deleted successfully.')
     } catch (error) {
       console.error(error)
+      setErrorMessage(error.message || 'Could not delete this field.')
     } finally {
       setIsSaving(false)
     }
@@ -294,12 +313,16 @@ export function FormBuilderPage() {
     }))
 
     setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
     try {
       await reorderFormFields(normalizedFields, user)
       syncFields(normalizedFields)
+      setSuccessMessage('Field order updated.')
     } catch (error) {
       console.error(error)
+      setErrorMessage(error.message || 'Could not reorder the fields.')
     } finally {
       setIsSaving(false)
     }
@@ -310,6 +333,8 @@ export function FormBuilderPage() {
     const nextEnabled = !draft.isEnabled
 
     setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
     try {
       const updatedField = await updateFormField(
@@ -322,8 +347,10 @@ export function FormBuilderPage() {
 
       const nextFields = fields.map((item) => (item.id === field.id ? updatedField : item))
       syncFields(nextFields)
+      setSuccessMessage(nextEnabled ? 'Field enabled.' : 'Field disabled.')
     } catch (error) {
       console.error(error)
+      setErrorMessage(error.message || 'Could not update this field.')
     } finally {
       setIsSaving(false)
     }
@@ -341,6 +368,8 @@ export function FormBuilderPage() {
     }
 
     setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
     try {
       const updatedField = await updateFormField(
@@ -359,8 +388,10 @@ export function FormBuilderPage() {
 
       const nextFields = fields.map((item) => (item.id === field.id ? updatedField : item))
       syncFields(nextFields)
+      setSuccessMessage('Field saved successfully.')
     } catch (error) {
       console.error(error)
+      setErrorMessage(error.message || 'Could not save this field.')
     } finally {
       setIsSaving(false)
     }
@@ -373,6 +404,9 @@ export function FormBuilderPage() {
         title="Configure evaluation fields"
         description="Default fields can be enabled or disabled. Custom fields can also be edited, reordered, or removed."
       />
+
+      {errorMessage ? <NoticeBanner title="Form builder action failed" message={errorMessage} /> : null}
+      {successMessage ? <NoticeBanner title="Form builder updated" message={successMessage} tone="info" /> : null}
 
       <SectionCard
         title="Default form"
