@@ -168,11 +168,18 @@ export function buildParentEmailTemplate({
 }
 
 export function buildParentEmailMailtoUrl(template, recipientEmail) {
-  const normalizedEmail = normalizeText(recipientEmail)
+  const normalizedEmail = String(recipientEmail ?? '')
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean)
+    .join(',')
 
   if (!normalizedEmail || !template?.subject || !template?.body) {
     return ''
   }
 
-  return `mailto:${encodeURIComponent(normalizedEmail)}?subject=${encodeURIComponent(template.subject)}&body=${encodeURIComponent(template.body)}`
+  return `mailto:${normalizedEmail
+    .split(',')
+    .map((email) => encodeURIComponent(email))
+    .join(',')}?subject=${encodeURIComponent(template.subject)}&body=${encodeURIComponent(template.body)}`
 }

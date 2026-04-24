@@ -213,6 +213,16 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
             <p style="margin: 0; color: #5a6b5b; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">Section</p>
             <p style="margin: 5px 0 0; color: #334155; font-size: 12px; font-weight: 700;">${escapeHtml(previewProps.section || 'Trial')}</p>
           </div>
+          ${
+            previewProps.recipientNames || previewProps.recipientEmails
+              ? `
+                <div style="grid-column: 1 / -1; border: 1px solid #e7ece3; border-radius: 10px; background: #fbfcf9; padding: 9px;">
+                  <p style="margin: 0; color: #5a6b5b; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">Recipients</p>
+                  <p style="margin: 5px 0 0; color: #334155; font-size: 12px; font-weight: 700;">${escapeHtml(previewProps.recipientNames || previewProps.recipientEmails)}</p>
+                </div>
+              `
+              : ''
+          }
         </div>
       </div>
 

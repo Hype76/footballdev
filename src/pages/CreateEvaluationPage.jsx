@@ -20,6 +20,9 @@ import {
   getDefaultFormFields,
   getFormFields,
   getPlayers,
+  formatParentContactEmails,
+  formatParentContactNames,
+  normalizeParentContacts,
   readViewCache,
   readViewCacheValue,
   withRequestTimeout,
@@ -35,6 +38,7 @@ function createInitialFormData(user, defaults = {}) {
     playerName: '',
     parentName: '',
     parentEmail: '',
+    parentContacts: [],
     decision: 'Progress',
     ...defaults,
   }
@@ -378,6 +382,7 @@ export function CreateEvaluationPage() {
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
   const [emailTemplateKey, setEmailTemplateKey] = useState('')
+  const [selectedParentContactIndexes, setSelectedParentContactIndexes] = useState([0])
   const [inviteDate, setInviteDate] = useState('')
   const [actionErrorMessage, setActionErrorMessage] = useState('')
   const [dataRefreshNotice, setDataRefreshNotice] = useState('')
@@ -414,6 +419,11 @@ export function CreateEvaluationPage() {
     setFormData(nextFormData)
     setPreviewMode(String(storedDraft?.previewMode ?? 'scored') === 'email' ? 'email' : 'scored')
     setEmailTemplateKey(String(storedDraft?.emailTemplateKey ?? ''))
+    setSelectedParentContactIndexes(
+      Array.isArray(storedDraft?.selectedParentContactIndexes) && storedDraft.selectedParentContactIndexes.length > 0
+        ? storedDraft.selectedParentContactIndexes
+        : [0],
+    )
     setInviteDate(normalizeSessionValue(storedDraft?.inviteDate))
     setResponseValues(
       storedDraft?.responseValues && typeof storedDraft.responseValues === 'object' ? storedDraft.responseValues : {},
@@ -520,13 +530,20 @@ export function CreateEvaluationPage() {
         const matchingPlayer = nextPlayers.find((player) => player.playerName === requestedPlayerName)
 
         if (matchingPlayer) {
+          const parentContacts = normalizeParentContacts(matchingPlayer.parentContacts, {
+            parentName: matchingPlayer.parentName,
+            parentEmail: matchingPlayer.parentEmail,
+          })
+
           setFormData((current) => ({
             ...current,
-            parentName: current.parentName || matchingPlayer.parentName,
-            parentEmail: current.parentEmail || matchingPlayer.parentEmail,
+            parentName: current.parentName || parentContacts[0]?.name || matchingPlayer.parentName,
+            parentEmail: current.parentEmail || parentContacts[0]?.email || matchingPlayer.parentEmail,
+            parentContacts: current.parentContacts?.length ? current.parentContacts : parentContacts,
             team: current.team || matchingPlayer.team,
             section: current.section || matchingPlayer.section,
           }))
+          setSelectedParentContactIndexes(parentContacts.length > 0 ? parentContacts.map((_, index) => index) : [0])
         }
       } catch (error) {
         console.error(error)
@@ -653,13 +670,24 @@ export function CreateEvaluationPage() {
           lastUsedSession,
           previewMode,
           emailTemplateKey,
+          selectedParentContactIndexes,
           inviteDate,
         }),
       )
     } catch (error) {
       console.error(error)
     }
-  }, [draftStorageKey, emailTemplateKey, formData, inviteDate, isPlatformOwner, lastUsedSession, previewMode, responseValues])
+  }, [
+    draftStorageKey,
+    emailTemplateKey,
+    formData,
+    inviteDate,
+    isPlatformOwner,
+    lastUsedSession,
+    previewMode,
+    responseValues,
+    selectedParentContactIndexes,
+  ])
 
   const enabledFields = useMemo(() => dynamicFields.filter((field) => field.isEnabled), [dynamicFields])
   const formResponses = useMemo(() => buildFormResponses(enabledFields, responseValues), [enabledFields, responseValues])
@@ -670,6 +698,20 @@ export function CreateEvaluationPage() {
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
   const selectedEmailTemplateKey = emailTemplateKey || getEmailTemplateKey(formData.decision)
   const shouldShowInviteDate = previewMode === 'email' && isInviteEmailTemplate(selectedEmailTemplateKey)
+  const parentContacts = useMemo(
+    () =>
+      normalizeParentContacts(formData.parentContacts, {
+        parentName: formData.parentName,
+        parentEmail: formData.parentEmail,
+      }),
+    [formData.parentContacts, formData.parentEmail, formData.parentName],
+  )
+  const selectedParentContacts = useMemo(() => {
+    const selectedContacts = parentContacts.filter((_, index) => selectedParentContactIndexes.includes(index))
+    return selectedContacts.length > 0 ? selectedContacts : parentContacts.slice(0, 1)
+  }, [parentContacts, selectedParentContactIndexes])
+  const selectedParentName = formatParentContactNames(selectedParentContacts, formData.parentName)
+  const selectedParentEmail = formatParentContactEmails(selectedParentContacts, formData.parentEmail)
   const previewSummary = useMemo(
     () =>
       buildPreviewSummary({
@@ -681,7 +723,7 @@ export function CreateEvaluationPage() {
   const parentEmailTemplate = useMemo(
     () =>
       buildParentEmailTemplate({
-        parentName: formData.parentName,
+        parentName: selectedParentName,
         playerName: formData.playerName,
         coachName: formData.coachName,
         clubName: user?.clubName,
@@ -694,13 +736,13 @@ export function CreateEvaluationPage() {
     [
       formData.coachName,
       formData.decision,
-      formData.parentName,
       formData.playerName,
       formData.session,
       formData.team,
       emailTemplateKey,
       inviteDate,
       selectedEmailTemplateKey,
+      selectedParentName,
       user?.clubName,
     ],
   )
@@ -727,15 +769,21 @@ export function CreateEvaluationPage() {
 
     if (name === 'playerName') {
       const matchingPlayer = savedPlayers.find((player) => player.playerName === value)
+      const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
+        parentName: matchingPlayer?.parentName,
+        parentEmail: matchingPlayer?.parentEmail,
+      })
 
       setFormData((current) => ({
         ...current,
         playerName: value,
-        parentName: matchingPlayer?.parentName || current.parentName,
-        parentEmail: matchingPlayer?.parentEmail || current.parentEmail,
+        parentName: matchingParentContacts[0]?.name || matchingPlayer?.parentName || current.parentName,
+        parentEmail: matchingParentContacts[0]?.email || matchingPlayer?.parentEmail || current.parentEmail,
+        parentContacts: matchingParentContacts.length > 0 ? matchingParentContacts : current.parentContacts,
         team: matchingPlayer?.team || current.team,
         section: matchingPlayer?.section || current.section,
       }))
+      setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
       return
     }
 
@@ -752,6 +800,17 @@ export function CreateEvaluationPage() {
       ...current,
       [fieldId]: value,
     }))
+  }
+
+  const handleToggleParentContact = (index) => {
+    setSelectedParentContactIndexes((current) => {
+      if (current.includes(index)) {
+        const nextIndexes = current.filter((item) => item !== index)
+        return nextIndexes.length > 0 ? nextIndexes : [index]
+      }
+
+      return [...current, index].sort((left, right) => left - right)
+    })
   }
 
   const handleDownloadPdf = async (mode = previewMode) => {
@@ -776,6 +835,8 @@ export function CreateEvaluationPage() {
           summary: previewSummary,
           emailSubject: parentEmailTemplate.subject,
           emailBody: parentEmailTemplate.body,
+          recipientNames: selectedParentName,
+          recipientEmails: selectedParentEmail,
           responseItems: mode === 'scored' ? responseItems : [],
         },
       })
@@ -827,8 +888,9 @@ export function CreateEvaluationPage() {
         clubId: user?.clubId,
         coachId: user?.id,
         coach: String(user?.name || formData.coachName).trim(),
-        parentName: formData.parentName.trim(),
-        parentEmail: formData.parentEmail.trim(),
+        parentName: parentContacts[0]?.name ?? '',
+        parentEmail: parentContacts[0]?.email ?? '',
+        parentContacts,
         session: formData.session,
         date: new Date().toLocaleDateString(),
         scores,
@@ -889,6 +951,7 @@ export function CreateEvaluationPage() {
       }
 
       setLastSavedPlayerName(normalizedPlayerName)
+      setSelectedParentContactIndexes([0])
       setFormData(
         createInitialFormData(user, {
           playerName: queryPlayerName,
@@ -1066,27 +1129,56 @@ export function CreateEvaluationPage() {
                     />
                   </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Name</span>
-                    <input
-                      type="text"
-                      name="parentName"
-                      value={formData.parentName}
-                      onChange={handleFieldChange}
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Email</span>
-                    <input
-                      type="email"
-                      name="parentEmail"
-                      value={formData.parentEmail}
-                      onChange={handleFieldChange}
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                    />
-                  </label>
+                  <div className="md:col-span-2">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent PDF Recipients</span>
+                    {parentContacts.length > 0 ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {parentContacts.map((contact, index) => (
+                          <label
+                            key={`${contact.email || contact.name}-${index}`}
+                            className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedParentContactIndexes.includes(index)}
+                              onChange={() => handleToggleParentContact(index)}
+                              className="h-4 w-4 accent-[var(--accent)]"
+                            />
+                            <span className="min-w-0">
+                              <span className="block font-semibold">{contact.name || 'Parent/Guardian'}</span>
+                              <span className="block break-words text-xs text-[var(--text-muted)]">{contact.email || 'No email entered'}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Name</span>
+                          <input
+                            type="text"
+                            name="parentName"
+                            value={formData.parentName}
+                            onChange={handleFieldChange}
+                            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Email</span>
+                          <input
+                            type="email"
+                            name="parentEmail"
+                            value={formData.parentEmail}
+                            onChange={handleFieldChange}
+                            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          />
+                        </label>
+                      </div>
+                    )}
+                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+                      Selected parents are used for parent email PDF templates.
+                    </p>
+                  </div>
 
                   <label className="block">
                     <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session</span>

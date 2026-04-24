@@ -19,6 +19,9 @@ import {
   getEvaluations,
   getClubSettings,
   getPlayers,
+  formatParentContactEmails,
+  formatParentContactNames,
+  normalizeParentContacts,
   clearViewCaches,
   promotePlayerToSquad,
   readViewCache,
@@ -148,6 +151,7 @@ export function PlayerProfile() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
+  const [selectedParentContacts, setSelectedParentContacts] = useState({})
   const [selectedInviteDates, setSelectedInviteDates] = useState({})
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
@@ -239,10 +243,26 @@ export function PlayerProfile() {
   const primaryPlayer = players[0]
   const profileParentName = primaryPlayer?.parentName || evaluations.find((evaluation) => evaluation.parentName)?.parentName || ''
   const profileParentEmail = primaryPlayer?.parentEmail || evaluations.find((evaluation) => evaluation.parentEmail)?.parentEmail || ''
+  const profileParentContacts = normalizeParentContacts(primaryPlayer?.parentContacts, {
+    parentName: profileParentName,
+    parentEmail: profileParentEmail,
+  })
 
   const getSelectedEmailTemplateKey = (evaluation) =>
     selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
   const getSelectedInviteDate = (evaluation) => selectedInviteDates[evaluation.id] || ''
+  const getEvaluationParentContacts = (evaluation) =>
+    normalizeParentContacts(evaluation.parentContacts?.length ? evaluation.parentContacts : profileParentContacts, {
+      parentName: evaluation.parentName || profileParentName,
+      parentEmail: evaluation.parentEmail || profileParentEmail,
+    })
+  const getSelectedEvaluationParentContacts = (evaluation) => {
+    const contacts = getEvaluationParentContacts(evaluation)
+    const selectedIndexes = selectedParentContacts[evaluation.id] ?? contacts.map((_, index) => index)
+    const nextContacts = contacts.filter((_, index) => selectedIndexes.includes(index))
+
+    return nextContacts.length > 0 ? nextContacts : contacts.slice(0, 1)
+  }
 
   const handleDownloadPdf = async (evaluation, mode) => {
     setPdfLoadingId(`${evaluation.id}:${mode}`)
@@ -252,8 +272,11 @@ export function PlayerProfile() {
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
       const latestClubLogoUrl = await getLatestClubLogoUrl(user)
       const summary = buildEvaluationSummary(evaluation, mode)
+      const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
+      const recipientNames = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
+      const recipientEmails = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
       const emailTemplate = buildParentEmailTemplate({
-        parentName: evaluation.parentName || profileParentName,
+        parentName: recipientNames,
         playerName: routePlayerName,
         coachName: evaluation.coach,
         clubName: user?.clubName,
@@ -278,6 +301,8 @@ export function PlayerProfile() {
           summary,
           emailSubject: emailTemplate.subject,
           emailBody: emailTemplate.body,
+          recipientNames,
+          recipientEmails,
           responseItems:
             mode === 'scored'
               ? Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
@@ -294,7 +319,7 @@ export function PlayerProfile() {
         evaluationId: evaluation.id,
         channel: 'pdf',
         action: mode === 'scored' ? 'scored_pdf_downloaded' : 'email_template_pdf_downloaded',
-        recipientEmail: evaluation.parentEmail || profileParentEmail,
+        recipientEmail: recipientEmails,
       }).catch((error) => console.error(error))
     } catch (error) {
       console.error(error)
@@ -326,7 +351,7 @@ export function PlayerProfile() {
       evaluationId: evaluation.id,
       channel: 'email',
       action: 'mailto_opened',
-      recipientEmail: evaluation.parentEmail || profileParentEmail,
+      recipientEmail,
     })
   }
 
@@ -339,6 +364,91 @@ export function PlayerProfile() {
         [fieldName]: value,
       },
     }))
+  }
+
+  const handleParentContactDraftChange = (playerId, index, fieldName, value) => {
+    setErrorMessage('')
+    setPlayerDrafts((current) => {
+      const draft = current[playerId] ?? {}
+      const contacts = normalizeParentContacts(draft.parentContacts, {
+        parentName: draft.parentName,
+        parentEmail: draft.parentEmail,
+      })
+      const nextContacts = contacts.length > 0 ? contacts : [{ name: '', email: '' }]
+
+      return {
+        ...current,
+        [playerId]: {
+          ...draft,
+          parentContacts: nextContacts.map((contact, contactIndex) =>
+            contactIndex === index
+              ? {
+                  ...contact,
+                  [fieldName]: value,
+                }
+              : contact,
+          ),
+        },
+      }
+    })
+  }
+
+  const handleAddParentContact = (playerId) => {
+    setErrorMessage('')
+    setPlayerDrafts((current) => {
+      const draft = current[playerId] ?? {}
+      const contacts = normalizeParentContacts(draft.parentContacts, {
+        parentName: draft.parentName,
+        parentEmail: draft.parentEmail,
+      })
+
+      return {
+        ...current,
+        [playerId]: {
+          ...draft,
+          parentContacts: [...contacts, { name: '', email: '' }],
+        },
+      }
+    })
+  }
+
+  const handleRemoveParentContact = (playerId, index) => {
+    setErrorMessage('')
+    setPlayerDrafts((current) => {
+      const draft = current[playerId] ?? {}
+      const contacts = normalizeParentContacts(draft.parentContacts, {
+        parentName: draft.parentName,
+        parentEmail: draft.parentEmail,
+      })
+      const nextContacts = contacts.length > 1 ? contacts.filter((_, contactIndex) => contactIndex !== index) : []
+
+      return {
+        ...current,
+        [playerId]: {
+          ...draft,
+          parentContacts: nextContacts.length > 0 ? nextContacts : [{ name: '', email: '' }],
+        },
+      }
+    })
+  }
+
+  const handleToggleEvaluationParentContact = (evaluationId, index, contacts) => {
+    setSelectedParentContacts((current) => {
+      const currentIndexes = current[evaluationId] ?? contacts.map((_, contactIndex) => contactIndex)
+
+      if (currentIndexes.includes(index)) {
+        const nextIndexes = currentIndexes.filter((item) => item !== index)
+        return {
+          ...current,
+          [evaluationId]: nextIndexes.length > 0 ? nextIndexes : [index],
+        }
+      }
+
+      return {
+        ...current,
+        [evaluationId]: [...currentIndexes, index].sort((left, right) => left - right),
+      }
+    })
   }
 
   const handleAddPlayerPosition = (playerId) => {
@@ -590,23 +700,53 @@ export function PlayerProfile() {
                           className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Name</span>
-                        <input
-                          value={draft.parentName}
-                          onChange={(event) => handlePlayerDraftChange(player.id, 'parentName', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Email</span>
-                        <input
-                          type="email"
-                          value={draft.parentEmail}
-                          onChange={(event) => handlePlayerDraftChange(player.id, 'parentEmail', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                      </label>
+                      <div className="md:col-span-2 xl:col-span-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <span className="block text-sm font-semibold text-[var(--text-primary)]">Parent Contacts</span>
+                          <button
+                            type="button"
+                            onClick={() => handleAddParentContact(player.id)}
+                            className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                          >
+                            Add Parent
+                          </button>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {normalizeParentContacts(draft.parentContacts, {
+                            parentName: draft.parentName,
+                            parentEmail: draft.parentEmail,
+                          }).map((contact, index) => (
+                            <div key={index} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="block">
+                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Name</span>
+                                  <input
+                                    value={contact.name}
+                                    onChange={(event) => handleParentContactDraftChange(player.id, index, 'name', event.target.value)}
+                                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                                  />
+                                </label>
+                                <label className="block">
+                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Email</span>
+                                  <input
+                                    type="email"
+                                    value={contact.email}
+                                    onChange={(event) => handleParentContactDraftChange(player.id, index, 'email', event.target.value)}
+                                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                                  />
+                                </label>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveParentContact(player.id, index)}
+                                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                              >
+                                Remove Parent
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                       <div className="md:col-span-2 xl:col-span-3">
                         <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>
                         <div className="flex flex-col gap-3 sm:flex-row">
@@ -672,12 +812,24 @@ export function PlayerProfile() {
                           <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.team || 'No team entered'}</p>
                         </div>
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Parent Name</p>
-                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.parentName || 'No parent name entered'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Parent Email</p>
-                          <p className="mt-2 break-words text-sm font-semibold text-[var(--text-primary)]">{player.parentEmail || 'No parent email entered'}</p>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Parents</p>
+                          <div className="mt-2 space-y-1">
+                            {normalizeParentContacts(player.parentContacts, {
+                              parentName: player.parentName,
+                              parentEmail: player.parentEmail,
+                            }).length > 0 ? (
+                              normalizeParentContacts(player.parentContacts, {
+                                parentName: player.parentName,
+                                parentEmail: player.parentEmail,
+                              }).map((contact, index) => (
+                                <p key={index} className="break-words text-sm font-semibold text-[var(--text-primary)]">
+                                  {contact.name || 'Parent/Guardian'}{contact.email ? ` | ${contact.email}` : ''}
+                                </p>
+                              ))
+                            ) : (
+                              <p className="text-sm font-semibold text-[var(--text-primary)]">No parent details entered</p>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Positions</p>
@@ -764,9 +916,12 @@ export function PlayerProfile() {
               }))
               const summary = buildEvaluationSummary(evaluation)
               const canShare = canShareEvaluation(user, evaluation)
-              const recipientEmail = evaluation.parentEmail || profileParentEmail
+              const evaluationParentContacts = getEvaluationParentContacts(evaluation)
+              const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
+              const recipientName = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
+              const recipientEmail = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
               const emailTemplate = buildParentEmailTemplate({
-                parentName: evaluation.parentName || profileParentName,
+                parentName: recipientName,
                 playerName: routePlayerName,
                 coachName: evaluation.coach,
                 clubName: user?.clubName,
@@ -793,7 +948,7 @@ export function PlayerProfile() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_auto_auto_auto] lg:items-end">
+                  <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto_auto] lg:items-end">
                     <label className="block">
                       <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
                       <select
@@ -831,6 +986,36 @@ export function PlayerProfile() {
                     ) : (
                       <div className="hidden lg:block" />
                     )}
+                    <div>
+                      <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">PDF recipients</span>
+                      {evaluationParentContacts.length > 0 ? (
+                        <div className="space-y-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
+                          {evaluationParentContacts.map((contact, index) => {
+                            const selectedIndexes =
+                              selectedParentContacts[evaluation.id] ?? evaluationParentContacts.map((_, contactIndex) => contactIndex)
+
+                            return (
+                              <label key={`${contact.email || contact.name}-${index}`} className="flex items-start gap-2 text-sm text-[var(--text-primary)]">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIndexes.includes(index)}
+                                  onChange={() => handleToggleEvaluationParentContact(evaluation.id, index, evaluationParentContacts)}
+                                  className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                                />
+                                <span className="min-w-0">
+                                  <span className="block font-semibold">{contact.name || 'Parent/Guardian'}</span>
+                                  <span className="block break-words text-xs text-[var(--text-muted)]">{contact.email || 'No email entered'}</span>
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                          No parent contacts entered.
+                        </div>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'scored')}
@@ -867,13 +1052,16 @@ export function PlayerProfile() {
                     ) : null}
                   </div>
 
-                  {(evaluation.parentName || evaluation.parentEmail || profileParentName || profileParentEmail) ? (
+                  {evaluationParentContacts.length > 0 ? (
                     <div className="mt-5">
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Parent details</p>
-                      <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-                        {evaluation.parentName || profileParentName || 'No parent name entered'}
-                        {evaluation.parentEmail || profileParentEmail ? ` | ${evaluation.parentEmail || profileParentEmail}` : ''}
-                      </p>
+                      <div className="mt-3 space-y-1">
+                        {evaluationParentContacts.map((contact, index) => (
+                          <p key={index} className="break-words text-sm leading-6 text-[var(--text-muted)]">
+                            {contact.name || 'Parent/Guardian'}{contact.email ? ` | ${contact.email}` : ''}
+                          </p>
+                        ))}
+                      </div>
                     </div>
                   ) : null}
 

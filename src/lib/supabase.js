@@ -414,6 +414,10 @@ function normalizeEvaluationRow(row) {
   const createdAtValue = row.created_at ? new Date(row.created_at).getTime() : Number(row.createdAt ?? row.id)
   const averageScore =
     typeof row.average_score === 'number' ? row.average_score : calculateAverageScore(scores)
+  const parentContacts = normalizeParentContacts(row.parent_contacts, {
+    parentName: row.parent_name ?? row.parentName,
+    parentEmail: row.parent_email ?? row.parentEmail,
+  })
 
   return {
     id: row.id,
@@ -446,6 +450,12 @@ function normalizeEvaluationRow(row) {
 }
 
 function mapEvaluationToRow(data) {
+  const parentContacts = normalizeParentContacts(data.parentContacts, {
+    parentName: data.parentName,
+    parentEmail: data.parentEmail,
+  })
+  const primaryParent = parentContacts[0] ?? { name: '', email: '' }
+
   return {
     player_name: data.playerName,
     player_id: data.playerId || null,
@@ -455,8 +465,9 @@ function mapEvaluationToRow(data) {
     club_id: data.clubId,
     coach_id: data.coachId,
     coach: data.coach,
-    parent_name: data.parentName,
-    parent_email: data.parentEmail,
+    parent_name: primaryParent.name,
+    parent_email: primaryParent.email,
+    parent_contacts: parentContacts,
     session: data.session,
     date: data.date,
     scores: data.scores,
@@ -476,6 +487,10 @@ function normalizePlayerRow(row) {
   const positions = Array.isArray(row.positions)
     ? row.positions.map((position) => String(position ?? '').trim()).filter(Boolean)
     : []
+  const parentContacts = normalizeParentContacts(row.parent_contacts, {
+    parentName: row.parent_name ?? row.parentName,
+    parentEmail: row.parent_email ?? row.parentEmail,
+  })
 
   return {
     id: row.id,
@@ -484,8 +499,9 @@ function normalizePlayerRow(row) {
     section: String(row.section ?? 'Trial').trim() || 'Trial',
     team: String(row.team ?? '').trim(),
     positions,
-    parentName: String(row.parent_name ?? row.parentName ?? '').trim(),
-    parentEmail: String(row.parent_email ?? row.parentEmail ?? '').trim(),
+    parentName: parentContacts[0]?.name ?? '',
+    parentEmail: parentContacts[0]?.email ?? '',
+    parentContacts,
     notes: String(row.notes ?? '').trim(),
     status: String(row.status ?? 'active').trim() || 'active',
     promotedAt: row.promoted_at ?? row.promotedAt ?? '',
@@ -513,6 +529,10 @@ function normalizeAssessmentSessionRow(row) {
 
 function normalizeAssessmentSessionPlayerRow(row) {
   const playerRow = Array.isArray(row.players) ? row.players[0] : row.players
+  const parentContacts = normalizeParentContacts(row.parent_contacts ?? playerRow?.parent_contacts, {
+    parentName: row.parent_name ?? playerRow?.parent_name,
+    parentEmail: row.parent_email ?? playerRow?.parent_email,
+  })
 
   return {
     id: row.id,
@@ -521,12 +541,63 @@ function normalizeAssessmentSessionPlayerRow(row) {
     playerName: String(row.player_name ?? playerRow?.player_name ?? row.playerName ?? '').trim(),
     section: String(row.section ?? playerRow?.section ?? 'Trial').trim() || 'Trial',
     team: String(row.team ?? playerRow?.team ?? '').trim(),
-    parentName: String(row.parent_name ?? playerRow?.parent_name ?? '').trim(),
-    parentEmail: String(row.parent_email ?? playerRow?.parent_email ?? '').trim(),
+    parentName: parentContacts[0]?.name ?? '',
+    parentEmail: parentContacts[0]?.email ?? '',
+    parentContacts,
     notes: String(row.notes ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
   }
+}
+
+export function normalizeParentContacts(parentContacts, fallback = {}) {
+  const contacts = Array.isArray(parentContacts) ? parentContacts : []
+  const normalizedContacts = contacts
+    .map((contact) => ({
+      name: String(contact?.name ?? contact?.parentName ?? '').trim(),
+      email: String(contact?.email ?? contact?.parentEmail ?? '').trim(),
+    }))
+    .filter((contact) => contact.name || contact.email)
+
+  if (normalizedContacts.length > 0) {
+    return normalizedContacts
+  }
+
+  const fallbackName = String(fallback.parentName ?? fallback.parent_name ?? '').trim()
+  const fallbackEmail = String(fallback.parentEmail ?? fallback.parent_email ?? '').trim()
+
+  return fallbackName || fallbackEmail
+    ? [
+        {
+          name: fallbackName,
+          email: fallbackEmail,
+        },
+      ]
+    : []
+}
+
+export function formatParentContactNames(parentContacts, fallbackName = '') {
+  const contacts = normalizeParentContacts(parentContacts, {
+    parentName: fallbackName,
+  }).filter((contact) => contact.name)
+
+  if (contacts.length === 0) {
+    return String(fallbackName ?? '').trim()
+  }
+
+  if (contacts.length === 1) {
+    return contacts[0].name
+  }
+
+  return `${contacts.slice(0, -1).map((contact) => contact.name).join(', ')} and ${contacts[contacts.length - 1].name}`
+}
+
+export function formatParentContactEmails(parentContacts, fallbackEmail = '') {
+  const contacts = normalizeParentContacts(parentContacts, {
+    parentEmail: fallbackEmail,
+  }).filter((contact) => contact.email)
+
+  return [...new Set(contacts.map((contact) => contact.email))].join(',')
 }
 
 function normalizePlatformFeedbackRow(row) {
@@ -554,6 +625,11 @@ function mapPlayerToRow(player, user) {
   const positions = Array.isArray(player.positions)
     ? player.positions.map((position) => String(position ?? '').trim()).filter(Boolean)
     : []
+  const parentContacts = normalizeParentContacts(player.parentContacts, {
+    parentName: player.parentName,
+    parentEmail: player.parentEmail,
+  })
+  const primaryParent = parentContacts[0] ?? { name: '', email: '' }
 
   return {
     club_id: player.clubId ?? user?.clubId ?? '',
@@ -561,8 +637,9 @@ function mapPlayerToRow(player, user) {
     section: EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Trial',
     team: String(player.team ?? '').trim(),
     positions,
-    parent_name: String(player.parentName ?? '').trim(),
-    parent_email: String(player.parentEmail ?? '').trim(),
+    parent_name: primaryParent.name,
+    parent_email: primaryParent.email,
+    parent_contacts: parentContacts,
     notes: String(player.notes ?? '').trim(),
   }
 }
@@ -2676,7 +2753,7 @@ export async function getAssessmentSessionPlayers({ user, sessionId } = {}) {
     const { data, error } = await supabase
       .from('assessment_session_players')
       .select(
-        '*, players:player_id (player_name, section, team, parent_name, parent_email)',
+        '*, players:player_id (player_name, section, team, parent_name, parent_email, parent_contacts)',
       )
       .eq('session_id', sessionId)
       .order('player_name', { ascending: true })
@@ -2712,12 +2789,16 @@ export async function addPlayersToAssessmentSession({ user, sessionId, players }
         team: player.team,
         parent_name: player.parentName,
         parent_email: player.parentEmail,
+        parent_contacts: normalizeParentContacts(player.parentContacts, {
+          parentName: player.parentName,
+          parentEmail: player.parentEmail,
+        }),
       })),
       {
         onConflict: 'session_id,player_id',
       },
     )
-    .select('*, players:player_id (player_name, section, team, parent_name, parent_email)')
+    .select('*, players:player_id (player_name, section, team, parent_name, parent_email, parent_contacts)')
 
   if (error) {
     console.error(error)
@@ -2750,7 +2831,7 @@ export async function updateAssessmentSessionPlayer({ user, sessionPlayerId, not
       updated_at: new Date().toISOString(),
     })
     .eq('id', sessionPlayerId)
-    .select('*, players:player_id (player_name, section, team, parent_name, parent_email)')
+    .select('*, players:player_id (player_name, section, team, parent_name, parent_email, parent_contacts)')
     .single()
 
   if (error) {
@@ -2958,6 +3039,10 @@ export async function createEvaluation(data) {
         team: String(data.team ?? '').trim(),
         parent_name: String(data.parentName ?? '').trim(),
         parent_email: String(data.parentEmail ?? '').trim(),
+        parent_contacts: normalizeParentContacts(data.parentContacts, {
+          parentName: data.parentName,
+          parentEmail: data.parentEmail,
+        }),
       },
       {
         onConflict: 'club_id,section,player_name',

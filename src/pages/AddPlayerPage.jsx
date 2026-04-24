@@ -22,8 +22,7 @@ function createInitialPlayerForm() {
     team: '',
     positions: [],
     positionDraft: '',
-    parentName: '',
-    parentEmail: '',
+    parentContacts: [{ name: '', email: '' }],
   }
 }
 
@@ -122,6 +121,43 @@ export function AddPlayerPage() {
     setPlayerForm((current) => ({
       ...current,
       [name]: value,
+    }))
+  }
+
+  const handleParentContactChange = (index, fieldName, value) => {
+    setMessage('')
+    setErrorMessage('')
+    setPlayerForm((current) => ({
+      ...current,
+      parentContacts: current.parentContacts.map((contact, contactIndex) =>
+        contactIndex === index
+          ? {
+              ...contact,
+              [fieldName]: value,
+            }
+          : contact,
+      ),
+    }))
+  }
+
+  const handleAddParentContact = () => {
+    setMessage('')
+    setErrorMessage('')
+    setPlayerForm((current) => ({
+      ...current,
+      parentContacts: [...current.parentContacts, { name: '', email: '' }],
+    }))
+  }
+
+  const handleRemoveParentContact = (index) => {
+    setMessage('')
+    setErrorMessage('')
+    setPlayerForm((current) => ({
+      ...current,
+      parentContacts:
+        current.parentContacts.length > 1
+          ? current.parentContacts.filter((_, contactIndex) => contactIndex !== index)
+          : [{ name: '', email: '' }],
     }))
   }
 
@@ -279,16 +315,51 @@ export function AddPlayerPage() {
               </button>
             </div>
 
-            <label className="block xl:col-span-2">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Name</span>
-              <input
-                type="text"
-                name="parentName"
-                value={playerForm.parentName}
-                onChange={handlePlayerFormChange}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
+            <div className="xl:col-span-2">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="block text-sm font-semibold text-[var(--text-primary)]">Parent Contacts</span>
+                <button
+                  type="button"
+                  onClick={handleAddParentContact}
+                  className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                >
+                  Add Parent
+                </button>
+              </div>
+              <div className="space-y-3">
+                {playerForm.parentContacts.map((contact, index) => (
+                  <div key={index} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Name</span>
+                        <input
+                          type="text"
+                          value={contact.name}
+                          onChange={(event) => handleParentContactChange(index, 'name', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Email</span>
+                        <input
+                          type="email"
+                          value={contact.email}
+                          onChange={(event) => handleParentContactChange(index, 'email', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveParentContact(index)}
+                      className="mt-3 inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                    >
+                      Remove Parent
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div className="xl:col-span-3">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>
@@ -327,16 +398,6 @@ export function AddPlayerPage() {
               )}
             </div>
 
-            <label className="block xl:col-span-2">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Email</span>
-              <input
-                type="email"
-                name="parentEmail"
-                value={playerForm.parentEmail}
-                onChange={handlePlayerFormChange}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
           </form>
         )}
       </SectionCard>
