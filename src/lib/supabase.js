@@ -609,6 +609,16 @@ export function writeViewCache(cacheKey, value) {
   }
 }
 
+export function clearViewCaches() {
+  try {
+    Object.keys(sessionStorage)
+      .filter((key) => key.startsWith(VIEW_CACHE_PREFIX))
+      .forEach((key) => sessionStorage.removeItem(key))
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 function normalizeFormFieldRow(row) {
   return {
     id: row.id,
@@ -1883,6 +1893,7 @@ export async function createPlayer({ user, player }) {
   }
 
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
   await createAuditLog({
     user,
     action: 'player_created',
@@ -1971,6 +1982,7 @@ export async function updatePlayer({ user, playerId, player }) {
   }
 
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
   await createAuditLog({
     user,
     action: isPromotingToSquad ? 'player_promoted' : 'player_updated',
@@ -2057,6 +2069,7 @@ export async function deletePlayerRecord({ user, playerId }) {
   }
 
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
   await createAuditLog({
     user,
     action: 'player_record_deleted',
@@ -2402,8 +2415,19 @@ export async function deletePlayer(playerName, user) {
   }
 
   if (user.role !== 'super_admin') {
-    await supabase.from('players').delete().eq('player_name', playerName).eq('club_id', user.clubId)
+    const { error: playerDeleteError } = await supabase
+      .from('players')
+      .delete()
+      .eq('player_name', playerName)
+      .eq('club_id', user.clubId)
+
+    if (playerDeleteError) {
+      console.error(playerDeleteError)
+      throw playerDeleteError
+    }
+
     invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+    clearViewCaches()
     await createAuditLog({
       user,
       action: 'player_deleted',

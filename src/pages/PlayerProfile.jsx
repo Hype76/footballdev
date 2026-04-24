@@ -13,6 +13,7 @@ import {
   deletePlayer,
   getEvaluations,
   getPlayers,
+  clearViewCaches,
   promotePlayerToSquad,
   readViewCache,
   readViewCacheValue,
@@ -433,8 +434,8 @@ export function PlayerProfile() {
 
     try {
       await deletePlayer(routePlayerName, user)
-      sessionStorage.removeItem(`view-cache:${cacheKey}`)
-      navigate('/add-player')
+      clearViewCaches()
+      navigate('/players')
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not delete this player.')
