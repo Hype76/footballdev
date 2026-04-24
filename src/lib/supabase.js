@@ -1854,7 +1854,7 @@ export async function getAvailableTeamsForUser(user) {
     return []
   }
 
-  if (user.role === 'super_admin' || Number(user.roleRank ?? 0) >= 50) {
+  if (user.role === 'super_admin' || user.role === 'admin') {
     return getTeams(user)
   }
 
@@ -2675,13 +2675,33 @@ export async function getAssessmentSessions({ user } = {}) {
     return []
   }
 
-  return getCachedResource(`assessment-sessions:${user.clubId}:${user.id}:${user.roleRank}`, async () => {
-    const { data, error } = await supabase
+  const activeTeamId = String(user.activeTeamId ?? '').trim()
+  const cacheKey = `assessment-sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamId || 'assigned'}`
+
+  return getCachedResource(cacheKey, async () => {
+    let teamIds = activeTeamId ? [activeTeamId] : []
+
+    if (teamIds.length === 0 && user.role !== 'admin') {
+      const assignedTeams = await getAssignedTeamsForUser(user).catch((error) => {
+        console.error(error)
+        return []
+      })
+      teamIds = assignedTeams.map((team) => team.id).filter(Boolean)
+    }
+
+    if (teamIds.length === 0) {
+      return []
+    }
+
+    const query = supabase
       .from('assessment_sessions')
       .select('*')
       .eq('club_id', user.clubId)
+      .in('team_id', teamIds)
       .order('session_date', { ascending: false })
       .order('created_at', { ascending: false })
+
+    const { data, error } = await query
 
     if (error) {
       console.error(error)
@@ -2704,14 +2724,19 @@ export async function createAssessmentSession({ user, session }) {
   }
 
   const teamName = String(session.team ?? '').trim()
+  const teamId = String(session.teamId ?? '').trim()
   const opponentName = String(session.opponent ?? '').trim()
   const sessionType = String(session.sessionType ?? '').trim() === 'match' ? 'match' : 'training'
+
+  if (!teamId) {
+    throw new Error('Choose a team before creating a session.')
+  }
 
   const { data, error } = await supabase
     .from('assessment_sessions')
     .insert({
       club_id: user.clubId,
-      team_id: session.teamId || null,
+      team_id: teamId,
       team: teamName,
       opponent: opponentName,
       session_type: sessionType,

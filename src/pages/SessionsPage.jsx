@@ -62,7 +62,8 @@ export function SessionsPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
-  const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}` : ''
+  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
+  const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
   const [sessions, setSessions] = useState(() => {
     const cachedSessions = readViewCacheValue(cacheKey, 'sessions', [])
     return Array.isArray(cachedSessions) ? cachedSessions : []
@@ -84,7 +85,9 @@ export function SessionsPage() {
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
+  const userScopeKey = user
+    ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}:${user.activeTeamName || ''}`
+    : ''
   const completedSessionId = String(searchParams.get('completedSessionId') ?? '').trim()
   const completedCount = Number(searchParams.get('completedCount') ?? 0)
 
@@ -125,11 +128,13 @@ export function SessionsPage() {
         setSessions(nextSessions)
         setPlayers(nextPlayers)
         setTeams(nextTeams)
-        setSelectedSessionId((current) => current || nextSessions[0]?.id || '')
+        setSelectedSessionId((current) =>
+          nextSessions.some((session) => session.id === current) ? current : nextSessions[0]?.id || '',
+        )
         setSessionForm((current) => ({
           ...current,
-          teamId: current.teamId || nextTeams[0]?.id || '',
-          team: current.team || nextTeams[0]?.name || '',
+          teamId: nextTeams.some((team) => team.id === current.teamId) ? current.teamId : nextTeams[0]?.id || '',
+          team: nextTeams.some((team) => team.id === current.teamId) ? current.team : nextTeams[0]?.name || '',
         }))
         writeViewCache(cacheKey, {
           sessions: nextSessions,

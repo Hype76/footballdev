@@ -181,7 +181,7 @@ export function AuthProvider({ children }) {
   }, [user])
 
   const applyTeamSelection = async (profile) => {
-    if (!profile || isSuperAdmin(profile) || Number(profile.roleRank ?? 0) >= 50) {
+    if (!profile || isSuperAdmin(profile) || isClubAdmin(profile)) {
       setTeamOptions([])
       return profile
     }
