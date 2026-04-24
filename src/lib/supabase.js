@@ -1151,6 +1151,14 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     let data = await loadUserRow()
+
+    if (data?.role === 'super_admin') {
+      return normalizeUserProfile({
+        ...data,
+        email: data.email || authUser.email,
+      })
+    }
+
     await claimInvitedUserProfiles(authUser)
 
     if (!data) {
