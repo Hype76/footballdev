@@ -5,6 +5,13 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { getRoleLabel, useAuth } from '../lib/auth.js'
 import { requestLoginEmailChange, updateOwnUserSettings, updateSignedInPassword } from '../lib/supabase.js'
+import {
+  getStoredThemeAccent,
+  getStoredThemeMode,
+  saveThemePreferences,
+  themeAccentOptions,
+  themeModeOptions,
+} from '../lib/theme.js'
 
 function createInitialPasswordState() {
   return {
@@ -24,6 +31,8 @@ export function UserSettingsPage() {
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [themeMode, setThemeMode] = useState(getStoredThemeMode)
+  const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -142,6 +151,26 @@ export function UserSettingsPage() {
     }
   }
 
+  const handleThemeModeChange = (nextThemeMode) => {
+    const nextPreferences = saveThemePreferences({
+      mode: nextThemeMode,
+      accent: themeAccent,
+    })
+    setThemeMode(nextPreferences.mode)
+    setThemeAccent(nextPreferences.accent)
+    showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
+  }
+
+  const handleThemeAccentChange = (nextThemeAccent) => {
+    const nextPreferences = saveThemePreferences({
+      mode: themeMode,
+      accent: nextThemeAccent,
+    })
+    setThemeMode(nextPreferences.mode)
+    setThemeAccent(nextPreferences.accent)
+    showToast({ title: 'Theme updated', message: 'Your colour preference has been saved.' })
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -210,6 +239,43 @@ export function UserSettingsPage() {
         </SectionCard>
 
         <div className="space-y-5">
+          <SectionCard
+            title="Display"
+            description="Choose the theme and accent colour for your workspace."
+          >
+            <div className="grid gap-4 lg:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Theme</span>
+                <select
+                  value={themeMode}
+                  onChange={(event) => handleThemeModeChange(event.target.value)}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                >
+                  {themeModeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Accent colour</span>
+                <select
+                  value={themeAccent}
+                  onChange={(event) => handleThemeAccentChange(event.target.value)}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                >
+                  {themeAccentOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </SectionCard>
+
           <SectionCard
             title="Login email"
             description="Change the email address used for signing in."

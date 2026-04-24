@@ -1,27 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useMatches } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
+import {
+  THEME_ACCENT_STORAGE_KEY,
+  THEME_CHANGED_EVENT,
+  THEME_MODE_STORAGE_KEY,
+  getStoredThemeAccent,
+  getStoredThemeMode,
+  getSystemTheme,
+  normalizeThemeAccent,
+  normalizeThemeMode,
+} from '../../lib/theme.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
-
-const THEME_MODE_STORAGE_KEY = 'app-theme-mode'
-const THEME_ACCENT_STORAGE_KEY = 'app-theme-accent'
-const THEME_MODES = ['system', 'dark', 'light']
-const THEME_ACCENTS = ['yellow', 'blue', 'green', 'red', 'purple']
-
-function getStoredThemeMode() {
-  const storedThemeMode = window.localStorage.getItem(THEME_MODE_STORAGE_KEY)
-  return THEME_MODES.includes(storedThemeMode) ? storedThemeMode : 'system'
-}
-
-function getStoredThemeAccent() {
-  const storedThemeAccent = window.localStorage.getItem(THEME_ACCENT_STORAGE_KEY)
-  return THEME_ACCENTS.includes(storedThemeAccent) ? storedThemeAccent : 'yellow'
-}
-
-function getSystemTheme() {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
 
 export function Layout() {
   const { authError, clubOptions, isProfileLoading, selectClub, selectTeam, teamOptions } = useAuth()
@@ -50,6 +41,18 @@ export function Layout() {
   }, [])
 
   useEffect(() => {
+    const handleThemeChange = (event) => {
+      setThemeMode(normalizeThemeMode(event.detail?.mode ?? getStoredThemeMode()))
+      setThemeAccent(normalizeThemeAccent(event.detail?.accent ?? getStoredThemeAccent()))
+    }
+
+    window.addEventListener(THEME_CHANGED_EVENT, handleThemeChange)
+    return () => {
+      window.removeEventListener(THEME_CHANGED_EVENT, handleThemeChange)
+    }
+  }, [])
+
+  useEffect(() => {
     document.body.classList.remove(
       'theme-light',
       'theme-dark',
@@ -72,14 +75,6 @@ export function Layout() {
       window.localStorage.removeItem('app-theme')
     }
   }, [])
-
-  const handleThemeModeChange = (nextThemeMode) => {
-    setThemeMode(THEME_MODES.includes(nextThemeMode) ? nextThemeMode : 'system')
-  }
-
-  const handleThemeAccentChange = (nextThemeAccent) => {
-    setThemeAccent(THEME_ACCENTS.includes(nextThemeAccent) ? nextThemeAccent : 'yellow')
-  }
 
   const handleClubSelect = async (clubId) => {
     setClubSelectionError('')
@@ -112,10 +107,6 @@ export function Layout() {
           <Topbar
             title={activeTitle}
             onMenuClick={() => setIsSidebarOpen(true)}
-            themeMode={themeMode}
-            themeAccent={themeAccent}
-            onThemeModeChange={handleThemeModeChange}
-            onThemeAccentChange={handleThemeAccentChange}
           />
 
           <main className="flex-1 px-2 py-3 sm:px-4 sm:py-5 md:px-6 md:py-6 xl:px-8">

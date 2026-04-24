@@ -3,28 +3,7 @@ import { Link } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
 
-const themeModeOptions = [
-  { value: 'system', label: 'System' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'light', label: 'Light' },
-]
-
-const themeAccentOptions = [
-  { value: 'yellow', label: 'Yellow' },
-  { value: 'blue', label: 'Blue' },
-  { value: 'green', label: 'Green' },
-  { value: 'red', label: 'Red' },
-  { value: 'purple', label: 'Purple' },
-]
-
-export function Topbar({
-  title,
-  onMenuClick,
-  themeMode,
-  themeAccent,
-  onThemeModeChange,
-  onThemeAccentChange,
-}) {
+export function Topbar({ title, onMenuClick }) {
   const { authUser, signOut, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const roleLabel = user ? getRoleLabel(user) : 'Loading access'
@@ -82,34 +61,6 @@ export function Topbar({
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:items-center">
-            <label className="block">
-              <span className="sr-only">Theme mode</span>
-              <select
-                value={themeMode}
-                onChange={(event) => onThemeModeChange(event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition hover:bg-[var(--panel-alt)] focus:border-[var(--accent)] xl:w-auto"
-              >
-                {themeModeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="sr-only">Theme colour</span>
-              <select
-                value={themeAccent}
-                onChange={(event) => onThemeAccentChange(event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition hover:bg-[var(--panel-alt)] focus:border-[var(--accent)] xl:w-auto"
-              >
-                {themeAccentOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
             <Link
               to="/user-settings"
               className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
