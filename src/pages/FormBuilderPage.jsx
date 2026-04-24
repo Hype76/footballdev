@@ -98,6 +98,7 @@ export function FormBuilderPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [fieldGroup, setFieldGroup] = useState('default')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
@@ -175,6 +176,10 @@ export function FormBuilderPage() {
   if (!canManageFormFields(user)) {
     return <Navigate to="/" replace />
   }
+
+  const defaultFields = fields.filter((field) => field.isDefault)
+  const customFields = fields.filter((field) => !field.isDefault)
+  const visibleFields = fieldGroup === 'default' ? defaultFields : customFields
 
   const handleFormChange = (event) => {
     const { name, value, type, checked } = event.target
@@ -519,8 +524,35 @@ export function FormBuilderPage() {
 
       <SectionCard
         title="Current fields"
-        description="Default fields stay in place and can only be enabled or disabled. Custom fields can also be edited or deleted."
+        description="Switch between default fields and custom fields so the form setup stays clear."
       >
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => setFieldGroup('default')}
+            className={[
+              'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
+              fieldGroup === 'default'
+                ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+            ].join(' ')}
+          >
+            Default Fields ({defaultFields.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFieldGroup('custom')}
+            className={[
+              'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
+              fieldGroup === 'custom'
+                ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+            ].join(' ')}
+          >
+            Custom Fields ({customFields.length})
+          </button>
+        </div>
+
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading fields...
@@ -529,10 +561,17 @@ export function FormBuilderPage() {
           <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No fields found for this club.
           </div>
+        ) : visibleFields.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+            {fieldGroup === 'default'
+              ? 'No default fields are configured yet. Load the default form to start.'
+              : 'No custom fields have been added yet.'}
+          </div>
         ) : (
           <div className="space-y-3">
-            {fields.map((field, index) => {
+            {visibleFields.map((field) => {
               const draft = fieldDrafts[field.id] ?? createDraftFromField(field)
+              const fieldIndex = fields.findIndex((item) => item.id === field.id)
 
               return (
                 <div
@@ -614,7 +653,7 @@ export function FormBuilderPage() {
                     <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                       <button
                         type="button"
-                        disabled={isSaving || index === 0}
+                        disabled={isSaving || fieldIndex === 0}
                         onClick={() => handleMoveField(field.id, -1)}
                         className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -622,7 +661,7 @@ export function FormBuilderPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={isSaving || index === fields.length - 1}
+                        disabled={isSaving || fieldIndex === fields.length - 1}
                         onClick={() => handleMoveField(field.id, 1)}
                         className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >

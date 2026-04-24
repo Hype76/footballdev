@@ -42,6 +42,7 @@ export function UserAccessPage() {
   const [formState, setFormState] = useState(initialFormState)
   const [isLoading, setIsLoading] = useState(() => roles.length === 0 && members.length === 0 && pendingInvites.length === 0)
   const [isSaving, setIsSaving] = useState(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
@@ -280,16 +281,25 @@ export function UserAccessPage() {
 
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
-              <input
-                type="password"
-                name="password"
-                value={formState.password}
-                onChange={handleChange}
-                required
-                minLength={8}
-                autoComplete="new-password"
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
+              <div className="flex rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
+                <input
+                  type={isPasswordVisible ? 'text' : 'password'}
+                  name="password"
+                  value={formState.password}
+                  onChange={handleChange}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  className="min-h-11 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordVisible((current) => !current)}
+                  className="min-h-11 rounded-r-2xl px-4 py-3 text-sm font-semibold text-[var(--text-secondary)]"
+                >
+                  {isPasswordVisible ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </label>
 
             <label className="block">

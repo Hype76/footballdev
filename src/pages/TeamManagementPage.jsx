@@ -52,6 +52,7 @@ export function TeamManagementPage() {
   const [newTeamName, setNewTeamName] = useState('')
   const [teamNameDrafts, setTeamNameDrafts] = useState({})
   const [coachForm, setCoachForm] = useState(initialCoachForm)
+  const [isCoachPasswordVisible, setIsCoachPasswordVisible] = useState(false)
   const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0 && roles.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -450,16 +451,25 @@ export function TeamManagementPage() {
 
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
-                <input
-                  type="password"
-                  name="password"
-                  value={coachForm.password}
-                  onChange={handleCoachFormChange}
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                />
+                <div className="flex rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
+                  <input
+                    type={isCoachPasswordVisible ? 'text' : 'password'}
+                    name="password"
+                    value={coachForm.password}
+                    onChange={handleCoachFormChange}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="min-h-11 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCoachPasswordVisible((current) => !current)}
+                    className="min-h-11 rounded-r-2xl px-4 py-3 text-sm font-semibold text-[var(--text-secondary)]"
+                  >
+                    {isCoachPasswordVisible ? 'Hide' : 'Show'}
+                  </button>
+                </div>
               </label>
 
               <label className="block">

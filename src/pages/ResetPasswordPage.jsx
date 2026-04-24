@@ -11,7 +11,7 @@ function createInitialPasswordState() {
 }
 
 export function ResetPasswordPage() {
-  const { signOut } = useAuth()
+  const { signOut, updateCurrentUserDetails } = useAuth()
   const [passwordData, setPasswordData] = useState(createInitialPasswordState)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -40,6 +40,9 @@ export function ResetPasswordPage() {
       }
 
       await updateSignedInPassword(passwordData.password)
+      updateCurrentUserDetails({
+        forcePasswordChange: false,
+      })
       setPasswordData(createInitialPasswordState())
       setMessage('Password updated. You can now log in with your new password.')
       window.setTimeout(() => {
