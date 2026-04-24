@@ -25,6 +25,7 @@ import {
 const initialCoachForm = {
   email: '',
   password: '',
+  teamId: '',
   roleKey: 'coach',
   customRoleLabel: '',
 }
@@ -187,6 +188,10 @@ export function TeamManagementPage() {
         [createdTeam.id]: createdTeam.name,
       }))
       setNewTeamName('')
+      setCoachForm((current) => ({
+        ...current,
+        teamId: current.teamId || createdTeam.id,
+      }))
       setMessage('Team created.')
       showToast({ title: 'Team created', message: `${createdTeam.name} has been added.` })
     } catch (error) {
@@ -258,21 +263,43 @@ export function TeamManagementPage() {
         throw new Error('You cannot assign that role.')
       }
 
-      await createStaffUserWithPassword({
+      const createdStaff = await createStaffUserWithPassword({
         user,
         email: coachForm.email,
         password: coachForm.password,
         role: selectedRole,
       })
+
+      let nextAssignments = assignments
+      const selectedTeamId = String(coachForm.teamId ?? '').trim()
+      const createdStaffId = createdStaff?.profile?.id || createdStaff?.id || ''
+
+      if (selectedTeamId && createdStaffId) {
+        const currentTeam = teamAssignments.find((team) => team.id === selectedTeamId)
+        const nextStaffIds = [...new Set([...(currentTeam?.staffIds ?? []), createdStaffId])]
+        const savedAssignments = await replaceTeamStaffAssignments(selectedTeamId, nextStaffIds)
+        nextAssignments = [...assignments.filter((assignment) => assignment.teamId !== selectedTeamId), ...savedAssignments]
+        setAssignments(nextAssignments)
+      }
+
       await refreshUsersAndRoles()
       setCoachForm({
         email: '',
         password: '',
+        teamId: selectedTeamId,
         roleKey: selectedRole.roleKey || 'coach',
         customRoleLabel: '',
       })
+      writeTeamCache({
+        assignments: nextAssignments,
+      })
       setMessage('Coach access created.')
-      showToast({ title: 'Coach access created', message: `${coachForm.email} can now log in with the initial password.` })
+      showToast({
+        title: 'Coach access created',
+        message: selectedTeamId
+          ? `${coachForm.email} can now log in and access the selected team.`
+          : `${coachForm.email} can now log in with the initial password.`,
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not create coach access.')
@@ -487,6 +514,23 @@ export function TeamManagementPage() {
                     </option>
                   ))}
                   <option value="__custom__">Other</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team access</span>
+                <select
+                  name="teamId"
+                  value={coachForm.teamId}
+                  onChange={handleCoachFormChange}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                >
+                  <option value="">Create access only</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>

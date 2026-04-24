@@ -2027,6 +2027,8 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
   }
 
   invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('assessment-sessions:')
   invalidateMemoryCacheByPrefix('team-assignments:')
 
   return (data ?? []).map(normalizeTeamStaffRow)
