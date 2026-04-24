@@ -2060,6 +2060,95 @@ export async function createStaffUserWithPassword({ user, email, password, role 
   return data
 }
 
+export function canRemoveClubUser(actor, targetUser) {
+  if (!actor || !targetUser) {
+    return false
+  }
+
+  if (String(actor.id) === String(targetUser.id)) {
+    return false
+  }
+
+  if (actor.role === 'super_admin') {
+    return targetUser.role !== 'super_admin'
+  }
+
+  return (
+    Boolean(actor.clubId) &&
+    String(actor.clubId) === String(targetUser.clubId) &&
+    Number(actor.roleRank ?? 0) >= 50 &&
+    Number(targetUser.roleRank ?? 0) < Number(actor.roleRank ?? 0)
+  )
+}
+
+export async function removeClubUser({ user, member }) {
+  if (!canRemoveClubUser(user, member)) {
+    throw new Error('You can only remove users below your role.')
+  }
+
+  const targetUserId = String(member.id ?? '').trim()
+
+  if (!targetUserId) {
+    throw new Error('User ID is required.')
+  }
+
+  const teams = await getTeams(user)
+  const teamIds = teams.map((team) => team.id).filter(Boolean)
+
+  if (teamIds.length > 0) {
+    const { error: teamStaffError } = await supabase
+      .from('team_staff')
+      .delete()
+      .eq('user_id', targetUserId)
+      .in('team_id', teamIds)
+
+    if (teamStaffError) {
+      console.error(teamStaffError)
+      throw teamStaffError
+    }
+  }
+
+  const { error: membershipError } = await supabase
+    .from('user_club_memberships')
+    .delete()
+    .eq('auth_user_id', targetUserId)
+    .eq('club_id', user.clubId)
+
+  if (membershipError) {
+    console.error(membershipError)
+    throw membershipError
+  }
+
+  const { error: userError } = await supabase
+    .from('users')
+    .delete()
+    .eq('id', targetUserId)
+    .eq('club_id', user.clubId)
+
+  if (userError) {
+    console.error(userError)
+    throw userError
+  }
+
+  invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+  invalidateMemoryCacheByPrefix(`user-access:${user.clubId}`)
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  clearViewCaches()
+
+  await createAuditLog({
+    user,
+    action: 'club_user_removed',
+    entityType: 'user',
+    entityId: targetUserId,
+    metadata: {
+      email: member.email,
+      role: member.roleLabel || member.role,
+    },
+  })
+}
+
 export async function deleteClubInvite(inviteId) {
   const { error } = await supabase.from('club_user_invites').delete().eq('id', inviteId)
 

@@ -5,6 +5,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
 import {
+  canRemoveClubUser,
   createStaffUserWithPassword,
   createClubRole,
   deleteClubInvite,
@@ -12,6 +13,7 @@ import {
   getClubUserInvites,
   getClubUsers,
   readViewCache,
+  removeClubUser,
   readViewCacheValue,
   withRequestTimeout,
   writeViewCache,
@@ -232,6 +234,37 @@ export function UserAccessPage() {
     }
   }
 
+  const handleRemoveMember = async (member) => {
+    if (!canRemoveClubUser(user, member)) {
+      setErrorMessage('You can only remove users below your role.')
+      return
+    }
+
+    const confirmed = window.confirm(`Remove ${member.email} from this club?`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setIsSaving(true)
+    setMessage('')
+    setErrorMessage('')
+
+    try {
+      await removeClubUser({
+        user,
+        member,
+      })
+      await refreshAccessData()
+      setMessage('User removed from this club.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not remove this user.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -248,8 +281,8 @@ export function UserAccessPage() {
 
       {errorMessage ? (
         <NoticeBanner
-          title="Some access data is unavailable"
-          message="Roles, users, or pending allocations could not all be refreshed. Anything missing will appear once the data is available."
+          title="User access action failed"
+          message={errorMessage}
         />
       ) : null}
 
@@ -369,13 +402,25 @@ export function UserAccessPage() {
                 key={member.id}
                 className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
               >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-[var(--text-primary)]">{member.email}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">{member.name || 'No display name yet'}</p>
                   </div>
-                  <div className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                    {getRoleLabel(member)}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                      {getRoleLabel(member)}
+                    </div>
+                    {canRemoveClubUser(user, member) ? (
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => handleRemoveMember(member)}
+                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>
