@@ -1,9 +1,5 @@
 export const primaryNavigation = [
   {
-    label: 'Dashboard',
-    path: '/dashboard',
-  },
-  {
     label: 'Platform Admin',
     path: '/platform-admin',
   },

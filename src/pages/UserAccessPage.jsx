@@ -114,7 +114,7 @@ export function UserAccessPage() {
   }, [cacheKey, user, userScopeKey])
 
   if (!canManageUsers(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   const assignableRoles = useMemo(

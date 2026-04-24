@@ -353,7 +353,7 @@ export function PlayerProfile() {
     try {
       await deletePlayer(routePlayerName, user)
       sessionStorage.removeItem(`view-cache:${cacheKey}`)
-      navigate('/dashboard')
+      navigate('/add-player')
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not delete this player.')

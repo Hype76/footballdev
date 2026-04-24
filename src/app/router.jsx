@@ -31,7 +31,6 @@ const ApprovalsPage = lazyRoute(() => import('../pages/ApprovalsPage.jsx'), 'App
 const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'AddPlayerPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
-const DashboardPage = lazyRoute(() => import('../pages/DashboardPage.jsx'), 'DashboardPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
 const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
@@ -101,7 +100,7 @@ function RouteErrorFallback({ error }) {
   const title = isChunkError ? 'App update needed' : 'This page could not load'
   const message = isChunkError
     ? 'A new version has been deployed and this browser still has an old page file. Refresh once to load the latest version.'
-    : 'The page hit an unexpected error. Refresh the page or return to the dashboard.'
+    : 'The page hit an unexpected error. Refresh the page or return to your workspace.'
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -118,10 +117,10 @@ function RouteErrorFallback({ error }) {
             Refresh App
           </button>
           <a
-            href="/dashboard"
+            href="/"
             className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
           >
-            Go To Dashboard
+            Go To Workspace
           </a>
         </div>
       </div>
@@ -164,7 +163,7 @@ function PageSuspense({ children }) {
   )
 }
 
-function DashboardEntry() {
+function WorkspaceHome() {
   const { user } = useAuth()
 
   if (!user) {
@@ -179,7 +178,11 @@ function DashboardEntry() {
     return <ClubSuspendedState />
   }
 
-  return <DashboardPage />
+  if (canManageUsers(user)) {
+    return <Navigate to="/teams" replace />
+  }
+
+  return <Navigate to="/add-player" replace />
 }
 
 function RequireUser() {
@@ -239,7 +242,7 @@ function PublicOnly() {
   }
 
   if (session?.user) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   return <Outlet />
@@ -278,7 +281,7 @@ function RequireManager() {
   }
 
   if (!canAccessApprovals(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   return <Outlet />
@@ -317,7 +320,7 @@ function RequireFormBuilderAccess() {
   }
 
   if (!canManageFormFields(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   return <Outlet />
@@ -356,7 +359,7 @@ function RequireClubSettingsAccess() {
   }
 
   if (!canManageClubSettings(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   return <Outlet />
@@ -395,7 +398,7 @@ function RequireUserAccess() {
   }
 
   if (!canManageUsers(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   return <Outlet />
@@ -431,18 +434,15 @@ export const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <Navigate to="/dashboard" replace />,
+            element: (
+              <PageSuspense>
+                <WorkspaceHome />
+              </PageSuspense>
+            ),
           },
           {
             path: 'dashboard',
-            element: (
-              <PageSuspense>
-                <DashboardEntry />
-              </PageSuspense>
-            ),
-            handle: {
-              title: 'Dashboard',
-            },
+            element: <Navigate to="/" replace />,
           },
           {
             path: 'platform-admin',

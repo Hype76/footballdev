@@ -83,7 +83,7 @@ export function ApprovalsPage() {
   }, [cacheKey, user, userScopeKey])
 
   if (!canAccessApprovals(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   const teamOptions = ['All', ...new Set(submittedEvaluations.map((evaluation) => evaluation.team).filter(Boolean))]

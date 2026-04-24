@@ -184,7 +184,7 @@ export function AddPlayerPage() {
 
       <SectionCard
         title="Player details"
-        description="Add the player once, then start assessments from the dashboard or player profile."
+        description="Add the player once, then start assessments from the player profile."
       >
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">

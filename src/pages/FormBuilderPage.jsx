@@ -173,7 +173,7 @@ export function FormBuilderPage() {
   }
 
   if (!canManageFormFields(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   const handleFormChange = (event) => {

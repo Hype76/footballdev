@@ -111,7 +111,7 @@ export function TeamManagementPage() {
   }, [cacheKey, user, userScopeKey])
 
   if (!canManageUsers(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   const teamAssignments = useMemo(

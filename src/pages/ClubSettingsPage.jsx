@@ -125,7 +125,7 @@ export function ClubSettingsPage() {
   }, [uploadSuccessMessage])
 
   if (!canManageClubSettings(user)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
 
   const handleChange = (event) => {
