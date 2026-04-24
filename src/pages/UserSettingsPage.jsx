@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
+import { useToast } from '../components/ui/Toast.jsx'
 import { getRoleLabel, useAuth } from '../lib/auth.js'
-import { updateOwnUserSettings, updateSignedInPassword } from '../lib/supabase.js'
+import { requestLoginEmailChange, updateOwnUserSettings, updateSignedInPassword } from '../lib/supabase.js'
 
 function createInitialPasswordState() {
   return {
@@ -14,9 +15,12 @@ function createInitialPasswordState() {
 
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
+  const { showToast } = useToast()
   const [username, setUsername] = useState(user?.username || user?.name || '')
+  const [email, setEmail] = useState(user?.email || authUser?.email || '')
   const [passwordData, setPasswordData] = useState(createInitialPasswordState)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingEmail, setIsSavingEmail] = useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -25,7 +29,8 @@ export function UserSettingsPage() {
 
   useEffect(() => {
     setUsername(user?.username || user?.name || '')
-  }, [user?.name, user?.username])
+    setEmail(user?.email || authUser?.email || '')
+  }, [authUser?.email, user?.email, user?.name, user?.username])
 
   useEffect(() => {
     if (!successMessage) {
@@ -54,11 +59,44 @@ export function UserSettingsPage() {
       updateCurrentUserDetails(updatedProfile)
       setUsername(updatedProfile.username || updatedProfile.name || '')
       setSuccessMessage('Account settings saved.')
+      showToast({ title: 'Account saved', message: 'Your username has been updated.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save account settings.')
+      showToast({ title: 'Account not saved', message: error.message || 'Could not save account settings.', tone: 'error' })
     } finally {
       setIsSavingProfile(false)
+    }
+  }
+
+  const handleEmailSubmit = async (event) => {
+    event.preventDefault()
+    setIsSavingEmail(true)
+    setSuccessMessage('')
+    setErrorMessage('')
+
+    try {
+      const result = await requestLoginEmailChange({
+        authUser,
+        email,
+      })
+
+      if (result.pendingConfirmation) {
+        setSuccessMessage('Email change requested. Confirm the change from your email inbox.')
+        showToast({ title: 'Email change requested', message: 'Check your inbox to confirm the new login email.' })
+      } else {
+        updateCurrentUserDetails({
+          email: result.email,
+        })
+        setSuccessMessage('Login email updated.')
+        showToast({ title: 'Login email updated', message: 'Your new email can now be used to sign in.' })
+      }
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not update login email.')
+      showToast({ title: 'Email not updated', message: error.message || 'Could not update login email.', tone: 'error' })
+    } finally {
+      setIsSavingEmail(false)
     }
   }
 
@@ -76,9 +114,11 @@ export function UserSettingsPage() {
       await updateSignedInPassword(passwordData.password)
       setPasswordData(createInitialPasswordState())
       setSuccessMessage('Password updated.')
+      showToast({ title: 'Password updated', message: 'Your password has been changed.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not update password.')
+      showToast({ title: 'Password not updated', message: error.message || 'Could not update password.', tone: 'error' })
     } finally {
       setIsSavingPassword(false)
     }
@@ -92,9 +132,11 @@ export function UserSettingsPage() {
     try {
       await resetPassword(user?.email || authUser?.email)
       setSuccessMessage('Password reset email sent if that account exists.')
+      showToast({ title: 'Reset email sent', message: 'Check your inbox for the password reset link.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not send password reset email.')
+      showToast({ title: 'Reset email failed', message: error.message || 'Could not send password reset email.', tone: 'error' })
     } finally {
       setIsSendingReset(false)
     }
@@ -167,10 +209,37 @@ export function UserSettingsPage() {
           </form>
         </SectionCard>
 
-        <SectionCard
-          title="Password"
-          description="Change your password while signed in, or send yourself a reset email."
-        >
+        <div className="space-y-5">
+          <SectionCard
+            title="Login email"
+            description="Change the email address used for signing in."
+          >
+            <form className="space-y-4" onSubmit={handleEmailSubmit}>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">New login email</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  autoComplete="email"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isSavingEmail}
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingEmail ? 'Requesting...' : 'Update login email'}
+              </button>
+            </form>
+          </SectionCard>
+
+          <SectionCard
+            title="Password"
+            description="Change your password while signed in, or send yourself a reset email."
+          >
           <form className="space-y-4" onSubmit={handlePasswordSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
@@ -237,7 +306,8 @@ export function UserSettingsPage() {
               </button>
             </div>
           </form>
-        </SectionCard>
+          </SectionCard>
+        </div>
       </div>
     </div>
   )

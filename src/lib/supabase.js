@@ -820,6 +820,26 @@ export async function fetchUserProfile(authUser) {
       throw new Error('User profile not found.')
     }
 
+    const authEmail = String(authUser.email ?? '').trim().toLowerCase()
+    const profileEmail = String(data.email ?? '').trim().toLowerCase()
+
+    if (authEmail && authEmail !== profileEmail) {
+      const { data: syncedData, error: syncError } = await supabase
+        .from('users')
+        .update({
+          email: authEmail,
+        })
+        .eq('id', authUser.id)
+        .select('id, email, username, name, role, role_label, role_rank, club_id')
+        .single()
+
+      if (syncError) {
+        console.error(syncError)
+      } else {
+        data = syncedData
+      }
+    }
+
     let clubData = null
 
     if (data.club_id) {
@@ -933,6 +953,58 @@ export async function updateOwnUserSettings({ authUser, username }) {
     ...data,
     clubs: clubData,
   })
+}
+
+export async function requestLoginEmailChange({ authUser, email }) {
+  if (!authUser?.id) {
+    throw new Error('Signed in user is required.')
+  }
+
+  const normalizedEmail = String(email ?? '').trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    throw new Error('Email is required.')
+  }
+
+  if (normalizedEmail === String(authUser.email ?? '').trim().toLowerCase()) {
+    return {
+      email: normalizedEmail,
+      pendingConfirmation: false,
+    }
+  }
+
+  const { data, error } = await supabase.auth.updateUser({
+    email: normalizedEmail,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const confirmedEmail = String(data?.user?.email ?? '').trim().toLowerCase()
+  const isConfirmedImmediately = confirmedEmail === normalizedEmail
+
+  if (isConfirmedImmediately) {
+    const { error: profileError } = await supabase
+      .from('users')
+      .update({
+        email: normalizedEmail,
+      })
+      .eq('id', authUser.id)
+
+    if (profileError) {
+      console.error(profileError)
+      throw profileError
+    }
+
+    invalidateMemoryCacheByPrefix(`user-profile:${authUser.id}`)
+  }
+
+  return {
+    email: normalizedEmail,
+    pendingConfirmation: !isConfirmedImmediately,
+  }
 }
 
 export async function updateSignedInPassword(password) {
@@ -1208,6 +1280,18 @@ export async function updateTeamSettings({ teamId, data }) {
     throw new Error('Team ID is required.')
   }
 
+  const { data: currentTeam, error: currentTeamError } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('id', teamId)
+    .single()
+
+  if (currentTeamError) {
+    console.error(currentTeamError)
+    throw currentTeamError
+  }
+
+  const previousTeamName = String(currentTeam.name ?? '').trim()
   const payload = {}
 
   if (data.name !== undefined) {
@@ -1232,6 +1316,21 @@ export async function updateTeamSettings({ teamId, data }) {
 
   invalidateMemoryCacheByPrefix('teams:')
   invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('players:')
+
+  if (payload.name && payload.name !== previousTeamName) {
+    const linkedUpdateResults = await Promise.all([
+      supabase.from('players').update({ team: payload.name }).eq('team', previousTeamName).eq('club_id', updatedTeam.club_id),
+      supabase.from('evaluations').update({ team: payload.name }).eq('team', previousTeamName).eq('club_id', updatedTeam.club_id),
+      supabase.from('evaluations').update({ team: payload.name }).eq('team_id', teamId).eq('club_id', updatedTeam.club_id),
+    ])
+    const firstLinkedUpdateError = linkedUpdateResults.find((result) => result.error)?.error
+
+    if (firstLinkedUpdateError) {
+      console.error(firstLinkedUpdateError)
+      throw firstLinkedUpdateError
+    }
+  }
 
   return normalizeTeamRow(updatedTeam)
 }
@@ -1464,6 +1563,8 @@ export async function assignClubUserRole({ user, email, role }) {
       throw updateError
     }
 
+    invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+
     return {
       kind: 'user',
       record: normalizeUserProfile(updatedUserRow),
@@ -1492,6 +1593,8 @@ export async function assignClubUserRole({ user, email, role }) {
     console.error(inviteError)
     throw inviteError
   }
+
+  invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
 
   return {
     kind: 'invite',
