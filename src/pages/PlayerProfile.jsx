@@ -7,7 +7,6 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
 import {
   PARENT_EMAIL_TEMPLATES,
-  buildParentEmailMailtoUrl,
   buildParentEmailTemplate,
   getEmailTemplateKey,
   isInviteEmailTemplate,
@@ -56,14 +55,6 @@ function buildEvaluationSummary(evaluation, mode = 'scored') {
     evaluation.comments?.improvements ||
     'No written summary provided.'
   )
-}
-
-function buildParentEmailLink(template, recipientEmail) {
-  if (!recipientEmail) {
-    return ''
-  }
-
-  return buildParentEmailMailtoUrl(template, recipientEmail)
 }
 
 function formatTrendDate(evaluation) {
@@ -327,32 +318,6 @@ export function PlayerProfile() {
     } finally {
       setPdfLoadingId('')
     }
-  }
-
-  const handleSendToParent = (event, evaluation, canShare, template, recipientEmail) => {
-    event.preventDefault()
-
-    if (!canShare) {
-      return
-    }
-
-    const mailtoUrl = buildParentEmailLink(template, recipientEmail)
-
-    if (!mailtoUrl) {
-      setErrorMessage('Add a parent email address before sending.')
-      return
-    }
-
-    window.location.href = mailtoUrl
-
-    void createCommunicationLog({
-      user,
-      playerId: evaluation.playerId || primaryPlayer?.id,
-      evaluationId: evaluation.id,
-      channel: 'email',
-      action: 'mailto_opened',
-      recipientEmail,
-    })
   }
 
   const handlePlayerDraftChange = (playerId, fieldName, value) => {
@@ -917,20 +882,6 @@ export function PlayerProfile() {
               const summary = buildEvaluationSummary(evaluation)
               const canShare = canShareEvaluation(user, evaluation)
               const evaluationParentContacts = getEvaluationParentContacts(evaluation)
-              const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
-              const recipientName = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
-              const recipientEmail = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
-              const emailTemplate = buildParentEmailTemplate({
-                parentName: recipientName,
-                playerName: routePlayerName,
-                coachName: evaluation.coach,
-                clubName: user?.clubName,
-                teamName: evaluation.team,
-                session: evaluation.session,
-                inviteDate: getSelectedInviteDate(evaluation),
-                decision: evaluation.decision,
-                templateKey: getSelectedEmailTemplateKey(evaluation),
-              })
               const selectedTemplateKey = getSelectedEmailTemplateKey(evaluation)
               const shouldShowInviteDate = isInviteEmailTemplate(selectedTemplateKey)
 
@@ -948,7 +899,7 @@ export function PlayerProfile() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto_auto] lg:items-end">
+                  <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto] lg:items-end">
                     <label className="block">
                       <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
                       <select
@@ -1034,22 +985,6 @@ export function PlayerProfile() {
                     >
                       {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
                     </button>
-                    {recipientEmail ? (
-                      <button
-                        type="button"
-                        title="Send to parent"
-                        disabled={!canShare}
-                        onClick={(event) => handleSendToParent(event, evaluation, canShare, emailTemplate, recipientEmail)}
-                        className={[
-                          'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
-                          canShare
-                            ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)] hover:opacity-90'
-                            : 'cursor-not-allowed border border-[var(--border-color)] bg-[var(--panel-soft)] text-[var(--text-muted)] disabled:opacity-100',
-                        ].join(' ')}
-                      >
-                        Send to Parent
-                      </button>
-                    ) : null}
                   </div>
 
                   {evaluationParentContacts.length > 0 ? (
