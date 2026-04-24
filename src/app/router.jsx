@@ -36,6 +36,7 @@ const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFo
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
 const PlayersPage = lazyRoute(() => import('../pages/PlayersPage.jsx'), 'PlayersPage')
 const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx'), 'PlatformAdminPage')
+const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPage.jsx'), 'PlatformFeedbackPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
@@ -454,6 +455,17 @@ export const router = createBrowserRouter([
             ),
             handle: {
               title: 'Platform Admin',
+            },
+          },
+          {
+            path: 'platform-feedback',
+            element: (
+              <PageSuspense>
+                <PlatformFeedbackPage />
+              </PageSuspense>
+            ),
+            handle: {
+              title: 'Platform Feedback',
             },
           },
           {

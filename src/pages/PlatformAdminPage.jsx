@@ -5,15 +5,19 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   createPlatformClub,
+  deletePlatformFeedback,
   deletePlatformClub,
+  getPlatformFeedback,
   getPlatformStats,
   readViewCacheValue,
+  updatePlatformFeedback,
   updatePlatformClubStatus,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
 
 const cacheKey = 'platform-admin-dashboard'
+const feedbackCacheKey = 'platform-admin-feedback'
 
 function formatDate(value) {
   if (!value) {
@@ -38,11 +42,18 @@ function formatDate(value) {
 export function PlatformAdminPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState(() => readViewCacheValue(cacheKey, 'stats', null))
+  const [feedbackItems, setFeedbackItems] = useState(() => {
+    const cachedItems = readViewCacheValue(feedbackCacheKey, 'feedbackItems', [])
+    return Array.isArray(cachedItems) ? cachedItems : []
+  })
+  const [feedbackDrafts, setFeedbackDrafts] = useState({})
   const [selectedClubId, setSelectedClubId] = useState('All')
   const [isLoading, setIsLoading] = useState(() => !stats)
+  const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isSavingClub, setIsSavingClub] = useState(false)
   const [updatingClubId, setUpdatingClubId] = useState('')
+  const [updatingFeedbackId, setUpdatingFeedbackId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [newClubForm, setNewClubForm] = useState({
@@ -93,6 +104,58 @@ export function PlatformAdminPage() {
     }
   }, [refreshKey, user])
 
+  useEffect(() => {
+    let isMounted = true
+
+    const loadFeedback = async () => {
+      if (!isSuperAdmin(user)) {
+        setIsFeedbackLoading(false)
+        return
+      }
+
+      try {
+        const nextFeedbackItems = await withRequestTimeout(
+          () => getPlatformFeedback(user),
+          'Could not load platform feedback.',
+        )
+
+        if (!isMounted) {
+          return
+        }
+
+        setFeedbackItems(nextFeedbackItems)
+        setFeedbackDrafts(
+          nextFeedbackItems.reduce((drafts, item) => {
+            drafts[item.id] = {
+              status: item.status,
+              adminNote: item.adminNote,
+            }
+            return drafts
+          }, {}),
+        )
+        writeViewCache(feedbackCacheKey, {
+          feedbackItems: nextFeedbackItems,
+        })
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setErrorMessage('Platform feedback could not be refreshed right now.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsFeedbackLoading(false)
+        }
+      }
+    }
+
+    void loadFeedback()
+
+    return () => {
+      isMounted = false
+    }
+  }, [refreshKey, user])
+
   const visibleClubs = useMemo(() => {
     const clubs = stats?.clubs ?? []
     return selectedClubId === 'All' ? clubs : clubs.filter((club) => club.id === selectedClubId)
@@ -100,6 +163,71 @@ export function PlatformAdminPage() {
 
   const refreshStats = () => {
     setRefreshKey((current) => current + 1)
+  }
+
+  const handleFeedbackDraftChange = (feedbackId, fieldName, value) => {
+    setFeedbackDrafts((current) => ({
+      ...current,
+      [feedbackId]: {
+        status: current[feedbackId]?.status ?? 'open',
+        adminNote: current[feedbackId]?.adminNote ?? '',
+        [fieldName]: value,
+      },
+    }))
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const handleSaveFeedback = async (item) => {
+    const draft = feedbackDrafts[item.id] ?? {
+      status: item.status,
+      adminNote: item.adminNote,
+    }
+
+    setUpdatingFeedbackId(item.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await updatePlatformFeedback({
+        user,
+        feedbackId: item.id,
+        data: draft,
+      })
+      setSuccessMessage('Feedback updated.')
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Feedback could not be updated.')
+    } finally {
+      setUpdatingFeedbackId('')
+    }
+  }
+
+  const handleDeleteFeedback = async (item) => {
+    const confirmed = window.confirm('Delete this feedback item?')
+
+    if (!confirmed) {
+      return
+    }
+
+    setUpdatingFeedbackId(item.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await deletePlatformFeedback({
+        user,
+        feedbackId: item.id,
+      })
+      setSuccessMessage('Feedback deleted.')
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Feedback could not be deleted.')
+    } finally {
+      setUpdatingFeedbackId('')
+    }
   }
 
   const handleNewClubChange = (fieldName, value) => {
@@ -282,6 +410,88 @@ export function PlatformAdminPage() {
             {isSavingClub ? 'Adding...' : 'Add Club'}
           </button>
         </form>
+      </SectionCard>
+
+      <SectionCard
+        title="Platform feedback"
+        description="Review product feedback, update status, add internal notes, or remove completed items."
+      >
+        {isFeedbackLoading ? (
+          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+            Loading feedback...
+          </div>
+        ) : feedbackItems.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+            No platform feedback has been submitted yet.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {feedbackItems.map((item) => {
+              const draft = feedbackDrafts[item.id] ?? {
+                status: item.status,
+                adminNote: item.adminNote,
+              }
+
+              return (
+                <div key={item.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
+                  <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+                    <div>
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{item.message}</p>
+                      <p className="mt-3 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                        {item.clubName} | {item.createdByEmail || 'No email'} | {item.voteCount} votes
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Status</span>
+                        <select
+                          value={draft.status}
+                          onChange={(event) => handleFeedbackDraftChange(item.id, 'status', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        >
+                          <option value="open">Open</option>
+                          <option value="planned">Planned</option>
+                          <option value="in_progress">In progress</option>
+                          <option value="done">Done</option>
+                          <option value="declined">Declined</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+
+                  <label className="mt-4 block">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Admin note</span>
+                    <textarea
+                      rows="3"
+                      value={draft.adminNote}
+                      onChange={(event) => handleFeedbackDraftChange(item.id, 'adminNote', event.target.value)}
+                      className="min-h-24 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    />
+                  </label>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      disabled={updatingFeedbackId === item.id}
+                      onClick={() => void handleSaveFeedback(item)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updatingFeedbackId === item.id}
+                      onClick={() => void handleDeleteFeedback(item)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </SectionCard>
 
       <SectionCard

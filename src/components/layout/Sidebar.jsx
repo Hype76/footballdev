@@ -120,6 +120,25 @@ export function Sidebar({ isOpen, onClose }) {
         </nav>
 
         <div className="mt-auto pt-4">
+          <div className="mb-3 rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+            <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+              Platform feedback
+            </p>
+            <NavLink
+              to="/platform-feedback"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
+                ].join(' ')
+              }
+            >
+              Share feedback
+            </NavLink>
+          </div>
           <button
             type="button"
             onClick={handleSignOut}

@@ -529,6 +529,27 @@ function normalizeAssessmentSessionPlayerRow(row) {
   }
 }
 
+function normalizePlatformFeedbackRow(row) {
+  const clubRow = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
+  const userRow = Array.isArray(row.users) ? row.users[0] : row.users
+  const votes = Array.isArray(row.platform_feedback_votes) ? row.platform_feedback_votes : []
+
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    clubName: String(clubRow?.name ?? row.clubName ?? '').trim() || 'Unknown club',
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByEmail: String(userRow?.email ?? row.createdByEmail ?? '').trim(),
+    message: String(row.message ?? '').trim(),
+    status: String(row.status ?? 'open').trim() || 'open',
+    adminNote: String(row.admin_note ?? row.adminNote ?? '').trim(),
+    voteCount: Number(row.vote_count ?? row.voteCount ?? votes.length ?? 0),
+    hasVoted: Boolean(row.has_voted ?? row.hasVoted ?? false),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
 function mapPlayerToRow(player, user) {
   const positions = Array.isArray(player.positions)
     ? player.positions.map((position) => String(position ?? '').trim()).filter(Boolean)
@@ -2760,6 +2781,168 @@ export async function clearAssessmentSessionPlayers({ user, sessionId }) {
     entityType: 'assessment_session',
     entityId: sessionId,
   })
+}
+
+export async function getPlatformFeedback(user) {
+  if (!user?.id) {
+    return []
+  }
+
+  const cacheKey = user.role === 'super_admin' ? 'platform-feedback:admin' : `platform-feedback:${user.id}:${user.clubId || 'platform'}`
+  const selectFields =
+    user.role === 'super_admin'
+      ? 'id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id)'
+      : 'id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id)'
+
+  return getCachedResource(cacheKey, async () => {
+    const { data, error } = await supabase
+      .from('platform_feedback')
+      .select(selectFields)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map((row) => {
+      const votes = Array.isArray(row.platform_feedback_votes) ? row.platform_feedback_votes : []
+
+      return normalizePlatformFeedbackRow({
+        ...row,
+        vote_count: votes.length,
+        has_voted: votes.some((vote) => String(vote.user_id) === String(user.id)),
+      })
+    })
+  })
+}
+
+export async function createPlatformFeedback({ user, message }) {
+  const normalizedMessage = String(message ?? '').trim()
+
+  if (!user?.id || !user?.clubId) {
+    throw new Error('A club user is required to submit feedback.')
+  }
+
+  if (!normalizedMessage) {
+    throw new Error('Add feedback before submitting.')
+  }
+
+  const { data, error } = await supabase
+    .from('platform_feedback')
+    .insert({
+      club_id: user.clubId,
+      created_by: user.id,
+      message: normalizedMessage,
+      status: 'open',
+    })
+    .select('id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id)')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-feedback:')
+  await createAuditLog({
+    user,
+    action: 'platform_feedback_created',
+    entityType: 'platform_feedback',
+    entityId: data.id,
+  })
+
+  return normalizePlatformFeedbackRow(data)
+}
+
+export async function votePlatformFeedback({ user, feedbackId }) {
+  if (!user?.id || !feedbackId) {
+    throw new Error('Feedback and user are required.')
+  }
+
+  const { error } = await supabase.from('platform_feedback_votes').upsert(
+    {
+      feedback_id: feedbackId,
+      user_id: user.id,
+    },
+    {
+      onConflict: 'feedback_id,user_id',
+    },
+  )
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-feedback:')
+}
+
+export async function unvotePlatformFeedback({ user, feedbackId }) {
+  if (!user?.id || !feedbackId) {
+    throw new Error('Feedback and user are required.')
+  }
+
+  const { error } = await supabase
+    .from('platform_feedback_votes')
+    .delete()
+    .eq('feedback_id', feedbackId)
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-feedback:')
+}
+
+export async function updatePlatformFeedback({ user, feedbackId, data }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can update feedback.')
+  }
+
+  const payload = {}
+
+  if (data.status !== undefined) {
+    payload.status = String(data.status ?? 'open').trim() || 'open'
+  }
+
+  if (data.adminNote !== undefined) {
+    payload.admin_note = String(data.adminNote ?? '').trim()
+  }
+
+  payload.updated_at = new Date().toISOString()
+
+  const { data: updatedRow, error } = await supabase
+    .from('platform_feedback')
+    .update(payload)
+    .eq('id', feedbackId)
+    .select('id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id)')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-feedback:')
+  return normalizePlatformFeedbackRow(updatedRow)
+}
+
+export async function deletePlatformFeedback({ user, feedbackId }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can delete feedback.')
+  }
+
+  const { error } = await supabase.from('platform_feedback').delete().eq('id', feedbackId)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-feedback:')
 }
 
 export async function createEvaluation(data) {
