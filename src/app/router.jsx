@@ -176,10 +176,6 @@ function WorkspaceHome() {
     return <ClubSuspendedState />
   }
 
-  if (user.forcePasswordChange) {
-    return <Navigate to="/reset-password" replace />
-  }
-
   if (canManageUsers(user)) {
     return <Navigate to="/teams" replace />
   }
@@ -231,10 +227,6 @@ function RequireClubWorkspace() {
 
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
-  }
-
-  if (user.forcePasswordChange) {
-    return <Navigate to="/reset-password" replace />
   }
 
   return <Outlet />
@@ -290,10 +282,6 @@ function RequireFormBuilderAccess() {
     return <Navigate to="/" replace />
   }
 
-  if (user.forcePasswordChange) {
-    return <Navigate to="/reset-password" replace />
-  }
-
   return <Outlet />
 }
 
@@ -333,10 +321,6 @@ function RequireClubSettingsAccess() {
     return <Navigate to="/" replace />
   }
 
-  if (user.forcePasswordChange) {
-    return <Navigate to="/reset-password" replace />
-  }
-
   return <Outlet />
 }
 
@@ -374,10 +358,6 @@ function RequireUserAccess() {
 
   if (!canManageUsers(user)) {
     return <Navigate to="/" replace />
-  }
-
-  if (user.forcePasswordChange) {
-    return <Navigate to="/reset-password" replace />
   }
 
   return <Outlet />

@@ -272,7 +272,7 @@ export function TeamManagementPage() {
         customRoleLabel: '',
       })
       setMessage('Coach access created.')
-      showToast({ title: 'Coach access created', message: `${coachForm.email} can now log in and will be asked to change password.` })
+      showToast({ title: 'Coach access created', message: `${coachForm.email} can now log in with the initial password.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not create coach access.')

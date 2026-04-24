@@ -206,7 +206,7 @@ export function UserAccessPage() {
         roleKey: assignableRoles[0]?.roleKey || '',
         customRoleLabel: '',
       })
-      setMessage('User account created. They will be asked to change password on first login.')
+      setMessage('User account created. They can log in with the initial password.')
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not update user access.')

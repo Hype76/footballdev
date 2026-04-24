@@ -137,7 +137,7 @@ Deno.serve(async (request) => {
           role_label: roleLabel,
           role_rank: roleRank,
           club_id: clubId,
-          force_password_change: true,
+          force_password_change: false,
         },
         {
           onConflict: 'id',

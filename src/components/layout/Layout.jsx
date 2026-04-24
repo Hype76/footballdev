@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, Outlet, useLocation, useMatches } from 'react-router-dom'
-import { useAuth } from '../../lib/auth.js'
+import { Outlet, useMatches } from 'react-router-dom'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 
@@ -24,8 +23,6 @@ function getSystemTheme() {
 }
 
 export function Layout() {
-  const { user } = useAuth()
-  const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
   const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
@@ -79,10 +76,6 @@ export function Layout() {
 
   const handleThemeAccentChange = (nextThemeAccent) => {
     setThemeAccent(THEME_ACCENTS.includes(nextThemeAccent) ? nextThemeAccent : 'yellow')
-  }
-
-  if (user?.forcePasswordChange && location.pathname !== '/reset-password') {
-    return <Navigate to="/reset-password" replace />
   }
 
   return (

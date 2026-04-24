@@ -674,29 +674,6 @@ async function seedDefaultFormFields() {
     console.error(error)
     throw error
   }
-
-  const { data: authData, error: authError } = await supabase.auth.getUser()
-
-  if (authError) {
-    console.error(authError)
-    throw authError
-  }
-
-  if (authData?.user?.id) {
-    const { error: profileError } = await supabase
-      .from('users')
-      .update({
-        force_password_change: false,
-      })
-      .eq('id', authData.user.id)
-
-    if (profileError) {
-      console.error(profileError)
-      throw profileError
-    }
-
-    invalidateMemoryCacheByPrefix(`user-profile:${authData.user.id}`)
-  }
 }
 
 export async function seedDefaultClubRolesForClub(clubId) {
@@ -711,23 +688,6 @@ export async function seedDefaultClubRolesForClub(clubId) {
   if (error) {
     console.error(error)
     throw error
-  }
-
-  const { data: authData, error: authError } = await supabase.auth.getUser()
-
-  if (authError) {
-    console.error(authError)
-  }
-
-  const { error: clearFlagError } = await supabase.rpc('clear_own_force_password_change')
-
-  if (clearFlagError) {
-    console.error(clearFlagError)
-    throw clearFlagError
-  }
-
-  if (authData?.user?.id) {
-    invalidateMemoryCacheByPrefix(`user-profile:${authData.user.id}`)
   }
 }
 
@@ -779,7 +739,6 @@ export function normalizeUserProfile(profile) {
     clubStatus: String(getClubValue(profile.clubs, 'status') ?? profile.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: getClubValue(profile.clubs, 'suspended_at') ?? profile.clubSuspendedAt ?? '',
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
-    forcePasswordChange: Boolean(profile.force_password_change ?? profile.forcePasswordChange ?? false),
   }
 }
 
