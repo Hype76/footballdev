@@ -8,6 +8,7 @@ import { canCreateEvaluation, useAuth } from '../lib/auth.js'
 import {
   EVALUATION_SECTIONS,
   addPlayersToAssessmentSession,
+  clearAssessmentSessionPlayers,
   createAssessmentSession,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
@@ -344,6 +345,37 @@ export function SessionsPage() {
     }
   }
 
+  const handleClearSessionPlayers = async () => {
+    if (!selectedSessionId) {
+      setErrorMessage('Select a session first.')
+      return
+    }
+
+    if (!window.confirm('Clear all players from this session? The session itself will remain.')) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await clearAssessmentSessionPlayers({
+        user,
+        sessionId: selectedSessionId,
+      })
+      setSessionPlayers([])
+      setNotesDrafts({})
+      setSelectedPlayerIds([])
+      showToast({ title: 'Session cleared', message: 'All players were removed from this session.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not clear session players.')
+      showToast({ title: 'Session not cleared', message: error.message || 'Could not clear players.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const buildAssessmentUrl = (playerName, queue = []) => {
     const params = new URLSearchParams()
     params.set('player', playerName)
@@ -605,6 +637,14 @@ export function SessionsPage() {
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
               >
                 Assess All
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => void handleClearSessionPlayers()}
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Clear Players
               </button>
             </div>
 

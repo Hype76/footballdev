@@ -2224,6 +2224,27 @@ export async function updateAssessmentSessionPlayer({ user, sessionPlayerId, not
   return normalizeAssessmentSessionPlayerRow(data)
 }
 
+export async function clearAssessmentSessionPlayers({ user, sessionId }) {
+  if (!user?.clubId || !sessionId) {
+    throw new Error('Session and club are required.')
+  }
+
+  const { error } = await supabase.from('assessment_session_players').delete().eq('session_id', sessionId)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_players_cleared',
+    entityType: 'assessment_session',
+    entityId: sessionId,
+  })
+}
+
 export async function createEvaluation(data) {
   let linkedPlayerId = data.playerId || ''
   let linkedTeamId = data.teamId || ''

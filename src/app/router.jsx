@@ -33,6 +33,7 @@ const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 
 const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
+const PlayersPage = lazyRoute(() => import('../pages/PlayersPage.jsx'), 'PlayersPage')
 const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx'), 'PlatformAdminPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
@@ -449,6 +450,17 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Sessions',
+                },
+              },
+              {
+                path: 'players',
+                element: (
+                  <PageSuspense>
+                    <PlayersPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Players',
                 },
               },
               {

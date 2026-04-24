@@ -56,6 +56,55 @@ function buildParentEmailLink(template, recipientEmail) {
   return buildParentEmailMailtoUrl(template, recipientEmail)
 }
 
+function formatTrendDate(evaluation) {
+  if (evaluation.date) {
+    return evaluation.date
+  }
+
+  return evaluation.createdAt ? new Date(evaluation.createdAt).toLocaleDateString() : 'No date entered'
+}
+
+function buildRatingTrend(evaluations) {
+  return [...evaluations]
+    .filter((evaluation) => evaluation.averageScore !== null)
+    .sort((left, right) => left.createdAt - right.createdAt)
+}
+
+function buildFieldMovement(evaluations) {
+  const chronologicalEvaluations = [...evaluations].sort((left, right) => left.createdAt - right.createdAt)
+  const fieldValues = new Map()
+
+  chronologicalEvaluations.forEach((evaluation) => {
+    Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
+      const numericValue = Number(value)
+
+      if (Number.isNaN(numericValue)) {
+        return
+      }
+
+      if (!fieldValues.has(label)) {
+        fieldValues.set(label, [])
+      }
+
+      fieldValues.get(label).push(numericValue)
+    })
+  })
+
+  return Array.from(fieldValues.entries())
+    .map(([label, values]) => {
+      const firstValue = values[0]
+      const latestValue = values[values.length - 1]
+
+      return {
+        label,
+        firstValue,
+        latestValue,
+        change: latestValue - firstValue,
+      }
+    })
+    .filter((item) => item.firstValue !== undefined && item.latestValue !== undefined)
+}
+
 export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -154,6 +203,9 @@ export function PlayerProfile() {
     () => evaluations.filter((evaluation) => evaluation.averageScore !== null),
     [evaluations],
   )
+  const ratingTrend = useMemo(() => buildRatingTrend(evaluations), [evaluations])
+  const fieldMovement = useMemo(() => buildFieldMovement(evaluations), [evaluations])
+  const ratingTrendMax = ratingTrend.some((evaluation) => Number(evaluation.averageScore) > 5) ? 10 : 5
   const overallAverage =
     scoredEvaluations.length > 0
       ? scoredEvaluations.reduce((sum, evaluation) => sum + evaluation.averageScore, 0) / scoredEvaluations.length
@@ -396,6 +448,62 @@ export function PlayerProfile() {
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{lastSection}</p>
         </div>
       </div>
+
+      <SectionCard
+        title="Rating trend"
+        description="Shows how the player's assessment scores are moving over time."
+      >
+        {ratingTrend.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+            No scored evaluations yet.
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {ratingTrend.map((evaluation) => {
+                const scorePercent = Math.max(0, Math.min(100, (Number(evaluation.averageScore) / ratingTrendMax) * 100))
+
+                return (
+                  <div key={evaluation.id} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{formatTrendDate(evaluation)}</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{evaluation.averageScore.toFixed(1)}</p>
+                    </div>
+                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-[var(--panel-soft)]">
+                      <div
+                        className="h-full rounded-full bg-[var(--button-primary)]"
+                        style={{ width: `${scorePercent}%` }}
+                      />
+                    </div>
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                      {evaluation.decision}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+
+            {fieldMovement.length > 0 ? (
+              <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Field movement</p>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {fieldMovement.map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{item.label}</p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                        {item.firstValue} to {item.latestValue}
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--text-muted)]">
+                        {item.change > 0 ? '+' : ''}{item.change.toFixed(1)} change
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </SectionCard>
 
       <SectionCard
         title="Player details"

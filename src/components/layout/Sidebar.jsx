@@ -20,7 +20,12 @@ export function Sidebar({ isOpen, onClose }) {
       return false
     }
 
-    if (item.path === '/assess-player' || item.path === '/add-player' || item.path === '/sessions') {
+    if (
+      item.path === '/assess-player' ||
+      item.path === '/add-player' ||
+      item.path === '/sessions' ||
+      item.path === '/players'
+    ) {
       return canCreateEvaluation(user)
     }
 
