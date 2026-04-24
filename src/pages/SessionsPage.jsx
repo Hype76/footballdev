@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
@@ -29,6 +29,7 @@ function createInitialSessionForm() {
     teamId: '',
     team: '',
     opponent: '',
+    sessionType: 'training',
     sessionDate: getTodayDate(),
     section: 'Trial',
   }
@@ -58,6 +59,7 @@ function formatSessionDate(value) {
 export function SessionsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
   const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}` : ''
   const [sessions, setSessions] = useState(() => {
@@ -82,6 +84,8 @@ export function SessionsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
+  const completedSessionId = String(searchParams.get('completedSessionId') ?? '').trim()
+  const completedCount = Number(searchParams.get('completedCount') ?? 0)
 
   useEffect(() => {
     let isMounted = true
@@ -353,6 +357,7 @@ export function SessionsPage() {
 
     if (queue.length > 0) {
       params.set('queue', JSON.stringify(queue))
+      params.set('queueTotal', String(queue.length))
     }
 
     return `/assess-player?${params.toString()}`
@@ -378,6 +383,26 @@ export function SessionsPage() {
       />
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
+
+      {completedSessionId ? (
+        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-primary)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Session assessments completed</p>
+              <p className="mt-1 text-[var(--text-muted)]">
+                {completedCount > 0 ? `${completedCount} player assessments were completed.` : 'All queued assessments were completed.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSearchParams({})}
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <SectionCard
         title="Create session"
@@ -421,6 +446,19 @@ export function SessionsPage() {
                 placeholder="Opposition team"
                 className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session Type</span>
+              <select
+                name="sessionType"
+                value={sessionForm.sessionType}
+                onChange={handleSessionFormChange}
+                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              >
+                <option value="training">Training</option>
+                <option value="match">Match</option>
+              </select>
             </label>
 
             <label className="block">
@@ -483,7 +521,7 @@ export function SessionsPage() {
               >
                 {sessions.map((session) => (
                   <option key={session.id} value={session.id}>
-                    {session.title || session.team} | {formatSessionDate(session.sessionDate)}
+                    {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)}
                   </option>
                 ))}
               </select>
@@ -557,7 +595,9 @@ export function SessionsPage() {
                 <p className="text-sm font-semibold text-[var(--text-primary)]">
                   {selectedSession?.title || selectedSession?.team || 'Session'}
                 </p>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">{formatSessionDate(selectedSession?.sessionDate)}</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  {(selectedSession?.sessionType === 'match' ? 'Match' : 'Training')} | {formatSessionDate(selectedSession?.sessionDate)}
+                </p>
               </div>
               <button
                 type="button"

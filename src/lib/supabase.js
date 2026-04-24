@@ -497,6 +497,7 @@ function normalizeAssessmentSessionRow(row) {
     teamId: row.team_id ?? row.teamId ?? '',
     team: String(row.team ?? '').trim(),
     opponent: String(row.opponent ?? '').trim(),
+    sessionType: String(row.session_type ?? row.sessionType ?? 'training').trim() || 'training',
     sessionDate: String(row.session_date ?? row.sessionDate ?? '').trim(),
     title: String(row.title ?? '').trim(),
     createdBy: row.created_by ?? row.createdBy ?? '',
@@ -2089,6 +2090,7 @@ export async function createAssessmentSession({ user, session }) {
 
   const teamName = String(session.team ?? '').trim()
   const opponentName = String(session.opponent ?? '').trim()
+  const sessionType = String(session.sessionType ?? '').trim() === 'match' ? 'match' : 'training'
 
   const { data, error } = await supabase
     .from('assessment_sessions')
@@ -2097,6 +2099,7 @@ export async function createAssessmentSession({ user, session }) {
       team_id: session.teamId || null,
       team: teamName,
       opponent: opponentName,
+      session_type: sessionType,
       session_date: sessionDate,
       title: opponentName ? `${teamName} vs ${opponentName}` : teamName,
       created_by: user.id,
@@ -2118,6 +2121,7 @@ export async function createAssessmentSession({ user, session }) {
     metadata: {
       team: teamName,
       opponent: opponentName,
+      sessionType,
       sessionDate,
     },
   })

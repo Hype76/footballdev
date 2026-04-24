@@ -841,6 +841,19 @@ export function CreateEvaluationPage() {
         return
       }
 
+      if (assessmentQueue.length > 0) {
+        const completedSessionId = String(searchParams.get('sessionId') ?? '').trim()
+        const completedCount = Number(searchParams.get('queueTotal') ?? assessmentQueue.length) || assessmentQueue.length
+
+        if (completedSessionId) {
+          const completedSearchParams = new URLSearchParams()
+          completedSearchParams.set('completedSessionId', completedSessionId)
+          completedSearchParams.set('completedCount', String(completedCount))
+          navigate(`/sessions?${completedSearchParams.toString()}`)
+          return
+        }
+      }
+
       setLastSavedPlayerName(normalizedPlayerName)
       setFormData(
         createInitialFormData(user, {
