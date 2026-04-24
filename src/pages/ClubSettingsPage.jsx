@@ -50,6 +50,7 @@ export function ClubSettingsPage() {
   const [isSaved, setIsSaved] = useState(false)
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [errorTitle, setErrorTitle] = useState('')
   const [selectedLogoFile, setSelectedLogoFile] = useState(null)
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
@@ -98,7 +99,8 @@ export function ClubSettingsPage() {
           } else if (!cachedValue?.formData) {
             setFormData(createInitialFormData())
           }
-          setErrorMessage(error.message || 'Could not load club settings.')
+          setErrorTitle('Using saved club details')
+          setErrorMessage('The latest club settings could not be refreshed just now. You can still review or update the details shown below.')
         }
       } finally {
         if (isMounted) {
@@ -145,6 +147,7 @@ export function ClubSettingsPage() {
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target
     setIsSaved(false)
+    setErrorTitle('')
     setErrorMessage('')
     setFormData((current) => ({
       ...current,
@@ -155,6 +158,7 @@ export function ClubSettingsPage() {
   const handleFileChange = (event) => {
     const nextFile = event.target.files?.[0] ?? null
     setUploadSuccessMessage('')
+    setErrorTitle('')
     setErrorMessage('')
 
     if (!nextFile) {
@@ -164,12 +168,14 @@ export function ClubSettingsPage() {
 
     if (!String(nextFile.type ?? '').toLowerCase().startsWith('image/')) {
       setSelectedLogoFile(null)
+      setErrorTitle('Logo upload problem')
       setErrorMessage('Please select an image file.')
       return
     }
 
     if (nextFile.size > MAX_LOGO_FILE_SIZE_BYTES) {
       setSelectedLogoFile(null)
+      setErrorTitle('Logo upload problem')
       setErrorMessage('Logo must be 2MB or smaller.')
       return
     }
@@ -180,6 +186,7 @@ export function ClubSettingsPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setIsSaving(true)
+    setErrorTitle('')
     setErrorMessage('')
 
     try {
@@ -219,7 +226,8 @@ export function ClubSettingsPage() {
     } catch (error) {
       console.error(error)
       setIsSaved(false)
-      setErrorMessage('Could not save club settings.')
+      setErrorTitle(formData.logoUrl ? 'Logo URL could not be imported' : 'Could not save club settings')
+      setErrorMessage(error.message || 'Could not save club settings.')
     } finally {
       setIsSaving(false)
     }
@@ -227,11 +235,13 @@ export function ClubSettingsPage() {
 
   const handleLogoUpload = async () => {
     if (!user?.clubId) {
+      setErrorTitle('Logo upload problem')
       setErrorMessage('Club not found for this account.')
       return
     }
 
     if (!selectedLogoFile) {
+      setErrorTitle('Logo upload problem')
       setErrorMessage('Select a logo file before uploading.')
       return
     }
@@ -239,6 +249,7 @@ export function ClubSettingsPage() {
     setIsUploading(true)
     setIsSaved(false)
     setUploadSuccessMessage('')
+    setErrorTitle('')
     setErrorMessage('')
 
     try {
@@ -274,6 +285,7 @@ export function ClubSettingsPage() {
       setUploadSuccessMessage('Logo uploaded successfully')
     } catch (error) {
       console.error(error)
+      setErrorTitle('Logo upload problem')
       setErrorMessage(error.message || 'Logo upload failed.')
     } finally {
       setIsUploading(false)
@@ -304,9 +316,9 @@ export function ClubSettingsPage() {
 
       {errorMessage ? (
         <NoticeBanner
-          tone="info"
-          title="Using saved club details"
-          message="The latest club settings could not be refreshed just now. You can still review or update the details shown below."
+          tone={errorTitle === 'Using saved club details' ? 'info' : 'error'}
+          title={errorTitle || 'Action could not be completed'}
+          message={errorMessage}
         />
       ) : null}
 
@@ -369,8 +381,12 @@ export function ClubSettingsPage() {
                   name="logoUrl"
                   value={formData.logoUrl}
                   onChange={handleChange}
+                  placeholder="https://example.com/logo.png"
                   className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
+                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+                  On save, the image will be downloaded and stored for PDF use. If it cannot be downloaded, upload the file instead.
+                </p>
               </label>
 
               <label className="block">

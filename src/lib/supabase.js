@@ -1392,6 +1392,43 @@ function isStoredClubLogoUrl(clubId, logoUrl) {
   }
 }
 
+function getLogoContentType(url, response, blob) {
+  const headerType = String(response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+  const blobType = String(blob.type ?? '').trim().toLowerCase()
+
+  if (headerType.startsWith('image/')) {
+    return headerType
+  }
+
+  if (blobType.startsWith('image/')) {
+    return blobType
+  }
+
+  const pathname = url.pathname.toLowerCase()
+
+  if (pathname.endsWith('.png')) {
+    return 'image/png'
+  }
+
+  if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) {
+    return 'image/jpeg'
+  }
+
+  if (pathname.endsWith('.webp')) {
+    return 'image/webp'
+  }
+
+  if (pathname.endsWith('.gif')) {
+    return 'image/gif'
+  }
+
+  if (pathname.endsWith('.svg')) {
+    return 'image/svg+xml'
+  }
+
+  return ''
+}
+
 async function uploadClubLogoBlob({ clubId, blob }) {
   if (!clubId) {
     throw new Error('Club ID is required.')
@@ -1474,16 +1511,34 @@ export async function importClubLogoFromUrl({ clubId, logoUrl }) {
     throw new Error('Enter a valid logo URL.')
   }
 
-  const response = await fetch(parsedUrl.toString(), {
-    mode: 'cors',
-  })
+  let response
+
+  try {
+    response = await fetch(parsedUrl.toString(), {
+      mode: 'cors',
+    })
+  } catch (error) {
+    console.error(error)
+    throw new Error('Logo image could not be downloaded. Upload the image file instead.')
+  }
 
   if (!response.ok) {
-    throw new Error(`Logo download failed with status ${response.status}.`)
+    throw new Error('Logo image could not be downloaded. Upload the image file instead.')
   }
 
   const blob = await response.blob()
-  return uploadClubLogoBlob({ clubId, blob })
+  const contentType = getLogoContentType(parsedUrl, response, blob)
+
+  if (!contentType) {
+    throw new Error('That URL did not download as an image. Upload the image file instead.')
+  }
+
+  return uploadClubLogoBlob({
+    clubId,
+    blob: new Blob([blob], {
+      type: contentType,
+    }),
+  })
 }
 
 export async function getClubRoles(user) {
