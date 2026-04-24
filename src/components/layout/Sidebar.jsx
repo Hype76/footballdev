@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
 import { primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
@@ -11,6 +12,8 @@ import {
 
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
+  const logoUrl = user?.clubLogoUrl || fallbackLogo
+  const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const navigationItems = primaryNavigation.filter((item) => {
     if (isSuperAdmin(user)) {
       return item.path === '/platform-admin'
@@ -70,7 +73,10 @@ export function Sidebar({ isOpen, onClose }) {
         ].join(' ')}
       >
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)]">
+              <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
+            </div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Coaching Suite</p>
             <h1 className="mt-3 text-xl font-semibold tracking-tight text-[var(--text-primary)]">Football Operations</h1>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Evaluation and structured club access.</p>

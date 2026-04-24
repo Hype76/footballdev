@@ -4,6 +4,7 @@ import { supabase } from './supabase-client.js'
 const AuthContext = createContext(null)
 let authDataModulePromise = null
 const PRODUCTION_APP_ORIGIN = 'https://playerfeedback.online'
+const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
 
 function loadAuthDataModule() {
   if (!authDataModulePromise) {
@@ -159,6 +160,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
+  const [clubOptions, setClubOptions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [authError, setAuthError] = useState('')
@@ -191,8 +193,10 @@ export function AuthProvider({ children }) {
       setSession(null)
       setAuthUser(null)
       setUser(null)
+      setClubOptions([])
       setIsProfileLoading(false)
       setAuthError('')
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       finishBootstrap()
     }
 
@@ -216,12 +220,28 @@ export function AuthProvider({ children }) {
         }
 
         const { fetchUserProfile } = await loadAuthDataModule()
-        const profile = await fetchUserProfile(nextSession.user)
+        const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
+        const profile = await fetchUserProfile(nextSession.user, {
+          selectedClubId,
+        })
 
         if (!isMounted || activeSyncIdRef.current !== syncId) {
           return
         }
 
+        if (profile?.requiresClubSelection) {
+          setClubOptions(profile.clubOptions ?? [])
+          setUser(null)
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
+        if (profile?.clubId) {
+          window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
+        }
+
+        setClubOptions([])
         setUser((currentUser) => (areUsersEquivalent(currentUser, profile) ? currentUser : profile))
         setIsProfileLoading(false)
         setAuthError('')
@@ -325,6 +345,30 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const selectClub = async (clubId) => {
+    if (!authUser) {
+      throw new Error('Login again before choosing a club.')
+    }
+
+    setAuthError('')
+    setIsProfileLoading(true)
+
+    try {
+      const { selectUserClub } = await loadAuthDataModule()
+      const profile = await selectUserClub(authUser, clubId)
+      window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
+      setUser(profile)
+      setClubOptions([])
+      setAuthError('')
+    } catch (error) {
+      console.error(error)
+      setAuthError(error.message || 'Could not switch club.')
+      throw error
+    } finally {
+      setIsProfileLoading(false)
+    }
+  }
+
   const signUpWithClub = async ({ email, password, clubName }) => {
     setAuthError('')
 
@@ -358,6 +402,10 @@ export function AuthProvider({ children }) {
       setSession(data.session ?? null)
       setAuthUser(data.user)
       setUser(profile)
+      if (profile?.clubId) {
+        window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
+      }
+      setClubOptions([])
       setIsProfileLoading(false)
       setAuthError('')
     } catch (profileError) {
@@ -433,17 +481,19 @@ export function AuthProvider({ children }) {
       session,
       authUser,
       user,
+      clubOptions,
       isLoading,
       isProfileLoading,
       authError,
       signInWithPassword,
       signUpWithClub,
+      selectClub,
       resetPassword,
       signOut,
       updateCurrentClubDetails,
       updateCurrentUserDetails,
     }),
-    [authError, authUser, isLoading, isProfileLoading, session, user],
+    [authError, authUser, clubOptions, isLoading, isProfileLoading, session, user],
   )
 
   return createElement(AuthContext.Provider, { value }, children)

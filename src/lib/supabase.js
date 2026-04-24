@@ -760,6 +760,30 @@ export async function seedDefaultClubRolesForClub(clubId) {
   }
 }
 
+function normalizeClubMembershipRow(row) {
+  const clubRow = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
+  const roleKey = normalizeRoleKey(row.role ?? row.roleKey)
+
+  return {
+    id: row.id,
+    authUserId: row.auth_user_id ?? row.authUserId ?? '',
+    email: String(row.email ?? '').trim().toLowerCase(),
+    username: String(row.username ?? '').trim(),
+    name: String(row.name ?? '').trim(),
+    role: roleKey,
+    roleLabel: normalizeRoleLabel(row.role_label ?? row.roleLabel, roleKey),
+    roleRank: normalizeRoleRank(row.role_rank ?? row.roleRank, roleKey),
+    clubId: row.club_id ?? row.clubId ?? '',
+    clubName: String(clubRow?.name ?? row.clubName ?? '').trim(),
+    clubLogoUrl: String(clubRow?.logo_url ?? row.clubLogoUrl ?? '').trim(),
+    clubContactEmail: String(clubRow?.contact_email ?? row.clubContactEmail ?? '').trim(),
+    clubContactPhone: String(clubRow?.contact_phone ?? row.clubContactPhone ?? '').trim(),
+    clubStatus: String(clubRow?.status ?? row.clubStatus ?? 'active').trim() || 'active',
+    clubSuspendedAt: clubRow?.suspended_at ?? row.clubSuspendedAt ?? '',
+    requireApproval: Boolean(clubRow?.require_approval ?? row.requireApproval ?? true),
+  }
+}
+
 async function fetchClubDetails(clubId) {
   if (!clubId) {
     return null
@@ -811,52 +835,200 @@ export function normalizeUserProfile(profile) {
   }
 }
 
-async function claimInvitedUserProfile(authUser) {
+async function upsertClubMembershipFromInvite(authUser, invite) {
+  const displayName = getDisplayName(authUser)
+  const normalizedEmail = String(authUser?.email ?? invite.email ?? '').trim().toLowerCase()
+
+  const { data, error } = await supabase
+    .from('user_club_memberships')
+    .upsert(
+      {
+        auth_user_id: authUser.id,
+        email: normalizedEmail,
+        username: displayName,
+        name: displayName,
+        role: invite.roleKey,
+        role_label: invite.roleLabel,
+        role_rank: invite.roleRank,
+        club_id: invite.clubId,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'auth_user_id,club_id',
+      },
+    )
+    .select('*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at)')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return normalizeClubMembershipRow(data)
+}
+
+async function claimInvitedUserProfiles(authUser) {
   const normalizedEmail = String(authUser?.email ?? '').trim().toLowerCase()
 
   if (!normalizedEmail) {
-    return null
+    return []
   }
 
-  const { data: inviteRow, error: inviteError } = await supabase
+  const { data: inviteRows, error: inviteError } = await supabase
     .from('club_user_invites')
     .select('*')
     .eq('email', normalizedEmail)
     .is('accepted_at', null)
-    .maybeSingle()
 
   if (inviteError) {
     console.error(inviteError)
     throw inviteError
   }
 
-  if (!inviteRow) {
+  if (!inviteRows?.length) {
+    return []
+  }
+
+  const memberships = await Promise.all(inviteRows.map((inviteRow) => upsertClubMembershipFromInvite(authUser, normalizeClubInviteRow(inviteRow))))
+  const { error: inviteUpdateError } = await supabase
+    .from('club_user_invites')
+    .update({
+      accepted_at: new Date().toISOString(),
+    })
+    .eq('email', normalizedEmail)
+    .is('accepted_at', null)
+
+  if (inviteUpdateError) {
+    console.error(inviteUpdateError)
+  }
+
+  return memberships
+}
+
+async function getUserClubMemberships(authUser) {
+  const normalizedEmail = String(authUser?.email ?? '').trim().toLowerCase()
+
+  if (!authUser?.id && !normalizedEmail) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('user_club_memberships')
+    .select('*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at)')
+    .or(`auth_user_id.eq.${authUser.id},email.eq.${normalizedEmail}`)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeClubMembershipRow)
+}
+
+async function syncMembershipFromUserRow(data, authUser) {
+  if (!data?.club_id || data.role === 'super_admin') {
     return null
   }
 
-  const invite = normalizeClubInviteRow(inviteRow)
-  const displayName = getDisplayName(authUser)
-  const { error: insertError } = await supabase.from('users').insert({
-    id: authUser.id,
-    email: normalizedEmail,
-    username: displayName,
-    name: displayName,
-    role: invite.roleKey,
-    role_label: invite.roleLabel,
-    role_rank: invite.roleRank,
-    club_id: invite.clubId,
-  })
+  const { data: membershipRow, error } = await supabase
+    .from('user_club_memberships')
+    .upsert(
+      {
+        auth_user_id: authUser.id,
+        email: String(data.email ?? authUser.email ?? '').trim().toLowerCase(),
+        username: String(data.username ?? '').trim(),
+        name: String(data.name ?? '').trim(),
+        role: data.role,
+        role_label: data.role_label,
+        role_rank: data.role_rank,
+        club_id: data.club_id,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'auth_user_id,club_id',
+      },
+    )
+    .select('*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at)')
+    .single()
 
-  if (insertError) {
-    console.error(insertError)
-    throw insertError
+  if (error) {
+    console.error(error)
+    return null
   }
 
-  return invite
+  return normalizeClubMembershipRow(membershipRow)
 }
 
-export async function fetchUserProfile(authUser) {
-  const cacheKey = `user-profile:${authUser?.id || ''}`
+async function applyActiveMembership(authUser, membership) {
+  const normalizedEmail = String(authUser?.email ?? membership.email ?? '').trim().toLowerCase()
+  const displayName = getDisplayName({
+    ...authUser,
+    email: normalizedEmail,
+    username: membership.username,
+    name: membership.name,
+  })
+
+  const payload = {
+    id: authUser.id,
+    email: normalizedEmail,
+    username: membership.username || displayName,
+    name: membership.name || displayName,
+    role: membership.role,
+    role_label: membership.roleLabel,
+    role_rank: membership.roleRank,
+    club_id: membership.clubId,
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(payload, {
+      onConflict: 'id',
+    })
+    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`user-profile:${authUser.id}`)
+  return data
+}
+
+export async function selectUserClub(authUser, clubId) {
+  if (!authUser?.id || !clubId) {
+    throw new Error('Choose a club to continue.')
+  }
+
+  await claimInvitedUserProfiles(authUser)
+  const memberships = await getUserClubMemberships(authUser)
+  const selectedMembership = memberships.find((membership) => String(membership.clubId) === String(clubId))
+
+  if (!selectedMembership) {
+    throw new Error('This club is not linked to your account.')
+  }
+
+  const data = await applyActiveMembership(authUser, selectedMembership)
+  return normalizeUserProfile({
+    ...data,
+    clubs: {
+      name: selectedMembership.clubName,
+      logo_url: selectedMembership.clubLogoUrl,
+      contact_email: selectedMembership.clubContactEmail,
+      contact_phone: selectedMembership.clubContactPhone,
+      require_approval: selectedMembership.requireApproval,
+      status: selectedMembership.clubStatus,
+      suspended_at: selectedMembership.clubSuspendedAt,
+    },
+  })
+}
+
+export async function fetchUserProfile(authUser, options = {}) {
+  const selectedClubId = String(options.selectedClubId ?? '').trim()
+  const cacheKey = `user-profile:${authUser?.id || ''}:${selectedClubId || 'active'}`
 
   if (!authUser?.id) {
     throw new Error('User profile not found.')
@@ -879,14 +1051,27 @@ export async function fetchUserProfile(authUser) {
     }
 
     let data = await loadUserRow()
+    await claimInvitedUserProfiles(authUser)
 
     if (!data) {
-      await claimInvitedUserProfile(authUser)
-      data = await loadUserRow()
-    }
+      const memberships = await getUserClubMemberships(authUser)
 
-    if (!data) {
-      throw new Error('User profile not found.')
+      if (memberships.length === 0) {
+        throw new Error('User profile not found.')
+      }
+
+      if (memberships.length > 1 && !selectedClubId) {
+        return {
+          requiresClubSelection: true,
+          clubOptions: memberships,
+        }
+      }
+
+      const selectedMembership =
+        memberships.find((membership) => String(membership.clubId) === selectedClubId) ?? memberships[0]
+      data = await applyActiveMembership(authUser, selectedMembership)
+    } else {
+      await syncMembershipFromUserRow(data, authUser)
     }
 
     const authEmail = String(authUser.email ?? '').trim().toLowerCase()
@@ -907,6 +1092,27 @@ export async function fetchUserProfile(authUser) {
       } else {
         data = syncedData
       }
+    }
+
+    const memberships = data.role === 'super_admin' ? [] : await getUserClubMemberships(authUser)
+    if (memberships.length > 1 && !selectedClubId) {
+      return {
+        requiresClubSelection: true,
+        clubOptions: memberships,
+      }
+    }
+
+    if (memberships.length > 1 && selectedClubId && String(data.club_id) !== selectedClubId) {
+      const selectedMembership = memberships.find((membership) => String(membership.clubId) === selectedClubId)
+
+      if (!selectedMembership) {
+        return {
+          requiresClubSelection: true,
+          clubOptions: memberships,
+        }
+      }
+
+      data = await applyActiveMembership(authUser, selectedMembership)
     }
 
     let clubData = null
@@ -962,6 +1168,8 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     console.error(userError)
     throw userError
   }
+
+  await syncMembershipFromUserRow(userProfile, authUser)
 
   return normalizeUserProfile({
     ...userProfile,

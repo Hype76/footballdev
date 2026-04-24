@@ -59,7 +59,7 @@ export function Topbar({
         </button>
 
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/20">
-            <img src={logoUrl} alt={clubLabel} className="h-full w-full object-cover" />
+            <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
           </div>
 
           <div className="min-w-0">
