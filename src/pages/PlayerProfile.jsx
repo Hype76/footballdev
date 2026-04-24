@@ -10,6 +10,7 @@ import {
   buildParentEmailMailtoUrl,
   buildParentEmailTemplate,
   getEmailTemplateKey,
+  isInviteEmailTemplate,
 } from '../lib/email-templates.js'
 import {
   EVALUATION_SECTIONS,
@@ -147,6 +148,7 @@ export function PlayerProfile() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
+  const [selectedInviteDates, setSelectedInviteDates] = useState({})
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
 
@@ -240,6 +242,7 @@ export function PlayerProfile() {
 
   const getSelectedEmailTemplateKey = (evaluation) =>
     selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
+  const getSelectedInviteDate = (evaluation) => selectedInviteDates[evaluation.id] || ''
 
   const handleDownloadPdf = async (evaluation, mode) => {
     setPdfLoadingId(`${evaluation.id}:${mode}`)
@@ -256,6 +259,7 @@ export function PlayerProfile() {
         clubName: user?.clubName,
         teamName: evaluation.team,
         session: evaluation.session,
+        inviteDate: getSelectedInviteDate(evaluation),
         decision: evaluation.decision,
         templateKey: getSelectedEmailTemplateKey(evaluation),
       })
@@ -768,9 +772,12 @@ export function PlayerProfile() {
                 clubName: user?.clubName,
                 teamName: evaluation.team,
                 session: evaluation.session,
+                inviteDate: getSelectedInviteDate(evaluation),
                 decision: evaluation.decision,
                 templateKey: getSelectedEmailTemplateKey(evaluation),
               })
+              const selectedTemplateKey = getSelectedEmailTemplateKey(evaluation)
+              const shouldShowInviteDate = isInviteEmailTemplate(selectedTemplateKey)
 
               return (
                 <div
@@ -786,11 +793,11 @@ export function PlayerProfile() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto_auto_auto] lg:items-end">
+                  <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_auto_auto_auto] lg:items-end">
                     <label className="block">
                       <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
                       <select
-                        value={getSelectedEmailTemplateKey(evaluation)}
+                        value={selectedTemplateKey}
                         onChange={(event) =>
                           setSelectedEmailTemplates((currentTemplates) => ({
                             ...currentTemplates,
@@ -806,6 +813,24 @@ export function PlayerProfile() {
                         ))}
                       </select>
                     </label>
+                    {shouldShowInviteDate ? (
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Invite date</span>
+                        <input
+                          type="date"
+                          value={getSelectedInviteDate(evaluation)}
+                          onChange={(event) =>
+                            setSelectedInviteDates((currentDates) => ({
+                              ...currentDates,
+                              [evaluation.id]: event.target.value,
+                            }))
+                          }
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        />
+                      </label>
+                    ) : (
+                      <div className="hidden lg:block" />
+                    )}
                     <button
                       type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'scored')}

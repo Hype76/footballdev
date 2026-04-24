@@ -24,11 +24,25 @@ function formatSessionLabel(session) {
   }).format(parsedDate)
 }
 
+function formatCurrentSessionPhrase(session) {
+  const normalizedSession = normalizeText(session)
+
+  if (!normalizedSession) {
+    return 'our recent JPL trial'
+  }
+
+  return `our recent JPL trial session on ${formatSessionLabel(normalizedSession)}`
+}
+
 export const PARENT_EMAIL_TEMPLATES = [
   { key: 'decline', label: 'No Place Offered' },
   { key: 'progress', label: 'Invite Back' },
   { key: 'offer', label: 'Offer Place' },
 ]
+
+export function isInviteEmailTemplate(templateKey) {
+  return templateKey === 'progress' || templateKey === 'offer'
+}
 
 export function getEmailTemplateKey(decision) {
   const normalizedDecision = normalizeText(decision, 'Progress').toLowerCase()
@@ -72,6 +86,7 @@ export function buildParentEmailTemplate({
   clubName = '',
   teamName = '',
   session = '',
+  inviteDate = '',
   decision = 'Progress',
   templateKey = '',
 } = {}) {
@@ -80,7 +95,8 @@ export function buildParentEmailTemplate({
   const resolvedCoachName = normalizeText(coachName, 'Coaching Team')
   const resolvedClubName = normalizeText(clubName || teamName, 'Club Team')
   const resolvedTeamName = normalizeText(teamName || clubName, resolvedClubName)
-  const nextSessionLabel = formatSessionLabel(session)
+  const currentSessionPhrase = formatCurrentSessionPhrase(session)
+  const inviteSessionLabel = formatSessionLabel(inviteDate)
   const resolvedTemplateKey = getValidEmailTemplateKey(templateKey, decision)
   const greeting = `Dear ${resolvedParentName},`
   let subject = 'Player Trial Feedback'
@@ -91,7 +107,7 @@ export function buildParentEmailTemplate({
     bodyLines = [
       greeting,
       '',
-      `Thank you so much for bringing ${resolvedPlayerName} along to our recent JPL trial sessions. We really enjoyed having them involved.`,
+      `Thank you so much for bringing ${resolvedPlayerName} along to ${currentSessionPhrase}. We really enjoyed having them involved.`,
       '',
       `Unfortunately, on this occasion we will not be offering ${resolvedPlayerName} a place in the squad. We had a very strong group trialling, which made it a tough decision.`,
       '',
@@ -107,10 +123,10 @@ export function buildParentEmailTemplate({
     bodyLines = [
       greeting,
       '',
-      'Thank you for attending our recent JPL trial sessions.',
+      `Thank you for attending ${currentSessionPhrase}.`,
       `We were really impressed with ${resolvedPlayerName} and are delighted to offer them a place in our JPL squad for the upcoming season.`,
       '',
-      `We would also like to invite ${resolvedPlayerName} to join us for a friendly match on ${nextSessionLabel}. This will be a great opportunity for them to meet the team and get involved.`,
+      `We would also like to invite ${resolvedPlayerName} to join us for a friendly match on ${inviteSessionLabel}. This will be a great opportunity for them to meet the team and get involved.`,
       '',
       `We feel they will be a great addition to the squad and are excited to support their development.`,
       '',
@@ -127,11 +143,11 @@ export function buildParentEmailTemplate({
     bodyLines = [
       greeting,
       '',
-      `Thank you for attending our recent JPL trial with ${resolvedPlayerName}. It was great to see them in action.`,
+      `Thank you for attending ${currentSessionPhrase} with ${resolvedPlayerName}. It was great to see them in action.`,
       '',
       'We saw some really positive things and would love to invite them back for another session so we can take a further look. We feel there is definitely potential there and would like to see a bit more.',
       '',
-      `We would also like to invite ${resolvedPlayerName} to take part in a friendly match with us on ${nextSessionLabel}. This will give us a chance to see them in a match environment.`,
+      `We would also like to invite ${resolvedPlayerName} to take part in a friendly match with us on ${inviteSessionLabel}. This will give us a chance to see them in a match environment.`,
       '',
       'Please let us know if they are available to attend both the session and the match. We would be delighted to see them again.',
       '',
