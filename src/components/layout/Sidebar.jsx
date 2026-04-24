@@ -6,6 +6,7 @@ import {
   canManageClubSettings,
   canManageFormFields,
   canManageUsers,
+  canManageTeamSettings,
   isSuperAdmin,
   useAuth,
 } from '../../lib/auth.js'
@@ -32,8 +33,12 @@ export function Sidebar({ isOpen, onClose }) {
       return canCreateEvaluation(user)
     }
 
-    if (item.path === '/user-access' || item.path === '/teams') {
+    if (item.path === '/user-access') {
       return canManageUsers(user)
+    }
+
+    if (item.path === '/teams') {
+      return canManageTeamSettings(user)
     }
 
     if (item.path === '/form-builder') {

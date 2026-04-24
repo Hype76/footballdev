@@ -4,6 +4,7 @@ import { Layout } from '../components/layout/Layout.jsx'
 import {
   canManageClubSettings,
   canManageFormFields,
+  canManageTeamSettings,
   canManageUsers,
   isSuperAdmin,
   useAuth,
@@ -365,6 +366,45 @@ function RequireUserAccess() {
   return <Outlet />
 }
 
+function RequireTeamSettingsAccess() {
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
+  }
+
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
+  }
+
+  if (!canManageTeamSettings(user)) {
+    return <Navigate to="/" replace />
+  }
+
+  return <Outlet />
+}
+
 export const router = createBrowserRouter([
   {
     element: <PublicOnly />,
@@ -510,7 +550,7 @@ export const router = createBrowserRouter([
             ],
           },
           {
-            element: <RequireUserAccess />,
+            element: <RequireTeamSettingsAccess />,
             children: [
               {
                 path: 'teams',
@@ -523,6 +563,11 @@ export const router = createBrowserRouter([
                   title: 'Teams',
                 },
               },
+            ],
+          },
+          {
+            element: <RequireUserAccess />,
+            children: [
               {
                 path: 'user-access',
                 element: (
