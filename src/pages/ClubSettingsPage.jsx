@@ -8,7 +8,6 @@ import { canManageClubSettings, useAuth } from '../lib/auth.js'
 import {
   MAX_LOGO_FILE_SIZE_BYTES,
   getClubSettings,
-  importClubLogoFromUrl,
   readViewCache,
   readViewCacheValue,
   updateClubSettings,
@@ -190,18 +189,9 @@ export function ClubSettingsPage() {
     setErrorMessage('')
 
     try {
-      const storedLogoUrl = formData.logoUrl
-        ? await importClubLogoFromUrl({
-            clubId: user.clubId,
-            logoUrl: formData.logoUrl,
-          })
-        : ''
       const updatedClub = await updateClubSettings({
         clubId: user.clubId,
-        data: {
-          ...formData,
-          logoUrl: storedLogoUrl,
-        },
+        data: formData,
       })
 
       setFormData({
@@ -220,13 +210,10 @@ export function ClubSettingsPage() {
       })
       updateCurrentClubDetails(updatedClub)
       setIsSaved(true)
-      if (formData.logoUrl && storedLogoUrl !== formData.logoUrl) {
-        setUploadSuccessMessage('Logo imported and stored for PDF use')
-      }
     } catch (error) {
       console.error(error)
       setIsSaved(false)
-      setErrorTitle(formData.logoUrl ? 'Logo URL could not be imported' : 'Could not save club settings')
+      setErrorTitle('Could not save club settings')
       setErrorMessage(error.message || 'Could not save club settings.')
     } finally {
       setIsSaving(false)
@@ -372,21 +359,6 @@ export function ClubSettingsPage() {
                   required
                   className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Logo URL</span>
-                <input
-                  type="text"
-                  name="logoUrl"
-                  value={formData.logoUrl}
-                  onChange={handleChange}
-                  placeholder="https://example.com/logo.png"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                />
-                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                  On save, the image will be downloaded and stored for PDF use. If it cannot be downloaded, upload the file instead.
-                </p>
               </label>
 
               <label className="block">
