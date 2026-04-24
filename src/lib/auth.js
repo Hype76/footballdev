@@ -64,6 +64,10 @@ export function isSuperAdmin(user) {
   return user?.role === 'super_admin'
 }
 
+export function isClubAdmin(user) {
+  return user?.role === 'admin'
+}
+
 export function canManageUsers(user) {
   if (!user) {
     return false
@@ -88,7 +92,7 @@ export function canAssignRole(user, targetRole) {
 }
 
 export function canManageFormFields(user) {
-  return isSuperAdmin(user) || Number(user?.roleRank ?? 0) >= 50
+  return !isSuperAdmin(user) && !isClubAdmin(user) && Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canManageClubSettings(user) {
@@ -112,7 +116,7 @@ export function canCreateEvaluation(user) {
     return false
   }
 
-  return !isSuperAdmin(user)
+  return Boolean(user.clubId) && !isSuperAdmin(user) && !isClubAdmin(user)
 }
 
 export function canEditEvaluation(user, evaluation) {
