@@ -11,6 +11,7 @@ import {
   EVALUATION_SECTIONS,
   createEvaluation,
   getAvailableTeamsForUser,
+  getClubSettings,
   getDefaultFormFields,
   getFormFields,
   getPlayers,
@@ -40,6 +41,20 @@ function getDraftStorageKey(user) {
   }
 
   return `create-evaluation-draft:${user.id}:${user.clubId || 'platform'}`
+}
+
+async function getLatestClubLogoUrl(user) {
+  if (!user?.clubId) {
+    return user?.clubLogoUrl || ''
+  }
+
+  try {
+    const clubSettings = await getClubSettings(user.clubId)
+    return clubSettings.logoUrl || user.clubLogoUrl || ''
+  } catch (error) {
+    console.error(error)
+    return user.clubLogoUrl || ''
+  }
 }
 
 function normalizePlayerName(value) {
@@ -732,13 +747,14 @@ export function CreateEvaluationPage() {
 
     try {
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
+      const latestClubLogoUrl = await getLatestClubLogoUrl(user)
 
       await exportEvaluationPdf({
         filename: `${normalizePlayerName(formData.playerName || 'evaluation')}-${mode}.pdf`,
         mode,
         previewProps: {
           clubName: user?.clubName || 'Club Name',
-          logoUrl: user?.clubLogoUrl || fallbackLogo,
+          logoUrl: latestClubLogoUrl || fallbackLogo,
           playerName: formData.playerName || 'Player Name',
           team: formData.team,
           section: formData.section,

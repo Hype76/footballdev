@@ -111,7 +111,7 @@ async function resolvePdfLogoUrl(logoUrl) {
   try {
     const parsedUrl = new URL(normalizedLogoUrl, window.location.origin)
 
-    if (parsedUrl.origin === window.location.origin) {
+    if (parsedUrl.origin === window.location.origin || parsedUrl.hostname.endsWith('.supabase.co')) {
       return parsedUrl.toString()
     }
 

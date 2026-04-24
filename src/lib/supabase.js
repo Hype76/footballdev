@@ -1142,8 +1142,8 @@ export async function updateClubSettings({ clubId, data }) {
     throw error
   }
 
-  invalidateMemoryCacheByPrefix(`club:${clubId}`)
   invalidateMemoryCacheByPrefix(`club-settings:${clubId}`)
+  invalidateMemoryCacheByPrefix(`club:${clubId}`)
   invalidateMemoryCacheByPrefix('user-profile:')
 
   return {

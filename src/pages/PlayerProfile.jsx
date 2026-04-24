@@ -16,6 +16,7 @@ import {
   createCommunicationLog,
   deletePlayer,
   getEvaluations,
+  getClubSettings,
   getPlayers,
   clearViewCaches,
   promotePlayerToSquad,
@@ -108,6 +109,20 @@ function buildFieldMovement(evaluations) {
       }
     })
     .filter((item) => item.firstValue !== undefined && item.latestValue !== undefined)
+}
+
+async function getLatestClubLogoUrl(user) {
+  if (!user?.clubId) {
+    return user?.clubLogoUrl || ''
+  }
+
+  try {
+    const clubSettings = await getClubSettings(user.clubId)
+    return clubSettings.logoUrl || user.clubLogoUrl || ''
+  } catch (error) {
+    console.error(error)
+    return user.clubLogoUrl || ''
+  }
 }
 
 export function PlayerProfile() {
@@ -232,6 +247,7 @@ export function PlayerProfile() {
 
     try {
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
+      const latestClubLogoUrl = await getLatestClubLogoUrl(user)
       const summary = buildEvaluationSummary(evaluation, mode)
       const emailTemplate = buildParentEmailTemplate({
         parentName: evaluation.parentName || profileParentName,
@@ -249,7 +265,7 @@ export function PlayerProfile() {
         mode,
         previewProps: {
           clubName: user?.clubName || user?.team || 'Club Name',
-          logoUrl: user?.clubLogoUrl || fallbackLogo,
+          logoUrl: latestClubLogoUrl || fallbackLogo,
           playerName: routePlayerName,
           team: evaluation.team,
           section: evaluation.section,
