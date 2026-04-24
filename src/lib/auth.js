@@ -96,7 +96,7 @@ export function canManageClubSettings(user) {
 }
 
 export function canDeletePlayer(user) {
-  return isSuperAdmin(user) || Number(user?.roleRank ?? 0) >= 50
+  return Boolean(user?.clubId) && Number(user?.roleRank ?? 0) >= 20
 }
 
 export function canShareEvaluation(user, evaluation) {

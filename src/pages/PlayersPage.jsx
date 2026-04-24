@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
@@ -41,6 +41,7 @@ function formatDate(value) {
 
 export function PlayersPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const cacheKey = user ? `players-page:${user.id}:${user.clubId || 'platform'}:${user.roleRank}` : ''
   const [players, setPlayers] = useState(() => {
     const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
@@ -272,10 +273,11 @@ export function PlayersPage() {
         ) : (
           <div className="mt-5 grid gap-3">
             {filteredPlayers.map((player) => (
-              <Link
+              <button
                 key={getPlayerKey(player.playerName)}
-                to={`/player/${encodeURIComponent(player.playerName)}`}
-                className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 transition hover:bg-[var(--panel-soft)]"
+                type="button"
+                onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
+                className="w-full rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-left transition hover:bg-[var(--panel-soft)]"
               >
                 <div className="grid gap-4 md:grid-cols-6 md:items-center">
                   <div className="md:col-span-2">
@@ -305,8 +307,13 @@ export function PlayersPage() {
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Last Seen</p>
                     <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatDate(player.latestDate)}</p>
                   </div>
+                  <div className="md:col-span-6">
+                    <span className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                      Open Profile To Edit Or Delete
+                    </span>
+                  </div>
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         )}
