@@ -150,7 +150,7 @@ export function LoginPage() {
           <p className="mt-3 text-sm leading-6 text-slate-300">
             {mode === 'signup'
               ? 'Add a club name to create a new club admin account. Leave it blank if your email has already been allocated to an existing club.'
-              : 'Use the credentials already linked to your Supabase account or the email allocated to your club.'}
+              : 'Use the credentials linked to your account or the email allocated to your club.'}
           </p>
 
           <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
