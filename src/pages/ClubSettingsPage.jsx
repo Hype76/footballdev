@@ -26,13 +26,24 @@ function createInitialFormData() {
   }
 }
 
+function getFallbackFormData(user) {
+  return {
+    name: String(user?.clubName ?? '').trim(),
+    logoUrl: String(user?.clubLogoUrl ?? '').trim(),
+    contactEmail: String(user?.clubContactEmail ?? '').trim(),
+    contactPhone: String(user?.clubContactPhone ?? '').trim(),
+  }
+}
+
 export function ClubSettingsPage() {
   const { updateCurrentClubDetails, user } = useAuth()
   const cacheKey = user?.clubId ? `club-settings:${user.clubId}` : ''
-  const [formData, setFormData] = useState(() => readViewCacheValue(cacheKey, 'formData', createInitialFormData()))
+  const [formData, setFormData] = useState(() =>
+    readViewCacheValue(cacheKey, 'formData', getFallbackFormData(user) || createInitialFormData()),
+  )
   const [isLoading, setIsLoading] = useState(() => {
     const cachedFormData = readViewCacheValue(cacheKey, 'formData', null)
-    return !cachedFormData
+    return !cachedFormData && !user?.clubName
   })
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -82,7 +93,9 @@ export function ClubSettingsPage() {
         console.error(error)
 
         if (isMounted) {
-          if (!cachedValue?.formData) {
+          if (!cachedValue?.formData && user?.clubName) {
+            setFormData(getFallbackFormData(user))
+          } else if (!cachedValue?.formData) {
             setFormData(createInitialFormData())
           }
           setErrorMessage(error.message || 'Could not load club settings.')
@@ -291,8 +304,9 @@ export function ClubSettingsPage() {
 
       {errorMessage ? (
         <NoticeBanner
-          title="Club details are not available yet"
-          message="We could not refresh the latest club settings. You can still add the missing details here and save them."
+          tone="info"
+          title="Using saved club details"
+          message="The latest club settings could not be refreshed just now. You can still review or update the details shown below."
         />
       ) : null}
 
