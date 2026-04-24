@@ -351,7 +351,7 @@ export function SessionsPage() {
       return
     }
 
-    if (!window.confirm('Clear all players from this session? The session itself will remain.')) {
+    if (!window.confirm('Clear this session? All players will be removed from the session list, but the session itself will remain.')) {
       return
     }
 
@@ -366,11 +366,11 @@ export function SessionsPage() {
       setSessionPlayers([])
       setNotesDrafts({})
       setSelectedPlayerIds([])
-      showToast({ title: 'Session cleared', message: 'All players were removed from this session.' })
+      showToast({ title: 'Session cleared', message: 'All players were removed from this session list.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not clear session players.')
-      showToast({ title: 'Session not cleared', message: error.message || 'Could not clear players.', tone: 'error' })
+      setErrorMessage(error.message || 'Could not clear this session.')
+      showToast({ title: 'Session not cleared', message: error.message || 'Could not clear this session.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
@@ -642,9 +642,9 @@ export function SessionsPage() {
                 type="button"
                 disabled={isSaving}
                 onClick={() => void handleClearSessionPlayers()}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Clear Players
+                Clear Session
               </button>
             </div>
 

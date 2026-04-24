@@ -399,7 +399,7 @@ export function PlayerProfile() {
   }
 
   const handleDeletePlayerRecord = async (playerId) => {
-    if (!window.confirm('Delete this player record? Assessments will remain in history.')) {
+    if (!window.confirm('Delete this player record? Saved assessments will remain in history.')) {
       return
     }
 
@@ -424,7 +424,7 @@ export function PlayerProfile() {
   }
 
   const handleDeletePlayer = async () => {
-    if (!window.confirm(`Delete all saved evaluations for ${routePlayerName}?`)) {
+    if (!window.confirm(`Delete ${routePlayerName}? This removes the player record and saved evaluations for this player.`)) {
       return
     }
 
@@ -708,9 +708,9 @@ export function PlayerProfile() {
                             type="button"
                             disabled={isSavingPlayer}
                             onClick={() => void handleDeletePlayerRecord(player.id)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Delete Record
+                            Delete Player Record
                           </button>
                         ) : null}
                       </div>
@@ -735,9 +735,9 @@ export function PlayerProfile() {
             type="button"
             disabled={isDeleting}
             onClick={handleDeletePlayer}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isDeleting ? 'Deleting...' : 'Delete Player'}
+            {isDeleting ? 'Deleting...' : 'Delete This Player'}
           </button>
         ) : null}
       </div>
