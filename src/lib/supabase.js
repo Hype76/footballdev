@@ -2061,11 +2061,15 @@ export async function deletePlayerRecord({ user, playerId }) {
     throw new Error('A club user is required to delete players.')
   }
 
-  const { error } = await supabase.from('players').delete().eq('id', playerId).eq('club_id', user.clubId)
+  const { data, error } = await supabase.from('players').delete().eq('id', playerId).eq('club_id', user.clubId).select('id')
 
   if (error) {
     console.error(error)
     throw error
+  }
+
+  if (!data?.length) {
+    throw new Error('No player record was deleted. Check permissions or refresh the player profile.')
   }
 
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
@@ -2396,18 +2400,35 @@ export async function updateEvaluationStatus(id, status, clubId, options = {}) {
   return normalizeEvaluationRow(updatedRow)
 }
 
-export async function deletePlayer(playerName, user) {
+export async function deletePlayer(playerName, user, options = {}) {
   if (!user?.clubId && user?.role !== 'super_admin') {
     throw new Error('Club ID is required.')
   }
 
-  let query = supabase.from('evaluations').delete().eq('player_name', playerName)
+  const playerIds = Array.from(new Set((options.playerIds ?? []).filter(Boolean)))
 
-  if (user.role !== 'super_admin') {
-    query = query.eq('club_id', user.clubId)
+  if (playerIds.length > 0) {
+    let evaluationIdQuery = supabase.from('evaluations').delete().in('player_id', playerIds)
+
+    if (user.role !== 'super_admin') {
+      evaluationIdQuery = evaluationIdQuery.eq('club_id', user.clubId)
+    }
+
+    const { error: evaluationIdDeleteError } = await evaluationIdQuery
+
+    if (evaluationIdDeleteError) {
+      console.error(evaluationIdDeleteError)
+      throw evaluationIdDeleteError
+    }
   }
 
-  const { error } = await query
+  let evaluationQuery = supabase.from('evaluations').delete().eq('player_name', playerName)
+
+  if (user.role !== 'super_admin') {
+    evaluationQuery = evaluationQuery.eq('club_id', user.clubId)
+  }
+
+  const { error } = await evaluationQuery
 
   if (error) {
     console.error(error)
@@ -2415,15 +2436,23 @@ export async function deletePlayer(playerName, user) {
   }
 
   if (user.role !== 'super_admin') {
-    const { error: playerDeleteError } = await supabase
-      .from('players')
-      .delete()
-      .eq('player_name', playerName)
-      .eq('club_id', user.clubId)
+    let playerDeleteQuery = supabase.from('players').delete().eq('club_id', user.clubId)
+
+    if (playerIds.length > 0) {
+      playerDeleteQuery = playerDeleteQuery.in('id', playerIds)
+    } else {
+      playerDeleteQuery = playerDeleteQuery.ilike('player_name', playerName)
+    }
+
+    const { data: deletedPlayers, error: playerDeleteError } = await playerDeleteQuery.select('id')
 
     if (playerDeleteError) {
       console.error(playerDeleteError)
       throw playerDeleteError
+    }
+
+    if (!deletedPlayers?.length) {
+      throw new Error('No player record was deleted. Check permissions or refresh the player profile.')
     }
 
     invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)

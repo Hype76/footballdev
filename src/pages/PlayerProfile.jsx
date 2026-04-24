@@ -400,7 +400,7 @@ export function PlayerProfile() {
   }
 
   const handleDeletePlayerRecord = async (playerId) => {
-    if (!window.confirm('Delete this player record? Saved assessments will remain in history.')) {
+    if (!window.confirm('Delete these player details only? Saved assessments remain in history, so the player can still appear on history pages.')) {
       return
     }
 
@@ -433,9 +433,11 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      await deletePlayer(routePlayerName, user)
+      await deletePlayer(routePlayerName, user, {
+        playerIds: players.map((player) => player.id),
+      })
       clearViewCaches()
-      navigate('/players')
+      navigate('/players', { replace: true })
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not delete this player.')
@@ -711,7 +713,7 @@ export function PlayerProfile() {
                             onClick={() => void handleDeletePlayerRecord(player.id)}
                             className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Delete Player Record
+                            Delete Details Only
                           </button>
                         ) : null}
                       </div>
