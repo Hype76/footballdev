@@ -31,6 +31,7 @@ const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'Add
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
+const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
 const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
@@ -466,6 +467,17 @@ export const router = createBrowserRouter([
             ),
             handle: {
               title: 'Platform Feedback',
+            },
+          },
+          {
+            path: 'information',
+            element: (
+              <PageSuspense>
+                <InformationPage />
+              </PageSuspense>
+            ),
+            handle: {
+              title: 'Information',
             },
           },
           {
