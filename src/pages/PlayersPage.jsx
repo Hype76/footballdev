@@ -206,7 +206,7 @@ export function PlayersPage() {
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Players</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{playerRows.length}</p>
@@ -233,8 +233,8 @@ export function PlayersPage() {
         title="All players"
         description="Use filters to find a player quickly, then open their profile for full history and rating trends."
       >
-        <div className="grid gap-4 md:grid-cols-3">
-          <label className="block md:col-span-2">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <label className="block lg:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Search</span>
             <input
               type="search"
@@ -279,8 +279,8 @@ export function PlayersPage() {
                 onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
                 className="w-full rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-left transition hover:bg-[var(--panel-soft)]"
               >
-                <div className="grid gap-4 md:grid-cols-6 md:items-center">
-                  <div className="md:col-span-2">
+                <div className="grid gap-4 lg:grid-cols-6 lg:items-center">
+                  <div className="lg:col-span-2">
                     <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -307,8 +307,8 @@ export function PlayersPage() {
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Last Seen</p>
                     <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatDate(player.latestDate)}</p>
                   </div>
-                  <div className="md:col-span-6">
-                    <span className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                  <div className="lg:col-span-6">
+                    <span className="inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] sm:w-auto">
                       Open Profile To Edit Or Delete
                     </span>
                   </div>

@@ -413,7 +413,7 @@ export function TeamManagementPage() {
         title="Create team"
         description="Teams become selectable in assessments once created here. You can add coach access from this page as well."
       >
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid gap-5 2xl:grid-cols-2">
           <form className="space-y-3" onSubmit={handleCreateTeam}>
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
@@ -436,7 +436,7 @@ export function TeamManagementPage() {
           </form>
 
           <form className="space-y-3" onSubmit={handleCreateCoach}>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach email</span>
                 <input
@@ -537,7 +537,7 @@ export function TeamManagementPage() {
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
                         <input
@@ -556,7 +556,7 @@ export function TeamManagementPage() {
                         type="button"
                         disabled={isSaving || String(teamNameDrafts[team.id] ?? team.name).trim() === team.name}
                         onClick={() => void handleTeamNameSave(team.id)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
                       >
                         Save Name
                       </button>
@@ -577,7 +577,7 @@ export function TeamManagementPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-4 grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
                   {users.map((member) => (
                     <label
                       key={`${team.id}:${member.id}`}
@@ -589,7 +589,7 @@ export function TeamManagementPage() {
                         onChange={(event) => void handleTeamStaffToggle(team.id, member.id, event.target.checked)}
                         className="h-4 w-4"
                       />
-                      <span>{member.email} ({getRoleLabel(member)})</span>
+                      <span className="min-w-0 break-words">{member.email} ({getRoleLabel(member)})</span>
                     </label>
                   ))}
                 </div>

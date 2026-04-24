@@ -60,7 +60,7 @@ export function EmailPreview({
 
   return (
     <div className="print-container" data-pdf-root>
-      <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-[24px] border border-[var(--border-color)] bg-white p-4 shadow-sm shadow-slate-200/40 sm:rounded-[28px] sm:p-6 lg:p-8">
+      <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-[22px] border border-[var(--border-color)] bg-white p-3 shadow-sm shadow-slate-200/40 sm:rounded-[28px] sm:p-6 lg:p-8">
         <div className="section flex flex-col gap-4 border-b border-[#e7ece3] pb-5 sm:gap-6 sm:pb-6 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">
@@ -74,7 +74,7 @@ export function EmailPreview({
             <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{clubName}</h2>
           </div>
 
-          <div className="inline-flex min-h-11 items-center rounded-2xl bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#4f6552]">
+          <div className="inline-flex min-h-11 items-center rounded-2xl bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#4f6552] md:shrink-0">
             Decision: {decision}
           </div>
         </div>
@@ -101,7 +101,7 @@ export function EmailPreview({
           </div>
         </div>
 
-        <div className="section mt-6 rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
+        <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
             {showScoring ? 'Summary' : 'Email Subject'}
           </p>
@@ -111,7 +111,7 @@ export function EmailPreview({
         </div>
 
         {showScoring ? (
-          <div className="section mt-6 rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
+          <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Evaluation Responses</p>
 
             {responseItems.length === 0 ? (
@@ -130,7 +130,7 @@ export function EmailPreview({
             )}
           </div>
         ) : (
-          <div className="section mt-6 rounded-[24px] border border-[#e7ece3] bg-[#fbfcf9] p-5">
+          <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Parent Message</p>
             <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
               {emailBody || 'No parent email template is available for this assessment yet.'}

@@ -353,7 +353,7 @@ export function PlatformAdminPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           ['Clubs', stats?.totals?.clubs ?? 0],
           ['Adult users', stats?.totals?.users ?? 0],
@@ -375,7 +375,7 @@ export function PlatformAdminPage() {
         title="Manage clubs"
         description="Create clubs, suspend access, reactivate access, or delete unused club workspaces."
       >
-        <form onSubmit={handleCreateClub} className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+        <form onSubmit={handleCreateClub} className="grid gap-4 xl:grid-cols-[1fr_1fr_1fr_auto] xl:items-end">
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Club name</span>
             <input
@@ -434,7 +434,7 @@ export function PlatformAdminPage() {
 
               return (
                 <div key={item.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
-                  <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+                  <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
                     <div>
                       <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{item.message}</p>
                       <p className="mt-3 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -528,7 +528,7 @@ export function PlatformAdminPage() {
           <div className="space-y-4">
             {visibleClubs.map((club) => (
               <div key={club.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <p className="text-lg font-semibold text-[var(--text-primary)]">{club.name}</p>
@@ -572,7 +572,7 @@ export function PlatformAdminPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="grid gap-2 text-sm sm:grid-cols-4 lg:min-w-[620px]">
+                  <div className="grid w-full gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 2xl:max-w-[620px]">
                     <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Users</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.userCount}</p>

@@ -258,7 +258,7 @@ export function AddPlayerPage() {
             No teams are available yet. Create a team first, then add players into Trial or Squad.
           </div>
         ) : (
-          <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={handleAddPlayer}>
+          <form className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4" onSubmit={handleAddPlayer}>
             <label className="block xl:col-span-2">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
               <input
@@ -315,7 +315,7 @@ export function AddPlayerPage() {
               </button>
             </div>
 
-            <div className="xl:col-span-2">
+            <div className="lg:col-span-2 xl:col-span-2">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="block text-sm font-semibold text-[var(--text-primary)]">Parent Contacts</span>
                 <button
@@ -361,7 +361,7 @@ export function AddPlayerPage() {
               </div>
             </div>
 
-            <div className="xl:col-span-3">
+            <div className="lg:col-span-2 xl:col-span-4">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
@@ -375,7 +375,7 @@ export function AddPlayerPage() {
                 <button
                   type="button"
                   onClick={handleAddPosition}
-                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                 >
                   Add Position
                 </button>
@@ -411,7 +411,7 @@ export function AddPlayerPage() {
             No player records yet.
           </div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {recentPlayers.map((player) => (
               <Link
                 key={player.id}

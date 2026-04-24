@@ -241,7 +241,7 @@ export function UserSettingsPage() {
             description="Change your password while signed in, or send yourself a reset email."
           >
           <form className="space-y-4" onSubmit={handlePasswordSubmit}>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">New password</span>
                 <input
@@ -287,7 +287,7 @@ export function UserSettingsPage() {
               <span>Show password</span>
             </label>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="submit"
                 disabled={isSavingPassword || !passwordData.password || !passwordData.confirmPassword}

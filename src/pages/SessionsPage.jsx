@@ -449,7 +449,7 @@ export function SessionsPage() {
             No teams are available yet. Create a team first, then sessions can be planned.
           </div>
         ) : (
-          <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={handleCreateSession}>
+          <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={handleCreateSession}>
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
               <select
@@ -559,7 +559,7 @@ export function SessionsPage() {
               </select>
             </label>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               {filteredPlayers.map((player) => (
                 <label
                   key={player.id}
@@ -622,7 +622,7 @@ export function SessionsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">
                   {selectedSession?.title || selectedSession?.team || 'Session'}
@@ -631,21 +631,23 @@ export function SessionsPage() {
                   {(selectedSession?.sessionType === 'match' ? 'Match' : 'Training')} | {formatSessionDate(selectedSession?.sessionDate)}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleAssessAll}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
-              >
-                Assess All
-              </button>
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={() => void handleClearSessionPlayers()}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Clear Session
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleAssessAll}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                >
+                  Assess All
+                </button>
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => void handleClearSessionPlayers()}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Clear Session
+                </button>
+              </div>
             </div>
 
             {sessionPlayers.map((player) => (

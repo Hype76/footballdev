@@ -418,7 +418,7 @@ export function FormBuilderPage() {
         description="Every club starts from this template. These fields become your editable default form once loaded."
       >
         <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             {defaultTemplateFields.map((field) => (
               <div key={field.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{field.label}</p>
@@ -449,7 +449,7 @@ export function FormBuilderPage() {
         title="Add field"
         description="Create fast-scoring dropdowns, text fields, or custom select fields for your club form."
       >
-        <form className="grid gap-4 md:grid-cols-2" onSubmit={handleAddField}>
+        <form className="grid gap-4 lg:grid-cols-2" onSubmit={handleAddField}>
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Label</span>
             <input
@@ -578,8 +578,8 @@ export function FormBuilderPage() {
                   key={field.id}
                   className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
                 >
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                    <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+                    <div className="grid gap-4 lg:grid-cols-2">
                       {field.isDefault ? (
                         <>
                           <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
@@ -650,7 +650,7 @@ export function FormBuilderPage() {
                       )}
                     </div>
 
-                    <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                    <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:flex-col">
                       <button
                         type="button"
                         disabled={isSaving || fieldIndex === 0}

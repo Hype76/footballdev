@@ -540,7 +540,7 @@ export function PlayerProfile() {
         />
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Player name</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{routePlayerName}</p>
@@ -571,7 +571,7 @@ export function PlayerProfile() {
           </div>
         ) : (
           <div className="space-y-5">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {ratingTrend.map((evaluation) => {
                 const scorePercent = Math.max(0, Math.min(100, (Number(evaluation.averageScore) / ratingTrendMax) * 100))
 
@@ -598,7 +598,7 @@ export function PlayerProfile() {
             {fieldMovement.length > 0 ? (
               <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Field movement</p>
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {fieldMovement.map((item) => (
                     <div key={item.label} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{item.label}</p>
@@ -634,7 +634,7 @@ export function PlayerProfile() {
               return (
                 <div key={player.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                   {isEditing ? (
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
                         <input
@@ -676,7 +676,7 @@ export function PlayerProfile() {
                             Add Parent
                           </button>
                         </div>
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div className="grid gap-3 lg:grid-cols-2">
                           {normalizeParentContacts(draft.parentContacts, {
                             parentName: draft.parentName,
                             parentEmail: draft.parentEmail,
@@ -746,7 +746,7 @@ export function PlayerProfile() {
                           <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">No positions entered.</p>
                         )}
                       </div>
-                      <div className="flex items-end gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                         <button
                           type="button"
                           disabled={isSavingPlayer}
@@ -766,8 +766,8 @@ export function PlayerProfile() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                      <div className="grid flex-1 gap-3 md:grid-cols-2 2xl:grid-cols-5">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Section</p>
                           <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.section}</p>
@@ -899,7 +899,7 @@ export function PlayerProfile() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto] lg:items-end">
+                  <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto] xl:items-end">
                     <label className="block">
                       <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
                       <select
@@ -935,7 +935,7 @@ export function PlayerProfile() {
                         />
                       </label>
                     ) : (
-                      <div className="hidden lg:block" />
+                      <div className="hidden xl:block" />
                     )}
                     <div>
                       <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">PDF recipients</span>
@@ -972,7 +972,7 @@ export function PlayerProfile() {
                       onClick={() => void handleDownloadPdf(evaluation, 'scored')}
                       disabled={pdfLoadingId === `${evaluation.id}:scored` || !canShare}
                       title="Download scored PDF"
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {pdfLoadingId === `${evaluation.id}:scored` ? 'Preparing...' : 'PDF With Scores'}
                     </button>
@@ -981,7 +981,7 @@ export function PlayerProfile() {
                       onClick={() => void handleDownloadPdf(evaluation, 'email')}
                       disabled={pdfLoadingId === `${evaluation.id}:email` || !canShare}
                       title="Download email template PDF"
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
                     </button>
