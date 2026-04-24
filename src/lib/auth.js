@@ -100,7 +100,7 @@ export function canManageFormFields(user) {
 }
 
 export function canManageClubSettings(user) {
-  return isSuperAdmin(user) || Number(user?.roleRank ?? 0) >= 50
+  return isSuperAdmin(user) || Number(user?.roleRank ?? 0) > 50
 }
 
 export function canDeletePlayer(user) {
