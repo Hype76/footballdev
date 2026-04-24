@@ -1156,6 +1156,71 @@ export async function updateClubSettings({ clubId, data }) {
   }
 }
 
+function appendLogoCacheBuster(url) {
+  const normalizedUrl = String(url ?? '').trim()
+
+  if (!normalizedUrl) {
+    return ''
+  }
+
+  const separator = normalizedUrl.includes('?') ? '&' : '?'
+  return `${normalizedUrl}${separator}v=${Date.now()}`
+}
+
+function isStoredClubLogoUrl(clubId, logoUrl) {
+  const normalizedLogoUrl = String(logoUrl ?? '').trim()
+
+  if (!clubId || !normalizedLogoUrl) {
+    return false
+  }
+
+  try {
+    const parsedUrl = new URL(normalizedLogoUrl)
+    return parsedUrl.pathname.includes(`/storage/v1/object/public/${CLUB_LOGOS_BUCKET}/${clubId}/logo.png`)
+  } catch {
+    return false
+  }
+}
+
+async function uploadClubLogoBlob({ clubId, blob }) {
+  if (!clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  if (!(blob instanceof Blob)) {
+    throw new Error('A logo image is required.')
+  }
+
+  if (!String(blob.type ?? '').toLowerCase().startsWith('image/')) {
+    throw new Error('Logo must be an image file.')
+  }
+
+  if (blob.size > MAX_LOGO_FILE_SIZE_BYTES) {
+    throw new Error('Logo must be 2MB or smaller.')
+  }
+
+  const objectPath = `${clubId}/logo.png`
+  const { error: uploadError } = await supabase.storage.from(CLUB_LOGOS_BUCKET).upload(objectPath, blob, {
+    cacheControl: '3600',
+    contentType: blob.type || 'image/png',
+    upsert: true,
+  })
+
+  if (uploadError) {
+    console.error(uploadError)
+    throw uploadError
+  }
+
+  const { data } = supabase.storage.from(CLUB_LOGOS_BUCKET).getPublicUrl(objectPath)
+  const publicUrl = String(data?.publicUrl ?? '').trim()
+
+  if (!publicUrl) {
+    throw new Error('Could not generate logo URL.')
+  }
+
+  return appendLogoCacheBuster(publicUrl)
+}
+
 export async function uploadClubLogo({ clubId, file }) {
   if (!clubId) {
     throw new Error('Club ID is required.')
@@ -1173,25 +1238,42 @@ export async function uploadClubLogo({ clubId, file }) {
     throw new Error('Logo must be 2MB or smaller.')
   }
 
-  const objectPath = `${clubId}/logo.png`
-  const { error: uploadError } = await supabase.storage.from(CLUB_LOGOS_BUCKET).upload(objectPath, file, {
-    cacheControl: '3600',
-    upsert: true,
+  return uploadClubLogoBlob({ clubId, blob: file })
+}
+
+export async function importClubLogoFromUrl({ clubId, logoUrl }) {
+  const normalizedLogoUrl = String(logoUrl ?? '').trim()
+
+  if (!clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  if (!normalizedLogoUrl) {
+    return ''
+  }
+
+  if (isStoredClubLogoUrl(clubId, normalizedLogoUrl)) {
+    return normalizedLogoUrl
+  }
+
+  let parsedUrl
+
+  try {
+    parsedUrl = new URL(normalizedLogoUrl)
+  } catch {
+    throw new Error('Enter a valid logo URL.')
+  }
+
+  const response = await fetch(parsedUrl.toString(), {
+    mode: 'cors',
   })
 
-  if (uploadError) {
-    console.error(uploadError)
-    throw uploadError
+  if (!response.ok) {
+    throw new Error(`Logo download failed with status ${response.status}.`)
   }
 
-  const { data } = supabase.storage.from(CLUB_LOGOS_BUCKET).getPublicUrl(objectPath)
-  const publicUrl = String(data?.publicUrl ?? '').trim()
-
-  if (!publicUrl) {
-    throw new Error('Could not generate logo URL.')
-  }
-
-  return publicUrl
+  const blob = await response.blob()
+  return uploadClubLogoBlob({ clubId, blob })
 }
 
 export async function getClubRoles(user) {

@@ -8,6 +8,7 @@ import { canManageClubSettings, useAuth } from '../lib/auth.js'
 import {
   MAX_LOGO_FILE_SIZE_BYTES,
   getClubSettings,
+  importClubLogoFromUrl,
   readViewCache,
   readViewCacheValue,
   updateClubSettings,
@@ -169,9 +170,18 @@ export function ClubSettingsPage() {
     setErrorMessage('')
 
     try {
+      const storedLogoUrl = formData.logoUrl
+        ? await importClubLogoFromUrl({
+            clubId: user.clubId,
+            logoUrl: formData.logoUrl,
+          })
+        : ''
       const updatedClub = await updateClubSettings({
         clubId: user.clubId,
-        data: formData,
+        data: {
+          ...formData,
+          logoUrl: storedLogoUrl,
+        },
       })
 
       setFormData({
@@ -190,6 +200,9 @@ export function ClubSettingsPage() {
       })
       updateCurrentClubDetails(updatedClub)
       setIsSaved(true)
+      if (formData.logoUrl && storedLogoUrl !== formData.logoUrl) {
+        setUploadSuccessMessage('Logo imported and stored for PDF use')
+      }
     } catch (error) {
       console.error(error)
       setIsSaved(false)
