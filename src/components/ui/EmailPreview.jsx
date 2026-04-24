@@ -16,7 +16,18 @@ function formatSessionForDisplay(value) {
     return 'Not scheduled'
   }
 
-  const parsedDate = new Date(normalizedValue)
+  const parsedSourceDate = new Date(normalizedValue)
+  const dateOnlyValue = /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)
+    ? normalizedValue
+    : Number.isNaN(parsedSourceDate.getTime())
+      ? ''
+      : parsedSourceDate.toISOString().slice(0, 10)
+
+  if (!dateOnlyValue) {
+    return normalizedValue
+  }
+
+  const parsedDate = new Date(`${dateOnlyValue}T00:00:00`)
 
   if (Number.isNaN(parsedDate.getTime())) {
     return normalizedValue
@@ -27,8 +38,6 @@ function formatSessionForDisplay(value) {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
   }).format(parsedDate)
 }
 

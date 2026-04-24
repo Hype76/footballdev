@@ -35,6 +35,7 @@ const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFo
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
 const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx'), 'PlatformAdminPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
+const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
 const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
 const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx'), 'UserSettingsPage')
@@ -437,6 +438,17 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Add Player',
+                },
+              },
+              {
+                path: 'sessions',
+                element: (
+                  <PageSuspense>
+                    <SessionsPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Sessions',
                 },
               },
               {

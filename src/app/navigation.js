@@ -8,6 +8,10 @@ export const primaryNavigation = [
     path: '/teams',
   },
   {
+    label: 'Sessions',
+    path: '/sessions',
+  },
+  {
     label: 'Add Player',
     path: '/add-player',
   },

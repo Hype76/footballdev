@@ -490,6 +490,39 @@ function normalizePlayerRow(row) {
   }
 }
 
+function normalizeAssessmentSessionRow(row) {
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    teamId: row.team_id ?? row.teamId ?? '',
+    team: String(row.team ?? '').trim(),
+    opponent: String(row.opponent ?? '').trim(),
+    sessionDate: String(row.session_date ?? row.sessionDate ?? '').trim(),
+    title: String(row.title ?? '').trim(),
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
+function normalizeAssessmentSessionPlayerRow(row) {
+  const playerRow = Array.isArray(row.players) ? row.players[0] : row.players
+
+  return {
+    id: row.id,
+    sessionId: row.session_id ?? row.sessionId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    playerName: String(row.player_name ?? playerRow?.player_name ?? row.playerName ?? '').trim(),
+    section: String(row.section ?? playerRow?.section ?? 'Trial').trim() || 'Trial',
+    team: String(row.team ?? playerRow?.team ?? '').trim(),
+    parentName: String(row.parent_name ?? playerRow?.parent_name ?? '').trim(),
+    parentEmail: String(row.parent_email ?? playerRow?.parent_email ?? '').trim(),
+    notes: String(row.notes ?? '').trim(),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
 function mapPlayerToRow(player, user) {
   return {
     club_id: player.clubId ?? user?.clubId ?? '',
@@ -674,6 +707,21 @@ async function seedDefaultFormFields() {
     console.error(error)
     throw error
   }
+}
+
+function normalizeDateOnly(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue) {
+    return ''
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return normalizedValue
+  }
+
+  const parsedDate = new Date(normalizedValue)
+  return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
 }
 
 export async function seedDefaultClubRolesForClub(clubId) {
@@ -2004,6 +2052,172 @@ export async function deletePlayerRecord({ user, playerId }) {
     entityType: 'player',
     entityId: playerId,
   })
+}
+
+export async function getAssessmentSessions({ user } = {}) {
+  if (!user?.clubId || user.role === 'super_admin') {
+    return []
+  }
+
+  return getCachedResource(`assessment-sessions:${user.clubId}:${user.id}:${user.roleRank}`, async () => {
+    const { data, error } = await supabase
+      .from('assessment_sessions')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .order('session_date', { ascending: false })
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map(normalizeAssessmentSessionRow)
+  })
+}
+
+export async function createAssessmentSession({ user, session }) {
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to create sessions.')
+  }
+
+  const sessionDate = normalizeDateOnly(session.sessionDate)
+
+  if (!sessionDate) {
+    throw new Error('Session date is required.')
+  }
+
+  const teamName = String(session.team ?? '').trim()
+  const opponentName = String(session.opponent ?? '').trim()
+
+  const { data, error } = await supabase
+    .from('assessment_sessions')
+    .insert({
+      club_id: user.clubId,
+      team_id: session.teamId || null,
+      team: teamName,
+      opponent: opponentName,
+      session_date: sessionDate,
+      title: opponentName ? `${teamName} vs ${opponentName}` : teamName,
+      created_by: user.id,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_created',
+    entityType: 'assessment_session',
+    entityId: data.id,
+    metadata: {
+      team: teamName,
+      opponent: opponentName,
+      sessionDate,
+    },
+  })
+
+  return normalizeAssessmentSessionRow(data)
+}
+
+export async function getAssessmentSessionPlayers({ user, sessionId } = {}) {
+  if (!user?.clubId || !sessionId || user.role === 'super_admin') {
+    return []
+  }
+
+  return getCachedResource(`assessment-session-players:${sessionId}`, async () => {
+    const { data, error } = await supabase
+      .from('assessment_session_players')
+      .select(
+        '*, players:player_id (player_name, section, team, parent_name, parent_email)',
+      )
+      .eq('session_id', sessionId)
+      .order('player_name', { ascending: true })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map(normalizeAssessmentSessionPlayerRow)
+  })
+}
+
+export async function addPlayersToAssessmentSession({ user, sessionId, players }) {
+  if (!user?.clubId || !sessionId) {
+    throw new Error('Session and club are required.')
+  }
+
+  const normalizedPlayers = (players ?? []).filter((player) => player?.id)
+
+  if (normalizedPlayers.length === 0) {
+    return getAssessmentSessionPlayers({ user, sessionId })
+  }
+
+  const { data, error } = await supabase
+    .from('assessment_session_players')
+    .upsert(
+      normalizedPlayers.map((player) => ({
+        session_id: sessionId,
+        player_id: player.id,
+        player_name: player.playerName,
+        section: player.section,
+        team: player.team,
+        parent_name: player.parentName,
+        parent_email: player.parentEmail,
+      })),
+      {
+        onConflict: 'session_id,player_id',
+      },
+    )
+    .select('*, players:player_id (player_name, section, team, parent_name, parent_email)')
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_players_added',
+    entityType: 'assessment_session',
+    entityId: sessionId,
+    metadata: {
+      playerCount: normalizedPlayers.length,
+    },
+  })
+
+  return (data ?? []).map(normalizeAssessmentSessionPlayerRow)
+}
+
+export async function updateAssessmentSessionPlayer({ user, sessionPlayerId, notes }) {
+  if (!user?.clubId || !sessionPlayerId) {
+    throw new Error('Session player is required.')
+  }
+
+  const { data, error } = await supabase
+    .from('assessment_session_players')
+    .update({
+      notes: String(notes ?? '').trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sessionPlayerId)
+    .select('*, players:player_id (player_name, section, team, parent_name, parent_email)')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-session-players:${data.session_id}`)
+  return normalizeAssessmentSessionPlayerRow(data)
 }
 
 export async function createEvaluation(data) {

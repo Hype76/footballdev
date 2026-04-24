@@ -168,13 +168,17 @@ function normalizeSessionValue(value) {
     return ''
   }
 
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return normalizedValue
+  }
+
   const parsedDate = new Date(normalizedValue)
 
   if (Number.isNaN(parsedDate.getTime())) {
     return ''
   }
 
-  return parsedDate.toISOString()
+  return parsedDate.toISOString().slice(0, 10)
 }
 
 function formatSessionForInput(value) {
@@ -184,11 +188,7 @@ function formatSessionForInput(value) {
     return ''
   }
 
-  const date = new Date(normalizedValue)
-  const timezoneOffset = date.getTimezoneOffset()
-  const localDate = new Date(date.getTime() - timezoneOffset * 60 * 1000)
-
-  return localDate.toISOString().slice(0, 16)
+  return normalizedValue
 }
 
 function formatSessionForDisplay(value) {
@@ -203,9 +203,27 @@ function formatSessionForDisplay(value) {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(normalizedValue))
+  }).format(new Date(`${normalizedValue}T00:00:00`))
+}
+
+function parseAssessmentQueue(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue) {
+    return []
+  }
+
+  try {
+    const parsedValue = JSON.parse(normalizedValue)
+    return Array.isArray(parsedValue)
+      ? parsedValue.map((item) => String(item ?? '').trim()).filter(Boolean)
+      : []
+  } catch {
+    return normalizedValue
+      .split('|')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
 }
 
 function buildPreviewSummary({ comments, formResponses }) {
@@ -804,6 +822,25 @@ export function CreateEvaluationPage() {
         sessionStorage.removeItem(draftStorageKey)
       }
 
+      const assessmentQueue = parseAssessmentQueue(searchParams.get('queue'))
+      const currentQueueIndex = assessmentQueue.findIndex(
+        (playerName) => normalizePlayerName(playerName) === normalizedPlayerName,
+      )
+      const nextQueuedPlayer =
+        currentQueueIndex >= 0
+          ? assessmentQueue.slice(currentQueueIndex + 1).find(Boolean)
+          : assessmentQueue.find((playerName) => normalizePlayerName(playerName) !== normalizedPlayerName)
+
+      if (nextQueuedPlayer) {
+        const nextSearchParams = new URLSearchParams(searchParams)
+        nextSearchParams.set('player', nextQueuedPlayer)
+        nextSearchParams.set('team', nextTeamValue)
+        nextSearchParams.set('session', nextSessionValue)
+        nextSearchParams.set('section', EVALUATION_SECTIONS.includes(querySection) ? querySection : formData.section)
+        navigate(`/assess-player?${nextSearchParams.toString()}`)
+        return
+      }
+
       setLastSavedPlayerName(normalizedPlayerName)
       setFormData(
         createInitialFormData(user, {
@@ -1007,13 +1044,13 @@ export function CreateEvaluationPage() {
                   <label className="block">
                     <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session</span>
                     <input
-                      type="datetime-local"
+                      type="date"
                       name="session"
                       value={formatSessionForInput(formData.session)}
                       onChange={handleFieldChange}
                       className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
-                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Stored as ISO. Current session: {readableSession}</p>
+                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Current session: {readableSession}</p>
                   </label>
 
                   <label className="block">
