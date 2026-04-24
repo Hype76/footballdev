@@ -2,6 +2,7 @@ import { Component, Suspense, lazy } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
+  canCreateEvaluation,
   canManageClubSettings,
   canManageFormFields,
   canManageTeamSettings,
@@ -98,6 +99,34 @@ function isClubSuspended(user) {
   return user?.clubStatus === 'suspended'
 }
 
+function getDefaultWorkspacePath(user) {
+  if (!user) {
+    return '/'
+  }
+
+  if (isSuperAdmin(user)) {
+    return '/platform-admin'
+  }
+
+  if (isClubSuspended(user)) {
+    return '/'
+  }
+
+  if (canManageTeamSettings(user)) {
+    return '/teams'
+  }
+
+  if (canManageUsers(user)) {
+    return '/user-access'
+  }
+
+  return '/add-player'
+}
+
+function RedirectToWorkspaceHome({ user }) {
+  return <Navigate to={getDefaultWorkspacePath(user)} replace />
+}
+
 function RouteErrorFallback({ error }) {
   const isChunkError = isDynamicImportError(error)
   const title = isChunkError ? 'App update needed' : 'This page could not load'
@@ -181,11 +210,7 @@ function WorkspaceHome() {
     return <ClubSuspendedState />
   }
 
-  if (canManageUsers(user)) {
-    return <Navigate to="/teams" replace />
-  }
-
-  return <Navigate to="/add-player" replace />
+  return <RedirectToWorkspaceHome user={user} />
 }
 
 function RequireUser() {
@@ -232,6 +257,45 @@ function RequireClubWorkspace() {
 
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
+  }
+
+  return <Outlet />
+}
+
+function RequirePlayerWorkflowAccess() {
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
+  }
+
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
+  }
+
+  if (!canCreateEvaluation(user)) {
+    return <RedirectToWorkspaceHome user={user} />
   }
 
   return <Outlet />
@@ -284,7 +348,7 @@ function RequireFormBuilderAccess() {
   }
 
   if (!canManageFormFields(user)) {
-    return <Navigate to="/" replace />
+    return <RedirectToWorkspaceHome user={user} />
   }
 
   return <Outlet />
@@ -323,7 +387,7 @@ function RequireClubSettingsAccess() {
   }
 
   if (!canManageClubSettings(user)) {
-    return <Navigate to="/" replace />
+    return <RedirectToWorkspaceHome user={user} />
   }
 
   return <Outlet />
@@ -362,7 +426,7 @@ function RequireUserAccess() {
   }
 
   if (!canManageUsers(user)) {
-    return <Navigate to="/" replace />
+    return <RedirectToWorkspaceHome user={user} />
   }
 
   return <Outlet />
@@ -401,7 +465,38 @@ function RequireTeamSettingsAccess() {
   }
 
   if (!canManageTeamSettings(user)) {
-    return <Navigate to="/" replace />
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequirePlatformAdminAccess() {
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
+  }
+
+  if (!isSuperAdmin(user)) {
+    return <RedirectToWorkspaceHome user={user} />
   }
 
   return <Outlet />
@@ -448,15 +543,20 @@ export const router = createBrowserRouter([
             element: <Navigate to="/" replace />,
           },
           {
-            path: 'platform-admin',
-            element: (
-              <PageSuspense>
-                <PlatformAdminPage />
-              </PageSuspense>
-            ),
-            handle: {
-              title: 'Platform Admin',
-            },
+            element: <RequirePlatformAdminAccess />,
+            children: [
+              {
+                path: 'platform-admin',
+                element: (
+                  <PageSuspense>
+                    <PlatformAdminPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Platform Admin',
+                },
+              },
+            ],
           },
           {
             path: 'platform-feedback',
@@ -495,81 +595,86 @@ export const router = createBrowserRouter([
             element: <RequireClubWorkspace />,
             children: [
               {
-                path: 'add-player',
-                element: (
-                  <PageSuspense>
-                    <AddPlayerPage />
-                  </PageSuspense>
-                ),
-                handle: {
-                  title: 'Add Player',
-                },
-              },
-              {
-                path: 'sessions',
-                element: (
-                  <PageSuspense>
-                    <SessionsPage />
-                  </PageSuspense>
-                ),
-                handle: {
-                  title: 'Sessions',
-                },
-              },
-              {
-                path: 'players',
-                element: (
-                  <PageSuspense>
-                    <PlayersPage />
-                  </PageSuspense>
-                ),
-                handle: {
-                  title: 'Players',
-                },
-              },
-              {
-                path: 'create-evaluation',
-                element: (
-                  <PageSuspense>
-                    <CreateEvaluationPage />
-                  </PageSuspense>
-                ),
-                handle: {
-                  title: 'Create Evaluation',
-                },
-              },
-              {
-                path: 'assess-player',
-                element: (
-                  <PageSuspense>
-                    <CreateEvaluationPage />
-                  </PageSuspense>
-                ),
-                handle: {
-                  title: 'Assess Player',
-                },
-              },
-              {
-                path: 'create',
-                element: (
-                  <PageSuspense>
-                    <CreateEvaluationPage />
-                  </PageSuspense>
-                ),
-                handle: {
-                  title: 'Create Evaluation',
-                },
-              },
-              {
-                path: 'player/:id',
-                element: (
-                  <PageSuspense>
-                    <PlayerProfile />
-                  </PageSuspense>
-                ),
-                handle: {
-                  title: 'Player Profile',
-                },
+                element: <RequirePlayerWorkflowAccess />,
+                children: [
+                  {
+                    path: 'add-player',
+                    element: (
+                      <PageSuspense>
+                        <AddPlayerPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Add Player',
+                    },
+                  },
+                  {
+                    path: 'sessions',
+                    element: (
+                      <PageSuspense>
+                        <SessionsPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Sessions',
+                    },
+                  },
+                  {
+                    path: 'players',
+                    element: (
+                      <PageSuspense>
+                        <PlayersPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Players',
+                    },
+                  },
+                  {
+                    path: 'create-evaluation',
+                    element: (
+                      <PageSuspense>
+                        <CreateEvaluationPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Create Evaluation',
+                    },
+                  },
+                  {
+                    path: 'assess-player',
+                    element: (
+                      <PageSuspense>
+                        <CreateEvaluationPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Assess Player',
+                    },
+                  },
+                  {
+                    path: 'create',
+                    element: (
+                      <PageSuspense>
+                        <CreateEvaluationPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Create Evaluation',
+                    },
+                  },
+                  {
+                    path: 'player/:id',
+                    element: (
+                      <PageSuspense>
+                        <PlayerProfile />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Player Profile',
+                    },
+                  },
+                ],
               },
             ],
           },
