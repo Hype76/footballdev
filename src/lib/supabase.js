@@ -604,6 +604,19 @@ function normalizePlatformFeedbackRow(row) {
   const clubRow = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
   const userRow = Array.isArray(row.users) ? row.users[0] : row.users
   const votes = Array.isArray(row.platform_feedback_votes) ? row.platform_feedback_votes : []
+  const commentRows = Array.isArray(row.platform_feedback_comments) ? row.platform_feedback_comments : []
+  const comments = commentRows.map((comment) => {
+    const commentUser = Array.isArray(comment.users) ? comment.users[0] : comment.users
+
+    return {
+      id: comment.id,
+      feedbackId: comment.feedback_id ?? comment.feedbackId ?? '',
+      createdBy: comment.created_by ?? comment.createdBy ?? '',
+      createdByEmail: String(commentUser?.email ?? comment.createdByEmail ?? '').trim(),
+      message: String(comment.message ?? '').trim(),
+      createdAt: comment.created_at ?? comment.createdAt ?? '',
+    }
+  }).filter((comment) => comment.message)
 
   return {
     id: row.id,
@@ -614,6 +627,7 @@ function normalizePlatformFeedbackRow(row) {
     message: String(row.message ?? '').trim(),
     status: String(row.status ?? 'open').trim() || 'open',
     adminNote: String(row.admin_note ?? row.adminNote ?? '').trim(),
+    comments,
     voteCount: Number(row.vote_count ?? row.voteCount ?? votes.length ?? 0),
     hasVoted: Boolean(row.has_voted ?? row.hasVoted ?? false),
     createdAt: row.created_at ?? row.createdAt ?? '',
@@ -2904,8 +2918,8 @@ export async function getPlatformFeedback(user) {
   const cacheKey = user.role === 'super_admin' ? 'platform-feedback:admin' : `platform-feedback:${user.id}:${user.clubId || 'platform'}`
   const selectFields =
     user.role === 'super_admin'
-      ? 'id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id)'
-      : 'id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id)'
+      ? 'id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, message, created_at, users:created_by (email))'
+      : 'id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, message, created_at, users:created_by (email))'
 
   return getCachedResource(cacheKey, async () => {
     const { data, error } = await supabase
@@ -3021,9 +3035,7 @@ export async function updatePlatformFeedback({ user, feedbackId, data }) {
     payload.status = String(data.status ?? 'open').trim() || 'open'
   }
 
-  if (data.adminNote !== undefined) {
-    payload.admin_note = String(data.adminNote ?? '').trim()
-  }
+  const adminComment = String(data.adminComment ?? data.adminNote ?? '').trim()
 
   payload.updated_at = new Date().toISOString()
 
@@ -3031,12 +3043,25 @@ export async function updatePlatformFeedback({ user, feedbackId, data }) {
     .from('platform_feedback')
     .update(payload)
     .eq('id', feedbackId)
-    .select('id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id)')
+    .select('id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, message, created_at, users:created_by (email))')
     .single()
 
   if (error) {
     console.error(error)
     throw error
+  }
+
+  if (adminComment) {
+    const { error: commentError } = await supabase.from('platform_feedback_comments').insert({
+      feedback_id: feedbackId,
+      created_by: user.id,
+      message: adminComment,
+    })
+
+    if (commentError) {
+      console.error(commentError)
+      throw commentError
+    }
   }
 
   invalidateMemoryCacheByPrefix('platform-feedback:')

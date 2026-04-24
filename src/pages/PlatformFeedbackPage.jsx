@@ -223,6 +223,23 @@ export function PlatformFeedbackPage() {
                     {item.hasVoted ? 'Voted' : 'Vote'} ({item.voteCount})
                   </button>
                 </div>
+                {item.comments?.length ? (
+                  <div className="mt-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                      Platform comments
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {item.comments.map((comment) => (
+                        <div key={comment.id} className="rounded-2xl bg-[var(--panel-alt)] px-4 py-3">
+                          <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{comment.message}</p>
+                          <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                            Platform admin | {formatDate(comment.createdAt)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

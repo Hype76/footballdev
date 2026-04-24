@@ -128,7 +128,7 @@ export function PlatformAdminPage() {
           nextFeedbackItems.reduce((drafts, item) => {
             drafts[item.id] = {
               status: item.status,
-              adminNote: item.adminNote,
+              adminComment: '',
             }
             return drafts
           }, {}),
@@ -170,7 +170,7 @@ export function PlatformAdminPage() {
       ...current,
       [feedbackId]: {
         status: current[feedbackId]?.status ?? 'open',
-        adminNote: current[feedbackId]?.adminNote ?? '',
+        adminComment: current[feedbackId]?.adminComment ?? '',
         [fieldName]: value,
       },
     }))
@@ -181,7 +181,7 @@ export function PlatformAdminPage() {
   const handleSaveFeedback = async (item) => {
     const draft = feedbackDrafts[item.id] ?? {
       status: item.status,
-      adminNote: item.adminNote,
+      adminComment: '',
     }
 
     setUpdatingFeedbackId(item.id)
@@ -429,7 +429,7 @@ export function PlatformAdminPage() {
             {feedbackItems.map((item) => {
               const draft = feedbackDrafts[item.id] ?? {
                 status: item.status,
-                adminNote: item.adminNote,
+                adminComment: '',
               }
 
               return (
@@ -459,12 +459,29 @@ export function PlatformAdminPage() {
                     </div>
                   </div>
 
+                  {item.comments?.length ? (
+                    <div className="mt-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">Visible comments</p>
+                      <div className="mt-3 space-y-3">
+                        {item.comments.map((comment) => (
+                          <div key={comment.id} className="rounded-2xl bg-[var(--panel-alt)] px-4 py-3">
+                            <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{comment.message}</p>
+                            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                              Platform admin | {formatDate(comment.createdAt)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <label className="mt-4 block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Admin note</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Add public comment</span>
                     <textarea
                       rows="3"
-                      value={draft.adminNote}
-                      onChange={(event) => handleFeedbackDraftChange(item.id, 'adminNote', event.target.value)}
+                      value={draft.adminComment}
+                      onChange={(event) => handleFeedbackDraftChange(item.id, 'adminComment', event.target.value)}
+                      placeholder="This will be visible to users on the feedback board."
                       className="min-h-24 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
                   </label>
