@@ -712,6 +712,23 @@ export async function seedDefaultClubRolesForClub(clubId) {
     console.error(error)
     throw error
   }
+
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+
+  if (authError) {
+    console.error(authError)
+  }
+
+  const { error: clearFlagError } = await supabase.rpc('clear_own_force_password_change')
+
+  if (clearFlagError) {
+    console.error(clearFlagError)
+    throw clearFlagError
+  }
+
+  if (authData?.user?.id) {
+    invalidateMemoryCacheByPrefix(`user-profile:${authData.user.id}`)
+  }
 }
 
 async function fetchClubDetails(clubId) {
