@@ -12,10 +12,6 @@ export const primaryNavigation = [
     path: '/add-player',
   },
   {
-    label: 'Approvals',
-    path: '/approvals',
-  },
-  {
     label: 'Form Builder',
     path: '/form-builder',
   },

@@ -1,7 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { primaryNavigation } from '../../app/navigation.js'
 import {
-  canAccessApprovals,
   canCreateEvaluation,
   canManageClubSettings,
   canManageFormFields,
@@ -23,10 +22,6 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/assess-player' || item.path === '/add-player') {
       return canCreateEvaluation(user)
-    }
-
-    if (item.path === '/approvals') {
-      return canAccessApprovals(user)
     }
 
     if (item.path === '/user-access' || item.path === '/teams') {
@@ -73,7 +68,7 @@ export function Sidebar({ isOpen, onClose }) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Coaching Suite</p>
             <h1 className="mt-3 text-xl font-semibold tracking-tight text-[var(--text-primary)]">Football Operations</h1>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Evaluation, approvals, and structured club access.</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Evaluation and structured club access.</p>
           </div>
 
           <button

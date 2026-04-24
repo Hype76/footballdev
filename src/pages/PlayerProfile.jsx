@@ -4,7 +4,6 @@ import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { StatusBadge } from '../components/ui/StatusBadge.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
 import { buildParentEmailMailtoUrl, buildParentEmailTemplate } from '../lib/email-templates.js'
 import {
@@ -400,7 +399,7 @@ export function PlayerProfile() {
 
       <SectionCard
         title="Player details"
-        description="Edit section, team, and parent contact details here. Promotion to Squad requires an approved Trial evaluation when approval is enabled for the team."
+        description="Edit section, team, and parent contact details here."
       >
         {players.length === 0 ? (
           <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
@@ -606,14 +605,13 @@ export function PlayerProfile() {
                   key={evaluation.id}
                   className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5"
                 >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
                     <div>
                       <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">Decision: {evaluation.decision}</p>
                       {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
                       <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>
                     </div>
-                    <StatusBadge status={evaluation.status} />
                   </div>
 
                   <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -621,7 +619,7 @@ export function PlayerProfile() {
                       type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'scored')}
                       disabled={pdfLoadingId === `${evaluation.id}:scored` || !canShare}
-                      title={canShare ? 'Download scored PDF' : 'Requires manager approval'}
+                      title="Download scored PDF"
                       className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {pdfLoadingId === `${evaluation.id}:scored` ? 'Preparing...' : 'PDF With Scores'}
@@ -630,7 +628,7 @@ export function PlayerProfile() {
                       type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'email')}
                       disabled={pdfLoadingId === `${evaluation.id}:email` || !canShare}
-                      title={canShare ? 'Download email template PDF' : 'Requires manager approval'}
+                      title="Download email template PDF"
                       className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
@@ -638,7 +636,7 @@ export function PlayerProfile() {
                     {recipientEmail ? (
                       <button
                         type="button"
-                        title={canShare ? 'Send to parent' : 'Requires manager approval'}
+                        title="Send to parent"
                         disabled={!canShare}
                         onClick={(event) => handleSendToParent(event, evaluation, canShare, emailTemplate, recipientEmail)}
                         className={[

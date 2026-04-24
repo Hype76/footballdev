@@ -368,10 +368,6 @@ export function ClubSettingsPage() {
                 />
               </label>
 
-              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm leading-6 text-[var(--text-muted)] md:col-span-2">
-                Sharing approval is now managed per team from Team Management.
-              </div>
-
               <div className="md:col-span-2">
                 <button
                   type="submit"

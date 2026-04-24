@@ -2,7 +2,6 @@ import { Component, Suspense, lazy } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
-  canAccessApprovals,
   canManageClubSettings,
   canManageFormFields,
   canManageUsers,
@@ -27,7 +26,6 @@ function lazyRoute(importer, exportName) {
   })
 }
 
-const ApprovalsPage = lazyRoute(() => import('../pages/ApprovalsPage.jsx'), 'ApprovalsPage')
 const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'AddPlayerPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
@@ -178,6 +176,10 @@ function WorkspaceHome() {
     return <ClubSuspendedState />
   }
 
+  if (user.forcePasswordChange) {
+    return <Navigate to="/reset-password" replace />
+  }
+
   if (canManageUsers(user)) {
     return <Navigate to="/teams" replace />
   }
@@ -231,6 +233,10 @@ function RequireClubWorkspace() {
     return <ClubSuspendedState />
   }
 
+  if (user.forcePasswordChange) {
+    return <Navigate to="/reset-password" replace />
+  }
+
   return <Outlet />
 }
 
@@ -242,45 +248,6 @@ function PublicOnly() {
   }
 
   if (session?.user) {
-    return <Navigate to="/" replace />
-  }
-
-  return <Outlet />
-}
-
-function RequireManager() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
-
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (!canAccessApprovals(user)) {
     return <Navigate to="/" replace />
   }
 
@@ -323,6 +290,10 @@ function RequireFormBuilderAccess() {
     return <Navigate to="/" replace />
   }
 
+  if (user.forcePasswordChange) {
+    return <Navigate to="/reset-password" replace />
+  }
+
   return <Outlet />
 }
 
@@ -362,6 +333,10 @@ function RequireClubSettingsAccess() {
     return <Navigate to="/" replace />
   }
 
+  if (user.forcePasswordChange) {
+    return <Navigate to="/reset-password" replace />
+  }
+
   return <Outlet />
 }
 
@@ -399,6 +374,10 @@ function RequireUserAccess() {
 
   if (!canManageUsers(user)) {
     return <Navigate to="/" replace />
+  }
+
+  if (user.forcePasswordChange) {
+    return <Navigate to="/reset-password" replace />
   }
 
   return <Outlet />
@@ -581,22 +560,6 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Club Settings',
-                },
-              },
-            ],
-          },
-          {
-            element: <RequireManager />,
-            children: [
-              {
-                path: 'approvals',
-                element: (
-                  <PageSuspense>
-                    <ApprovalsPage />
-                  </PageSuspense>
-                ),
-                handle: {
-                  title: 'Approvals',
                 },
               },
             ],

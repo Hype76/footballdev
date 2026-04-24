@@ -6,8 +6,7 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
 import {
-  assignClubUserRole,
-  bulkCopyTeamStaff,
+  createStaffUserWithPassword,
   createClubRole,
   createTeam,
   deleteTeam,
@@ -25,6 +24,7 @@ import {
 
 const initialCoachForm = {
   email: '',
+  password: '',
   roleKey: 'coach',
   customRoleLabel: '',
 }
@@ -52,9 +52,6 @@ export function TeamManagementPage() {
   const [newTeamName, setNewTeamName] = useState('')
   const [teamNameDrafts, setTeamNameDrafts] = useState({})
   const [coachForm, setCoachForm] = useState(initialCoachForm)
-  const [copySourceTeamId, setCopySourceTeamId] = useState(() => readViewCacheValue(cacheKey, 'copySourceTeamId', ''))
-  const [copyTargetTeamIds, setCopyTargetTeamIds] = useState([])
-  const [copySelectedUserIds, setCopySelectedUserIds] = useState([])
   const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0 && roles.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -111,13 +108,11 @@ export function TeamManagementPage() {
         setAssignments(nextAssignments)
         setRoles(nextRoles)
         setTeamNameDrafts(Object.fromEntries(nextTeams.map((team) => [team.id, team.name])))
-        setCopySourceTeamId(nextTeams[0]?.id || '')
         writeViewCache(cacheKey, {
           teams: nextTeams,
           users: nextUsers.filter((member) => member.role !== 'super_admin'),
           assignments: nextAssignments,
           roles: nextRoles,
-          copySourceTeamId: nextTeams[0]?.id || '',
         })
 
         if (hasFailure) {
@@ -148,8 +143,6 @@ export function TeamManagementPage() {
     [assignments, teams],
   )
 
-  const sourceTeamStaffIds =
-    teamAssignments.find((team) => team.id === copySourceTeamId)?.staffIds ?? []
   const assignableRoles = useMemo(
     () => roles.filter((role) => canAssignRole(user, role)),
     [roles, user],
@@ -161,7 +154,6 @@ export function TeamManagementPage() {
       users,
       assignments,
       roles,
-      copySourceTeamId,
       ...nextState,
     })
   }
@@ -186,7 +178,6 @@ export function TeamManagementPage() {
         const nextTeams = [...current, createdTeam].sort((left, right) => left.name.localeCompare(right.name))
         writeTeamCache({
           teams: nextTeams,
-          copySourceTeamId: nextTeams[0]?.id || '',
         })
         return nextTeams
       })
@@ -266,19 +257,21 @@ export function TeamManagementPage() {
         throw new Error('You cannot assign that role.')
       }
 
-      await assignClubUserRole({
+      await createStaffUserWithPassword({
         user,
         email: coachForm.email,
+        password: coachForm.password,
         role: selectedRole,
       })
       await refreshUsersAndRoles()
       setCoachForm({
         email: '',
+        password: '',
         roleKey: selectedRole.roleKey || 'coach',
         customRoleLabel: '',
       })
       setMessage('Coach access created.')
-      showToast({ title: 'Coach access created', message: `${coachForm.email} can now join with the selected role.` })
+      showToast({ title: 'Coach access created', message: `${coachForm.email} can now log in and will be asked to change password.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not create coach access.')
@@ -394,71 +387,12 @@ export function TeamManagementPage() {
     }
   }
 
-  const handleTeamApprovalToggle = async (teamId, requireApproval) => {
-    setIsSaving(true)
-    setMessage('')
-    setErrorMessage('')
-
-    try {
-      const updatedTeam = await updateTeamSettings({
-        teamId,
-        data: {
-          requireApproval,
-        },
-      })
-
-      setTeams((current) => {
-        const nextTeams = current.map((team) => (team.id === teamId ? updatedTeam : team))
-        writeTeamCache({
-          teams: nextTeams,
-        })
-        return nextTeams
-      })
-      setMessage('Team approval setting updated.')
-      showToast({ title: 'Approval setting saved', message: 'Sharing approval has been updated for this team.' })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Could not update team approval setting.')
-      showToast({ title: 'Approval setting failed', message: error.message || 'Could not update team approval setting.', tone: 'error' })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleBulkCopy = async () => {
-    setIsSaving(true)
-    setMessage('')
-    setErrorMessage('')
-
-    try {
-      await bulkCopyTeamStaff({
-        sourceTeamId: copySourceTeamId,
-        targetTeamIds: copyTargetTeamIds,
-        selectedUserIds: copySelectedUserIds,
-      })
-
-      const nextAssignments = await getTeamStaffAssignments(user)
-      setAssignments(nextAssignments)
-      writeTeamCache({
-        assignments: nextAssignments,
-      })
-      setMessage('Coaches copied to selected teams.')
-      showToast({ title: 'Coaches copied', message: 'Selected coaches were copied to the target teams.' })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Could not bulk copy coaches.')
-      showToast({ title: 'Coaches not copied', message: error.message || 'Could not bulk copy coaches.', tone: 'error' })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Teams"
         title="Manage club teams"
-        description="Create teams, allocate coaches to each team, and bulk copy current coaches across multiple teams."
+        description="Create teams, create coach accounts, and allocate coaches to each team."
       />
 
       {message ? (
@@ -515,6 +449,20 @@ export function TeamManagementPage() {
               </label>
 
               <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
+                <input
+                  type="password"
+                  name="password"
+                  value={coachForm.password}
+                  onChange={handleCoachFormChange}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                />
+              </label>
+
+              <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Role</span>
                 <select
                   name="roleKey"
@@ -559,116 +507,8 @@ export function TeamManagementPage() {
       </SectionCard>
 
       <SectionCard
-        title="Bulk copy coaches"
-        description="Pick a source team and copy all coaches, or only selected coaches, into one or more target teams."
-      >
-        {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading teams...
-          </div>
-        ) : teams.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            Create a team first.
-          </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Source team</span>
-                <select
-                  value={copySourceTeamId}
-                  onChange={(event) => {
-                    setCopySourceTeamId(event.target.value)
-                    setCopySelectedUserIds([])
-                  }}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="grid gap-5 lg:grid-cols-2">
-              <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Choose which coaches to copy</p>
-                <div className="mt-3 space-y-2">
-                  {users.filter((member) => sourceTeamStaffIds.includes(member.id)).length === 0 ? (
-                    <p className="text-sm text-[var(--text-muted)]">No coaches allocated to the source team.</p>
-                  ) : (
-                    users
-                      .filter((member) => sourceTeamStaffIds.includes(member.id))
-                      .map((member) => (
-                        <label
-                          key={member.id}
-                          className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={copySelectedUserIds.includes(member.id)}
-                            onChange={(event) =>
-                              setCopySelectedUserIds((current) =>
-                                event.target.checked
-                                  ? [...new Set([...current, member.id])]
-                                  : current.filter((id) => id !== member.id),
-                              )
-                            }
-                            className="h-4 w-4"
-                          />
-                          <span>{member.email} ({getRoleLabel(member)})</span>
-                        </label>
-                      ))
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Target teams</p>
-                <div className="mt-3 space-y-2">
-                  {teams
-                    .filter((team) => team.id !== copySourceTeamId)
-                    .map((team) => (
-                      <label
-                        key={team.id}
-                        className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={copyTargetTeamIds.includes(team.id)}
-                          onChange={(event) =>
-                            setCopyTargetTeamIds((current) =>
-                              event.target.checked
-                                ? [...new Set([...current, team.id])]
-                                : current.filter((id) => id !== team.id),
-                            )
-                          }
-                          className="h-4 w-4"
-                        />
-                        <span>{team.name}</span>
-                      </label>
-                    ))}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void handleBulkCopy()}
-              disabled={isSaving || !copySourceTeamId || copyTargetTeamIds.length === 0}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Bulk Copy Coaches
-            </button>
-          </div>
-        )}
-      </SectionCard>
-
-      <SectionCard
         title="Team coach allocations"
-        description="Assign current club coaches to each team. Managers can bulk copy or edit allocations at any time."
+        description="Assign current club coaches to each team. Managers can edit allocations at any time."
       >
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
@@ -716,16 +556,6 @@ export function TeamManagementPage() {
                     </p>
                   </div>
                   <div className="flex flex-col gap-3 sm:items-end">
-                    <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
-                      <input
-                        type="checkbox"
-                        checked={team.requireApproval}
-                        disabled={isSaving}
-                        onChange={(event) => void handleTeamApprovalToggle(team.id, event.target.checked)}
-                        className="h-4 w-4 rounded border-[var(--border-color)]"
-                      />
-                      <span>Require approval before sharing</span>
-                    </label>
                     <button
                       type="button"
                       disabled={isSaving}

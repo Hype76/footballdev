@@ -674,6 +674,29 @@ async function seedDefaultFormFields() {
     console.error(error)
     throw error
   }
+
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+
+  if (authError) {
+    console.error(authError)
+    throw authError
+  }
+
+  if (authData?.user?.id) {
+    const { error: profileError } = await supabase
+      .from('users')
+      .update({
+        force_password_change: false,
+      })
+      .eq('id', authData.user.id)
+
+    if (profileError) {
+      console.error(profileError)
+      throw profileError
+    }
+
+    invalidateMemoryCacheByPrefix(`user-profile:${authData.user.id}`)
+  }
 }
 
 export async function seedDefaultClubRolesForClub(clubId) {
@@ -739,6 +762,7 @@ export function normalizeUserProfile(profile) {
     clubStatus: String(getClubValue(profile.clubs, 'status') ?? profile.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: getClubValue(profile.clubs, 'suspended_at') ?? profile.clubSuspendedAt ?? '',
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
+    forcePasswordChange: Boolean(profile.force_password_change ?? profile.forcePasswordChange ?? false),
   }
 }
 
@@ -797,7 +821,7 @@ export async function fetchUserProfile(authUser) {
     const loadUserRow = async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, username, name, role, role_label, role_rank, club_id')
+        .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
         .eq('id', authUser.id)
         .maybeSingle()
 
@@ -830,7 +854,7 @@ export async function fetchUserProfile(authUser) {
           email: authEmail,
         })
         .eq('id', authUser.id)
-        .select('id, email, username, name, role, role_label, role_rank, club_id')
+        .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
         .single()
 
       if (syncError) {
@@ -886,7 +910,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
       role_rank: 90,
       club_id: club.id,
     })
-    .select('id, email, username, name, role, role_label, role_rank, club_id')
+    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
     .single()
 
   if (userError) {
@@ -918,7 +942,7 @@ export async function updateOwnUserSettings({ authUser, username }) {
       name: normalizedUsername,
     })
     .eq('id', authUser.id)
-    .select('id, email, username, name, role, role_label, role_rank, club_id')
+    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
     .single()
 
   if (error) {
@@ -1198,7 +1222,7 @@ export async function getClubUsers(user) {
   return getCachedResource(`club-users:${user.clubId}`, async () => {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, username, name, role, role_label, role_rank, club_id')
+      .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
       .eq('club_id', user.clubId)
       .order('role_rank', { ascending: false })
       .order('email', { ascending: true })
@@ -1472,56 +1496,6 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
   return (data ?? []).map(normalizeTeamStaffRow)
 }
 
-export async function bulkCopyTeamStaff({ sourceTeamId, targetTeamIds, selectedUserIds }) {
-  const normalizedTargetTeamIds = [...new Set((targetTeamIds ?? []).map((teamId) => String(teamId).trim()).filter(Boolean))]
-  const normalizedSelectedUserIds = [...new Set((selectedUserIds ?? []).map((userId) => String(userId).trim()).filter(Boolean))]
-
-  if (!sourceTeamId || normalizedTargetTeamIds.length === 0) {
-    return
-  }
-
-  const { data: sourceRows, error: sourceError } = await supabase
-    .from('team_staff')
-    .select('*')
-    .eq('team_id', sourceTeamId)
-
-  if (sourceError) {
-    console.error(sourceError)
-    throw sourceError
-  }
-
-  const rowsToCopy = (sourceRows ?? []).filter((row) =>
-    normalizedSelectedUserIds.length === 0 ? true : normalizedSelectedUserIds.includes(String(row.user_id)),
-  )
-
-  await Promise.all(
-    normalizedTargetTeamIds.map(async (teamId) => {
-      const { error: deleteError } = await supabase.from('team_staff').delete().eq('team_id', teamId)
-
-      if (deleteError) {
-        console.error(deleteError)
-        throw deleteError
-      }
-
-      if (rowsToCopy.length === 0) {
-        return
-      }
-
-      const { error: insertError } = await supabase
-        .from('team_staff')
-        .insert(rowsToCopy.map((row) => ({ team_id: teamId, user_id: row.user_id })))
-
-      if (insertError) {
-        console.error(insertError)
-        throw insertError
-      }
-    }),
-  )
-
-  invalidateMemoryCacheByPrefix('available-teams:')
-  invalidateMemoryCacheByPrefix('team-assignments:')
-}
-
 export async function assignClubUserRole({ user, email, role }) {
   if (!user?.clubId) {
     throw new Error('Club ID is required.')
@@ -1534,7 +1508,7 @@ export async function assignClubUserRole({ user, email, role }) {
 
   const { data: existingUsers, error: existingUsersError } = await supabase
     .from('users')
-    .select('id, email, username, name, role, role_label, role_rank, club_id')
+    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
     .eq('club_id', user.clubId)
     .eq('email', normalizedEmail)
     .limit(1)
@@ -1555,7 +1529,7 @@ export async function assignClubUserRole({ user, email, role }) {
         role_rank: roleRank,
       })
       .eq('id', existingUser.id)
-      .select('id, email, username, name, role, role_label, role_rank, club_id')
+      .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
       .single()
 
     if (updateError) {
@@ -1600,6 +1574,52 @@ export async function assignClubUserRole({ user, email, role }) {
     kind: 'invite',
     record: normalizeClubInviteRow(inviteRow),
   }
+}
+
+export async function createStaffUserWithPassword({ user, email, password, role }) {
+  if (!user?.clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  const normalizedEmail = String(email ?? '').trim().toLowerCase()
+  const normalizedPassword = String(password ?? '')
+
+  if (!normalizedEmail) {
+    throw new Error('Email is required.')
+  }
+
+  if (normalizedPassword.length < 8) {
+    throw new Error('Password must be at least 8 characters.')
+  }
+
+  const roleKey = normalizeRoleKey(role.roleKey ?? role.key)
+  const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)
+  const roleRank = normalizeRoleRank(role.roleRank ?? role.rank, roleKey)
+
+  const { data, error } = await supabase.functions.invoke('create-staff-user', {
+    body: {
+      email: normalizedEmail,
+      password: normalizedPassword,
+      roleKey,
+      roleLabel,
+      roleRank,
+      clubId: user.clubId,
+    },
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  if (data?.error) {
+    throw new Error(data.error)
+  }
+
+  invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+  invalidateMemoryCacheByPrefix(`user-access:${user.clubId}`)
+
+  return data
 }
 
 export async function deleteClubInvite(inviteId) {
@@ -1902,47 +1922,6 @@ export async function updatePlayer({ user, playerId, player }) {
   const payload = mapPlayerToRow(player, user)
   const isPromotingToSquad = currentPlayer.section !== 'Squad' && payload.section === 'Squad'
 
-  if (isPromotingToSquad) {
-    const targetTeamName = String(payload.team || currentPlayer.team || '').trim()
-    let targetTeamRequiresApproval = true
-
-    if (targetTeamName) {
-      const { data: targetTeamRow, error: targetTeamError } = await supabase
-        .from('teams')
-        .select('id, name, require_approval')
-        .eq('club_id', user.clubId)
-        .eq('name', targetTeamName)
-        .maybeSingle()
-
-      if (targetTeamError) {
-        console.error(targetTeamError)
-        throw targetTeamError
-      }
-
-      targetTeamRequiresApproval = Boolean(targetTeamRow?.require_approval ?? true)
-    }
-
-    if (targetTeamRequiresApproval) {
-      const { data: approvedRows, error: approvedError } = await supabase
-        .from('evaluations')
-        .select('id')
-        .eq('club_id', user.clubId)
-        .eq('player_name', currentPlayer.playerName)
-        .eq('section', 'Trial')
-        .eq('status', 'Approved')
-        .limit(1)
-
-      if (approvedError) {
-        console.error(approvedError)
-        throw approvedError
-      }
-
-      if (!approvedRows || approvedRows.length === 0) {
-        throw new Error('This player needs an approved trial evaluation before promotion to Squad.')
-      }
-    }
-  }
-
   const { data, error } = await supabase
     .from('players')
     .update(payload)
@@ -1992,65 +1971,6 @@ export async function promotePlayerToSquad({ user, playerId }) {
 
   if (currentPlayer.section === 'Squad') {
     return currentPlayer
-  }
-
-  const targetTeamName = String(currentPlayer.team ?? '').trim()
-  let targetTeamRequiresApproval = true
-
-  if (targetTeamName) {
-    const { data: targetTeamRow, error: targetTeamError } = await supabase
-      .from('teams')
-      .select('id, name, require_approval')
-      .eq('club_id', user.clubId)
-      .eq('name', targetTeamName)
-      .maybeSingle()
-
-    if (targetTeamError) {
-      console.error(targetTeamError)
-      throw targetTeamError
-    }
-
-    targetTeamRequiresApproval = Boolean(targetTeamRow?.require_approval ?? true)
-  }
-
-  if (targetTeamRequiresApproval) {
-    const approvedByPlayerId = await supabase
-      .from('evaluations')
-      .select('id')
-      .eq('club_id', user.clubId)
-      .eq('player_id', playerId)
-      .eq('section', 'Trial')
-      .eq('status', 'Approved')
-      .limit(1)
-
-    if (approvedByPlayerId.error) {
-      console.error(approvedByPlayerId.error)
-      throw approvedByPlayerId.error
-    }
-
-    let approvedRows = approvedByPlayerId.data ?? []
-
-    if (approvedRows.length === 0) {
-      const approvedByName = await supabase
-        .from('evaluations')
-        .select('id')
-        .eq('club_id', user.clubId)
-        .eq('player_name', currentPlayer.playerName)
-        .eq('section', 'Trial')
-        .eq('status', 'Approved')
-        .limit(1)
-
-      if (approvedByName.error) {
-        console.error(approvedByName.error)
-        throw approvedByName.error
-      }
-
-      approvedRows = approvedByName.data ?? []
-    }
-
-    if (approvedRows.length === 0) {
-      throw new Error('This player needs an approved trial evaluation before promotion to Squad.')
-    }
   }
 
   const promotedAt = new Date().toISOString()

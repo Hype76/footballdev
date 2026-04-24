@@ -91,7 +91,7 @@ export function LoginPage() {
           </div>
 
           <h1 className="mt-6 max-w-lg text-4xl font-bold tracking-tight sm:text-5xl">
-            Coaching workflow access for clubs, approvals, and player feedback.
+            Coaching workflow access for clubs, teams, and player feedback.
           </h1>
 
           <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">

@@ -48,7 +48,8 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.clubContactPhone ?? '') === String(rightUser.clubContactPhone ?? '') &&
     String(leftUser.clubStatus ?? '') === String(rightUser.clubStatus ?? '') &&
     String(leftUser.clubSuspendedAt ?? '') === String(rightUser.clubSuspendedAt ?? '') &&
-    Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval)
+    Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
+    Boolean(leftUser.forcePasswordChange) === Boolean(rightUser.forcePasswordChange)
   )
 }
 
@@ -87,20 +88,16 @@ export function canAssignRole(user, targetRole) {
   return currentRank >= 50 && targetRank <= currentRank
 }
 
-export function canAccessApprovals(user) {
+export function canManageFormFields(user) {
   return isSuperAdmin(user) || Number(user?.roleRank ?? 0) >= 50
 }
 
-export function canManageFormFields(user) {
-  return canAccessApprovals(user)
-}
-
 export function canManageClubSettings(user) {
-  return canAccessApprovals(user)
+  return isSuperAdmin(user) || Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canDeletePlayer(user) {
-  return canAccessApprovals(user)
+  return isSuperAdmin(user) || Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canShareEvaluation(user, evaluation) {
@@ -108,17 +105,7 @@ export function canShareEvaluation(user, evaluation) {
     return false
   }
 
-  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
-    return true
-  }
-
-  const requiresApproval = evaluation.teamRequireApproval ?? evaluation.requireApproval ?? user.requireApproval ?? true
-
-  if (!requiresApproval) {
-    return true
-  }
-
-  return evaluation.status === 'Approved'
+  return canViewEvaluation(user, evaluation)
 }
 
 export function canCreateEvaluation(user) {

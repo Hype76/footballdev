@@ -5,7 +5,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
 import {
-  assignClubUserRole,
+  createStaffUserWithPassword,
   createClubRole,
   deleteClubInvite,
   getClubRoles,
@@ -19,6 +19,7 @@ import {
 
 const initialFormState = {
   email: '',
+  password: '',
   roleKey: '',
   customRoleLabel: '',
 }
@@ -190,19 +191,21 @@ export function UserAccessPage() {
         throw new Error('You cannot assign that role.')
       }
 
-      await assignClubUserRole({
+      await createStaffUserWithPassword({
         user,
         email: formState.email,
+        password: formState.password,
         role: selectedRole,
       })
 
       await refreshAccessData()
       setFormState({
         email: '',
+        password: '',
         roleKey: assignableRoles[0]?.roleKey || '',
         customRoleLabel: '',
       })
-      setMessage('User access updated successfully.')
+      setMessage('User account created. They will be asked to change password on first login.')
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not update user access.')
@@ -271,6 +274,20 @@ export function UserAccessPage() {
                 value={formState.email}
                 onChange={handleChange}
                 required
+                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
+              <input
+                type="password"
+                name="password"
+                value={formState.password}
+                onChange={handleChange}
+                required
+                minLength={8}
+                autoComplete="new-password"
                 className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>

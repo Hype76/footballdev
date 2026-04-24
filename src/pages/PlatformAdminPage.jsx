@@ -35,14 +35,6 @@ function formatDate(value) {
   }).format(parsedDate)
 }
 
-function formatPercent(value) {
-  if (!Number.isFinite(value)) {
-    return '0%'
-  }
-
-  return `${Math.round(value)}%`
-}
-
 export function PlatformAdminPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState(() => readViewCacheValue(cacheKey, 'stats', null))
@@ -394,16 +386,6 @@ export function PlatformAdminPage() {
                     <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Squad</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.squadPlayerCount}</p>
-                    </div>
-                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Pending</p>
-                      <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.submittedCount}</p>
-                    </div>
-                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Approval</p>
-                      <p className="mt-2 font-semibold text-[var(--text-primary)]">
-                        {formatPercent(club.evaluationCount ? (club.approvedCount / club.evaluationCount) * 100 : 0)}
-                      </p>
                     </div>
                   </div>
                 </div>
