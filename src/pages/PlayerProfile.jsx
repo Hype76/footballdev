@@ -9,7 +9,6 @@ import { buildParentEmailMailtoUrl, buildParentEmailTemplate } from '../lib/emai
 import {
   EVALUATION_SECTIONS,
   createCommunicationLog,
-  deletePlayerRecord,
   deletePlayer,
   getEvaluations,
   getPlayers,
@@ -259,14 +258,14 @@ export function PlayerProfile() {
         },
       })
 
-      await createCommunicationLog({
+      void createCommunicationLog({
         user,
         playerId: evaluation.playerId || primaryPlayer?.id,
         evaluationId: evaluation.id,
         channel: 'pdf',
         action: mode === 'scored' ? 'scored_pdf_downloaded' : 'email_template_pdf_downloaded',
         recipientEmail: evaluation.parentEmail || profileParentEmail,
-      })
+      }).catch((error) => console.error(error))
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not generate the PDF.')
@@ -396,31 +395,6 @@ export function PlayerProfile() {
       setErrorMessage(error.message || 'Could not promote this player to Squad.')
     } finally {
       setIsPromotingId('')
-    }
-  }
-
-  const handleDeletePlayerRecord = async (playerId) => {
-    if (!window.confirm('Delete these player details only? Saved assessments remain in history, so the player can still appear on history pages.')) {
-      return
-    }
-
-    setIsSavingPlayer(true)
-    setErrorMessage('')
-
-    try {
-      await deletePlayerRecord({ user, playerId })
-      const nextPlayers = players.filter((player) => player.id !== playerId)
-      setPlayers(nextPlayers)
-      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, player])))
-      writeViewCache(cacheKey, {
-        evaluations,
-        players: nextPlayers,
-      })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Could not delete player details.')
-    } finally {
-      setIsSavingPlayer(false)
     }
   }
 
@@ -706,16 +680,6 @@ export function PlayerProfile() {
                         >
                           Edit Details
                         </button>
-                        {canDeletePlayer(user) ? (
-                          <button
-                            type="button"
-                            disabled={isSavingPlayer}
-                            onClick={() => void handleDeletePlayerRecord(player.id)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Delete Details Only
-                          </button>
-                        ) : null}
                       </div>
                     </div>
                   )}

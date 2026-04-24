@@ -1,8 +1,56 @@
-import { createElement } from 'react'
-import { createRoot } from 'react-dom/client'
-import { flushSync } from 'react-dom'
 import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
-import { EmailPreview } from '../components/ui/EmailPreview.jsx'
+
+const LOGO_TIMEOUT_MS = 2500
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
+
+function formatPreviewValue(value) {
+  if (typeof value === 'number') {
+    return value
+  }
+
+  const normalizedValue = String(value ?? '').trim()
+  return normalizedValue || 'Not provided'
+}
+
+function formatSessionForDisplay(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue) {
+    return 'Not scheduled'
+  }
+
+  const parsedSourceDate = new Date(normalizedValue)
+  const dateOnlyValue = /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)
+    ? normalizedValue
+    : Number.isNaN(parsedSourceDate.getTime())
+      ? ''
+      : parsedSourceDate.toISOString().slice(0, 10)
+
+  if (!dateOnlyValue) {
+    return normalizedValue
+  }
+
+  const parsedDate = new Date(`${dateOnlyValue}T00:00:00`)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return normalizedValue
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(parsedDate)
+}
 
 function waitForPaint() {
   return new Promise((resolve) => {
@@ -10,6 +58,15 @@ function waitForPaint() {
       window.requestAnimationFrame(resolve)
     })
   })
+}
+
+function withTimeout(task, timeoutMs) {
+  return Promise.race([
+    task,
+    new Promise((resolve) => {
+      window.setTimeout(() => resolve(null), timeoutMs)
+    }),
+  ])
 }
 
 async function waitForImages(element) {
@@ -21,12 +78,27 @@ async function waitForImages(element) {
         return Promise.resolve()
       }
 
-      return new Promise((resolve) => {
-        image.addEventListener('load', resolve, { once: true })
-        image.addEventListener('error', resolve, { once: true })
-      })
+      return withTimeout(
+        new Promise((resolve) => {
+          image.addEventListener('load', resolve, { once: true })
+          image.addEventListener('error', resolve, { once: true })
+        }),
+        LOGO_TIMEOUT_MS,
+      )
     }),
   )
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 async function resolvePdfLogoUrl(logoUrl) {
@@ -39,24 +111,34 @@ async function resolvePdfLogoUrl(logoUrl) {
   try {
     const parsedUrl = new URL(normalizedLogoUrl, window.location.origin)
 
-    if (parsedUrl.origin === window.location.origin || parsedUrl.hostname.endsWith('.supabase.co')) {
+    if (parsedUrl.origin === window.location.origin) {
       return parsedUrl.toString()
     }
 
-    const response = await fetch(parsedUrl.toString(), { mode: 'cors' })
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), LOGO_TIMEOUT_MS)
 
-    if (!response.ok) {
-      throw new Error(`Logo request failed with status ${response.status}.`)
+    try {
+      const response = await fetch(parsedUrl.toString(), {
+        mode: 'cors',
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Logo request failed with status ${response.status}.`)
+      }
+
+      const blob = await response.blob()
+
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(String(reader.result || fallbackLogo))
+        reader.onerror = () => reject(new Error('Could not read the uploaded logo.'))
+        reader.readAsDataURL(blob)
+      })
+    } finally {
+      window.clearTimeout(timeoutId)
     }
-
-    const blob = await response.blob()
-
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(String(reader.result || fallbackLogo))
-      reader.onerror = () => reject(new Error('Could not read the uploaded logo.'))
-      reader.readAsDataURL(blob)
-    })
   } catch (error) {
     console.error('Falling back to default PDF logo.', error)
     return fallbackLogo
@@ -81,41 +163,106 @@ export function buildEvaluationSummary(evaluation) {
   )
 }
 
-export async function exportEvaluationPdf({
-  filename,
-  previewProps,
-  mode = 'scored',
-}) {
+function buildResponseItemsMarkup(responseItems) {
+  if (!responseItems.length) {
+    return '<p style="margin: 14px 0 0; color: #64748b; font-size: 13px;">No responses provided.</p>'
+  }
+
+  return responseItems
+    .map(
+      (item) => `
+        <div style="break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; background: #ffffff;">
+          <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">${escapeHtml(item.label)}</p>
+          <p style="margin: 8px 0 0; color: #334155; font-size: 13px; line-height: 1.55; white-space: pre-wrap;">${escapeHtml(formatPreviewValue(item.value))}</p>
+        </div>
+      `,
+    )
+    .join('')
+}
+
+function buildPdfMarkup({ previewProps, mode, logoUrl }) {
+  const showScoring = mode === 'scored'
+  const responseItems = showScoring ? previewProps.responseItems ?? [] : []
+
+  return `
+    <section style="box-sizing: border-box; width: 760px; min-height: 1060px; padding: 30px; background: #ffffff; color: #0f172a; font-family: Arial, sans-serif;">
+      <div style="display: flex; justify-content: space-between; gap: 24px; border-bottom: 1px solid #e7ece3; padding-bottom: 22px;">
+        <div style="min-width: 0;">
+          <p style="margin: 0; color: #5a6b5b; font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;">${showScoring ? 'Assessment PDF' : 'Parent Email Template'}</p>
+          <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(previewProps.clubName)}" style="display: block; max-width: 150px; max-height: 80px; margin-top: 16px; object-fit: contain;" />
+          <h1 style="margin: 14px 0 0; color: #0f172a; font-size: 24px; line-height: 1.2;">${escapeHtml(previewProps.clubName || 'Club Name')}</h1>
+        </div>
+        <div style="align-self: flex-start; border-radius: 14px; background: #eef3ea; color: #4f6552; padding: 12px 14px; font-size: 13px; font-weight: 700; white-space: nowrap;">Decision: ${escapeHtml(previewProps.decision || 'Progress')}</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 26px;">
+        <div>
+          <p style="margin: 0; color: #64748b; font-size: 13px; font-weight: 700;">Player</p>
+          <h2 style="margin: 8px 0 0; color: #0f172a; font-size: 28px; line-height: 1.15;">${escapeHtml(previewProps.playerName || 'Player Name')}</h2>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
+            <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Team</p>
+            <p style="margin: 8px 0 0; color: #334155; font-size: 13px; font-weight: 700;">${escapeHtml(previewProps.team || 'Not provided')}</p>
+          </div>
+          <div style="border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
+            <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Session</p>
+            <p style="margin: 8px 0 0; color: #334155; font-size: 13px; font-weight: 700;">${escapeHtml(formatSessionForDisplay(previewProps.session))}</p>
+          </div>
+          <div style="grid-column: 1 / -1; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
+            <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Section</p>
+            <p style="margin: 8px 0 0; color: #334155; font-size: 13px; font-weight: 700;">${escapeHtml(previewProps.section || 'Trial')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="break-inside: avoid; margin-top: 26px; border: 1px solid #e7ece3; border-radius: 18px; background: #fbfcf9; padding: 18px;">
+        <p style="margin: 0; color: #5a6b5b; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">${showScoring ? 'Summary' : 'Email Subject'}</p>
+        <p style="margin: 14px 0 0; color: #334155; font-size: 13px; line-height: 1.65; white-space: pre-wrap;">${escapeHtml(showScoring ? previewProps.summary || 'No written summary provided.' : previewProps.emailSubject || 'No email subject available.')}</p>
+      </div>
+
+      ${
+        showScoring
+          ? `
+            <div style="break-inside: avoid; margin-top: 22px; border: 1px solid #e7ece3; border-radius: 18px; background: #fbfcf9; padding: 18px;">
+              <p style="margin: 0; color: #5a6b5b; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">Evaluation Responses</p>
+              <div style="display: grid; gap: 10px; margin-top: 14px;">
+                ${buildResponseItemsMarkup(responseItems)}
+              </div>
+            </div>
+          `
+          : `
+            <div style="break-inside: avoid; margin-top: 22px; border: 1px solid #e7ece3; border-radius: 18px; background: #fbfcf9; padding: 18px;">
+              <p style="margin: 0; color: #5a6b5b; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">Parent Message</p>
+              <p style="margin: 14px 0 0; color: #334155; font-size: 13px; line-height: 1.65; white-space: pre-wrap;">${escapeHtml(previewProps.emailBody || 'No parent email template is available for this assessment yet.')}</p>
+            </div>
+          `
+      }
+    </section>
+  `
+}
+
+export async function exportEvaluationPdf({ filename, previewProps, mode = 'scored' }) {
+  const safeLogoUrl = await resolvePdfLogoUrl(previewProps?.logoUrl)
   const container = document.createElement('div')
   container.style.position = 'fixed'
-  container.style.left = '-10000px'
+  container.style.left = '0'
   container.style.top = '0'
-  container.style.width = '794px'
-  container.style.opacity = '0'
+  container.style.width = '760px'
+  container.style.opacity = '0.01'
   container.style.pointerEvents = 'none'
   container.style.zIndex = '-1'
-  container.style.background = '#ffffff'
+  container.innerHTML = buildPdfMarkup({
+    previewProps: previewProps ?? {},
+    mode,
+    logoUrl: safeLogoUrl,
+  })
+
   document.body.appendChild(container)
 
-  const root = createRoot(container)
-
   try {
-    const safeLogoUrl = await resolvePdfLogoUrl(previewProps?.logoUrl)
-
-    flushSync(() => {
-      root.render(
-        createElement(EmailPreview, {
-          ...previewProps,
-          logoUrl: safeLogoUrl,
-          mode,
-        }),
-      )
-    })
-
     await waitForPaint()
     await waitForImages(container)
-
-    const exportTarget = container.querySelector('[data-pdf-root]') || container
 
     const html2pdfModule = await import('html2pdf.js')
     const pdfExporter = html2pdfModule.default || html2pdfModule
@@ -124,25 +271,35 @@ export async function exportEvaluationPdf({
       throw new Error('PDF exporter did not load correctly.')
     }
 
-    await pdfExporter()
-      .set({
-        margin: [8, 8, 8, 8],
-        filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#ffffff',
-          logging: false,
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      })
-      .from(exportTarget)
-      .save()
+    const pdfBlob = await withTimeout(
+      pdfExporter()
+        .set({
+          margin: [8, 8, 8, 8],
+          filename,
+          image: { type: 'jpeg', quality: 0.92 },
+          html2canvas: {
+            scale: 1.35,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            logging: false,
+            removeContainer: true,
+            windowWidth: 820,
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'] },
+        })
+        .from(container.firstElementChild)
+        .outputPdf('blob'),
+      15000,
+    )
+
+    if (!pdfBlob) {
+      throw new Error('PDF export timed out.')
+    }
+
+    downloadBlob(pdfBlob, filename)
   } finally {
-    root.unmount()
     container.remove()
   }
 }
