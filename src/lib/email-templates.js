@@ -21,10 +21,14 @@ function formatSessionLabel(session) {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
   }).format(parsedDate)
 }
+
+export const PARENT_EMAIL_TEMPLATES = [
+  { key: 'decline', label: 'No Place Offered' },
+  { key: 'progress', label: 'Invite Back' },
+  { key: 'offer', label: 'Offer Place' },
+]
 
 export function getEmailTemplateKey(decision) {
   const normalizedDecision = normalizeText(decision, 'Progress').toLowerCase()
@@ -54,6 +58,13 @@ export function getEmailTemplateLabel(decision) {
   return 'Invite Back'
 }
 
+function getValidEmailTemplateKey(templateKey, decision) {
+  const normalizedTemplateKey = normalizeText(templateKey).toLowerCase()
+  return PARENT_EMAIL_TEMPLATES.some((template) => template.key === normalizedTemplateKey)
+    ? normalizedTemplateKey
+    : getEmailTemplateKey(decision)
+}
+
 export function buildParentEmailTemplate({
   parentName = '',
   playerName = '',
@@ -62,18 +73,20 @@ export function buildParentEmailTemplate({
   teamName = '',
   session = '',
   decision = 'Progress',
+  templateKey = '',
 } = {}) {
   const resolvedParentName = normalizeText(parentName, 'Parent/Guardian')
   const resolvedPlayerName = normalizeText(playerName, 'the player')
   const resolvedCoachName = normalizeText(coachName, 'Coaching Team')
   const resolvedClubName = normalizeText(clubName || teamName, 'Club Team')
+  const resolvedTeamName = normalizeText(teamName || clubName, resolvedClubName)
   const nextSessionLabel = formatSessionLabel(session)
-  const templateKey = getEmailTemplateKey(decision)
+  const resolvedTemplateKey = getValidEmailTemplateKey(templateKey, decision)
   const greeting = `Dear ${resolvedParentName},`
   let subject = 'Player Trial Feedback'
   let bodyLines = []
 
-  if (templateKey === 'decline') {
+  if (resolvedTemplateKey === 'decline') {
     subject = `Player Trial Feedback for ${resolvedPlayerName}`
     bodyLines = [
       greeting,
@@ -87,9 +100,9 @@ export function buildParentEmailTemplate({
       'Thanks again for your time and support.',
       'Kind regards,',
       resolvedCoachName,
-      resolvedClubName,
+      resolvedTeamName,
     ]
-  } else if (templateKey === 'offer') {
+  } else if (resolvedTemplateKey === 'offer') {
     subject = `Squad Offer for ${resolvedPlayerName}`
     bodyLines = [
       greeting,
@@ -107,7 +120,7 @@ export function buildParentEmailTemplate({
       '',
       'Kind regards,',
       resolvedCoachName,
-      resolvedClubName,
+      resolvedTeamName,
     ]
   } else {
     subject = `Follow-up Trial Invitation for ${resolvedPlayerName}`
@@ -124,13 +137,15 @@ export function buildParentEmailTemplate({
       '',
       'Kind regards,',
       resolvedCoachName,
-      resolvedClubName,
+      resolvedTeamName,
     ]
   }
 
+  const template = PARENT_EMAIL_TEMPLATES.find((item) => item.key === resolvedTemplateKey)
+
   return {
-    key: templateKey,
-    label: getEmailTemplateLabel(decision),
+    key: resolvedTemplateKey,
+    label: template?.label || getEmailTemplateLabel(decision),
     subject,
     body: bodyLines.join('\n'),
   }

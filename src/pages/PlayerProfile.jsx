@@ -5,7 +5,12 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
-import { buildParentEmailMailtoUrl, buildParentEmailTemplate } from '../lib/email-templates.js'
+import {
+  PARENT_EMAIL_TEMPLATES,
+  buildParentEmailMailtoUrl,
+  buildParentEmailTemplate,
+  getEmailTemplateKey,
+} from '../lib/email-templates.js'
 import {
   EVALUATION_SECTIONS,
   createCommunicationLog,
@@ -126,6 +131,7 @@ export function PlayerProfile() {
   const [isPromotingId, setIsPromotingId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
+  const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
 
@@ -217,6 +223,9 @@ export function PlayerProfile() {
   const profileParentName = primaryPlayer?.parentName || evaluations.find((evaluation) => evaluation.parentName)?.parentName || ''
   const profileParentEmail = primaryPlayer?.parentEmail || evaluations.find((evaluation) => evaluation.parentEmail)?.parentEmail || ''
 
+  const getSelectedEmailTemplateKey = (evaluation) =>
+    selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
+
   const handleDownloadPdf = async (evaluation, mode) => {
     setPdfLoadingId(`${evaluation.id}:${mode}`)
     setErrorMessage('')
@@ -232,6 +241,7 @@ export function PlayerProfile() {
         teamName: evaluation.team,
         session: evaluation.session,
         decision: evaluation.decision,
+        templateKey: getSelectedEmailTemplateKey(evaluation),
       })
 
       await exportEvaluationPdf({
@@ -743,6 +753,7 @@ export function PlayerProfile() {
                 teamName: evaluation.team,
                 session: evaluation.session,
                 decision: evaluation.decision,
+                templateKey: getSelectedEmailTemplateKey(evaluation),
               })
 
               return (
@@ -759,7 +770,26 @@ export function PlayerProfile() {
                     </div>
                   </div>
 
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto_auto_auto] lg:items-end">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
+                      <select
+                        value={getSelectedEmailTemplateKey(evaluation)}
+                        onChange={(event) =>
+                          setSelectedEmailTemplates((currentTemplates) => ({
+                            ...currentTemplates,
+                            [evaluation.id]: event.target.value,
+                          }))
+                        }
+                        className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      >
+                        {PARENT_EMAIL_TEMPLATES.map((template) => (
+                          <option key={template.key} value={template.key}>
+                            {template.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <button
                       type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'scored')}

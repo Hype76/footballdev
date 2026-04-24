@@ -6,7 +6,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
-import { buildParentEmailTemplate } from '../lib/email-templates.js'
+import { PARENT_EMAIL_TEMPLATES, buildParentEmailTemplate, getEmailTemplateKey } from '../lib/email-templates.js'
 import {
   EVALUATION_SECTIONS,
   createEvaluation,
@@ -357,6 +357,7 @@ export function CreateEvaluationPage() {
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
+  const [emailTemplateKey, setEmailTemplateKey] = useState('')
   const [actionErrorMessage, setActionErrorMessage] = useState('')
   const [dataRefreshNotice, setDataRefreshNotice] = useState('')
   const [teamsLoadErrorMessage, setTeamsLoadErrorMessage] = useState('')
@@ -391,6 +392,7 @@ export function CreateEvaluationPage() {
 
     setFormData(nextFormData)
     setPreviewMode(String(storedDraft?.previewMode ?? 'scored') === 'email' ? 'email' : 'scored')
+    setEmailTemplateKey(String(storedDraft?.emailTemplateKey ?? ''))
     setResponseValues(
       storedDraft?.responseValues && typeof storedDraft.responseValues === 'object' ? storedDraft.responseValues : {},
     )
@@ -628,12 +630,13 @@ export function CreateEvaluationPage() {
           responseValues,
           lastUsedSession,
           previewMode,
+          emailTemplateKey,
         }),
       )
     } catch (error) {
       console.error(error)
     }
-  }, [draftStorageKey, formData, isPlatformOwner, lastUsedSession, previewMode, responseValues])
+  }, [draftStorageKey, emailTemplateKey, formData, isPlatformOwner, lastUsedSession, previewMode, responseValues])
 
   const enabledFields = useMemo(() => dynamicFields.filter((field) => field.isEnabled), [dynamicFields])
   const formResponses = useMemo(() => buildFormResponses(enabledFields, responseValues), [enabledFields, responseValues])
@@ -660,6 +663,7 @@ export function CreateEvaluationPage() {
         teamName: formData.team,
         session: formData.session,
         decision: formData.decision,
+        templateKey: emailTemplateKey || getEmailTemplateKey(formData.decision),
       }),
     [
       formData.coachName,
@@ -668,6 +672,7 @@ export function CreateEvaluationPage() {
       formData.playerName,
       formData.session,
       formData.team,
+      emailTemplateKey,
       user?.clubName,
     ],
   )
@@ -1155,6 +1160,23 @@ export function CreateEvaluationPage() {
                     </button>
                   ))}
                 </div>
+
+                {previewMode === 'email' ? (
+                  <label className="mb-4 block max-w-md">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
+                    <select
+                      value={emailTemplateKey || getEmailTemplateKey(formData.decision)}
+                      onChange={(event) => setEmailTemplateKey(event.target.value)}
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    >
+                      {PARENT_EMAIL_TEMPLATES.map((template) => (
+                        <option key={template.key} value={template.key}>
+                          {template.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <button
