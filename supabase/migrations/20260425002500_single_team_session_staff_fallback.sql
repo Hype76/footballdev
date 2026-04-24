@@ -1,0 +1,86 @@
+insert into public.team_staff (team_id, user_id)
+select single_team.team_id, u.id
+from public.users u
+join (
+  select club_id, (array_agg(id))[1] as team_id
+  from public.teams
+  group by club_id
+  having count(*) = 1
+) single_team on single_team.club_id = u.club_id
+where u.role not in ('admin', 'super_admin')
+on conflict (team_id, user_id) do nothing;
+
+drop policy if exists assessment_sessions_select_scoped on public.assessment_sessions;
+create policy assessment_sessions_select_scoped
+on public.assessment_sessions
+for select
+to authenticated
+using (
+  public.current_user_role() = 'super_admin'
+  or (
+    club_id = public.current_user_club_id()
+    and (
+      created_by = auth.uid()
+      or exists (
+        select 1
+        from public.team_staff ts
+        where ts.team_id = assessment_sessions.team_id
+          and ts.user_id = auth.uid()
+      )
+      or (
+        public.current_user_role() not in ('admin', 'super_admin')
+        and assessment_sessions.team_id in (
+          select t.id
+          from public.teams t
+          where t.club_id = public.current_user_club_id()
+        )
+        and (
+          select count(*)
+          from public.teams t
+          where t.club_id = public.current_user_club_id()
+        ) = 1
+      )
+    )
+  )
+);
+
+drop policy if exists assessment_session_players_select_scoped on public.assessment_session_players;
+create policy assessment_session_players_select_scoped
+on public.assessment_session_players
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.assessment_sessions s
+    where s.id = assessment_session_players.session_id
+      and (
+        public.current_user_role() = 'super_admin'
+        or (
+          s.club_id = public.current_user_club_id()
+          and (
+            s.created_by = auth.uid()
+            or exists (
+              select 1
+              from public.team_staff ts
+              where ts.team_id = s.team_id
+                and ts.user_id = auth.uid()
+            )
+            or (
+              public.current_user_role() not in ('admin', 'super_admin')
+              and s.team_id in (
+                select t.id
+                from public.teams t
+                where t.club_id = public.current_user_club_id()
+              )
+              and (
+                select count(*)
+                from public.teams t
+                where t.club_id = public.current_user_club_id()
+              ) = 1
+            )
+          )
+        )
+      )
+  )
+);

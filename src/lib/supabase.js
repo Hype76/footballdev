@@ -1909,36 +1909,41 @@ export async function getAssignedTeamsForUser(user) {
   }
 
   return getCachedResource(`assigned-teams:${user.id}:${user.clubId}`, async () => {
-    const { data: assignmentRows, error: assignmentError } = await supabase
-      .from('team_staff')
-      .select('team_id')
-      .eq('user_id', user.id)
+    const [{ data: assignmentRows, error: assignmentError }, { data: clubTeams, error: teamsError }] = await Promise.all([
+      supabase.from('team_staff').select('team_id').eq('user_id', user.id),
+      supabase.from('teams').select('*').eq('club_id', user.clubId).order('name', { ascending: true }),
+    ])
 
-    if (assignmentError) {
-      console.error(assignmentError)
-      throw assignmentError
-    }
-
-    const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
-
-    if (teamIds.length === 0) {
-      return []
-    }
-
-    const { data, error } = await supabase
-      .from('teams')
-      .select('*')
-      .eq('club_id', user.clubId)
-      .in('id', teamIds)
-      .order('name', { ascending: true })
-
-    if (error) {
+    if (assignmentError || teamsError) {
+      const error = assignmentError || teamsError
       console.error(error)
       throw error
     }
 
-    return (data ?? []).map(normalizeTeamRow)
+    const teams = (clubTeams ?? []).map(normalizeTeamRow)
+    const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
+
+    if (teamIds.length === 0) {
+      return teams.length === 1 ? teams : []
+    }
+
+    return teams.filter((team) => teamIds.includes(String(team.id)))
   })
+}
+
+async function getSessionTeamIdsForUser(user) {
+  const activeTeamId = String(user?.activeTeamId ?? '').trim()
+
+  if (activeTeamId) {
+    return [activeTeamId]
+  }
+
+  const assignedTeams = await getAssignedTeamsForUser(user).catch((error) => {
+    console.error(error)
+    return []
+  })
+
+  return assignedTeams.map((team) => team.id).filter(Boolean)
 }
 
 export async function createTeam({ user, name }) {
@@ -2681,15 +2686,7 @@ export async function getAssessmentSessions({ user } = {}) {
   const cacheKey = `assessment-sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamId || 'assigned'}`
 
   return getCachedResource(cacheKey, async () => {
-    let teamIds = activeTeamId ? [activeTeamId] : []
-
-    if (teamIds.length === 0 && user.role !== 'admin') {
-      const assignedTeams = await getAssignedTeamsForUser(user).catch((error) => {
-        console.error(error)
-        return []
-      })
-      teamIds = assignedTeams.map((team) => team.id).filter(Boolean)
-    }
+    const teamIds = await getSessionTeamIdsForUser(user)
 
     if (teamIds.length === 0) {
       return []

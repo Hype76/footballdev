@@ -150,6 +150,17 @@ export function TeamManagementPage() {
     [roles, user],
   )
 
+  useEffect(() => {
+    if (coachForm.teamId || teams.length === 0) {
+      return
+    }
+
+    setCoachForm((current) => ({
+      ...current,
+      teamId: current.teamId || teams[0]?.id || '',
+    }))
+  }, [coachForm.teamId, teams])
+
   const writeTeamCache = (nextState = {}) => {
     writeViewCache(cacheKey, {
       teams,
@@ -261,6 +272,10 @@ export function TeamManagementPage() {
 
       if (!selectedRole || !canAssignRole(user, selectedRole)) {
         throw new Error('You cannot assign that role.')
+      }
+
+      if (!coachForm.teamId) {
+        throw new Error('Choose a team for this staff member.')
       }
 
       const createdStaff = await createStaffUserWithPassword({
@@ -523,9 +538,10 @@ export function TeamManagementPage() {
                   name="teamId"
                   value={coachForm.teamId}
                   onChange={handleCoachFormChange}
+                  required
                   className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
-                  <option value="">Create access only</option>
+                  <option value="">Select team access</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
