@@ -31,6 +31,7 @@ export function Topbar({
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
   const logoUrl = user?.clubLogoUrl || fallbackLogo
   const userLabel = user?.email || authUser?.email || user?.name || 'Loading user'
+  const teamLabel = user?.activeTeamName ? `Team: ${user.activeTeamName}` : clubLabel
 
   const handleSignOut = async () => {
     try {
@@ -75,6 +76,7 @@ export function Topbar({
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Signed in</p>
             <p className="mt-1 truncate text-sm font-medium text-[var(--text-primary)]">{userLabel}</p>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">{roleLabel}</p>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{teamLabel}</p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

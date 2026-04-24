@@ -832,6 +832,8 @@ export function normalizeUserProfile(profile) {
     clubStatus: String(getClubValue(profile.clubs, 'status') ?? profile.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: getClubValue(profile.clubs, 'suspended_at') ?? profile.clubSuspendedAt ?? '',
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
+    activeTeamId: String(profile.activeTeamId ?? '').trim(),
+    activeTeamName: String(profile.activeTeamName ?? '').trim(),
   }
 }
 
@@ -1736,6 +1738,52 @@ export async function getAvailableTeamsForUser(user) {
       throw error
     }
 
+    const teams = (data ?? []).map(normalizeTeamRow)
+    const activeTeamId = String(user.activeTeamId ?? '').trim()
+
+    if (!activeTeamId) {
+      return teams
+    }
+
+    const activeTeam = teams.find((team) => String(team.id) === activeTeamId)
+    return activeTeam ? [activeTeam] : teams
+  })
+}
+
+export async function getAssignedTeamsForUser(user) {
+  if (!user?.id || !user?.clubId || user.role === 'super_admin') {
+    return []
+  }
+
+  return getCachedResource(`assigned-teams:${user.id}:${user.clubId}`, async () => {
+    const { data: assignmentRows, error: assignmentError } = await supabase
+      .from('team_staff')
+      .select('team_id')
+      .eq('user_id', user.id)
+
+    if (assignmentError) {
+      console.error(assignmentError)
+      throw assignmentError
+    }
+
+    const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
+
+    if (teamIds.length === 0) {
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .in('id', teamIds)
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
     return (data ?? []).map(normalizeTeamRow)
   })
 }
@@ -2102,6 +2150,10 @@ export async function getEvaluations({ user, status, playerName, section } = {})
     query = query.eq('section', section)
   }
 
+  if (user.activeTeamName) {
+    query = query.eq('team', user.activeTeamName)
+  }
+
   if (user.roleRank < 50 && user.role !== 'super_admin') {
     query = query.eq('coach_id', user.id)
   }
@@ -2134,7 +2186,7 @@ export async function getPlayers({ user, section, playerName } = {}) {
     return []
   }
 
-  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerName || 'all'}`
+  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerName || 'all'}:${user.activeTeamId || user.activeTeamName || 'all'}`
 
   return getCachedResource(cacheKey, async () => {
     let query = supabase
@@ -2146,6 +2198,10 @@ export async function getPlayers({ user, section, playerName } = {}) {
 
     if (section) {
       query = query.eq('section', section)
+    }
+
+    if (user.activeTeamName) {
+      query = query.eq('team', user.activeTeamName)
     }
 
     if (playerName) {

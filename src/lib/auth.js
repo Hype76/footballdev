@@ -5,6 +5,7 @@ const AuthContext = createContext(null)
 let authDataModulePromise = null
 const PRODUCTION_APP_ORIGIN = 'https://playerfeedback.online'
 const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
+const SELECTED_TEAM_STORAGE_KEY = 'selected-team-id'
 
 function loadAuthDataModule() {
   if (!authDataModulePromise) {
@@ -49,7 +50,9 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.clubContactPhone ?? '') === String(rightUser.clubContactPhone ?? '') &&
     String(leftUser.clubStatus ?? '') === String(rightUser.clubStatus ?? '') &&
     String(leftUser.clubSuspendedAt ?? '') === String(rightUser.clubSuspendedAt ?? '') &&
-    Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval)
+    Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
+    String(leftUser.activeTeamId ?? '') === String(rightUser.activeTeamId ?? '') &&
+    String(leftUser.activeTeamName ?? '') === String(rightUser.activeTeamName ?? '')
   )
 }
 
@@ -161,6 +164,7 @@ export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
   const [clubOptions, setClubOptions] = useState([])
+  const [teamOptions, setTeamOptions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [authError, setAuthError] = useState('')
@@ -171,6 +175,56 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     userRef.current = user
   }, [user])
+
+  const applyTeamSelection = async (profile) => {
+    if (!profile || isSuperAdmin(profile) || Number(profile.roleRank ?? 0) >= 50) {
+      setTeamOptions([])
+      return profile
+    }
+
+    const { getAssignedTeamsForUser } = await loadAuthDataModule()
+    const assignedTeams = await getAssignedTeamsForUser(profile)
+
+    if (assignedTeams.length <= 1) {
+      const onlyTeam = assignedTeams[0]
+      setTeamOptions([])
+
+      if (!onlyTeam) {
+        window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+        return {
+          ...profile,
+          activeTeamId: '',
+          activeTeamName: '',
+        }
+      }
+
+      window.sessionStorage.setItem(SELECTED_TEAM_STORAGE_KEY, onlyTeam.id)
+      return {
+        ...profile,
+        activeTeamId: onlyTeam.id,
+        activeTeamName: onlyTeam.name,
+      }
+    }
+
+    const selectedTeamId = window.sessionStorage.getItem(SELECTED_TEAM_STORAGE_KEY) || ''
+    const selectedTeam = assignedTeams.find((team) => String(team.id) === selectedTeamId)
+
+    if (!selectedTeam) {
+      setTeamOptions(assignedTeams)
+      return {
+        ...profile,
+        activeTeamId: '',
+        activeTeamName: '',
+      }
+    }
+
+    setTeamOptions([])
+    return {
+      ...profile,
+      activeTeamId: selectedTeam.id,
+      activeTeamName: selectedTeam.name,
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -194,9 +248,11 @@ export function AuthProvider({ children }) {
       setAuthUser(null)
       setUser(null)
       setClubOptions([])
+      setTeamOptions([])
       setIsProfileLoading(false)
       setAuthError('')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       finishBootstrap()
     }
 
@@ -241,8 +297,14 @@ export function AuthProvider({ children }) {
           window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
         }
 
+        const profileWithTeam = await applyTeamSelection(profile)
+
+        if (!isMounted || activeSyncIdRef.current !== syncId) {
+          return
+        }
+
         setClubOptions([])
-        setUser((currentUser) => (areUsersEquivalent(currentUser, profile) ? currentUser : profile))
+        setUser((currentUser) => (areUsersEquivalent(currentUser, profileWithTeam) ? currentUser : profileWithTeam))
         setIsProfileLoading(false)
         setAuthError('')
       } catch (error) {
@@ -357,7 +419,9 @@ export function AuthProvider({ children }) {
       const { selectUserClub } = await loadAuthDataModule()
       const profile = await selectUserClub(authUser, clubId)
       window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
-      setUser(profile)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      const profileWithTeam = await applyTeamSelection(profile)
+      setUser(profileWithTeam)
       setClubOptions([])
       setAuthError('')
     } catch (error) {
@@ -367,6 +431,28 @@ export function AuthProvider({ children }) {
     } finally {
       setIsProfileLoading(false)
     }
+  }
+
+  const selectTeam = async (teamId) => {
+    const selectedTeam = teamOptions.find((team) => String(team.id) === String(teamId))
+
+    if (!selectedTeam) {
+      throw new Error('This team is not linked to your account.')
+    }
+
+    window.sessionStorage.setItem(SELECTED_TEAM_STORAGE_KEY, selectedTeam.id)
+    setUser((current) => {
+      if (!current) {
+        return current
+      }
+
+      return {
+        ...current,
+        activeTeamId: selectedTeam.id,
+        activeTeamName: selectedTeam.name,
+      }
+    })
+    setTeamOptions([])
   }
 
   const signUpWithClub = async ({ email, password, clubName }) => {
@@ -482,18 +568,20 @@ export function AuthProvider({ children }) {
       authUser,
       user,
       clubOptions,
+      teamOptions,
       isLoading,
       isProfileLoading,
       authError,
       signInWithPassword,
       signUpWithClub,
       selectClub,
+      selectTeam,
       resetPassword,
       signOut,
       updateCurrentClubDetails,
       updateCurrentUserDetails,
     }),
-    [authError, authUser, clubOptions, isLoading, isProfileLoading, session, user],
+    [authError, authUser, clubOptions, isLoading, isProfileLoading, session, teamOptions, user],
   )
 
   return createElement(AuthContext.Provider, { value }, children)

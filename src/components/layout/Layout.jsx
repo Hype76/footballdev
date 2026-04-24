@@ -24,7 +24,7 @@ function getSystemTheme() {
 }
 
 export function Layout() {
-  const { authError, clubOptions, isProfileLoading, selectClub } = useAuth()
+  const { authError, clubOptions, isProfileLoading, selectClub, selectTeam, teamOptions } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [clubSelectionError, setClubSelectionError] = useState('')
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
@@ -92,6 +92,17 @@ export function Layout() {
     }
   }
 
+  const handleTeamSelect = async (teamId) => {
+    setClubSelectionError('')
+
+    try {
+      await selectTeam(teamId)
+    } catch (error) {
+      console.error(error)
+      setClubSelectionError(error.message || 'Could not open this team.')
+    }
+  }
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
@@ -146,6 +157,46 @@ export function Layout() {
                   <span className="shrink-0 text-sm font-semibold text-[var(--text-secondary)]">
                     {isProfileLoading ? 'Opening...' : 'Open'}
                   </span>
+                </button>
+              ))}
+            </div>
+
+            {clubSelectionError || authError ? (
+              <div className="mt-4 rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+                {clubSelectionError || authError}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {clubOptions.length === 0 && teamOptions.length > 1 ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
+          <div className="w-full max-w-xl rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Team</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Which team do you want to work with?</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+              Your account is linked to more than one team. Pick the team workspace you want to use for player work in this session.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              {teamOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => handleTeamSelect(option.id)}
+                  disabled={isProfileLoading}
+                  className="flex min-h-16 w-full items-center justify-between gap-4 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
+                      {option.name || 'Unnamed team'}
+                    </span>
+                    <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                      Team workspace
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold text-[var(--text-secondary)]">Open</span>
                 </button>
               ))}
             </div>
