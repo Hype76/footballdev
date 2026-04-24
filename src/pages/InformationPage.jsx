@@ -135,6 +135,13 @@ export function InformationPage() {
         description={`Signed in as ${getRoleLabel(user)}. This guide only shows what is relevant to your access level and lower roles.`}
       />
 
+      <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">Instructions are a work in progress.</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+          This guide will keep improving as the platform workflow is tested and refined.
+        </p>
+      </div>
+
       {isSuperAdmin(user) ? (
         <SectionCard
           title="Platform admin guide"
