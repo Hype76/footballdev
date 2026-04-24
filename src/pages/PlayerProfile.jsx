@@ -120,6 +120,22 @@ async function getLatestClubLogoUrl(user) {
   }
 }
 
+function getEditableParentContacts(player) {
+  const contacts = normalizeParentContacts(player?.parentContacts, {
+    parentName: player?.parentName,
+    parentEmail: player?.parentEmail,
+  })
+
+  return contacts.length > 0 ? contacts : [{ name: '', email: '' }]
+}
+
+function createPlayerDraft(player) {
+  return {
+    ...player,
+    parentContacts: getEditableParentContacts(player),
+  }
+}
+
 export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -184,7 +200,7 @@ export function PlayerProfile() {
 
         setEvaluations(nextEvaluations)
         setPlayers(nextPlayers)
-        setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, player])))
+        setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, createPlayerDraft(player)])))
         writeViewCache(cacheKey, {
           evaluations: nextEvaluations,
           players: nextPlayers,
@@ -331,6 +347,15 @@ export function PlayerProfile() {
     }))
   }
 
+  const handleStartEditingPlayer = (player) => {
+    setErrorMessage('')
+    setPlayerDrafts((current) => ({
+      ...current,
+      [player.id]: createPlayerDraft(current[player.id] ?? player),
+    }))
+    setEditingPlayerId(player.id)
+  }
+
   const handleParentContactDraftChange = (playerId, index, fieldName, value) => {
     setErrorMessage('')
     setPlayerDrafts((current) => {
@@ -460,11 +485,14 @@ export function PlayerProfile() {
       const savedPlayer = await updatePlayer({
         user,
         playerId,
-        player: draft,
+        player: {
+          ...draft,
+          parentContacts: getEditableParentContacts(draft),
+        },
       })
       const nextPlayers = players.map((player) => (player.id === playerId ? savedPlayer : player))
       setPlayers(nextPlayers)
-      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, player])))
+      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, createPlayerDraft(player)])))
       writeViewCache(cacheKey, {
         evaluations,
         players: nextPlayers,
@@ -490,7 +518,7 @@ export function PlayerProfile() {
       const promotedPlayer = await promotePlayerToSquad({ user, playerId })
       const nextPlayers = players.map((player) => (player.id === playerId ? promotedPlayer : player))
       setPlayers(nextPlayers)
-      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, player])))
+      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, createPlayerDraft(player)])))
       writeViewCache(cacheKey, {
         evaluations,
         players: nextPlayers,
@@ -666,25 +694,30 @@ export function PlayerProfile() {
                         />
                       </label>
                       <div className="md:col-span-2 xl:col-span-3">
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <span className="block text-sm font-semibold text-[var(--text-primary)]">Parent Contacts</span>
+                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <span className="block text-sm font-semibold text-[var(--text-primary)]">Parent Contacts</span>
+                            <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                              Add multiple parents or guardians. Each contact can have a separate name and email.
+                            </p>
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleAddParentContact(player.id)}
-                            className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                           >
-                            Add Parent
+                            Add Another Parent
                           </button>
                         </div>
                         <div className="grid gap-3 lg:grid-cols-2">
-                          {normalizeParentContacts(draft.parentContacts, {
-                            parentName: draft.parentName,
-                            parentEmail: draft.parentEmail,
-                          }).map((contact, index) => (
+                          {getEditableParentContacts(draft).map((contact, index) => (
                             <div key={index} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                                Parent {index + 1}
+                              </p>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="block">
-                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Name</span>
+                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Name</span>
                                   <input
                                     value={contact.name}
                                     onChange={(event) => handleParentContactDraftChange(player.id, index, 'name', event.target.value)}
@@ -692,7 +725,7 @@ export function PlayerProfile() {
                                   />
                                 </label>
                                 <label className="block">
-                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Email</span>
+                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Email</span>
                                   <input
                                     type="email"
                                     value={contact.email}
@@ -704,7 +737,7 @@ export function PlayerProfile() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveParentContact(player.id, index)}
-                                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                                className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                               >
                                 Remove Parent
                               </button>
@@ -822,7 +855,7 @@ export function PlayerProfile() {
                         ) : null}
                         <button
                           type="button"
-                          onClick={() => setEditingPlayerId(player.id)}
+                          onClick={() => handleStartEditingPlayer(player)}
                           className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                         >
                           Edit Details
