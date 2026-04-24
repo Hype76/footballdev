@@ -473,12 +473,17 @@ function mapEvaluationToRow(data) {
 }
 
 function normalizePlayerRow(row) {
+  const positions = Array.isArray(row.positions)
+    ? row.positions.map((position) => String(position ?? '').trim()).filter(Boolean)
+    : []
+
   return {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
     playerName: String(row.player_name ?? row.playerName ?? '').trim(),
     section: String(row.section ?? 'Trial').trim() || 'Trial',
     team: String(row.team ?? '').trim(),
+    positions,
     parentName: String(row.parent_name ?? row.parentName ?? '').trim(),
     parentEmail: String(row.parent_email ?? row.parentEmail ?? '').trim(),
     notes: String(row.notes ?? '').trim(),
@@ -525,11 +530,16 @@ function normalizeAssessmentSessionPlayerRow(row) {
 }
 
 function mapPlayerToRow(player, user) {
+  const positions = Array.isArray(player.positions)
+    ? player.positions.map((position) => String(position ?? '').trim()).filter(Boolean)
+    : []
+
   return {
     club_id: player.clubId ?? user?.clubId ?? '',
     player_name: normalizeWords(player.playerName),
     section: EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Trial',
     team: String(player.team ?? '').trim(),
+    positions,
     parent_name: String(player.parentName ?? '').trim(),
     parent_email: String(player.parentEmail ?? '').trim(),
     notes: String(player.notes ?? '').trim(),

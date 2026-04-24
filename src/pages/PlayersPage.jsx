@@ -125,6 +125,7 @@ export function PlayersPage() {
         playerName: player.playerName,
         section: player.section,
         team: player.team,
+        positions: player.positions ?? [],
         parentName: player.parentName,
         parentEmail: player.parentEmail,
         evaluations: [],
@@ -143,6 +144,7 @@ export function PlayersPage() {
           playerName: evaluation.playerName,
           section: evaluation.section,
           team: evaluation.team,
+          positions: [],
           parentName: evaluation.parentName,
           parentEmail: evaluation.parentEmail,
           evaluations: [],
@@ -179,7 +181,8 @@ export function PlayersPage() {
       const matchesSearch =
         !normalizedSearchTerm ||
         player.playerName.toLowerCase().includes(normalizedSearchTerm) ||
-        String(player.team ?? '').toLowerCase().includes(normalizedSearchTerm)
+        String(player.team ?? '').toLowerCase().includes(normalizedSearchTerm) ||
+        (player.positions ?? []).some((position) => position.toLowerCase().includes(normalizedSearchTerm))
 
       return matchesSection && matchesSearch
     })
@@ -278,6 +281,9 @@ export function PlayersPage() {
                   <div className="md:col-span-2">
                     <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'}</p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">
+                      {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Section</p>

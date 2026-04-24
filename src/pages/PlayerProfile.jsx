@@ -311,6 +311,36 @@ export function PlayerProfile() {
     }))
   }
 
+  const handleAddPlayerPosition = (playerId) => {
+    const draft = playerDrafts[playerId]
+    const nextPosition = String(draft?.positionDraft ?? '').trim()
+
+    if (!nextPosition) {
+      return
+    }
+
+    setErrorMessage('')
+    setPlayerDrafts((current) => ({
+      ...current,
+      [playerId]: {
+        ...current[playerId],
+        positions: [...new Set([...(current[playerId]?.positions ?? []), nextPosition])],
+        positionDraft: '',
+      },
+    }))
+  }
+
+  const handleRemovePlayerPosition = (playerId, positionToRemove) => {
+    setErrorMessage('')
+    setPlayerDrafts((current) => ({
+      ...current,
+      [playerId]: {
+        ...current[playerId],
+        positions: (current[playerId]?.positions ?? []).filter((position) => position !== positionToRemove),
+      },
+    }))
+  }
+
   const handleSavePlayer = async (playerId) => {
     const draft = playerDrafts[playerId]
 
@@ -570,6 +600,40 @@ export function PlayerProfile() {
                           className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
+                      <div className="md:col-span-2 xl:col-span-3">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <input
+                            value={draft.positionDraft ?? ''}
+                            onChange={(event) => handlePlayerDraftChange(player.id, 'positionDraft', event.target.value)}
+                            placeholder="Add position"
+                            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddPlayerPosition(player.id)}
+                            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                          >
+                            Add Position
+                          </button>
+                        </div>
+                        {(draft.positions ?? []).length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {draft.positions.map((position) => (
+                              <button
+                                key={position}
+                                type="button"
+                                onClick={() => handleRemovePlayerPosition(player.id, position)}
+                                className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                              >
+                                {position} remove
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">No positions entered.</p>
+                        )}
+                      </div>
                       <div className="flex items-end gap-3">
                         <button
                           type="button"
@@ -607,6 +671,12 @@ export function PlayerProfile() {
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Parent Email</p>
                           <p className="mt-2 break-words text-sm font-semibold text-[var(--text-primary)]">{player.parentEmail || 'No parent email entered'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Positions</p>
+                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                            {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Status</p>

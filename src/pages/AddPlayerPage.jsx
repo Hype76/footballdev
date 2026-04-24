@@ -20,6 +20,8 @@ function createInitialPlayerForm() {
     playerName: '',
     section: 'Trial',
     team: '',
+    positions: [],
+    positionDraft: '',
     parentName: '',
     parentEmail: '',
   }
@@ -120,6 +122,31 @@ export function AddPlayerPage() {
     setPlayerForm((current) => ({
       ...current,
       [name]: value,
+    }))
+  }
+
+  const handleAddPosition = () => {
+    const nextPosition = playerForm.positionDraft.trim()
+
+    if (!nextPosition) {
+      return
+    }
+
+    setMessage('')
+    setErrorMessage('')
+    setPlayerForm((current) => ({
+      ...current,
+      positions: [...new Set([...(current.positions ?? []), nextPosition])],
+      positionDraft: '',
+    }))
+  }
+
+  const handleRemovePosition = (positionToRemove) => {
+    setMessage('')
+    setErrorMessage('')
+    setPlayerForm((current) => ({
+      ...current,
+      positions: (current.positions ?? []).filter((position) => position !== positionToRemove),
     }))
   }
 
@@ -263,6 +290,43 @@ export function AddPlayerPage() {
               />
             </label>
 
+            <div className="xl:col-span-3">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  name="positionDraft"
+                  value={playerForm.positionDraft}
+                  onChange={handlePlayerFormChange}
+                  placeholder="Add position, for example Striker"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddPosition}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                >
+                  Add Position
+                </button>
+              </div>
+              {playerForm.positions.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {playerForm.positions.map((position) => (
+                    <button
+                      key={position}
+                      type="button"
+                      onClick={() => handleRemovePosition(position)}
+                      className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                    >
+                      {position} remove
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Add one or more positions for this player.</p>
+              )}
+            </div>
+
             <label className="block xl:col-span-2">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent Email</span>
               <input
@@ -295,6 +359,9 @@ export function AddPlayerPage() {
               >
                 <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
                 <p className="mt-2 text-sm text-[var(--text-muted)]">{player.section} | {player.team || 'No team'}</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
+                </p>
               </Link>
             ))}
           </div>
