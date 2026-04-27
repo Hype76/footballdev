@@ -6,6 +6,7 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
 import {
   canRemoveClubUser,
+  canUpdateClubUserName,
   createStaffUserWithPassword,
   createClubRole,
   deleteClubInvite,
@@ -14,6 +15,7 @@ import {
   getClubUsers,
   removeClubUser,
   readViewCacheValue,
+  updateClubUserName,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -44,6 +46,7 @@ export function UserAccessPage() {
   const [isLoading, setIsLoading] = useState(() => roles.length === 0 && members.length === 0 && pendingInvites.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [nameDrafts, setNameDrafts] = useState({})
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
@@ -86,6 +89,7 @@ export function UserAccessPage() {
         setRoles(nextRoles)
         setMembers(nextMembers)
         setPendingInvites(nextInvites)
+        setNameDrafts(Object.fromEntries(nextMembers.map((member) => [member.id, member.name || ''])))
         writeViewCache(cacheKey, {
           roles: nextRoles,
           members: nextMembers,
@@ -160,6 +164,7 @@ export function UserAccessPage() {
     setRoles(nextRoles)
     setMembers(nextMembers)
     setPendingInvites(nextInvites)
+    setNameDrafts(Object.fromEntries(nextMembers.map((member) => [member.id, member.name || ''])))
     writeViewCache(cacheKey, {
       roles: nextRoles,
       members: nextMembers,
@@ -258,6 +263,54 @@ export function UserAccessPage() {
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not remove this user.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleNameDraftChange = (memberId, value) => {
+    setMessage('')
+    setErrorMessage('')
+    setNameDrafts((current) => ({
+      ...current,
+      [memberId]: value,
+    }))
+  }
+
+  const handleUpdateMemberName = async (member) => {
+    if (!canUpdateClubUserName(user, member)) {
+      setErrorMessage('You can only update names for users at your role level or below.')
+      return
+    }
+
+    const nextName = String(nameDrafts[member.id] ?? '').trim()
+
+    if (!nextName) {
+      setErrorMessage('Enter a name before saving.')
+      return
+    }
+
+    setIsSaving(true)
+    setMessage('')
+    setErrorMessage('')
+
+    try {
+      const updatedMember = await updateClubUserName({
+        user,
+        member,
+        name: nextName,
+      })
+
+      setMembers((current) => current.map((currentMember) => (currentMember.id === updatedMember.id ? updatedMember : currentMember)))
+      setNameDrafts((current) => ({
+        ...current,
+        [updatedMember.id]: updatedMember.name || '',
+      }))
+      await refreshAccessData()
+      setMessage('User name updated.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not update this user name.')
     } finally {
       setIsSaving(false)
     }
@@ -421,6 +474,29 @@ export function UserAccessPage() {
                     ) : null}
                   </div>
                 </div>
+                {canUpdateClubUserName(user, member) ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                        Display name
+                      </span>
+                      <input
+                        type="text"
+                        value={nameDrafts[member.id] ?? ''}
+                        onChange={(event) => handleNameDraftChange(member.id, event.target.value)}
+                        className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isSaving || String(nameDrafts[member.id] ?? '').trim() === String(member.name ?? '').trim()}
+                      onClick={() => handleUpdateMemberName(member)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Save name
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

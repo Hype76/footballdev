@@ -1,5 +1,6 @@
 export {
   assignClubUserRole,
+  canUpdateClubUserName,
   canRemoveClubUser,
   createClubRole,
   createStaffUserWithPassword,
@@ -11,4 +12,5 @@ export {
   removeClubUser,
   seedDefaultClubRolesForClub,
   SYSTEM_ROLE_OPTIONS,
+  updateClubUserName,
 } from './core.js'

@@ -2336,6 +2336,79 @@ export function canRemoveClubUser(actor, targetUser) {
   )
 }
 
+export function canUpdateClubUserName(actor, targetUser) {
+  if (!actor || !targetUser) {
+    return false
+  }
+
+  if (String(actor.id) === String(targetUser.id)) {
+    return false
+  }
+
+  if (actor.role === 'super_admin') {
+    return targetUser.role !== 'super_admin'
+  }
+
+  return (
+    Boolean(actor.clubId) &&
+    String(actor.clubId) === String(targetUser.clubId) &&
+    Number(actor.roleRank ?? 0) >= 50 &&
+    Number(targetUser.roleRank ?? 0) <= Number(actor.roleRank ?? 0)
+  )
+}
+
+export async function updateClubUserName({ user, member, name }) {
+  if (!canUpdateClubUserName(user, member)) {
+    throw new Error('You can only update names for users at your role level or below.')
+  }
+
+  const targetUserId = String(member.id ?? '').trim()
+  const normalizedName = normalizeWords(name)
+
+  if (!targetUserId) {
+    throw new Error('User ID is required.')
+  }
+
+  if (!normalizedName) {
+    throw new Error('Name is required.')
+  }
+
+  let query = supabase
+    .from('users')
+    .update({
+      name: normalizedName,
+    })
+    .eq('id', targetUserId)
+
+  if (user.role !== 'super_admin') {
+    query = query.eq('club_id', user.clubId)
+  }
+
+  const { data, error } = await query
+    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'user_name_updated',
+    entityType: 'user',
+    entityId: data.id,
+    metadata: {
+      email: data.email,
+      name: data.name,
+    },
+  })
+
+  return normalizeUserProfile(data)
+}
+
 export async function removeClubUser({ user, member }) {
   if (!canRemoveClubUser(user, member)) {
     throw new Error('You can only remove users below your role.')

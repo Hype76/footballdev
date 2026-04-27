@@ -45,6 +45,7 @@ export {
   createStaffUserWithPassword,
   deleteClubInvite,
   assignClubUserRole,
+  canUpdateClubUserName,
   canRemoveClubUser,
   getClubRoles,
   getClubUserInvites,
@@ -53,6 +54,7 @@ export {
   removeClubUser,
   seedDefaultClubRolesForClub,
   SYSTEM_ROLE_OPTIONS,
+  updateClubUserName,
 } from './domain/roles.js'
 
 export {
