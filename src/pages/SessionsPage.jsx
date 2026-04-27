@@ -159,6 +159,7 @@ export function SessionsPage() {
     : ''
   const completedSessionId = String(searchParams.get('completedSessionId') ?? '').trim()
   const completedCount = Number(searchParams.get('completedCount') ?? 0)
+  const requestedSessionId = String(searchParams.get('sessionId') ?? '').trim()
   const completedPlayerNames = useMemo(
     () => readCompletedPlayerNames(user, selectedSessionId),
     [selectedSessionId, user],
@@ -202,6 +203,10 @@ export function SessionsPage() {
         setPlayers(nextPlayers)
         setTeams(nextTeams)
         setSelectedSessionId((current) => {
+          if (requestedSessionId && nextSessions.some((session) => session.id === requestedSessionId)) {
+            return requestedSessionId
+          }
+
           if (completedSessionId && nextSessions.some((session) => session.id === completedSessionId)) {
             return completedSessionId
           }
@@ -245,7 +250,7 @@ export function SessionsPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, completedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
+  }, [cacheKey, completedSessionId, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -315,6 +320,10 @@ export function SessionsPage() {
   }, [notesDrafts, selectedPlayerIds, selectedSessionId, workspaceStorageKey])
 
   const selectedSession = sessions.find((session) => session.id === selectedSessionId)
+  const previousSessions = useMemo(
+    () => sessions.filter((session) => session.id !== selectedSessionId),
+    [selectedSessionId, sessions],
+  )
   const filteredPlayers = useMemo(
     () =>
       players.filter(
@@ -324,6 +333,21 @@ export function SessionsPage() {
       ),
     [players, sessionForm.section, sessionForm.team],
   )
+
+  useEffect(() => {
+    if (!selectedSession) {
+      return
+    }
+
+    setSessionForm((current) => ({
+      ...current,
+      teamId: selectedSession.teamId || current.teamId,
+      team: selectedSession.team || current.team,
+      opponent: selectedSession.opponent || current.opponent,
+      sessionType: selectedSession.sessionType || current.sessionType,
+      sessionDate: selectedSession.sessionDate || current.sessionDate,
+    }))
+  }, [selectedSession])
 
   if (!canCreateEvaluation(user)) {
     return <Navigate to="/" replace />
@@ -398,6 +422,23 @@ export function SessionsPage() {
     setSelectedPlayerIds((current) =>
       checked ? [...new Set([...current, playerId])] : current.filter((id) => id !== playerId),
     )
+  }
+
+  const handleOpenSession = (sessionId) => {
+    const nextSessionId = String(sessionId ?? '').trim()
+
+    if (!nextSessionId) {
+      return
+    }
+
+    setErrorMessage('')
+    setSelectedSessionId(nextSessionId)
+    setSelectedPlayerIds([])
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('sessionId', nextSessionId)
+    nextSearchParams.delete('completedSessionId')
+    nextSearchParams.delete('completedCount')
+    setSearchParams(nextSearchParams, { replace: true })
   }
 
   const handleImportPlayers = async (mode) => {
@@ -678,7 +719,7 @@ export function SessionsPage() {
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Active session</span>
               <select
                 value={selectedSessionId}
-                onChange={(event) => setSelectedSessionId(event.target.value)}
+                onChange={(event) => handleOpenSession(event.target.value)}
                 className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
                 {sessions.map((session) => (
@@ -688,6 +729,43 @@ export function SessionsPage() {
                 ))}
               </select>
             </label>
+
+            {previousSessions.length > 0 ? (
+              <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Open old sessions</p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">
+                      Previous sessions stay available so coaches can continue notes or assessments later.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  {previousSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className="flex flex-col gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                          {session.title || session.team || 'Session'}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                          {(session.sessionType === 'match' ? 'Match' : 'Training')} | {formatSessionDate(session.sessionDate)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenSession(session.id)}
+                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                      >
+                        Open Session
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-3 lg:grid-cols-2">
               {filteredPlayers.map((player) => (
