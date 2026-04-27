@@ -10,6 +10,7 @@ import {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
   createAssessmentSession,
+  getEvaluations,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
@@ -113,6 +114,102 @@ function readCompletedPlayerNames(user, sessionId) {
   }
 }
 
+function getHistoricalSessionId(evaluation) {
+  const key = [
+    String(evaluation.session || evaluation.date || 'No date entered').trim(),
+    String(evaluation.team || 'No team entered').trim(),
+    String(evaluation.section || 'Trial').trim(),
+  ].join('|')
+
+  return `history:${encodeURIComponent(key)}`
+}
+
+function buildHistoricalSessionsFromEvaluations(evaluations, realSessions = []) {
+  const realSessionKeys = new Set(
+    realSessions.map((session) =>
+      [
+        String(session.sessionDate || '').slice(0, 10),
+        String(session.team || '').trim().toLowerCase(),
+      ].join('|'),
+    ),
+  )
+  const groupedSessions = new Map()
+
+  evaluations.forEach((evaluation) => {
+    const sessionDate = String(evaluation.session || evaluation.date || '').trim()
+    const team = String(evaluation.team || '').trim()
+    const section = String(evaluation.section || 'Trial').trim() || 'Trial'
+
+    if (!sessionDate && !team) {
+      return
+    }
+
+    const realSessionKey = [sessionDate.slice(0, 10), team.toLowerCase()].join('|')
+
+    if (realSessionKeys.has(realSessionKey)) {
+      return
+    }
+
+    const historicalSession = {
+      id: getHistoricalSessionId(evaluation),
+      clubId: evaluation.clubId,
+      teamId: evaluation.teamId || '',
+      team,
+      opponent: '',
+      sessionType: 'training',
+      sessionDate,
+      title: `${team || 'Historical session'} | ${formatSessionDate(sessionDate)} | ${section}`,
+      createdBy: evaluation.coachId || '',
+      createdAt: evaluation.createdAt || '',
+      updatedAt: evaluation.createdAt || '',
+      section,
+      isHistorical: true,
+    }
+
+    if (!groupedSessions.has(historicalSession.id)) {
+      groupedSessions.set(historicalSession.id, historicalSession)
+    }
+  })
+
+  return Array.from(groupedSessions.values())
+}
+
+function buildHistoricalSessionPlayers(evaluations, selectedSession) {
+  if (!selectedSession?.isHistorical) {
+    return []
+  }
+
+  const selectedSessionId = selectedSession.id
+  const playersByName = new Map()
+
+  evaluations
+    .filter((evaluation) => getHistoricalSessionId(evaluation) === selectedSessionId)
+    .forEach((evaluation) => {
+      const playerName = String(evaluation.playerName ?? '').trim()
+
+      if (!playerName || playersByName.has(playerName.toLowerCase())) {
+        return
+      }
+
+      playersByName.set(playerName.toLowerCase(), {
+        id: `history-player:${evaluation.id}`,
+        sessionId: selectedSessionId,
+        playerId: evaluation.playerId || '',
+        playerName,
+        section: evaluation.section || selectedSession.section || 'Trial',
+        team: evaluation.team || selectedSession.team || '',
+        parentName: evaluation.parentName || '',
+        parentEmail: evaluation.parentEmail || '',
+        parentContacts: evaluation.parentContacts || [],
+        notes: evaluation.comments?.overall || evaluation.comments?.strengths || '',
+        createdAt: evaluation.createdAt || '',
+        updatedAt: evaluation.createdAt || '',
+      })
+    })
+
+  return Array.from(playersByName.values())
+}
+
 export function SessionsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -136,6 +233,10 @@ export function SessionsPage() {
   const [teams, setTeams] = useState(() => {
     const cachedTeams = readViewCacheValue(cacheKey, 'teams', [])
     return Array.isArray(cachedTeams) ? cachedTeams : []
+  })
+  const [evaluations, setEvaluations] = useState(() => {
+    const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
+    return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
@@ -165,6 +266,12 @@ export function SessionsPage() {
     [selectedSessionId, user],
   )
 
+  const combinedSessions = useMemo(
+    () => [...sessions, ...buildHistoricalSessionsFromEvaluations(evaluations, sessions)],
+    [evaluations, sessions],
+  )
+  const selectedSession = combinedSessions.find((session) => session.id === selectedSessionId)
+
   useEffect(() => {
     let isMounted = true
     const cachedValue = readViewCache(cacheKey)
@@ -173,10 +280,11 @@ export function SessionsPage() {
       setErrorMessage('')
 
       try {
-        const [sessionsResult, playersResult, teamsResult] = await Promise.allSettled([
+        const [sessionsResult, playersResult, teamsResult, evaluationsResult] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
+          withRequestTimeout(() => getEvaluations({ user }), 'Could not load historical sessions.'),
         ])
 
         if (!isMounted) {
@@ -186,6 +294,8 @@ export function SessionsPage() {
         const nextSessions = sessionsResult.status === 'fulfilled' ? sessionsResult.value : cachedValue?.sessions || []
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : cachedValue?.players || []
         const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : cachedValue?.teams || []
+        const nextEvaluations =
+          evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : cachedValue?.evaluations || []
 
         if (sessionsResult.status === 'rejected') {
           console.error(sessionsResult.reason)
@@ -199,11 +309,22 @@ export function SessionsPage() {
           console.error(teamsResult.reason)
         }
 
+        if (evaluationsResult.status === 'rejected') {
+          console.error(evaluationsResult.reason)
+        }
+
         setSessions(nextSessions)
         setPlayers(nextPlayers)
         setTeams(nextTeams)
+        setEvaluations(nextEvaluations)
         setSelectedSessionId((current) => {
+          const nextCombinedSessions = [...nextSessions, ...buildHistoricalSessionsFromEvaluations(nextEvaluations, nextSessions)]
+
           if (requestedSessionId && nextSessions.some((session) => session.id === requestedSessionId)) {
+            return requestedSessionId
+          }
+
+          if (requestedSessionId && nextCombinedSessions.some((session) => session.id === requestedSessionId)) {
             return requestedSessionId
           }
 
@@ -211,12 +332,14 @@ export function SessionsPage() {
             return completedSessionId
           }
 
-          if (nextSessions.some((session) => session.id === current)) {
+          if (nextCombinedSessions.some((session) => session.id === current)) {
             return current
           }
 
           const storedSessionId = String(storedSessionWorkspace.selectedSessionId ?? '')
-          return nextSessions.some((session) => session.id === storedSessionId) ? storedSessionId : nextSessions[0]?.id || ''
+          return nextCombinedSessions.some((session) => session.id === storedSessionId)
+            ? storedSessionId
+            : nextCombinedSessions[0]?.id || ''
         })
         setSessionForm((current) => ({
           ...current,
@@ -227,12 +350,14 @@ export function SessionsPage() {
           sessions: nextSessions,
           players: nextPlayers,
           teams: nextTeams,
+          evaluations: nextEvaluations,
         })
 
         if (
           sessionsResult.status === 'rejected' ||
           playersResult.status === 'rejected' ||
-          teamsResult.status === 'rejected'
+          teamsResult.status === 'rejected' ||
+          evaluationsResult.status === 'rejected'
         ) {
           setErrorMessage('Some session data could not be refreshed. Existing data is still available where possible.')
         }
@@ -256,9 +381,18 @@ export function SessionsPage() {
     let isMounted = true
 
     const loadSessionPlayers = async () => {
+      const selectedSession = combinedSessions.find((session) => session.id === selectedSessionId)
+
       if (!selectedSessionId) {
         setSessionPlayers([])
         setNotesDrafts({})
+        return
+      }
+
+      if (selectedSession?.isHistorical) {
+        const historicalPlayers = buildHistoricalSessionPlayers(evaluations, selectedSession)
+        setSessionPlayers(historicalPlayers)
+        setNotesDrafts(Object.fromEntries(historicalPlayers.map((player) => [player.id, player.notes || ''])))
         return
       }
 
@@ -300,7 +434,7 @@ export function SessionsPage() {
     return () => {
       isMounted = false
     }
-  }, [selectedSessionId, storedSessionWorkspace.notesDraftsBySession, user])
+  }, [combinedSessions, evaluations, selectedSessionId, storedSessionWorkspace.notesDraftsBySession, user])
 
   useEffect(() => {
     if (!workspaceStorageKey) {
@@ -319,7 +453,6 @@ export function SessionsPage() {
     })
   }, [notesDrafts, selectedPlayerIds, selectedSessionId, workspaceStorageKey])
 
-  const selectedSession = sessions.find((session) => session.id === selectedSessionId)
   const filteredPlayers = useMemo(
     () =>
       players.filter(
@@ -354,6 +487,7 @@ export function SessionsPage() {
       sessions,
       players,
       teams,
+      evaluations,
       ...nextState,
     })
   }
@@ -611,13 +745,13 @@ export function SessionsPage() {
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading saved sessions...
           </div>
-        ) : sessions.length === 0 ? (
+        ) : combinedSessions.length === 0 ? (
           <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No saved sessions yet. Create a session below and it will appear here.
           </div>
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
-            {sessions.map((session) => {
+            {combinedSessions.map((session) => {
               const isActiveSession = session.id === selectedSessionId
 
               return (
@@ -774,7 +908,7 @@ export function SessionsPage() {
                 onChange={(event) => handleOpenSession(event.target.value)}
                 className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
-                {sessions.map((session) => (
+                {combinedSessions.map((session) => (
                   <option key={session.id} value={session.id}>
                     {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)}
                   </option>
