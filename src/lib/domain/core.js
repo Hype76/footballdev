@@ -1969,6 +1969,22 @@ async function getSessionTeamIdsForUser(user) {
   return assignedTeams.map((team) => team.id).filter(Boolean)
 }
 
+async function getSessionTeamsForUser(user) {
+  const activeTeamId = String(user?.activeTeamId ?? '').trim()
+  const activeTeamName = String(user?.activeTeamName ?? '').trim()
+  const assignedTeams = await getAssignedTeamsForUser(user).catch((error) => {
+    console.error(error)
+    return []
+  })
+
+  if (activeTeamId) {
+    const matchedTeam = assignedTeams.find((team) => String(team.id) === activeTeamId)
+    return matchedTeam ? [matchedTeam] : [{ id: activeTeamId, name: activeTeamName }]
+  }
+
+  return assignedTeams
+}
+
 export async function createTeam({ user, name }) {
   if (!user?.clubId) {
     throw new Error('Club ID is required.')
@@ -2709,17 +2725,18 @@ export async function getAssessmentSessions({ user } = {}) {
   const cacheKey = `assessment-sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamId || 'assigned'}`
 
   return getCachedResource(cacheKey, async () => {
-    const teamIds = await getSessionTeamIdsForUser(user)
+    const teams = await getSessionTeamsForUser(user)
+    const teamIds = teams.map((team) => String(team.id ?? '').trim()).filter(Boolean)
+    const teamNames = teams.map((team) => String(team.name ?? '').trim().toLowerCase()).filter(Boolean)
 
-    if (teamIds.length === 0) {
+    if (teamIds.length === 0 && teamNames.length === 0) {
       return []
     }
 
-    const query = supabase
+    let query = supabase
       .from('assessment_sessions')
       .select('*')
       .eq('club_id', user.clubId)
-      .in('team_id', teamIds)
       .order('session_date', { ascending: false })
       .order('created_at', { ascending: false })
 
@@ -2730,7 +2747,17 @@ export async function getAssessmentSessions({ user } = {}) {
       throw error
     }
 
-    return (data ?? []).map(normalizeAssessmentSessionRow)
+    const normalizedSessions = (data ?? []).map(normalizeAssessmentSessionRow)
+
+    if (teamNames.length === 0) {
+      return normalizedSessions
+    }
+
+    return normalizedSessions.filter((session) => {
+      const sessionTeamId = String(session.teamId ?? '').trim()
+      const sessionTeamName = String(session.team ?? '').trim().toLowerCase()
+      return teamIds.includes(sessionTeamId) || teamNames.includes(sessionTeamName)
+    })
   })
 }
 
