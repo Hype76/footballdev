@@ -22,17 +22,13 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
-function getTodayDate() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 function createInitialSessionForm() {
   return {
     teamId: '',
     team: '',
     opponent: '',
-    sessionType: 'training',
-    sessionDate: getTodayDate(),
+    sessionType: '',
+    sessionDate: '',
     section: 'Trial',
   }
 }
@@ -537,9 +533,6 @@ export function SessionsPage() {
       ...current,
       teamId: selectedSession.teamId || current.teamId,
       team: selectedSession.team || current.team,
-      opponent: selectedSession.opponent || current.opponent,
-      sessionType: selectedSession.sessionType || current.sessionType,
-      sessionDate: selectedSession.sessionDate || current.sessionDate,
     }))
   }, [selectedSession])
 
@@ -571,6 +564,15 @@ export function SessionsPage() {
       return
     }
 
+    if (name === 'sessionType') {
+      setSessionForm((current) => ({
+        ...current,
+        sessionType: value,
+        opponent: value === 'training' ? '' : current.opponent,
+      }))
+      return
+    }
+
     setSessionForm((current) => ({
       ...current,
       [name]: value,
@@ -582,19 +584,31 @@ export function SessionsPage() {
     setIsSaving(true)
     setErrorMessage('')
 
+    if (!sessionForm.sessionType) {
+      setErrorMessage('Select a session type before creating the session.')
+      setIsSaving(false)
+      return
+    }
+
+    if (!sessionForm.sessionDate) {
+      setErrorMessage('Select a session date before creating the session.')
+      setIsSaving(false)
+      return
+    }
+
     try {
       const createdSession = await createAssessmentSession({
         user,
-        session: sessionForm,
+        session: {
+          ...sessionForm,
+          opponent: sessionForm.sessionType === 'match' ? sessionForm.opponent : '',
+        },
       })
       const nextSessions = [createdSession, ...sessions.filter((session) => session.id !== createdSession.id)]
       setSessions(nextSessions)
       setSelectedSessionId(createdSession.id)
       setSelectedPlayerIds([])
-      setSessionForm((current) => ({
-        ...current,
-        opponent: '',
-      }))
+      setSessionForm(createInitialSessionForm())
       writeSessionCache({
         sessions: nextSessions,
       })
@@ -893,29 +907,33 @@ export function SessionsPage() {
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Opponent</span>
-              <input
-                type="text"
-                name="opponent"
-                value={sessionForm.opponent}
-                onChange={handleSessionFormChange}
-                placeholder="Opposition team"
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-
-            <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session Type</span>
               <select
                 name="sessionType"
                 value={sessionForm.sessionType}
                 onChange={handleSessionFormChange}
+                required
                 className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
+                <option value="">Select session type</option>
                 <option value="training">Training</option>
                 <option value="match">Match</option>
               </select>
             </label>
+
+            {sessionForm.sessionType === 'match' ? (
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Opponent</span>
+                <input
+                  type="text"
+                  name="opponent"
+                  value={sessionForm.opponent}
+                  onChange={handleSessionFormChange}
+                  placeholder="Opposition team"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                />
+              </label>
+            ) : null}
 
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Date</span>
