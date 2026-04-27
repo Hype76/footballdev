@@ -57,6 +57,62 @@ function formatSessionDate(value) {
   }).format(parsedDate)
 }
 
+function readStoredSessionWorkspace(storageKey) {
+  if (!storageKey) {
+    return {}
+  }
+
+  try {
+    const storedValue = localStorage.getItem(storageKey)
+    const parsedValue = storedValue ? JSON.parse(storedValue) : {}
+    return parsedValue && typeof parsedValue === 'object' ? parsedValue : {}
+  } catch (error) {
+    console.error(error)
+    return {}
+  }
+}
+
+function writeStoredSessionWorkspace(storageKey, value) {
+  if (!storageKey) {
+    return
+  }
+
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(value))
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+function getSessionProgressKey(user, sessionId) {
+  if (!user?.clubId || !sessionId) {
+    return ''
+  }
+
+  return `session-assessment-progress:${user.clubId}:${sessionId}`
+}
+
+function normalizeProgressName(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function readCompletedPlayerNames(user, sessionId) {
+  const progressKey = getSessionProgressKey(user, sessionId)
+
+  if (!progressKey) {
+    return []
+  }
+
+  try {
+    const storedValue = localStorage.getItem(progressKey)
+    const parsedValue = storedValue ? JSON.parse(storedValue) : []
+    return Array.isArray(parsedValue) ? parsedValue.map(normalizeProgressName).filter(Boolean) : []
+  } catch (error) {
+    console.error(error)
+    return []
+  }
+}
+
 export function SessionsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -64,6 +120,11 @@ export function SessionsPage() {
   const { showToast } = useToast()
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
   const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
+  const workspaceStorageKey = user?.clubId ? `session-workspace:${user.clubId}:${user.id}:${activeTeamScope}` : ''
+  const storedSessionWorkspace = useMemo(
+    () => readStoredSessionWorkspace(workspaceStorageKey),
+    [workspaceStorageKey],
+  )
   const [sessions, setSessions] = useState(() => {
     const cachedSessions = readViewCacheValue(cacheKey, 'sessions', [])
     return Array.isArray(cachedSessions) ? cachedSessions : []
@@ -78,9 +139,17 @@ export function SessionsPage() {
   })
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
-  const [selectedSessionId, setSelectedSessionId] = useState('')
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
-  const [notesDrafts, setNotesDrafts] = useState({})
+  const [selectedSessionId, setSelectedSessionId] = useState(() => String(storedSessionWorkspace.selectedSessionId ?? ''))
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState(() =>
+    Array.isArray(storedSessionWorkspace.selectedPlayerIds) ? storedSessionWorkspace.selectedPlayerIds : [],
+  )
+  const [notesDrafts, setNotesDrafts] = useState(() => {
+    const draftsBySession = storedSessionWorkspace.notesDraftsBySession
+    const selectedId = String(storedSessionWorkspace.selectedSessionId ?? '')
+    return draftsBySession && selectedId && typeof draftsBySession[selectedId] === 'object'
+      ? draftsBySession[selectedId]
+      : {}
+  })
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0 && teams.length === 0)
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -90,6 +159,10 @@ export function SessionsPage() {
     : ''
   const completedSessionId = String(searchParams.get('completedSessionId') ?? '').trim()
   const completedCount = Number(searchParams.get('completedCount') ?? 0)
+  const completedPlayerNames = useMemo(
+    () => readCompletedPlayerNames(user, selectedSessionId),
+    [selectedSessionId, user],
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -128,9 +201,18 @@ export function SessionsPage() {
         setSessions(nextSessions)
         setPlayers(nextPlayers)
         setTeams(nextTeams)
-        setSelectedSessionId((current) =>
-          nextSessions.some((session) => session.id === current) ? current : nextSessions[0]?.id || '',
-        )
+        setSelectedSessionId((current) => {
+          if (completedSessionId && nextSessions.some((session) => session.id === completedSessionId)) {
+            return completedSessionId
+          }
+
+          if (nextSessions.some((session) => session.id === current)) {
+            return current
+          }
+
+          const storedSessionId = String(storedSessionWorkspace.selectedSessionId ?? '')
+          return nextSessions.some((session) => session.id === storedSessionId) ? storedSessionId : nextSessions[0]?.id || ''
+        })
         setSessionForm((current) => ({
           ...current,
           teamId: nextTeams.some((team) => team.id === current.teamId) ? current.teamId : nextTeams[0]?.id || '',
@@ -163,7 +245,7 @@ export function SessionsPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, user, userScopeKey])
+  }, [cacheKey, completedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -188,7 +270,13 @@ export function SessionsPage() {
         }
 
         setSessionPlayers(nextSessionPlayers)
-        setNotesDrafts(Object.fromEntries(nextSessionPlayers.map((player) => [player.id, player.notes || ''])))
+        setNotesDrafts((current) => {
+          const storedDrafts = storedSessionWorkspace.notesDraftsBySession?.[selectedSessionId]
+          const baseDrafts = storedDrafts && typeof storedDrafts === 'object' ? storedDrafts : current
+          return Object.fromEntries(
+            nextSessionPlayers.map((player) => [player.id, baseDrafts[player.id] ?? player.notes ?? '']),
+          )
+        })
       } catch (error) {
         console.error(error)
 
@@ -207,7 +295,24 @@ export function SessionsPage() {
     return () => {
       isMounted = false
     }
-  }, [selectedSessionId, user])
+  }, [selectedSessionId, storedSessionWorkspace.notesDraftsBySession, user])
+
+  useEffect(() => {
+    if (!workspaceStorageKey) {
+      return
+    }
+
+    const currentStoredWorkspace = readStoredSessionWorkspace(workspaceStorageKey)
+    writeStoredSessionWorkspace(workspaceStorageKey, {
+      ...currentStoredWorkspace,
+      selectedSessionId,
+      selectedPlayerIds,
+      notesDraftsBySession: {
+        ...(currentStoredWorkspace.notesDraftsBySession || {}),
+        ...(selectedSessionId ? { [selectedSessionId]: notesDrafts } : {}),
+      },
+    })
+  }, [notesDrafts, selectedPlayerIds, selectedSessionId, workspaceStorageKey])
 
   const selectedSession = sessions.find((session) => session.id === selectedSessionId)
   const filteredPlayers = useMemo(
@@ -274,6 +379,11 @@ export function SessionsPage() {
       writeSessionCache({
         sessions: nextSessions,
       })
+      writeStoredSessionWorkspace(workspaceStorageKey, {
+        ...readStoredSessionWorkspace(workspaceStorageKey),
+        selectedSessionId: createdSession.id,
+        selectedPlayerIds: [],
+      })
       showToast({ title: 'Session created', message: createdSession.title || 'Session added.' })
     } catch (error) {
       console.error(error)
@@ -317,7 +427,9 @@ export function SessionsPage() {
       })
       const nextSessionPlayers = await getAssessmentSessionPlayers({ user, sessionId: selectedSessionId })
       setSessionPlayers(nextSessionPlayers)
-      setNotesDrafts(Object.fromEntries(nextSessionPlayers.map((player) => [player.id, player.notes || ''])))
+      setNotesDrafts((current) =>
+        Object.fromEntries(nextSessionPlayers.map((player) => [player.id, current[player.id] ?? player.notes ?? ''])),
+      )
       setSelectedPlayerIds([])
       showToast({ title: 'Players added', message: `${playersToAdd.length} players added to the session.` })
     } catch (error) {
@@ -371,6 +483,11 @@ export function SessionsPage() {
       setSessionPlayers([])
       setNotesDrafts({})
       setSelectedPlayerIds([])
+      const progressKey = getSessionProgressKey(user, selectedSessionId)
+
+      if (progressKey) {
+        localStorage.removeItem(progressKey)
+      }
       showToast({ title: 'Session cleared', message: 'All players were removed from this session list.' })
     } catch (error) {
       console.error(error)
@@ -401,10 +518,18 @@ export function SessionsPage() {
   }
 
   const handleAssessAll = () => {
-    const queue = sessionPlayers.map((player) => player.playerName).filter(Boolean)
+    const completedSet = new Set(completedPlayerNames)
+    const queue = sessionPlayers
+      .map((player) => player.playerName)
+      .filter(Boolean)
+      .filter((playerName) => !completedSet.has(normalizeProgressName(playerName)))
 
     if (queue.length === 0) {
-      setErrorMessage('Add players to the session before using Assess All.')
+      setErrorMessage(
+        sessionPlayers.length === 0
+          ? 'Add players to the session before using Assess All.'
+          : 'All players in this session have already been assessed.',
+      )
       return
     }
 
@@ -642,7 +767,7 @@ export function SessionsPage() {
                   onClick={handleAssessAll}
                   className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
                 >
-                  Assess All
+                  {completedPlayerNames.length > 0 ? 'Continue Assessments' : 'Assess All'}
                 </button>
                 <button
                   type="button"
@@ -661,6 +786,11 @@ export function SessionsPage() {
                   <div className="min-w-0">
                     <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">{player.section} | {player.team || 'No team'}</p>
+                    {completedPlayerNames.includes(normalizeProgressName(player.playerName)) ? (
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
+                        Assessment completed
+                      </p>
+                    ) : null}
                   </div>
                   <button
                     type="button"

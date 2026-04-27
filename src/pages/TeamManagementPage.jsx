@@ -12,7 +12,6 @@ import {
   deleteTeam,
   getClubRoles,
   getClubUsers,
-  readViewCache,
   readViewCacheValue,
   getTeamStaffAssignments,
   getTeams,
@@ -62,7 +61,6 @@ export function TeamManagementPage() {
 
   useEffect(() => {
     let isMounted = true
-    const cachedValue = readViewCache(cacheKey)
 
     const loadData = async () => {
       setErrorMessage('')

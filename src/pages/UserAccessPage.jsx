@@ -12,7 +12,6 @@ import {
   getClubRoles,
   getClubUserInvites,
   getClubUsers,
-  readViewCache,
   removeClubUser,
   readViewCacheValue,
   withRequestTimeout,
@@ -51,7 +50,6 @@ export function UserAccessPage() {
 
   useEffect(() => {
     let isMounted = true
-    const cachedValue = readViewCache(cacheKey)
 
     const loadAccessData = async () => {
       setErrorMessage('')
@@ -117,14 +115,14 @@ export function UserAccessPage() {
     }
   }, [cacheKey, user, userScopeKey])
 
-  if (!canManageUsers(user)) {
-    return <Navigate to="/" replace />
-  }
-
   const assignableRoles = useMemo(
     () => roles.filter((role) => canAssignRole(user, role)),
     [roles, user],
   )
+
+  if (!canManageUsers(user)) {
+    return <Navigate to="/" replace />
+  }
 
   const handleChange = (event) => {
     const { name, value } = event.target

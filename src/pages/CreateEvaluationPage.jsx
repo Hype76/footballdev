@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
+import { BlankPrintForm } from '../components/evaluations/BlankPrintForm.jsx'
+import { EvaluationFieldInput } from '../components/evaluations/EvaluationFieldInput.jsx'
 import { EmailPreview } from '../components/ui/EmailPreview.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
@@ -13,10 +15,27 @@ import {
   isInviteEmailTemplate,
 } from '../lib/email-templates.js'
 import {
+  buildComments,
+  buildFormResponses,
+  buildPreviewSummary,
+  buildScores,
+  createEmptyResponseValues,
+  createInitialFormData,
+  createResponseItems,
+  formatSessionForDisplay,
+  formatSessionForInput,
+  getAverageScore,
+  getDraftStorageKey,
+  getLatestClubLogoUrl,
+  normalizePlayerName,
+  normalizeSessionValue,
+  parseAssessmentQueue,
+  parseStoredDraft,
+} from '../hooks/evaluations/evaluationFormUtils.js'
+import {
   EVALUATION_SECTIONS,
   createEvaluation,
   getAvailableTeamsForUser,
-  getClubSettings,
   getDefaultFormFields,
   getFormFields,
   getPlayers,
@@ -28,327 +47,6 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-
-function createInitialFormData(user, defaults = {}) {
-  return {
-    team: '',
-    section: 'Trial',
-    session: '',
-    coachName: user?.name || '',
-    playerName: '',
-    parentName: '',
-    parentEmail: '',
-    parentContacts: [],
-    decision: 'Progress',
-    ...defaults,
-  }
-}
-
-function getDraftStorageKey(user) {
-  if (!user?.id) {
-    return ''
-  }
-
-  return `create-evaluation-draft:${user.id}:${user.clubId || 'platform'}`
-}
-
-async function getLatestClubLogoUrl(user) {
-  if (!user?.clubId) {
-    return user?.clubLogoUrl || ''
-  }
-
-  try {
-    const clubSettings = await getClubSettings(user.clubId)
-    return clubSettings.logoUrl || user.clubLogoUrl || ''
-  } catch (error) {
-    console.error(error)
-    return user.clubLogoUrl || ''
-  }
-}
-
-function normalizePlayerName(value) {
-  return value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ')
-}
-
-function createEmptyResponseValues(fields) {
-  return Object.fromEntries(fields.map((field) => [field.id, '']))
-}
-
-function isScoreFieldType(fieldType) {
-  return fieldType === 'score_1_5' || fieldType === 'score_1_10' || fieldType === 'number'
-}
-
-function createScoreOptions(fieldType) {
-  const maxValue = fieldType === 'score_1_10' ? 10 : 5
-  return Array.from({ length: maxValue }, (_, index) => String(index + 1))
-}
-
-function getFieldSelectOptions(field) {
-  if (field.type === 'select') {
-    return field.options
-  }
-
-  if (isScoreFieldType(field.type)) {
-    return createScoreOptions(field.type)
-  }
-
-  return []
-}
-
-function normalizeResponseValue(field, value) {
-  if (isScoreFieldType(field.type)) {
-    const numericValue = Number(value)
-    return Number.isNaN(numericValue) ? '' : numericValue
-  }
-
-  return String(value ?? '').trim()
-}
-
-function buildFormResponses(fields, responseValues) {
-  return Object.fromEntries(
-    fields
-      .map((field) => [field.label, normalizeResponseValue(field, responseValues[field.id])])
-      .filter(([, value]) => value !== ''),
-  )
-}
-
-function buildScores(formResponses) {
-  return Object.fromEntries(
-    Object.entries(formResponses).filter(([, value]) => typeof value === 'number' && !Number.isNaN(value)),
-  )
-}
-
-function buildComments(formResponses) {
-  const entries = Object.entries(formResponses)
-  const findResponse = (patterns) =>
-    entries.find(([label]) => patterns.some((pattern) => label.toLowerCase().includes(pattern)))?.[1] ?? ''
-
-  return {
-    strengths: String(findResponse(['strength']))?.trim() || '',
-    improvements: String(findResponse(['improvement', 'weakness', 'development']))?.trim() || '',
-    overall: String(findResponse(['overall', 'summary', 'comment']))?.trim() || '',
-    selectedStrengths: [],
-  }
-}
-
-function getAverageScore(formResponses) {
-  const values = Object.values(formResponses)
-    .map((value) => Number(value))
-    .filter((value) => !Number.isNaN(value))
-
-  if (values.length === 0) {
-    return null
-  }
-
-  return values.reduce((sum, value) => sum + value, 0) / values.length
-}
-
-function createResponseItems(fields, responseValues, includeEmptyValues = false) {
-  return fields
-    .map((field) => {
-      const value = normalizeResponseValue(field, responseValues[field.id])
-
-      if (!includeEmptyValues && value === '') {
-        return null
-      }
-
-      return {
-        label: field.label,
-        value,
-      }
-    })
-    .filter(Boolean)
-}
-
-function parseStoredDraft(storageKey) {
-  if (!storageKey) {
-    return null
-  }
-
-  try {
-    const storedValue = sessionStorage.getItem(storageKey)
-
-    if (!storedValue) {
-      return null
-    }
-
-    const parsedValue = JSON.parse(storedValue)
-    return parsedValue && typeof parsedValue === 'object' ? parsedValue : null
-  } catch (error) {
-    console.error(error)
-    return null
-  }
-}
-
-function normalizeSessionValue(value) {
-  const normalizedValue = String(value ?? '').trim()
-
-  if (!normalizedValue) {
-    return ''
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
-    return normalizedValue
-  }
-
-  const parsedDate = new Date(normalizedValue)
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return ''
-  }
-
-  return parsedDate.toISOString().slice(0, 10)
-}
-
-function formatSessionForInput(value) {
-  const normalizedValue = normalizeSessionValue(value)
-
-  if (!normalizedValue) {
-    return ''
-  }
-
-  return normalizedValue
-}
-
-function formatSessionForDisplay(value) {
-  const normalizedValue = normalizeSessionValue(value)
-
-  if (!normalizedValue) {
-    return 'Not scheduled'
-  }
-
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(`${normalizedValue}T00:00:00`))
-}
-
-function parseAssessmentQueue(value) {
-  const normalizedValue = String(value ?? '').trim()
-
-  if (!normalizedValue) {
-    return []
-  }
-
-  try {
-    const parsedValue = JSON.parse(normalizedValue)
-    return Array.isArray(parsedValue)
-      ? parsedValue.map((item) => String(item ?? '').trim()).filter(Boolean)
-      : []
-  } catch {
-    return normalizedValue
-      .split('|')
-      .map((item) => item.trim())
-      .filter(Boolean)
-  }
-}
-
-function buildPreviewSummary({ comments, formResponses }) {
-  const responseEntries = Object.entries(formResponses ?? {})
-
-  if (responseEntries.length > 0) {
-    return responseEntries
-      .slice(0, 4)
-      .map(([label, value]) => `${label}: ${value}`)
-      .join(', ')
-  }
-
-  return comments?.overall || comments?.strengths || comments?.improvements || 'No written summary provided.'
-}
-
-function FieldInput({ field, value, onChange }) {
-  const sharedClassName =
-    'min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]'
-
-  if (field.type === 'textarea') {
-    return (
-      <textarea
-        value={value}
-        onChange={(event) => onChange(field.id, event.target.value)}
-        required={field.required}
-        rows="4"
-        className="min-h-32 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-      />
-    )
-  }
-
-  if (field.type === 'select' || isScoreFieldType(field.type)) {
-    const options = getFieldSelectOptions(field)
-
-    return (
-      <select
-        value={value}
-        onChange={(event) => onChange(field.id, event.target.value)}
-        required={field.required}
-        className={sharedClassName}
-      >
-        <option value="">{isScoreFieldType(field.type) ? 'Select score' : 'Select option'}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    )
-  }
-
-  return (
-    <input
-      type="text"
-      value={value}
-      onChange={(event) => onChange(field.id, event.target.value)}
-      required={field.required}
-      className={sharedClassName}
-    />
-  )
-}
-
-function BlankPrintForm({ clubName, logoUrl, fields }) {
-  const resolvedLogoUrl = logoUrl || fallbackLogo
-
-  return (
-    <div className="print-only hidden bg-white text-slate-900">
-      <div className="print-container mx-auto max-w-3xl p-8">
-        <div className="section border-b border-slate-200 pb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Printable Blank Form</p>
-          <div className="mt-4">
-            <img src={resolvedLogoUrl} alt={clubName} className="max-h-20 w-auto max-w-[150px] object-contain" />
-          </div>
-          <h1 className="mt-3 text-3xl font-semibold">{clubName}</h1>
-        </div>
-
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {['Player Name', 'Team', 'Coach', 'Parent Email', 'Decision', 'Session', 'Section'].map((label) => (
-            <div key={label} className="section rounded-2xl border border-slate-200 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-              <div className="mt-4 h-6 border-b border-slate-300" />
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-8 space-y-4">
-          {fields.map((field) => (
-            <div key={field.id} className="section rounded-2xl border border-slate-200 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{field.label}</p>
-              {field.type === 'textarea' ? (
-                <div className="mt-4 h-28 rounded-2xl border border-slate-200 bg-slate-50" />
-              ) : (
-                <div className="mt-4 h-10 rounded-2xl border border-slate-200 bg-slate-50" />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export function CreateEvaluationPage() {
   const { user } = useAuth()
@@ -904,6 +602,24 @@ export function CreateEvaluationPage() {
 
       await createEvaluation(evaluation)
 
+      const assessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
+
+      if (user?.clubId && assessmentSessionId) {
+        const progressKey = `session-assessment-progress:${user.clubId}:${assessmentSessionId}`
+
+        try {
+          const storedProgress = localStorage.getItem(progressKey)
+          const parsedProgress = storedProgress ? JSON.parse(storedProgress) : []
+          const completedPlayers = Array.isArray(parsedProgress) ? parsedProgress : []
+          localStorage.setItem(
+            progressKey,
+            JSON.stringify([...new Set([...completedPlayers, normalizePlayerName(normalizedPlayerName).toLowerCase()])]),
+          )
+        } catch (error) {
+          console.error(error)
+        }
+      }
+
       const queryPlayerName = String(searchParams.get('player') ?? '').trim()
       const queryTeam = String(searchParams.get('team') ?? '').trim()
       const querySession = normalizeSessionValue(searchParams.get('session'))
@@ -938,7 +654,7 @@ export function CreateEvaluationPage() {
       }
 
       if (assessmentQueue.length > 0) {
-        const completedSessionId = String(searchParams.get('sessionId') ?? '').trim()
+        const completedSessionId = assessmentSessionId
         const completedCount = Number(searchParams.get('queueTotal') ?? assessmentQueue.length) || assessmentQueue.length
 
         if (completedSessionId) {
@@ -1246,7 +962,7 @@ export function CreateEvaluationPage() {
                           {field.label}
                           {field.required ? ' *' : ''}
                         </span>
-                        <FieldInput field={field} value={responseValues[field.id] ?? ''} onChange={handleResponseChange} />
+                        <EvaluationFieldInput field={field} value={responseValues[field.id] ?? ''} onChange={handleResponseChange} />
                       </label>
                     ))}
                   </div>
