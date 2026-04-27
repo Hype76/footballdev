@@ -2376,6 +2376,7 @@ export async function updateClubUserName({ user, member, name }) {
   let query = supabase
     .from('users')
     .update({
+      username: normalizedName,
       name: normalizedName,
     })
     .eq('id', targetUserId)
@@ -2402,6 +2403,7 @@ export async function updateClubUserName({ user, member, name }) {
     entityId: data.id,
     metadata: {
       email: data.email,
+      username: data.username,
       name: data.name,
     },
   })
