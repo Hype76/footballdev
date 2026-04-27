@@ -115,7 +115,7 @@ export function CreateEvaluationPage() {
     })
 
     setFormData(nextFormData)
-    setPreviewMode(String(storedDraft?.previewMode ?? 'scored') === 'email' ? 'email' : 'scored')
+    setPreviewMode(['scored', 'without-scores', 'email'].includes(String(storedDraft?.previewMode)) ? String(storedDraft.previewMode) : 'scored')
     setEmailTemplateKey(String(storedDraft?.emailTemplateKey ?? ''))
     setSelectedParentContactIndexes(
       Array.isArray(storedDraft?.selectedParentContactIndexes) && storedDraft.selectedParentContactIndexes.length > 0
@@ -969,6 +969,7 @@ export function CreateEvaluationPage() {
                 <div className="mb-4 flex flex-wrap gap-3">
                   {[
                     { key: 'scored', label: 'Scored Preview' },
+                    { key: 'without-scores', label: 'Preview Without Scores' },
                     { key: 'email', label: 'Email Template Preview' },
                   ].map((option) => (
                     <button
@@ -1039,6 +1040,14 @@ export function CreateEvaluationPage() {
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isGeneratingPdf ? 'Preparing PDF...' : 'Download PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadPdf('without-scores')}
+                    disabled={isGeneratingPdf}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    {isGeneratingPdf ? 'Preparing PDF...' : 'PDF Without Scores'}
                   </button>
                   <button
                     type="button"

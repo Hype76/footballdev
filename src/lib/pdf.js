@@ -182,13 +182,14 @@ function buildResponseItemsMarkup(responseItems) {
 
 function buildPdfMarkup({ previewProps, mode, logoUrl }) {
   const showScoring = mode === 'scored'
+  const showEmailTemplate = mode === 'email'
   const responseItems = showScoring ? previewProps.responseItems ?? [] : []
 
   return `
     <section style="box-sizing: border-box; width: 760px; padding: 22px; background: #ffffff; color: #0f172a; font-family: Arial, sans-serif;">
       <div style="display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #e7ece3; padding-bottom: 14px;">
         <div style="min-width: 0;">
-          <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">${showScoring ? 'Assessment PDF' : 'Parent Email Template'}</p>
+          <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">${showEmailTemplate ? 'Parent Email Template' : 'Assessment PDF'}</p>
           <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(previewProps.clubName)}" style="display: block; max-width: 120px; max-height: 56px; margin-top: 10px; object-fit: contain;" />
           <h1 style="margin: 8px 0 0; color: #0f172a; font-size: 20px; line-height: 1.15;">${escapeHtml(previewProps.clubName || 'Club Name')}</h1>
         </div>
@@ -228,7 +229,7 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
 
       <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
         <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">${showScoring ? 'Summary' : 'Email Subject'}</p>
-        <p style="margin: 8px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(showScoring ? previewProps.summary || 'No written summary provided.' : previewProps.emailSubject || 'No email subject available.')}</p>
+        <p style="margin: 8px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(showEmailTemplate ? previewProps.emailSubject || 'No email subject available.' : previewProps.summary || 'No written summary provided.')}</p>
       </div>
 
       ${
@@ -241,10 +242,17 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
               </div>
             </div>
           `
-          : `
+          : showEmailTemplate
+            ? `
             <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 14px;">
               <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Parent Message</p>
               <p style="margin: 10px 0 0; color: #334155; font-size: 12px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(previewProps.emailBody || 'No parent email template is available for this assessment yet.')}</p>
+            </div>
+          `
+            : `
+            <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
+              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Scores</p>
+              <p style="margin: 8px 0 0; color: #334155; font-size: 12px; line-height: 1.45;">Scores are not included in this PDF.</p>
             </div>
           `
       }

@@ -225,7 +225,12 @@ export function PlayerProfile() {
         playerId: evaluation.playerId || primaryPlayer?.id,
         evaluationId: evaluation.id,
         channel: 'pdf',
-        action: mode === 'scored' ? 'scored_pdf_downloaded' : 'email_template_pdf_downloaded',
+        action:
+          mode === 'scored'
+            ? 'scored_pdf_downloaded'
+            : mode === 'without-scores'
+              ? 'pdf_without_scores_downloaded'
+              : 'email_template_pdf_downloaded',
         recipientEmail: recipientEmails,
       }).catch((error) => console.error(error))
     } catch (error) {
@@ -831,7 +836,7 @@ export function PlayerProfile() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto] xl:items-end">
+                  <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto_auto] xl:items-end">
                     <label className="block">
                       <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
                       <select
@@ -910,6 +915,15 @@ export function PlayerProfile() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => void handleDownloadPdf(evaluation, 'without-scores')}
+                      disabled={pdfLoadingId === `${evaluation.id}:without-scores` || !canShare}
+                      title="Download PDF without scores"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {pdfLoadingId === `${evaluation.id}:without-scores` ? 'Preparing...' : 'PDF Without Scores'}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'email')}
                       disabled={pdfLoadingId === `${evaluation.id}:email` || !canShare}
                       title="Download email template PDF"
@@ -918,6 +932,27 @@ export function PlayerProfile() {
                       {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
                     </button>
                   </div>
+
+                  {selectedTemplateKey === 'decline' && canDeletePlayer(user) ? (
+                    <div className="mt-4 rounded-[20px] border border-red-500/30 bg-red-950/20 p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--text-primary)]">No place offered</p>
+                          <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                            If this player is no longer needed, you can remove them from the system after preparing the parent PDF.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isDeleting}
+                          onClick={handleDeletePlayer}
+                          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isDeleting ? 'Removing...' : 'Remove From System'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {evaluationParentContacts.length > 0 ? (
                     <div className="mt-5">

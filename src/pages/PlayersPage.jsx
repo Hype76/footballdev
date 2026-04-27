@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
@@ -42,6 +42,9 @@ function formatDate(value) {
 export function PlayersPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const viewFilter = searchParams.get('view') || 'all'
+  const urlSection = searchParams.get('section') || 'All'
   const cacheKey = user ? `players-page:${user.id}:${user.clubId || 'platform'}:${user.roleRank}` : ''
   const [players, setPlayers] = useState(() => {
     const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
@@ -51,7 +54,6 @@ export function PlayersPage() {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
-  const [selectedSection, setSelectedSection] = useState('All')
   const [searchTerm, setSearchTerm] = useState('')
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
@@ -177,19 +179,43 @@ export function PlayersPage() {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase()
 
     return playerRows.filter((player) => {
-      const matchesSection = selectedSection === 'All' || player.section === selectedSection
+      const matchesSection = urlSection === 'All' || player.section === urlSection
+      const matchesView =
+        viewFilter === 'evaluated'
+          ? player.totalEvaluations > 0
+          : viewFilter === 'scored'
+            ? player.averageScore !== null
+            : true
       const matchesSearch =
         !normalizedSearchTerm ||
         player.playerName.toLowerCase().includes(normalizedSearchTerm) ||
         String(player.team ?? '').toLowerCase().includes(normalizedSearchTerm) ||
         (player.positions ?? []).some((position) => position.toLowerCase().includes(normalizedSearchTerm))
 
-      return matchesSection && matchesSearch
+      return matchesSection && matchesView && matchesSearch
     })
-  }, [playerRows, searchTerm, selectedSection])
+  }, [playerRows, searchTerm, urlSection, viewFilter])
 
   const totalEvaluations = playerRows.reduce((sum, player) => sum + player.totalEvaluations, 0)
   const averageScore = getAverageScore(evaluations)
+  const evaluatedPlayerCount = playerRows.filter((player) => player.totalEvaluations > 0).length
+  const scoredPlayerCount = playerRows.filter((player) => player.averageScore !== null).length
+
+  const updateListFilter = (nextFilters = {}) => {
+    const params = new URLSearchParams()
+    const nextView = nextFilters.view ?? viewFilter
+    const nextSection = nextFilters.section ?? urlSection
+
+    if (nextView && nextView !== 'all') {
+      params.set('view', nextView)
+    }
+
+    if (nextSection && nextSection !== 'All') {
+      params.set('section', nextSection)
+    }
+
+    setSearchParams(params)
+  }
 
   if (!canCreateEvaluation(user)) {
     return <Navigate to="/" replace />
@@ -206,26 +232,44 @@ export function PlayersPage() {
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+        <Link
+          to="/players"
+          aria-label="View all players"
+          className="block cursor-pointer rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Players</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{playerRows.length}</p>
-        </div>
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+        </Link>
+        <Link
+          to="/players?view=evaluated"
+          aria-label="View players with completed evaluations"
+          className="block cursor-pointer rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Evaluations</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{totalEvaluations}</p>
-        </div>
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+          <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{evaluatedPlayerCount} players</p>
+        </Link>
+        <Link
+          to="/players?section=Trial"
+          aria-label="View trial players"
+          className="block cursor-pointer rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Trial</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">
             {playerRows.filter((player) => player.section === 'Trial').length}
           </p>
-        </div>
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+        </Link>
+        <Link
+          to="/players?view=scored"
+          aria-label="View players with scored evaluations"
+          className="block cursor-pointer rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Average Score</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">
             {averageScore !== null ? averageScore.toFixed(1) : '-'}
           </p>
-        </div>
+          <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{scoredPlayerCount} scored players</p>
+        </Link>
       </div>
 
       <SectionCard
@@ -247,8 +291,8 @@ export function PlayersPage() {
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
             <select
-              value={selectedSection}
-              onChange={(event) => setSelectedSection(event.target.value)}
+              value={urlSection}
+              onChange={(event) => updateListFilter({ section: event.target.value })}
               className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             >
               <option value="All">All</option>
@@ -267,7 +311,11 @@ export function PlayersPage() {
           </div>
         ) : filteredPlayers.length === 0 ? (
           <div className="mt-5 rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No players found.
+            {viewFilter === 'evaluated'
+              ? 'No players with completed evaluations found.'
+              : viewFilter === 'scored'
+                ? 'No players with scored evaluations found.'
+                : 'No players found.'}
           </div>
         ) : (
           <div className="mt-5 grid gap-3">

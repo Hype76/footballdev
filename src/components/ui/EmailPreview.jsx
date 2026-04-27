@@ -56,6 +56,7 @@ export function EmailPreview({
 }) {
   const resolvedLogoUrl = logoUrl || fallbackLogo
   const showScoring = mode === 'scored'
+  const showEmailTemplate = mode === 'email'
 
   return (
     <div className="print-container" data-pdf-root>
@@ -63,7 +64,7 @@ export function EmailPreview({
         <div className="section flex flex-col gap-4 border-b border-[#e7ece3] pb-5 sm:gap-6 sm:pb-6 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">
-              {showScoring ? 'Assessment PDF' : 'Parent Email Template'}
+              {showEmailTemplate ? 'Parent Email Template' : 'Assessment PDF'}
             </p>
 
             <div className="mt-4">
@@ -102,10 +103,10 @@ export function EmailPreview({
 
         <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
-            {showScoring ? 'Summary' : 'Email Subject'}
+            {showEmailTemplate ? 'Email Subject' : 'Summary'}
           </p>
           <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
-            {showScoring ? summary || 'No written summary provided.' : emailSubject || 'No email subject available.'}
+            {showEmailTemplate ? emailSubject || 'No email subject available.' : summary || 'No written summary provided.'}
           </p>
         </div>
 
@@ -128,12 +129,17 @@ export function EmailPreview({
               </div>
             )}
           </div>
-        ) : (
+        ) : showEmailTemplate ? (
           <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Parent Message</p>
             <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
               {emailBody || 'No parent email template is available for this assessment yet.'}
             </p>
+          </div>
+        ) : (
+          <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Scores</p>
+            <p className="mt-4 text-sm leading-6 text-slate-700">Scores are not included in this PDF.</p>
           </div>
         )}
       </section>
