@@ -184,6 +184,25 @@ function normalizeWords(value) {
     .join(' ')
 }
 
+function getEntryUserName(user) {
+  return String(user?.username ?? user?.name ?? user?.email ?? '').trim()
+}
+
+function getEntryUserEmail(user) {
+  return String(user?.email ?? '').trim().toLowerCase()
+}
+
+function getEntryIdentity(user, prefix = 'created_by') {
+  return {
+    [`${prefix}_name`]: getEntryUserName(user),
+    [`${prefix}_email`]: getEntryUserEmail(user),
+  }
+}
+
+function getEntryUserId(user) {
+  return user?.id || null
+}
+
 function slugifyRole(value) {
   return String(value ?? '')
     .trim()
@@ -430,6 +449,11 @@ function normalizeEvaluationRow(row) {
     clubId: row.club_id ?? row.clubId ?? '',
     coachId: row.coach_id ?? row.coachId ?? '',
     coach: String(row.coach ?? row.coach_name ?? '').trim() || 'Unknown Coach',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     parentName: String(row.parent_name ?? row.parentName ?? '').trim(),
     parentEmail: String(row.parent_email ?? row.parentEmail ?? '').trim(),
     parentContacts,
@@ -456,6 +480,10 @@ function mapEvaluationToRow(data) {
     parentEmail: data.parentEmail,
   })
   const primaryParent = parentContacts[0] ?? { name: '', email: '' }
+  const createdByName = String(data.createdByName ?? data.coach ?? '').trim()
+  const createdByEmail = String(data.createdByEmail ?? '').trim().toLowerCase()
+  const updatedByName = String(data.updatedByName ?? createdByName).trim()
+  const updatedByEmail = String(data.updatedByEmail ?? createdByEmail).trim().toLowerCase()
 
   return {
     player_name: data.playerName,
@@ -466,6 +494,11 @@ function mapEvaluationToRow(data) {
     club_id: data.clubId,
     coach_id: data.coachId,
     coach: data.coach,
+    created_by_name: createdByName,
+    created_by_email: createdByEmail,
+    updated_by: data.updatedBy || null,
+    updated_by_name: updatedByName,
+    updated_by_email: updatedByEmail,
     parent_name: primaryParent.name,
     parent_email: primaryParent.email,
     parent_contacts: parentContacts,
@@ -507,6 +540,12 @@ function normalizePlayerRow(row) {
     status: String(row.status ?? 'active').trim() || 'active',
     promotedAt: row.promoted_at ?? row.promotedAt ?? '',
     promotedBy: row.promoted_by ?? row.promotedBy ?? '',
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
   }
@@ -523,6 +562,11 @@ function normalizeAssessmentSessionRow(row) {
     sessionDate: String(row.session_date ?? row.sessionDate ?? '').trim(),
     title: String(row.title ?? '').trim(),
     createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
   }
@@ -546,6 +590,12 @@ function normalizeAssessmentSessionPlayerRow(row) {
     parentEmail: parentContacts[0]?.email ?? '',
     parentContacts,
     notes: String(row.notes ?? '').trim(),
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
   }
@@ -613,7 +663,8 @@ function normalizePlatformFeedbackRow(row) {
       id: comment.id,
       feedbackId: comment.feedback_id ?? comment.feedbackId ?? '',
       createdBy: comment.created_by ?? comment.createdBy ?? '',
-      createdByEmail: String(commentUser?.email ?? comment.createdByEmail ?? '').trim(),
+      createdByName: String(comment.created_by_name ?? comment.createdByName ?? commentUser?.username ?? commentUser?.name ?? '').trim(),
+      createdByEmail: String(comment.created_by_email ?? comment.createdByEmail ?? commentUser?.email ?? '').trim(),
       message: String(comment.message ?? '').trim(),
       createdAt: comment.created_at ?? comment.createdAt ?? '',
     }
@@ -624,7 +675,11 @@ function normalizePlatformFeedbackRow(row) {
     clubId: row.club_id ?? row.clubId ?? '',
     clubName: String(clubRow?.name ?? row.clubName ?? '').trim() || 'Unknown club',
     createdBy: row.created_by ?? row.createdBy ?? '',
-    createdByEmail: String(userRow?.email ?? row.createdByEmail ?? '').trim(),
+    createdByName: String(row.created_by_name ?? row.createdByName ?? userRow?.username ?? userRow?.name ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? userRow?.email ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     message: String(row.message ?? '').trim(),
     status: String(row.status ?? 'open').trim() || 'open',
     adminNote: String(row.admin_note ?? row.adminNote ?? '').trim(),
@@ -656,6 +711,8 @@ function mapPlayerToRow(player, user) {
     parent_email: primaryParent.email,
     parent_contacts: parentContacts,
     notes: String(player.notes ?? '').trim(),
+    updated_by: getEntryUserId(user),
+    ...getEntryIdentity(user, 'updated_by'),
   }
 }
 
@@ -743,6 +800,12 @@ function normalizeFormFieldRow(row) {
     orderIndex: Number(row.order_index ?? row.orderIndex ?? 0),
     isDefault: Boolean(row.is_default ?? row.isDefault),
     isEnabled: Boolean(row.is_enabled ?? row.isEnabled ?? true),
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
@@ -782,6 +845,21 @@ function mapFormFieldToRow(field, user, orderIndex) {
     payload.is_enabled = Boolean(field.isEnabled)
   }
 
+  if (field.createdBy !== undefined) {
+    payload.created_by = field.createdBy || null
+  }
+
+  if (field.createdByName !== undefined) {
+    payload.created_by_name = String(field.createdByName ?? '').trim()
+  }
+
+  if (field.createdByEmail !== undefined) {
+    payload.created_by_email = String(field.createdByEmail ?? '').trim().toLowerCase()
+  }
+
+  payload.updated_by = getEntryUserId(user)
+  Object.assign(payload, getEntryIdentity(user, 'updated_by'))
+
   return payload
 }
 
@@ -795,6 +873,12 @@ function normalizeClubRoleRow(row) {
     roleLabel: normalizeRoleLabel(row.role_label ?? row.roleLabel, roleKey),
     roleRank: normalizeRoleRank(row.role_rank ?? row.roleRank, roleKey),
     isSystem: Boolean(row.is_system ?? row.isSystem),
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
@@ -810,6 +894,11 @@ function normalizeClubInviteRow(row) {
     roleLabel: normalizeRoleLabel(row.role_label ?? row.roleLabel, roleKey),
     roleRank: normalizeRoleRank(row.role_rank ?? row.roleRank, roleKey),
     createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
@@ -1711,6 +1800,10 @@ export async function createClubRole({ user, label, rank = 10 }) {
         role_label: roleLabel,
         role_rank: Number.isNaN(roleRank) ? 10 : roleRank,
         is_system: false,
+        created_by: getEntryUserId(user),
+        ...getEntryIdentity(user),
+        updated_by: getEntryUserId(user),
+        ...getEntryIdentity(user, 'updated_by'),
       },
       {
         onConflict: 'club_id,role_key',
@@ -1774,6 +1867,12 @@ function normalizeTeamRow(row) {
     clubId: row.club_id ?? row.clubId ?? '',
     name: String(row.name ?? '').trim(),
     requireApproval: Boolean(row.require_approval ?? row.requireApproval ?? true),
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
@@ -1812,7 +1911,7 @@ export async function getTeams(user) {
   })
 }
 
-export async function updateTeamSettings({ teamId, data }) {
+export async function updateTeamSettings({ teamId, data, user = null }) {
   if (!teamId) {
     throw new Error('Team ID is required.')
   }
@@ -1837,6 +1936,11 @@ export async function updateTeamSettings({ teamId, data }) {
 
   if (data.requireApproval !== undefined) {
     payload.require_approval = Boolean(data.requireApproval)
+  }
+
+  if (user?.id) {
+    payload.updated_by = getEntryUserId(user)
+    Object.assign(payload, getEntryIdentity(user, 'updated_by'))
   }
 
   const { data: updatedTeam, error } = await supabase
@@ -1995,6 +2099,10 @@ export async function createTeam({ user, name }) {
     .insert({
       club_id: user.clubId,
       name: String(name ?? '').trim(),
+      created_by: getEntryUserId(user),
+      ...getEntryIdentity(user),
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
     })
     .select('*')
     .single()
@@ -2137,6 +2245,9 @@ export async function assignClubUserRole({ user, email, role }) {
         role_label: roleLabel,
         role_rank: roleRank,
         created_by: user.id,
+        ...getEntryIdentity(user),
+        updated_by: getEntryUserId(user),
+        ...getEntryIdentity(user, 'updated_by'),
       },
       {
         onConflict: 'club_id,email',
@@ -2354,7 +2465,16 @@ export async function getFormFields({ user } = {}) {
 
 export async function addFormField({ user, field }) {
   const nextOrderIndex = Number(field.orderIndex ?? Date.now())
-  const payload = mapFormFieldToRow(field, user, nextOrderIndex)
+  const payload = mapFormFieldToRow(
+    {
+      ...field,
+      createdBy: getEntryUserId(user),
+      createdByName: getEntryUserName(user),
+      createdByEmail: getEntryUserEmail(user),
+    },
+    user,
+    nextOrderIndex,
+  )
   const { data, error } = await supabase.from('form_fields').insert(payload).select('*').single()
 
   if (error) {
@@ -2512,7 +2632,11 @@ export async function createPlayer({ user, player }) {
     throw new Error('A club user is required to add players.')
   }
 
-  const payload = mapPlayerToRow(player, user)
+  const payload = {
+    ...mapPlayerToRow(player, user),
+    created_by: getEntryUserId(user),
+    ...getEntryIdentity(user),
+  }
   const { data, error } = await supabase
     .from('players')
     .upsert(payload, {
@@ -2550,6 +2674,8 @@ async function createAuditLog({ user, action, entityType, entityId, metadata = {
   const { error } = await supabase.from('audit_logs').insert({
     club_id: user.clubId || null,
     actor_id: user.id,
+    actor_name: getEntryUserName(user),
+    actor_email: getEntryUserEmail(user),
     action,
     entity_type: entityType,
     entity_id: entityId || null,
@@ -2571,6 +2697,8 @@ export async function createCommunicationLog({ user, playerId, evaluationId, cha
     player_id: playerId || null,
     evaluation_id: evaluationId || null,
     user_id: user.id,
+    user_name: getEntryUserName(user),
+    user_email: getEntryUserEmail(user),
     channel,
     action,
     recipient_email: String(recipientEmail ?? '').trim(),
@@ -2662,6 +2790,8 @@ export async function promotePlayerToSquad({ user, playerId }) {
       status: 'promoted',
       promoted_at: promotedAt,
       promoted_by: user.id,
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
     })
     .eq('id', playerId)
     .eq('club_id', user.clubId)
@@ -2792,6 +2922,9 @@ export async function createAssessmentSession({ user, session }) {
       session_date: sessionDate,
       title: opponentName ? `${teamName} vs ${opponentName}` : teamName,
       created_by: user.id,
+      ...getEntryIdentity(user),
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
     })
     .select('*')
     .single()
@@ -2867,6 +3000,10 @@ export async function addPlayersToAssessmentSession({ user, sessionId, players }
           parentName: player.parentName,
           parentEmail: player.parentEmail,
         }),
+        created_by: getEntryUserId(user),
+        ...getEntryIdentity(user),
+        updated_by: getEntryUserId(user),
+        ...getEntryIdentity(user, 'updated_by'),
       })),
       {
         onConflict: 'session_id,player_id',
@@ -2902,6 +3039,8 @@ export async function updateAssessmentSessionPlayer({ user, sessionPlayerId, not
     .from('assessment_session_players')
     .update({
       notes: String(notes ?? '').trim(),
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
       updated_at: new Date().toISOString(),
     })
     .eq('id', sessionPlayerId)
@@ -2946,8 +3085,8 @@ export async function getPlatformFeedback(user) {
   const cacheKey = user.role === 'super_admin' ? 'platform-feedback:admin' : `platform-feedback:${user.id}:${user.clubId || 'platform'}`
   const selectFields =
     user.role === 'super_admin'
-      ? 'id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, message, created_at, users:created_by (email))'
-      : 'id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, message, created_at, users:created_by (email))'
+      ? 'id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, created_by_email, message, created_at, users:created_by (email))'
+      : 'id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, created_by_email, message, created_at, users:created_by (email))'
 
   return getCachedResource(cacheKey, async () => {
     const { data, error } = await supabase
@@ -2988,10 +3127,13 @@ export async function createPlatformFeedback({ user, message }) {
     .insert({
       club_id: user.clubId,
       created_by: user.id,
+      ...getEntryIdentity(user),
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
       message: normalizedMessage,
       status: 'open',
     })
-    .select('id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id)')
+    .select('id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), platform_feedback_votes (user_id)')
     .single()
 
   if (error) {
@@ -3066,12 +3208,14 @@ export async function updatePlatformFeedback({ user, feedbackId, data }) {
   const adminComment = String(data.adminComment ?? data.adminNote ?? '').trim()
 
   payload.updated_at = new Date().toISOString()
+  payload.updated_by = getEntryUserId(user)
+  Object.assign(payload, getEntryIdentity(user, 'updated_by'))
 
   const { data: updatedRow, error } = await supabase
     .from('platform_feedback')
     .update(payload)
     .eq('id', feedbackId)
-    .select('id, club_id, created_by, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, message, created_at, users:created_by (email))')
+    .select('id, club_id, created_by, created_by_name, created_by_email, updated_by, updated_by_name, updated_by_email, message, status, admin_note, created_at, updated_at, clubs:club_id (name), users:created_by (email), platform_feedback_votes (user_id), platform_feedback_comments (id, feedback_id, created_by, created_by_name, created_by_email, message, created_at, users:created_by (email))')
     .single()
 
   if (error) {
@@ -3083,6 +3227,7 @@ export async function updatePlatformFeedback({ user, feedbackId, data }) {
     const { error: commentError } = await supabase.from('platform_feedback_comments').insert({
       feedback_id: feedbackId,
       created_by: user.id,
+      ...getEntryIdentity(user),
       message: adminComment,
     })
 
@@ -3128,6 +3273,12 @@ export async function createEvaluation(data) {
           parentName: data.parentName,
           parentEmail: data.parentEmail,
         }),
+        created_by: data.coachId || null,
+        created_by_name: String(data.createdByName ?? data.coach ?? '').trim(),
+        created_by_email: String(data.createdByEmail ?? '').trim().toLowerCase(),
+        updated_by: data.updatedBy || data.coachId || null,
+        updated_by_name: String(data.updatedByName ?? data.createdByName ?? data.coach ?? '').trim(),
+        updated_by_email: String(data.updatedByEmail ?? data.createdByEmail ?? '').trim().toLowerCase(),
       },
       {
         onConflict: 'club_id,section,player_name',
@@ -3160,6 +3311,9 @@ export async function createEvaluation(data) {
     ...data,
     playerId: linkedPlayerId,
     teamId: linkedTeamId,
+    updatedBy: data.updatedBy || data.coachId,
+    updatedByName: data.updatedByName ?? data.createdByName ?? data.coach,
+    updatedByEmail: data.updatedByEmail ?? data.createdByEmail,
   })
   const { data: createdRow, error } = await supabase
     .from('evaluations')
@@ -3177,6 +3331,8 @@ export async function createEvaluation(data) {
     user: {
       id: data.coachId,
       clubId: data.clubId,
+      name: data.createdByName ?? data.coach,
+      email: data.createdByEmail,
     },
     action: 'evaluation_submitted',
     entityType: 'evaluation',
@@ -3193,6 +3349,9 @@ export async function createEvaluation(data) {
 
 export async function updateEvaluation(id, data, clubId) {
   const payload = mapEvaluationToRow(data)
+  delete payload.created_by_name
+  delete payload.created_by_email
+  delete payload.created_at
   let query = supabase.from('evaluations').update(payload).eq('id', id)
 
   if (clubId) {
@@ -3215,6 +3374,8 @@ export async function updateEvaluationStatus(id, status, clubId, options = {}) {
     rejection_reason: status === 'Rejected' ? String(options.rejectionReason ?? '').trim() : null,
     reviewed_by: options.user?.id || null,
     reviewed_at: new Date().toISOString(),
+    updated_by: getEntryUserId(options.user),
+    ...getEntryIdentity(options.user, 'updated_by'),
   }
   let query = supabase.from('evaluations').update(payload).eq('id', id)
 

@@ -399,6 +399,7 @@ export function TeamManagementPage() {
     try {
       const updatedTeam = await updateTeamSettings({
         teamId,
+        user,
         data: {
           name: nextName,
         },
