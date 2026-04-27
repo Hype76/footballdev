@@ -48,7 +48,6 @@ export function EmailPreview({
   team = '',
   section = 'Trial',
   session = '',
-  decision = 'Progress',
   summary = '',
   emailSubject = '',
   emailBody = '',
@@ -75,7 +74,7 @@ export function EmailPreview({
           </div>
 
           <div className="inline-flex min-h-11 items-center rounded-2xl bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#4f6552] md:shrink-0">
-            Decision: {decision}
+            {section || 'Trial'}
           </div>
         </div>
 

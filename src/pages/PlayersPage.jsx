@@ -167,7 +167,6 @@ export function PlayersPage() {
           averageScore,
           latestScore: latestEvaluation?.averageScore ?? null,
           latestDate: latestEvaluation?.createdAt ? new Date(latestEvaluation.createdAt).toISOString() : '',
-          latestDecision: latestEvaluation?.decision || 'No decision',
           totalEvaluations: sortedEvaluations.length,
         }
       })

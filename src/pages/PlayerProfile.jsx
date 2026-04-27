@@ -192,7 +192,6 @@ export function PlayerProfile() {
         teamName: evaluation.team,
         session: evaluation.session,
         inviteDate: getSelectedInviteDate(evaluation),
-        decision: evaluation.decision,
         templateKey: getSelectedEmailTemplateKey(evaluation),
       })
 
@@ -206,7 +205,6 @@ export function PlayerProfile() {
           team: evaluation.team,
           section: evaluation.section,
           session: evaluation.session,
-          decision: evaluation.decision,
           summary,
           emailSubject: emailTemplate.subject,
           emailBody: emailTemplate.body,
@@ -518,7 +516,7 @@ export function PlayerProfile() {
                       />
                     </div>
                     <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-                      {evaluation.decision}
+                      {evaluation.section || 'Trial'}
                     </p>
                   </div>
                 )
@@ -828,7 +826,6 @@ export function PlayerProfile() {
                   <div>
                     <div>
                       <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">Decision: {evaluation.decision}</p>
                       {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
                       <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>
                     </div>

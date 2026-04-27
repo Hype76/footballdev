@@ -15,7 +15,7 @@ export function BlankPrintForm({ clubName, logoUrl, fields }) {
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {['Player Name', 'Team', 'Coach', 'Parent Email', 'Decision', 'Session', 'Section'].map((label) => (
+          {['Player Name', 'Team', 'Coach', 'Parent Email', 'Session', 'Section'].map((label) => (
             <div key={label} className="section rounded-2xl border border-slate-200 px-4 py-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
               <div className="mt-4 h-6 border-b border-slate-300" />

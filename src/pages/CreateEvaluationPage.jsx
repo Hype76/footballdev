@@ -394,7 +394,7 @@ export function CreateEvaluationPage() {
   const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
-  const selectedEmailTemplateKey = emailTemplateKey || getEmailTemplateKey(formData.decision)
+  const selectedEmailTemplateKey = emailTemplateKey || getEmailTemplateKey()
   const shouldShowInviteDate = previewMode === 'email' && isInviteEmailTemplate(selectedEmailTemplateKey)
   const parentContacts = useMemo(
     () =>
@@ -428,12 +428,10 @@ export function CreateEvaluationPage() {
         teamName: formData.team,
         session: formData.session,
         inviteDate,
-        decision: formData.decision,
         templateKey: selectedEmailTemplateKey,
       }),
     [
       formData.coachName,
-      formData.decision,
       formData.playerName,
       formData.session,
       formData.team,
@@ -529,7 +527,6 @@ export function CreateEvaluationPage() {
           team: formData.team,
           section: formData.section,
           session: formData.session,
-          decision: formData.decision,
           summary: previewSummary,
           emailSubject: parentEmailTemplate.subject,
           emailBody: parentEmailTemplate.body,
@@ -600,7 +597,7 @@ export function CreateEvaluationPage() {
         averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
         comments,
         formResponses,
-        decision: formData.decision,
+        decision: '',
         status: 'Submitted',
         createdAt: new Date().toISOString(),
       }
@@ -913,19 +910,6 @@ export function CreateEvaluationPage() {
                     <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Current session: {readableSession}</p>
                   </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Decision</span>
-                    <select
-                      name="decision"
-                      value={formData.decision}
-                      onChange={handleFieldChange}
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                    >
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                      <option value="Progress">Progress</option>
-                    </select>
-                  </label>
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -1095,7 +1079,6 @@ export function CreateEvaluationPage() {
                   team={formData.team}
                   section={formData.section}
                   session={formData.session}
-                  decision={formData.decision}
                   summary={previewSummary}
                   emailSubject={parentEmailTemplate.subject}
                   emailBody={parentEmailTemplate.body}

@@ -192,7 +192,7 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
           <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(previewProps.clubName)}" style="display: block; max-width: 120px; max-height: 56px; margin-top: 10px; object-fit: contain;" />
           <h1 style="margin: 8px 0 0; color: #0f172a; font-size: 20px; line-height: 1.15;">${escapeHtml(previewProps.clubName || 'Club Name')}</h1>
         </div>
-        <div style="align-self: flex-start; border-radius: 12px; background: #eef3ea; color: #4f6552; padding: 9px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;">Decision: ${escapeHtml(previewProps.decision || 'Progress')}</div>
+        <div style="align-self: flex-start; border-radius: 12px; background: #eef3ea; color: #4f6552; padding: 9px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;">${escapeHtml(previewProps.section || 'Trial')}</div>
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">

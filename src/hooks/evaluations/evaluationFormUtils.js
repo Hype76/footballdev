@@ -10,7 +10,6 @@ export function createInitialFormData(user, defaults = {}) {
     parentName: '',
     parentEmail: '',
     parentContacts: [],
-    decision: 'Progress',
     ...defaults,
   }
 }
