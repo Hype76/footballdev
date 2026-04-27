@@ -271,6 +271,10 @@ export function SessionsPage() {
     [evaluations, sessions],
   )
   const selectedSession = combinedSessions.find((session) => session.id === selectedSessionId)
+  const previousSessions = useMemo(
+    () => combinedSessions.filter((session) => session.id !== selectedSessionId),
+    [combinedSessions, selectedSessionId],
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -750,45 +754,47 @@ export function SessionsPage() {
             No saved sessions yet. Create a session below and it will appear here.
           </div>
         ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
-            {combinedSessions.map((session) => {
-              const isActiveSession = session.id === selectedSessionId
-
-              return (
-                <div
-                  key={session.id}
-                  className={`flex flex-col gap-3 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${
-                    isActiveSession
-                      ? 'border-[var(--accent)] bg-[var(--panel-soft)]'
-                      : 'border-[var(--border-color)] bg-[var(--panel-alt)]'
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-                        {session.title || session.team || 'Session'}
-                      </p>
-                      {isActiveSession ? (
-                        <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-contrast)]">
-                          Open
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      {(session.sessionType === 'match' ? 'Match' : 'Training')} | {formatSessionDate(session.sessionDate)}
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
+            <div className="rounded-2xl border border-[var(--accent)] bg-[var(--panel-soft)] px-4 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                      {selectedSession?.title || selectedSession?.team || 'Current session'}
                     </p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{session.team || 'No team entered'}</p>
+                    <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-contrast)]">
+                      Open
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenSession(session.id)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                  >
-                    {isActiveSession ? 'Current Session' : 'Open Session'}
-                  </button>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    {(selectedSession?.sessionType === 'match' ? 'Match' : 'Training')} | {formatSessionDate(selectedSession?.sessionDate)}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">{selectedSession?.team || 'No team entered'}</p>
                 </div>
-              )
-            })}
+                <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+                  Current Session
+                </span>
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Previous sessions</span>
+              <select
+                value=""
+                onChange={(event) => handleOpenSession(event.target.value)}
+                disabled={previousSessions.length === 0}
+                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">
+                  {previousSessions.length === 0 ? 'No previous sessions yet' : 'Choose previous session'}
+                </option>
+                {previousSessions.map((session) => (
+                  <option key={session.id} value={session.id}>
+                    {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         )}
       </SectionCard>
