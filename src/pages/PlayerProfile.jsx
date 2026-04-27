@@ -33,6 +33,7 @@ import {
   promotePlayerToSquad,
   readViewCache,
   readViewCacheValue,
+  updateEvaluation,
   updatePlayer,
   withRequestTimeout,
   writeViewCache,
@@ -52,13 +53,19 @@ export function PlayerProfile() {
     const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
     return Array.isArray(cachedPlayers) ? cachedPlayers : []
   })
+  const [allPlayers, setAllPlayers] = useState(() => {
+    const cachedPlayers = readViewCacheValue(cacheKey, 'allPlayers', [])
+    return Array.isArray(cachedPlayers) ? cachedPlayers : []
+  })
   const [editingPlayerId, setEditingPlayerId] = useState('')
   const [playerDrafts, setPlayerDrafts] = useState({})
   const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
   const [isSavingPlayer, setIsSavingPlayer] = useState(false)
   const [isPromotingId, setIsPromotingId] = useState('')
+  const [isReassigningId, setIsReassigningId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
+  const [selectedReassignTargets, setSelectedReassignTargets] = useState({})
   const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
   const [selectedParentContacts, setSelectedParentContacts] = useState({})
   const [selectedInviteDates, setSelectedInviteDates] = useState({})
@@ -73,7 +80,7 @@ export function PlayerProfile() {
       setErrorMessage('')
 
       try {
-        const [evaluationsResult, playersResult] = await Promise.allSettled([
+        const [evaluationsResult, playersResult, allPlayersResult] = await Promise.allSettled([
           withRequestTimeout(
             () =>
               getEvaluations({
@@ -83,6 +90,7 @@ export function PlayerProfile() {
             'Could not load player history. No data entered yet, or the request took too long.',
           ),
           withRequestTimeout(() => getPlayers({ user, playerName: routePlayerName }), 'Could not load player details.'),
+          withRequestTimeout(() => getPlayers({ user }), 'Could not load player reassignment options.'),
         ])
 
         if (!isMounted) {
@@ -91,6 +99,7 @@ export function PlayerProfile() {
 
         const nextEvaluations = evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : []
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : []
+        const nextAllPlayers = allPlayersResult.status === 'fulfilled' ? allPlayersResult.value : cachedValue?.allPlayers || []
 
         if (evaluationsResult.status === 'rejected') {
           console.error(evaluationsResult.reason)
@@ -100,12 +109,18 @@ export function PlayerProfile() {
           console.error(playersResult.reason)
         }
 
+        if (allPlayersResult.status === 'rejected') {
+          console.error(allPlayersResult.reason)
+        }
+
         setEvaluations(nextEvaluations)
         setPlayers(nextPlayers)
+        setAllPlayers(nextAllPlayers)
         setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, createPlayerDraft(player)])))
         writeViewCache(cacheKey, {
           evaluations: nextEvaluations,
           players: nextPlayers,
+          allPlayers: nextAllPlayers,
         })
       } catch (error) {
         console.error(error)
@@ -116,6 +131,9 @@ export function PlayerProfile() {
           }
           if (!cachedValue?.players) {
             setPlayers([])
+          }
+          if (!cachedValue?.allPlayers) {
+            setAllPlayers([])
           }
           setErrorMessage('Could not load player history.')
         }
@@ -156,6 +174,16 @@ export function PlayerProfile() {
     parentName: profileParentName,
     parentEmail: profileParentEmail,
   })
+  const reassignPlayerOptions = useMemo(
+    () =>
+      allPlayers
+        .filter((player) => {
+          const playerName = String(player.playerName ?? '').trim()
+          return player.id && playerName && playerName.toLowerCase() !== routePlayerName.toLowerCase()
+        })
+        .sort((left, right) => left.playerName.localeCompare(right.playerName)),
+    [allPlayers, routePlayerName],
+  )
 
   const getSelectedEmailTemplateKey = (evaluation) =>
     selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
@@ -344,6 +372,74 @@ export function PlayerProfile() {
         [evaluationId]: [...currentIndexes, index].sort((left, right) => left - right),
       }
     })
+  }
+
+  const handleReassignTargetChange = (evaluationId, playerId) => {
+    setErrorMessage('')
+    setSelectedReassignTargets((currentTargets) => ({
+      ...currentTargets,
+      [evaluationId]: playerId,
+    }))
+  }
+
+  const handleReassignEvaluation = async (evaluation) => {
+    const targetPlayerId = selectedReassignTargets[evaluation.id]
+    const targetPlayer = reassignPlayerOptions.find((player) => player.id === targetPlayerId)
+
+    if (!targetPlayer) {
+      setErrorMessage('Choose the correct player before moving this report.')
+      return
+    }
+
+    if (!window.confirm(`Move this report from ${routePlayerName} to ${targetPlayer.playerName}?`)) {
+      return
+    }
+
+    setIsReassigningId(evaluation.id)
+    setErrorMessage('')
+
+    try {
+      const targetParentContacts = normalizeParentContacts(targetPlayer.parentContacts, {
+        parentName: targetPlayer.parentName,
+        parentEmail: targetPlayer.parentEmail,
+      })
+      const updatedEvaluation = await updateEvaluation(
+        evaluation.id,
+        {
+          ...evaluation,
+          playerId: targetPlayer.id,
+          playerName: targetPlayer.playerName,
+          section: targetPlayer.section || evaluation.section,
+          team: targetPlayer.team || evaluation.team,
+          parentName: targetParentContacts[0]?.name ?? targetPlayer.parentName ?? '',
+          parentEmail: targetParentContacts[0]?.email ?? targetPlayer.parentEmail ?? '',
+          parentContacts: targetParentContacts,
+          updatedBy: user?.id,
+          updatedByName: String(user?.username || user?.name || user?.email || '').trim(),
+          updatedByEmail: String(user?.email || '').trim().toLowerCase(),
+        },
+        user?.clubId,
+      )
+      const nextEvaluations = evaluations.filter((item) => item.id !== updatedEvaluation.id)
+
+      setEvaluations(nextEvaluations)
+      setSelectedReassignTargets((currentTargets) => {
+        const nextTargets = { ...currentTargets }
+        delete nextTargets[evaluation.id]
+        return nextTargets
+      })
+      clearViewCaches()
+      writeViewCache(cacheKey, {
+        evaluations: nextEvaluations,
+        players,
+        allPlayers,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not move this report to the selected player.')
+    } finally {
+      setIsReassigningId('')
+    }
   }
 
   const handleAddPlayerPosition = (playerId) => {
@@ -833,6 +929,41 @@ export function PlayerProfile() {
                       <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
                       {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
                       <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Move report to another player</p>
+                    <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                      Use this if a report was saved against the wrong player.
+                    </p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Correct player</span>
+                        <select
+                          value={selectedReassignTargets[evaluation.id] || ''}
+                          onChange={(event) => handleReassignTargetChange(evaluation.id, event.target.value)}
+                          disabled={reassignPlayerOptions.length === 0}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <option value="">
+                            {reassignPlayerOptions.length === 0 ? 'No other players available' : 'Select player'}
+                          </option>
+                          {reassignPlayerOptions.map((player) => (
+                            <option key={player.id} value={player.id}>
+                              {player.playerName} | {player.section || 'Trial'} | {player.team || 'No team'}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void handleReassignEvaluation(evaluation)}
+                        disabled={!selectedReassignTargets[evaluation.id] || isReassigningId === evaluation.id}
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+                      >
+                        {isReassigningId === evaluation.id ? 'Moving...' : 'Move Report'}
+                      </button>
                     </div>
                   </div>
 
