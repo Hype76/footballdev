@@ -97,6 +97,26 @@ function normalizeProgressName(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
+function normalizeSessionDateKey(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue) {
+    return ''
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(normalizedValue)) {
+    return normalizedValue.slice(0, 10)
+  }
+
+  const parsedDate = new Date(normalizedValue)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return normalizedValue.toLowerCase()
+  }
+
+  return parsedDate.toISOString().slice(0, 10)
+}
+
 function readCompletedPlayerNames(user, sessionId) {
   const progressKey = getSessionProgressKey(user, sessionId)
 
@@ -210,6 +230,43 @@ function buildHistoricalSessionPlayers(evaluations, selectedSession) {
   return Array.from(playersByName.values())
 }
 
+function getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers) {
+  if (!selectedSession || sessionPlayers.length === 0) {
+    return []
+  }
+
+  const sessionPlayerNames = new Set(sessionPlayers.map((player) => normalizeProgressName(player.playerName)).filter(Boolean))
+  const selectedSessionDate = normalizeSessionDateKey(selectedSession.sessionDate)
+  const selectedTeam = String(selectedSession.team ?? '').trim().toLowerCase()
+
+  return [
+    ...new Set(
+      evaluations
+        .filter((evaluation) => {
+          const playerName = normalizeProgressName(evaluation.playerName)
+
+          if (!sessionPlayerNames.has(playerName)) {
+            return false
+          }
+
+          const evaluationSessionDate = normalizeSessionDateKey(evaluation.session || evaluation.date)
+          const evaluationTeam = String(evaluation.team ?? '').trim().toLowerCase()
+
+          if (selectedSessionDate && evaluationSessionDate && selectedSessionDate !== evaluationSessionDate) {
+            return false
+          }
+
+          if (selectedTeam && evaluationTeam && selectedTeam !== evaluationTeam) {
+            return false
+          }
+
+          return true
+        })
+        .map((evaluation) => normalizeProgressName(evaluation.playerName)),
+    ),
+  ]
+}
+
 export function SessionsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -261,16 +318,20 @@ export function SessionsPage() {
   const completedSessionId = String(searchParams.get('completedSessionId') ?? '').trim()
   const completedCount = Number(searchParams.get('completedCount') ?? 0)
   const requestedSessionId = String(searchParams.get('sessionId') ?? '').trim()
-  const completedPlayerNames = useMemo(
-    () => readCompletedPlayerNames(user, selectedSessionId),
-    [selectedSessionId, user],
-  )
 
   const combinedSessions = useMemo(
     () => [...sessions, ...buildHistoricalSessionsFromEvaluations(evaluations, sessions)],
     [evaluations, sessions],
   )
   const selectedSession = combinedSessions.find((session) => session.id === selectedSessionId)
+  const completedPlayerNames = useMemo(() => {
+    const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
+    const localCompletedPlayerNames = readCompletedPlayerNames(user, selectedSessionId)
+
+    return dbCompletedPlayerNames.length > 0
+      ? dbCompletedPlayerNames
+      : localCompletedPlayerNames
+  }, [evaluations, selectedSession, selectedSessionId, sessionPlayers, user])
   const previousSessions = useMemo(
     () => combinedSessions.filter((session) => session.id !== selectedSessionId),
     [combinedSessions, selectedSessionId],
