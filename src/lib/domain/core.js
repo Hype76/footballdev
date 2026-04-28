@@ -2051,7 +2051,7 @@ export async function getAssignedTeamsForUser(user) {
     const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
 
     if (teamIds.length === 0) {
-      return teams.length === 1 ? teams : []
+      return []
     }
 
     return teams.filter((team) => teamIds.includes(String(team.id)))
