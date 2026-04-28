@@ -19,6 +19,42 @@ function normalizeEmail(value: unknown) {
   return String(value ?? '').trim().toLowerCase()
 }
 
+async function findAuthUserByEmail(adminClient: ReturnType<typeof createClient>, email: string) {
+  const normalizedEmail = normalizeEmail(email)
+  let page = 1
+  const perPage = 1000
+
+  while (page <= 20) {
+    const { data, error } = await adminClient.auth.admin.listUsers({
+      page,
+      perPage,
+    })
+
+    if (error) {
+      throw error
+    }
+
+    const match = data.users.find((user) => normalizeEmail(user.email) === normalizedEmail)
+
+    if (match) {
+      return match
+    }
+
+    if (data.users.length < perPage) {
+      return null
+    }
+
+    page += 1
+  }
+
+  return null
+}
+
+function isExistingAuthUserError(error: { message?: string } | null | undefined) {
+  const message = String(error?.message ?? '').toLowerCase()
+  return message.includes('already') || message.includes('registered') || message.includes('exists')
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -117,11 +153,33 @@ Deno.serve(async (request) => {
         },
       })
 
-      if (createAuthError || !createdAuthUser.user) {
-        return jsonResponse({ error: createAuthError?.message ?? 'Could not create staff auth user.' }, 400)
-      }
+      if (createAuthError) {
+        if (!isExistingAuthUserError(createAuthError)) {
+          return jsonResponse({ error: createAuthError.message }, 400)
+        }
 
-      staffUserId = createdAuthUser.user.id
+        const existingAuthUser = await findAuthUserByEmail(adminClient, email)
+
+        if (!existingAuthUser) {
+          return jsonResponse({ error: 'This email already exists but could not be linked.' }, 400)
+        }
+
+        const { error: updateAuthError } = await adminClient.auth.admin.updateUserById(existingAuthUser.id, {
+          email,
+          password,
+          email_confirm: true,
+        })
+
+        if (updateAuthError) {
+          return jsonResponse({ error: updateAuthError.message }, 400)
+        }
+
+        staffUserId = existingAuthUser.id
+      } else if (!createdAuthUser.user) {
+        return jsonResponse({ error: 'Could not create staff auth user.' }, 400)
+      } else {
+        staffUserId = createdAuthUser.user.id
+      }
     }
 
     const displayName = email.split('@')[0] || 'Staff User'
@@ -148,6 +206,27 @@ Deno.serve(async (request) => {
 
     if (profileError) {
       return jsonResponse({ error: profileError.message }, 400)
+    }
+
+    const { error: membershipError } = await adminClient.from('user_club_memberships').upsert(
+      {
+        auth_user_id: staffUserId,
+        email,
+        username: profile.username,
+        name: profile.name,
+        role: roleKey,
+        role_label: roleLabel,
+        role_rank: roleRank,
+        club_id: clubId,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'auth_user_id,club_id',
+      },
+    )
+
+    if (membershipError) {
+      return jsonResponse({ error: membershipError.message }, 400)
     }
 
     await adminClient.from('club_user_invites').delete().eq('club_id', clubId).eq('email', email)
