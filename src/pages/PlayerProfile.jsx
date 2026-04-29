@@ -23,6 +23,7 @@ import {
 import {
   EVALUATION_SECTIONS,
   createCommunicationLog,
+  createEvaluation,
   deletePlayer,
   getEvaluations,
   getPlayers,
@@ -38,6 +39,42 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+
+function isNumericScore(value) {
+  if (value === null || value === undefined || value === '') {
+    return false
+  }
+
+  return !Number.isNaN(Number(value))
+}
+
+function calculateMergedAverage(formResponses) {
+  const numericValues = Object.values(formResponses ?? {})
+    .filter(isNumericScore)
+    .map(Number)
+
+  if (numericValues.length === 0) {
+    return null
+  }
+
+  return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
+}
+
+function buildCommentsFromMergedResponses(formResponses) {
+  const findResponse = (labels) => {
+    const matchingEntry = Object.entries(formResponses ?? {}).find(([label]) =>
+      labels.some((item) => label.toLowerCase().includes(item)),
+    )
+
+    return matchingEntry ? String(matchingEntry[1] ?? '').trim() : ''
+  }
+
+  return {
+    strengths: findResponse(['strength']),
+    improvements: findResponse(['improvement', 'weakness']),
+    overall: findResponse(['overall', 'comment']),
+  }
+}
 
 export function PlayerProfile() {
   const { id } = useParams()
@@ -64,8 +101,12 @@ export function PlayerProfile() {
   const [isPromotingId, setIsPromotingId] = useState('')
   const [isReassigningId, setIsReassigningId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isMergingEvaluations, setIsMergingEvaluations] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [selectedReassignTargets, setSelectedReassignTargets] = useState({})
+  const [mergeSelectedIds, setMergeSelectedIds] = useState([])
+  const [mergeCoreSourceId, setMergeCoreSourceId] = useState('')
+  const [mergeFieldSources, setMergeFieldSources] = useState({})
   const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
   const [selectedParentContacts, setSelectedParentContacts] = useState({})
   const [selectedInviteDates, setSelectedInviteDates] = useState({})
@@ -183,6 +224,44 @@ export function PlayerProfile() {
         })
         .sort((left, right) => left.playerName.localeCompare(right.playerName)),
     [allPlayers, routePlayerName],
+  )
+  const canMergeEvaluations = Boolean(user?.clubId) && Number(user?.roleRank ?? 0) >= 50 && evaluations.length > 1
+  const mergeSelectedEvaluations = useMemo(
+    () => evaluations.filter((evaluation) => mergeSelectedIds.includes(evaluation.id)),
+    [evaluations, mergeSelectedIds],
+  )
+  const mergeFieldLabels = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          mergeSelectedEvaluations.flatMap((evaluation) => Object.keys(evaluation.formResponses ?? {})),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
+    [mergeSelectedEvaluations],
+  )
+  const mergeCoreSource = mergeSelectedEvaluations.find((evaluation) => evaluation.id === mergeCoreSourceId) ?? mergeSelectedEvaluations[0]
+  const mergePreviewResponses = useMemo(
+    () =>
+      Object.fromEntries(
+        mergeFieldLabels.map((label) => {
+          const sourceId =
+            mergeFieldSources[label] ||
+            mergeSelectedEvaluations.find((evaluation) =>
+              Object.prototype.hasOwnProperty.call(evaluation.formResponses ?? {}, label),
+            )?.id ||
+            mergeCoreSource?.id ||
+            mergeSelectedEvaluations[0]?.id
+          const sourceEvaluation =
+            mergeSelectedEvaluations.find((evaluation) => evaluation.id === sourceId) ?? mergeSelectedEvaluations[0]
+
+          return [label, sourceEvaluation?.formResponses?.[label] ?? '']
+        }),
+      ),
+    [mergeCoreSource?.id, mergeFieldLabels, mergeFieldSources, mergeSelectedEvaluations],
+  )
+  const mergePreviewAverage = useMemo(
+    () => calculateMergedAverage(mergePreviewResponses),
+    [mergePreviewResponses],
   )
 
   const getSelectedEmailTemplateKey = (evaluation) =>
@@ -439,6 +518,119 @@ export function PlayerProfile() {
       setErrorMessage('Could not move this report to the selected player.')
     } finally {
       setIsReassigningId('')
+    }
+  }
+
+  const handleToggleMergeEvaluation = (evaluationId, checked) => {
+    setErrorMessage('')
+    setMergeSelectedIds((currentIds) => {
+      const nextIds = checked
+        ? [...new Set([...currentIds, evaluationId])]
+        : currentIds.filter((id) => id !== evaluationId)
+
+      if (nextIds.length === 0) {
+        setMergeCoreSourceId('')
+        setMergeFieldSources({})
+        return []
+      }
+
+      setMergeCoreSourceId((currentSourceId) => (nextIds.includes(currentSourceId) ? currentSourceId : nextIds[0]))
+      setMergeFieldSources((currentSources) =>
+        Object.fromEntries(
+          Object.entries(currentSources).filter(([, sourceId]) => nextIds.includes(sourceId)),
+        ),
+      )
+
+      return nextIds
+    })
+  }
+
+  const handleMergeFieldSourceChange = (label, sourceId) => {
+    setErrorMessage('')
+    setMergeFieldSources((currentSources) => ({
+      ...currentSources,
+      [label]: sourceId,
+    }))
+  }
+
+  const handleCreateMergedEvaluation = async () => {
+    if (!canMergeEvaluations) {
+      setErrorMessage('Only managers and above can merge assessments.')
+      return
+    }
+
+    if (mergeSelectedEvaluations.length < 2) {
+      setErrorMessage('Select at least two assessments to merge.')
+      return
+    }
+
+    if (!mergeCoreSource) {
+      setErrorMessage('Choose a source assessment for the main details.')
+      return
+    }
+
+    if (!window.confirm('Create a merged assessment from the selected reports? Source reports will stay in history.')) {
+      return
+    }
+
+    setIsMergingEvaluations(true)
+    setErrorMessage('')
+
+    try {
+      const mergedResponses = mergePreviewResponses
+      const mergedScores = Object.fromEntries(
+        Object.entries(mergedResponses)
+          .filter(([, value]) => isNumericScore(value))
+          .map(([label, value]) => [label, Number(value)]),
+      )
+      const parentContacts = normalizeParentContacts(primaryPlayer?.parentContacts || mergeCoreSource.parentContacts, {
+        parentName: primaryPlayer?.parentName || mergeCoreSource.parentName,
+        parentEmail: primaryPlayer?.parentEmail || mergeCoreSource.parentEmail,
+      })
+      const mergedEvaluation = await createEvaluation({
+        playerId: primaryPlayer?.id || mergeCoreSource.playerId,
+        playerName: routePlayerName,
+        teamId: primaryPlayer?.teamId || mergeCoreSource.teamId,
+        team: primaryPlayer?.team || mergeCoreSource.team,
+        section: primaryPlayer?.section || mergeCoreSource.section,
+        clubId: user.clubId,
+        coachId: user.id,
+        coach: String(user.username || user.name || user.email || '').trim(),
+        createdByName: String(user.username || user.name || user.email || '').trim(),
+        createdByEmail: String(user.email || '').trim().toLowerCase(),
+        updatedBy: user.id,
+        updatedByName: String(user.username || user.name || user.email || '').trim(),
+        updatedByEmail: String(user.email || '').trim().toLowerCase(),
+        parentName: parentContacts[0]?.name ?? mergeCoreSource.parentName ?? '',
+        parentEmail: parentContacts[0]?.email ?? mergeCoreSource.parentEmail ?? '',
+        parentContacts,
+        session: `Merged assessment from ${mergeSelectedEvaluations.length} reports`,
+        date: new Date().toLocaleDateString(),
+        scores: mergedScores,
+        averageScore: mergePreviewAverage,
+        comments: buildCommentsFromMergedResponses(mergedResponses),
+        formResponses: mergedResponses,
+        decision: mergeCoreSource.decision,
+        status: mergeCoreSource.status || 'Submitted',
+        createdAt: new Date().toISOString(),
+      })
+      const nextEvaluations = [mergedEvaluation, ...evaluations]
+
+      setEvaluations(nextEvaluations)
+      setMergeSelectedIds([])
+      setMergeCoreSourceId('')
+      setMergeFieldSources({})
+      clearViewCaches()
+      writeViewCache(cacheKey, {
+        evaluations: nextEvaluations,
+        players,
+        allPlayers,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not create the merged assessment.')
+    } finally {
+      setIsMergingEvaluations(false)
     }
   }
 
@@ -889,6 +1081,118 @@ export function PlayerProfile() {
           </button>
         ) : null}
       </div>
+
+      {canMergeEvaluations ? (
+        <SectionCard
+          title="Merge assessments"
+          description="Managers can create one combined assessment from selected reports. Original reports stay in history."
+        >
+          <div className="space-y-5">
+            <div className="grid gap-3 lg:grid-cols-2">
+              {evaluations.map((evaluation) => (
+                <label
+                  key={evaluation.id}
+                  className="flex min-h-11 items-start gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={mergeSelectedIds.includes(evaluation.id)}
+                    onChange={(event) => handleToggleMergeEvaluation(evaluation.id, event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{evaluation.date || 'No date entered'}</span>
+                    <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">
+                      {evaluation.session || 'No session entered'} | {evaluation.section || 'Trial'} | Score {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : 'No score'}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {mergeSelectedEvaluations.length >= 2 ? (
+              <div className="space-y-4 rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Main details source</span>
+                  <select
+                    value={mergeCoreSource?.id || ''}
+                    onChange={(event) => setMergeCoreSourceId(event.target.value)}
+                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  >
+                    {mergeSelectedEvaluations.map((evaluation) => (
+                      <option key={evaluation.id} value={evaluation.id}>
+                        {evaluation.date || 'No date entered'} | {evaluation.session || 'No session entered'} | {evaluation.section || 'Trial'}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+                    This supplies team, section, parent details, and status for the merged report.
+                  </p>
+                </label>
+
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Choose field sources</p>
+                  <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                    Pick which assessment should supply each score or text field.
+                  </p>
+                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                    {mergeFieldLabels.map((label) => (
+                      <label key={label} className="block rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{label}</span>
+                        <select
+                          value={
+                            mergeFieldSources[label] ||
+                            mergeSelectedEvaluations.find((evaluation) =>
+                              Object.prototype.hasOwnProperty.call(evaluation.formResponses ?? {}, label),
+                            )?.id ||
+                            mergeCoreSource?.id ||
+                            mergeSelectedEvaluations[0]?.id ||
+                            ''
+                          }
+                          onChange={(event) => handleMergeFieldSourceChange(label, event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        >
+                          {mergeSelectedEvaluations
+                            .filter((evaluation) => Object.prototype.hasOwnProperty.call(evaluation.formResponses ?? {}, label))
+                            .map((evaluation) => (
+                              <option key={evaluation.id} value={evaluation.id}>
+                                {evaluation.date || 'No date entered'} | {String(evaluation.formResponses?.[label] ?? 'No value')}
+                              </option>
+                            ))}
+                        </select>
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">
+                          {String(mergePreviewResponses[label] ?? 'No value')}
+                        </p>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Merged score preview</p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">
+                      {mergePreviewAverage !== null ? mergePreviewAverage.toFixed(1) : 'No numeric scores selected'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isMergingEvaluations}
+                    onClick={() => void handleCreateMergedEvaluation()}
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isMergingEvaluations ? 'Saving...' : 'Save Merged Assessment'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                Select at least two assessments to build a merged report.
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      ) : null}
 
       <SectionCard
         title="Past evaluations"
