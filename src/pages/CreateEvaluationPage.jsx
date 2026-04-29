@@ -613,10 +613,6 @@ export function CreateEvaluationPage() {
     }
   }
 
-  const handlePrintPreview = () => {
-    window.print()
-  }
-
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -754,7 +750,7 @@ export function CreateEvaluationPage() {
     } catch (error) {
       console.error('Evaluation submit failed', error)
       setIsSaved(false)
-      setActionErrorMessage(error.message || 'The evaluation could not be submitted right now. Try again in a moment.')
+      setActionErrorMessage('This evaluation could not be saved right now. Check the player details and try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -1118,13 +1114,6 @@ export function CreateEvaluationPage() {
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isGeneratingPdf ? 'Preparing PDF...' : 'PDF Without Scores'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePrintPreview}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
-                  >
-                    Print
                   </button>
                   <button
                     type="button"
