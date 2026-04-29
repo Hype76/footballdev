@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewActivityLog, useAuth } from '../lib/auth.js'
@@ -39,6 +39,8 @@ export function ActivityLogPage() {
   const { user } = useAuth()
   const [logs, setLogs] = useState([])
   const [backups, setBackups] = useState([])
+  const [selectedActorId, setSelectedActorId] = useState('')
+  const [selectedAction, setSelectedAction] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -57,7 +59,7 @@ export function ActivityLogPage() {
 
       try {
         const [nextLogs, nextBackups] = await Promise.all([
-          withRequestTimeout(() => getAuditLogs({ user, limit: 150 }), 'Could not load activity.'),
+          withRequestTimeout(() => getAuditLogs({ user, limit: 250 }), 'Could not load activity.'),
           withRequestTimeout(() => getRecordBackups({ user, limit: 50 }), 'Could not load backups.'),
         ])
 
@@ -87,6 +89,54 @@ export function ActivityLogPage() {
     }
   }, [user])
 
+  const actorOptions = useMemo(() => {
+    const actors = new Map()
+
+    logs.forEach((log) => {
+      const actorId = String(log.actorId ?? '').trim()
+
+      if (!actorId || actors.has(actorId)) {
+        return
+      }
+
+      actors.set(actorId, {
+        id: actorId,
+        label: log.actorName || log.actorEmail || 'Unknown user',
+        email: log.actorEmail || '',
+        roleLabel: log.actorRoleLabel || '',
+        roleRank: Number(log.actorRoleRank ?? 0),
+      })
+    })
+
+    return Array.from(actors.values()).sort((left, right) =>
+      left.label.localeCompare(right.label) || left.email.localeCompare(right.email),
+    )
+  }, [logs])
+
+  const actionOptions = useMemo(
+    () =>
+      Array.from(new Set(logs.map((log) => log.action).filter(Boolean))).sort((left, right) =>
+        formatAction(left).localeCompare(formatAction(right)),
+      ),
+    [logs],
+  )
+
+  const filteredLogs = useMemo(
+    () =>
+      logs.filter((log) => {
+        if (selectedActorId && String(log.actorId) !== selectedActorId) {
+          return false
+        }
+
+        if (selectedAction && log.action !== selectedAction) {
+          return false
+        }
+
+        return true
+      }),
+    [logs, selectedAction, selectedActorId],
+  )
+
   if (!canViewActivityLog(user)) {
     return (
       <div className="space-y-5 sm:space-y-6">
@@ -115,7 +165,7 @@ export function ActivityLogPage() {
 
       <SectionCard
         title="Recent activity"
-        description="Managers and above can see activity in their club. Platform admins can see platform-wide activity."
+        description="Managers and above can see activity for users at their role level or below. Platform admins can see platform-wide activity."
       >
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
@@ -127,7 +177,46 @@ export function ActivityLogPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {logs.map((log) => (
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">User</span>
+                <select
+                  value={selectedActorId}
+                  onChange={(event) => setSelectedActorId(event.target.value)}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                >
+                  <option value="">All allowed users</option>
+                  {actorOptions.map((actor) => (
+                    <option key={actor.id} value={actor.id}>
+                      {actor.label}{actor.email ? ` | ${actor.email}` : ''}{actor.roleLabel ? ` | ${actor.roleLabel}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Event</span>
+                <select
+                  value={selectedAction}
+                  onChange={(event) => setSelectedAction(event.target.value)}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                >
+                  <option value="">All events</option>
+                  {actionOptions.map((action) => (
+                    <option key={action} value={action}>
+                      {formatAction(action)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {filteredLogs.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                No activity matches these filters.
+              </div>
+            ) : null}
+
+            {filteredLogs.map((log) => (
               <article
                 key={log.id}
                 className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
@@ -138,6 +227,7 @@ export function ActivityLogPage() {
                     <p className="mt-1 break-words text-sm text-[var(--text-muted)]">
                       {log.actorName || log.actorEmail || 'Unknown user'}
                       {log.actorEmail && log.actorName ? ` | ${log.actorEmail}` : ''}
+                      {log.actorRoleLabel ? ` | ${log.actorRoleLabel}` : ''}
                     </p>
                     <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                       {log.entityType || 'record'}

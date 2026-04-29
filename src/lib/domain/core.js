@@ -2752,6 +2752,8 @@ export async function createAuditLog({ user, action, entityType, entityId, metad
     actor_id: user.id,
     actor_name: getEntryUserName(user),
     actor_email: getEntryUserEmail(user),
+    actor_role_label: user.roleLabel || user.role || '',
+    actor_role_rank: Number(user.roleRank ?? 0),
     action,
     entity_type: entityType,
     entity_id: entityId || null,
@@ -2770,6 +2772,8 @@ function normalizeAuditLogRow(row) {
     actorId: row.actor_id ?? row.actorId ?? '',
     actorName: String(row.actor_name ?? row.actorName ?? '').trim(),
     actorEmail: String(row.actor_email ?? row.actorEmail ?? '').trim(),
+    actorRoleLabel: String(row.actor_role_label ?? row.actorRoleLabel ?? '').trim(),
+    actorRoleRank: Number(row.actor_role_rank ?? row.actorRoleRank ?? 0),
     action: String(row.action ?? '').trim(),
     entityType: String(row.entity_type ?? row.entityType ?? '').trim(),
     entityId: row.entity_id ?? row.entityId ?? '',
@@ -2786,6 +2790,8 @@ function normalizeRecordBackupRow(row) {
     recordId: row.record_id ?? row.recordId ?? '',
     operation: String(row.operation ?? '').trim(),
     actorId: row.actor_id ?? row.actorId ?? '',
+    actorRoleLabel: String(row.actor_role_label ?? row.actorRoleLabel ?? '').trim(),
+    actorRoleRank: Number(row.actor_role_rank ?? row.actorRoleRank ?? 0),
     oldData: row.old_data ?? row.oldData ?? null,
     newData: row.new_data ?? row.newData ?? null,
     createdAt: row.created_at ?? row.createdAt ?? '',
@@ -2818,7 +2824,16 @@ export async function getAuditLogs({ user, limit = 100 } = {}) {
     throw error
   }
 
-  return (data ?? []).map(normalizeAuditLogRow)
+  const normalizedLogs = (data ?? []).map(normalizeAuditLogRow)
+
+  if (user.role === 'super_admin') {
+    return normalizedLogs
+  }
+
+  const currentRank = Number(user.roleRank ?? 0)
+  return normalizedLogs.filter(
+    (log) => String(log.actorId) === String(user.id) || Number(log.actorRoleRank ?? 0) <= currentRank,
+  )
 }
 
 export async function getRecordBackups({ user, limit = 50 } = {}) {
@@ -2847,7 +2862,16 @@ export async function getRecordBackups({ user, limit = 50 } = {}) {
     throw error
   }
 
-  return (data ?? []).map(normalizeRecordBackupRow)
+  const normalizedBackups = (data ?? []).map(normalizeRecordBackupRow)
+
+  if (user.role === 'super_admin') {
+    return normalizedBackups
+  }
+
+  const currentRank = Number(user.roleRank ?? 0)
+  return normalizedBackups.filter(
+    (backup) => !backup.actorId || String(backup.actorId) === String(user.id) || Number(backup.actorRoleRank ?? 0) <= currentRank,
+  )
 }
 
 export async function createCommunicationLog({ user, playerId, evaluationId, channel = 'pdf', action, recipientEmail = '' }) {
