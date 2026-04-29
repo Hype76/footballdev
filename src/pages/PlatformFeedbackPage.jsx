@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth } from '../lib/auth.js'
@@ -14,6 +15,7 @@ import {
 } from '../lib/supabase.js'
 
 const cacheKey = 'platform-feedback-page'
+const FEEDBACK_PAGE_SIZE = 10
 
 function formatDate(value) {
   if (!value) {
@@ -43,6 +45,7 @@ export function PlatformFeedbackPage() {
   const [isLoading, setIsLoading] = useState(() => feedbackItems.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [activeVoteId, setActiveVoteId] = useState('')
+  const [feedbackPage, setFeedbackPage] = useState(1)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -145,6 +148,8 @@ export function PlatformFeedbackPage() {
     }
   }
 
+  const paginatedFeedback = getPaginatedItems(feedbackItems, feedbackPage, FEEDBACK_PAGE_SIZE)
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -200,7 +205,7 @@ export function PlatformFeedbackPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {feedbackItems.map((item) => (
+            {paginatedFeedback.items.map((item) => (
               <div key={item.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
@@ -242,6 +247,12 @@ export function PlatformFeedbackPage() {
                 ) : null}
               </div>
             ))}
+            <Pagination
+              currentPage={feedbackPage}
+              onPageChange={setFeedbackPage}
+              pageSize={FEEDBACK_PAGE_SIZE}
+              totalItems={feedbackItems.length}
+            />
           </div>
         )}
       </SectionCard>

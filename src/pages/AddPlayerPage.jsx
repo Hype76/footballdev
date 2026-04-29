@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useAuth } from '../lib/auth.js'
@@ -26,6 +27,8 @@ function createInitialPlayerForm() {
   }
 }
 
+const RECENT_PLAYER_PAGE_SIZE = 8
+
 export function AddPlayerPage() {
   const { user } = useAuth()
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
@@ -41,6 +44,7 @@ export function AddPlayerPage() {
   })
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && availableTeams.length === 0)
   const [isAddingPlayer, setIsAddingPlayer] = useState(false)
+  const [recentPlayerPage, setRecentPlayerPage] = useState(1)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -222,7 +226,7 @@ export function AddPlayerPage() {
 
   const recentPlayers = [...players]
     .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime())
-    .slice(0, 8)
+  const paginatedRecentPlayers = getPaginatedItems(recentPlayers, recentPlayerPage, RECENT_PLAYER_PAGE_SIZE)
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -412,7 +416,7 @@ export function AddPlayerPage() {
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {recentPlayers.map((player) => (
+            {paginatedRecentPlayers.items.map((player) => (
               <Link
                 key={player.id}
                 to={`/player/${encodeURIComponent(player.playerName)}`}
@@ -425,6 +429,14 @@ export function AddPlayerPage() {
                 </p>
               </Link>
             ))}
+            <div className="sm:col-span-2 xl:col-span-4">
+              <Pagination
+                currentPage={recentPlayerPage}
+                onPageChange={setRecentPlayerPage}
+                pageSize={RECENT_PLAYER_PAGE_SIZE}
+                totalItems={recentPlayers.length}
+              />
+            </div>
           </div>
         )}
       </SectionCard>

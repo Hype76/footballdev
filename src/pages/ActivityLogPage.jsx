@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewActivityLog, useAuth } from '../lib/auth.js'
@@ -35,12 +36,17 @@ function formatMetadata(metadata) {
     .join(' | ')
 }
 
+const LOG_PAGE_SIZE = 15
+const BACKUP_PAGE_SIZE = 10
+
 export function ActivityLogPage() {
   const { user } = useAuth()
   const [logs, setLogs] = useState([])
   const [backups, setBackups] = useState([])
   const [selectedActorId, setSelectedActorId] = useState('')
   const [selectedAction, setSelectedAction] = useState('')
+  const [logPage, setLogPage] = useState(1)
+  const [backupPage, setBackupPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -136,6 +142,14 @@ export function ActivityLogPage() {
       }),
     [logs, selectedAction, selectedActorId],
   )
+  const paginatedLogs = useMemo(
+    () => getPaginatedItems(filteredLogs, logPage, LOG_PAGE_SIZE),
+    [filteredLogs, logPage],
+  )
+  const paginatedBackups = useMemo(
+    () => getPaginatedItems(backups, backupPage, BACKUP_PAGE_SIZE),
+    [backupPage, backups],
+  )
 
   if (!canViewActivityLog(user)) {
     return (
@@ -182,7 +196,10 @@ export function ActivityLogPage() {
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">User</span>
                 <select
                   value={selectedActorId}
-                  onChange={(event) => setSelectedActorId(event.target.value)}
+                  onChange={(event) => {
+                    setSelectedActorId(event.target.value)
+                    setLogPage(1)
+                  }}
                   className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   <option value="">All allowed users</option>
@@ -197,7 +214,10 @@ export function ActivityLogPage() {
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Event</span>
                 <select
                   value={selectedAction}
-                  onChange={(event) => setSelectedAction(event.target.value)}
+                  onChange={(event) => {
+                    setSelectedAction(event.target.value)
+                    setLogPage(1)
+                  }}
                   className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   <option value="">All events</option>
@@ -216,7 +236,7 @@ export function ActivityLogPage() {
               </div>
             ) : null}
 
-            {filteredLogs.map((log) => (
+            {paginatedLogs.items.map((log) => (
               <article
                 key={log.id}
                 className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
@@ -240,6 +260,12 @@ export function ActivityLogPage() {
                 </div>
               </article>
             ))}
+            <Pagination
+              currentPage={logPage}
+              onPageChange={setLogPage}
+              pageSize={LOG_PAGE_SIZE}
+              totalItems={filteredLogs.length}
+            />
           </div>
         )}
       </SectionCard>
@@ -258,7 +284,7 @@ export function ActivityLogPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {backups.map((backup) => (
+            {paginatedBackups.items.map((backup) => (
               <article
                 key={backup.id}
                 className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
@@ -276,6 +302,12 @@ export function ActivityLogPage() {
                 </div>
               </article>
             ))}
+            <Pagination
+              currentPage={backupPage}
+              onPageChange={setBackupPage}
+              pageSize={BACKUP_PAGE_SIZE}
+              totalItems={backups.length}
+            />
           </div>
         )}
       </SectionCard>

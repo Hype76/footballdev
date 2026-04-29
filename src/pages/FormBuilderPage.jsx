@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageFormFields, useAuth } from '../lib/auth.js'
@@ -30,6 +31,8 @@ const initialFieldForm = {
   required: false,
   options: '1, 2, 3, 4, 5',
 }
+
+const FIELD_PAGE_SIZE = 8
 
 function normalizeOptions(optionsText) {
   return optionsText
@@ -99,6 +102,7 @@ export function FormBuilderPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [fieldGroup, setFieldGroup] = useState('default')
+  const [fieldPage, setFieldPage] = useState(1)
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
@@ -180,6 +184,7 @@ export function FormBuilderPage() {
   const defaultFields = fields.filter((field) => field.isDefault)
   const customFields = fields.filter((field) => !field.isDefault)
   const visibleFields = fieldGroup === 'default' ? defaultFields : customFields
+  const paginatedFields = getPaginatedItems(visibleFields, fieldPage, FIELD_PAGE_SIZE)
 
   const handleFormChange = (event) => {
     const { name, value, type, checked } = event.target
@@ -529,7 +534,10 @@ export function FormBuilderPage() {
         <div className="mb-5 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
-            onClick={() => setFieldGroup('default')}
+            onClick={() => {
+              setFieldGroup('default')
+              setFieldPage(1)
+            }}
             className={[
               'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
               fieldGroup === 'default'
@@ -541,7 +549,10 @@ export function FormBuilderPage() {
           </button>
           <button
             type="button"
-            onClick={() => setFieldGroup('custom')}
+            onClick={() => {
+              setFieldGroup('custom')
+              setFieldPage(1)
+            }}
             className={[
               'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
               fieldGroup === 'custom'
@@ -569,7 +580,7 @@ export function FormBuilderPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {visibleFields.map((field) => {
+            {paginatedFields.items.map((field) => {
               const draft = fieldDrafts[field.id] ?? createDraftFromField(field)
               const fieldIndex = fields.findIndex((item) => item.id === field.id)
 
@@ -710,6 +721,12 @@ export function FormBuilderPage() {
                 </div>
               )
             })}
+            <Pagination
+              currentPage={fieldPage}
+              onPageChange={setFieldPage}
+              pageSize={FIELD_PAGE_SIZE}
+              totalItems={visibleFields.length}
+            />
           </div>
         )}
       </SectionCard>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, useAuth } from '../lib/auth.js'
@@ -39,6 +40,8 @@ function formatDate(value) {
   return Number.isNaN(parsedDate.getTime()) ? normalizedValue : parsedDate.toLocaleDateString()
 }
 
+const PLAYER_PAGE_SIZE = 12
+
 export function PlayersPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -55,6 +58,7 @@ export function PlayersPage() {
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
   const [searchTerm, setSearchTerm] = useState('')
+  const [playerPage, setPlayerPage] = useState(1)
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
@@ -195,6 +199,10 @@ export function PlayersPage() {
       return matchesSection && matchesView && matchesSearch
     })
   }, [playerRows, searchTerm, urlSection, viewFilter])
+  const paginatedPlayers = useMemo(
+    () => getPaginatedItems(filteredPlayers, playerPage, PLAYER_PAGE_SIZE),
+    [filteredPlayers, playerPage],
+  )
 
   const totalEvaluations = playerRows.reduce((sum, player) => sum + player.totalEvaluations, 0)
   const averageScore = getAverageScore(evaluations)
@@ -217,6 +225,7 @@ export function PlayersPage() {
     }
 
     setSearchParams(params)
+    setPlayerPage(1)
   }
 
   if (!canCreateEvaluation(user)) {
@@ -282,7 +291,10 @@ export function PlayersPage() {
             <input
               type="search"
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value)
+                setPlayerPage(1)
+              }}
               placeholder="Search player or team"
               className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
@@ -319,7 +331,7 @@ export function PlayersPage() {
           </div>
         ) : (
           <div className="mt-5 grid gap-3">
-            {filteredPlayers.map((player) => (
+            {paginatedPlayers.items.map((player) => (
               <button
                 key={getPlayerKey(player.playerName)}
                 type="button"
@@ -362,6 +374,12 @@ export function PlayersPage() {
                 </div>
               </button>
             ))}
+            <Pagination
+              currentPage={playerPage}
+              onPageChange={setPlayerPage}
+              pageSize={PLAYER_PAGE_SIZE}
+              totalItems={filteredPlayers.length}
+            />
           </div>
         )}
       </SectionCard>

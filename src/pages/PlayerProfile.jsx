@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth } from '../lib/auth.js'
@@ -77,6 +78,8 @@ function buildCommentsFromMergedResponses(formResponses) {
   }
 }
 
+const PROFILE_EVALUATION_PAGE_SIZE = 5
+
 export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -113,6 +116,7 @@ export function PlayerProfile() {
   const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
   const [selectedParentContacts, setSelectedParentContacts] = useState({})
   const [selectedInviteDates, setSelectedInviteDates] = useState({})
+  const [evaluationPage, setEvaluationPage] = useState(1)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
 
@@ -200,6 +204,10 @@ export function PlayerProfile() {
   const scoredEvaluations = useMemo(
     () => evaluations.filter((evaluation) => evaluation.averageScore !== null),
     [evaluations],
+  )
+  const paginatedEvaluations = useMemo(
+    () => getPaginatedItems(evaluations, evaluationPage, PROFILE_EVALUATION_PAGE_SIZE),
+    [evaluationPage, evaluations],
   )
   const ratingTrend = useMemo(() => buildRatingTrend(evaluations), [evaluations])
   const fieldMovement = useMemo(() => buildFieldMovement(evaluations), [evaluations])
@@ -1370,7 +1378,7 @@ export function PlayerProfile() {
           </div>
         ) : (
           <div className="space-y-4">
-            {evaluations.map((evaluation) => {
+            {paginatedEvaluations.items.map((evaluation) => {
               const responseItems = Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
                 label,
                 value,
@@ -1609,6 +1617,12 @@ export function PlayerProfile() {
                 </div>
               )
             })}
+            <Pagination
+              currentPage={evaluationPage}
+              onPageChange={setEvaluationPage}
+              pageSize={PROFILE_EVALUATION_PAGE_SIZE}
+              totalItems={evaluations.length}
+            />
           </div>
         )}
       </SectionCard>

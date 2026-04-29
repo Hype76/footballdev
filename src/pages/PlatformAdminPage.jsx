@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth } from '../lib/auth.js'
@@ -18,6 +19,8 @@ import {
 
 const cacheKey = 'platform-admin-dashboard'
 const feedbackCacheKey = 'platform-admin-feedback'
+const PLATFORM_FEEDBACK_PAGE_SIZE = 6
+const CLUB_PAGE_SIZE = 6
 
 function formatDate(value) {
   if (!value) {
@@ -48,6 +51,8 @@ export function PlatformAdminPage() {
   })
   const [feedbackDrafts, setFeedbackDrafts] = useState({})
   const [selectedClubId, setSelectedClubId] = useState('All')
+  const [feedbackPage, setFeedbackPage] = useState(1)
+  const [clubPage, setClubPage] = useState(1)
   const [isLoading, setIsLoading] = useState(() => !stats)
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -160,6 +165,14 @@ export function PlatformAdminPage() {
     const clubs = stats?.clubs ?? []
     return selectedClubId === 'All' ? clubs : clubs.filter((club) => club.id === selectedClubId)
   }, [selectedClubId, stats])
+  const paginatedFeedbackItems = useMemo(
+    () => getPaginatedItems(feedbackItems, feedbackPage, PLATFORM_FEEDBACK_PAGE_SIZE),
+    [feedbackItems, feedbackPage],
+  )
+  const paginatedVisibleClubs = useMemo(
+    () => getPaginatedItems(visibleClubs, clubPage, CLUB_PAGE_SIZE),
+    [clubPage, visibleClubs],
+  )
 
   const refreshStats = () => {
     setRefreshKey((current) => current + 1)
@@ -426,7 +439,7 @@ export function PlatformAdminPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {feedbackItems.map((item) => {
+            {paginatedFeedbackItems.items.map((item) => {
               const draft = feedbackDrafts[item.id] ?? {
                 status: item.status,
                 adminComment: '',
@@ -507,6 +520,12 @@ export function PlatformAdminPage() {
                 </div>
               )
             })}
+            <Pagination
+              currentPage={feedbackPage}
+              onPageChange={setFeedbackPage}
+              pageSize={PLATFORM_FEEDBACK_PAGE_SIZE}
+              totalItems={feedbackItems.length}
+            />
           </div>
         )}
       </SectionCard>
@@ -520,7 +539,10 @@ export function PlatformAdminPage() {
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Club filter</span>
             <select
               value={selectedClubId}
-              onChange={(event) => setSelectedClubId(event.target.value)}
+              onChange={(event) => {
+                setSelectedClubId(event.target.value)
+                setClubPage(1)
+              }}
               className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             >
               <option value="All">All clubs</option>
@@ -543,7 +565,7 @@ export function PlatformAdminPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {visibleClubs.map((club) => (
+            {paginatedVisibleClubs.items.map((club) => (
               <div key={club.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
                 <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
                   <div>
@@ -668,6 +690,12 @@ export function PlatformAdminPage() {
                 </div>
               </div>
             ))}
+            <Pagination
+              currentPage={clubPage}
+              onPageChange={setClubPage}
+              pageSize={CLUB_PAGE_SIZE}
+              totalItems={visibleClubs.length}
+            />
           </div>
         )}
       </SectionCard>

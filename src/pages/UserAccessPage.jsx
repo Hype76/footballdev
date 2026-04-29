@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
@@ -27,6 +28,9 @@ const initialFormState = {
   customRoleLabel: '',
 }
 
+const MEMBER_PAGE_SIZE = 8
+const INVITE_PAGE_SIZE = 8
+
 export function UserAccessPage() {
   const { user } = useAuth()
   const cacheKey = user?.clubId ? `user-access:${user.clubId}` : ''
@@ -47,6 +51,8 @@ export function UserAccessPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [nameDrafts, setNameDrafts] = useState({})
+  const [memberPage, setMemberPage] = useState(1)
+  const [invitePage, setInvitePage] = useState(1)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
@@ -122,6 +128,14 @@ export function UserAccessPage() {
   const assignableRoles = useMemo(
     () => roles.filter((role) => canAssignRole(user, role)),
     [roles, user],
+  )
+  const paginatedMembers = useMemo(
+    () => getPaginatedItems(members, memberPage, MEMBER_PAGE_SIZE),
+    [memberPage, members],
+  )
+  const paginatedInvites = useMemo(
+    () => getPaginatedItems(pendingInvites, invitePage, INVITE_PAGE_SIZE),
+    [invitePage, pendingInvites],
   )
 
   if (!canManageUsers(user)) {
@@ -448,7 +462,7 @@ export function UserAccessPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {members.map((member) => (
+            {paginatedMembers.items.map((member) => (
               <div
                 key={member.id}
                 className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
@@ -499,6 +513,12 @@ export function UserAccessPage() {
                 ) : null}
               </div>
             ))}
+            <Pagination
+              currentPage={memberPage}
+              onPageChange={setMemberPage}
+              pageSize={MEMBER_PAGE_SIZE}
+              totalItems={members.length}
+            />
           </div>
         )}
       </SectionCard>
@@ -517,7 +537,7 @@ export function UserAccessPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {pendingInvites.map((invite) => (
+            {paginatedInvites.items.map((invite) => (
               <div
                 key={invite.id}
                 className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
@@ -538,6 +558,12 @@ export function UserAccessPage() {
                 </div>
               </div>
             ))}
+            <Pagination
+              currentPage={invitePage}
+              onPageChange={setInvitePage}
+              pageSize={INVITE_PAGE_SIZE}
+              totalItems={pendingInvites.length}
+            />
           </div>
         )}
       </SectionCard>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
@@ -33,6 +34,9 @@ function createInitialSessionForm() {
     section: 'Trial',
   }
 }
+
+const SESSION_PLAYER_PAGE_SIZE = 8
+const AVAILABLE_PLAYER_PAGE_SIZE = 10
 
 function formatSessionDate(value) {
   const normalizedValue = String(value ?? '').trim()
@@ -306,6 +310,8 @@ export function SessionsPage() {
       ? draftsBySession[selectedId]
       : {}
   })
+  const [availablePlayerPage, setAvailablePlayerPage] = useState(1)
+  const [sessionPlayerPage, setSessionPlayerPage] = useState(1)
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0 && teams.length === 0)
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -528,12 +534,21 @@ export function SessionsPage() {
       ),
     [players, sessionForm.section, sessionForm.team],
   )
+  const paginatedFilteredPlayers = useMemo(
+    () => getPaginatedItems(filteredPlayers, availablePlayerPage, AVAILABLE_PLAYER_PAGE_SIZE),
+    [availablePlayerPage, filteredPlayers],
+  )
+  const paginatedSessionPlayers = useMemo(
+    () => getPaginatedItems(sessionPlayers, sessionPlayerPage, SESSION_PLAYER_PAGE_SIZE),
+    [sessionPlayerPage, sessionPlayers],
+  )
 
   useEffect(() => {
     if (!selectedSession) {
       return
     }
 
+    setSessionPlayerPage(1)
     setSessionForm((current) => ({
       ...current,
       teamId: selectedSession.teamId || current.teamId,
@@ -560,6 +575,7 @@ export function SessionsPage() {
     setErrorMessage('')
 
     if (name === 'teamId') {
+      setAvailablePlayerPage(1)
       const matchingTeam = teams.find((team) => team.id === value)
       setSessionForm((current) => ({
         ...current,
@@ -567,6 +583,10 @@ export function SessionsPage() {
         team: matchingTeam?.name || '',
       }))
       return
+    }
+
+    if (name === 'section') {
+      setAvailablePlayerPage(1)
     }
 
     if (name === 'sessionType') {
@@ -1079,7 +1099,7 @@ export function SessionsPage() {
             </label>
 
             <div className="grid gap-3 lg:grid-cols-2">
-              {filteredPlayers.map((player) => (
+              {paginatedFilteredPlayers.items.map((player) => (
                 <label
                   key={player.id}
                   className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
@@ -1094,6 +1114,12 @@ export function SessionsPage() {
                 </label>
               ))}
             </div>
+            <Pagination
+              currentPage={availablePlayerPage}
+              onPageChange={setAvailablePlayerPage}
+              pageSize={AVAILABLE_PLAYER_PAGE_SIZE}
+              totalItems={filteredPlayers.length}
+            />
 
             {filteredPlayers.length === 0 ? (
               <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
@@ -1178,7 +1204,7 @@ export function SessionsPage() {
               </div>
             </div>
 
-            {sessionPlayers.map((player) => (
+            {paginatedSessionPlayers.items.map((player) => (
               <div key={player.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
@@ -1226,6 +1252,12 @@ export function SessionsPage() {
                 </button>
               </div>
             ))}
+            <Pagination
+              currentPage={sessionPlayerPage}
+              onPageChange={setSessionPlayerPage}
+              pageSize={SESSION_PLAYER_PAGE_SIZE}
+              totalItems={sessionPlayers.length}
+            />
           </div>
         )}
       </SectionCard>

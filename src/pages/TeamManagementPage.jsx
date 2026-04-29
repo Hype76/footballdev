@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
-import { canAssignRole, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
+import { canAssignRole, canManageTeamSettings, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
 import {
   createStaffUserWithPassword,
   createClubRole,
@@ -27,6 +28,13 @@ const initialCoachForm = {
   teamId: '',
   roleKey: 'coach',
   customRoleLabel: '',
+}
+
+const TEAM_PAGE_SIZE = 8
+const STAFF_PAGE_SIZE = 8
+
+function getStaffDisplayName(member) {
+  return String(member?.name || member?.username || member?.email || 'Unnamed staff').trim()
 }
 
 export function TeamManagementPage() {
@@ -52,6 +60,10 @@ export function TeamManagementPage() {
   const [newTeamName, setNewTeamName] = useState('')
   const [teamNameDrafts, setTeamNameDrafts] = useState({})
   const [coachForm, setCoachForm] = useState(initialCoachForm)
+  const [selectedTeamId, setSelectedTeamId] = useState('')
+  const [staffToAddId, setStaffToAddId] = useState('')
+  const [teamPage, setTeamPage] = useState(1)
+  const [staffPage, setStaffPage] = useState(1)
   const [isCoachPasswordVisible, setIsCoachPasswordVisible] = useState(false)
   const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0 && roles.length === 0)
   const [isSaving, setIsSaving] = useState(false)
@@ -147,6 +159,36 @@ export function TeamManagementPage() {
     () => roles.filter((role) => canAssignRole(user, role)),
     [roles, user],
   )
+  const selectedTeam = useMemo(
+    () => teamAssignments.find((team) => team.id === selectedTeamId) ?? teamAssignments[0] ?? null,
+    [selectedTeamId, teamAssignments],
+  )
+  const selectedTeamStaff = useMemo(
+    () =>
+      selectedTeam
+        ? users
+            .filter((member) => selectedTeam.staffIds.includes(member.id))
+            .sort((left, right) => getStaffDisplayName(left).localeCompare(getStaffDisplayName(right)))
+        : [],
+    [selectedTeam, users],
+  )
+  const availableStaffForSelectedTeam = useMemo(
+    () =>
+      selectedTeam
+        ? users
+            .filter((member) => !selectedTeam.staffIds.includes(member.id))
+            .sort((left, right) => getStaffDisplayName(left).localeCompare(getStaffDisplayName(right)))
+        : [],
+    [selectedTeam, users],
+  )
+  const paginatedTeams = useMemo(
+    () => getPaginatedItems(teamAssignments, teamPage, TEAM_PAGE_SIZE),
+    [teamAssignments, teamPage],
+  )
+  const paginatedSelectedTeamStaff = useMemo(
+    () => getPaginatedItems(selectedTeamStaff, staffPage, STAFF_PAGE_SIZE),
+    [selectedTeamStaff, staffPage],
+  )
 
   useEffect(() => {
     if (coachForm.teamId || teams.length === 0) {
@@ -159,6 +201,18 @@ export function TeamManagementPage() {
     }))
   }, [coachForm.teamId, teams])
 
+  useEffect(() => {
+    if (selectedTeamId && teams.some((team) => team.id === selectedTeamId)) {
+      return
+    }
+
+    setSelectedTeamId(teams[0]?.id || '')
+  }, [selectedTeamId, teams])
+
+  useEffect(() => {
+    setStaffPage(1)
+  }, [selectedTeamId])
+
   const writeTeamCache = (nextState = {}) => {
     writeViewCache(cacheKey, {
       teams,
@@ -169,7 +223,7 @@ export function TeamManagementPage() {
     })
   }
 
-  if (!canManageUsers(user)) {
+  if (!canManageUsers(user) && !canManageTeamSettings(user)) {
     return <Navigate to="/" replace />
   }
 
@@ -201,6 +255,7 @@ export function TeamManagementPage() {
         ...current,
         teamId: current.teamId || createdTeam.id,
       }))
+      setSelectedTeamId(createdTeam.id)
       setMessage('Team created.')
       showToast({ title: 'Team created', message: `${createdTeam.name} has been added.` })
     } catch (error) {
@@ -306,24 +361,24 @@ export function TeamManagementPage() {
       writeTeamCache({
         assignments: nextAssignments,
       })
-      setMessage('Coach access created.')
+      setMessage('Staff access created.')
       showToast({
-        title: 'Coach access created',
+        title: 'Staff access created',
         message: selectedTeamId
           ? `${coachForm.email} can now log in and access the selected team.`
           : `${coachForm.email} can now log in with the initial password.`,
       })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not create coach access.')
-      showToast({ title: 'Coach not created', message: error.message || 'Could not create coach access.', tone: 'error' })
+      setErrorMessage(error.message || 'Could not create staff access.')
+      showToast({ title: 'Staff not created', message: error.message || 'Could not create staff access.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleDeleteTeam = async (teamId) => {
-    if (!window.confirm('Delete this team and its coach allocations?')) {
+    if (!window.confirm('Delete this team and its staff allocations?')) {
       return
     }
 
@@ -343,7 +398,7 @@ export function TeamManagementPage() {
         copySourceTeamId: nextTeams[0]?.id || '',
       })
       setMessage('Team deleted.')
-      showToast({ title: 'Team deleted', message: 'The team and coach allocations were removed.' })
+      showToast({ title: 'Team deleted', message: 'The team and staff allocations were removed.' })
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not delete team.')
@@ -373,15 +428,33 @@ export function TeamManagementPage() {
         })
         return mergedAssignments
       })
-      setMessage('Team coaches updated.')
-      showToast({ title: 'Coaches updated', message: 'Team coach allocation has been saved.' })
+      setMessage('Team staff updated.')
+      showToast({ title: 'Staff updated', message: 'Team staff allocation has been saved.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage('Could not update team coaches.')
-      showToast({ title: 'Coaches not updated', message: error.message || 'Could not update team coaches.', tone: 'error' })
+      setErrorMessage('Could not update team staff.')
+      showToast({ title: 'Staff not updated', message: error.message || 'Could not update team staff.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleAddExistingStaffToTeam = async () => {
+    if (!selectedTeam || !staffToAddId) {
+      setErrorMessage('Choose a staff member to add to this team.')
+      return
+    }
+
+    await handleTeamStaffToggle(selectedTeam.id, staffToAddId, true)
+    setStaffToAddId('')
+  }
+
+  const handleRemoveStaffFromSelectedTeam = async (memberId) => {
+    if (!selectedTeam) {
+      return
+    }
+
+    await handleTeamStaffToggle(selectedTeam.id, memberId, false)
   }
 
   const handleTeamNameSave = async (teamId) => {
@@ -434,7 +507,7 @@ export function TeamManagementPage() {
       <PageHeader
         eyebrow="Teams"
         title="Manage club teams"
-        description="Create teams, create coach accounts, and allocate coaches to each team."
+        description="Create teams, create staff accounts, and allocate staff to each team."
       />
 
       {message ? (
@@ -446,13 +519,13 @@ export function TeamManagementPage() {
       {errorMessage ? (
         <NoticeBanner
           title="Team data is only partly available"
-          message="Some team or coach records could not be refreshed. Missing items will appear once the data is entered or the connection settles."
+          message="Some team or staff records could not be refreshed. Missing items will appear once the data is entered or the connection settles."
         />
       ) : null}
 
       <SectionCard
         title="Create team"
-        description="Teams become selectable in assessments once created here. You can add coach access from this page as well."
+        description="Teams become selectable in assessments once created here. You can add staff access from this page as well."
       >
         <div className="grid gap-5 2xl:grid-cols-2">
           <form className="space-y-3" onSubmit={handleCreateTeam}>
@@ -479,7 +552,7 @@ export function TeamManagementPage() {
           <form className="space-y-3" onSubmit={handleCreateCoach}>
             <div className="grid gap-3 lg:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach email</span>
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Staff email</span>
                 <input
                   type="email"
                   name="email"
@@ -569,15 +642,15 @@ export function TeamManagementPage() {
               disabled={isSaving || assignableRoles.length === 0}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-              Add Coach Access
+              Add Staff Access
             </button>
           </form>
         </div>
       </SectionCard>
 
       <SectionCard
-        title="Team coach allocations"
-        description="Assign current club coaches to each team. Managers can edit allocations at any time."
+        title="Team staff allocations"
+        description="Select one club team, then manage the staff currently allocated to that team."
       >
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
@@ -588,24 +661,52 @@ export function TeamManagementPage() {
             No teams created yet.
           </div>
         ) : (
-          <div className="space-y-4">
-            {teamAssignments.map((team) => (
-              <div
-                key={team.id}
-                className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(220px,360px)_minmax(0,1fr)]">
+            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Club teams</p>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">Choose a team to manage its staff access.</p>
+              <div className="mt-4 space-y-2">
+                {paginatedTeams.items.map((team) => (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => setSelectedTeamId(team.id)}
+                    className={[
+                      'w-full rounded-2xl border px-4 py-3 text-left transition',
+                      selectedTeam?.id === team.id
+                        ? 'border-[var(--accent)] bg-[var(--panel-soft)]'
+                        : 'border-[var(--border-color)] bg-[var(--panel-bg)] hover:bg-[var(--panel-soft)]',
+                    ].join(' ')}
+                  >
+                    <span className="block text-sm font-semibold text-[var(--text-primary)]">{team.name}</span>
+                    <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                      {team.staffIds.length} staff allocated
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <Pagination
+                currentPage={teamPage}
+                onPageChange={setTeamPage}
+                pageSize={TEAM_PAGE_SIZE}
+                totalItems={teamAssignments.length}
+              />
+            </div>
+
+            {selectedTeam ? (
+              <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 flex-1">
                     <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
                         <input
                           type="text"
-                          value={teamNameDrafts[team.id] ?? team.name}
+                          value={teamNameDrafts[selectedTeam.id] ?? selectedTeam.name}
                           onChange={(event) =>
                             setTeamNameDrafts((current) => ({
                               ...current,
-                              [team.id]: event.target.value,
+                              [selectedTeam.id]: event.target.value,
                             }))
                           }
                           className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
@@ -613,47 +714,101 @@ export function TeamManagementPage() {
                       </label>
                       <button
                         type="button"
-                        disabled={isSaving || String(teamNameDrafts[team.id] ?? team.name).trim() === team.name}
-                        onClick={() => void handleTeamNameSave(team.id)}
+                        disabled={
+                          isSaving ||
+                          String(teamNameDrafts[selectedTeam.id] ?? selectedTeam.name).trim() === selectedTeam.name
+                        }
+                        onClick={() => void handleTeamNameSave(selectedTeam.id)}
                         className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
                       >
                         Save Name
                       </button>
                     </div>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">
-                      {team.staffIds.length} coaches allocated
+                    <p className="mt-2 text-sm text-[var(--text-muted)]">
+                      {selectedTeamStaff.length} staff allocated to this team.
                     </p>
                   </div>
-                  <div className="flex flex-col gap-3 sm:items-end">
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => void handleDeleteTeam(selectedTeam.id)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Delete Team
+                  </button>
+                </div>
+
+                <div className="mt-5 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Add existing staff</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                    <select
+                      value={staffToAddId}
+                      onChange={(event) => setStaffToAddId(event.target.value)}
+                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    >
+                      <option value="">Select staff member</option>
+                      {availableStaffForSelectedTeam.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {getStaffDisplayName(member)} | {member.email} | {getRoleLabel(member)}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
-                      disabled={isSaving}
-                      onClick={() => void handleDeleteTeam(team.id)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isSaving || !staffToAddId}
+                      onClick={() => void handleAddExistingStaffToTeam()}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Delete Team
+                      Add To Team
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
-                  {users.map((member) => (
-                    <label
-                      key={`${team.id}:${member.id}`}
-                      className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={team.staffIds.includes(member.id)}
-                        onChange={(event) => void handleTeamStaffToggle(team.id, member.id, event.target.checked)}
-                        className="h-4 w-4"
-                      />
-                      <span className="min-w-0 break-words">{member.email} ({getRoleLabel(member)})</span>
-                    </label>
-                  ))}
+                <div className="mt-5">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Allocated staff</p>
+                  {selectedTeamStaff.length === 0 ? (
+                    <div className="mt-3 rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                      No staff are allocated to this team yet.
+                    </div>
+                  ) : (
+                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                      {paginatedSelectedTeamStaff.items.map((member) => (
+                        <div
+                          key={member.id}
+                          className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-semibold text-[var(--text-primary)]">
+                                {getStaffDisplayName(member)}
+                              </p>
+                              <p className="mt-1 break-words text-sm text-[var(--text-muted)]">{member.email}</p>
+                              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                                {getRoleLabel(member)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isSaving}
+                              onClick={() => void handleRemoveStaffFromSelectedTeam(member.id)}
+                              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Pagination
+                    currentPage={staffPage}
+                    onPageChange={setStaffPage}
+                    pageSize={STAFF_PAGE_SIZE}
+                    totalItems={selectedTeamStaff.length}
+                  />
                 </div>
               </div>
-            ))}
+            ) : null}
           </div>
         )}
       </SectionCard>
