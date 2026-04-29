@@ -2164,6 +2164,11 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
     throw deleteError
   }
 
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('assessment-sessions:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+
   if (normalizedUserIds.length === 0) {
     return []
   }
@@ -2177,11 +2182,6 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
     console.error(error)
     throw error
   }
-
-  invalidateMemoryCacheByPrefix('available-teams:')
-  invalidateMemoryCacheByPrefix('assigned-teams:')
-  invalidateMemoryCacheByPrefix('assessment-sessions:')
-  invalidateMemoryCacheByPrefix('team-assignments:')
 
   return (data ?? []).map(normalizeTeamStaffRow)
 }
@@ -2635,10 +2635,6 @@ export async function getEvaluations({ user, status, playerName, section } = {})
 
   if (user.activeTeamName) {
     query = query.eq('team', user.activeTeamName)
-  }
-
-  if (user.roleRank < 50 && user.role !== 'super_admin') {
-    query = query.eq('coach_id', user.id)
   }
 
   const [{ data, error }, teams] = await Promise.all([
