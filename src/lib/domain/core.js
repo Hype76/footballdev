@@ -2737,7 +2737,7 @@ export async function createPlayer({ user, player }) {
   return normalizePlayerRow(data)
 }
 
-async function createAuditLog({ user, action, entityType, entityId, metadata = {} }) {
+export async function createAuditLog({ user, action, entityType, entityId, metadata = {} }) {
   if (!user?.id || !action || !entityType) {
     return
   }
@@ -2756,6 +2756,93 @@ async function createAuditLog({ user, action, entityType, entityId, metadata = {
   if (error) {
     console.error(error)
   }
+}
+
+function normalizeAuditLogRow(row) {
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    actorId: row.actor_id ?? row.actorId ?? '',
+    actorName: String(row.actor_name ?? row.actorName ?? '').trim(),
+    actorEmail: String(row.actor_email ?? row.actorEmail ?? '').trim(),
+    action: String(row.action ?? '').trim(),
+    entityType: String(row.entity_type ?? row.entityType ?? '').trim(),
+    entityId: row.entity_id ?? row.entityId ?? '',
+    metadata: row.metadata ?? {},
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+function normalizeRecordBackupRow(row) {
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    tableName: String(row.table_name ?? row.tableName ?? '').trim(),
+    recordId: row.record_id ?? row.recordId ?? '',
+    operation: String(row.operation ?? '').trim(),
+    actorId: row.actor_id ?? row.actorId ?? '',
+    oldData: row.old_data ?? row.oldData ?? null,
+    newData: row.new_data ?? row.newData ?? null,
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+export async function getAuditLogs({ user, limit = 100 } = {}) {
+  if (!user?.id) {
+    return []
+  }
+
+  if (user.role !== 'super_admin' && Number(user.roleRank ?? 0) < 50) {
+    return []
+  }
+
+  let query = supabase
+    .from('audit_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 100, 1), 250))
+
+  if (user.role !== 'super_admin') {
+    query = query.eq('club_id', user.clubId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeAuditLogRow)
+}
+
+export async function getRecordBackups({ user, limit = 50 } = {}) {
+  if (!user?.id) {
+    return []
+  }
+
+  if (user.role !== 'super_admin' && Number(user.roleRank ?? 0) < 50) {
+    return []
+  }
+
+  let query = supabase
+    .from('record_backups')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
+
+  if (user.role !== 'super_admin') {
+    query = query.eq('club_id', user.clubId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeRecordBackupRow)
 }
 
 export async function createCommunicationLog({ user, playerId, evaluationId, channel = 'pdf', action, recipientEmail = '' }) {

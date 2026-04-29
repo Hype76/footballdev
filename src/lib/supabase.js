@@ -113,3 +113,9 @@ export {
   updatePlatformClubStatus,
   uploadClubLogo,
 } from './domain/platform.js'
+
+export {
+  createAuditLog,
+  getAuditLogs,
+  getRecordBackups,
+} from './domain/audit.js'

@@ -7,6 +7,7 @@ import {
   canManageFormFields,
   canManageUsers,
   canManageTeamSettings,
+  canViewActivityLog,
   isSuperAdmin,
   useAuth,
 } from '../../lib/auth.js'
@@ -17,7 +18,7 @@ export function Sidebar({ isOpen, onClose }) {
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const navigationItems = primaryNavigation.filter((item) => {
     if (isSuperAdmin(user)) {
-      return item.path === '/platform-admin'
+      return item.path === '/platform-admin' || item.path === '/activity-log'
     }
 
     if (item.path === '/platform-admin') {
@@ -35,6 +36,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/user-access') {
       return canManageUsers(user)
+    }
+
+    if (item.path === '/activity-log') {
+      return canViewActivityLog(user)
     }
 
     if (item.path === '/teams') {

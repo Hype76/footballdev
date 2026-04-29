@@ -7,6 +7,7 @@ import {
   canManageFormFields,
   canManageTeamSettings,
   canManageUsers,
+  canViewActivityLog,
   isSuperAdmin,
   useAuth,
 } from '../lib/auth.js'
@@ -29,6 +30,7 @@ function lazyRoute(importer, exportName) {
 }
 
 const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'AddPlayerPage')
+const ActivityLogPage = lazyRoute(() => import('../pages/ActivityLogPage.jsx'), 'ActivityLogPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
@@ -471,6 +473,37 @@ function RequireTeamSettingsAccess() {
   return <Outlet />
 }
 
+function RequireActivityLogAccess() {
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
+  }
+
+  if (!canViewActivityLog(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function RequirePlatformAdminAccess() {
   const { authError, isLoading, isProfileLoading, session, user } = useAuth()
 
@@ -568,6 +601,22 @@ export const router = createBrowserRouter([
             handle: {
               title: 'Platform Feedback',
             },
+          },
+          {
+            element: <RequireActivityLogAccess />,
+            children: [
+              {
+                path: 'activity-log',
+                element: (
+                  <PageSuspense>
+                    <ActivityLogPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Activity Log',
+                },
+              },
+            ],
           },
           {
             path: 'information',

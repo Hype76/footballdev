@@ -28,6 +28,10 @@ export const primaryNavigation = [
     path: '/user-access',
   },
   {
+    label: 'Activity Log',
+    path: '/activity-log',
+  },
+  {
     label: 'Club Settings',
     path: '/club-settings',
   },

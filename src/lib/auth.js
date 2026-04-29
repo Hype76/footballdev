@@ -80,6 +80,10 @@ export function canManageUsers(user) {
   return isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50
 }
 
+export function canViewActivityLog(user) {
+  return Boolean(user) && (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50)
+}
+
 export function canManageTeamSettings(user) {
   return isClubAdmin(user)
 }

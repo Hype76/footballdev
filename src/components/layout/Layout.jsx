@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Outlet, useMatches } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Outlet, useLocation, useMatches } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
+import { createAuditLog } from '../../lib/supabase.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
   THEME_CHANGED_EVENT,
@@ -15,12 +16,14 @@ import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 
 export function Layout() {
-  const { authError, clubOptions, isProfileLoading, selectClub, selectTeam, teamOptions } = useAuth()
+  const { authError, clubOptions, isProfileLoading, selectClub, selectTeam, teamOptions, user } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [clubSelectionError, setClubSelectionError] = useState('')
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
   const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
   const [systemTheme, setSystemTheme] = useState(getSystemTheme)
+  const lastClickAuditRef = useRef({ key: '', timestamp: 0 })
+  const location = useLocation()
   const matches = useMatches()
   const activeTitle = [...matches].reverse().find((match) => match.handle?.title)?.handle?.title ?? 'Dashboard'
   const resolvedTheme = useMemo(
@@ -75,6 +78,72 @@ export function Layout() {
       window.localStorage.removeItem('app-theme')
     }
   }, [])
+
+  useEffect(() => {
+    if (!user?.id) {
+      return
+    }
+
+    void createAuditLog({
+      user,
+      action: 'page_viewed',
+      entityType: 'page',
+      metadata: {
+        path: location.pathname,
+        search: location.search,
+        title: activeTitle,
+      },
+    })
+  }, [activeTitle, location.pathname, location.search, user])
+
+  useEffect(() => {
+    if (!user?.id) {
+      return undefined
+    }
+
+    const handleTrackedClick = (event) => {
+      const target = event.target instanceof Element ? event.target.closest('button, a, [role="button"]') : null
+
+      if (!target) {
+        return
+      }
+
+      const label =
+        String(target.getAttribute('aria-label') ?? '').trim() ||
+        String(target.textContent ?? '').replace(/\s+/g, ' ').trim() ||
+        String(target.getAttribute('href') ?? '').trim() ||
+        'Unlabelled action'
+      const href = target instanceof HTMLAnchorElement ? target.getAttribute('href') : ''
+      const key = `${location.pathname}:${label}:${href || ''}`
+      const now = Date.now()
+
+      if (lastClickAuditRef.current.key === key && now - lastClickAuditRef.current.timestamp < 2000) {
+        return
+      }
+
+      lastClickAuditRef.current = {
+        key,
+        timestamp: now,
+      }
+
+      void createAuditLog({
+        user,
+        action: 'ui_clicked',
+        entityType: 'ui',
+        metadata: {
+          label: label.slice(0, 160),
+          path: location.pathname,
+          href,
+          tag: target.tagName.toLowerCase(),
+        },
+      })
+    }
+
+    document.addEventListener('click', handleTrackedClick, true)
+    return () => {
+      document.removeEventListener('click', handleTrackedClick, true)
+    }
+  }, [location.pathname, user])
 
   const handleClubSelect = async (clubId) => {
     setClubSelectionError('')
