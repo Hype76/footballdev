@@ -106,6 +106,7 @@ export function PlayerProfile() {
   const [selectedReassignTargets, setSelectedReassignTargets] = useState({})
   const [mergeSelectedIds, setMergeSelectedIds] = useState([])
   const [mergeCoreSourceId, setMergeCoreSourceId] = useState('')
+  const [mergeDetailSources, setMergeDetailSources] = useState({})
   const [mergeFieldSources, setMergeFieldSources] = useState({})
   const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
   const [selectedParentContacts, setSelectedParentContacts] = useState({})
@@ -240,6 +241,59 @@ export function PlayerProfile() {
     [mergeSelectedEvaluations],
   )
   const mergeCoreSource = mergeSelectedEvaluations.find((evaluation) => evaluation.id === mergeCoreSourceId) ?? mergeSelectedEvaluations[0]
+  const getMergeSourceById = (sourceId) =>
+    mergeSelectedEvaluations.find((evaluation) => evaluation.id === sourceId) ?? mergeCoreSource ?? mergeSelectedEvaluations[0]
+  const getMergeDetailSource = (fieldName) => getMergeSourceById(mergeDetailSources[fieldName] || mergeCoreSource?.id)
+  const mergeDetailFields = useMemo(
+    () => [
+      {
+        key: 'player',
+        label: 'Player, team, and section',
+        preview: (evaluation) =>
+          `${evaluation?.playerName || routePlayerName} | ${evaluation?.team || 'No team entered'} | ${evaluation?.section || 'Trial'}`,
+      },
+      {
+        key: 'parents',
+        label: 'Parent details',
+        preview: (evaluation) =>
+          formatParentContactNames(evaluation?.parentContacts, evaluation?.parentName) ||
+          formatParentContactEmails(evaluation?.parentContacts, evaluation?.parentEmail) ||
+          'No parent details entered',
+      },
+      {
+        key: 'session',
+        label: 'Session',
+        preview: (evaluation) => evaluation?.session || 'No session entered',
+      },
+      {
+        key: 'date',
+        label: 'Date',
+        preview: (evaluation) => evaluation?.date || 'No date entered',
+      },
+      {
+        key: 'coach',
+        label: 'Coach shown on report',
+        preview: (evaluation) => evaluation?.coach || 'No coach entered',
+      },
+      {
+        key: 'comments',
+        label: 'Comments',
+        preview: (evaluation) => {
+          const comments = evaluation?.comments ?? {}
+          return [comments.strengths, comments.improvements, comments.overall]
+            .map((value) => String(value ?? '').trim())
+            .filter(Boolean)
+            .join(' | ') || 'No comments entered'
+        },
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        preview: (evaluation) => evaluation?.status || 'Submitted',
+      },
+    ],
+    [routePlayerName],
+  )
   const mergePreviewResponses = useMemo(
     () =>
       Object.fromEntries(
@@ -530,12 +584,18 @@ export function PlayerProfile() {
 
       if (nextIds.length === 0) {
         setMergeCoreSourceId('')
+        setMergeDetailSources({})
         setMergeFieldSources({})
         return []
       }
 
       setMergeCoreSourceId((currentSourceId) => (nextIds.includes(currentSourceId) ? currentSourceId : nextIds[0]))
       setMergeFieldSources((currentSources) =>
+        Object.fromEntries(
+          Object.entries(currentSources).filter(([, sourceId]) => nextIds.includes(sourceId)),
+        ),
+      )
+      setMergeDetailSources((currentSources) =>
         Object.fromEntries(
           Object.entries(currentSources).filter(([, sourceId]) => nextIds.includes(sourceId)),
         ),
@@ -550,6 +610,14 @@ export function PlayerProfile() {
     setMergeFieldSources((currentSources) => ({
       ...currentSources,
       [label]: sourceId,
+    }))
+  }
+
+  const handleMergeDetailSourceChange = (fieldName, sourceId) => {
+    setErrorMessage('')
+    setMergeDetailSources((currentSources) => ({
+      ...currentSources,
+      [fieldName]: sourceId,
     }))
   }
 
@@ -583,19 +651,27 @@ export function PlayerProfile() {
           .filter(([, value]) => isNumericScore(value))
           .map(([label, value]) => [label, Number(value)]),
       )
-      const parentContacts = normalizeParentContacts(primaryPlayer?.parentContacts || mergeCoreSource.parentContacts, {
-        parentName: primaryPlayer?.parentName || mergeCoreSource.parentName,
-        parentEmail: primaryPlayer?.parentEmail || mergeCoreSource.parentEmail,
+      const playerSource = getMergeDetailSource('player')
+      const parentSource = getMergeDetailSource('parents')
+      const sessionSource = getMergeDetailSource('session')
+      const dateSource = getMergeDetailSource('date')
+      const coachSource = getMergeDetailSource('coach')
+      const commentsSource = getMergeDetailSource('comments')
+      const statusSource = getMergeDetailSource('status')
+      const parentContacts = normalizeParentContacts(parentSource?.parentContacts, {
+        parentName: parentSource?.parentName,
+        parentEmail: parentSource?.parentEmail,
       })
+      const mergedComments = commentsSource?.comments ?? buildCommentsFromMergedResponses(mergedResponses)
       const mergedEvaluation = await createEvaluation({
-        playerId: primaryPlayer?.id || mergeCoreSource.playerId,
-        playerName: routePlayerName,
-        teamId: primaryPlayer?.teamId || mergeCoreSource.teamId,
-        team: primaryPlayer?.team || mergeCoreSource.team,
-        section: primaryPlayer?.section || mergeCoreSource.section,
+        playerId: playerSource?.playerId || primaryPlayer?.id || mergeCoreSource.playerId,
+        playerName: playerSource?.playerName || routePlayerName,
+        teamId: playerSource?.teamId || primaryPlayer?.teamId || mergeCoreSource.teamId,
+        team: playerSource?.team || primaryPlayer?.team || mergeCoreSource.team,
+        section: playerSource?.section || primaryPlayer?.section || mergeCoreSource.section,
         clubId: user.clubId,
         coachId: user.id,
-        coach: String(user.username || user.name || user.email || '').trim(),
+        coach: String(coachSource?.coach || user.username || user.name || user.email || '').trim(),
         createdByName: String(user.username || user.name || user.email || '').trim(),
         createdByEmail: String(user.email || '').trim().toLowerCase(),
         updatedBy: user.id,
@@ -604,14 +680,17 @@ export function PlayerProfile() {
         parentName: parentContacts[0]?.name ?? mergeCoreSource.parentName ?? '',
         parentEmail: parentContacts[0]?.email ?? mergeCoreSource.parentEmail ?? '',
         parentContacts,
-        session: `Merged assessment from ${mergeSelectedEvaluations.length} reports`,
-        date: new Date().toLocaleDateString(),
+        session: sessionSource?.session || `Merged assessment from ${mergeSelectedEvaluations.length} reports`,
+        date: dateSource?.date || new Date().toLocaleDateString(),
         scores: mergedScores,
         averageScore: mergePreviewAverage,
-        comments: buildCommentsFromMergedResponses(mergedResponses),
+        comments: mergedComments,
         formResponses: mergedResponses,
         decision: mergeCoreSource.decision,
-        status: mergeCoreSource.status || 'Submitted',
+        status: statusSource?.status || mergeCoreSource.status || 'Submitted',
+        rejectionReason: statusSource?.rejectionReason || '',
+        reviewedBy: statusSource?.reviewedBy || null,
+        reviewedAt: statusSource?.reviewedAt || null,
         createdAt: new Date().toISOString(),
       })
       const nextEvaluations = [mergedEvaluation, ...evaluations]
@@ -619,6 +698,7 @@ export function PlayerProfile() {
       setEvaluations(nextEvaluations)
       setMergeSelectedIds([])
       setMergeCoreSourceId('')
+      setMergeDetailSources({})
       setMergeFieldSources({})
       clearViewCaches()
       writeViewCache(cacheKey, {
@@ -1126,9 +1206,41 @@ export function PlayerProfile() {
                     ))}
                   </select>
                   <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                    This supplies team, section, parent details, and status for the merged report.
+                    This is the default source. You can override each merged detail below.
                   </p>
                 </label>
+
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Choose report detail sources</p>
+                  <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                    Pick which assessment supplies non-score details such as parents, session, date, comments, and status.
+                  </p>
+                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                    {mergeDetailFields.map((field) => {
+                      const selectedSource = getMergeDetailSource(field.key)
+
+                      return (
+                        <label key={field.key} className="block rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{field.label}</span>
+                          <select
+                            value={mergeDetailSources[field.key] || mergeCoreSource?.id || ''}
+                            onChange={(event) => handleMergeDetailSourceChange(field.key, event.target.value)}
+                            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          >
+                            {mergeSelectedEvaluations.map((evaluation) => (
+                              <option key={evaluation.id} value={evaluation.id}>
+                                {evaluation.date || 'No date entered'} | {evaluation.session || 'No session entered'}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">
+                            {field.preview(selectedSource)}
+                          </p>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
 
                 <div>
                   <p className="text-sm font-semibold text-[var(--text-primary)]">Choose field sources</p>
