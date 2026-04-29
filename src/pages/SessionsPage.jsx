@@ -324,6 +324,7 @@ export function SessionsPage() {
   const selectedSession = combinedSessions.find((session) => session.id === selectedSessionId)
   const canCompleteSessions = Number(user?.roleRank ?? 0) >= 50
   const selectedSessionCompleted = selectedSession?.status === 'completed'
+  const selectedSessionLocked = selectedSessionCompleted && !canCompleteSessions
   const completedPlayerNames = useMemo(() => {
     const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
     const localCompletedPlayerNames = readCompletedPlayerNames(user, selectedSessionId)
@@ -700,7 +701,7 @@ export function SessionsPage() {
       return
     }
 
-    if (selectedSessionCompleted) {
+    if (selectedSessionLocked) {
       setErrorMessage('This session has been completed and can no longer be edited.')
       return
     }
@@ -741,7 +742,7 @@ export function SessionsPage() {
   }
 
   const handleSaveNotes = async (sessionPlayer) => {
-    if (selectedSessionCompleted) {
+    if (selectedSessionLocked) {
       setErrorMessage('This session has been completed and can no longer be edited.')
       return
     }
@@ -772,7 +773,7 @@ export function SessionsPage() {
       return
     }
 
-    if (selectedSessionCompleted) {
+    if (selectedSessionLocked) {
       setErrorMessage('This session has been completed and can no longer be edited.')
       return
     }
@@ -842,7 +843,7 @@ export function SessionsPage() {
       return
     }
 
-    if (selectedSessionCompleted) {
+    if (selectedSessionLocked) {
       setErrorMessage('This session has been completed and can no longer be assessed.')
       return
     }
@@ -1103,7 +1104,7 @@ export function SessionsPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
-                disabled={isSaving || filteredPlayers.length === 0 || selectedSessionCompleted}
+                disabled={isSaving || filteredPlayers.length === 0 || selectedSessionLocked}
                 onClick={() => void handleImportPlayers('all')}
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -1111,7 +1112,7 @@ export function SessionsPage() {
               </button>
               <button
                 type="button"
-                disabled={isSaving || selectedPlayerIds.length === 0 || selectedSessionCompleted}
+                disabled={isSaving || selectedPlayerIds.length === 0 || selectedSessionLocked}
                 onClick={() => void handleImportPlayers('selected')}
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -1142,7 +1143,9 @@ export function SessionsPage() {
           <div className="space-y-4">
             {selectedSessionCompleted ? (
               <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-                This session has been completed. Notes and assessments are kept for review, but the session is no longer editable.
+                {canCompleteSessions
+                  ? 'This session has been completed. Managers can still correct notes or assessments if needed.'
+                  : 'This session has been completed. Notes and assessments are kept for review, but the session is no longer editable.'}
               </div>
             ) : null}
 
@@ -1159,14 +1162,14 @@ export function SessionsPage() {
                 <button
                   type="button"
                   onClick={handleAssessAll}
-                  disabled={selectedSessionCompleted}
+                  disabled={selectedSessionLocked}
                   className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {completedPlayerNames.length > 0 ? 'Continue Assessments' : 'Assess All'}
                 </button>
                 <button
                   type="button"
-                  disabled={isSaving || selectedSessionCompleted}
+                  disabled={isSaving || selectedSessionLocked}
                   onClick={() => void handleClearSessionPlayers()}
                   className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -1189,7 +1192,7 @@ export function SessionsPage() {
                   </div>
                   <button
                     type="button"
-                    disabled={selectedSessionCompleted}
+                    disabled={selectedSessionLocked}
                     onClick={() => navigate(buildAssessmentUrl(player.playerName))}
                     className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -1201,7 +1204,7 @@ export function SessionsPage() {
                   <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach notes</span>
                   <textarea
                     value={notesDrafts[player.id] ?? ''}
-                    disabled={selectedSessionCompleted}
+                    disabled={selectedSessionLocked}
                     onChange={(event) =>
                       setNotesDrafts((current) => ({
                         ...current,
@@ -1215,7 +1218,7 @@ export function SessionsPage() {
 
                 <button
                   type="button"
-                  disabled={isSaving || selectedSessionCompleted}
+                  disabled={isSaving || selectedSessionLocked}
                   onClick={() => void handleSaveNotes(player)}
                   className="mt-3 inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >

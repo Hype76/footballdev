@@ -35,6 +35,7 @@ import {
 import {
   EVALUATION_SECTIONS,
   createEvaluation,
+  getEvaluations,
   getAvailableTeamsForUser,
   getDefaultFormFields,
   getFormFields,
@@ -44,9 +45,16 @@ import {
   normalizeParentContacts,
   readViewCache,
   readViewCacheValue,
+  updateEvaluation,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+
+function mapEvaluationResponsesToFieldValues(fields, formResponses = {}) {
+  return Object.fromEntries(
+    fields.map((field) => [field.id, formResponses[field.label] ?? '']),
+  )
+}
 
 export function CreateEvaluationPage() {
   const { user } = useAuth()
@@ -57,6 +65,7 @@ export function CreateEvaluationPage() {
   const [searchParams] = useSearchParams()
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
   const searchParamsKey = searchParams.toString()
+  const editingEvaluationId = String(searchParams.get('evaluationId') ?? '').trim()
   const teamsCacheKey = user ? `assessment-teams:${user.id}:${user.clubId || 'platform'}` : ''
   const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}` : ''
   const cachedTeams = readViewCacheValue(teamsCacheKey, 'availableTeams', [])
@@ -68,6 +77,7 @@ export function CreateEvaluationPage() {
   })
   const [availableTeams, setAvailableTeams] = useState(() => (Array.isArray(cachedTeams) ? cachedTeams : []))
   const [savedPlayers, setSavedPlayers] = useState([])
+  const [editingEvaluation, setEditingEvaluation] = useState(null)
   const [responseValues, setResponseValues] = useState({})
   const [isFallbackFields, setIsFallbackFields] = useState(() => Boolean(cachedFields?.isFallbackFields))
   const [isLoadingFields, setIsLoadingFields] = useState(() => !cachedFields?.dynamicFields)
@@ -97,7 +107,7 @@ export function CreateEvaluationPage() {
     const requestedTeam = String(searchParams.get('team') ?? '').trim()
     const requestedSession = normalizeSessionValue(searchParams.get('session'))
     const requestedSection = String(searchParams.get('section') ?? '').trim()
-    const storedDraft = parseStoredDraft(draftStorageKey)
+    const storedDraft = editingEvaluationId ? null : parseStoredDraft(draftStorageKey)
     const restoredFormData =
       storedDraft?.formData && typeof storedDraft.formData === 'object' ? storedDraft.formData : {}
     const restoredSession = normalizeSessionValue(restoredFormData.session)
@@ -128,7 +138,7 @@ export function CreateEvaluationPage() {
     )
     setLastUsedSession(nextSessionValue)
     hasInitializedRef.current = true
-  }, [draftStorageKey, searchParamsKey, user, userScopeKey])
+  }, [draftStorageKey, editingEvaluationId, searchParamsKey, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -273,6 +283,68 @@ export function CreateEvaluationPage() {
 
   useEffect(() => {
     let isMounted = true
+
+    const loadEditingEvaluation = async () => {
+      if (!editingEvaluationId || !user || isPlatformOwner) {
+        setEditingEvaluation(null)
+        return
+      }
+
+      try {
+        const nextEvaluations = await withRequestTimeout(() => getEvaluations({ user }), 'Could not load assessment.')
+        const targetEvaluation = nextEvaluations.find((evaluation) => String(evaluation.id) === editingEvaluationId)
+
+        if (!isMounted) {
+          return
+        }
+
+        if (!targetEvaluation) {
+          setActionErrorMessage('This assessment could not be found. It may have been removed or you may not have access.')
+          setEditingEvaluation(null)
+          return
+        }
+
+        setEditingEvaluation(targetEvaluation)
+        setFormData((current) =>
+          createInitialFormData(user, {
+            ...current,
+            playerName: targetEvaluation.playerName,
+            team: targetEvaluation.team,
+            section: targetEvaluation.section || 'Trial',
+            session: normalizeSessionValue(targetEvaluation.session),
+            coachName: targetEvaluation.coach || current.coachName,
+            parentName: targetEvaluation.parentName,
+            parentEmail: targetEvaluation.parentEmail,
+            parentContacts: normalizeParentContacts(targetEvaluation.parentContacts, {
+              parentName: targetEvaluation.parentName,
+              parentEmail: targetEvaluation.parentEmail,
+            }),
+          }),
+        )
+        setSelectedParentContactIndexes(
+          targetEvaluation.parentContacts?.length
+            ? targetEvaluation.parentContacts.map((_, index) => index)
+            : [0],
+        )
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setActionErrorMessage('This assessment could not be loaded for editing. Try again in a moment.')
+          setEditingEvaluation(null)
+        }
+      }
+    }
+
+    void loadEditingEvaluation()
+
+    return () => {
+      isMounted = false
+    }
+  }, [editingEvaluationId, isPlatformOwner, user, userScopeKey])
+
+  useEffect(() => {
+    let isMounted = true
     const cachedFieldsValue = readViewCache(fieldsCacheKey)
 
     const loadFields = async () => {
@@ -371,7 +443,7 @@ export function CreateEvaluationPage() {
   }, [isPrintingBlankView])
 
   useEffect(() => {
-    if (!hasInitializedRef.current || !draftStorageKey || isPlatformOwner) {
+    if (!hasInitializedRef.current || !draftStorageKey || isPlatformOwner || editingEvaluationId) {
       return
     }
 
@@ -393,6 +465,7 @@ export function CreateEvaluationPage() {
     }
   }, [
     draftStorageKey,
+    editingEvaluationId,
     emailTemplateKey,
     formData,
     inviteDate,
@@ -402,6 +475,14 @@ export function CreateEvaluationPage() {
     responseValues,
     selectedParentContactIndexes,
   ])
+
+  useEffect(() => {
+    if (!editingEvaluation || dynamicFields.length === 0) {
+      return
+    }
+
+    setResponseValues(mapEvaluationResponsesToFieldValues(dynamicFields, editingEvaluation.formResponses))
+  }, [dynamicFields, editingEvaluation])
 
   const enabledFields = useMemo(() => dynamicFields.filter((field) => field.isEnabled), [dynamicFields])
   const formResponses = useMemo(() => buildFormResponses(enabledFields, responseValues), [enabledFields, responseValues])
@@ -641,6 +722,7 @@ export function CreateEvaluationPage() {
           (!formData.team || player.team === String(formData.team).trim()),
       )
       const evaluation = {
+        ...(editingEvaluation || {}),
         playerName: normalizedPlayerName,
         playerId: matchingPlayer?.id || '',
         team: String(formData.team).trim(),
@@ -664,11 +746,15 @@ export function CreateEvaluationPage() {
         comments,
         formResponses,
         decision: '',
-        status: 'Submitted',
-        createdAt: new Date().toISOString(),
+        status: editingEvaluation?.status || 'Submitted',
+        createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
       }
 
-      await createEvaluation(evaluation)
+      if (editingEvaluation) {
+        await updateEvaluation(editingEvaluation.id, evaluation, user?.clubId)
+      } else {
+        await createEvaluation(evaluation)
+      }
 
       const assessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
 
@@ -711,7 +797,7 @@ export function CreateEvaluationPage() {
           ? assessmentQueue.slice(currentQueueIndex + 1).find(Boolean)
           : assessmentQueue.find((playerName) => normalizePlayerName(playerName) !== normalizedPlayerName)
 
-      if (nextQueuedPlayer) {
+      if (!editingEvaluation && nextQueuedPlayer) {
         const nextSearchParams = new URLSearchParams(searchParams)
         nextSearchParams.set('player', nextQueuedPlayer)
         nextSearchParams.set('team', nextTeamValue)
@@ -721,7 +807,7 @@ export function CreateEvaluationPage() {
         return
       }
 
-      if (assessmentQueue.length > 0) {
+      if (!editingEvaluation && assessmentQueue.length > 0) {
         const completedSessionId = assessmentSessionId
         const completedCount = Number(searchParams.get('queueTotal') ?? assessmentQueue.length) || assessmentQueue.length
 
@@ -736,15 +822,19 @@ export function CreateEvaluationPage() {
 
       setLastSavedPlayerName(normalizedPlayerName)
       setSelectedParentContactIndexes([0])
-      setFormData(
-        createInitialFormData(user, {
-          playerName: queryPlayerName,
-          team: nextTeamValue,
-          session: nextSessionValue,
-          section: EVALUATION_SECTIONS.includes(querySection) ? querySection : formData.section,
-        }),
-      )
-      setResponseValues(createEmptyResponseValues(dynamicFields))
+      if (editingEvaluation) {
+        setEditingEvaluation(evaluation)
+      } else {
+        setFormData(
+          createInitialFormData(user, {
+            playerName: queryPlayerName,
+            team: nextTeamValue,
+            session: nextSessionValue,
+            section: EVALUATION_SECTIONS.includes(querySection) ? querySection : formData.section,
+          }),
+        )
+        setResponseValues(createEmptyResponseValues(dynamicFields))
+      }
       setLastUsedSession(nextSessionValue)
       setIsSaved(true)
     } catch (error) {

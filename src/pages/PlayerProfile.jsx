@@ -4,7 +4,7 @@ import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canDeletePlayer, canShareEvaluation, useAuth } from '../lib/auth.js'
+import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth } from '../lib/auth.js'
 import {
   PARENT_EMAIL_TEMPLATES,
   buildParentEmailTemplate,
@@ -1541,6 +1541,15 @@ export function PlayerProfile() {
                     >
                       {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
                     </button>
+                    {canEditEvaluation(user, evaluation) ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/assess-player?evaluationId=${encodeURIComponent(evaluation.id)}&player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(evaluation.team || '')}&section=${encodeURIComponent(evaluation.section || 'Trial')}&session=${encodeURIComponent(evaluation.session || '')}`)}
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Edit Assessment
+                      </button>
+                    ) : null}
                   </div>
 
                   {selectedTemplateKey === 'decline' && canDeletePlayer(user) ? (
