@@ -9,6 +9,7 @@ import {
   EVALUATION_SECTIONS,
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
+  completeAssessmentSession,
   createAssessmentSession,
   getEvaluations,
   getAssessmentSessionPlayers,
@@ -180,6 +181,7 @@ function buildHistoricalSessionsFromEvaluations(evaluations, realSessions = []) 
       updatedAt: evaluation.createdAt || '',
       section,
       isHistorical: true,
+      status: 'open',
     }
 
     if (!groupedSessions.has(historicalSession.id)) {
@@ -320,6 +322,8 @@ export function SessionsPage() {
     [evaluations, sessions],
   )
   const selectedSession = combinedSessions.find((session) => session.id === selectedSessionId)
+  const canCompleteSessions = Number(user?.roleRank ?? 0) >= 50
+  const selectedSessionCompleted = selectedSession?.status === 'completed'
   const completedPlayerNames = useMemo(() => {
     const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
     const localCompletedPlayerNames = readCompletedPlayerNames(user, selectedSessionId)
@@ -650,9 +654,54 @@ export function SessionsPage() {
     setSearchParams(nextSearchParams, { replace: true })
   }
 
+  const handleCompleteSession = async () => {
+    if (!selectedSessionId || selectedSession?.isHistorical) {
+      setErrorMessage('Select a saved session before completing it.')
+      return
+    }
+
+    if (!canCompleteSessions) {
+      setErrorMessage('Only managers and head managers can complete sessions.')
+      return
+    }
+
+    if (!window.confirm('Complete this session? Coaches will no longer be able to continue editing it.')) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const completedSession = await completeAssessmentSession({
+        user,
+        sessionId: selectedSessionId,
+      })
+      const nextSessions = sessions.map((session) =>
+        session.id === completedSession.id ? completedSession : session,
+      )
+      setSessions(nextSessions)
+      writeSessionCache({
+        sessions: nextSessions,
+      })
+      showToast({ title: 'Session completed', message: completedSession.title || 'Session marked as completed.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not complete this session.')
+      showToast({ title: 'Session not completed', message: error.message || 'Could not complete session.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleImportPlayers = async (mode) => {
     if (!selectedSessionId) {
       setErrorMessage('Create or select a session first.')
+      return
+    }
+
+    if (selectedSessionCompleted) {
+      setErrorMessage('This session has been completed and can no longer be edited.')
       return
     }
 
@@ -692,6 +741,11 @@ export function SessionsPage() {
   }
 
   const handleSaveNotes = async (sessionPlayer) => {
+    if (selectedSessionCompleted) {
+      setErrorMessage('This session has been completed and can no longer be edited.')
+      return
+    }
+
     setIsSaving(true)
     setErrorMessage('')
 
@@ -715,6 +769,11 @@ export function SessionsPage() {
   const handleClearSessionPlayers = async () => {
     if (!selectedSessionId) {
       setErrorMessage('Select a session first.')
+      return
+    }
+
+    if (selectedSessionCompleted) {
+      setErrorMessage('This session has been completed and can no longer be edited.')
       return
     }
 
@@ -783,6 +842,11 @@ export function SessionsPage() {
       return
     }
 
+    if (selectedSessionCompleted) {
+      setErrorMessage('This session has been completed and can no longer be assessed.')
+      return
+    }
+
     navigate(buildAssessmentUrl(queue[0], queue))
   }
 
@@ -838,7 +902,7 @@ export function SessionsPage() {
                       {selectedSession?.title || selectedSession?.team || 'Current session'}
                     </p>
                     <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-contrast)]">
-                      Open
+                      {selectedSessionCompleted ? 'Completed' : 'Open'}
                     </span>
                   </div>
                   <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -846,9 +910,21 @@ export function SessionsPage() {
                   </p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{selectedSession?.team || 'No team entered'}</p>
                 </div>
-                <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
-                  Current Session
-                </span>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  {canCompleteSessions && !selectedSessionCompleted && !selectedSession?.isHistorical ? (
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => void handleCompleteSession()}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Complete Session
+                    </button>
+                  ) : null}
+                  <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+                    Current Session
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -865,7 +941,7 @@ export function SessionsPage() {
                 </option>
                 {previousSessions.map((session) => (
                   <option key={session.id} value={session.id}>
-                    {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)}
+                    {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
                   </option>
                 ))}
               </select>
@@ -995,7 +1071,7 @@ export function SessionsPage() {
               >
                 {combinedSessions.map((session) => (
                   <option key={session.id} value={session.id}>
-                    {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)}
+                    {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
                   </option>
                 ))}
               </select>
@@ -1027,7 +1103,7 @@ export function SessionsPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
-                disabled={isSaving || filteredPlayers.length === 0}
+                disabled={isSaving || filteredPlayers.length === 0 || selectedSessionCompleted}
                 onClick={() => void handleImportPlayers('all')}
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -1035,7 +1111,7 @@ export function SessionsPage() {
               </button>
               <button
                 type="button"
-                disabled={isSaving || selectedPlayerIds.length === 0}
+                disabled={isSaving || selectedPlayerIds.length === 0 || selectedSessionCompleted}
                 onClick={() => void handleImportPlayers('selected')}
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -1064,6 +1140,12 @@ export function SessionsPage() {
           </div>
         ) : (
           <div className="space-y-4">
+            {selectedSessionCompleted ? (
+              <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+                This session has been completed. Notes and assessments are kept for review, but the session is no longer editable.
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -1077,13 +1159,14 @@ export function SessionsPage() {
                 <button
                   type="button"
                   onClick={handleAssessAll}
-                  className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                  disabled={selectedSessionCompleted}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {completedPlayerNames.length > 0 ? 'Continue Assessments' : 'Assess All'}
                 </button>
                 <button
                   type="button"
-                  disabled={isSaving}
+                  disabled={isSaving || selectedSessionCompleted}
                   onClick={() => void handleClearSessionPlayers()}
                   className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -1106,8 +1189,9 @@ export function SessionsPage() {
                   </div>
                   <button
                     type="button"
+                    disabled={selectedSessionCompleted}
                     onClick={() => navigate(buildAssessmentUrl(player.playerName))}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Assess Player
                   </button>
@@ -1117,6 +1201,7 @@ export function SessionsPage() {
                   <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach notes</span>
                   <textarea
                     value={notesDrafts[player.id] ?? ''}
+                    disabled={selectedSessionCompleted}
                     onChange={(event) =>
                       setNotesDrafts((current) => ({
                         ...current,
@@ -1124,13 +1209,13 @@ export function SessionsPage() {
                       }))
                     }
                     rows="3"
-                    className="min-h-24 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-24 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </label>
 
                 <button
                   type="button"
-                  disabled={isSaving}
+                  disabled={isSaving || selectedSessionCompleted}
                   onClick={() => void handleSaveNotes(player)}
                   className="mt-3 inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >

@@ -561,6 +561,11 @@ function normalizeAssessmentSessionRow(row) {
     sessionType: String(row.session_type ?? row.sessionType ?? 'training').trim() || 'training',
     sessionDate: String(row.session_date ?? row.sessionDate ?? '').trim(),
     title: String(row.title ?? '').trim(),
+    status: String(row.status ?? 'open').trim() || 'open',
+    completedBy: row.completed_by ?? row.completedBy ?? '',
+    completedByName: String(row.completed_by_name ?? row.completedByName ?? '').trim(),
+    completedByEmail: String(row.completed_by_email ?? row.completedByEmail ?? '').trim(),
+    completedAt: row.completed_at ?? row.completedAt ?? '',
     createdBy: row.created_by ?? row.createdBy ?? '',
     createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
     createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
@@ -3103,6 +3108,53 @@ export async function createAssessmentSession({ user, session }) {
       opponent: opponentName,
       sessionType,
       sessionDate,
+    },
+  })
+
+  return normalizeAssessmentSessionRow(data)
+}
+
+export async function completeAssessmentSession({ user, sessionId }) {
+  if (!user?.clubId || !sessionId) {
+    throw new Error('Session and club are required.')
+  }
+
+  if (Number(user.roleRank ?? 0) < 50) {
+    throw new Error('Only managers and head managers can complete sessions.')
+  }
+
+  const { data, error } = await supabase
+    .from('assessment_sessions')
+    .update({
+      status: 'completed',
+      completed_by: getEntryUserId(user),
+      completed_by_name: getEntryUserName(user),
+      completed_by_email: getEntryUserEmail(user),
+      completed_at: new Date().toISOString(),
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_completed',
+    entityType: 'assessment_session',
+    entityId: sessionId,
+    metadata: {
+      title: data.title,
+      team: data.team,
+      sessionDate: data.session_date,
     },
   })
 

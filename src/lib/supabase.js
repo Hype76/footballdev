@@ -88,6 +88,7 @@ export {
 export {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
+  completeAssessmentSession,
   createAssessmentSession,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
