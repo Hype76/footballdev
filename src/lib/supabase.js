@@ -50,6 +50,7 @@ export {
   getClubRoles,
   getClubUserInvites,
   getClubUsers,
+  getVisibleClubUsers,
   getDefaultClubRoles,
   removeClubUser,
   seedDefaultClubRolesForClub,

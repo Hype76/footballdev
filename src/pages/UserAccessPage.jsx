@@ -14,7 +14,7 @@ import {
   deleteClubInvite,
   getClubRoles,
   getClubUserInvites,
-  getClubUsers,
+  getVisibleClubUsers,
   removeClubUser,
   readViewCacheValue,
   updateClubUserName,
@@ -34,7 +34,11 @@ const INVITE_PAGE_SIZE = 8
 
 export function UserAccessPage() {
   const { user } = useAuth()
-  const cacheKey = user?.clubId ? `user-access:${user.clubId}` : ''
+  const accessScope =
+    user?.role === 'admin' || user?.role === 'super_admin'
+      ? 'club'
+      : `${user?.id || 'user'}:${user?.activeTeamId || 'assigned'}`
+  const cacheKey = user?.clubId ? `user-access:${user.clubId}:${accessScope}` : ''
   const [roles, setRoles] = useState(() => {
     const cachedRoles = readViewCacheValue(cacheKey, 'roles', [])
     return Array.isArray(cachedRoles) ? cachedRoles : []
@@ -69,7 +73,7 @@ export function UserAccessPage() {
       try {
         const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
-          withRequestTimeout(() => getClubUsers(user), 'Could not load active users.'),
+          withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load active users.'),
           withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.'),
         ])
 
@@ -158,7 +162,7 @@ export function UserAccessPage() {
   const refreshAccessData = async () => {
     const [rolesResult, membersResult, invitesResult] = await Promise.allSettled([
       withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
-      withRequestTimeout(() => getClubUsers(user), 'Could not load active users.'),
+      withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load active users.'),
       withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending allocations.'),
     ])
 
@@ -467,7 +471,7 @@ export function UserAccessPage() {
 
       <SectionCard
         title="Active users"
-        description="Existing club users are listed here with their current role."
+        description="Existing users are listed here only where your role and team access allows."
       >
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">

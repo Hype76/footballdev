@@ -1847,6 +1847,58 @@ export async function getClubUsers(user) {
   })
 }
 
+export async function getVisibleClubUsers(user) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  if (user.role === 'super_admin' || user.role === 'admin') {
+    return getClubUsers(user)
+  }
+
+  const activeTeamId = String(user.activeTeamId ?? '').trim()
+  const teamIds = activeTeamId
+    ? [activeTeamId]
+    : (await getAssignedTeamsForUser(user)).map((team) => String(team.id ?? '').trim()).filter(Boolean)
+
+  if (teamIds.length === 0) {
+    return []
+  }
+
+  return getCachedResource(`visible-club-users:${user.clubId}:${user.id}:${activeTeamId || teamIds.join(',')}`, async () => {
+    const { data: assignmentRows, error: assignmentError } = await supabase
+      .from('team_staff')
+      .select('user_id')
+      .in('team_id', teamIds)
+
+    if (assignmentError) {
+      console.error(assignmentError)
+      throw assignmentError
+    }
+
+    const userIds = [...new Set((assignmentRows ?? []).map((row) => String(row.user_id ?? '').trim()).filter(Boolean))]
+
+    if (userIds.length === 0) {
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change')
+      .eq('club_id', user.clubId)
+      .in('id', userIds)
+      .order('role_rank', { ascending: false })
+      .order('email', { ascending: true })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map((profile) => normalizeUserProfile(profile))
+  })
+}
+
 export async function getClubUserInvites(user) {
   if (!user?.clubId) {
     return []
@@ -2207,6 +2259,7 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
   invalidateMemoryCacheByPrefix('assigned-teams:')
   invalidateMemoryCacheByPrefix('assessment-sessions:')
   invalidateMemoryCacheByPrefix('team-assignments:')
+  invalidateMemoryCacheByPrefix('visible-club-users:')
 
   if (normalizedUserIds.length === 0) {
     return []
@@ -2267,6 +2320,7 @@ export async function assignClubUserRole({ user, email, role }) {
     }
 
     invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+    invalidateMemoryCacheByPrefix('visible-club-users:')
 
     return {
       kind: 'user',
@@ -2301,6 +2355,7 @@ export async function assignClubUserRole({ user, email, role }) {
   }
 
   invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+  invalidateMemoryCacheByPrefix('visible-club-users:')
 
   return {
     kind: 'invite',
@@ -2350,6 +2405,7 @@ export async function createStaffUserWithPassword({ user, email, password, role 
 
   invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
   invalidateMemoryCacheByPrefix(`user-access:${user.clubId}`)
+  invalidateMemoryCacheByPrefix('visible-club-users:')
 
   return data
 }
@@ -2434,6 +2490,7 @@ export async function updateClubUserName({ user, member, name }) {
   }
 
   invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+  invalidateMemoryCacheByPrefix('visible-club-users:')
   clearViewCaches()
   await createAuditLog({
     user,
@@ -2504,6 +2561,7 @@ export async function removeClubUser({ user, member }) {
   invalidateMemoryCacheByPrefix('available-teams:')
   invalidateMemoryCacheByPrefix('team-assignments:')
   invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('visible-club-users:')
   clearViewCaches()
 
   await createAuditLog({
