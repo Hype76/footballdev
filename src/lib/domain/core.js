@@ -2371,7 +2371,7 @@ export function canRemoveClubUser(actor, targetUser) {
     Boolean(actor.clubId) &&
     String(actor.clubId) === String(targetUser.clubId) &&
     Number(actor.roleRank ?? 0) >= 50 &&
-    Number(targetUser.roleRank ?? 0) < Number(actor.roleRank ?? 0)
+    Number(targetUser.roleRank ?? 0) <= Number(actor.roleRank ?? 0)
   )
 }
 
@@ -2452,7 +2452,7 @@ export async function updateClubUserName({ user, member, name }) {
 
 export async function removeClubUser({ user, member }) {
   if (!canRemoveClubUser(user, member)) {
-    throw new Error('You can only remove users below your role.')
+    throw new Error('You can only remove users at your role level or below.')
   }
 
   const targetUserId = String(member.id ?? '').trim()

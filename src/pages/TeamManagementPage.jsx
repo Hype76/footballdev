@@ -45,6 +45,11 @@ function getStaffDisplayName(member) {
   return String(member?.name || member?.username || member?.email || 'Unnamed staff').trim()
 }
 
+function normalizeStaffEmail(memberOrEmail) {
+  const email = typeof memberOrEmail === 'string' ? memberOrEmail : memberOrEmail?.email
+  return String(email ?? '').trim().toLowerCase()
+}
+
 export function TeamManagementPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -197,6 +202,10 @@ export function TeamManagementPage() {
         : [],
     [selectedTeam, users],
   )
+  const selectedTeamStaffEmails = useMemo(
+    () => new Set(selectedTeamStaff.map((member) => normalizeStaffEmail(member)).filter(Boolean)),
+    [selectedTeamStaff],
+  )
   const availableStaffForSelectedTeam = useMemo(
     () =>
       selectedTeam
@@ -206,12 +215,16 @@ export function TeamManagementPage() {
                 return false
               }
 
+              if (selectedTeamStaffEmails.has(normalizeStaffEmail(member))) {
+                return false
+              }
+
               const assignedTeamIds = staffAssignedTeamIds.get(String(member.id)) ?? []
               return assignedTeamIds.length === 0
             })
             .sort((left, right) => getStaffDisplayName(left).localeCompare(getStaffDisplayName(right)))
         : [],
-    [selectedTeam, staffAssignedTeamIds, users],
+    [selectedTeam, selectedTeamStaffEmails, staffAssignedTeamIds, users],
   )
   const paginatedTeams = useMemo(
     () => getPaginatedItems(teamAssignments, teamPage, TEAM_PAGE_SIZE),
@@ -363,6 +376,20 @@ export function TeamManagementPage() {
         throw new Error('Choose a team for this staff member.')
       }
 
+      const selectedTeamId = String(coachForm.teamId ?? '').trim()
+      const normalizedCoachEmail = normalizeStaffEmail(coachForm.email)
+      const currentTeam = teamAssignments.find((team) => team.id === selectedTeamId)
+      const currentTeamEmails = new Set(
+        users
+          .filter((member) => (currentTeam?.staffIds ?? []).includes(member.id))
+          .map((member) => normalizeStaffEmail(member))
+          .filter(Boolean),
+      )
+
+      if (currentTeamEmails.has(normalizedCoachEmail)) {
+        throw new Error('This email already has access to the selected team.')
+      }
+
       const createdStaff = await createStaffUserWithPassword({
         user,
         email: coachForm.email,
@@ -371,7 +398,6 @@ export function TeamManagementPage() {
       })
 
       let nextAssignments = assignments
-      const selectedTeamId = String(coachForm.teamId ?? '').trim()
       const createdStaffId = createdStaff?.profile?.id || createdStaff?.id || ''
 
       if (selectedTeamId && createdStaffId) {
@@ -382,7 +408,6 @@ export function TeamManagementPage() {
           throw new Error('This staff member is already assigned to another team. Remove them from that team before adding them here.')
         }
 
-        const currentTeam = teamAssignments.find((team) => team.id === selectedTeamId)
         const nextStaffIds = [...new Set([...(currentTeam?.staffIds ?? []), createdStaffId])]
         const savedAssignments = await replaceTeamStaffAssignments(selectedTeamId, nextStaffIds)
         nextAssignments = [...assignments.filter((assignment) => assignment.teamId !== selectedTeamId), ...savedAssignments]
@@ -461,6 +486,26 @@ export function TeamManagementPage() {
 
   const handleTeamStaffToggle = async (teamId, userId, checked) => {
     if (checked) {
+      const userToAdd = users.find((member) => String(member.id) === String(userId))
+      const targetTeam = teamAssignments.find((team) => String(team.id) === String(teamId))
+      const targetTeamEmails = new Set(
+        users
+          .filter((member) => (targetTeam?.staffIds ?? []).includes(member.id))
+          .map((member) => normalizeStaffEmail(member))
+          .filter(Boolean),
+      )
+      const userToAddEmail = normalizeStaffEmail(userToAdd)
+
+      if (userToAddEmail && targetTeamEmails.has(userToAddEmail)) {
+        setErrorMessage('This email already has access to this team.')
+        showToast({
+          title: 'Staff not added',
+          message: 'This email already has access to this team.',
+          tone: 'error',
+        })
+        return
+      }
+
       const existingTeamIds = staffAssignedTeamIds.get(String(userId)) ?? []
       const isAlreadyAssignedToAnotherTeam = existingTeamIds.some((existingTeamId) => String(existingTeamId) !== String(teamId))
 

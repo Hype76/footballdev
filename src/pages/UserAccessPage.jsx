@@ -266,7 +266,7 @@ export function UserAccessPage() {
 
   const handleRemoveMember = async (member) => {
     if (!canRemoveClubUser(user, member)) {
-      setErrorMessage('You can only remove users below your role.')
+      setErrorMessage('You can only remove users at your role level or below.')
       return
     }
 
