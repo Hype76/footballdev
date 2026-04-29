@@ -225,7 +225,22 @@ export function CreateEvaluationPage() {
 
         setSavedPlayers(nextPlayers)
         const requestedPlayerName = String(searchParams.get('player') ?? '').trim()
-        const matchingPlayer = nextPlayers.find((player) => player.playerName === requestedPlayerName)
+        const requestedTeam = String(searchParams.get('team') ?? '').trim()
+        const requestedSection = String(searchParams.get('section') ?? '').trim()
+        const matchingPlayer = (() => {
+          const normalizedPlayerName = normalizePlayerName(requestedPlayerName)
+          const sameNamePlayers = nextPlayers.filter((player) => normalizePlayerName(player.playerName) === normalizedPlayerName)
+
+          return (
+            sameNamePlayers.find(
+              (player) =>
+                (!requestedTeam || player.team === requestedTeam) &&
+                (!requestedSection || player.section === requestedSection),
+            ) ||
+            sameNamePlayers.find((player) => !requestedTeam || player.team === requestedTeam) ||
+            sameNamePlayers[0]
+          )
+        })()
 
         if (matchingPlayer) {
           const parentContacts = normalizeParentContacts(matchingPlayer.parentContacts, {
@@ -235,11 +250,12 @@ export function CreateEvaluationPage() {
 
           setFormData((current) => ({
             ...current,
-            parentName: current.parentName || parentContacts[0]?.name || matchingPlayer.parentName,
-            parentEmail: current.parentEmail || parentContacts[0]?.email || matchingPlayer.parentEmail,
-            parentContacts: current.parentContacts?.length ? current.parentContacts : parentContacts,
-            team: current.team || matchingPlayer.team,
-            section: current.section || matchingPlayer.section,
+            playerName: matchingPlayer.playerName,
+            parentName: parentContacts[0]?.name || '',
+            parentEmail: parentContacts[0]?.email || '',
+            parentContacts,
+            team: requestedTeam || matchingPlayer.team || current.team,
+            section: requestedSection || matchingPlayer.section || current.section,
           }))
           setSelectedParentContactIndexes(parentContacts.length > 0 ? parentContacts.map((_, index) => index) : [0])
         }
@@ -447,6 +463,23 @@ export function CreateEvaluationPage() {
     ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
     : 'No teams are assigned to your account yet. Ask a manager to allocate you to at least one team.'
 
+  const findSavedPlayer = (playerName, team = formData.team, section = formData.section) => {
+    const normalizedPlayerName = normalizePlayerName(playerName)
+    const normalizedTeam = String(team ?? '').trim()
+    const normalizedSection = String(section ?? '').trim()
+    const sameNamePlayers = savedPlayers.filter((player) => normalizePlayerName(player.playerName) === normalizedPlayerName)
+
+    return (
+      sameNamePlayers.find(
+        (player) =>
+          (!normalizedTeam || player.team === normalizedTeam) &&
+          (!normalizedSection || player.section === normalizedSection),
+      ) ||
+      sameNamePlayers.find((player) => !normalizedTeam || player.team === normalizedTeam) ||
+      sameNamePlayers[0]
+    )
+  }
+
   const handleFieldChange = (event) => {
     const { name, value } = event.target
     setIsSaved(false)
@@ -464,7 +497,7 @@ export function CreateEvaluationPage() {
     }
 
     if (name === 'playerName') {
-      const matchingPlayer = savedPlayers.find((player) => player.playerName === value)
+      const matchingPlayer = findSavedPlayer(value)
       const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
         parentName: matchingPlayer?.parentName,
         parentEmail: matchingPlayer?.parentEmail,
@@ -473,10 +506,29 @@ export function CreateEvaluationPage() {
       setFormData((current) => ({
         ...current,
         playerName: value,
-        parentName: matchingParentContacts[0]?.name || matchingPlayer?.parentName || current.parentName,
-        parentEmail: matchingParentContacts[0]?.email || matchingPlayer?.parentEmail || current.parentEmail,
-        parentContacts: matchingParentContacts.length > 0 ? matchingParentContacts : current.parentContacts,
+        parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
+        parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
+        parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
         team: matchingPlayer?.team || current.team,
+        section: matchingPlayer?.section || current.section,
+      }))
+      setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
+      return
+    }
+
+    if (name === 'team') {
+      const matchingPlayer = findSavedPlayer(formData.playerName, value, formData.section)
+      const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
+        parentName: matchingPlayer?.parentName,
+        parentEmail: matchingPlayer?.parentEmail,
+      })
+
+      setFormData((current) => ({
+        ...current,
+        team: value,
+        parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
+        parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
+        parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
         section: matchingPlayer?.section || current.section,
       }))
       setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
@@ -487,6 +539,24 @@ export function CreateEvaluationPage() {
       ...current,
       [name]: value,
     }))
+  }
+
+  const handleSectionChange = (section) => {
+    const matchingPlayer = findSavedPlayer(formData.playerName, formData.team, section)
+    const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
+      parentName: matchingPlayer?.parentName,
+      parentEmail: matchingPlayer?.parentEmail,
+    })
+
+    setFormData((current) => ({
+      ...current,
+      section,
+      parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
+      parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
+      parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
+      team: matchingPlayer?.team || current.team,
+    }))
+    setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
   }
 
   const handleResponseChange = (fieldId, value) => {
@@ -684,7 +754,7 @@ export function CreateEvaluationPage() {
     } catch (error) {
       console.error('Evaluation submit failed', error)
       setIsSaved(false)
-      setActionErrorMessage('The evaluation could not be submitted right now. Try again in a moment.')
+      setActionErrorMessage(error.message || 'The evaluation could not be submitted right now. Try again in a moment.')
     } finally {
       setIsSubmitting(false)
     }
@@ -917,7 +987,7 @@ export function CreateEvaluationPage() {
                     <button
                       key={section}
                       type="button"
-                      onClick={() => setFormData((current) => ({ ...current, section }))}
+                      onClick={() => handleSectionChange(section)}
                       className={[
                         'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
                         formData.section === section
