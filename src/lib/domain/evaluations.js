@@ -1,5 +1,6 @@
 export {
   createEvaluation,
+  deleteEvaluation,
   getEvaluations,
   updateEvaluation,
   updateEvaluationStatus,

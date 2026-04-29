@@ -3602,6 +3602,52 @@ export async function updateEvaluation(id, data, clubId) {
   return normalizeEvaluationRow(updatedRow)
 }
 
+export async function deleteEvaluation({ user, evaluationId }) {
+  if (!user?.id || user.role !== 'super_admin' && Number(user.roleRank ?? 0) < 50) {
+    throw new Error('Only managers and above can delete assessments.')
+  }
+
+  let query = supabase.from('evaluations').delete().eq('id', evaluationId)
+
+  if (user.role !== 'super_admin') {
+    query = query.eq('club_id', user.clubId)
+  }
+
+  const { data: deletedRows, error } = await query.select('*')
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const deletedEvaluation = deletedRows?.[0] ? normalizeEvaluationRow(deletedRows[0]) : null
+
+  if (!deletedEvaluation) {
+    throw new Error('No assessment was deleted. Check permissions or refresh the page.')
+  }
+
+  if (user?.clubId) {
+    invalidateMemoryCacheByPrefix(`evaluations:${user.clubId}:`)
+    clearViewCaches()
+  }
+
+  await createAuditLog({
+    user,
+    action: 'evaluation_deleted',
+    entityType: 'evaluation',
+    entityId: evaluationId,
+    metadata: {
+      playerName: deletedEvaluation.playerName,
+      section: deletedEvaluation.section,
+      team: deletedEvaluation.team,
+      date: deletedEvaluation.date,
+      session: deletedEvaluation.session,
+    },
+  })
+
+  return deletedEvaluation
+}
+
 export async function updateEvaluationStatus(id, status, clubId, options = {}) {
   const payload = {
     status,

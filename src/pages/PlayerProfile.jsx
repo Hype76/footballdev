@@ -24,6 +24,7 @@ import {
   EVALUATION_SECTIONS,
   createCommunicationLog,
   createEvaluation,
+  deleteEvaluation,
   deletePlayer,
   getEvaluations,
   getPlayers,
@@ -101,6 +102,7 @@ export function PlayerProfile() {
   const [isPromotingId, setIsPromotingId] = useState('')
   const [isReassigningId, setIsReassigningId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isDeletingEvaluationId, setIsDeletingEvaluationId] = useState('')
   const [isMergingEvaluations, setIsMergingEvaluations] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [selectedReassignTargets, setSelectedReassignTargets] = useState({})
@@ -227,6 +229,7 @@ export function PlayerProfile() {
     [allPlayers, routePlayerName],
   )
   const canMergeEvaluations = Boolean(user?.clubId) && Number(user?.roleRank ?? 0) >= 50 && evaluations.length > 1
+  const canDeleteEvaluations = Boolean(user?.id) && (user.role === 'super_admin' || Number(user?.roleRank ?? 0) >= 50)
   const mergeSelectedEvaluations = useMemo(
     () => evaluations.filter((evaluation) => mergeSelectedIds.includes(evaluation.id)),
     [evaluations, mergeSelectedIds],
@@ -711,6 +714,46 @@ export function PlayerProfile() {
       setErrorMessage(error.message || 'Could not create the merged assessment.')
     } finally {
       setIsMergingEvaluations(false)
+    }
+  }
+
+  const handleDeleteEvaluation = async (evaluation) => {
+    if (!canDeleteEvaluations) {
+      setErrorMessage('Only managers and above can delete old assessments.')
+      return
+    }
+
+    if (!window.confirm(`Delete this assessment from ${evaluation.date || 'No date entered'}? This cannot be undone.`)) {
+      return
+    }
+
+    setIsDeletingEvaluationId(evaluation.id)
+    setErrorMessage('')
+
+    try {
+      await deleteEvaluation({ user, evaluationId: evaluation.id })
+      const nextEvaluations = evaluations.filter((item) => item.id !== evaluation.id)
+
+      setEvaluations(nextEvaluations)
+      setMergeSelectedIds((currentIds) => currentIds.filter((id) => id !== evaluation.id))
+      setMergeCoreSourceId((currentSourceId) => (currentSourceId === evaluation.id ? '' : currentSourceId))
+      setMergeFieldSources((currentSources) =>
+        Object.fromEntries(Object.entries(currentSources).filter(([, sourceId]) => sourceId !== evaluation.id)),
+      )
+      setMergeDetailSources((currentSources) =>
+        Object.fromEntries(Object.entries(currentSources).filter(([, sourceId]) => sourceId !== evaluation.id)),
+      )
+      clearViewCaches()
+      writeViewCache(cacheKey, {
+        evaluations: nextEvaluations,
+        players,
+        allPlayers,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not delete this assessment.')
+    } finally {
+      setIsDeletingEvaluationId('')
     }
   }
 
@@ -1349,9 +1392,26 @@ export function PlayerProfile() {
                   </div>
 
                   <div className="mt-5 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">Move report to another player</p>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">Move report to another player</p>
+                        <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                          Use this if a report was saved against the wrong player.
+                        </p>
+                      </div>
+                      {canDeleteEvaluations ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteEvaluation(evaluation)}
+                          disabled={isDeletingEvaluationId === evaluation.id}
+                          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isDeletingEvaluationId === evaluation.id ? 'Deleting...' : 'Delete Assessment'}
+                        </button>
+                      ) : null}
+                    </div>
                     <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                      Use this if a report was saved against the wrong player.
+                      Deleting an old assessment removes it from this player history and average score calculations.
                     </p>
                     <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
                       <label className="block">
