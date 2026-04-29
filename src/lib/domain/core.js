@@ -1857,9 +1857,7 @@ export async function getVisibleClubUsers(user) {
   }
 
   const activeTeamId = String(user.activeTeamId ?? '').trim()
-  const teamIds = activeTeamId
-    ? [activeTeamId]
-    : (await getAssignedTeamsForUser(user)).map((team) => String(team.id ?? '').trim()).filter(Boolean)
+  const teamIds = activeTeamId ? [activeTeamId] : []
 
   if (teamIds.length === 0) {
     return []
