@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
 
+Disallow: /supabase/
+
 Sitemap: https://playerfeedback.online/sitemap.xml
