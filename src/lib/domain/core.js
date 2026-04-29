@@ -2162,6 +2162,40 @@ export async function getTeamStaffAssignments(user) {
 export async function replaceTeamStaffAssignments(teamId, userIds) {
   const normalizedUserIds = [...new Set((userIds ?? []).map((userId) => String(userId).trim()).filter(Boolean))]
 
+  const { data: teamRow, error: teamError } = await supabase
+    .from('teams')
+    .select('id, club_id')
+    .eq('id', teamId)
+    .single()
+
+  if (teamError) {
+    console.error(teamError)
+    throw teamError
+  }
+
+  if (normalizedUserIds.length > 0) {
+    const { data: userRows, error: usersError } = await supabase
+      .from('users')
+      .select('id, club_id')
+      .in('id', normalizedUserIds)
+
+    if (usersError) {
+      console.error(usersError)
+      throw usersError
+    }
+
+    const allowedUserIds = new Set(
+      (userRows ?? [])
+        .filter((row) => String(row.club_id ?? '') === String(teamRow.club_id ?? ''))
+        .map((row) => String(row.id ?? '')),
+    )
+    const invalidUserIds = normalizedUserIds.filter((userId) => !allowedUserIds.has(String(userId)))
+
+    if (invalidUserIds.length > 0) {
+      throw new Error('One or more selected staff members do not belong to this club.')
+    }
+  }
+
   const { error: deleteError } = await supabase.from('team_staff').delete().eq('team_id', teamId)
 
   if (deleteError) {
