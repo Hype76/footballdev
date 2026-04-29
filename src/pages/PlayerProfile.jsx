@@ -429,24 +429,26 @@ export function PlayerProfile() {
     setErrorMessage('')
     setPlayerDrafts((current) => {
       const draft = current[playerId] ?? {}
-      const contacts = normalizeParentContacts(draft.parentContacts, {
-        parentName: draft.parentName,
-        parentEmail: draft.parentEmail,
-      })
+      const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
+        ? draft.parentContacts
+        : [{ name: draft.parentName || '', email: draft.parentEmail || '' }]
       const nextContacts = contacts.length > 0 ? contacts : [{ name: '', email: '' }]
+      const updatedContacts = nextContacts.map((contact, contactIndex) =>
+        contactIndex === index
+          ? {
+              ...contact,
+              [fieldName]: value,
+            }
+          : contact,
+      )
 
       return {
         ...current,
         [playerId]: {
           ...draft,
-          parentContacts: nextContacts.map((contact, contactIndex) =>
-            contactIndex === index
-              ? {
-                  ...contact,
-                  [fieldName]: value,
-                }
-              : contact,
-          ),
+          parentName: updatedContacts[0]?.name ?? '',
+          parentEmail: updatedContacts[0]?.email ?? '',
+          parentContacts: updatedContacts,
         },
       }
     })
@@ -456,10 +458,9 @@ export function PlayerProfile() {
     setErrorMessage('')
     setPlayerDrafts((current) => {
       const draft = current[playerId] ?? {}
-      const contacts = normalizeParentContacts(draft.parentContacts, {
-        parentName: draft.parentName,
-        parentEmail: draft.parentEmail,
-      })
+      const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
+        ? draft.parentContacts
+        : [{ name: draft.parentName || '', email: draft.parentEmail || '' }]
 
       return {
         ...current,
@@ -475,17 +476,19 @@ export function PlayerProfile() {
     setErrorMessage('')
     setPlayerDrafts((current) => {
       const draft = current[playerId] ?? {}
-      const contacts = normalizeParentContacts(draft.parentContacts, {
-        parentName: draft.parentName,
-        parentEmail: draft.parentEmail,
-      })
-      const nextContacts = contacts.length > 1 ? contacts.filter((_, contactIndex) => contactIndex !== index) : []
+      const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
+        ? draft.parentContacts
+        : [{ name: draft.parentName || '', email: draft.parentEmail || '' }]
+      const nextContacts = contacts.filter((_, contactIndex) => contactIndex !== index)
+      const fallbackContacts = nextContacts.length > 0 ? nextContacts : [{ name: '', email: '' }]
 
       return {
         ...current,
         [playerId]: {
           ...draft,
-          parentContacts: nextContacts.length > 0 ? nextContacts : [{ name: '', email: '' }],
+          parentName: fallbackContacts[0]?.name ?? '',
+          parentEmail: fallbackContacts[0]?.email ?? '',
+          parentContacts: fallbackContacts,
         },
       }
     })
