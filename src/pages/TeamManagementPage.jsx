@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
-import { canAssignRole, canManageTeamSettings, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
+import {
+  canAssignRole,
+  canManageTeamSettings,
+  canManageUsers,
+  getRoleLabel,
+  useAuth,
+  verifyCurrentUserPassword,
+} from '../lib/auth.js'
 import {
   createStaffUserWithPassword,
   createClubRole,
@@ -64,6 +72,7 @@ export function TeamManagementPage() {
   const [staffToAddId, setStaffToAddId] = useState('')
   const [teamPage, setTeamPage] = useState(1)
   const [staffPage, setStaffPage] = useState(1)
+  const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
   const [isCoachPasswordVisible, setIsCoachPasswordVisible] = useState(false)
   const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0 && roles.length === 0)
   const [isSaving, setIsSaving] = useState(false)
@@ -378,7 +387,17 @@ export function TeamManagementPage() {
   }
 
   const handleDeleteTeam = async (teamId) => {
-    if (!window.confirm('Delete this team and its staff allocations?')) {
+    const targetTeam = teamAssignments.find((team) => team.id === teamId)
+
+    if (!targetTeam) {
+      return
+    }
+
+    setTeamDeleteTarget(targetTeam)
+  }
+
+  const confirmDeleteTeam = async (password) => {
+    if (!teamDeleteTarget) {
       return
     }
 
@@ -387,9 +406,10 @@ export function TeamManagementPage() {
     setErrorMessage('')
 
     try {
-      await deleteTeam(teamId)
-      const nextTeams = teams.filter((team) => team.id !== teamId)
-      const nextAssignments = assignments.filter((assignment) => assignment.teamId !== teamId)
+      await verifyCurrentUserPassword(user.email, password)
+      await deleteTeam(teamDeleteTarget.id)
+      const nextTeams = teams.filter((team) => team.id !== teamDeleteTarget.id)
+      const nextAssignments = assignments.filter((assignment) => assignment.teamId !== teamDeleteTarget.id)
       setTeams(nextTeams)
       setAssignments(nextAssignments)
       writeTeamCache({
@@ -405,6 +425,7 @@ export function TeamManagementPage() {
       showToast({ title: 'Team not deleted', message: error.message || 'Could not delete team.', tone: 'error' })
     } finally {
       setIsSaving(false)
+      setTeamDeleteTarget(null)
     }
   }
 
@@ -812,6 +833,21 @@ export function TeamManagementPage() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmModal
+        isOpen={Boolean(teamDeleteTarget)}
+        isBusy={isSaving}
+        title="Delete team"
+        message="This cannot be undone from the app."
+        items={[
+          `Team: ${teamDeleteTarget?.name || 'Selected team'}`,
+          `${teamDeleteTarget?.staffIds?.length ?? 0} staff allocations for this team`,
+        ]}
+        confirmLabel="Delete Team"
+        onCancel={() => setTeamDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteTeam(password)}
+      />
     </div>
   )
 }

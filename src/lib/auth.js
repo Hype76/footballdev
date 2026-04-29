@@ -167,6 +167,26 @@ export function canViewEvaluation(user, evaluation) {
   return canEditEvaluation(user, evaluation)
 }
 
+export async function verifyCurrentUserPassword(email, password) {
+  const normalizedEmail = String(email ?? '').trim()
+  const normalizedPassword = String(password ?? '')
+
+  if (!normalizedEmail || !normalizedPassword) {
+    throw new Error('Enter your password to confirm this action.')
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: normalizedEmail,
+    password: normalizedPassword,
+  })
+
+  if (error) {
+    throw new Error('Password confirmation failed. Check your password and try again.')
+  }
+
+  return true
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [authUser, setAuthUser] = useState(null)

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
-import { canCreateEvaluation, useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   EVALUATION_SECTIONS,
   addPlayersToAssessmentSession,
@@ -312,6 +313,8 @@ export function SessionsPage() {
   })
   const [availablePlayerPage, setAvailablePlayerPage] = useState(1)
   const [sessionPlayerPage, setSessionPlayerPage] = useState(1)
+  const [clearSessionTarget, setClearSessionTarget] = useState(null)
+  const [completeSessionTarget, setCompleteSessionTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0 && teams.length === 0)
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -686,7 +689,11 @@ export function SessionsPage() {
       return
     }
 
-    if (!window.confirm('Complete this session? Coaches will no longer be able to continue editing it.')) {
+    setCompleteSessionTarget(selectedSession)
+  }
+
+  const confirmCompleteSession = async () => {
+    if (!completeSessionTarget || !selectedSessionId) {
       return
     }
 
@@ -712,6 +719,7 @@ export function SessionsPage() {
       showToast({ title: 'Session not completed', message: error.message || 'Could not complete session.', tone: 'error' })
     } finally {
       setIsSaving(false)
+      setCompleteSessionTarget(null)
     }
   }
 
@@ -798,7 +806,14 @@ export function SessionsPage() {
       return
     }
 
-    if (!window.confirm('Clear this session? All players will be removed from the session list, but the session itself will remain.')) {
+    setClearSessionTarget({
+      session: selectedSession,
+      playerCount: sessionPlayers.length,
+    })
+  }
+
+  const confirmClearSessionPlayers = async (password) => {
+    if (!clearSessionTarget || !selectedSessionId) {
       return
     }
 
@@ -806,6 +821,7 @@ export function SessionsPage() {
     setErrorMessage('')
 
     try {
+      await verifyCurrentUserPassword(user.email, password)
       await clearAssessmentSessionPlayers({
         user,
         sessionId: selectedSessionId,
@@ -825,6 +841,7 @@ export function SessionsPage() {
       showToast({ title: 'Session not cleared', message: error.message || 'Could not clear this session.', tone: 'error' })
     } finally {
       setIsSaving(false)
+      setClearSessionTarget(null)
     }
   }
 
@@ -1261,6 +1278,38 @@ export function SessionsPage() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmModal
+        isOpen={Boolean(clearSessionTarget)}
+        isBusy={isSaving}
+        title="Clear session players"
+        message="This keeps the session itself, but removes all players from the session list."
+        items={[
+          `Session: ${clearSessionTarget?.session?.title || clearSessionTarget?.session?.team || 'Selected session'}`,
+          `${clearSessionTarget?.playerCount ?? sessionPlayers.length} players from this session list`,
+          'Saved player notes for this session list',
+        ]}
+        confirmLabel="Clear Session"
+        onCancel={() => setClearSessionTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmClearSessionPlayers(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(completeSessionTarget)}
+        isBusy={isSaving}
+        title="Complete session"
+        message="Coaches will no longer be able to continue editing this session after it is completed."
+        itemsTitle="This will change:"
+        items={[
+          `Session: ${completeSessionTarget?.title || completeSessionTarget?.team || 'Selected session'}`,
+          'Session status will change to completed',
+          'Managers can still review and correct it later',
+        ]}
+        confirmLabel="Complete Session"
+        onCancel={() => setCompleteSessionTarget(null)}
+        onConfirm={() => void confirmCompleteSession()}
+      />
     </div>
   )
 }

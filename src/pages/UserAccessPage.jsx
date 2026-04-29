@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canAssignRole, canManageUsers, getRoleLabel, useAuth } from '../lib/auth.js'
+import { canAssignRole, canManageUsers, getRoleLabel, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   canRemoveClubUser,
   canUpdateClubUserName,
@@ -53,6 +54,8 @@ export function UserAccessPage() {
   const [nameDrafts, setNameDrafts] = useState({})
   const [memberPage, setMemberPage] = useState(1)
   const [invitePage, setInvitePage] = useState(1)
+  const [inviteDeleteTarget, setInviteDeleteTarget] = useState(null)
+  const [memberRemoveTarget, setMemberRemoveTarget] = useState(null)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
@@ -234,13 +237,22 @@ export function UserAccessPage() {
     }
   }
 
-  const handleDeleteInvite = async (inviteId) => {
+  const handleDeleteInvite = async (invite) => {
+    setInviteDeleteTarget(invite)
+  }
+
+  const confirmDeleteInvite = async (password) => {
+    if (!inviteDeleteTarget) {
+      return
+    }
+
     setIsSaving(true)
     setMessage('')
     setErrorMessage('')
 
     try {
-      await deleteClubInvite(inviteId)
+      await verifyCurrentUserPassword(user.email, password)
+      await deleteClubInvite(inviteDeleteTarget.id)
       await refreshAccessData()
       setMessage('Pending access removed.')
     } catch (error) {
@@ -248,6 +260,7 @@ export function UserAccessPage() {
       setErrorMessage('Could not remove the pending allocation.')
     } finally {
       setIsSaving(false)
+      setInviteDeleteTarget(null)
     }
   }
 
@@ -257,9 +270,11 @@ export function UserAccessPage() {
       return
     }
 
-    const confirmed = window.confirm(`Remove ${member.email} from this club?`)
+    setMemberRemoveTarget(member)
+  }
 
-    if (!confirmed) {
+  const confirmRemoveMember = async (password) => {
+    if (!memberRemoveTarget) {
       return
     }
 
@@ -268,9 +283,10 @@ export function UserAccessPage() {
     setErrorMessage('')
 
     try {
+      await verifyCurrentUserPassword(user.email, password)
       await removeClubUser({
         user,
-        member,
+        member: memberRemoveTarget,
       })
       await refreshAccessData()
       setMessage('User removed from this club.')
@@ -279,6 +295,7 @@ export function UserAccessPage() {
       setErrorMessage(error.message || 'Could not remove this user.')
     } finally {
       setIsSaving(false)
+      setMemberRemoveTarget(null)
     }
   }
 
@@ -550,7 +567,7 @@ export function UserAccessPage() {
                   <button
                     type="button"
                     disabled={isSaving}
-                    onClick={() => handleDeleteInvite(invite.id)}
+                    onClick={() => handleDeleteInvite(invite)}
                     className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Remove
@@ -567,6 +584,37 @@ export function UserAccessPage() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmModal
+        isOpen={Boolean(memberRemoveTarget)}
+        isBusy={isSaving}
+        title="Remove user access"
+        message="This removes the user from this club workspace. It does not delete their email account from the authentication provider."
+        items={[
+          `User: ${memberRemoveTarget?.name || memberRemoveTarget?.email || 'Selected user'}`,
+          `Email: ${memberRemoveTarget?.email || 'No email entered'}`,
+          `Role: ${memberRemoveTarget ? getRoleLabel(memberRemoveTarget) : 'Unknown role'}`,
+        ]}
+        confirmLabel="Remove User"
+        onCancel={() => setMemberRemoveTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmRemoveMember(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(inviteDeleteTarget)}
+        isBusy={isSaving}
+        title="Remove pending access"
+        message="This removes the saved invite or pending allocation."
+        items={[
+          `Email: ${inviteDeleteTarget?.email || 'No email entered'}`,
+          `Role: ${inviteDeleteTarget?.roleLabel || 'No role entered'}`,
+        ]}
+        confirmLabel="Remove Pending Access"
+        onCancel={() => setInviteDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteInvite(password)}
+      />
     </div>
   )
 }

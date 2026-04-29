@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { isSuperAdmin, useAuth } from '../lib/auth.js'
+import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   createPlatformClub,
   deletePlatformFeedback,
@@ -53,6 +54,8 @@ export function PlatformAdminPage() {
   const [selectedClubId, setSelectedClubId] = useState('All')
   const [feedbackPage, setFeedbackPage] = useState(1)
   const [clubPage, setClubPage] = useState(1)
+  const [feedbackDeleteTarget, setFeedbackDeleteTarget] = useState(null)
+  const [clubDeleteTarget, setClubDeleteTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => !stats)
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -218,20 +221,23 @@ export function PlatformAdminPage() {
   }
 
   const handleDeleteFeedback = async (item) => {
-    const confirmed = window.confirm('Delete this feedback item?')
+    setFeedbackDeleteTarget(item)
+  }
 
-    if (!confirmed) {
+  const confirmDeleteFeedback = async (password) => {
+    if (!feedbackDeleteTarget) {
       return
     }
 
-    setUpdatingFeedbackId(item.id)
+    setUpdatingFeedbackId(feedbackDeleteTarget.id)
     setErrorMessage('')
     setSuccessMessage('')
 
     try {
+      await verifyCurrentUserPassword(user.email, password)
       await deletePlatformFeedback({
         user,
-        feedbackId: item.id,
+        feedbackId: feedbackDeleteTarget.id,
       })
       setSuccessMessage('Feedback deleted.')
       refreshStats()
@@ -240,6 +246,7 @@ export function PlatformAdminPage() {
       setErrorMessage(error.message || 'Feedback could not be deleted.')
     } finally {
       setUpdatingFeedbackId('')
+      setFeedbackDeleteTarget(null)
     }
   }
 
@@ -303,24 +310,25 @@ export function PlatformAdminPage() {
   }
 
   const handleDeleteClub = async (club) => {
-    const confirmed = window.confirm(
-      `Delete ${club.name}? This removes the club workspace, users, players, evaluations, teams, and settings from the app.`,
-    )
+    setClubDeleteTarget(club)
+  }
 
-    if (!confirmed) {
+  const confirmDeleteClub = async (password) => {
+    if (!clubDeleteTarget) {
       return
     }
 
-    setUpdatingClubId(club.id)
+    setUpdatingClubId(clubDeleteTarget.id)
     setErrorMessage('')
     setSuccessMessage('')
 
     try {
+      await verifyCurrentUserPassword(user.email, password)
       await deletePlatformClub({
         user,
-        clubId: club.id,
+        clubId: clubDeleteTarget.id,
       })
-      if (selectedClubId === club.id) {
+      if (selectedClubId === clubDeleteTarget.id) {
         setSelectedClubId('All')
       }
       setSuccessMessage('Club deleted.')
@@ -330,6 +338,7 @@ export function PlatformAdminPage() {
       setErrorMessage(error.message || 'Club could not be deleted.')
     } finally {
       setUpdatingClubId('')
+      setClubDeleteTarget(null)
     }
   }
 
@@ -699,6 +708,41 @@ export function PlatformAdminPage() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmModal
+        isOpen={Boolean(feedbackDeleteTarget)}
+        isBusy={Boolean(updatingFeedbackId)}
+        title="Delete platform feedback"
+        message="This removes the feedback item and its comments from the feedback board."
+        items={[
+          `Feedback: ${feedbackDeleteTarget?.message || 'Selected feedback'}`,
+          `Club: ${feedbackDeleteTarget?.clubName || 'No club entered'}`,
+          `${feedbackDeleteTarget?.voteCount ?? 0} votes`,
+        ]}
+        confirmLabel="Delete Feedback"
+        onCancel={() => setFeedbackDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteFeedback(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(clubDeleteTarget)}
+        isBusy={Boolean(updatingClubId)}
+        title="Delete club workspace"
+        message="This is a platform admin action and cannot be undone from the app."
+        items={[
+          `Club: ${clubDeleteTarget?.name || 'Selected club'}`,
+          `${clubDeleteTarget?.userCount ?? 0} adult users`,
+          `${clubDeleteTarget?.teamCount ?? 0} teams`,
+          `${clubDeleteTarget?.playerCount ?? 0} player records`,
+          `${clubDeleteTarget?.evaluationCount ?? 0} assessments`,
+          'Club settings and related workspace data',
+        ]}
+        confirmLabel="Delete Club"
+        onCancel={() => setClubDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteClub(password)}
+      />
     </div>
   )
 }

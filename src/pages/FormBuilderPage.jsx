@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canManageFormFields, useAuth } from '../lib/auth.js'
+import { canManageFormFields, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   addFormField,
   deleteFormField,
@@ -103,6 +104,7 @@ export function FormBuilderPage() {
   const [successMessage, setSuccessMessage] = useState('')
   const [fieldGroup, setFieldGroup] = useState('default')
   const [fieldPage, setFieldPage] = useState(1)
+  const [fieldDeleteTarget, setFieldDeleteTarget] = useState(null)
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
   useEffect(() => {
@@ -281,14 +283,23 @@ export function FormBuilderPage() {
       return
     }
 
+    setFieldDeleteTarget(targetField)
+  }
+
+  const confirmDeleteField = async (password) => {
+    if (!fieldDeleteTarget) {
+      return
+    }
+
     setIsSaving(true)
     setErrorMessage('')
     setSuccessMessage('')
 
     try {
-      await deleteFormField(fieldId)
+      await verifyCurrentUserPassword(user.email, password)
+      await deleteFormField(fieldDeleteTarget.id)
       const nextFields = fields
-        .filter((field) => field.id !== fieldId)
+        .filter((field) => field.id !== fieldDeleteTarget.id)
         .map((field, index) => ({
           ...field,
           orderIndex: index + 1,
@@ -302,6 +313,7 @@ export function FormBuilderPage() {
       setErrorMessage(error.message || 'Could not delete this field.')
     } finally {
       setIsSaving(false)
+      setFieldDeleteTarget(null)
     }
   }
 
@@ -730,6 +742,21 @@ export function FormBuilderPage() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmModal
+        isOpen={Boolean(fieldDeleteTarget)}
+        isBusy={isSaving}
+        title="Delete form field"
+        message="This removes the custom field from the club form. Existing saved assessments keep their historic responses."
+        items={[
+          `Field: ${fieldDeleteTarget?.label || 'Selected field'}`,
+          `Type: ${fieldDeleteTarget ? getFieldTypeLabel(fieldDeleteTarget.type) : 'Unknown type'}`,
+        ]}
+        confirmLabel="Delete Field"
+        onCancel={() => setFieldDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteField(password)}
+      />
     </div>
   )
 }

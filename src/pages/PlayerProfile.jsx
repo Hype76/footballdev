@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth } from '../lib/auth.js'
+import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   PARENT_EMAIL_TEMPLATES,
   buildParentEmailTemplate,
@@ -117,6 +118,10 @@ export function PlayerProfile() {
   const [selectedParentContacts, setSelectedParentContacts] = useState({})
   const [selectedInviteDates, setSelectedInviteDates] = useState({})
   const [evaluationPage, setEvaluationPage] = useState(1)
+  const [playerDeleteTarget, setPlayerDeleteTarget] = useState(null)
+  const [evaluationDeleteTarget, setEvaluationDeleteTarget] = useState(null)
+  const [reassignConfirmTarget, setReassignConfirmTarget] = useState(null)
+  const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
 
@@ -538,10 +543,18 @@ export function PlayerProfile() {
       return
     }
 
-    if (!window.confirm(`Move this report from ${routePlayerName} to ${targetPlayer.playerName}?`)) {
+    setReassignConfirmTarget({
+      evaluation,
+      targetPlayer,
+    })
+  }
+
+  const confirmReassignEvaluation = async () => {
+    if (!reassignConfirmTarget) {
       return
     }
 
+    const { evaluation, targetPlayer } = reassignConfirmTarget
     setIsReassigningId(evaluation.id)
     setErrorMessage('')
 
@@ -586,6 +599,7 @@ export function PlayerProfile() {
       setErrorMessage('Could not move this report to the selected player.')
     } finally {
       setIsReassigningId('')
+      setReassignConfirmTarget(null)
     }
   }
 
@@ -651,9 +665,11 @@ export function PlayerProfile() {
       return
     }
 
-    if (!window.confirm('Create a merged assessment from the selected reports? Source reports will stay in history.')) {
-      return
-    }
+    setIsMergeConfirmOpen(true)
+  }
+
+  const confirmCreateMergedEvaluation = async () => {
+    setIsMergeConfirmOpen(false)
 
     setIsMergingEvaluations(true)
     setErrorMessage('')
@@ -734,25 +750,30 @@ export function PlayerProfile() {
       return
     }
 
-    if (!window.confirm(`Delete this assessment from ${evaluation.date || 'No date entered'}? This cannot be undone.`)) {
+    setEvaluationDeleteTarget(evaluation)
+  }
+
+  const confirmDeleteEvaluation = async (password) => {
+    if (!evaluationDeleteTarget) {
       return
     }
 
-    setIsDeletingEvaluationId(evaluation.id)
+    setIsDeletingEvaluationId(evaluationDeleteTarget.id)
     setErrorMessage('')
 
     try {
-      await deleteEvaluation({ user, evaluationId: evaluation.id })
-      const nextEvaluations = evaluations.filter((item) => item.id !== evaluation.id)
+      await verifyCurrentUserPassword(user.email, password)
+      await deleteEvaluation({ user, evaluationId: evaluationDeleteTarget.id })
+      const nextEvaluations = evaluations.filter((item) => item.id !== evaluationDeleteTarget.id)
 
       setEvaluations(nextEvaluations)
-      setMergeSelectedIds((currentIds) => currentIds.filter((id) => id !== evaluation.id))
-      setMergeCoreSourceId((currentSourceId) => (currentSourceId === evaluation.id ? '' : currentSourceId))
+      setMergeSelectedIds((currentIds) => currentIds.filter((id) => id !== evaluationDeleteTarget.id))
+      setMergeCoreSourceId((currentSourceId) => (currentSourceId === evaluationDeleteTarget.id ? '' : currentSourceId))
       setMergeFieldSources((currentSources) =>
-        Object.fromEntries(Object.entries(currentSources).filter(([, sourceId]) => sourceId !== evaluation.id)),
+        Object.fromEntries(Object.entries(currentSources).filter(([, sourceId]) => sourceId !== evaluationDeleteTarget.id)),
       )
       setMergeDetailSources((currentSources) =>
-        Object.fromEntries(Object.entries(currentSources).filter(([, sourceId]) => sourceId !== evaluation.id)),
+        Object.fromEntries(Object.entries(currentSources).filter(([, sourceId]) => sourceId !== evaluationDeleteTarget.id)),
       )
       clearViewCaches()
       writeViewCache(cacheKey, {
@@ -765,6 +786,7 @@ export function PlayerProfile() {
       setErrorMessage(error.message || 'Could not delete this assessment.')
     } finally {
       setIsDeletingEvaluationId('')
+      setEvaluationDeleteTarget(null)
     }
   }
 
@@ -859,7 +881,15 @@ export function PlayerProfile() {
   }
 
   const handleDeletePlayer = async () => {
-    if (!window.confirm(`Delete ${routePlayerName}? This removes the player record and saved evaluations for this player.`)) {
+    setPlayerDeleteTarget({
+      playerName: routePlayerName,
+      playerCount: players.length,
+      evaluationCount: evaluations.length,
+    })
+  }
+
+  const confirmDeletePlayer = async (password) => {
+    if (!playerDeleteTarget) {
       return
     }
 
@@ -867,6 +897,7 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
+      await verifyCurrentUserPassword(user.email, password)
       await deletePlayer(routePlayerName, user, {
         playerIds: players.map((player) => player.id),
       })
@@ -877,6 +908,7 @@ export function PlayerProfile() {
       setErrorMessage('Could not delete this player.')
     } finally {
       setIsDeleting(false)
+      setPlayerDeleteTarget(null)
     }
   }
 
@@ -1626,6 +1658,71 @@ export function PlayerProfile() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmModal
+        isOpen={Boolean(evaluationDeleteTarget)}
+        isBusy={Boolean(isDeletingEvaluationId)}
+        title="Delete assessment"
+        message="This removes the assessment from the player history and average score calculations."
+        items={[
+          `Player: ${evaluationDeleteTarget?.playerName || routePlayerName}`,
+          `Date: ${evaluationDeleteTarget?.date || 'No date entered'}`,
+          `Session: ${evaluationDeleteTarget?.session || 'No session entered'}`,
+          `Team: ${evaluationDeleteTarget?.team || 'No team entered'}`,
+        ]}
+        confirmLabel="Delete Assessment"
+        onCancel={() => setEvaluationDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteEvaluation(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(reassignConfirmTarget)}
+        isBusy={Boolean(isReassigningId)}
+        title="Move assessment"
+        message="Use this when a report was saved against the wrong player."
+        itemsTitle="This will change:"
+        items={[
+          `From player: ${routePlayerName}`,
+          `To player: ${reassignConfirmTarget?.targetPlayer?.playerName || 'Selected player'}`,
+          `Assessment date: ${reassignConfirmTarget?.evaluation?.date || 'No date entered'}`,
+        ]}
+        confirmLabel="Move Assessment"
+        onCancel={() => setReassignConfirmTarget(null)}
+        onConfirm={() => void confirmReassignEvaluation()}
+      />
+
+      <ConfirmModal
+        isOpen={isMergeConfirmOpen}
+        isBusy={isMergingEvaluations}
+        title="Create merged assessment"
+        message="This creates a new merged assessment. Source reports stay in history."
+        itemsTitle="This will create:"
+        items={[
+          `Player: ${routePlayerName}`,
+          `${mergeSelectedEvaluations.length} selected assessments merged into one new assessment`,
+          'Original assessments will stay unchanged',
+        ]}
+        confirmLabel="Create Merged Assessment"
+        onCancel={() => setIsMergeConfirmOpen(false)}
+        onConfirm={() => void confirmCreateMergedEvaluation()}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(playerDeleteTarget)}
+        isBusy={isDeleting}
+        title="Delete player"
+        message="This removes the player record and saved assessments for this player."
+        items={[
+          `Player: ${playerDeleteTarget?.playerName || routePlayerName}`,
+          `${playerDeleteTarget?.playerCount ?? players.length} player record entries`,
+          `${playerDeleteTarget?.evaluationCount ?? evaluations.length} saved assessments`,
+        ]}
+        confirmLabel="Delete Player"
+        onCancel={() => setPlayerDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeletePlayer(password)}
+      />
     </div>
   )
 }
