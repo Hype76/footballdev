@@ -77,6 +77,7 @@ export function CreateEvaluationPage() {
   })
   const [availableTeams, setAvailableTeams] = useState(() => (Array.isArray(cachedTeams) ? cachedTeams : []))
   const [savedPlayers, setSavedPlayers] = useState([])
+  const [previousEvaluations, setPreviousEvaluations] = useState([])
   const [editingEvaluation, setEditingEvaluation] = useState(null)
   const [responseValues, setResponseValues] = useState({})
   const [isFallbackFields, setIsFallbackFields] = useState(() => Boolean(cachedFields?.isFallbackFields))
@@ -89,6 +90,7 @@ export function CreateEvaluationPage() {
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
+  const [showPreviousAssessments, setShowPreviousAssessments] = useState(false)
   const [emailTemplateKey, setEmailTemplateKey] = useState('')
   const [selectedParentContactIndexes, setSelectedParentContactIndexes] = useState([0])
   const [inviteDate, setInviteDate] = useState('')
@@ -280,6 +282,48 @@ export function CreateEvaluationPage() {
       isMounted = false
     }
   }, [isPlatformOwner, searchParamsKey, user, userScopeKey])
+
+  useEffect(() => {
+    let isMounted = true
+    const playerName = normalizePlayerName(formData.playerName)
+
+    const loadPreviousEvaluations = async () => {
+      if (!user || isPlatformOwner || !playerName) {
+        setPreviousEvaluations([])
+        return
+      }
+
+      try {
+        const nextEvaluations = await withRequestTimeout(
+          () => getEvaluations({ user, playerName }),
+          'Could not load previous assessments.',
+        )
+
+        if (!isMounted) {
+          return
+        }
+
+        setPreviousEvaluations(
+          nextEvaluations
+            .filter((evaluation) => String(evaluation.id) !== String(editingEvaluationId))
+            .filter((evaluation) => !formData.team || evaluation.team === formData.team)
+            .slice(0, 5),
+        )
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setPreviousEvaluations([])
+        }
+      }
+    }
+
+    void loadPreviousEvaluations()
+
+    return () => {
+      isMounted = false
+    }
+  }, [editingEvaluationId, formData.playerName, formData.team, isPlatformOwner, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -1086,6 +1130,49 @@ export function CreateEvaluationPage() {
                   ))}
                 </div>
               </SectionCard>
+
+              {previousEvaluations.length > 0 ? (
+                <SectionCard
+                  title="Previous assessments"
+                  description="Use this while assessing an existing player. These notes are for reference only and are not added to the new PDF."
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm leading-6 text-[var(--text-muted)]">
+                      {previousEvaluations.length} previous assessment{previousEvaluations.length === 1 ? '' : 's'} found for this player.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowPreviousAssessments((current) => !current)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                    >
+                      {showPreviousAssessments ? 'Hide Previous Assessments' : 'View Previous Assessments'}
+                    </button>
+                  </div>
+                  {showPreviousAssessments ? (
+                    <div className="mt-4 grid gap-3">
+                      {previousEvaluations.map((evaluation) => (
+                        <div key={evaluation.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
+                            <p className="text-sm font-semibold text-[var(--text-secondary)]">
+                              Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
+                            </p>
+                          </div>
+                          <p className="mt-2 text-sm text-[var(--text-muted)]">Session: {evaluation.session || 'No session entered'}</p>
+                          <div className="mt-3 grid gap-2 md:grid-cols-2">
+                            {Object.entries(evaluation.formResponses ?? {}).slice(0, 6).map(([label, value]) => (
+                              <div key={label} className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{label}</p>
+                                <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-muted)]">{String(value || 'No data entered')}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </SectionCard>
+              ) : null}
 
               <SectionCard
                 title="Configured fields"

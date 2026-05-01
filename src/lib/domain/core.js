@@ -606,6 +606,36 @@ function normalizeAssessmentSessionPlayerRow(row) {
   }
 }
 
+function normalizeCommunicationLogRow(row) {
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    evaluationId: row.evaluation_id ?? row.evaluationId ?? '',
+    userId: row.user_id ?? row.userId ?? '',
+    userName: String(row.user_name ?? row.userName ?? '').trim(),
+    userEmail: String(row.user_email ?? row.userEmail ?? '').trim(),
+    channel: String(row.channel ?? 'activity').trim() || 'activity',
+    action: String(row.action ?? '').trim(),
+    recipientEmail: String(row.recipient_email ?? row.recipientEmail ?? '').trim(),
+    metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+function normalizePlayerStaffNoteRow(row) {
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    playerId: row.player_id ?? row.playerId ?? '',
+    userId: row.user_id ?? row.userId ?? '',
+    userName: String(row.user_name ?? row.userName ?? '').trim(),
+    userEmail: String(row.user_email ?? row.userEmail ?? '').trim(),
+    note: String(row.note ?? '').trim(),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
 export function normalizeParentContacts(parentContacts, fallback = {}) {
   const contacts = Array.isArray(parentContacts) ? parentContacts : []
   const normalizedContacts = contacts
@@ -2964,7 +2994,15 @@ export async function getRecordBackups({ user, limit = 50 } = {}) {
   )
 }
 
-export async function createCommunicationLog({ user, playerId, evaluationId, channel = 'pdf', action, recipientEmail = '' }) {
+export async function createCommunicationLog({
+  user,
+  playerId,
+  evaluationId,
+  channel = 'pdf',
+  action,
+  recipientEmail = '',
+  metadata = {},
+}) {
   if (!user?.clubId || !user?.id || !action) {
     return
   }
@@ -2979,11 +3017,89 @@ export async function createCommunicationLog({ user, playerId, evaluationId, cha
     channel,
     action,
     recipient_email: String(recipientEmail ?? '').trim(),
+    metadata: metadata && typeof metadata === 'object' ? metadata : {},
   })
 
   if (error) {
     console.error(error)
   }
+}
+
+export async function getPlayerCommunicationLogs({ user, playerId, limit = 50 } = {}) {
+  if (!user?.clubId || !playerId) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('communication_logs')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .eq('player_id', playerId)
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeCommunicationLogRow)
+}
+
+export async function createPlayerStaffNote({ user, playerId, note }) {
+  const normalizedNote = String(note ?? '').trim()
+
+  if (!user?.clubId || !user?.id || !playerId || !normalizedNote) {
+    throw new Error('Add a note before saving.')
+  }
+
+  const { data, error } = await supabase
+    .from('player_staff_notes')
+    .insert({
+      club_id: user.clubId,
+      player_id: playerId,
+      user_id: user.id,
+      user_name: getEntryUserName(user),
+      user_email: getEntryUserEmail(user),
+      note: normalizedNote,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  await createCommunicationLog({
+    user,
+    playerId,
+    channel: 'staff_note',
+    action: 'staff_note_added',
+  })
+
+  return normalizePlayerStaffNoteRow(data)
+}
+
+export async function getPlayerStaffNotes({ user, playerId, limit = 50 } = {}) {
+  if (!user?.clubId || !playerId) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('player_staff_notes')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .eq('player_id', playerId)
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizePlayerStaffNoteRow)
 }
 
 export async function updatePlayer({ user, playerId, player }) {

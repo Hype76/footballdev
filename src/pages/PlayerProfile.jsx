@@ -25,10 +25,13 @@ import {
 import {
   EVALUATION_SECTIONS,
   createCommunicationLog,
+  createPlayerStaffNote,
   createEvaluation,
   deleteEvaluation,
   deletePlayer,
   getEvaluations,
+  getPlayerCommunicationLogs,
+  getPlayerStaffNotes,
   getPlayers,
   formatParentContactEmails,
   formatParentContactNames,
@@ -81,6 +84,25 @@ function buildCommentsFromMergedResponses(formResponses) {
 
 const PROFILE_EVALUATION_PAGE_SIZE = 5
 
+function formatActivityDate(value) {
+  const parsedDate = new Date(value)
+  return Number.isNaN(parsedDate.getTime()) ? 'No date entered' : parsedDate.toLocaleString()
+}
+
+function getActivityLabel(log) {
+  const labels = {
+    scored_pdf_downloaded: 'PDF with scores downloaded',
+    pdf_without_scores_downloaded: 'PDF without scores downloaded',
+    email_template_pdf_downloaded: 'Email template PDF downloaded',
+    staff_note_added: 'Staff note added',
+    invite_back_selected: 'Invite back selected',
+    no_place_offered_selected: 'No place offered selected',
+    offer_place_selected: 'Offer place selected',
+  }
+
+  return labels[log?.action] || String(log?.action ?? 'Activity').replaceAll('_', ' ')
+}
+
 export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -99,10 +121,14 @@ export function PlayerProfile() {
     const cachedPlayers = readViewCacheValue(cacheKey, 'allPlayers', [])
     return Array.isArray(cachedPlayers) ? cachedPlayers : []
   })
+  const [staffNotes, setStaffNotes] = useState([])
+  const [activityLogs, setActivityLogs] = useState([])
+  const [noteDraft, setNoteDraft] = useState('')
   const [editingPlayerId, setEditingPlayerId] = useState('')
   const [playerDrafts, setPlayerDrafts] = useState({})
   const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
   const [isSavingPlayer, setIsSavingPlayer] = useState(false)
+  const [isSavingNote, setIsSavingNote] = useState(false)
   const [isPromotingId, setIsPromotingId] = useState('')
   const [isReassigningId, setIsReassigningId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
@@ -153,6 +179,19 @@ export function PlayerProfile() {
         const nextEvaluations = evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : []
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : []
         const nextAllPlayers = allPlayersResult.status === 'fulfilled' ? allPlayersResult.value : cachedValue?.allPlayers || []
+        const nextPrimaryPlayer = nextPlayers[0]
+        const [notesResult, activityResult] = nextPrimaryPlayer?.id
+          ? await Promise.allSettled([
+              withRequestTimeout(
+                () => getPlayerStaffNotes({ user, playerId: nextPrimaryPlayer.id }),
+                'Could not load staff notes.',
+              ),
+              withRequestTimeout(
+                () => getPlayerCommunicationLogs({ user, playerId: nextPrimaryPlayer.id }),
+                'Could not load player activity.',
+              ),
+            ])
+          : [{ status: 'fulfilled', value: [] }, { status: 'fulfilled', value: [] }]
 
         if (evaluationsResult.status === 'rejected') {
           console.error(evaluationsResult.reason)
@@ -169,11 +208,15 @@ export function PlayerProfile() {
         setEvaluations(nextEvaluations)
         setPlayers(nextPlayers)
         setAllPlayers(nextAllPlayers)
+        setStaffNotes(notesResult.status === 'fulfilled' ? notesResult.value : [])
+        setActivityLogs(activityResult.status === 'fulfilled' ? activityResult.value : [])
         setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, createPlayerDraft(player)])))
         writeViewCache(cacheKey, {
           evaluations: nextEvaluations,
           players: nextPlayers,
           allPlayers: nextAllPlayers,
+          staffNotes: notesResult.status === 'fulfilled' ? notesResult.value : [],
+          activityLogs: activityResult.status === 'fulfilled' ? activityResult.value : [],
         })
       } catch (error) {
         console.error(error)
@@ -427,6 +470,33 @@ export function PlayerProfile() {
         [fieldName]: value,
       },
     }))
+  }
+
+  const handleSaveStaffNote = async () => {
+    if (!primaryPlayer?.id) {
+      setErrorMessage('Player details are not available yet.')
+      return
+    }
+
+    setIsSavingNote(true)
+    setErrorMessage('')
+
+    try {
+      const nextNote = await createPlayerStaffNote({
+        user,
+        playerId: primaryPlayer.id,
+        note: noteDraft,
+      })
+      const nextActivity = await getPlayerCommunicationLogs({ user, playerId: primaryPlayer.id })
+      setStaffNotes((current) => [nextNote, ...current])
+      setActivityLogs(nextActivity)
+      setNoteDraft('')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not save staff note.')
+    } finally {
+      setIsSavingNote(false)
+    }
   }
 
   const handleStartEditingPlayer = (player) => {
@@ -1391,6 +1461,74 @@ export function PlayerProfile() {
           </div>
         </SectionCard>
       ) : null}
+
+      <SectionCard
+        title="Staff notes and activity"
+        description="Internal notes and staff actions stay inside the club workspace. They are not added to parent PDFs."
+      >
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Add internal note</span>
+              <textarea
+                value={noteDraft}
+                onChange={(event) => setNoteDraft(event.target.value)}
+                rows={4}
+                className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                placeholder="Add a staff-only note for this player"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void handleSaveStaffNote()}
+              disabled={isSavingNote || !noteDraft.trim() || !primaryPlayer?.id}
+              className="mt-3 inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSavingNote ? 'Saving...' : 'Save Note'}
+            </button>
+
+            <div className="mt-4 space-y-3">
+              {staffNotes.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+                  No staff notes yet.
+                </div>
+              ) : (
+                staffNotes.map((note) => (
+                  <div key={note.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{note.note}</p>
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                      {note.userName || note.userEmail || 'Staff'} | {formatActivityDate(note.createdAt)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Player activity</p>
+            <div className="mt-3 space-y-3">
+              {activityLogs.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+                  No player activity logged yet.
+                </div>
+              ) : (
+                activityLogs.slice(0, 10).map((log) => (
+                  <div key={log.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{getActivityLabel(log)}</p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">
+                      {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
+                    </p>
+                    {log.recipientEmail ? (
+                      <p className="mt-1 break-words text-xs text-[var(--text-muted)]">Recipient: {log.recipientEmail}</p>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </SectionCard>
 
       <SectionCard
         title="Past evaluations"

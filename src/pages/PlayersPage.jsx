@@ -7,6 +7,7 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, useAuth } from '../lib/auth.js'
 import {
   EVALUATION_SECTIONS,
+  createCommunicationLog,
   getEvaluations,
   getPlayers,
   readViewCache,
@@ -59,6 +60,8 @@ export function PlayersPage() {
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [playerPage, setPlayerPage] = useState(1)
+  const [actionLoadingKey, setActionLoadingKey] = useState('')
+  const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
@@ -130,6 +133,7 @@ export function PlayersPage() {
 
       playersByName.set(key, {
         playerName: player.playerName,
+        playerId: player.id,
         section: player.section,
         team: player.team,
         positions: player.positions ?? [],
@@ -152,6 +156,7 @@ export function PlayersPage() {
           section: evaluation.section,
           team: evaluation.team,
           positions: [],
+          playerId: evaluation.playerId || '',
           parentName: evaluation.parentName,
           parentEmail: evaluation.parentEmail,
           evaluations: [],
@@ -232,6 +237,40 @@ export function PlayersPage() {
     return <Navigate to="/" replace />
   }
 
+  const handlePlayerAction = async (event, player, action) => {
+    event.stopPropagation()
+    const playerId = player.playerId || players.find((savedPlayer) => getPlayerKey(savedPlayer.playerName) === getPlayerKey(player.playerName))?.id
+
+    if (!playerId) {
+      setErrorMessage('Open the player profile first so this action can be saved against the right player.')
+      return
+    }
+
+    setActionLoadingKey(`${playerId}:${action}`)
+    setErrorMessage('')
+    setMessage('')
+
+    try {
+      await createCommunicationLog({
+        user,
+        playerId,
+        channel: 'player_decision',
+        action,
+        metadata: {
+          playerName: player.playerName,
+          team: player.team,
+          section: player.section,
+        },
+      })
+      setMessage('Player action saved.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not save this player action.')
+    } finally {
+      setActionLoadingKey('')
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -241,6 +280,11 @@ export function PlayersPage() {
       />
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
+      {message ? (
+        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+          {message}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Link
@@ -332,47 +376,70 @@ export function PlayersPage() {
         ) : (
           <div className="mt-5 grid gap-3">
             {paginatedPlayers.items.map((player) => (
-              <button
+              <div
                 key={getPlayerKey(player.playerName)}
-                type="button"
-                onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
-                className="w-full rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-left transition hover:bg-[var(--panel-soft)]"
+                className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
               >
-                <div className="grid gap-4 lg:grid-cols-6 lg:items-center">
-                  <div className="lg:col-span-2">
-                    <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">
-                      {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
-                    </p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
+                  className="w-full text-left"
+                >
+                  <div className="grid gap-4 lg:grid-cols-6 lg:items-center">
+                    <div className="lg:col-span-2">
+                      <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
+                      <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'}</p>
+                      <p className="mt-1 text-sm text-[var(--text-muted)]">
+                        {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Section</p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.section}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Last Score</p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                        {player.latestScore !== null ? player.latestScore.toFixed(1) : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Average</p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                        {player.averageScore !== null ? player.averageScore.toFixed(1) : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Last Seen</p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatDate(player.latestDate)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Section</p>
-                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.section}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Last Score</p>
-                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
-                      {player.latestScore !== null ? player.latestScore.toFixed(1) : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Average</p>
-                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
-                      {player.averageScore !== null ? player.averageScore.toFixed(1) : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Last Seen</p>
-                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatDate(player.latestDate)}</p>
-                  </div>
-                  <div className="lg:col-span-6">
-                    <span className="inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] sm:w-auto">
-                      Open Profile To Edit Or Delete
-                    </span>
-                  </div>
+                </button>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  {[
+                    ['invite_back_selected', 'Invite Back'],
+                    ['no_place_offered_selected', 'No Place Offered'],
+                    ['offer_place_selected', 'Offer Place'],
+                  ].map(([action, label]) => (
+                    <button
+                      key={action}
+                      type="button"
+                      disabled={actionLoadingKey === `${player.playerId}:${action}`}
+                      onClick={(event) => void handlePlayerAction(event, player, action)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {actionLoadingKey === `${player.playerId}:${action}` ? 'Saving...' : label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                  >
+                    Open Profile
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
             <Pagination
               currentPage={playerPage}
