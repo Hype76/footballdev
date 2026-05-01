@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canViewActivityLog, useAuth } from '../lib/auth.js'
+import { canViewActivityLog, isSuperAdmin, useAuth } from '../lib/auth.js'
 import { getAuditLogs, getRecordBackups, withRequestTimeout } from '../lib/supabase.js'
 
 function formatDateTime(value) {
@@ -49,6 +49,7 @@ export function ActivityLogPage() {
   const [backupPage, setBackupPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const canViewSystemLogs = isSuperAdmin(user)
 
   useEffect(() => {
     let isMounted = true
@@ -66,7 +67,9 @@ export function ActivityLogPage() {
       try {
         const [nextLogs, nextBackups] = await Promise.all([
           withRequestTimeout(() => getAuditLogs({ user, limit: 250 }), 'Could not load activity.'),
-          withRequestTimeout(() => getRecordBackups({ user, limit: 50 }), 'Could not load backups.'),
+          canViewSystemLogs
+            ? withRequestTimeout(() => getRecordBackups({ user, limit: 50 }), 'Could not load backups.')
+            : Promise.resolve([]),
         ])
 
         if (!isMounted) {
@@ -93,7 +96,7 @@ export function ActivityLogPage() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [canViewSystemLogs, user])
 
   const actorOptions = useMemo(() => {
     const actors = new Map()
@@ -270,47 +273,49 @@ export function ActivityLogPage() {
         )}
       </SectionCard>
 
-      <SectionCard
-        title="Backup journal"
-        description="Core record changes are copied automatically so managers can see when data changed and platform admins have a fallback trail."
-      >
-        {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading backups...
-          </div>
-        ) : backups.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No backup entries have been recorded yet.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {paginatedBackups.items.map((backup) => (
-              <article
-                key={backup.id}
-                className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
-              >
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      {formatAction(backup.operation)} {formatAction(backup.tableName)}
-                    </p>
-                    <p className="mt-1 break-words text-sm text-[var(--text-muted)]">
-                      Record: {backup.recordId || 'No record ID'}
-                    </p>
+      {canViewSystemLogs ? (
+        <SectionCard
+          title="Backup journal"
+          description="Core record changes are copied automatically so platform admins have a fallback trail."
+        >
+          {isLoading ? (
+            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+              Loading backups...
+            </div>
+          ) : backups.length === 0 ? (
+            <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              No backup entries have been recorded yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {paginatedBackups.items.map((backup) => (
+                <article
+                  key={backup.id}
+                  className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        {formatAction(backup.operation)} {formatAction(backup.tableName)}
+                      </p>
+                      <p className="mt-1 break-words text-sm text-[var(--text-muted)]">
+                        Record: {backup.recordId || 'No record ID'}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-sm font-medium text-[var(--text-muted)]">{formatDateTime(backup.createdAt)}</p>
                   </div>
-                  <p className="shrink-0 text-sm font-medium text-[var(--text-muted)]">{formatDateTime(backup.createdAt)}</p>
-                </div>
-              </article>
-            ))}
-            <Pagination
-              currentPage={backupPage}
-              onPageChange={setBackupPage}
-              pageSize={BACKUP_PAGE_SIZE}
-              totalItems={backups.length}
-            />
-          </div>
-        )}
-      </SectionCard>
+                </article>
+              ))}
+              <Pagination
+                currentPage={backupPage}
+                onPageChange={setBackupPage}
+                pageSize={BACKUP_PAGE_SIZE}
+                totalItems={backups.length}
+              />
+            </div>
+          )}
+        </SectionCard>
+      ) : null}
     </div>
   )
 }

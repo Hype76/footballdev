@@ -3106,7 +3106,7 @@ export async function getRecordBackups({ user, limit = 50 } = {}) {
     return []
   }
 
-  if (user.role !== 'super_admin' && Number(user.roleRank ?? 0) < 50) {
+  if (user.role !== 'super_admin') {
     return []
   }
 
@@ -3116,10 +3116,6 @@ export async function getRecordBackups({ user, limit = 50 } = {}) {
     .order('created_at', { ascending: false })
     .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
 
-  if (user.role !== 'super_admin') {
-    query = query.eq('club_id', user.clubId)
-  }
-
   const { data, error } = await query
 
   if (error) {
@@ -3127,16 +3123,7 @@ export async function getRecordBackups({ user, limit = 50 } = {}) {
     throw error
   }
 
-  const normalizedBackups = (data ?? []).map(normalizeRecordBackupRow)
-
-  if (user.role === 'super_admin') {
-    return normalizedBackups
-  }
-
-  const currentRank = Number(user.roleRank ?? 0)
-  return normalizedBackups.filter(
-    (backup) => !backup.actorId || String(backup.actorId) === String(user.id) || Number(backup.actorRoleRank ?? 0) <= currentRank,
-  )
+  return (data ?? []).map(normalizeRecordBackupRow)
 }
 
 export async function createCommunicationLog({
