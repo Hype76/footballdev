@@ -20,7 +20,6 @@ import {
   getPlayers,
   readViewCache,
   readViewCacheValue,
-  updateAssessmentSessionPlayer,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -304,13 +303,6 @@ export function SessionsPage() {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState(() =>
     Array.isArray(storedSessionWorkspace.selectedPlayerIds) ? storedSessionWorkspace.selectedPlayerIds : [],
   )
-  const [notesDrafts, setNotesDrafts] = useState(() => {
-    const draftsBySession = storedSessionWorkspace.notesDraftsBySession
-    const selectedId = String(storedSessionWorkspace.selectedSessionId ?? '')
-    return draftsBySession && selectedId && typeof draftsBySession[selectedId] === 'object'
-      ? draftsBySession[selectedId]
-      : {}
-  })
   const [availablePlayerPage, setAvailablePlayerPage] = useState(1)
   const [sessionPlayerPage, setSessionPlayerPage] = useState(1)
   const [clearSessionTarget, setClearSessionTarget] = useState(null)
@@ -460,14 +452,12 @@ export function SessionsPage() {
 
       if (!selectedSessionId) {
         setSessionPlayers([])
-        setNotesDrafts({})
         return
       }
 
       if (selectedSession?.isHistorical) {
         const historicalPlayers = buildHistoricalSessionPlayers(evaluations, selectedSession)
         setSessionPlayers(historicalPlayers)
-        setNotesDrafts(Object.fromEntries(historicalPlayers.map((player) => [player.id, player.notes || ''])))
         return
       }
 
@@ -484,13 +474,6 @@ export function SessionsPage() {
         }
 
         setSessionPlayers(nextSessionPlayers)
-        setNotesDrafts((current) => {
-          const storedDrafts = storedSessionWorkspace.notesDraftsBySession?.[selectedSessionId]
-          const baseDrafts = storedDrafts && typeof storedDrafts === 'object' ? storedDrafts : current
-          return Object.fromEntries(
-            nextSessionPlayers.map((player) => [player.id, baseDrafts[player.id] ?? player.notes ?? '']),
-          )
-        })
       } catch (error) {
         console.error(error)
 
@@ -509,7 +492,7 @@ export function SessionsPage() {
     return () => {
       isMounted = false
     }
-  }, [combinedSessions, evaluations, selectedSessionId, storedSessionWorkspace.notesDraftsBySession, user])
+  }, [combinedSessions, evaluations, selectedSessionId, user])
 
   useEffect(() => {
     if (!workspaceStorageKey) {
@@ -521,12 +504,8 @@ export function SessionsPage() {
       ...currentStoredWorkspace,
       selectedSessionId,
       selectedPlayerIds,
-      notesDraftsBySession: {
-        ...(currentStoredWorkspace.notesDraftsBySession || {}),
-        ...(selectedSessionId ? { [selectedSessionId]: notesDrafts } : {}),
-      },
     })
-  }, [notesDrafts, selectedPlayerIds, selectedSessionId, workspaceStorageKey])
+  }, [selectedPlayerIds, selectedSessionId, workspaceStorageKey])
 
   const filteredPlayers = useMemo(
     () =>
@@ -755,41 +734,12 @@ export function SessionsPage() {
       })
       const nextSessionPlayers = await getAssessmentSessionPlayers({ user, sessionId: selectedSessionId })
       setSessionPlayers(nextSessionPlayers)
-      setNotesDrafts((current) =>
-        Object.fromEntries(nextSessionPlayers.map((player) => [player.id, current[player.id] ?? player.notes ?? ''])),
-      )
       setSelectedPlayerIds([])
       showToast({ title: 'Players added', message: `${playersToAdd.length} players added to the session.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not add players to this session.')
       showToast({ title: 'Players not added', message: error.message || 'Could not add players.', tone: 'error' })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleSaveNotes = async (sessionPlayer) => {
-    if (selectedSessionLocked) {
-      setErrorMessage('This session has been completed and can no longer be edited.')
-      return
-    }
-
-    setIsSaving(true)
-    setErrorMessage('')
-
-    try {
-      const updatedPlayer = await updateAssessmentSessionPlayer({
-        user,
-        sessionPlayerId: sessionPlayer.id,
-        notes: notesDrafts[sessionPlayer.id],
-      })
-      setSessionPlayers((current) => current.map((player) => (player.id === updatedPlayer.id ? updatedPlayer : player)))
-      showToast({ title: 'Player notes saved', message: `${updatedPlayer.playerName} was updated.` })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Could not save player notes.')
-      showToast({ title: 'Notes not saved', message: error.message || 'Could not save notes.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
@@ -827,7 +777,6 @@ export function SessionsPage() {
         sessionId: selectedSessionId,
       })
       setSessionPlayers([])
-      setNotesDrafts({})
       setSelectedPlayerIds([])
       const progressKey = getSessionProgressKey(user, selectedSessionId)
 
@@ -893,7 +842,7 @@ export function SessionsPage() {
       <PageHeader
         eyebrow="Sessions"
         title="Session planning"
-        description="Create a team session, add players from Trial or Squad, make coach notes, then assess everyone from one queue."
+        description="Create a team session, add players from Trial or Squad, then assess everyone from one queue."
       />
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
@@ -1243,30 +1192,6 @@ export function SessionsPage() {
                   </button>
                 </div>
 
-                <label className="mt-4 block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach notes</span>
-                  <textarea
-                    value={notesDrafts[player.id] ?? ''}
-                    disabled={selectedSessionLocked}
-                    onChange={(event) =>
-                      setNotesDrafts((current) => ({
-                        ...current,
-                        [player.id]: event.target.value,
-                      }))
-                    }
-                    rows="3"
-                    className="min-h-24 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  disabled={isSaving || selectedSessionLocked}
-                  onClick={() => void handleSaveNotes(player)}
-                  className="mt-3 inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Save Notes
-                </button>
               </div>
             ))}
             <Pagination
@@ -1287,7 +1212,6 @@ export function SessionsPage() {
         items={[
           `Session: ${clearSessionTarget?.session?.title || clearSessionTarget?.session?.team || 'Selected session'}`,
           `${clearSessionTarget?.playerCount ?? sessionPlayers.length} players from this session list`,
-          'Saved player notes for this session list',
         ]}
         confirmLabel="Clear Session"
         onCancel={() => setClearSessionTarget(null)}
