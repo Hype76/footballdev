@@ -29,7 +29,8 @@ export function Sidebar({ isOpen, onClose }) {
       item.path === '/assess-player' ||
       item.path === '/add-player' ||
       item.path === '/sessions' ||
-      item.path === '/players'
+      item.path === '/players' ||
+      item.path === '/archived-players'
     ) {
       return canCreateEvaluation(user)
     }

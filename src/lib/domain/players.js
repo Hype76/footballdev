@@ -1,12 +1,15 @@
 export {
+  archivePlayer,
   createCommunicationLog,
   createPlayerStaffNote,
   createPlayer,
   deletePlayer,
   deletePlayerRecord,
   getPlayerCommunicationLogs,
+  getPlayerDecisionLogs,
   getPlayerStaffNotes,
   getPlayers,
   promotePlayerToSquad,
+  restorePlayer,
   updatePlayer,
 } from './core.js'

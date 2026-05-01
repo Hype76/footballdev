@@ -70,15 +70,18 @@ export {
 } from './domain/teams.js'
 
 export {
+  archivePlayer,
   createCommunicationLog,
   createPlayerStaffNote,
   createPlayer,
   deletePlayer,
   deletePlayerRecord,
   getPlayerCommunicationLogs,
+  getPlayerDecisionLogs,
   getPlayerStaffNotes,
   getPlayers,
   promotePlayerToSquad,
+  restorePlayer,
   updatePlayer,
 } from './domain/players.js'
 

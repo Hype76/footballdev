@@ -4,11 +4,14 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
+import { ArchivePlayerModal } from '../components/players/ArchivePlayerModal.jsx'
 import { canCreateEvaluation, useAuth } from '../lib/auth.js'
 import {
   EVALUATION_SECTIONS,
+  archivePlayer,
   createCommunicationLog,
   getEvaluations,
+  getPlayerDecisionLogs,
   getPlayers,
   readViewCache,
   readViewCacheValue,
@@ -58,11 +61,16 @@ export function PlayersPage() {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
+  const [decisionLogs, setDecisionLogs] = useState(() => {
+    const cachedDecisionLogs = readViewCacheValue(cacheKey, 'decisionLogs', [])
+    return Array.isArray(cachedDecisionLogs) ? cachedDecisionLogs : []
+  })
   const [searchTerm, setSearchTerm] = useState('')
   const [playerPage, setPlayerPage] = useState(1)
   const [actionLoadingKey, setActionLoadingKey] = useState('')
+  const [archiveTarget, setArchiveTarget] = useState(null)
   const [message, setMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
+  const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0 && decisionLogs.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
@@ -74,9 +82,10 @@ export function PlayersPage() {
       setErrorMessage('')
 
       try {
-        const [playersResult, evaluationsResult] = await Promise.allSettled([
+        const [playersResult, evaluationsResult, decisionLogsResult] = await Promise.allSettled([
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load player history.'),
+          withRequestTimeout(() => getPlayerDecisionLogs({ user }), 'Could not load player actions.'),
         ])
 
         if (!isMounted) {
@@ -86,6 +95,8 @@ export function PlayersPage() {
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : cachedValue?.players || []
         const nextEvaluations =
           evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : cachedValue?.evaluations || []
+        const nextDecisionLogs =
+          decisionLogsResult.status === 'fulfilled' ? decisionLogsResult.value : cachedValue?.decisionLogs || []
 
         if (playersResult.status === 'rejected') {
           console.error(playersResult.reason)
@@ -95,14 +106,20 @@ export function PlayersPage() {
           console.error(evaluationsResult.reason)
         }
 
+        if (decisionLogsResult.status === 'rejected') {
+          console.error(decisionLogsResult.reason)
+        }
+
         setPlayers(nextPlayers)
         setEvaluations(nextEvaluations)
+        setDecisionLogs(nextDecisionLogs)
         writeViewCache(cacheKey, {
           players: nextPlayers,
           evaluations: nextEvaluations,
+          decisionLogs: nextDecisionLogs,
         })
 
-        if (playersResult.status === 'rejected' || evaluationsResult.status === 'rejected') {
+        if (playersResult.status === 'rejected' || evaluationsResult.status === 'rejected' || decisionLogsResult.status === 'rejected') {
           setErrorMessage('Some player data could not be refreshed. Existing data is still available where possible.')
         }
       } finally {
@@ -121,6 +138,26 @@ export function PlayersPage() {
     }
   }, [cacheKey, user, userScopeKey])
 
+  const playerDecisionActions = useMemo(() => {
+    const actionsByPlayerId = new Map()
+
+    decisionLogs.forEach((log) => {
+      const playerId = String(log.playerId ?? '').trim()
+
+      if (!playerId) {
+        return
+      }
+
+      if (!actionsByPlayerId.has(playerId)) {
+        actionsByPlayerId.set(playerId, new Set())
+      }
+
+      actionsByPlayerId.get(playerId).add(log.action)
+    })
+
+    return actionsByPlayerId
+  }, [decisionLogs])
+
   const playerRows = useMemo(() => {
     const playersByName = new Map()
 
@@ -136,6 +173,7 @@ export function PlayersPage() {
         playerId: player.id,
         section: player.section,
         team: player.team,
+        status: player.status,
         positions: player.positions ?? [],
         parentName: player.parentName,
         parentEmail: player.parentEmail,
@@ -155,6 +193,7 @@ export function PlayersPage() {
           playerName: evaluation.playerName,
           section: evaluation.section,
           team: evaluation.team,
+          status: 'active',
           positions: [],
           playerId: evaluation.playerId || '',
           parentName: evaluation.parentName,
@@ -263,9 +302,62 @@ export function PlayersPage() {
         },
       })
       setMessage('Player action saved.')
+      if (playerId) {
+        setDecisionLogs((current) => [
+          {
+            id: `${playerId}:${action}:${Date.now()}`,
+            playerId,
+            action,
+            channel: 'player_decision',
+            metadata: {
+              playerName: player.playerName,
+              team: player.team,
+              section: player.section,
+            },
+          },
+          ...current,
+        ])
+      }
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not save this player action.')
+    } finally {
+      setActionLoadingKey('')
+    }
+  }
+
+  const handleArchivePlayer = (event, player) => {
+    event.stopPropagation()
+
+    if (!player.playerId) {
+      setErrorMessage('Open the player profile first so this player can be archived correctly.')
+      return
+    }
+
+    setArchiveTarget(player)
+  }
+
+  const confirmArchivePlayer = async (reason) => {
+    if (!archiveTarget?.playerId) {
+      return
+    }
+
+    setActionLoadingKey(`${archiveTarget.playerId}:archive`)
+    setErrorMessage('')
+    setMessage('')
+
+    try {
+      await archivePlayer({
+        user,
+        playerId: archiveTarget.playerId,
+        reason,
+      })
+      setPlayers((current) => current.filter((player) => player.id !== archiveTarget.playerId))
+      setMessage(`${archiveTarget.playerName} was moved to archived players.`)
+      setArchiveTarget(null)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not archive this player.')
     } finally {
       setActionLoadingKey('')
     }
@@ -375,7 +467,16 @@ export function PlayersPage() {
           </div>
         ) : (
           <div className="mt-5 grid gap-3">
-            {paginatedPlayers.items.map((player) => (
+            {paginatedPlayers.items.map((player) => {
+              const isSquadPlayer = String(player.section ?? '').toLowerCase() === 'squad'
+              const completedActions = playerDecisionActions.get(String(player.playerId ?? '').trim()) ?? new Set()
+              const availableActions = [
+                ['invite_back_selected', 'Invite Back'],
+                ['no_place_offered_selected', 'No Place Offered'],
+                ['offer_place_selected', 'Offer Place'],
+              ].filter(([action]) => !completedActions.has(action))
+
+              return (
               <div
                 key={getPlayerKey(player.playerName)}
                 className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
@@ -416,11 +517,7 @@ export function PlayersPage() {
                   </div>
                 </button>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  {[
-                    ['invite_back_selected', 'Invite Back'],
-                    ['no_place_offered_selected', 'No Place Offered'],
-                    ['offer_place_selected', 'Offer Place'],
-                  ].map(([action, label]) => (
+                  {!isSquadPlayer ? availableActions.map(([action, label]) => (
                     <button
                       key={action}
                       type="button"
@@ -430,7 +527,15 @@ export function PlayersPage() {
                     >
                       {actionLoadingKey === `${player.playerId}:${action}` ? 'Saving...' : label}
                     </button>
-                  ))}
+                  )) : null}
+                  <button
+                    type="button"
+                    disabled={actionLoadingKey === `${player.playerId}:archive`}
+                    onClick={(event) => handleArchivePlayer(event, player)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {actionLoadingKey === `${player.playerId}:archive` ? 'Archiving...' : 'Archive'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
@@ -440,7 +545,8 @@ export function PlayersPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              )
+            })}
             <Pagination
               currentPage={playerPage}
               onPageChange={setPlayerPage}
@@ -450,6 +556,14 @@ export function PlayersPage() {
           </div>
         )}
       </SectionCard>
+
+      <ArchivePlayerModal
+        isOpen={Boolean(archiveTarget)}
+        isBusy={actionLoadingKey.endsWith(':archive')}
+        player={archiveTarget}
+        onCancel={() => setArchiveTarget(null)}
+        onConfirm={(reason) => void confirmArchivePlayer(reason)}
+      />
     </div>
   )
 }

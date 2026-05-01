@@ -31,6 +31,7 @@ function lazyRoute(importer, exportName) {
 
 const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'AddPlayerPage')
 const ActivityLogPage = lazyRoute(() => import('../pages/ActivityLogPage.jsx'), 'ActivityLogPage')
+const ArchivedPlayersPage = lazyRoute(() => import('../pages/ArchivedPlayersPage.jsx'), 'ArchivedPlayersPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
@@ -677,6 +678,17 @@ export const router = createBrowserRouter([
                     ),
                     handle: {
                       title: 'Players',
+                    },
+                  },
+                  {
+                    path: 'archived-players',
+                    element: (
+                      <PageSuspense>
+                        <ArchivedPlayersPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Archived Players',
                     },
                   },
                   {

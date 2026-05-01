@@ -538,6 +538,10 @@ function normalizePlayerRow(row) {
     parentContacts,
     notes: String(row.notes ?? '').trim(),
     status: String(row.status ?? 'active').trim() || 'active',
+    archivedReason: String(row.archived_reason ?? row.archivedReason ?? '').trim(),
+    archivedAt: row.archived_at ?? row.archivedAt ?? '',
+    archivedBy: row.archived_by ?? row.archivedBy ?? '',
+    archivedPreviousStatus: String(row.archived_previous_status ?? row.archivedPreviousStatus ?? '').trim(),
     promotedAt: row.promoted_at ?? row.promotedAt ?? '',
     promotedBy: row.promoted_by ?? row.promotedBy ?? '',
     createdBy: row.created_by ?? row.createdBy ?? '',
@@ -2785,12 +2789,12 @@ export async function getEvaluations({ user, status, playerName, section } = {})
   })
 }
 
-export async function getPlayers({ user, section, playerName } = {}) {
+export async function getPlayers({ user, section, playerName, status, includeArchived = false } = {}) {
   if (!user?.clubId || user.role === 'super_admin') {
     return []
   }
 
-  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerName || 'all'}:${user.activeTeamId || user.activeTeamName || 'all'}`
+  const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerName || 'all'}:${status || 'current'}:${includeArchived ? 'with-archived' : 'without-archived'}:${user.activeTeamId || user.activeTeamName || 'all'}`
 
   return getCachedResource(cacheKey, async () => {
     let query = supabase
@@ -2802,6 +2806,12 @@ export async function getPlayers({ user, section, playerName } = {}) {
 
     if (section) {
       query = query.eq('section', section)
+    }
+
+    if (status) {
+      query = query.eq('status', status)
+    } else if (!includeArchived) {
+      query = query.neq('status', 'archived')
     }
 
     if (user.activeTeamName) {
@@ -2859,6 +2869,141 @@ export async function createPlayer({ user, player }) {
       team: data.team,
     },
   })
+  return normalizePlayerRow(data)
+}
+
+export async function archivePlayer({ user, playerId, reason }) {
+  const normalizedReason = String(reason ?? '').trim()
+
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to archive players.')
+  }
+
+  if (!playerId) {
+    throw new Error('Player is required.')
+  }
+
+  if (!normalizedReason) {
+    throw new Error('Add an archive reason before continuing.')
+  }
+
+  const { data: currentPlayerRow, error: currentPlayerError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (currentPlayerError) {
+    console.error(currentPlayerError)
+    throw currentPlayerError
+  }
+
+  const currentPlayer = normalizePlayerRow(currentPlayerRow)
+  const previousStatus = currentPlayer.status === 'archived'
+    ? currentPlayer.archivedPreviousStatus || 'active'
+    : currentPlayer.status || 'active'
+
+  const { data, error } = await supabase
+    .from('players')
+    .update({
+      status: 'archived',
+      archived_reason: normalizedReason,
+      archived_at: new Date().toISOString(),
+      archived_by: user.id,
+      archived_previous_status: previousStatus,
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+    })
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'player_archived',
+    entityType: 'player',
+    entityId: data.id,
+    metadata: {
+      playerName: data.player_name,
+      section: data.section,
+      team: data.team,
+      reason: normalizedReason,
+    },
+  })
+
+  return normalizePlayerRow(data)
+}
+
+export async function restorePlayer({ user, playerId }) {
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to restore players.')
+  }
+
+  if (!playerId) {
+    throw new Error('Player is required.')
+  }
+
+  const { data: currentPlayerRow, error: currentPlayerError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (currentPlayerError) {
+    console.error(currentPlayerError)
+    throw currentPlayerError
+  }
+
+  const currentPlayer = normalizePlayerRow(currentPlayerRow)
+  const restoredStatus = currentPlayer.archivedPreviousStatus && currentPlayer.archivedPreviousStatus !== 'archived'
+    ? currentPlayer.archivedPreviousStatus
+    : 'active'
+
+  const { data, error } = await supabase
+    .from('players')
+    .update({
+      status: restoredStatus,
+      archived_reason: null,
+      archived_at: null,
+      archived_by: null,
+      archived_previous_status: null,
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+    })
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'player_restored',
+    entityType: 'player',
+    entityId: data.id,
+    metadata: {
+      playerName: data.player_name,
+      section: data.section,
+      team: data.team,
+    },
+  })
+
   return normalizePlayerRow(data)
 }
 
@@ -3037,6 +3182,33 @@ export async function getPlayerCommunicationLogs({ user, playerId, limit = 50 } 
     .eq('player_id', playerId)
     .order('created_at', { ascending: false })
     .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeCommunicationLogRow)
+}
+
+export async function getPlayerDecisionLogs({ user, limit = 1000 } = {}) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  let query = supabase
+    .from('communication_logs')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .eq('channel', 'player_decision')
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 1000, 1), 2000))
+
+  if (user.activeTeamName) {
+    query = query.eq('metadata->>team', user.activeTeamName)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error(error)

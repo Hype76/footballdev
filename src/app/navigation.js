@@ -16,6 +16,10 @@ export const primaryNavigation = [
     path: '/players',
   },
   {
+    label: 'Archived Players',
+    path: '/archived-players',
+  },
+  {
     label: 'Add Player',
     path: '/add-player',
   },
