@@ -1,4 +1,4 @@
-import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
+import fallbackLogo from '../../assets/player-feedback-logo.png'
 
 function formatPreviewValue(value) {
   if (typeof value === 'number') {

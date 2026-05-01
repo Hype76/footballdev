@@ -1,4 +1,4 @@
-import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
+import fallbackLogo from '../assets/player-feedback-logo.png'
 
 const LOGO_TIMEOUT_MS = 2500
 

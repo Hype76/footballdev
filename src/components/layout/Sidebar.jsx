@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
+import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,

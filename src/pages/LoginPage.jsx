@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
+import fallbackLogo from '../assets/player-feedback-logo.png'
 import { useAuth } from '../lib/auth.js'
 
 const initialFormData = {
@@ -36,7 +36,7 @@ function formatPrice(plan, billingCycle) {
   }
 
   const price = billingCycle === 'annual' ? plan.price * 10 : plan.price
-  return `£${price.toFixed(2)}`
+  return `\u00a3${price.toFixed(2)}`
 }
 
 function formatPriceLabel(plan, billingCycle) {
@@ -128,10 +128,10 @@ export function LoginPage() {
         <header className="flex items-center justify-between gap-4 rounded-[32px] border border-white/10 bg-white/[0.04] px-4 py-4 backdrop-blur sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[24px] border border-[#d8ff2f]/30 bg-black/50 shadow-lg shadow-[#d8ff2f]/10 sm:h-24 sm:w-24">
-              <img src={fallbackLogo} alt="Football Development" className="h-full w-full object-contain p-1" />
+              <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-contain p-1" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-lg font-black tracking-tight sm:text-xl">Football Development</p>
+              <p className="truncate text-lg font-black tracking-tight sm:text-xl">Player Feedback</p>
               <p className="truncate text-xs text-slate-400 sm:text-sm">Football trial and player feedback software</p>
             </div>
           </div>
@@ -146,12 +146,23 @@ export function LoginPage() {
               Built for football clubs
             </div>
 
-            <h1 className="mt-6 max-w-3xl text-4xl font-black leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl">
-              Run trials properly. Track players clearly. Send feedback faster.
+            <h1 className="mt-6 max-w-3xl space-y-3 text-4xl font-black leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl">
+              <span className="flex items-start gap-4">
+                <span>Run trials properly.</span>
+                <span className="text-[#d8ff2f]">{"\u2713"}</span>
+              </span>
+              <span className="flex items-start gap-4">
+                <span>Track players clearly.</span>
+                <span className="text-[#d8ff2f]">{"\u2713"}</span>
+              </span>
+              <span className="flex items-start gap-4">
+                <span>Send feedback faster.</span>
+                <span className="text-[#d8ff2f]">{"\u2713"}</span>
+              </span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-              Football Development gives clubs one workspace for sessions, trialists, squad players, custom assessment
+              Player Feedback gives clubs one workspace for sessions, trialists, squad players, custom assessment
               forms, parent ready PDFs, staff roles, and activity history.
             </p>
 
@@ -187,7 +198,7 @@ export function LoginPage() {
           <section className="order-1 lg:order-2">
             <div className="mx-auto w-full max-w-md rounded-[32px] border border-white/10 bg-[#0b130d]/90 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-6">
               <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden rounded-[30px] border border-[#d8ff2f]/30 bg-black/50 shadow-xl shadow-[#d8ff2f]/10 sm:h-32 sm:w-32">
-                <img src={fallbackLogo} alt="Football Development" className="h-full w-full object-contain p-2" />
+                <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-contain p-2" />
               </div>
               <div className="rounded-[26px] border border-[#d8ff2f]/15 bg-[linear-gradient(135deg,rgba(216,255,47,0.14),rgba(255,255,255,0.04))] p-5">
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#d8ff2f]">

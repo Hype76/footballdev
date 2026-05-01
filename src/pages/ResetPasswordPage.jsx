@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import fallbackLogo from '../assets/football-development-logo-optimized.jpg'
+import fallbackLogo from '../assets/player-feedback-logo.png'
 import { useAuth } from '../lib/auth.js'
 import { updateSignedInPassword } from '../lib/supabase.js'
 
@@ -58,10 +58,10 @@ export function ResetPasswordPage() {
       <section className="w-full max-w-xl rounded-[32px] border border-[#20301f] bg-[#0b140c] px-6 py-8 shadow-xl shadow-black/30 sm:px-10 sm:py-10">
         <div className="flex items-center gap-4">
           <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-[#bfff2f]/30 bg-black/30">
-            <img src={fallbackLogo} alt="Football Development" className="h-full w-full object-cover" />
+            <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-cover" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#c6ff2f]">Football Development</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#c6ff2f]">Player Feedback</p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Reset password</h1>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
+import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
 
 export function Topbar({ title, onMenuClick }) {
