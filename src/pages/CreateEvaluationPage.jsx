@@ -56,6 +56,74 @@ function mapEvaluationResponsesToFieldValues(fields, formResponses = {}) {
   )
 }
 
+function normalizeAssessmentLabel(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function isEnteredAssessmentValue(value) {
+  if (Array.isArray(value)) {
+    return value.length > 0
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.keys(value).length > 0
+  }
+
+  return String(value ?? '').trim() !== ''
+}
+
+function formatAssessmentValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item ?? '').trim()).filter(Boolean).join(', ')
+  }
+
+  if (value && typeof value === 'object') {
+    return JSON.stringify(value, null, 2)
+  }
+
+  return String(value ?? '').trim() || 'No data entered'
+}
+
+function buildPreviousAssessmentItems(evaluation) {
+  const items = []
+  const usedLabels = new Set()
+
+  const addItem = (label, value) => {
+    const cleanLabel = String(label ?? '').trim()
+
+    if (!cleanLabel) {
+      return
+    }
+
+    const normalizedLabel = normalizeAssessmentLabel(cleanLabel)
+
+    if (usedLabels.has(normalizedLabel)) {
+      return
+    }
+
+    usedLabels.add(normalizedLabel)
+    items.push({
+      label: cleanLabel,
+      value: isEnteredAssessmentValue(value) ? formatAssessmentValue(value) : 'No data entered',
+    })
+  }
+
+  Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
+    addItem(label, value)
+  })
+
+  Object.entries(evaluation.scores ?? {}).forEach(([label, value]) => {
+    addItem(label, value)
+  })
+
+  const comments = evaluation.comments && typeof evaluation.comments === 'object' ? evaluation.comments : {}
+  addItem('Strengths', comments.strengths)
+  addItem('Improvements', comments.improvements)
+  addItem('Overall Comments', comments.overall)
+
+  return items
+}
+
 export function CreateEvaluationPage() {
   const { user } = useAuth()
   const isPlatformOwner = isSuperAdmin(user)
@@ -1150,25 +1218,40 @@ export function CreateEvaluationPage() {
                   </div>
                   {showPreviousAssessments ? (
                     <div className="mt-4 grid gap-3">
-                      {previousEvaluations.map((evaluation) => (
-                        <div key={evaluation.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
-                            <p className="text-sm font-semibold text-[var(--text-secondary)]">
-                              Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
-                            </p>
+                      {previousEvaluations.map((evaluation) => {
+                        const previousAssessmentItems = buildPreviousAssessmentItems(evaluation)
+
+                        return (
+                          <div key={evaluation.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
+                              <p className="text-sm font-semibold text-[var(--text-secondary)]">
+                                Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
+                              </p>
+                            </div>
+                            <div className="mt-2 grid gap-1 text-sm text-[var(--text-muted)] sm:grid-cols-2">
+                              <p>Session: {evaluation.session || 'No session entered'}</p>
+                              <p>Section: {evaluation.section || 'No section entered'}</p>
+                              <p>Team: {evaluation.team || 'No team entered'}</p>
+                              <p>Coach: {evaluation.coach || 'No coach entered'}</p>
+                            </div>
+                            <div className="mt-3 grid gap-2 md:grid-cols-2">
+                              {previousAssessmentItems.length > 0 ? (
+                                previousAssessmentItems.map((item) => (
+                                  <div key={item.label} className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{item.label}</p>
+                                    <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-muted)]">{item.value}</p>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-muted)] md:col-span-2">
+                                  No assessment details were entered.
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <p className="mt-2 text-sm text-[var(--text-muted)]">Session: {evaluation.session || 'No session entered'}</p>
-                          <div className="mt-3 grid gap-2 md:grid-cols-2">
-                            {Object.entries(evaluation.formResponses ?? {}).slice(0, 6).map(([label, value]) => (
-                              <div key={label} className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
-                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{label}</p>
-                                <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-muted)]">{String(value || 'No data entered')}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : null}
                 </SectionCard>
