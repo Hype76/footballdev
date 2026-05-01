@@ -8,12 +8,52 @@ const initialFormData = {
   clubName: '',
 }
 
+const pricingPlans = [
+  {
+    name: 'Free',
+    price: 'Free',
+    annualPrice: '',
+    description: 'For testing the basics before moving your club workflow online.',
+    features: ['5 players', '10 evaluations per month', 'Basic form only', 'No PDF export', 'No email sending'],
+  },
+  {
+    name: 'Pro',
+    price: 9.99,
+    description: 'For clubs ready to send structured feedback to parents.',
+    features: ['Unlimited players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic branding with club name and logo'],
+  },
+  {
+    name: 'Club',
+    price: 24.99,
+    description: 'For multi-team clubs needing staff access and oversight.',
+    features: ['Everything in Pro', 'Multiple teams', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
+  },
+]
+
+function formatPrice(plan, billingCycle) {
+  if (typeof plan.price !== 'number') {
+    return plan.price
+  }
+
+  const price = billingCycle === 'annual' ? plan.price * 10 : plan.price
+  return `£${price.toFixed(2)}`
+}
+
+function formatPriceLabel(plan, billingCycle) {
+  if (typeof plan.price !== 'number') {
+    return 'No card needed'
+  }
+
+  return billingCycle === 'annual' ? 'per year' : 'per month'
+}
+
 export function LoginPage() {
   const { authError, resetPassword, signInWithPassword, signUpWithClub } = useAuth()
   const [mode, setMode] = useState('login')
   const [formData, setFormData] = useState(initialFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [billingCycle, setBillingCycle] = useState('monthly')
   const [localMessage, setLocalMessage] = useState('')
   const [localError, setLocalError] = useState('')
 
@@ -79,20 +119,20 @@ export function LoginPage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#030603] text-white">
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-[-10%] top-[-20%] h-[520px] w-[520px] rounded-full bg-[#d8ff2f]/15 blur-[90px]" />
-        <div className="absolute bottom-[-25%] right-[-10%] h-[560px] w-[560px] rounded-full bg-[#1f8a47]/20 blur-[100px]" />
+        <div className="absolute left-[-10%] top-[-20%] h-[560px] w-[560px] rounded-full bg-[#d8ff2f]/18 blur-[100px]" />
+        <div className="absolute bottom-[-25%] right-[-10%] h-[600px] w-[600px] rounded-full bg-[#1f8a47]/22 blur-[110px]" />
         <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(216,255,47,0.05),transparent_35%,rgba(255,255,255,0.04))]" />
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
-        <header className="flex items-center justify-between gap-4 rounded-[28px] border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur sm:px-5">
+        <header className="flex items-center justify-between gap-4 rounded-[32px] border border-white/10 bg-white/[0.04] px-4 py-4 backdrop-blur sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#d8ff2f]/30 bg-black/40">
-              <img src={fallbackLogo} alt="Football Development" className="h-full w-full object-cover" />
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[24px] border border-[#d8ff2f]/30 bg-black/50 shadow-lg shadow-[#d8ff2f]/10 sm:h-24 sm:w-24">
+              <img src={fallbackLogo} alt="Football Development" className="h-full w-full object-contain p-1" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold tracking-tight">Football Development</p>
-              <p className="truncate text-xs text-slate-400">Player feedback and club operations</p>
+              <p className="truncate text-lg font-black tracking-tight sm:text-xl">Football Development</p>
+              <p className="truncate text-xs text-slate-400 sm:text-sm">Football trial and player feedback software</p>
             </div>
           </div>
           <div className="hidden items-center gap-2 rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-2 text-xs font-semibold text-[#d8ff2f] sm:flex">
@@ -103,23 +143,23 @@ export function LoginPage() {
         <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[1.08fr_0.92fr] lg:py-10">
           <section className="order-2 lg:order-1">
             <div className="inline-flex rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">
-              Club assessment software
+              Built for football clubs
             </div>
 
             <h1 className="mt-6 max-w-3xl text-4xl font-black leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl">
-              Run trials, manage squads, and send polished player feedback.
+              Run trials properly. Track players clearly. Send feedback faster.
             </h1>
 
             <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-              A club workspace for coaches, managers, and admins to track players, build assessment forms, create
-              sessions, export feedback, and keep access controlled by role.
+              Football Development gives clubs one workspace for sessions, trialists, squad players, custom assessment
+              forms, parent ready PDFs, staff roles, and activity history.
             </p>
 
             <div className="mt-8 grid max-w-3xl gap-3 sm:grid-cols-3">
               {[
-                ['Trials', 'Assess trialists and move the right players forward.'],
-                ['Squads', 'Track current players, positions, and development history.'],
-                ['Feedback', 'Generate parent ready PDFs and email templates.'],
+                ['Sessions', 'Create match or training sessions and assess players from one queue.'],
+                ['Players', 'Keep trial and squad histories separate, searchable, and easy to update.'],
+                ['Feedback', 'Export scored reports or parent friendly email template PDFs.'],
               ].map(([title, copy]) => (
                 <div key={title} className="rounded-[24px] border border-white/10 bg-white/[0.05] p-4 backdrop-blur">
                   <p className="text-sm font-bold text-white">{title}</p>
@@ -130,15 +170,15 @@ export function LoginPage() {
 
             <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
               <div className="rounded-[28px] border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 p-5">
-                <p className="text-3xl font-black text-[#d8ff2f]">Role based</p>
+                <p className="text-3xl font-black text-[#d8ff2f]">Controlled</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Staff only see the pages and players their role allows.
+                  Staff see the teams, players, and tools their role allows.
                 </p>
               </div>
               <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-5">
                 <p className="text-3xl font-black">Club branded</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Uploaded club logos are used across the workspace and exports.
+                  Club logos are used inside the app and on exported feedback.
                 </p>
               </div>
             </div>
@@ -146,6 +186,9 @@ export function LoginPage() {
 
           <section className="order-1 lg:order-2">
             <div className="mx-auto w-full max-w-md rounded-[32px] border border-white/10 bg-[#0b130d]/90 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-6">
+              <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden rounded-[30px] border border-[#d8ff2f]/30 bg-black/50 shadow-xl shadow-[#d8ff2f]/10 sm:h-32 sm:w-32">
+                <img src={fallbackLogo} alt="Football Development" className="h-full w-full object-contain p-2" />
+              </div>
               <div className="rounded-[26px] border border-[#d8ff2f]/15 bg-[linear-gradient(135deg,rgba(216,255,47,0.14),rgba(255,255,255,0.04))] p-5">
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#d8ff2f]">
                   {mode === 'signup' ? 'Create account' : 'Secure login'}
@@ -271,17 +314,83 @@ export function LoginPage() {
           </section>
         </div>
 
-        <footer className="grid gap-3 pb-3 text-xs text-slate-500 sm:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-            Managers control staff roles and club setup.
+        <section className="pb-8">
+          <div className="flex flex-col gap-4 rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Pricing</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Simple plans for growing clubs</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                Start small, then move to a paid plan when your club needs more structure. Annual billing for paid plans is charged at 10 months.
+              </p>
+            </div>
+            <div className="grid w-full max-w-xs grid-cols-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+              {[
+                ['monthly', 'Monthly'],
+                ['annual', 'Annual'],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setBillingCycle(key)}
+                  className={[
+                    'min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
+                    billingCycle === key ? 'bg-[#d8ff2f] text-black' : 'text-slate-300 hover:text-white',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-            Coaches manage sessions, players, and assessments.
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            {pricingPlans.map((plan) => (
+              <div
+                key={plan.name}
+                className="flex flex-col rounded-[30px] border border-white/10 bg-[#0b130d]/90 p-5 shadow-xl shadow-black/20 backdrop-blur"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-lg font-black text-white">{plan.name}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">{plan.description}</p>
+                  </div>
+                  {plan.name === 'Pro' ? (
+                    <span className="rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
+                      Popular
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-6">
+                  <span className="text-4xl font-black text-white">{formatPrice(plan, billingCycle)}</span>
+                  <span className="ml-2 text-sm font-semibold text-slate-400">{formatPriceLabel(plan, billingCycle)}</span>
+                  {typeof plan.price === 'number' && billingCycle === 'annual' ? (
+                    <p className="mt-2 text-xs font-semibold text-[#d8ff2f]">2 months free compared with monthly</p>
+                  ) : null}
+                </div>
+                <ul className="mt-6 grow space-y-3">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex gap-3 text-sm leading-6 text-slate-300">
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#d8ff2f]" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => setMode('signup')}
+                  className={[
+                    'mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition',
+                    plan.name === 'Pro'
+                      ? 'bg-[#d8ff2f] text-black hover:opacity-90'
+                      : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
+                  ].join(' ')}
+                >
+                  {plan.name === 'Free' ? 'Start Free' : 'Choose Plan'}
+                </button>
+              </div>
+            ))}
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-            Platform admins manage clubs without seeing child details.
-          </div>
-        </footer>
+        </section>
       </div>
     </main>
   )
