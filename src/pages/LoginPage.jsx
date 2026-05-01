@@ -146,18 +146,18 @@ export function LoginPage() {
               Built for football clubs
             </div>
 
-            <h1 className="mt-6 max-w-2xl space-y-3 text-4xl font-black leading-[1.02] tracking-tight sm:text-5xl lg:text-6xl">
-              <span className="flex w-fit items-start gap-3">
+            <h1 className="mt-6 max-w-2xl space-y-4 text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl xl:text-6xl">
+              <span className="flex items-start gap-4">
+                <span className="shrink-0 text-[0.9em] leading-none text-[#d8ff2f]">{"\u2713"}</span>
                 <span>Run trials properly.</span>
-                <span className="text-[0.9em] text-[#d8ff2f]">{"\u2713"}</span>
               </span>
-              <span className="flex w-fit items-start gap-3">
+              <span className="flex items-start gap-4">
+                <span className="shrink-0 text-[0.9em] leading-none text-[#d8ff2f]">{"\u2713"}</span>
                 <span>Track players clearly.</span>
-                <span className="text-[0.9em] text-[#d8ff2f]">{"\u2713"}</span>
               </span>
-              <span className="flex w-fit items-start gap-3">
+              <span className="flex items-start gap-4">
+                <span className="shrink-0 text-[0.9em] leading-none text-[#d8ff2f]">{"\u2713"}</span>
                 <span>Send feedback faster.</span>
-                <span className="text-[0.9em] text-[#d8ff2f]">{"\u2713"}</span>
               </span>
             </h1>
 
