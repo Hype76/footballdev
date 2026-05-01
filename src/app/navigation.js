@@ -1,23 +1,11 @@
 export const primaryNavigation = [
   {
-    label: 'Platform Admin',
-    path: '/platform-admin',
-  },
-  {
-    label: 'Teams',
-    path: '/teams',
-  },
-  {
     label: 'Sessions',
     path: '/sessions',
   },
   {
     label: 'Players',
     path: '/players',
-  },
-  {
-    label: 'Archived Players',
-    path: '/archived-players',
   },
   {
     label: 'Add Player',
@@ -36,7 +24,7 @@ export const primaryNavigation = [
     path: '/activity-log',
   },
   {
-    label: 'Club Settings',
-    path: '/club-settings',
+    label: 'Archived Players',
+    path: '/archived-players',
   },
 ]

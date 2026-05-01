@@ -3,10 +3,8 @@ import fallbackLogo from '../../assets/football-development-logo-optimized.jpg'
 import { primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
-  canManageClubSettings,
   canManageFormFields,
   canManageUsers,
-  canManageTeamSettings,
   canViewActivityLog,
   isSuperAdmin,
   useAuth,
@@ -18,11 +16,7 @@ export function Sidebar({ isOpen, onClose }) {
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const navigationItems = primaryNavigation.filter((item) => {
     if (isSuperAdmin(user)) {
-      return item.path === '/platform-admin' || item.path === '/activity-log'
-    }
-
-    if (item.path === '/platform-admin') {
-      return false
+      return item.path === '/activity-log'
     }
 
     if (
@@ -43,16 +37,8 @@ export function Sidebar({ isOpen, onClose }) {
       return canViewActivityLog(user)
     }
 
-    if (item.path === '/teams') {
-      return canManageTeamSettings(user)
-    }
-
     if (item.path === '/form-builder') {
       return canManageFormFields(user)
-    }
-
-    if (item.path === '/club-settings') {
-      return canManageClubSettings(user)
     }
 
     return true
@@ -130,6 +116,20 @@ export function Sidebar({ isOpen, onClose }) {
             <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
               Platform tools
             </p>
+            <NavLink
+              to="/platform-admin"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
+                ].join(' ')
+              }
+            >
+              Platform Admin
+            </NavLink>
             <NavLink
               to="/platform-feedback"
               onClick={onClose}
