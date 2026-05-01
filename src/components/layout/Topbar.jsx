@@ -24,8 +24,8 @@ export function Topbar({ title, onMenuClick }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[var(--border-color)] bg-[var(--app-bg)]/95 px-3 py-3 backdrop-blur sm:px-4 md:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+    <header className="sticky top-0 z-20 border-b border-[var(--border-color)] bg-[var(--app-bg)]/95 px-3 py-2 backdrop-blur sm:px-4 sm:py-3 md:px-5 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(340px,auto)] xl:items-center">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -38,7 +38,7 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/20 sm:h-14 sm:w-14">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/20 sm:h-14 sm:w-14">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
           </div>
 
@@ -46,24 +46,24 @@ export function Topbar({ title, onMenuClick }) {
             <p className="truncate text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-secondary)]">
               {clubLabel}
             </p>
-            <h2 className="mt-1 truncate text-xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-2xl">
+            <h2 className="mt-1 truncate text-lg font-semibold tracking-tight text-[var(--text-primary)] sm:text-2xl">
               {title}
             </h2>
           </div>
         </div>
 
-        <div className="grid w-full gap-3 rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center 2xl:w-auto">
-          <div className="min-w-0 px-3 py-2 xl:min-w-80">
+        <div className="grid w-full gap-2 rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="min-w-0 px-2 py-1 sm:px-3 sm:py-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Signed in</p>
             <p className="mt-1 truncate text-sm font-medium text-[var(--text-primary)]">{userLabel}</p>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{roleLabel}</p>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{teamLabel}</p>
+            <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">{roleLabel}</p>
+            <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">{teamLabel}</p>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:items-center">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
             >
               My Settings
             </Link>
@@ -71,7 +71,7 @@ export function Topbar({ title, onMenuClick }) {
               type="button"
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>

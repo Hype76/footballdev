@@ -1062,7 +1062,7 @@ export function CreateEvaluationPage() {
                 title="Player details"
                 description="Core details stay consistent while the club-configured evaluation fields adapt below."
               >
-                <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <label className="block">
                     <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
                     <input
@@ -1118,7 +1118,7 @@ export function CreateEvaluationPage() {
                   <div className="md:col-span-2">
                     <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent PDF Recipients</span>
                     {parentContacts.length > 0 ? (
-                    <div className="grid gap-3 lg:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-2">
                         {parentContacts.map((contact, index) => (
                           <label
                             key={`${contact.email || contact.name}-${index}`}
@@ -1138,7 +1138,7 @@ export function CreateEvaluationPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="grid gap-4 md:grid-cols-2">
                         <label className="block">
                           <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Name</span>
                           <input
@@ -1270,7 +1270,7 @@ export function CreateEvaluationPage() {
                     No evaluation fields are enabled for this club. Enable fields in the form builder first.
                   </div>
                 ) : (
-                  <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {enabledFields.map((field) => (
                       <label key={field.id} className={field.type === 'textarea' ? 'block md:col-span-2' : 'block'}>
                         <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
@@ -1315,7 +1315,7 @@ export function CreateEvaluationPage() {
                 </div>
 
                 {previewMode === 'email' ? (
-                  <div className="mb-4 grid gap-4 lg:grid-cols-2">
+                  <div className="mb-4 grid gap-4 md:grid-cols-2">
                     <label className="block">
                       <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
                       <select

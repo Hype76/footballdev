@@ -168,6 +168,10 @@
     box-sizing: border-box;
   }
 
+  * {
+    min-width: 0;
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -188,6 +192,32 @@
   select,
   textarea {
     font: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  a,
+  label {
+    overflow-wrap: anywhere;
   }
 
   button {

@@ -65,7 +65,7 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[88vw] max-w-72 flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-4 py-5 transition sm:px-5 sm:py-6 lg:fixed lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(20rem,calc(100vw-1rem))] max-w-72 flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-4 py-5 transition sm:px-5 sm:py-6 lg:fixed lg:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >

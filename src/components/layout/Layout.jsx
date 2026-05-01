@@ -178,9 +178,9 @@ export function Layout() {
             onMenuClick={() => setIsSidebarOpen(true)}
           />
 
-          <main className="flex-1 px-2 py-3 sm:px-4 sm:py-5 md:px-6 md:py-6 xl:px-8">
+          <main className="flex-1 px-0 py-2 sm:px-4 sm:py-5 md:px-5 md:py-6 xl:px-8">
             <div className="mx-auto w-full max-w-7xl">
-              <div className="min-w-0 overflow-hidden rounded-[22px] border border-[var(--border-color)] bg-[var(--shell-card)] p-2 shadow-sm shadow-slate-900/10 sm:rounded-[28px] sm:p-5 md:p-6">
+              <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-[28px] sm:border sm:p-5 md:p-6">
                 <Outlet />
               </div>
             </div>

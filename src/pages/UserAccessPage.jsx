@@ -385,7 +385,7 @@ export function UserAccessPage() {
             No role data entered yet, or role data could not be loaded.
           </div>
         ) : (
-          <form className="grid gap-4 lg:grid-cols-2" onSubmit={handleSubmit}>
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email</span>
               <input

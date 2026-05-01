@@ -421,8 +421,8 @@ export function PlayersPage() {
         title="All players"
         description="Use filters to find a player quickly, then open their profile for full history and rating trends."
       >
-        <div className="grid gap-4 lg:grid-cols-3">
-          <label className="block lg:col-span-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <label className="block md:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Search</span>
             <input
               type="search"
@@ -487,7 +487,7 @@ export function PlayersPage() {
                   className="w-full text-left"
                 >
                   <div className="grid gap-4 lg:grid-cols-6 lg:items-center">
-                    <div className="lg:col-span-2">
+                    <div className="md:col-span-2">
                       <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'}</p>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">

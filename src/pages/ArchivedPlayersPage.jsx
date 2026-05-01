@@ -173,7 +173,7 @@ export function ArchivedPlayersPage() {
             {paginatedPlayers.items.map((player) => (
               <div key={player.id} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="grid gap-4 lg:grid-cols-5 lg:items-start">
-                  <div className="lg:col-span-2">
+                  <div className="md:col-span-2">
                     <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'} | {player.section || 'No section entered'}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">

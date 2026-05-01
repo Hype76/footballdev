@@ -661,7 +661,7 @@ export function TeamManagementPage() {
           </form>
 
           <form className="space-y-3" onSubmit={handleCreateCoach}>
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Staff email</span>
                 <input
@@ -885,7 +885,7 @@ export function TeamManagementPage() {
                       No staff are allocated to this team yet.
                     </div>
                   ) : (
-                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
                       {paginatedSelectedTeamStaff.items.map((member) => (
                         <div
                           key={member.id}

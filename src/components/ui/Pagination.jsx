@@ -31,23 +31,23 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
       <p>
         Showing {startItem} to {endItem} of {totalItems}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:flex">
         <button
           type="button"
           onClick={() => onPageChange(safePage - 1)}
           disabled={safePage <= 1}
-          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Previous
         </button>
-        <span className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 font-semibold text-[var(--text-primary)]">
+        <span className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-center font-semibold text-[var(--text-primary)] sm:px-4">
           {safePage} of {totalPages}
         </span>
         <button
           type="button"
           onClick={() => onPageChange(safePage + 1)}
           disabled={safePage >= totalPages}
-          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Next
         </button>

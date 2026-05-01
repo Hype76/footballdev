@@ -1091,7 +1091,7 @@ export function PlayerProfile() {
               return (
                 <div key={player.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                   {isEditing ? (
-                    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                       <label className="block">
                         <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
                         <input
@@ -1138,7 +1138,7 @@ export function PlayerProfile() {
                             Add Another Parent
                           </button>
                         </div>
-                        <div className="grid gap-3 lg:grid-cols-2">
+                        <div className="grid gap-3 md:grid-cols-2">
                           {getEditableParentContacts(draft).map((contact, index) => (
                             <div key={index} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
                               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -1324,7 +1324,7 @@ export function PlayerProfile() {
           description="Managers can create one combined assessment from selected reports. Original reports stay in history."
         >
           <div className="space-y-5">
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {evaluations.map((evaluation) => (
                 <label
                   key={evaluation.id}
@@ -1371,7 +1371,7 @@ export function PlayerProfile() {
                   <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
                     Pick which assessment supplies non-score details such as parents, session, date, comments, and status.
                   </p>
-                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {mergeDetailFields.map((field) => {
                       const selectedSource = getMergeDetailSource(field.key)
 
@@ -1403,7 +1403,7 @@ export function PlayerProfile() {
                   <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
                     Pick which assessment should supply each score or text field.
                   </p>
-                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {mergeFieldLabels.map((label) => (
                       <label key={label} className="block rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
                         <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{label}</span>

@@ -648,7 +648,7 @@ export function PlatformAdminPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Adult user emails</p>
                     <div className="mt-3 space-y-2">

@@ -262,7 +262,7 @@ export function AddPlayerPage() {
             No teams are available yet. Create a team first, then add players into Trial or Squad.
           </div>
         ) : (
-          <form className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4" onSubmit={handleAddPlayer}>
+          <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleAddPlayer}>
             <label className="block xl:col-span-2">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
               <input
@@ -319,7 +319,7 @@ export function AddPlayerPage() {
               </button>
             </div>
 
-            <div className="lg:col-span-2 xl:col-span-2">
+            <div className="md:col-span-2 xl:col-span-2">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="block text-sm font-semibold text-[var(--text-primary)]">Parent Contacts</span>
                 <button
@@ -365,7 +365,7 @@ export function AddPlayerPage() {
               </div>
             </div>
 
-            <div className="lg:col-span-2 xl:col-span-4">
+            <div className="md:col-span-2 xl:col-span-4">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input

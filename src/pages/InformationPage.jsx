@@ -154,7 +154,7 @@ export function InformationPage() {
           title="Daily workflow"
           description="Use this flow to manage players, sessions, assessments, and parent-facing exports."
         >
-          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <StepCard number="1" title="Add players">
               Start in Add Player. Add the player name, Trial or Squad section, team, positions, and one or more parent contacts.
             </StepCard>

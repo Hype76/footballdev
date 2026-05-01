@@ -1064,7 +1064,7 @@ export function SessionsPage() {
               </select>
             </label>
 
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {paginatedFilteredPlayers.items.map((player) => (
                 <label
                   key={player.id}
