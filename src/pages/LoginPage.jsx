@@ -20,13 +20,13 @@ const pricingPlans = [
     name: 'Pro',
     price: 9.99,
     description: 'For clubs ready to send structured feedback to parents.',
-    features: ['Unlimited players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic branding with club name and logo'],
+    features: ['2 weeks trial included', 'Cancel anytime', 'Unlimited players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic branding with club name and logo'],
   },
   {
     name: 'Club',
     price: 24.99,
     description: 'For multi-team clubs needing staff access and oversight.',
-    features: ['Everything in Pro', 'Multiple teams', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
+    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Pro', 'Multiple teams', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
   },
 ]
 
