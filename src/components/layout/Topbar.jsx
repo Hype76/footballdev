@@ -1,16 +1,32 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
+import { initPWAInstall, isIosDevice, isStandaloneMode, triggerInstall } from '../../lib/pwa-install.js'
 
 export function Topbar({ title, onMenuClick }) {
   const { authUser, signOut, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [canInstall, setCanInstall] = useState(false)
+  const [showIosInstallHelp] = useState(() => !isStandaloneMode() && isIosDevice())
   const roleLabel = user ? getRoleLabel(user) : 'Loading access'
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
   const logoUrl = user?.clubLogoUrl || fallbackLogo
   const userLabel = user?.email || authUser?.email || user?.name || 'Loading user'
   const teamLabel = user?.activeTeamName ? `Team: ${user.activeTeamName}` : clubLabel
+
+  useEffect(() => {
+    if (isStandaloneMode()) {
+      return undefined
+    }
+
+    return initPWAInstall(setCanInstall)
+  }, [])
+
+  const handleInstall = async () => {
+    await triggerInstall()
+    setCanInstall(false)
+  }
 
   const handleSignOut = async () => {
     try {
@@ -61,6 +77,19 @@ export function Topbar({ title, onMenuClick }) {
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+            {canInstall ? (
+              <button
+                type="button"
+                onClick={handleInstall}
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--button-primary)] px-3 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+              >
+                Install App
+              </button>
+            ) : showIosInstallHelp ? (
+              <div className="col-span-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-xs font-semibold leading-5 text-[var(--text-primary)] sm:max-w-44">
+                Tap Share, then Add to Home Screen
+              </div>
+            ) : null}
             <Link
               to="/user-settings"
               className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"

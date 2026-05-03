@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register'
 import { router } from './app/router.jsx'
-import InstallPrompt from './components/pwa/InstallPrompt.jsx'
 import OfflineDraftSync from './components/pwa/OfflineDraftSync.jsx'
 import { ToastProvider } from './components/ui/Toast.jsx'
 import { AuthProvider } from './lib/auth.js'
@@ -22,7 +21,6 @@ createRoot(document.getElementById('root')).render(
     <AuthProvider>
       <ToastProvider>
         <OfflineDraftSync />
-        <InstallPrompt />
         <RouterProvider router={router} />
       </ToastProvider>
     </AuthProvider>
