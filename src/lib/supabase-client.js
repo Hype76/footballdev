@@ -2,16 +2,22 @@ import { createClient } from '@supabase/supabase-js'
 
 const fallbackSupabaseUrl = 'https://placeholder.supabase.co'
 const fallbackSupabaseAnonKey = 'placeholder-anon-key'
+const viteEnv = import.meta.env ?? {}
+const runtimeEnv = globalThis.process?.env ?? {}
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || fallbackSupabaseUrl
+const supabaseUrl = viteEnv.VITE_SUPABASE_URL || runtimeEnv.VITE_SUPABASE_URL || fallbackSupabaseUrl
 const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  viteEnv.VITE_SUPABASE_ANON_KEY ||
+  viteEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  runtimeEnv.VITE_SUPABASE_ANON_KEY ||
+  runtimeEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
   fallbackSupabaseAnonKey
 
 if (
-  !import.meta.env.VITE_SUPABASE_URL ||
-  (!import.meta.env.VITE_SUPABASE_ANON_KEY && !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY)
+  !supabaseUrl ||
+  supabaseUrl === fallbackSupabaseUrl ||
+  !supabaseAnonKey ||
+  supabaseAnonKey === fallbackSupabaseAnonKey
 ) {
   console.error(
     'Supabase environment variables are missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY or VITE_SUPABASE_PUBLISHABLE_KEY.',

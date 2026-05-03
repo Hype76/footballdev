@@ -2250,21 +2250,6 @@ export async function getAssignedTeamsForUser(user) {
   })
 }
 
-async function getSessionTeamIdsForUser(user) {
-  const activeTeamId = String(user?.activeTeamId ?? '').trim()
-
-  if (activeTeamId) {
-    return [activeTeamId]
-  }
-
-  const assignedTeams = await getAssignedTeamsForUser(user).catch((error) => {
-    console.error(error)
-    return []
-  })
-
-  return assignedTeams.map((team) => team.id).filter(Boolean)
-}
-
 async function getSessionTeamsForUser(user) {
   const activeTeamId = String(user?.activeTeamId ?? '').trim()
   const activeTeamName = String(user?.activeTeamName ?? '').trim()
@@ -3111,17 +3096,17 @@ export async function restorePlayer({ user, playerId }) {
 }
 
 export async function createAuditLog({ user, action, entityType, entityId, metadata = {} }) {
-  if (!user?.id || !action || !entityType) {
+  if (!action || !entityType) {
     return
   }
 
   const { error } = await supabase.from('audit_logs').insert({
-    club_id: user.clubId || null,
-    actor_id: user.id,
-    actor_name: getEntryUserName(user),
-    actor_email: getEntryUserEmail(user),
-    actor_role_label: user.roleLabel || user.role || '',
-    actor_role_rank: Number(user.roleRank ?? 0),
+    club_id: user?.clubId || null,
+    actor_id: user?.id || null,
+    actor_name: user ? getEntryUserName(user) : '',
+    actor_email: user ? getEntryUserEmail(user) : '',
+    actor_role_label: user?.roleLabel || user?.role || '',
+    actor_role_rank: Number(user?.roleRank ?? 0),
     action,
     entity_type: entityType,
     entity_id: entityId || null,

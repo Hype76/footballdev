@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { Resend } from 'resend'
+import { createAuditLog } from '../../src/lib/domain/audit.js'
 import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 
 function cleanHeaderPart(value, fallback) {
@@ -36,7 +37,7 @@ function buildEmailPayload({
   const emailPayload = {
     from: `${fromName} <feedback@playerfeedback.online>`,
     to: recipients,
-    replyTo: safeReplyTo || undefined,
+    reply_to: safeReplyTo || undefined,
     subject: String(subject ?? '').trim() || 'Player Feedback',
     html: emailHtml,
   }
@@ -72,7 +73,8 @@ async function buildPdfAttachment(emailHtml) {
     return [
       {
         filename: 'player-feedback.pdf',
-        content: pdfBuffer,
+        content: pdfBuffer.toString('base64'),
+        contentType: 'application/pdf',
       },
     ]
   } catch (error) {
@@ -81,10 +83,21 @@ async function buildPdfAttachment(emailHtml) {
   }
 }
 
+async function createEmailAuditLog(payload) {
+  try {
+    await createAuditLog(payload)
+  } catch (error) {
+    console.error('Email audit logging failed', error)
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' }
   }
+
+  let recipients = []
+  let emailSubject = 'Player Feedback'
 
   try {
     const body = JSON.parse(event.body || '{}')
@@ -101,7 +114,7 @@ export async function handler(event) {
       html,
     } = body
 
-    const recipients = normaliseRecipients(parentEmail)
+    recipients = normaliseRecipients(parentEmail)
 
     if (recipients.length === 0) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing parentEmail' }) }
@@ -119,16 +132,27 @@ export async function handler(event) {
     const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
     const emailHtml = buildEmailHtml(html)
     const attachments = await buildPdfAttachment(emailHtml)
+    emailSubject = String(subject ?? '').trim() || 'Player Feedback'
     const emailPayload = buildEmailPayload({
       fromName,
       recipients,
       safeReplyTo,
-      subject,
+      subject: emailSubject,
       emailHtml,
       attachments,
     })
 
     const response = await resend.emails.send(emailPayload)
+    await createEmailAuditLog({
+      user: null,
+      action: 'email_sent',
+      entityType: 'email',
+      metadata: {
+        to: recipients,
+        subject: emailSubject,
+        hasAttachment: attachments.length > 0,
+      },
+    })
 
     return {
       statusCode: 200,
@@ -136,6 +160,16 @@ export async function handler(event) {
     }
   } catch (error) {
     console.error(error)
+    await createEmailAuditLog({
+      user: null,
+      action: 'email_failed',
+      entityType: 'email',
+      metadata: {
+        to: recipients,
+        subject: emailSubject,
+        error: error.message,
+      },
+    })
 
     return {
       statusCode: 500,

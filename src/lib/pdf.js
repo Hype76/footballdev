@@ -282,39 +282,32 @@ export async function exportEvaluationPdf({ filename, previewProps, mode = 'scor
     await waitForPaint()
     await waitForImages(container)
 
-    const html2pdfModule = await import('html2pdf.js')
-    const pdfExporter = html2pdfModule.default || html2pdfModule
-
-    if (typeof pdfExporter !== 'function') {
-      throw new Error('PDF exporter did not load correctly.')
-    }
-
-    const pdfBlob = await withTimeout(
-      pdfExporter()
-        .set({
-          margin: [8, 8, 8, 8],
+    const response = await withTimeout(
+      fetch('/.netlify/functions/render-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           filename,
-          image: { type: 'jpeg', quality: 0.92 },
-          html2canvas: {
-            scale: 1.35,
-            useCORS: true,
-            allowTaint: false,
-            backgroundColor: '#ffffff',
-            logging: false,
-            removeContainer: true,
-            windowWidth: 820,
-          },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['css', 'legacy'] },
-        })
-        .from(container.firstElementChild)
-        .outputPdf('blob'),
+          html: container.innerHTML,
+        }),
+      }),
       15000,
     )
 
-    if (!pdfBlob) {
-      throw new Error('PDF export timed out.')
+    if (!response?.ok) {
+      let message = 'PDF export failed.'
+
+      try {
+        const errorResult = await response.json()
+        message = errorResult.error || message
+      } catch {
+        message = response?.statusText || message
+      }
+
+      throw new Error(message)
     }
+
+    const pdfBlob = await response.blob()
 
     downloadBlob(pdfBlob, filename)
   } finally {
