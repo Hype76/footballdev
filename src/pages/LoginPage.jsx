@@ -31,9 +31,8 @@ const pricingPlans = [
   {
     name: 'Large Club',
     price: 'Contact us',
-    priceLabel: 'Custom setup',
     description: 'For larger clubs that need more teams, onboarding, or custom support.',
-    features: ['More than 10 teams', 'Custom onboarding', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
+    features: ['Custom setup', 'More than 10 teams', 'Custom onboarding', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
   },
 ]
 
@@ -49,6 +48,10 @@ function formatPrice(plan, billingCycle) {
 function formatPriceLabel(plan, billingCycle) {
   if (plan.priceLabel) {
     return plan.priceLabel
+  }
+
+  if (plan.price === 'Contact us') {
+    return ''
   }
 
   if (typeof plan.price !== 'number') {
@@ -366,51 +369,60 @@ export function LoginPage() {
           </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {pricingPlans.map((plan) => (
-              <div
-                key={plan.name}
-                className="flex flex-col rounded-[30px] border border-white/10 bg-[#0b130d]/90 p-5 shadow-xl shadow-black/20 backdrop-blur"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-lg font-black text-white">{plan.name}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{plan.description}</p>
-                  </div>
-                  {plan.name === 'Single Team' ? (
-                    <span className="shrink-0 whitespace-nowrap rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
+            {pricingPlans.map((plan) => {
+              const priceLabel = formatPriceLabel(plan, billingCycle)
+
+              return (
+                <div
+                  key={plan.name}
+                  className="relative flex flex-col rounded-[30px] border border-white/10 bg-[#0b130d]/90 p-5 shadow-xl shadow-black/20 backdrop-blur"
+                >
+                  {plan.name === 'Small Club' ? (
+                    <span className="absolute right-5 top-5 whitespace-nowrap rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
                       Popular
                     </span>
                   ) : null}
+                  <div className="min-h-[132px] pr-16">
+                    <p className="text-lg font-black text-white">{plan.name}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">{plan.description}</p>
+                  </div>
+                  <div className="min-h-[88px]">
+                    <span
+                      className={[
+                        'whitespace-nowrap font-black text-white',
+                        plan.price === 'Contact us' ? 'text-[2rem] leading-none 2xl:text-4xl' : 'text-4xl',
+                      ].join(' ')}
+                    >
+                      {formatPrice(plan, billingCycle)}
+                    </span>
+                    {priceLabel ? <span className="ml-2 text-sm font-semibold text-slate-400">{priceLabel}</span> : null}
+                    {typeof plan.price === 'number' && billingCycle === 'annual' ? (
+                      <p className="mt-2 text-xs font-semibold text-[#d8ff2f]">2 months free compared with monthly</p>
+                    ) : null}
+                  </div>
+                  <ul className="mt-6 grow space-y-3">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex gap-3 text-sm leading-6 text-slate-300">
+                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#d8ff2f]" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => setMode('signup')}
+                    className={[
+                      'mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition',
+                      plan.name === 'Small Club'
+                        ? 'bg-[#d8ff2f] text-black hover:opacity-90'
+                        : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
+                    ].join(' ')}
+                  >
+                    {plan.price === 'Free' ? 'Start Free' : 'Choose Plan'}
+                  </button>
                 </div>
-                <div className="mt-6">
-                  <span className="text-4xl font-black text-white">{formatPrice(plan, billingCycle)}</span>
-                  <span className="ml-2 text-sm font-semibold text-slate-400">{formatPriceLabel(plan, billingCycle)}</span>
-                  {typeof plan.price === 'number' && billingCycle === 'annual' ? (
-                    <p className="mt-2 text-xs font-semibold text-[#d8ff2f]">2 months free compared with monthly</p>
-                  ) : null}
-                </div>
-                <ul className="mt-6 grow space-y-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex gap-3 text-sm leading-6 text-slate-300">
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#d8ff2f]" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  type="button"
-                  onClick={() => setMode('signup')}
-                  className={[
-                    'mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition',
-                    plan.name === 'Pro'
-                      ? 'bg-[#d8ff2f] text-black hover:opacity-90'
-                      : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
-                  ].join(' ')}
-                >
-                  {plan.name === 'Free' ? 'Start Free' : 'Choose Plan'}
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       </div>
