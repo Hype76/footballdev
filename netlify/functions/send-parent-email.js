@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { Resend } from 'resend'
+import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
@@ -38,7 +39,6 @@ export async function handler(event) {
       clubEmail,
       subject,
       html,
-      pdfBuffer,
     } = body
 
     const recipients = normaliseRecipients(parentEmail)
@@ -57,22 +57,21 @@ export async function handler(event) {
     const safeClubName = cleanHeaderPart(clubName, 'Club')
     const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
     const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
-    const attachments = []
-
-    if (pdfBuffer) {
-      // Reserved for future server-side PDF attachments.
-    }
+    const emailHtml = String(html ?? '').trim() || '<p>No content</p>'
+    const pdfBuffer = await buildPdfBuffer(emailHtml)
 
     const emailPayload = {
       from: `${fromName} <feedback@playerfeedback.online>`,
       to: recipients,
       replyTo: safeReplyTo || undefined,
       subject: String(subject ?? '').trim() || 'Player Feedback',
-      html: String(html ?? '').trim() || '<p>No content</p>',
-    }
-
-    if (attachments.length > 0) {
-      emailPayload.attachments = attachments
+      html: emailHtml,
+      attachments: [
+        {
+          filename: 'player-feedback.pdf',
+          content: pdfBuffer,
+        },
+      ],
     }
 
     const response = await resend.emails.send(emailPayload)
