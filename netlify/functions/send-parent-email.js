@@ -2,6 +2,12 @@ import process from 'node:process'
 import { Resend } from 'resend'
 import { createAuditLog } from '../../src/lib/domain/audit.js'
 import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
+import {
+  createEmailDedupeKey,
+  createPendingEmailLog,
+  markEmailLogFailed,
+  markEmailLogSent,
+} from './_email-log-store.js'
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
@@ -98,6 +104,7 @@ export async function handler(event) {
 
   let recipients = []
   let emailSubject = 'Player Feedback'
+  let emailLogRecord = null
 
   try {
     const body = JSON.parse(event.body || '{}')
@@ -141,8 +148,25 @@ export async function handler(event) {
       emailHtml,
       attachments,
     })
+    const dedupeKey = createEmailDedupeKey(emailPayload)
+    const pendingLogResult = await createPendingEmailLog({
+      recipients,
+      subject: emailSubject,
+      payload: emailPayload,
+      dedupeKey,
+    })
+
+    emailLogRecord = pendingLogResult.record
+
+    if (pendingLogResult.skipped) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, duplicate: true }),
+      }
+    }
 
     const response = await resend.emails.send(emailPayload)
+    await markEmailLogSent(emailLogRecord, response)
     await createEmailAuditLog({
       user: null,
       action: 'email_sent',
@@ -160,6 +184,7 @@ export async function handler(event) {
     }
   } catch (error) {
     console.error(error)
+    await markEmailLogFailed(emailLogRecord, error)
     await createEmailAuditLog({
       user: null,
       action: 'email_failed',
