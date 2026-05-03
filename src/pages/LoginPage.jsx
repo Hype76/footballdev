@@ -20,7 +20,7 @@ const pricingPlans = [
     name: 'Single Team',
     price: 9.99,
     description: 'For teams ready to send structured feedback to parents.',
-    features: ['2 weeks trial included', 'Cancel anytime', 'Up to 5 teams', 'Unlimited players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic branding with club name and logo'],
+    features: ['2 weeks trial included', 'Cancel anytime', '1 team', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic branding with club name and logo'],
   },
   {
     name: 'Small Club',
