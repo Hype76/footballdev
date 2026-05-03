@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { router } from './app/router.jsx'
+import InstallPrompt from './components/pwa/InstallPrompt.jsx'
 import { ToastProvider } from './components/ui/Toast.jsx'
 import { AuthProvider } from './lib/auth.js'
 import { recoverFromStaleChunk } from './lib/chunkRecovery.js'
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
       <ToastProvider>
+        <InstallPrompt />
         <RouterProvider router={router} />
       </ToastProvider>
     </AuthProvider>
