@@ -610,6 +610,27 @@ function normalizeAssessmentSessionPlayerRow(row) {
   }
 }
 
+function normalizeAssessmentSessionGameRow(row) {
+  return {
+    id: row.id,
+    sessionId: row.session_id ?? row.sessionId ?? '',
+    clubId: row.club_id ?? row.clubId ?? '',
+    opponent: String(row.opponent ?? '').trim(),
+    teamScore: row.team_score ?? row.teamScore ?? '',
+    opponentScore: row.opponent_score ?? row.opponentScore ?? '',
+    gameDate: String(row.game_date ?? row.gameDate ?? '').trim(),
+    notes: String(row.notes ?? '').trim(),
+    createdBy: row.created_by ?? row.createdBy ?? '',
+    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
+    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
+    updatedBy: row.updated_by ?? row.updatedBy ?? '',
+    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
+    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+  }
+}
+
 function normalizeCommunicationLogRow(row) {
   return {
     id: row.id,
@@ -3500,7 +3521,9 @@ export async function createAssessmentSession({ user, session }) {
   const teamName = String(session.team ?? '').trim()
   const teamId = String(session.teamId ?? '').trim()
   const opponentName = String(session.opponent ?? '').trim()
-  const sessionType = String(session.sessionType ?? '').trim() === 'match' ? 'match' : 'training'
+  const requestedSessionType = String(session.sessionType ?? '').trim()
+  const sessionType = ['training', 'match', 'tournament'].includes(requestedSessionType) ? requestedSessionType : 'training'
+  const sessionOpponentName = sessionType === 'match' ? opponentName : ''
 
   if (!teamId) {
     throw new Error('Choose a team before creating a session.')
@@ -3512,10 +3535,10 @@ export async function createAssessmentSession({ user, session }) {
       club_id: user.clubId,
       team_id: teamId,
       team: teamName,
-      opponent: opponentName,
+      opponent: sessionOpponentName,
       session_type: sessionType,
       session_date: sessionDate,
-      title: opponentName ? `${teamName} vs ${opponentName}` : teamName,
+      title: sessionType === 'tournament' ? `${teamName} Tournament` : sessionOpponentName ? `${teamName} vs ${sessionOpponentName}` : teamName,
       created_by: user.id,
       ...getEntryIdentity(user),
       updated_by: getEntryUserId(user),
@@ -3537,7 +3560,7 @@ export async function createAssessmentSession({ user, session }) {
     entityId: data.id,
     metadata: {
       team: teamName,
-      opponent: opponentName,
+      opponent: sessionOpponentName,
       sessionType,
       sessionDate,
     },
@@ -3613,6 +3636,117 @@ export async function getAssessmentSessionPlayers({ user, sessionId } = {}) {
     }
 
     return (data ?? []).map(normalizeAssessmentSessionPlayerRow)
+  })
+}
+
+export async function getAssessmentSessionGames({ user, sessionId } = {}) {
+  if (!user?.clubId || !sessionId || user.role === 'super_admin') {
+    return []
+  }
+
+  return getCachedResource(`assessment-session-games:${sessionId}`, async () => {
+    const { data, error } = await supabase
+      .from('assessment_session_games')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('club_id', user.clubId)
+      .order('game_date', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    return (data ?? []).map(normalizeAssessmentSessionGameRow)
+  })
+}
+
+export async function createAssessmentSessionGame({ user, sessionId, game }) {
+  if (!user?.clubId || !sessionId) {
+    throw new Error('Session and club are required.')
+  }
+
+  const opponent = String(game?.opponent ?? '').trim()
+  const teamScore = game?.teamScore === '' || game?.teamScore == null ? null : Number(game.teamScore)
+  const opponentScore = game?.opponentScore === '' || game?.opponentScore == null ? null : Number(game.opponentScore)
+  const gameDate = normalizeDateOnly(game?.gameDate)
+
+  if (!opponent) {
+    throw new Error('Opponent is required.')
+  }
+
+  if (!Number.isFinite(teamScore) || !Number.isFinite(opponentScore)) {
+    throw new Error('Enter both scores.')
+  }
+
+  const { data, error } = await supabase
+    .from('assessment_session_games')
+    .insert({
+      session_id: sessionId,
+      club_id: user.clubId,
+      opponent,
+      team_score: teamScore,
+      opponent_score: opponentScore,
+      game_date: gameDate || null,
+      notes: String(game?.notes ?? '').trim(),
+      created_by: getEntryUserId(user),
+      ...getEntryIdentity(user),
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-session-games:${sessionId}`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_game_added',
+    entityType: 'assessment_session_game',
+    entityId: data.id,
+    metadata: {
+      sessionId,
+      opponent,
+      score: `${teamScore}-${opponentScore}`,
+    },
+  })
+
+  return normalizeAssessmentSessionGameRow(data)
+}
+
+export async function deleteAssessmentSessionGame({ user, gameId }) {
+  if (!user?.clubId || !gameId) {
+    throw new Error('Game result is required.')
+  }
+
+  const { data, error } = await supabase
+    .from('assessment_session_games')
+    .delete()
+    .eq('id', gameId)
+    .eq('club_id', user.clubId)
+    .select('id, session_id, opponent')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-session-games:${data.session_id}`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_game_deleted',
+    entityType: 'assessment_session_game',
+    entityId: gameId,
+    metadata: {
+      sessionId: data.session_id,
+      opponent: data.opponent,
+    },
   })
 }
 

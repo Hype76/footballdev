@@ -13,7 +13,10 @@ import {
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
   createAssessmentSession,
+  createAssessmentSessionGame,
+  deleteAssessmentSessionGame,
   getEvaluations,
+  getAssessmentSessionGames,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
@@ -35,8 +38,32 @@ function createInitialSessionForm() {
   }
 }
 
+function createInitialGameForm() {
+  return {
+    opponent: '',
+    teamScore: '',
+    opponentScore: '',
+    gameDate: '',
+    notes: '',
+  }
+}
+
 const SESSION_PLAYER_PAGE_SIZE = 8
 const AVAILABLE_PLAYER_PAGE_SIZE = 10
+
+function formatSessionType(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (normalizedValue === 'match') {
+    return 'Match'
+  }
+
+  if (normalizedValue === 'tournament') {
+    return 'Tournament'
+  }
+
+  return 'Training'
+}
 
 function formatSessionDate(value) {
   const normalizedValue = String(value ?? '').trim()
@@ -298,7 +325,9 @@ export function SessionsPage() {
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
   const [sessionPlayers, setSessionPlayers] = useState([])
+  const [sessionGames, setSessionGames] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
+  const [gameForm, setGameForm] = useState(createInitialGameForm)
   const [selectedSessionId, setSelectedSessionId] = useState(() => String(storedSessionWorkspace.selectedSessionId ?? ''))
   const [selectedPlayerIds, setSelectedPlayerIds] = useState(() =>
     Array.isArray(storedSessionWorkspace.selectedPlayerIds) ? storedSessionWorkspace.selectedPlayerIds : [],
@@ -307,8 +336,10 @@ export function SessionsPage() {
   const [sessionPlayerPage, setSessionPlayerPage] = useState(1)
   const [clearSessionTarget, setClearSessionTarget] = useState(null)
   const [completeSessionTarget, setCompleteSessionTarget] = useState(null)
+  const [deleteGameTarget, setDeleteGameTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0 && teams.length === 0)
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
+  const [isSessionGamesLoading, setIsSessionGamesLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user
@@ -495,6 +526,50 @@ export function SessionsPage() {
   }, [combinedSessions, evaluations, selectedSessionId, user])
 
   useEffect(() => {
+    let isMounted = true
+
+    const loadSessionGames = async () => {
+      const activeSession = combinedSessions.find((session) => session.id === selectedSessionId)
+
+      if (!selectedSessionId || activeSession?.sessionType !== 'tournament' || activeSession?.isHistorical) {
+        setSessionGames([])
+        return
+      }
+
+      setIsSessionGamesLoading(true)
+
+      try {
+        const nextSessionGames = await withRequestTimeout(
+          () => getAssessmentSessionGames({ user, sessionId: selectedSessionId }),
+          'Could not load tournament results.',
+        )
+
+        if (!isMounted) {
+          return
+        }
+
+        setSessionGames(nextSessionGames)
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setErrorMessage('Tournament results could not be loaded right now.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsSessionGamesLoading(false)
+        }
+      }
+    }
+
+    void loadSessionGames()
+
+    return () => {
+      isMounted = false
+    }
+  }, [combinedSessions, selectedSessionId, user])
+
+  useEffect(() => {
     if (!workspaceStorageKey) {
       return
     }
@@ -575,12 +650,21 @@ export function SessionsPage() {
       setSessionForm((current) => ({
         ...current,
         sessionType: value,
-        opponent: value === 'training' ? '' : current.opponent,
+        opponent: value === 'match' ? current.opponent : '',
       }))
       return
     }
 
     setSessionForm((current) => ({
+      ...current,
+      [name]: value,
+    }))
+  }
+
+  const handleGameFormChange = (event) => {
+    const { name, value } = event.target
+    setErrorMessage('')
+    setGameForm((current) => ({
       ...current,
       [name]: value,
     }))
@@ -629,6 +713,80 @@ export function SessionsPage() {
       console.error(error)
       setErrorMessage(error.message || 'Could not create session.')
       showToast({ title: 'Session not created', message: error.message || 'Could not create session.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleAddTournamentGame = async (event) => {
+    event.preventDefault()
+
+    if (!selectedSessionId || selectedSession?.sessionType !== 'tournament') {
+      setErrorMessage('Select a tournament session before adding results.')
+      return
+    }
+
+    if (selectedSessionLocked) {
+      setErrorMessage('This session is completed and locked.')
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const createdGame = await createAssessmentSessionGame({
+        user,
+        sessionId: selectedSessionId,
+        game: gameForm,
+      })
+      const nextGames = [...sessionGames, createdGame]
+      setSessionGames(nextGames)
+      setGameForm(createInitialGameForm())
+      showToast({ title: 'Tournament result added', message: `${createdGame.opponent} result saved.` })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not save tournament result.')
+      showToast({ title: 'Result not saved', message: error.message || 'Could not save tournament result.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDeleteTournamentGame = async (gameId) => {
+    if (selectedSessionLocked) {
+      setErrorMessage('This session is completed and locked.')
+      return
+    }
+
+    const matchingGame = sessionGames.find((game) => game.id === gameId)
+
+    if (!matchingGame) {
+      setErrorMessage('Choose a tournament result to delete.')
+      return
+    }
+
+    setDeleteGameTarget(matchingGame)
+  }
+
+  const confirmDeleteTournamentGame = async (password) => {
+    if (!deleteGameTarget) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user?.email, password)
+      await deleteAssessmentSessionGame({ user, gameId: deleteGameTarget.id })
+      setSessionGames((current) => current.filter((game) => game.id !== deleteGameTarget.id))
+      setDeleteGameTarget(null)
+      showToast({ title: 'Tournament result removed', message: 'The game result has been deleted.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not delete tournament result.')
+      showToast({ title: 'Result not deleted', message: error.message || 'Could not delete tournament result.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
@@ -893,7 +1051,7 @@ export function SessionsPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                    {(selectedSession?.sessionType === 'match' ? 'Match' : 'Training')} | {formatSessionDate(selectedSession?.sessionDate)}
+                    {formatSessionType(selectedSession?.sessionType)} | {formatSessionDate(selectedSession?.sessionDate)}
                   </p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{selectedSession?.team || 'No team entered'}</p>
                 </div>
@@ -928,7 +1086,7 @@ export function SessionsPage() {
                 </option>
                 {previousSessions.map((session) => (
                   <option key={session.id} value={session.id}>
-                    {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
+                    {formatSessionType(session.sessionType)} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
                   </option>
                 ))}
               </select>
@@ -936,6 +1094,130 @@ export function SessionsPage() {
           </div>
         )}
       </SectionCard>
+
+      {selectedSession?.sessionType === 'tournament' ? (
+        <SectionCard
+          title="Tournament results"
+          description="Add each game result for this tournament session. A team can play multiple games in one tournament."
+        >
+          <div className="space-y-5">
+            <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={handleAddTournamentGame}>
+              <label className="block xl:col-span-2">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Opponent</span>
+                <input
+                  type="text"
+                  name="opponent"
+                  value={gameForm.opponent}
+                  onChange={handleGameFormChange}
+                  required
+                  placeholder="Opponent team"
+                  disabled={selectedSessionLocked}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{selectedSession.team || 'Our team'} score</span>
+                <input
+                  type="number"
+                  name="teamScore"
+                  value={gameForm.teamScore}
+                  onChange={handleGameFormChange}
+                  required
+                  min="0"
+                  disabled={selectedSessionLocked}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Opponent score</span>
+                <input
+                  type="number"
+                  name="opponentScore"
+                  value={gameForm.opponentScore}
+                  onChange={handleGameFormChange}
+                  required
+                  min="0"
+                  disabled={selectedSessionLocked}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Game date</span>
+                <input
+                  type="date"
+                  name="gameDate"
+                  value={gameForm.gameDate}
+                  onChange={handleGameFormChange}
+                  disabled={selectedSessionLocked}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </label>
+
+              <label className="block md:col-span-2 xl:col-span-4">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Notes</span>
+                <input
+                  type="text"
+                  name="notes"
+                  value={gameForm.notes}
+                  onChange={handleGameFormChange}
+                  placeholder="Optional game note"
+                  disabled={selectedSessionLocked}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </label>
+
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  disabled={isSaving || selectedSessionLocked}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSaving ? 'Saving...' : 'Add Result'}
+                </button>
+              </div>
+            </form>
+
+            {isSessionGamesLoading ? (
+              <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+                Loading tournament results...
+              </div>
+            ) : sessionGames.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                No tournament game results have been added yet.
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {sessionGames.map((game) => (
+                  <div key={game.id} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
+                          {selectedSession.team || 'Team'} {game.teamScore} - {game.opponentScore} {game.opponent}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                          {game.gameDate ? formatSessionDate(game.gameDate) : formatSessionDate(selectedSession.sessionDate)}
+                        </p>
+                        {game.notes ? <p className="mt-2 text-sm text-[var(--text-muted)]">{game.notes}</p> : null}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isSaving || selectedSessionLocked}
+                        onClick={() => void handleDeleteTournamentGame(game.id)}
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600/20 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      ) : null}
 
       <SectionCard
         title="Create session"
@@ -981,6 +1263,7 @@ export function SessionsPage() {
                 <option value="">Select session type</option>
                 <option value="training">Training</option>
                 <option value="match">Match</option>
+                <option value="tournament">Tournament</option>
               </select>
             </label>
 
@@ -1058,7 +1341,7 @@ export function SessionsPage() {
               >
                 {combinedSessions.map((session) => (
                   <option key={session.id} value={session.id}>
-                    {(session.sessionType === 'match' ? 'Match' : 'Training')} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
+                    {formatSessionType(session.sessionType)} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
                   </option>
                 ))}
               </select>
@@ -1147,7 +1430,7 @@ export function SessionsPage() {
                   {selectedSession?.title || selectedSession?.team || 'Session'}
                 </p>
                 <p className="mt-1 text-sm text-[var(--text-muted)]">
-                  {(selectedSession?.sessionType === 'match' ? 'Match' : 'Training')} | {formatSessionDate(selectedSession?.sessionDate)}
+                  {formatSessionType(selectedSession?.sessionType)} | {formatSessionDate(selectedSession?.sessionDate)}
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
@@ -1217,6 +1500,21 @@ export function SessionsPage() {
         onCancel={() => setClearSessionTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmClearSessionPlayers(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(deleteGameTarget)}
+        isBusy={isSaving}
+        title="Delete tournament result"
+        message="This removes the saved score result from this tournament session."
+        items={[
+          `Opponent: ${deleteGameTarget?.opponent || 'Selected opponent'}`,
+          `Score: ${deleteGameTarget ? `${selectedSession?.team || 'Team'} ${deleteGameTarget.teamScore} - ${deleteGameTarget.opponentScore}` : 'Selected result'}`,
+        ]}
+        confirmLabel="Delete Result"
+        onCancel={() => setDeleteGameTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteTournamentGame(password)}
       />
 
       <ConfirmModal
