@@ -21,6 +21,33 @@ function normaliseRecipients(value) {
     .filter(Boolean)
 }
 
+function buildEmailHtml(html) {
+  return String(html ?? '').trim() || '<p>No content</p>'
+}
+
+function buildEmailPayload({
+  fromName,
+  recipients,
+  safeReplyTo,
+  subject,
+  emailHtml,
+  pdfBuffer,
+}) {
+  return {
+    from: `${fromName} <feedback@playerfeedback.online>`,
+    to: recipients,
+    replyTo: safeReplyTo || undefined,
+    subject: String(subject ?? '').trim() || 'Player Feedback',
+    html: emailHtml,
+    attachments: [
+      {
+        filename: 'player-feedback.pdf',
+        content: pdfBuffer,
+      },
+    ],
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' }
@@ -57,22 +84,16 @@ export async function handler(event) {
     const safeClubName = cleanHeaderPart(clubName, 'Club')
     const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
     const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
-    const emailHtml = String(html ?? '').trim() || '<p>No content</p>'
+    const emailHtml = buildEmailHtml(html)
     const pdfBuffer = await buildPdfBuffer(emailHtml)
-
-    const emailPayload = {
-      from: `${fromName} <feedback@playerfeedback.online>`,
-      to: recipients,
-      replyTo: safeReplyTo || undefined,
-      subject: String(subject ?? '').trim() || 'Player Feedback',
-      html: emailHtml,
-      attachments: [
-        {
-          filename: 'player-feedback.pdf',
-          content: pdfBuffer,
-        },
-      ],
-    }
+    const emailPayload = buildEmailPayload({
+      fromName,
+      recipients,
+      safeReplyTo,
+      subject,
+      emailHtml,
+      pdfBuffer,
+    })
 
     const response = await resend.emails.send(emailPayload)
 
