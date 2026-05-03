@@ -31,20 +31,53 @@ function buildEmailPayload({
   safeReplyTo,
   subject,
   emailHtml,
-  pdfBuffer,
+  attachments,
 }) {
-  return {
+  const emailPayload = {
     from: `${fromName} <feedback@playerfeedback.online>`,
     to: recipients,
     replyTo: safeReplyTo || undefined,
     subject: String(subject ?? '').trim() || 'Player Feedback',
     html: emailHtml,
-    attachments: [
+  }
+
+  if (attachments.length > 0) {
+    emailPayload.attachments = attachments
+  }
+
+  return emailPayload
+}
+
+function withTimeout(promise, timeoutMs, errorMessage) {
+  let timeoutId
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(errorMessage))
+    }, timeoutMs)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeoutId)
+  })
+}
+
+async function buildPdfAttachment(emailHtml) {
+  try {
+    const pdfBuffer = await withTimeout(
+      buildPdfBuffer(emailHtml),
+      10000,
+      'PDF generation timed out',
+    )
+
+    return [
       {
         filename: 'player-feedback.pdf',
         content: pdfBuffer,
       },
-    ],
+    ]
+  } catch (error) {
+    console.error('PDF attachment generation failed', error)
+    return []
   }
 }
 
@@ -85,14 +118,14 @@ export async function handler(event) {
     const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
     const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
     const emailHtml = buildEmailHtml(html)
-    const pdfBuffer = await buildPdfBuffer(emailHtml)
+    const attachments = await buildPdfAttachment(emailHtml)
     const emailPayload = buildEmailPayload({
       fromName,
       recipients,
       safeReplyTo,
       subject,
       emailHtml,
-      pdfBuffer,
+      attachments,
     })
 
     const response = await resend.emails.send(emailPayload)
