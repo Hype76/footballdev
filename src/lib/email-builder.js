@@ -29,19 +29,23 @@ function normaliseResponses(responses) {
 export function buildEmailHtml({
   playerName,
   team,
+  teamName,
   club,
+  clubName,
   summary,
   responses,
   emailBody,
 }) {
   const responseItems = normaliseResponses(responses)
   const summaryContent = emailBody || summary || 'No summary provided'
+  const resolvedTeam = teamName || team
+  const resolvedClub = clubName || club
 
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 20px; line-height: 1.5;">
-      <h2 style="margin: 0 0 8px; font-size: 22px; line-height: 1.25;">${escapeHtml(club || 'Club')}</h2>
+      <h2 style="margin: 0 0 8px; font-size: 22px; line-height: 1.25;">${escapeHtml(resolvedClub || 'Club')}</h2>
       <h3 style="margin: 0 0 8px; font-size: 18px; line-height: 1.3;">${escapeHtml(playerName || 'Player')}</h3>
-      <p style="margin: 0 0 20px; font-size: 14px;"><strong>Team:</strong> ${escapeHtml(team || 'Team')}</p>
+      <p style="margin: 0 0 20px; font-size: 14px;"><strong>Team:</strong> ${escapeHtml(resolvedTeam || 'Team')}</p>
 
       <h4 style="margin: 0 0 8px; font-size: 15px; line-height: 1.3;">Summary</h4>
       <div style="margin: 0 0 20px; font-size: 14px;">${formatLines(summaryContent)}</div>
@@ -62,6 +66,8 @@ export function buildEmailHtml({
 
 export async function sendParentEmail(data) {
   const html = buildEmailHtml(data)
+  const teamName = data.teamName || data.team
+  const clubName = data.clubName || data.club
 
   const response = await fetch('/.netlify/functions/send-parent-email', {
     method: 'POST',
@@ -71,8 +77,8 @@ export async function sendParentEmail(data) {
     body: JSON.stringify({
       parentEmail: data.parentEmail,
       displayName: data.displayName,
-      teamName: data.team,
-      clubName: data.club,
+      teamName,
+      clubName,
       replyToEmail: data.replyToEmail,
       subject: data.subject || 'Player Feedback Report',
       html,
