@@ -503,6 +503,7 @@ function mapEvaluationToRow(data) {
   const updatedByEmail = String(data.updatedByEmail ?? createdByEmail).trim().toLowerCase()
 
   return {
+    id: data.id || undefined,
     player_name: data.playerName,
     player_id: data.playerId || null,
     team: data.team,

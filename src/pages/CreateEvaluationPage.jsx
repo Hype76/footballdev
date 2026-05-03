@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import { BlankPrintForm } from '../components/evaluations/BlankPrintForm.jsx'
@@ -16,6 +16,7 @@ import {
   isInviteEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
+import { removeDraft, saveDraft } from '../lib/offline-drafts.js'
 import {
   buildComments,
   buildFormResponses,
@@ -51,6 +52,15 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+
+function createLocalId() {
+  return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function isNetworkError(error) {
+  const message = String(error?.message ?? '').toLowerCase()
+  return !navigator.onLine || message.includes('failed to fetch') || message.includes('network')
+}
 
 function mapEvaluationResponsesToFieldValues(fields, formResponses = {}) {
   return Object.fromEntries(
@@ -169,6 +179,8 @@ export function CreateEvaluationPage() {
   const [actionErrorMessage, setActionErrorMessage] = useState('')
   const [dataRefreshNotice, setDataRefreshNotice] = useState('')
   const [teamsLoadErrorMessage, setTeamsLoadErrorMessage] = useState('')
+  const [offlineDraftId, setOfflineDraftId] = useState(createLocalId)
+  const [offlineStatusMessage, setOfflineStatusMessage] = useState('')
 
   const draftStorageKey = getDraftStorageKey(user)
 
@@ -184,6 +196,7 @@ export function CreateEvaluationPage() {
     const storedDraft = editingEvaluationId ? null : parseStoredDraft(draftStorageKey)
     const restoredFormData =
       storedDraft?.formData && typeof storedDraft.formData === 'object' ? storedDraft.formData : {}
+    const restoredOfflineDraftId = String(storedDraft?.offlineDraftId ?? '').trim()
     const restoredSession = normalizeSessionValue(restoredFormData.session)
     const rememberedSession = normalizeSessionValue(storedDraft?.lastUsedSession)
     const nextSessionValue = requestedSession || restoredSession || rememberedSession
@@ -211,6 +224,7 @@ export function CreateEvaluationPage() {
       storedDraft?.responseValues && typeof storedDraft.responseValues === 'object' ? storedDraft.responseValues : {},
     )
     setLastUsedSession(nextSessionValue)
+    setOfflineDraftId(restoredOfflineDraftId || createLocalId())
     hasInitializedRef.current = true
   }, [draftStorageKey, editingEvaluationId, searchParamsKey, user, userScopeKey])
 
@@ -574,6 +588,7 @@ export function CreateEvaluationPage() {
           emailTemplateKey,
           selectedParentContactIndexes,
           inviteDate,
+          offlineDraftId,
         }),
       )
     } catch (error) {
@@ -587,6 +602,7 @@ export function CreateEvaluationPage() {
     inviteDate,
     isPlatformOwner,
     lastUsedSession,
+    offlineDraftId,
     previewMode,
     responseValues,
     selectedParentContactIndexes,
@@ -659,6 +675,112 @@ export function CreateEvaluationPage() {
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
     : 'No teams are assigned to your account yet. Ask a manager to allocate you to at least one team.'
+
+  const buildEvaluationPayload = useCallback((id = offlineDraftId) => {
+    const normalizedPlayerName = normalizePlayerName(formData.playerName)
+    const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
+    const matchingPlayer = savedPlayers.find(
+      (player) =>
+        player.playerName === normalizedPlayerName &&
+        player.section === formData.section &&
+        (!formData.team || player.team === String(formData.team).trim()),
+    )
+
+    return {
+      ...(editingEvaluation || {}),
+      id: editingEvaluation?.id || id,
+      playerName: normalizedPlayerName,
+      playerId: matchingPlayer?.id || '',
+      team: String(formData.team).trim(),
+      teamId: matchingTeam?.id || '',
+      section: formData.section,
+      clubId: user?.clubId,
+      coachId: user?.id,
+      coach: String(user?.name || formData.coachName).trim(),
+      createdByName: String(user?.username || user?.name || formData.coachName || user?.email || '').trim(),
+      createdByEmail: String(user?.email || '').trim().toLowerCase(),
+      updatedBy: user?.id,
+      updatedByName: String(user?.username || user?.name || formData.coachName || user?.email || '').trim(),
+      updatedByEmail: String(user?.email || '').trim().toLowerCase(),
+      parentName: parentContacts[0]?.name ?? '',
+      parentEmail: parentContacts[0]?.email ?? '',
+      parentContacts,
+      session: formData.session,
+      date: new Date().toLocaleDateString(),
+      scores,
+      averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
+      comments,
+      formResponses,
+      decision: '',
+      status: editingEvaluation?.status || 'Submitted',
+      createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
+    }
+  }, [
+    averageScore,
+    availableTeams,
+    comments,
+    editingEvaluation,
+    formData,
+    formResponses,
+    offlineDraftId,
+    parentContacts,
+    savedPlayers,
+    scores,
+    user,
+  ])
+
+  useEffect(() => {
+    if (!hasInitializedRef.current || !user || isPlatformOwner || !offlineDraftId) {
+      return undefined
+    }
+
+    const hasDraftContent =
+      String(formData.playerName ?? '').trim() ||
+      Object.values(responseValues).some((value) => String(value ?? '').trim()) ||
+      parentContacts.some((contact) => contact.name || contact.email)
+
+    if (!hasDraftContent) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      try {
+        saveDraft({
+          id: offlineDraftId,
+          operation: editingEvaluation ? 'update' : 'create',
+          evaluationId: editingEvaluation?.id || null,
+          clubId: user.clubId,
+          data: buildEvaluationPayload(offlineDraftId),
+          createdAt: new Date().toISOString(),
+          readyToSync: false,
+          synced: false,
+        })
+
+        if (!navigator.onLine) {
+          setOfflineStatusMessage('Offline - this assessment is being saved locally.')
+        }
+      } catch (error) {
+        console.error('Offline draft save failed', error)
+      }
+    }, 900)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [
+    averageScore,
+    availableTeams,
+    buildEvaluationPayload,
+    comments,
+    editingEvaluation,
+    formData,
+    formResponses,
+    isPlatformOwner,
+    offlineDraftId,
+    parentContacts,
+    responseValues,
+    savedPlayers,
+    scores,
+    user,
+  ])
 
   const findSavedPlayer = (playerName, team = formData.team, section = formData.section) => {
     const normalizedPlayerName = normalizePlayerName(playerName)
@@ -830,40 +952,23 @@ export function CreateEvaluationPage() {
 
     try {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
-      const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
-      const matchingPlayer = savedPlayers.find(
-        (player) =>
-          player.playerName === normalizedPlayerName &&
-          player.section === formData.section &&
-          (!formData.team || player.team === String(formData.team).trim()),
-      )
-      const evaluation = {
-        ...(editingEvaluation || {}),
-        playerName: normalizedPlayerName,
-        playerId: matchingPlayer?.id || '',
-        team: String(formData.team).trim(),
-        teamId: matchingTeam?.id || '',
-        section: formData.section,
-        clubId: user?.clubId,
-        coachId: user?.id,
-        coach: String(user?.name || formData.coachName).trim(),
-        createdByName: String(user?.username || user?.name || formData.coachName || user?.email || '').trim(),
-        createdByEmail: String(user?.email || '').trim().toLowerCase(),
-        updatedBy: user?.id,
-        updatedByName: String(user?.username || user?.name || formData.coachName || user?.email || '').trim(),
-        updatedByEmail: String(user?.email || '').trim().toLowerCase(),
-        parentName: parentContacts[0]?.name ?? '',
-        parentEmail: parentContacts[0]?.email ?? '',
-        parentContacts,
-        session: formData.session,
-        date: new Date().toLocaleDateString(),
-        scores,
-        averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
-        comments,
-        formResponses,
-        decision: '',
-        status: editingEvaluation?.status || 'Submitted',
-        createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
+      const evaluation = buildEvaluationPayload(offlineDraftId)
+
+      if (!navigator.onLine) {
+        saveDraft({
+          id: offlineDraftId,
+          operation: editingEvaluation ? 'update' : 'create',
+          evaluationId: editingEvaluation?.id || null,
+          clubId: user.clubId,
+          data: evaluation,
+          createdAt: new Date().toISOString(),
+          readyToSync: true,
+          synced: false,
+        })
+        setOfflineStatusMessage('Saved offline - this assessment will sync when the connection returns.')
+        showToast({ title: 'Saved offline', message: 'This assessment will sync when you are back online.' })
+        setIsSaved(true)
+        return
       }
 
       if (editingEvaluation) {
@@ -871,6 +976,8 @@ export function CreateEvaluationPage() {
       } else {
         await createEvaluation(evaluation)
       }
+
+      removeDraft(offlineDraftId)
 
       if (previewMode === 'email' && selectedParentEmail) {
         try {
@@ -979,9 +1086,32 @@ export function CreateEvaluationPage() {
       }
       setLastUsedSession(nextSessionValue)
       setIsSaved(true)
+      setOfflineStatusMessage('')
+      setOfflineDraftId(createLocalId())
     } catch (error) {
       console.error('Evaluation submit failed', error)
       setIsSaved(false)
+
+      if (isNetworkError(error)) {
+        try {
+          saveDraft({
+            id: offlineDraftId,
+            operation: editingEvaluation ? 'update' : 'create',
+            evaluationId: editingEvaluation?.id || null,
+            clubId: user.clubId,
+            data: buildEvaluationPayload(offlineDraftId),
+            createdAt: new Date().toISOString(),
+            readyToSync: true,
+            synced: false,
+          })
+          setOfflineStatusMessage('Saved offline - this assessment will sync when the connection returns.')
+          showToast({ title: 'Saved offline', message: 'This assessment will sync when you are back online.' })
+          return
+        } catch (draftError) {
+          console.error('Offline draft queue failed', draftError)
+        }
+      }
+
       setActionErrorMessage('This evaluation could not be saved right now. Check the player details and try again.')
     } finally {
       setIsSendingParentEmail(false)
@@ -1025,6 +1155,10 @@ export function CreateEvaluationPage() {
             title="Action not completed"
             message={actionErrorMessage}
           />
+        ) : null}
+
+        {offlineStatusMessage ? (
+          <NoticeBanner title="Offline draft saved" message={offlineStatusMessage} tone="info" />
         ) : null}
 
         {dataRefreshNotice ? <NoticeBanner title="Using available club data" message={dataRefreshNotice} tone="info" /> : null}
