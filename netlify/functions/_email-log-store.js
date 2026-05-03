@@ -48,7 +48,40 @@ export function createEmailDedupeKey(payload) {
     .digest('hex')
 }
 
-export async function createPendingEmailLog({ recipients, subject, payload, dedupeKey }) {
+export function createEmailIdempotencyKey({ payload, idempotencySeed }) {
+  return createHash('sha256')
+    .update(JSON.stringify({
+      seed: idempotencySeed || null,
+      from: payload.from,
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
+    }))
+    .digest('hex')
+}
+
+function getNextRetryDate(attempts) {
+  const delayByAttempt = {
+    1: 60 * 1000,
+    2: 5 * 60 * 1000,
+    3: 15 * 60 * 1000,
+  }
+  const delayMs = delayByAttempt[attempts] ?? delayByAttempt[3]
+
+  return new Date(Date.now() + delayMs).toISOString()
+}
+
+export function getStoredResendPayload(emailLog) {
+  return emailLog?.payload?.resendPayload || emailLog?.payload || {}
+}
+
+export async function createPendingEmailLog({
+  recipients,
+  subject,
+  payload,
+  dedupeKey,
+  idempotencyKey,
+}) {
   const client = getEmailLogClient()
 
   if (!client) {
@@ -57,8 +90,8 @@ export async function createPendingEmailLog({ recipients, subject, payload, dedu
 
   const { data: existingRecord, error: selectError } = await client
     .from('email_logs')
-    .select('id, status, attempts')
-    .eq('dedupe_key', dedupeKey)
+    .select('id, status, attempts, payload')
+    .eq('idempotency_key', idempotencyKey)
     .maybeSingle()
 
   if (selectError) {
@@ -79,9 +112,11 @@ export async function createPendingEmailLog({ recipients, subject, payload, dedu
         payload,
         subject,
         to_email: recipients.join(', '),
+        is_processing: false,
+        next_retry_at: null,
       })
       .eq('id', existingRecord.id)
-      .select('id, status, attempts')
+      .select('id, status, attempts, payload')
       .single()
 
     if (error) {
@@ -96,21 +131,24 @@ export async function createPendingEmailLog({ recipients, subject, payload, dedu
     .from('email_logs')
     .insert({
       dedupe_key: dedupeKey,
+      idempotency_key: idempotencyKey,
       to_email: recipients.join(', '),
       subject,
       status: 'pending',
       attempts: 0,
       payload,
+      is_processing: false,
+      next_retry_at: null,
     })
-    .select('id, status, attempts')
+    .select('id, status, attempts, payload')
     .single()
 
   if (error) {
     if (error.code === '23505') {
       const { data: duplicateRecord, error: duplicateSelectError } = await client
         .from('email_logs')
-        .select('id, status, attempts')
-        .eq('dedupe_key', dedupeKey)
+        .select('id, status, attempts, payload')
+        .eq('idempotency_key', idempotencyKey)
         .maybeSingle()
 
       if (!duplicateSelectError && duplicateRecord) {
@@ -139,6 +177,8 @@ export async function markEmailLogSent(record, response) {
       status: 'sent',
       attempts,
       last_error: null,
+      is_processing: false,
+      next_retry_at: null,
     })
     .eq('id', record.id)
 
@@ -166,6 +206,8 @@ export async function markEmailLogFailed(record, error) {
       status: 'failed',
       attempts,
       last_error: error?.message || String(error),
+      is_processing: false,
+      next_retry_at: getNextRetryDate(attempts),
     })
     .eq('id', record.id)
 
@@ -181,11 +223,14 @@ export async function getFailedEmailLogs({ limit = 25 } = {}) {
     return []
   }
 
+  const now = new Date().toISOString()
   const { data, error } = await client
     .from('email_logs')
-    .select('id, attempts, payload')
+    .select('id, attempts, payload, is_processing, next_retry_at')
     .eq('status', 'failed')
+    .eq('is_processing', false)
     .lt('attempts', 3)
+    .or(`next_retry_at.is.null,next_retry_at.lte.${now}`)
     .order('created_at', { ascending: true })
     .limit(limit)
 
@@ -195,4 +240,46 @@ export async function getFailedEmailLogs({ limit = 25 } = {}) {
   }
 
   return data ?? []
+}
+
+export async function lockEmailLogForRetry(emailLog) {
+  const client = getEmailLogClient()
+
+  if (!client || !emailLog?.id) {
+    return null
+  }
+
+  const { data, error } = await client
+    .from('email_logs')
+    .update({ is_processing: true })
+    .eq('id', emailLog.id)
+    .eq('status', 'failed')
+    .eq('is_processing', false)
+    .lt('attempts', 3)
+    .select('id, attempts, payload')
+    .maybeSingle()
+
+  if (error) {
+    console.error('Email retry lock failed', error)
+    return null
+  }
+
+  return data
+}
+
+export async function unlockEmailLogForRetry(emailLog) {
+  const client = getEmailLogClient()
+
+  if (!client || !emailLog?.id) {
+    return
+  }
+
+  const { error } = await client
+    .from('email_logs')
+    .update({ is_processing: false })
+    .eq('id', emailLog.id)
+
+  if (error) {
+    console.error('Email retry unlock failed', error)
+  }
 }

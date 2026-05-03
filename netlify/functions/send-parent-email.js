@@ -4,6 +4,7 @@ import { createAuditLog } from '../../src/lib/domain/audit.js'
 import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 import {
   createEmailDedupeKey,
+  createEmailIdempotencyKey,
   createPendingEmailLog,
   markEmailLogFailed,
   markEmailLogSent,
@@ -119,6 +120,8 @@ export async function handler(event) {
       clubEmail,
       subject,
       html,
+      idempotencyKey,
+      evaluationId,
     } = body
 
     recipients = normaliseRecipients(parentEmail)
@@ -149,11 +152,22 @@ export async function handler(event) {
       attachments,
     })
     const dedupeKey = createEmailDedupeKey(emailPayload)
+    const finalIdempotencyKey = idempotencyKey || createEmailIdempotencyKey({
+      payload: emailPayload,
+      idempotencySeed: evaluationId,
+    })
+    const storedPayload = {
+      resendPayload: emailPayload,
+      displayName: safeDisplayName,
+      teamName: safeTeamName,
+      clubName: safeClubName,
+    }
     const pendingLogResult = await createPendingEmailLog({
       recipients,
       subject: emailSubject,
-      payload: emailPayload,
+      payload: storedPayload,
       dedupeKey,
+      idempotencyKey: finalIdempotencyKey,
     })
 
     emailLogRecord = pendingLogResult.record
