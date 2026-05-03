@@ -5,6 +5,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { sendParentEmail } from '../lib/email-builder.js'
 import {
   createPlatformClub,
   deletePlatformFeedback,
@@ -60,6 +61,7 @@ export function PlatformAdminPage() {
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isSavingClub, setIsSavingClub] = useState(false)
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
   const [updatingClubId, setUpdatingClubId] = useState('')
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -68,6 +70,11 @@ export function PlatformAdminPage() {
     name: '',
     contactEmail: '',
     contactPhone: '',
+  })
+  const [testEmailForm, setTestEmailForm] = useState({
+    parentEmail: user?.email || '',
+    subject: 'Player Feedback Test Email',
+    message: 'This is a test email from Player Feedback.',
   })
 
   useEffect(() => {
@@ -259,6 +266,44 @@ export function PlatformAdminPage() {
     setSuccessMessage('')
   }
 
+  const handleTestEmailChange = (fieldName, value) => {
+    setTestEmailForm((current) => ({
+      ...current,
+      [fieldName]: value,
+    }))
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const handleSendTestEmail = async (event) => {
+    event.preventDefault()
+    setIsSendingTestEmail(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await sendParentEmail({
+        parentEmail: testEmailForm.parentEmail,
+        displayName: user?.displayName || user?.username || user?.name || 'Platform Admin',
+        team: user?.emailTeamName || 'Platform',
+        club: user?.emailClubName || user?.clubName || 'Player Feedback',
+        replyToEmail: user?.replyToEmail || user?.email,
+        playerName: 'Test Email',
+        summary: testEmailForm.message,
+        responses: [],
+        subject: testEmailForm.subject,
+        emailBody: testEmailForm.message,
+      })
+
+      setSuccessMessage('Test email sent.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Test email could not be sent.')
+    } finally {
+      setIsSendingTestEmail(false)
+    }
+  }
+
   const handleCreateClub = async (event) => {
     event.preventDefault()
     setIsSavingClub(true)
@@ -392,6 +437,55 @@ export function PlatformAdminPage() {
           </div>
         ))}
       </div>
+
+      <SectionCard
+        title="Test Email"
+        description="Send a test through the live email service using the same server-side route as parent emails."
+      >
+        <form onSubmit={handleSendTestEmail} className="grid gap-4 xl:grid-cols-[1fr_1fr_auto] xl:items-end">
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Send to</span>
+            <input
+              required
+              type="email"
+              value={testEmailForm.parentEmail}
+              onChange={(event) => handleTestEmailChange('parentEmail', event.target.value)}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Subject</span>
+            <input
+              required
+              value={testEmailForm.subject}
+              onChange={(event) => handleTestEmailChange('subject', event.target.value)}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={isSendingTestEmail}
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSendingTestEmail ? 'Sending...' : 'Send Test Email'}
+          </button>
+          <label className="block xl:col-span-3">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Message</span>
+            <textarea
+              required
+              rows="4"
+              value={testEmailForm.message}
+              onChange={(event) => handleTestEmailChange('message', event.target.value)}
+              className="min-h-28 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-6 text-[var(--text-muted)] xl:col-span-3">
+            From: {user?.displayName || user?.username || user?.name || 'Platform Admin'} ({user?.emailTeamName || 'Platform'} - {user?.emailClubName || user?.clubName || 'Player Feedback'}) &lt;feedback@playerfeedback.online&gt;
+            <br />
+            Reply to: {user?.replyToEmail || user?.email || 'No reply-to email set'}
+          </div>
+        </form>
+      </SectionCard>
 
       <SectionCard
         title="Manage clubs"
