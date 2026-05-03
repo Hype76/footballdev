@@ -25,6 +25,10 @@ export function UserSettingsPage() {
   const { showToast } = useToast()
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
+  const [displayName, setDisplayName] = useState(user?.displayName || user?.username || user?.name || '')
+  const [emailTeamName, setEmailTeamName] = useState(user?.emailTeamName || user?.activeTeamName || '')
+  const [emailClubName, setEmailClubName] = useState(user?.emailClubName || user?.clubName || '')
+  const [replyToEmail, setReplyToEmail] = useState(user?.replyToEmail || user?.email || authUser?.email || '')
   const [passwordData, setPasswordData] = useState(createInitialPasswordState)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isSavingEmail, setIsSavingEmail] = useState(false)
@@ -39,7 +43,22 @@ export function UserSettingsPage() {
   useEffect(() => {
     setUsername(user?.username || user?.name || '')
     setEmail(user?.email || authUser?.email || '')
-  }, [authUser?.email, user?.email, user?.name, user?.username])
+    setDisplayName(user?.displayName || user?.username || user?.name || '')
+    setEmailTeamName(user?.emailTeamName || user?.activeTeamName || '')
+    setEmailClubName(user?.emailClubName || user?.clubName || '')
+    setReplyToEmail(user?.replyToEmail || user?.email || authUser?.email || '')
+  }, [
+    authUser?.email,
+    user?.activeTeamName,
+    user?.clubName,
+    user?.displayName,
+    user?.email,
+    user?.emailClubName,
+    user?.emailTeamName,
+    user?.name,
+    user?.replyToEmail,
+    user?.username,
+  ])
 
   useEffect(() => {
     if (!successMessage) {
@@ -63,12 +82,20 @@ export function UserSettingsPage() {
       const updatedProfile = await updateOwnUserSettings({
         authUser,
         username,
+        displayName,
+        teamName: emailTeamName,
+        clubName: emailClubName,
+        replyToEmail,
       })
 
       updateCurrentUserDetails(updatedProfile)
       setUsername(updatedProfile.username || updatedProfile.name || '')
+      setDisplayName(updatedProfile.displayName || updatedProfile.username || updatedProfile.name || '')
+      setEmailTeamName(updatedProfile.emailTeamName || '')
+      setEmailClubName(updatedProfile.emailClubName || '')
+      setReplyToEmail(updatedProfile.replyToEmail || updatedProfile.email || '')
       setSuccessMessage('Account settings saved.')
-      showToast({ title: 'Account saved', message: 'Your username has been updated.' })
+      showToast({ title: 'Account saved', message: 'Your profile and email identity have been updated.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save account settings.')
@@ -191,6 +218,8 @@ export function UserSettingsPage() {
     void persistThemePreferences(nextPreferences)
   }
 
+  const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -226,6 +255,71 @@ export function UserSettingsPage() {
                 className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
+
+            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Parent email identity</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                Emails will be sent from feedback@playerfeedback.online. Parent replies will go to your reply-to email.
+              </p>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Display Name</span>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    required
+                    autoComplete="name"
+                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team Name</span>
+                  <input
+                    type="text"
+                    value={emailTeamName}
+                    onChange={(event) => setEmailTeamName(event.target.value)}
+                    required
+                    placeholder="U12"
+                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Club Name</span>
+                  <input
+                    type="text"
+                    value={emailClubName}
+                    onChange={(event) => setEmailClubName(event.target.value)}
+                    required
+                    placeholder="Cambourne FC"
+                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Reply-to Email</span>
+                  <input
+                    type="email"
+                    value={replyToEmail}
+                    onChange={(event) => setReplyToEmail(event.target.value)}
+                    required
+                    autoComplete="email"
+                    placeholder="coach@club.com"
+                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Sender preview</p>
+                <p className="mt-2 break-words text-sm font-medium text-[var(--text-primary)]">
+                  {senderPreview} &lt;feedback@playerfeedback.online&gt;
+                </p>
+              </div>
+            </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">

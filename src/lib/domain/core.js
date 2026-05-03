@@ -10,6 +10,23 @@ const VIEW_CACHE_PREFIX = 'view-cache:'
 const MEMORY_CACHE_TTL_MS = 30 * 1000
 const memoryCache = new Map()
 const inFlightMemoryRequests = new Map()
+const USER_PROFILE_SELECT = [
+  'id',
+  'email',
+  'username',
+  'name',
+  'role',
+  'role_label',
+  'role_rank',
+  'club_id',
+  'force_password_change',
+  'theme_mode',
+  'theme_accent',
+  'display_name',
+  'team_name',
+  'club_name',
+  'reply_to_email',
+].join(', ')
 
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Admin', rank: 90, isSystem: true },
@@ -1082,6 +1099,10 @@ export function normalizeUserProfile(profile) {
     email: String(profile.email ?? '').trim().toLowerCase(),
     username: String(profile.username ?? '').trim(),
     name: getDisplayName(profile),
+    displayName: String(profile.display_name ?? profile.displayName ?? profile.username ?? profile.name ?? '').trim(),
+    emailTeamName: String(profile.team_name ?? profile.teamName ?? '').trim(),
+    emailClubName: String(profile.club_name ?? profile.emailClubName ?? '').trim(),
+    replyToEmail: String(profile.reply_to_email ?? profile.replyToEmail ?? '').trim().toLowerCase(),
     role: roleKey,
     roleLabel,
     roleRank,
@@ -1252,7 +1273,7 @@ async function applyActiveMembership(authUser, membership) {
     .upsert(payload, {
       onConflict: 'id',
     })
-    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+    .select(USER_PROFILE_SELECT)
     .single()
 
   if (error) {
@@ -1304,7 +1325,7 @@ export async function fetchUserProfile(authUser, options = {}) {
     const loadUserRow = async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+        .select(USER_PROFILE_SELECT)
         .eq('id', authUser.id)
         .maybeSingle()
 
@@ -1358,7 +1379,7 @@ export async function fetchUserProfile(authUser, options = {}) {
           email: authEmail,
         })
         .eq('id', authUser.id)
-        .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+        .select(USER_PROFILE_SELECT)
         .single()
 
       if (syncError) {
@@ -1430,12 +1451,15 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
       email: authUser.email,
       username: getDisplayName(authUser),
       name: getDisplayName(authUser),
+      display_name: getDisplayName(authUser),
+      club_name: String(clubName ?? '').trim(),
+      reply_to_email: String(authUser.email ?? '').trim().toLowerCase(),
       role: 'admin',
       role_label: 'Admin',
       role_rank: 90,
       club_id: club.id,
     })
-    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+    .select(USER_PROFILE_SELECT)
     .single()
 
   if (userError) {
@@ -1451,12 +1475,23 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
   })
 }
 
-export async function updateOwnUserSettings({ authUser, username }) {
+export async function updateOwnUserSettings({
+  authUser,
+  username,
+  displayName,
+  teamName,
+  clubName,
+  replyToEmail,
+}) {
   if (!authUser?.id) {
     throw new Error('Signed in user is required.')
   }
 
   const normalizedUsername = normalizeWords(username)
+  const normalizedDisplayName = normalizeWords(displayName)
+  const normalizedTeamName = String(teamName ?? '').trim()
+  const normalizedClubName = String(clubName ?? '').trim()
+  const normalizedReplyToEmail = String(replyToEmail ?? '').trim().toLowerCase()
 
   if (!normalizedUsername) {
     throw new Error('Username is required.')
@@ -1467,9 +1502,13 @@ export async function updateOwnUserSettings({ authUser, username }) {
     .update({
       username: normalizedUsername,
       name: normalizedUsername,
+      display_name: normalizedDisplayName,
+      team_name: normalizedTeamName,
+      club_name: normalizedClubName,
+      reply_to_email: normalizedReplyToEmail,
     })
     .eq('id', authUser.id)
-    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+    .select(USER_PROFILE_SELECT)
     .single()
 
   if (error) {
@@ -1521,7 +1560,7 @@ export async function updateOwnThemeSettings({ authUser, mode, accent }) {
       theme_accent: normalizedAccent,
     })
     .eq('id', authUser.id)
-    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+    .select(USER_PROFILE_SELECT)
     .single()
 
   if (error) {
@@ -1931,7 +1970,7 @@ export async function getClubUsers(user) {
   return getCachedResource(`club-users:${user.clubId}`, async () => {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+      .select(USER_PROFILE_SELECT)
       .eq('club_id', user.clubId)
       .order('role_rank', { ascending: false })
       .order('email', { ascending: true })
@@ -1980,7 +2019,7 @@ export async function getVisibleClubUsers(user) {
 
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+      .select(USER_PROFILE_SELECT)
       .eq('club_id', user.clubId)
       .in('id', userIds)
       .order('role_rank', { ascending: false })
@@ -2386,7 +2425,7 @@ export async function assignClubUserRole({ user, email, role }) {
 
   const { data: existingUsers, error: existingUsersError } = await supabase
     .from('users')
-    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+    .select(USER_PROFILE_SELECT)
     .eq('club_id', user.clubId)
     .eq('email', normalizedEmail)
     .limit(1)
@@ -2407,7 +2446,7 @@ export async function assignClubUserRole({ user, email, role }) {
         role_rank: roleRank,
       })
       .eq('id', existingUser.id)
-      .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+      .select(USER_PROFILE_SELECT)
       .single()
 
     if (updateError) {
@@ -2577,7 +2616,7 @@ export async function updateClubUserName({ user, member, name }) {
   }
 
   const { data, error } = await query
-    .select('id, email, username, name, role, role_label, role_rank, club_id, force_password_change, theme_mode, theme_accent')
+    .select(USER_PROFILE_SELECT)
     .single()
 
   if (error) {

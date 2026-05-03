@@ -39,6 +39,10 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.email ?? '') === String(rightUser.email ?? '') &&
     String(leftUser.username ?? '') === String(rightUser.username ?? '') &&
     String(leftUser.name ?? '') === String(rightUser.name ?? '') &&
+    String(leftUser.displayName ?? '') === String(rightUser.displayName ?? '') &&
+    String(leftUser.emailTeamName ?? '') === String(rightUser.emailTeamName ?? '') &&
+    String(leftUser.emailClubName ?? '') === String(rightUser.emailClubName ?? '') &&
+    String(leftUser.replyToEmail ?? '') === String(rightUser.replyToEmail ?? '') &&
     String(leftUser.role ?? '') === String(rightUser.role ?? '') &&
     String(leftUser.roleLabel ?? '') === String(rightUser.roleLabel ?? '') &&
     Number(leftUser.roleRank ?? 0) === Number(rightUser.roleRank ?? 0) &&
