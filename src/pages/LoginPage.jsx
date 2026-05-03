@@ -366,7 +366,7 @@ export function LoginPage() {
                     <p className="mt-2 text-sm leading-6 text-slate-400">{plan.description}</p>
                   </div>
                   {plan.name === 'Pro' ? (
-                    <span className="rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
+                    <span className="shrink-0 whitespace-nowrap rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
                       Popular
                     </span>
                   ) : null}
