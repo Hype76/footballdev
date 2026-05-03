@@ -80,6 +80,10 @@ async function buildPdfAttachment(emailHtml) {
       'PDF generation timed out',
     )
 
+    if (!pdfBuffer?.length) {
+      return []
+    }
+
     return [
       {
         filename: 'player-feedback.pdf',
@@ -103,7 +107,11 @@ async function createEmailAuditLog(payload) {
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' }
+    return {
+      statusCode: 405,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Method Not Allowed' }),
+    }
   }
 
   let recipients = []
@@ -125,12 +133,18 @@ export async function handler(event) {
       html,
       idempotencyKey,
       evaluationId,
+      playerName,
+      parentName,
     } = body
 
     recipients = normaliseRecipients(parentEmail)
 
     if (recipients.length === 0) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing parentEmail' }) }
+    }
+
+    if (recipients.length > 5) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Too many emails in one request' }) }
     }
 
     if (!process.env.RESEND_API_KEY) {
@@ -144,6 +158,11 @@ export async function handler(event) {
     const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
     const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
     const emailHtml = buildEmailHtml(html)
+
+    if (emailHtml.length > 200000) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Email content is too large' }) }
+    }
+
     const attachments = await buildPdfAttachment(emailHtml)
     emailSubject = String(subject ?? '').trim() || 'Player Feedback'
     const emailPayload = buildEmailPayload({
@@ -164,6 +183,8 @@ export async function handler(event) {
       displayName: safeDisplayName,
       teamName: safeTeamName,
       clubName: safeClubName,
+      playerName: String(playerName ?? '').trim(),
+      parentName: String(parentName ?? '').trim(),
     }
     const pendingLogResult = await createPendingEmailLog({
       recipients,
@@ -192,6 +213,9 @@ export async function handler(event) {
         to: recipients,
         subject: emailSubject,
         hasAttachment: attachments.length > 0,
+        playerName: String(playerName ?? '').trim(),
+        teamName: safeTeamName,
+        clubName: safeClubName,
       },
     })
 

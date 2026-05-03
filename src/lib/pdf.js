@@ -1,4 +1,5 @@
 import fallbackLogo from '../assets/player-feedback-logo.png'
+import { buildEmailHtml } from './email-builder.js'
 
 const LOGO_TIMEOUT_MS = 2500
 
@@ -184,6 +185,18 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
   const showScoring = mode === 'scored'
   const showEmailTemplate = mode === 'email'
   const responseItems = showScoring ? previewProps.responseItems ?? [] : []
+
+  if (showEmailTemplate) {
+    return buildEmailHtml({
+      parentName: previewProps.recipientNames,
+      playerName: previewProps.playerName,
+      teamName: previewProps.team,
+      clubName: previewProps.clubName,
+      summary: previewProps.emailBody,
+      emailBody: previewProps.emailBody,
+      responses: [],
+    })
+  }
 
   return `
     <section style="box-sizing: border-box; width: 760px; padding: 22px; background: #ffffff; color: #0f172a; font-family: Arial, sans-serif;">

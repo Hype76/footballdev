@@ -6,6 +6,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
+import { useToast } from '../components/ui/Toast.jsx'
 import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   PARENT_EMAIL_TEMPLATES,
@@ -109,6 +110,7 @@ export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { showToast } = useToast()
   const routePlayerName = decodeURIComponent(id)
   const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${routePlayerName}` : ''
   const [evaluations, setEvaluations] = useState(() => {
@@ -476,6 +478,10 @@ export function PlayerProfile() {
   }
 
   const handleSendParentEmail = async (evaluation) => {
+    if (emailSendingId) {
+      return
+    }
+
     setEmailSendingId(evaluation.id)
     setErrorMessage('')
 
@@ -502,6 +508,7 @@ export function PlayerProfile() {
 
       await sendParentEmail({
         parentEmail: recipientEmails,
+        parentName: recipientNames,
         displayName: user?.displayName || user?.username || user?.name,
         team: user?.emailTeamName || evaluation.team,
         club: user?.emailClubName || user?.clubName,
@@ -512,7 +519,9 @@ export function PlayerProfile() {
         responses: [],
         subject: emailTemplate.subject,
         emailBody: emailTemplate.body,
+        evaluationId: evaluation.id,
       })
+      showToast({ title: 'Email sent successfully' })
 
       void createCommunicationLog({
         user,
@@ -524,7 +533,7 @@ export function PlayerProfile() {
       }).catch((error) => console.error(error))
     } catch (error) {
       console.error(error)
-      setErrorMessage('Could not send the parent email.')
+      showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
     } finally {
       setEmailSendingId('')
     }

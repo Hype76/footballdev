@@ -1,4 +1,5 @@
 import fallbackLogo from '../../assets/player-feedback-logo.png'
+import { buildEmailHtml } from '../../lib/email-builder.js'
 
 function formatPreviewValue(value) {
   if (typeof value === 'number') {
@@ -51,12 +52,23 @@ export function EmailPreview({
   summary = '',
   emailSubject = '',
   emailBody = '',
+  recipientNames = '',
   responseItems = [],
   mode = 'scored',
 }) {
   const resolvedLogoUrl = logoUrl || fallbackLogo
   const showScoring = mode === 'scored'
   const showEmailTemplate = mode === 'email'
+  const sharedEmailHtml = showEmailTemplate
+    ? buildEmailHtml({
+        parentName: recipientNames,
+        playerName,
+        teamName: team,
+        clubName,
+        emailBody,
+        responses: [],
+      })
+    : ''
 
   return (
     <div className="print-container" data-pdf-root>
@@ -132,9 +144,13 @@ export function EmailPreview({
         ) : showEmailTemplate ? (
           <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Parent Message</p>
-            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
-              {emailBody || 'No parent email template is available for this assessment yet.'}
-            </p>
+            <div className="mt-4 overflow-hidden rounded-2xl border border-[#e7ece3] bg-white text-sm leading-6 text-slate-700">
+              {emailBody ? (
+                <div dangerouslySetInnerHTML={{ __html: sharedEmailHtml }} />
+              ) : (
+                <p className="p-4">No parent email template is available for this assessment yet.</p>
+              )}
+            </div>
           </div>
         ) : (
           <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">

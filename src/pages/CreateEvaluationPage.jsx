@@ -7,6 +7,7 @@ import { EmailPreview } from '../components/ui/EmailPreview.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
+import { useToast } from '../components/ui/Toast.jsx'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   PARENT_EMAIL_TEMPLATES,
@@ -131,6 +132,7 @@ export function CreateEvaluationPage() {
   const formRef = useRef(null)
   const hasInitializedRef = useRef(false)
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [searchParams] = useSearchParams()
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
   const searchParamsKey = searchParams.toString()
@@ -875,6 +877,7 @@ export function CreateEvaluationPage() {
           setIsSendingParentEmail(true)
           await sendParentEmail({
             parentEmail: selectedParentEmail,
+            parentName: selectedParentName,
             displayName: user?.displayName || user?.display_name || user?.username || user?.name,
             teamName: user?.team_name || user?.emailTeamName || formData.team,
             clubName: user?.club_name || user?.emailClubName || user?.clubName,
@@ -885,10 +888,12 @@ export function CreateEvaluationPage() {
             responses: responseItems,
             subject: parentEmailTemplate.subject,
             emailBody: parentEmailTemplate.body,
+            evaluationId: editingEvaluation?.id || evaluation.id,
           })
+          showToast({ title: 'Email sent successfully' })
         } catch (emailError) {
           console.error('Parent email failed', emailError)
-          setActionErrorMessage('The evaluation was saved, but the parent email could not be sent.')
+          showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
         }
       }
 
@@ -1435,6 +1440,7 @@ export function CreateEvaluationPage() {
                   summary={previewSummary}
                   emailSubject={parentEmailTemplate.subject}
                   emailBody={parentEmailTemplate.body}
+                  recipientNames={selectedParentName}
                   responseItems={previewMode === 'scored' ? responseItems : []}
                   mode={previewMode}
                 />

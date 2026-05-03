@@ -144,9 +144,7 @@ export async function markEmailLogSent(record, response) {
     return
   }
 
-  if (response) {
-    console.log('Email sent', response)
-  }
+  void response
 }
 
 export async function markEmailLogFailed(record, error) {
