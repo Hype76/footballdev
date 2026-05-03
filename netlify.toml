@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  NODE_VERSION = "22.17.0"
+
 [[redirects]]
   from = "/supabase/*"
   to = "/404"
