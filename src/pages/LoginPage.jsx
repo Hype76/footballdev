@@ -10,23 +10,30 @@ const initialFormData = {
 
 const pricingPlans = [
   {
-    name: 'Free',
+    name: 'Individual',
     price: 'Free',
-    annualPrice: '',
-    description: 'For testing the basics before moving your club workflow online.',
-    features: ['5 players', '10 evaluations per month', 'Basic form only', 'No PDF export', 'No email sending'],
+    priceLabel: 'No card needed',
+    description: 'For one coach testing the basics before moving feedback online.',
+    features: ['1 team', '5 players', '10 evaluations per month', 'Basic form only', 'No PDF export', 'No email sending'],
   },
   {
-    name: 'Pro',
+    name: 'Single Team',
     price: 9.99,
-    description: 'For clubs ready to send structured feedback to parents.',
-    features: ['2 weeks trial included', 'Cancel anytime', 'Unlimited players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic branding with club name and logo'],
+    description: 'For teams ready to send structured feedback to parents.',
+    features: ['2 weeks trial included', 'Cancel anytime', 'Up to 5 teams', 'Unlimited players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic branding with club name and logo'],
   },
   {
-    name: 'Club',
+    name: 'Small Club',
     price: 24.99,
-    description: 'For multi-team clubs needing staff access and oversight.',
-    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Pro', 'Multiple teams', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
+    description: 'For growing clubs needing staff access and oversight.',
+    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Single Team', 'Up to 10 teams', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
+  },
+  {
+    name: 'Large Club',
+    price: 'Contact us',
+    priceLabel: 'Custom setup',
+    description: 'For larger clubs that need more teams, onboarding, or custom support.',
+    features: ['More than 10 teams', 'Custom onboarding', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
   },
 ]
 
@@ -40,6 +47,10 @@ function formatPrice(plan, billingCycle) {
 }
 
 function formatPriceLabel(plan, billingCycle) {
+  if (plan.priceLabel) {
+    return plan.priceLabel
+  }
+
   if (typeof plan.price !== 'number') {
     return 'No card needed'
   }
@@ -354,7 +365,7 @@ export function LoginPage() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {pricingPlans.map((plan) => (
               <div
                 key={plan.name}
@@ -365,7 +376,7 @@ export function LoginPage() {
                     <p className="text-lg font-black text-white">{plan.name}</p>
                     <p className="mt-2 text-sm leading-6 text-slate-400">{plan.description}</p>
                   </div>
-                  {plan.name === 'Pro' ? (
+                  {plan.name === 'Single Team' ? (
                     <span className="shrink-0 whitespace-nowrap rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
                       Popular
                     </span>
