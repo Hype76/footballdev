@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import fallbackLogo from '../assets/player-feedback-logo.png'
+import InstallAppButton from '../components/pwa/InstallAppButton.jsx'
 import { useAuth } from '../lib/auth.js'
 
 const initialFormData = {
@@ -152,6 +153,10 @@ export function LoginPage() {
           <div className="hidden items-center gap-2 rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-2 text-xs font-semibold text-[#d8ff2f] sm:flex">
             Built for football clubs
           </div>
+          <InstallAppButton
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#d8ff2f]/30 bg-[#d8ff2f] px-4 py-3 text-sm font-black text-black transition hover:opacity-90"
+            helpClassName="max-w-xs rounded-2xl border border-white/10 bg-black/50 px-3 py-2 text-xs font-semibold leading-5 text-slate-200"
+          />
         </header>
 
         <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[1.08fr_0.92fr] lg:py-10">
