@@ -1,40 +1,5 @@
-import process from 'node:process'
 import { createHash } from 'node:crypto'
-import { createClient } from '@supabase/supabase-js'
-
-let emailLogClient
-
-function getSupabaseConfig() {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY
-
-  return { url, key }
-}
-
-function getEmailLogClient() {
-  if (emailLogClient) {
-    return emailLogClient
-  }
-
-  const { url, key } = getSupabaseConfig()
-
-  if (!url || !key) {
-    return null
-  }
-
-  emailLogClient = createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  })
-
-  return emailLogClient
-}
+import { supabaseAdmin } from './_supabase.js'
 
 export function createEmailDedupeKey(payload) {
   return createHash('sha256')
@@ -82,13 +47,7 @@ export async function createPendingEmailLog({
   dedupeKey,
   idempotencyKey,
 }) {
-  const client = getEmailLogClient()
-
-  if (!client) {
-    return { record: null, skipped: false }
-  }
-
-  const { data: existingRecord, error: selectError } = await client
+  const { data: existingRecord, error: selectError } = await supabaseAdmin
     .from('email_logs')
     .select('id, status, attempts, payload')
     .eq('idempotency_key', idempotencyKey)
@@ -104,7 +63,7 @@ export async function createPendingEmailLog({
   }
 
   if (existingRecord) {
-    const { data, error } = await client
+    const { data, error } = await supabaseAdmin
       .from('email_logs')
       .update({
         status: 'pending',
@@ -127,7 +86,7 @@ export async function createPendingEmailLog({
     return { record: data, skipped: false }
   }
 
-  const { data, error } = await client
+  const { data, error } = await supabaseAdmin
     .from('email_logs')
     .insert({
       dedupe_key: dedupeKey,
@@ -145,7 +104,7 @@ export async function createPendingEmailLog({
 
   if (error) {
     if (error.code === '23505') {
-      const { data: duplicateRecord, error: duplicateSelectError } = await client
+      const { data: duplicateRecord, error: duplicateSelectError } = await supabaseAdmin
         .from('email_logs')
         .select('id, status, attempts, payload')
         .eq('idempotency_key', idempotencyKey)
@@ -164,14 +123,12 @@ export async function createPendingEmailLog({
 }
 
 export async function markEmailLogSent(record, response) {
-  const client = getEmailLogClient()
-
-  if (!client || !record?.id) {
+  if (!record?.id) {
     return
   }
 
   const attempts = Number(record.attempts ?? 0) + 1
-  const { error } = await client
+  const { error } = await supabaseAdmin
     .from('email_logs')
     .update({
       status: 'sent',
@@ -193,14 +150,12 @@ export async function markEmailLogSent(record, response) {
 }
 
 export async function markEmailLogFailed(record, error) {
-  const client = getEmailLogClient()
-
-  if (!client || !record?.id) {
+  if (!record?.id) {
     return
   }
 
   const attempts = Number(record.attempts ?? 0) + 1
-  const { error: updateError } = await client
+  const { error: updateError } = await supabaseAdmin
     .from('email_logs')
     .update({
       status: 'failed',
@@ -217,14 +172,8 @@ export async function markEmailLogFailed(record, error) {
 }
 
 export async function getFailedEmailLogs({ limit = 25 } = {}) {
-  const client = getEmailLogClient()
-
-  if (!client) {
-    return []
-  }
-
   const now = new Date().toISOString()
-  const { data, error } = await client
+  const { data, error } = await supabaseAdmin
     .from('email_logs')
     .select('id, attempts, payload, is_processing, next_retry_at')
     .eq('status', 'failed')
@@ -243,13 +192,11 @@ export async function getFailedEmailLogs({ limit = 25 } = {}) {
 }
 
 export async function lockEmailLogForRetry(emailLog) {
-  const client = getEmailLogClient()
-
-  if (!client || !emailLog?.id) {
+  if (!emailLog?.id) {
     return null
   }
 
-  const { data, error } = await client
+  const { data, error } = await supabaseAdmin
     .from('email_logs')
     .update({ is_processing: true })
     .eq('id', emailLog.id)
@@ -268,18 +215,39 @@ export async function lockEmailLogForRetry(emailLog) {
 }
 
 export async function unlockEmailLogForRetry(emailLog) {
-  const client = getEmailLogClient()
-
-  if (!client || !emailLog?.id) {
+  if (!emailLog?.id) {
     return
   }
 
-  const { error } = await client
+  const { error } = await supabaseAdmin
     .from('email_logs')
     .update({ is_processing: false })
     .eq('id', emailLog.id)
 
   if (error) {
     console.error('Email retry unlock failed', error)
+  }
+}
+
+export async function createServerAuditLog({ action, entityType, entityId, metadata = {} }) {
+  if (!action || !entityType) {
+    return
+  }
+
+  const { error } = await supabaseAdmin.from('audit_logs').insert({
+    club_id: null,
+    actor_id: null,
+    actor_name: '',
+    actor_email: '',
+    actor_role_label: '',
+    actor_role_rank: 0,
+    action,
+    entity_type: entityType,
+    entity_id: entityId || null,
+    metadata,
+  })
+
+  if (error) {
+    console.error('Email audit logging failed', error)
   }
 }

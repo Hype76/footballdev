@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { Resend } from 'resend'
+import { supabaseAdmin } from './_supabase.js'
 import {
   getFailedEmailLogs,
   getStoredResendPayload,
@@ -8,6 +9,8 @@ import {
   markEmailLogSent,
   unlockEmailLogForRetry,
 } from './_email-log-store.js'
+
+void supabaseAdmin
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {

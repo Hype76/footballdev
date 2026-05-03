@@ -1,14 +1,17 @@
 import process from 'node:process'
 import { Resend } from 'resend'
-import { createAuditLog } from '../../src/lib/domain/audit.js'
 import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
   createPendingEmailLog,
+  createServerAuditLog,
   markEmailLogFailed,
   markEmailLogSent,
 } from './_email-log-store.js'
+import { supabaseAdmin } from './_supabase.js'
+
+void supabaseAdmin
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
@@ -92,7 +95,7 @@ async function buildPdfAttachment(emailHtml) {
 
 async function createEmailAuditLog(payload) {
   try {
-    await createAuditLog(payload)
+    await createServerAuditLog(payload)
   } catch (error) {
     console.error('Email audit logging failed', error)
   }
