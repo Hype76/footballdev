@@ -26,6 +26,7 @@ export {
   normalizeUserProfile,
   requestLoginEmailChange,
   selectUserClub,
+  updateOwnThemeSettings,
   updateOwnUserSettings,
   updateSignedInPassword,
 } from './domain/auth-helpers.js'

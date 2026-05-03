@@ -56,6 +56,21 @@ export function Layout() {
   }, [])
 
   useEffect(() => {
+    if (!user?.id) {
+      return
+    }
+
+    const hasSavedTheme = Boolean(user.themeMode || user.themeAccent)
+
+    if (!hasSavedTheme) {
+      return
+    }
+
+    setThemeMode(normalizeThemeMode(user.themeMode || getStoredThemeMode()))
+    setThemeAccent(normalizeThemeAccent(user.themeAccent || getStoredThemeAccent()))
+  }, [user?.id, user?.themeAccent, user?.themeMode])
+
+  useEffect(() => {
     document.body.classList.remove(
       'theme-light',
       'theme-dark',

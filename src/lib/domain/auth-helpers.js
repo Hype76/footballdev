@@ -4,6 +4,7 @@ export {
   normalizeUserProfile,
   requestLoginEmailChange,
   selectUserClub,
+  updateOwnThemeSettings,
   updateOwnUserSettings,
   updateSignedInPassword,
 } from './core.js'

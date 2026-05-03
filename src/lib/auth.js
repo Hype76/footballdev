@@ -51,6 +51,8 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.clubStatus ?? '') === String(rightUser.clubStatus ?? '') &&
     String(leftUser.clubSuspendedAt ?? '') === String(rightUser.clubSuspendedAt ?? '') &&
     Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
+    String(leftUser.themeMode ?? '') === String(rightUser.themeMode ?? '') &&
+    String(leftUser.themeAccent ?? '') === String(rightUser.themeAccent ?? '') &&
     String(leftUser.activeTeamId ?? '') === String(rightUser.activeTeamId ?? '') &&
     String(leftUser.activeTeamName ?? '') === String(rightUser.activeTeamName ?? '')
   )

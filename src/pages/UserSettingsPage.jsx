@@ -4,7 +4,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { getRoleLabel, useAuth } from '../lib/auth.js'
-import { requestLoginEmailChange, updateOwnUserSettings, updateSignedInPassword } from '../lib/supabase.js'
+import { requestLoginEmailChange, updateOwnThemeSettings, updateOwnUserSettings, updateSignedInPassword } from '../lib/supabase.js'
 import {
   getStoredThemeAccent,
   getStoredThemeMode,
@@ -151,6 +151,24 @@ export function UserSettingsPage() {
     }
   }
 
+  const persistThemePreferences = async (nextPreferences) => {
+    try {
+      const updatedProfile = await updateOwnThemeSettings({
+        authUser,
+        mode: nextPreferences.mode,
+        accent: nextPreferences.accent,
+      })
+      updateCurrentUserDetails(updatedProfile)
+    } catch (error) {
+      console.error(error)
+      showToast({
+        title: 'Theme saved on this device',
+        message: 'Your account theme could not be updated right now.',
+        tone: 'error',
+      })
+    }
+  }
+
   const handleThemeModeChange = (nextThemeMode) => {
     const nextPreferences = saveThemePreferences({
       mode: nextThemeMode,
@@ -159,6 +177,7 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
+    void persistThemePreferences(nextPreferences)
   }
 
   const handleThemeAccentChange = (nextThemeAccent) => {
@@ -169,6 +188,7 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     showToast({ title: 'Theme updated', message: 'Your colour preference has been saved.' })
+    void persistThemePreferences(nextPreferences)
   }
 
   return (
