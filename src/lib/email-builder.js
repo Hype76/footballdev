@@ -35,34 +35,27 @@ export function buildEmailHtml({
   emailBody,
 }) {
   const responseItems = normaliseResponses(responses)
+  const summaryContent = emailBody || summary || 'No summary provided'
 
   return `
-    <div style="font-family: Arial, sans-serif; color: #142018; padding: 20px; line-height: 1.5;">
-      <h2 style="margin: 0 0 8px;">${escapeHtml(club || 'Club')}</h2>
-      <h3 style="margin: 0 0 12px;">${escapeHtml(playerName || 'Player')}</h3>
-      <p style="margin: 0 0 20px;"><strong>Team:</strong> ${escapeHtml(team || 'Team')}</p>
+    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 20px; line-height: 1.5;">
+      <h2 style="margin: 0 0 8px; font-size: 22px; line-height: 1.25;">${escapeHtml(club || 'Club')}</h2>
+      <h3 style="margin: 0 0 8px; font-size: 18px; line-height: 1.3;">${escapeHtml(playerName || 'Player')}</h3>
+      <p style="margin: 0 0 20px; font-size: 14px;"><strong>Team:</strong> ${escapeHtml(team || 'Team')}</p>
 
-      ${
-        emailBody
-          ? `<div style="margin: 0 0 24px; white-space: normal;">${formatLines(emailBody)}</div>`
-          : `
-            <h4 style="margin: 0 0 8px;">Summary</h4>
-            <p style="margin: 0 0 20px;">${escapeHtml(summary || 'No summary provided')}</p>
-          `
-      }
+      <h4 style="margin: 0 0 8px; font-size: 15px; line-height: 1.3;">Summary</h4>
+      <div style="margin: 0 0 20px; font-size: 14px;">${formatLines(summaryContent)}</div>
 
-      ${
-        responseItems.length > 0
-          ? `
-            <h4 style="margin: 0 0 8px;">Evaluation</h4>
-            <ul style="padding-left: 20px; margin: 0;">
-              ${responseItems
-                .map((item) => `<li><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(item.value)}</li>`)
-                .join('')}
-            </ul>
-          `
-          : ''
-      }
+      <h4 style="margin: 0 0 8px; font-size: 15px; line-height: 1.3;">Evaluation</h4>
+      <ul style="padding-left: 20px; margin: 0; font-size: 14px;">
+        ${
+          responseItems.length > 0
+            ? responseItems
+              .map((item) => `<li style="margin: 0 0 6px;"><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(item.value)}</li>`)
+              .join('')
+            : '<li style="margin: 0 0 6px;">No responses provided</li>'
+        }
+      </ul>
     </div>
   `
 }
