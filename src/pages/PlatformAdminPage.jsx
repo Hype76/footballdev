@@ -287,7 +287,8 @@ export function PlatformAdminPage() {
         displayName: user?.displayName || user?.username || user?.name || 'Platform Admin',
         team: user?.emailTeamName || 'Platform',
         club: user?.emailClubName || user?.clubName || 'Player Feedback',
-        replyToEmail: user?.replyToEmail || user?.email,
+        replyToEmail: user?.replyToEmail || user?.clubContactEmail || user?.email,
+        clubContactEmail: user?.clubContactEmail,
         playerName: 'Test Email',
         summary: testEmailForm.message,
         responses: [],
@@ -482,7 +483,7 @@ export function PlatformAdminPage() {
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-6 text-[var(--text-muted)] xl:col-span-3">
             From: {user?.displayName || user?.username || user?.name || 'Platform Admin'} ({user?.emailTeamName || 'Platform'} - {user?.emailClubName || user?.clubName || 'Player Feedback'}) &lt;feedback@playerfeedback.online&gt;
             <br />
-            Reply to: {user?.replyToEmail || user?.email || 'No reply-to email set'}
+            Reply to: {user?.replyToEmail || user?.clubContactEmail || user?.email || 'No reply-to email set'}
           </div>
         </form>
       </SectionCard>

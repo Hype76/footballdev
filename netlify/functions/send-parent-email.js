@@ -34,6 +34,8 @@ export async function handler(event) {
       teamName,
       clubName,
       replyToEmail,
+      clubContactEmail,
+      clubEmail,
       subject,
       html,
     } = body
@@ -53,11 +55,12 @@ export async function handler(event) {
     const safeTeamName = cleanHeaderPart(teamName, 'Team')
     const safeClubName = cleanHeaderPart(clubName, 'Club')
     const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
+    const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
 
     const response = await resend.emails.send({
       from: `${fromName} <feedback@playerfeedback.online>`,
       to: recipients,
-      replyTo: cleanHeaderPart(replyToEmail, '') || undefined,
+      replyTo: safeReplyTo || undefined,
       subject: String(subject ?? '').trim() || 'Player Feedback',
       html: String(html ?? '').trim() || '<p>No content</p>',
     })
