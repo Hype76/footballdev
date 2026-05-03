@@ -5,7 +5,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
-import { sendParentEmail } from '../lib/email-builder.js'
+import { buildEmailHtml, buildPlayerFeedbackSubject, sendParentEmail } from '../lib/email-builder.js'
 import {
   createPlatformClub,
   deletePlatformFeedback,
@@ -62,6 +62,10 @@ export function PlatformAdminPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [isSavingClub, setIsSavingClub] = useState(false)
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
+  const [isPreviewingPdf, setIsPreviewingPdf] = useState(false)
+  const [previewEmailHtml, setPreviewEmailHtml] = useState('')
+  const [previewPdfUrl, setPreviewPdfUrl] = useState('')
+  const [testEmailDebug, setTestEmailDebug] = useState(null)
   const [updatingClubId, setUpdatingClubId] = useState('')
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -73,8 +77,16 @@ export function PlatformAdminPage() {
   })
   const [testEmailForm, setTestEmailForm] = useState({
     parentEmail: user?.email || '',
-    subject: 'Player Feedback Test Email',
-    message: 'This is a test email from Player Feedback.',
+    parentName: 'Parent/Guardian',
+    playerName: 'Test Player',
+    teamName: 'U12',
+    clubName: 'Test FC',
+    summary: 'Strong performance, good awareness.',
+    responses: [
+      { label: 'Passing', value: 'Good' },
+      { label: 'Positioning', value: 'Average' },
+      { label: 'Effort', value: 'Excellent' },
+    ],
   })
 
   useEffect(() => {
@@ -275,6 +287,120 @@ export function PlatformAdminPage() {
     setSuccessMessage('')
   }
 
+  const handleTestResponseChange = (index, fieldName, value) => {
+    setTestEmailForm((current) => ({
+      ...current,
+      responses: current.responses.map((response, responseIndex) =>
+        responseIndex === index
+          ? {
+              ...response,
+              [fieldName]: value,
+            }
+          : response,
+      ),
+    }))
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const handleAddTestResponse = () => {
+    setTestEmailForm((current) => ({
+      ...current,
+      responses: [...current.responses, { label: '', value: '' }],
+    }))
+  }
+
+  const handleRemoveTestResponse = (index) => {
+    setTestEmailForm((current) => ({
+      ...current,
+      responses: current.responses.filter((_, responseIndex) => responseIndex !== index),
+    }))
+  }
+
+  const handleUseSampleData = () => {
+    setTestEmailForm((current) => ({
+      ...current,
+      playerName: 'Test Player',
+      teamName: 'U12',
+      clubName: 'Test FC',
+      summary: 'Strong performance, good awareness.',
+      responses: [
+        { label: 'Passing', value: 'Good' },
+        { label: 'Positioning', value: 'Average' },
+        { label: 'Effort', value: 'Excellent' },
+      ],
+    }))
+    setPreviewEmailHtml('')
+    setPreviewPdfUrl('')
+    setTestEmailDebug(null)
+    setSuccessMessage('Sample test data loaded.')
+  }
+
+  const getTestEmailPayload = () => {
+    const subject = buildPlayerFeedbackSubject({
+      playerName: testEmailForm.playerName,
+      teamName: testEmailForm.teamName,
+    })
+
+    return {
+      parentEmail: testEmailForm.parentEmail,
+      parentName: testEmailForm.parentName,
+      displayName: user?.displayName || user?.username || user?.name || 'Platform Admin',
+      teamName: testEmailForm.teamName,
+      clubName: testEmailForm.clubName,
+      replyToEmail: user?.replyToEmail || user?.clubContactEmail || user?.email,
+      clubContactEmail: user?.clubContactEmail,
+      playerName: testEmailForm.playerName,
+      summary: testEmailForm.summary,
+      responses: testEmailForm.responses.filter((item) => item.label || item.value),
+      subject,
+    }
+  }
+
+  const handlePreviewEmail = () => {
+    const payload = getTestEmailPayload()
+    const html = buildEmailHtml(payload)
+    setPreviewEmailHtml(html)
+    setTestEmailDebug((current) => ({
+      ...(current ?? {}),
+      htmlSize: html.length,
+    }))
+    setSuccessMessage('Email preview generated.')
+  }
+
+  const handlePreviewPdf = async () => {
+    setIsPreviewingPdf(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const payload = getTestEmailPayload()
+      const response = await fetch('/.netlify/functions/test-pdf-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'PDF preview failed')
+      }
+
+      setPreviewPdfUrl(`data:application/pdf;base64,${result.pdfBase64}`)
+      setTestEmailDebug((current) => ({
+        ...(current ?? {}),
+        htmlSize: result.htmlSize,
+        pdfSize: result.pdfSize,
+      }))
+      setSuccessMessage('PDF preview generated.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('PDF preview could not be generated.')
+    } finally {
+      setIsPreviewingPdf(false)
+    }
+  }
+
   const handleSendTestEmail = async (event) => {
     event.preventDefault()
     setIsSendingTestEmail(true)
@@ -282,24 +408,18 @@ export function PlatformAdminPage() {
     setSuccessMessage('')
 
     try {
-      await sendParentEmail({
-        parentEmail: testEmailForm.parentEmail,
-        displayName: user?.displayName || user?.username || user?.name || 'Platform Admin',
-        team: user?.emailTeamName || 'Platform',
-        club: user?.emailClubName || user?.clubName || 'Player Feedback',
-        replyToEmail: user?.replyToEmail || user?.clubContactEmail || user?.email,
-        clubContactEmail: user?.clubContactEmail,
-        playerName: 'Test Email',
-        summary: testEmailForm.message,
-        responses: [],
-        subject: testEmailForm.subject,
-        emailBody: testEmailForm.message,
-      })
+      const result = await sendParentEmail(getTestEmailPayload())
 
-      setSuccessMessage('Test email sent.')
+      setTestEmailDebug((current) => ({
+        ...(current ?? {}),
+        sendResponseId: result.id || 'No response ID returned',
+        hasAttachment: result.hasAttachment,
+        htmlSize: result.htmlSize,
+      }))
+      setSuccessMessage('Test email sent with PDF attached')
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Test email could not be sent.')
+      setErrorMessage('Test email failed - check logs')
     } finally {
       setIsSendingTestEmail(false)
     }
@@ -441,50 +561,175 @@ export function PlatformAdminPage() {
 
       <SectionCard
         title="Test Email"
-        description="Send a test through the live email service using the same server-side route as parent emails."
+        description="Preview and send through the live email and PDF pipeline."
       >
-        <form onSubmit={handleSendTestEmail} className="grid gap-4 xl:grid-cols-[1fr_1fr_auto] xl:items-end">
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Send to</span>
-            <input
-              required
-              type="email"
-              value={testEmailForm.parentEmail}
-              onChange={(event) => handleTestEmailChange('parentEmail', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Subject</span>
-            <input
-              required
-              value={testEmailForm.subject}
-              onChange={(event) => handleTestEmailChange('subject', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={isSendingTestEmail}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSendingTestEmail ? 'Sending...' : 'Send Test Email'}
-          </button>
-          <label className="block xl:col-span-3">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Message</span>
-            <textarea
-              required
-              rows="4"
-              value={testEmailForm.message}
-              onChange={(event) => handleTestEmailChange('message', event.target.value)}
-              className="min-h-28 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-6 text-[var(--text-muted)] xl:col-span-3">
-            From: {user?.displayName || user?.username || user?.name || 'Platform Admin'} ({user?.emailTeamName || 'Platform'} - {user?.emailClubName || user?.clubName || 'Player Feedback'}) &lt;feedback@playerfeedback.online&gt;
+        <form onSubmit={handleSendTestEmail} className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Test email address</span>
+              <input
+                required
+                type="email"
+                value={testEmailForm.parentEmail}
+                onChange={(event) => handleTestEmailChange('parentEmail', event.target.value)}
+                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent name</span>
+              <input
+                value={testEmailForm.parentName}
+                onChange={(event) => handleTestEmailChange('parentName', event.target.value)}
+                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player name</span>
+              <input
+                required
+                value={testEmailForm.playerName}
+                onChange={(event) => handleTestEmailChange('playerName', event.target.value)}
+                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
+              <input
+                required
+                value={testEmailForm.teamName}
+                onChange={(event) => handleTestEmailChange('teamName', event.target.value)}
+                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Club name</span>
+              <input
+                required
+                value={testEmailForm.clubName}
+                onChange={(event) => handleTestEmailChange('clubName', event.target.value)}
+                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Summary</span>
+              <textarea
+                required
+                rows="3"
+                value={testEmailForm.summary}
+                onChange={(event) => handleTestEmailChange('summary', event.target.value)}
+                className="min-h-24 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+          </div>
+
+          <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Responses</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">These are included in the same HTML used by email and PDF.</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleUseSampleData}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]"
+                >
+                  Use Sample Data
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddTestResponse}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]"
+                >
+                  Add Response
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {testEmailForm.responses.map((response, index) => (
+                <div key={`${index}-${response.label}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                  <input
+                    value={response.label}
+                    onChange={(event) => handleTestResponseChange(index, 'label', event.target.value)}
+                    placeholder="Label"
+                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  />
+                  <input
+                    value={response.value}
+                    onChange={(event) => handleTestResponseChange(index, 'value', event.target.value)}
+                    placeholder="Value"
+                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTestResponse(index)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 xl:flex-row">
+            <button
+              type="button"
+              onClick={handlePreviewEmail}
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            >
+              Preview Email
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePreviewPdf()}
+              disabled={isPreviewingPdf}
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isPreviewingPdf ? 'Generating PDF...' : 'Preview PDF'}
+            </button>
+            <button
+              type="submit"
+              disabled={isSendingTestEmail}
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSendingTestEmail ? 'Sending...' : 'Send Test Email'}
+            </button>
+          </div>
+
+          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-6 text-[var(--text-muted)]">
+            From: {user?.displayName || user?.username || user?.name || 'Platform Admin'} ({testEmailForm.teamName || 'Team'} - {testEmailForm.clubName || 'Club'}) &lt;feedback@playerfeedback.online&gt;
             <br />
             Reply to: {user?.replyToEmail || user?.clubContactEmail || user?.email || 'No reply-to email set'}
+            <br />
+            Subject: {buildPlayerFeedbackSubject({ playerName: testEmailForm.playerName, teamName: testEmailForm.teamName })}
           </div>
+
+          {testEmailDebug ? (
+            <div className="grid gap-3 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm text-[var(--text-muted)] sm:grid-cols-2 xl:grid-cols-4">
+              <p>HTML size: {testEmailDebug.htmlSize ?? 'Not generated'} bytes</p>
+              <p>PDF size: {testEmailDebug.pdfSize ?? 'Not generated'} bytes</p>
+              <p>Attachment: {testEmailDebug.hasAttachment === undefined ? 'Not sent' : testEmailDebug.hasAttachment ? 'Yes' : 'No'}</p>
+              <p>Send response ID: {testEmailDebug.sendResponseId ?? 'Not sent'}</p>
+            </div>
+          ) : null}
+
+          {previewEmailHtml ? (
+            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Email HTML Preview</p>
+              <div className="max-h-[520px] overflow-auto rounded-2xl bg-white p-4">
+                <div dangerouslySetInnerHTML={{ __html: previewEmailHtml }} />
+              </div>
+            </div>
+          ) : null}
+
+          {previewPdfUrl ? (
+            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">PDF Preview</p>
+              <iframe title="PDF preview" src={previewPdfUrl} className="h-[620px] w-full rounded-2xl border border-[var(--border-color)] bg-white" />
+            </div>
+          ) : null}
         </form>
       </SectionCard>
 

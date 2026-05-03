@@ -273,7 +273,11 @@ export async function handler(event) {
       },
     })
 
-    return successResponse()
+    return successResponse({
+      id: response?.data?.id || response?.id || '',
+      hasAttachment: Boolean(sentPayload.attachments?.length),
+      htmlSize: emailHtml.length,
+    })
   } catch (error) {
     console.error(error)
     await markEmailLogFailed(emailLogRecord, error)
