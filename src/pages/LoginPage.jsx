@@ -20,19 +20,19 @@ const pricingPlans = [
     name: 'Single Team',
     price: 9.99,
     description: 'For teams ready to send structured feedback to parents.',
-    features: ['2 weeks trial included', 'Cancel anytime', '1 team', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic branding with club name and logo'],
+    features: ['2 weeks trial included', 'Cancel anytime', '1 team', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic logo branding'],
   },
   {
     name: 'Small Club',
     price: 24.99,
     description: 'For growing clubs needing staff access and oversight.',
-    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Single Team', 'Up to 10 teams', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
+    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Single Team', 'Up to 10 teams', 'Custom branding and themes', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
   },
   {
     name: 'Large Club',
     price: 'Contact us',
     description: 'For larger clubs that need more teams, onboarding, or custom support.',
-    features: ['Custom setup', 'More than 10 teams', 'Custom onboarding', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
+    features: ['Custom setup', 'More than 10 teams', 'Custom branding and themes', 'Custom onboarding', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
   },
 ]
 
