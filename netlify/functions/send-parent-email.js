@@ -38,6 +38,7 @@ export async function handler(event) {
       clubEmail,
       subject,
       html,
+      pdfBuffer,
     } = body
 
     const recipients = normaliseRecipients(parentEmail)
@@ -56,14 +57,25 @@ export async function handler(event) {
     const safeClubName = cleanHeaderPart(clubName, 'Club')
     const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
     const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
+    const attachments = []
 
-    const response = await resend.emails.send({
+    if (pdfBuffer) {
+      // Reserved for future server-side PDF attachments.
+    }
+
+    const emailPayload = {
       from: `${fromName} <feedback@playerfeedback.online>`,
       to: recipients,
       replyTo: safeReplyTo || undefined,
       subject: String(subject ?? '').trim() || 'Player Feedback',
       html: String(html ?? '').trim() || '<p>No content</p>',
-    })
+    }
+
+    if (attachments.length > 0) {
+      emailPayload.attachments = attachments
+    }
+
+    const response = await resend.emails.send(emailPayload)
 
     return {
       statusCode: 200,
