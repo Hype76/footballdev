@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react'
 import { initPWAInstall, isIosDevice, isStandaloneMode, triggerInstall } from '../../lib/pwa-install.js'
 
-export default function InstallAppButton({ className = '', helpClassName = '' }) {
+export default function InstallAppButton({ className = '', helpClassName = '', wrapperClassName = 'contents' }) {
   const [canInstall, setCanInstall] = useState(false)
   const [installMessage, setInstallMessage] = useState('')
-  const [showButton] = useState(() => !isStandaloneMode())
-  const [showIosHelp] = useState(() => !isStandaloneMode() && isIosDevice())
+  const [isStandalone] = useState(() => isStandaloneMode())
+  const [showIosHelp] = useState(() => isIosDevice())
 
   useEffect(() => {
-    if (!showButton) {
+    if (isStandalone) {
       return undefined
     }
 
     return initPWAInstall(setCanInstall)
-  }, [showButton])
+  }, [isStandalone])
 
-  if (!showButton) {
+  if (isStandalone) {
     return null
   }
 
@@ -33,7 +33,7 @@ export default function InstallAppButton({ className = '', helpClassName = '' })
   }
 
   return (
-    <div className="contents">
+    <div className={wrapperClassName}>
       <button type="button" onClick={handleInstall} className={className} data-install-ready={canInstall}>
         Install App
       </button>
