@@ -15,6 +15,7 @@ export function isIosDevice() {
 export function initPWAInstall(setCanInstall) {
   const handleBeforeInstallPrompt = (event) => {
     event.preventDefault()
+    console.log('PWA install available')
     deferredPrompt = event
     setCanInstall(true)
   }
