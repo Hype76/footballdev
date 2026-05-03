@@ -868,26 +868,26 @@ export function CreateEvaluationPage() {
         await updateEvaluation(editingEvaluation.id, evaluation, user?.clubId)
       } else {
         await createEvaluation(evaluation)
+      }
 
-        if (previewMode === 'email' && selectedParentEmail) {
-          try {
-            setIsSendingParentEmail(true)
-            await sendParentEmail({
-              parentEmail: selectedParentEmail,
-              displayName: user?.displayName || user?.username || user?.name,
-              team: user?.emailTeamName || formData.team,
-              club: user?.emailClubName || user?.clubName,
-              replyToEmail: user?.replyToEmail,
-              playerName: normalizedPlayerName,
-              summary: previewSummary,
-              responses: [],
-              subject: parentEmailTemplate.subject,
-              emailBody: parentEmailTemplate.body,
-            })
-          } catch (emailError) {
-            console.error('Parent email failed', emailError)
-            setActionErrorMessage('The evaluation was saved, but the parent email could not be sent.')
-          }
+      if (previewMode === 'email' && selectedParentEmail) {
+        try {
+          setIsSendingParentEmail(true)
+          await sendParentEmail({
+            parentEmail: selectedParentEmail,
+            displayName: user?.displayName || user?.display_name || user?.username || user?.name,
+            teamName: user?.team_name || user?.emailTeamName || formData.team,
+            clubName: user?.club_name || user?.emailClubName || user?.clubName,
+            replyToEmail: user?.reply_to_email || user?.replyToEmail,
+            playerName: normalizedPlayerName,
+            summary: previewSummary,
+            responses: responseItems,
+            subject: parentEmailTemplate.subject,
+            emailBody: parentEmailTemplate.body,
+          })
+        } catch (emailError) {
+          console.error('Parent email failed', emailError)
+          setActionErrorMessage('The evaluation was saved, but the parent email could not be sent.')
         }
       }
 
