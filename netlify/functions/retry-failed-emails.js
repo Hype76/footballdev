@@ -12,21 +12,33 @@ import {
 
 void supabaseAdmin
 
+function jsonResponse(statusCode, payload) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }
+}
+
+function failureResponse(statusCode, message) {
+  return jsonResponse(statusCode, { success: false, message })
+}
+
+function getMissingEnvVars() {
+  return ['RESEND_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'VITE_SUPABASE_URL'].filter(
+    (envName) => !process.env[envName],
+  )
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Method Not Allowed' }),
-    }
+    return failureResponse(405, 'Method Not Allowed')
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Email service is not configured' }),
-    }
+  const missingEnvVars = getMissingEnvVars()
+
+  if (missingEnvVars.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`)
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY)
@@ -67,9 +79,5 @@ export async function handler(event) {
     }
   }
 
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(summary),
-  }
+  return jsonResponse(200, { success: true, ...summary })
 }

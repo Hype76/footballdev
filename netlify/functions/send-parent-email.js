@@ -15,10 +15,41 @@ void supabaseAdmin
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
-    .replace(/[<>\r\n"]/g, '')
+    .split('')
+    .filter((character) => {
+      const code = character.charCodeAt(0)
+      return code >= 32 && code !== 127 && !'<>{}[]"\'`;\\'.includes(character)
+    })
+    .join('')
     .trim()
 
   return cleanedValue || fallback
+}
+
+function jsonResponse(statusCode, payload) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }
+}
+
+function successResponse(payload = {}) {
+  return jsonResponse(200, { success: true, ...payload })
+}
+
+function failureResponse(statusCode, message) {
+  return jsonResponse(statusCode, { success: false, message })
+}
+
+function getMissingEnvVars() {
+  return ['RESEND_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'VITE_SUPABASE_URL'].filter(
+    (envName) => !process.env[envName],
+  )
+}
+
+function isValidEmail(value) {
+  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(String(value ?? '').trim())
 }
 
 function normaliseRecipients(value) {
@@ -97,6 +128,12 @@ async function buildPdfAttachment(emailHtml) {
   }
 }
 
+function removeAttachments(emailPayload) {
+  const { attachments, ...payloadWithoutAttachments } = emailPayload
+  void attachments
+  return payloadWithoutAttachments
+}
+
 async function createEmailAuditLog(payload) {
   try {
     await createServerAuditLog(payload)
@@ -107,11 +144,7 @@ async function createEmailAuditLog(payload) {
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Method Not Allowed' }),
-    }
+    return failureResponse(405, 'Method Not Allowed')
   }
 
   let recipients = []
@@ -119,6 +152,12 @@ export async function handler(event) {
   let emailLogRecord = null
 
   try {
+    const missingEnvVars = getMissingEnvVars()
+
+    if (missingEnvVars.length > 0) {
+      throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`)
+    }
+
     const body = JSON.parse(event.body || '{}')
 
     const {
@@ -140,15 +179,19 @@ export async function handler(event) {
     recipients = normaliseRecipients(parentEmail)
 
     if (recipients.length === 0) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing parentEmail' }) }
+      return failureResponse(400, 'Parent email is required')
+    }
+
+    if (!recipients.every(isValidEmail)) {
+      return failureResponse(400, 'Parent email must be a valid email address')
     }
 
     if (recipients.length > 5) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Too many emails in one request' }) }
+      return failureResponse(400, 'Too many emails in one request')
     }
 
-    if (!process.env.RESEND_API_KEY) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'Email service is not configured' }) }
+    if (replyToEmail && !isValidEmail(replyToEmail)) {
+      return failureResponse(400, 'Reply-to email must be a valid email address')
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY)
@@ -160,7 +203,7 @@ export async function handler(event) {
     const emailHtml = buildEmailHtml(html)
 
     if (emailHtml.length > 200000) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Email content is too large' }) }
+      return failureResponse(400, 'Email content is too large')
     }
 
     const attachments = await buildPdfAttachment(emailHtml)
@@ -197,13 +240,24 @@ export async function handler(event) {
     emailLogRecord = pendingLogResult.record
 
     if (pendingLogResult.skipped) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ success: true, duplicate: true }),
-      }
+      return successResponse({ duplicate: true })
     }
 
-    const response = await resend.emails.send(emailPayload)
+    let response
+    let sentPayload = emailPayload
+
+    try {
+      response = await resend.emails.send(emailPayload)
+    } catch (sendWithPdfError) {
+      if (attachments.length === 0) {
+        throw sendWithPdfError
+      }
+
+      console.error('Email send with PDF failed, retrying without attachment', sendWithPdfError)
+      sentPayload = removeAttachments(emailPayload)
+      response = await resend.emails.send(sentPayload)
+    }
+
     await markEmailLogSent(emailLogRecord, response)
     await createEmailAuditLog({
       user: null,
@@ -212,17 +266,14 @@ export async function handler(event) {
       metadata: {
         to: recipients,
         subject: emailSubject,
-        hasAttachment: attachments.length > 0,
+        hasAttachment: Boolean(sentPayload.attachments?.length),
         playerName: String(playerName ?? '').trim(),
         teamName: safeTeamName,
         clubName: safeClubName,
       },
     })
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, data: response }),
-    }
+    return successResponse()
   } catch (error) {
     console.error(error)
     await markEmailLogFailed(emailLogRecord, error)
@@ -237,9 +288,6 @@ export async function handler(event) {
       },
     })
 
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    }
+    return failureResponse(500, 'Email failed - will retry automatically')
   }
 }

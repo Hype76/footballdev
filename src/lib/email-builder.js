@@ -121,7 +121,7 @@ export async function sendParentEmail(data) {
   const result = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(result.error || 'Email failed')
+    throw new Error(result.message || 'Email failed - will retry automatically')
   }
 
   return result
