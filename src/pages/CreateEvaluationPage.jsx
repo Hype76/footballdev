@@ -14,6 +14,7 @@ import {
   getEmailTemplateKey,
   isInviteEmailTemplate,
 } from '../lib/email-templates.js'
+import { sendParentEmail } from '../lib/email-builder.js'
 import {
   buildComments,
   buildFormResponses,
@@ -153,6 +154,7 @@ export function CreateEvaluationPage() {
   const [isLoadingTeams, setIsLoadingTeams] = useState(() => !cachedTeams?.length)
   const [isSaved, setIsSaved] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSendingParentEmail, setIsSendingParentEmail] = useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [isPrintingBlankView, setIsPrintingBlankView] = useState(false)
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
@@ -866,6 +868,27 @@ export function CreateEvaluationPage() {
         await updateEvaluation(editingEvaluation.id, evaluation, user?.clubId)
       } else {
         await createEvaluation(evaluation)
+
+        if (previewMode === 'email' && selectedParentEmail) {
+          try {
+            setIsSendingParentEmail(true)
+            await sendParentEmail({
+              parentEmail: selectedParentEmail,
+              displayName: user?.displayName || user?.username || user?.name,
+              team: user?.emailTeamName || formData.team,
+              club: user?.emailClubName || user?.clubName,
+              replyToEmail: user?.replyToEmail,
+              playerName: normalizedPlayerName,
+              summary: previewSummary,
+              responses: [],
+              subject: parentEmailTemplate.subject,
+              emailBody: parentEmailTemplate.body,
+            })
+          } catch (emailError) {
+            console.error('Parent email failed', emailError)
+            setActionErrorMessage('The evaluation was saved, but the parent email could not be sent.')
+          }
+        }
       }
 
       const assessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
@@ -954,6 +977,7 @@ export function CreateEvaluationPage() {
       setIsSaved(false)
       setActionErrorMessage('This evaluation could not be saved right now. Check the player details and try again.')
     } finally {
+      setIsSendingParentEmail(false)
       setIsSubmitting(false)
     }
   }
@@ -1357,7 +1381,7 @@ export function CreateEvaluationPage() {
                     disabled={isSubmitting || !canSubmitEvaluation}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
-                    {isSubmitting ? 'Saving...' : 'Submit Evaluation'}
+                    {isSubmitting ? (isSendingParentEmail ? 'Sending Email...' : 'Saving...') : 'Submit Evaluation'}
                   </button>
                   <button
                     type="button"

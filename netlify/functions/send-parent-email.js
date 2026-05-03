@@ -1,0 +1,77 @@
+import process from 'node:process'
+import { Resend } from 'resend'
+
+function cleanHeaderPart(value, fallback) {
+  const cleanedValue = String(value ?? '')
+    .replace(/[<>\r\n"]/g, '')
+    .trim()
+
+  return cleanedValue || fallback
+}
+
+function normaliseRecipients(value) {
+  if (Array.isArray(value)) {
+    return value.map((email) => String(email ?? '').trim()).filter(Boolean)
+  }
+
+  return String(value ?? '')
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean)
+}
+
+export async function handler(event) {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' }
+  }
+
+  try {
+    const body = JSON.parse(event.body || '{}')
+
+    const {
+      parentEmail,
+      displayName,
+      teamName,
+      clubName,
+      replyToEmail,
+      subject,
+      html,
+    } = body
+
+    const recipients = normaliseRecipients(parentEmail)
+
+    if (recipients.length === 0) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing parentEmail' }) }
+    }
+
+    if (!process.env.RESEND_API_KEY) {
+      return { statusCode: 500, body: JSON.stringify({ error: 'Email service is not configured' }) }
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    const safeDisplayName = cleanHeaderPart(displayName, 'Coach')
+    const safeTeamName = cleanHeaderPart(teamName, 'Team')
+    const safeClubName = cleanHeaderPart(clubName, 'Club')
+    const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
+
+    const response = await resend.emails.send({
+      from: `${fromName} <feedback@playerfeedback.online>`,
+      to: recipients,
+      replyTo: cleanHeaderPart(replyToEmail, '') || undefined,
+      subject: String(subject ?? '').trim() || 'Player Feedback',
+      html: String(html ?? '').trim() || '<p>No content</p>',
+    })
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true, data: response }),
+    }
+  } catch (error) {
+    console.error(error)
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message }),
+    }
+  }
+}

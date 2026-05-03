@@ -13,6 +13,7 @@ import {
   getEmailTemplateKey,
   isInviteEmailTemplate,
 } from '../lib/email-templates.js'
+import { sendParentEmail } from '../lib/email-builder.js'
 import {
   buildEvaluationSummary,
   buildFieldMovement,
@@ -94,6 +95,7 @@ function getActivityLabel(log) {
     scored_pdf_downloaded: 'PDF with scores downloaded',
     pdf_without_scores_downloaded: 'PDF without scores downloaded',
     email_template_pdf_downloaded: 'Email template PDF downloaded',
+    parent_email_sent: 'Parent email sent',
     staff_note_added: 'Staff note added',
     invite_back_selected: 'Invite back selected',
     no_place_offered_selected: 'No place offered selected',
@@ -135,6 +137,7 @@ export function PlayerProfile() {
   const [isDeletingEvaluationId, setIsDeletingEvaluationId] = useState('')
   const [isMergingEvaluations, setIsMergingEvaluations] = useState(false)
   const [pdfLoadingId, setPdfLoadingId] = useState('')
+  const [emailSendingId, setEmailSendingId] = useState('')
   const [selectedReassignTargets, setSelectedReassignTargets] = useState({})
   const [mergeSelectedIds, setMergeSelectedIds] = useState([])
   const [mergeCoreSourceId, setMergeCoreSourceId] = useState('')
@@ -470,6 +473,60 @@ export function PlayerProfile() {
         [fieldName]: value,
       },
     }))
+  }
+
+  const handleSendParentEmail = async (evaluation) => {
+    setEmailSendingId(evaluation.id)
+    setErrorMessage('')
+
+    try {
+      const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
+      const recipientEmails = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
+      const recipientNames = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
+
+      if (!recipientEmails) {
+        setErrorMessage('Add a parent email before sending.')
+        return
+      }
+
+      const emailTemplate = buildParentEmailTemplate({
+        parentName: recipientNames,
+        playerName: routePlayerName,
+        coachName: evaluation.coach,
+        clubName: user?.clubName,
+        teamName: evaluation.team,
+        session: evaluation.session,
+        inviteDate: getSelectedInviteDate(evaluation),
+        templateKey: getSelectedEmailTemplateKey(evaluation),
+      })
+
+      await sendParentEmail({
+        parentEmail: recipientEmails,
+        displayName: user?.displayName || user?.username || user?.name,
+        team: user?.emailTeamName || evaluation.team,
+        club: user?.emailClubName || user?.clubName,
+        replyToEmail: user?.replyToEmail,
+        playerName: routePlayerName,
+        summary: buildEvaluationSummary(evaluation, 'email'),
+        responses: [],
+        subject: emailTemplate.subject,
+        emailBody: emailTemplate.body,
+      })
+
+      void createCommunicationLog({
+        user,
+        playerId: evaluation.playerId || primaryPlayer?.id,
+        evaluationId: evaluation.id,
+        channel: 'email',
+        action: 'parent_email_sent',
+        recipientEmail: recipientEmails,
+      }).catch((error) => console.error(error))
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not send the parent email.')
+    } finally {
+      setEmailSendingId('')
+    }
   }
 
   const handleSaveStaffNote = async () => {
@@ -1718,6 +1775,15 @@ export function PlayerProfile() {
                       className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSendParentEmail(evaluation)}
+                      disabled={emailSendingId === evaluation.id || !canShare}
+                      title="Send parent email"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {emailSendingId === evaluation.id ? 'Sending...' : 'Send Email'}
                     </button>
                     {canEditEvaluation(user, evaluation) ? (
                       <button
