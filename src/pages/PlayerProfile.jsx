@@ -512,6 +512,7 @@ export function PlayerProfile() {
         displayName: user?.displayName || user?.username || user?.name,
         team: user?.emailTeamName || evaluation.team,
         club: user?.emailClubName || user?.clubName,
+        logoUrl: user?.clubLogoUrl || null,
         replyToEmail: user?.replyToEmail || user?.clubContactEmail,
         clubContactEmail: user?.clubContactEmail,
         playerName: routePlayerName,

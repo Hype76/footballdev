@@ -170,6 +170,7 @@ export async function handler(event) {
       clubEmail,
       subject,
       html,
+      logoUrl,
       idempotencyKey,
       evaluationId,
       playerName,
@@ -226,6 +227,7 @@ export async function handler(event) {
       displayName: safeDisplayName,
       teamName: safeTeamName,
       clubName: safeClubName,
+      logoUrl: String(logoUrl ?? '').trim(),
       playerName: String(playerName ?? '').trim(),
       parentName: String(parentName ?? '').trim(),
     }

@@ -65,6 +65,7 @@ export function EmailPreview({
         playerName,
         teamName: team,
         clubName,
+        logoUrl,
         emailBody,
         responses: [],
       })

@@ -26,6 +26,21 @@ function normaliseResponses(responses) {
   return []
 }
 
+function getSafeLogoUrl(logoUrl) {
+  const normalizedLogoUrl = String(logoUrl ?? '').trim()
+
+  if (!normalizedLogoUrl) {
+    return ''
+  }
+
+  try {
+    const parsedUrl = new URL(normalizedLogoUrl)
+    return parsedUrl.protocol === 'https:' ? parsedUrl.href : ''
+  } catch {
+    return ''
+  }
+}
+
 export function buildEmailHtml({
   parentName,
   playerName,
@@ -36,6 +51,7 @@ export function buildEmailHtml({
   summary,
   responses,
   emailBody,
+  logoUrl,
 }) {
   const responseItems = normaliseResponses(responses)
   const summaryContent = emailBody || summary || 'No summary provided'
@@ -43,9 +59,15 @@ export function buildEmailHtml({
   const resolvedClub = clubName || club
   const resolvedPlayer = playerName || 'Player'
   const resolvedParent = parentName || 'Parent/Guardian'
+  const safeLogoUrl = getSafeLogoUrl(logoUrl)
 
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 24px; line-height: 1.6; max-width: 680px; margin: 0 auto;">
+      ${
+        safeLogoUrl
+          ? `<img src="${escapeHtml(safeLogoUrl)}" alt="Club Logo" style="max-width: 120px; height: auto; display: block; margin-bottom: 16px;" />`
+          : ''
+      }
       <h2 style="margin: 0 0 6px; font-size: 22px; line-height: 1.25;">${escapeHtml(resolvedClub || 'Club')}</h2>
       <p style="margin: 0 0 22px; color: #5a6b5b; font-size: 13px;">${escapeHtml(resolvedTeam || 'Team')}</p>
 
@@ -111,6 +133,7 @@ export async function sendParentEmail(data) {
       clubContactEmail: data.clubContactEmail,
       subject,
       html,
+      logoUrl: data.logoUrl,
       playerName: data.playerName,
       parentName: data.parentName,
       idempotencyKey: data.idempotencyKey,

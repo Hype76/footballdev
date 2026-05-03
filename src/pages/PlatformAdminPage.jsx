@@ -350,6 +350,7 @@ export function PlatformAdminPage() {
       clubName: testEmailForm.clubName,
       replyToEmail: user?.replyToEmail || user?.clubContactEmail || user?.email,
       clubContactEmail: user?.clubContactEmail,
+      logoUrl: user?.clubLogoUrl || null,
       playerName: testEmailForm.playerName,
       summary: testEmailForm.summary,
       responses: testEmailForm.responses.filter((item) => item.label || item.value),
