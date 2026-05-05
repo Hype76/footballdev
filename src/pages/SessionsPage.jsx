@@ -412,6 +412,11 @@ export function SessionsPage() {
     () => getAssessmentCountForSession(evaluations, selectedSession),
     [evaluations, selectedSession],
   )
+  const deleteSessionDisabledReason = selectedSession?.isHistorical
+    ? 'This is an assessment history group. It cannot be deleted as a session.'
+    : selectedSessionAssessmentCount > 0
+      ? 'Sessions with assessments cannot be deleted.'
+      : ''
   const completedPlayerNames = useMemo(() => {
     const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
     const localCompletedPlayerNames = readCompletedPlayerNames(user, selectedSessionId)
@@ -1229,11 +1234,11 @@ export function SessionsPage() {
                       Complete Session
                     </button>
                   ) : null}
-                  {canDeleteSessions && selectedSession && !selectedSession?.isHistorical ? (
+                  {canDeleteSessions && selectedSession ? (
                     <button
                       type="button"
-                      disabled={isSaving || selectedSessionAssessmentCount > 0}
-                      title={selectedSessionAssessmentCount > 0 ? 'Sessions with assessments cannot be deleted.' : ''}
+                      disabled={isSaving || Boolean(deleteSessionDisabledReason)}
+                      title={deleteSessionDisabledReason}
                       onClick={() => handleDeleteSession()}
                       className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600/20 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
                     >
