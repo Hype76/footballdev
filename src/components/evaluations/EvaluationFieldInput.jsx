@@ -42,34 +42,14 @@ const SCORE_HELP = [
   },
 ]
 
-function getScoreHelpIndex(scoreValue, fieldType) {
-  const score = Number(scoreValue)
-
-  if (Number.isNaN(score) || score < 1) {
-    return -1
-  }
-
-  if (fieldType === 'score_1_10') {
-    return Math.min(Math.floor((score - 1) / 2), SCORE_HELP.length - 1)
-  }
-
-  return Math.min(score - 1, SCORE_HELP.length - 1)
+function getScoreHelpText() {
+  return SCORE_HELP
+    .map((help, index) => `${index + 1}. ${help.label}: ${help.description}`)
+    .join('\n')
 }
 
-function getScoreHelpText(scoreValue, fieldType) {
-  const helpIndex = getScoreHelpIndex(scoreValue, fieldType)
-
-  if (helpIndex < 0) {
-    return 'Select a score to see what it means.'
-  }
-
-  const help = SCORE_HELP[helpIndex]
-
-  return `${scoreValue}. ${help.label}\n${help.description}`
-}
-
-function ScoreInfo({ value, fieldType }) {
-  const helpText = getScoreHelpText(value, fieldType)
+function ScoreInfo() {
+  const helpText = getScoreHelpText()
 
   return (
     <span className="group relative inline-flex">
@@ -81,19 +61,16 @@ function ScoreInfo({ value, fieldType }) {
       >
         i
       </button>
-      <span className="pointer-events-none absolute right-0 top-12 z-20 hidden w-72 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-left text-xs leading-5 text-[var(--text-primary)] shadow-xl shadow-black/20 group-hover:block group-focus-within:block">
-        {getScoreHelpIndex(value, fieldType) >= 0 ? (
-          <>
-            <span className="block font-semibold text-[var(--text-primary)]">
-              {value}. {SCORE_HELP[getScoreHelpIndex(value, fieldType)].label}
+      <span className="pointer-events-none absolute right-0 top-12 z-20 hidden w-80 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-left text-xs leading-5 text-[var(--text-primary)] shadow-xl shadow-black/20 group-hover:block group-focus-within:block">
+        <span className="mb-3 block text-sm font-semibold text-[var(--text-primary)]">Scoring guide</span>
+        {SCORE_HELP.map((help, index) => (
+          <span key={help.label} className="mt-2 block">
+            <span className="font-semibold text-[var(--text-primary)]">
+              {index + 1}. {help.label}
             </span>
-            <span className="mt-1 block text-[var(--text-muted)]">
-              {SCORE_HELP[getScoreHelpIndex(value, fieldType)].description}
-            </span>
-          </>
-        ) : (
-          <span className="block text-[var(--text-muted)]">Select a score to see what it means.</span>
-        )}
+            <span className="mt-0.5 block text-[var(--text-muted)]">{help.description}</span>
+          </span>
+        ))}
       </span>
     </span>
   )
@@ -134,7 +111,7 @@ export function EvaluationFieldInput({ field, value, onChange }) {
             </option>
           ))}
         </select>
-        {isScoreField ? <ScoreInfo value={value} fieldType={field.type} /> : null}
+        {isScoreField ? <ScoreInfo /> : null}
       </div>
     )
   }
