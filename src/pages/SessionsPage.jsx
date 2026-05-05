@@ -546,6 +546,13 @@ export function SessionsPage() {
         return
       }
 
+      if (!selectedSession) {
+        if (!isLoading) {
+          setSessionPlayers([])
+        }
+        return
+      }
+
       if (selectedSession?.isHistorical) {
         const historicalPlayers = buildHistoricalSessionPlayers(evaluations, selectedSession)
         setSessionPlayers(historicalPlayers)
@@ -569,7 +576,7 @@ export function SessionsPage() {
         console.error(error)
 
         if (isMounted) {
-          setErrorMessage('Session players could not be loaded right now.')
+          setErrorMessage('Session players could not be loaded. Try again in a moment.')
         }
       } finally {
         if (isMounted) {
@@ -583,7 +590,7 @@ export function SessionsPage() {
     return () => {
       isMounted = false
     }
-  }, [combinedSessions, evaluations, selectedSessionId, user])
+  }, [combinedSessions, evaluations, isLoading, selectedSessionId, user])
 
   useEffect(() => {
     let isMounted = true
@@ -593,6 +600,13 @@ export function SessionsPage() {
 
       if (!selectedSessionId || activeSession?.sessionType !== 'tournament' || activeSession?.isHistorical) {
         setSessionGames([])
+        return
+      }
+
+      if (!activeSession) {
+        if (!isLoading) {
+          setSessionGames([])
+        }
         return
       }
 
@@ -627,7 +641,7 @@ export function SessionsPage() {
     return () => {
       isMounted = false
     }
-  }, [combinedSessions, selectedSessionId, user])
+  }, [combinedSessions, isLoading, selectedSessionId, user])
 
   useEffect(() => {
     if (!workspaceStorageKey) {
