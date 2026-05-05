@@ -553,6 +553,7 @@ function normalizePlayerRow(row) {
   return {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
+    teamId: row.team_id ?? row.teamId ?? '',
     playerName: String(row.player_name ?? row.playerName ?? '').trim(),
     section: String(row.section ?? 'Trial').trim() || 'Trial',
     team: String(row.team ?? '').trim(),
@@ -1025,6 +1026,13 @@ function normalizeDateOnly(value) {
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
     return normalizedValue
+  }
+
+  const ukDateMatch = normalizedValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+
+  if (ukDateMatch) {
+    const [, day, month, year] = ukDateMatch
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
   }
 
   const parsedDate = new Date(normalizedValue)
@@ -3777,6 +3785,97 @@ export async function deleteAssessmentSessionGame({ user, gameId }) {
     metadata: {
       sessionId: data.session_id,
       opponent: data.opponent,
+    },
+  })
+}
+
+export async function deleteAssessmentSession({ user, sessionId }) {
+  if (!user?.clubId || !sessionId) {
+    throw new Error('Session and club are required.')
+  }
+
+  if (Number(user.roleRank ?? 0) < 50) {
+    throw new Error('Only managers and team admins can delete sessions.')
+  }
+
+  const { data: session, error: sessionError } = await supabase
+    .from('assessment_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (sessionError) {
+    console.error(sessionError)
+    throw sessionError
+  }
+
+  const sessionDate = normalizeDateOnly(session.session_date)
+  const sessionTeamId = String(session.team_id ?? '').trim()
+  const sessionTeam = String(session.team ?? '').trim().toLowerCase()
+  let evaluationQuery = supabase
+    .from('evaluations')
+    .select('id, session, date, team, team_id')
+    .eq('club_id', user.clubId)
+
+  if (sessionTeamId) {
+    evaluationQuery = evaluationQuery.eq('team_id', sessionTeamId)
+  } else if (sessionTeam) {
+    evaluationQuery = evaluationQuery.eq('team', session.team)
+  }
+
+  const { data: evaluationRows, error: evaluationsError } = await evaluationQuery.limit(1000)
+
+  if (evaluationsError) {
+    console.error(evaluationsError)
+    throw evaluationsError
+  }
+
+  const hasLinkedAssessment = (evaluationRows ?? []).some((evaluation) => {
+    const evaluationDate = normalizeDateOnly(evaluation.session || evaluation.date)
+    const evaluationTeamId = String(evaluation.team_id ?? '').trim()
+    const evaluationTeam = String(evaluation.team ?? '').trim().toLowerCase()
+
+    if (sessionDate && evaluationDate && sessionDate !== evaluationDate) {
+      return false
+    }
+
+    if (sessionTeamId && evaluationTeamId) {
+      return sessionTeamId === evaluationTeamId
+    }
+
+    return Boolean(sessionTeam && evaluationTeam && sessionTeam === evaluationTeam)
+  })
+
+  if (hasLinkedAssessment) {
+    throw new Error('This session has assessments and cannot be deleted.')
+  }
+
+  const { data, error } = await supabase
+    .from('assessment_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('club_id', user.clubId)
+    .select('id, title, team, session_date')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
+  invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
+  invalidateMemoryCacheByPrefix(`assessment-session-games:${sessionId}`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_deleted',
+    entityType: 'assessment_session',
+    entityId: sessionId,
+    metadata: {
+      title: data.title,
+      team: data.team,
+      sessionDate: data.session_date,
     },
   })
 }

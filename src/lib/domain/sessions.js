@@ -4,6 +4,7 @@ export {
   completeAssessmentSession,
   createAssessmentSession,
   createAssessmentSessionGame,
+  deleteAssessmentSession,
   deleteAssessmentSessionGame,
   getAssessmentSessionGames,
   getAssessmentSessionPlayers,

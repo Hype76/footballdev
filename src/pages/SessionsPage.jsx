@@ -14,6 +14,7 @@ import {
   completeAssessmentSession,
   createAssessmentSession,
   createAssessmentSessionGame,
+  deleteAssessmentSession,
   deleteAssessmentSessionGame,
   getEvaluations,
   getAssessmentSessionGames,
@@ -134,6 +135,13 @@ function normalizeSessionDateKey(value) {
 
   if (/^\d{4}-\d{2}-\d{2}/.test(normalizedValue)) {
     return normalizedValue.slice(0, 10)
+  }
+
+  const ukDateMatch = normalizedValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+
+  if (ukDateMatch) {
+    const [, day, month, year] = ukDateMatch
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
   }
 
   const parsedDate = new Date(normalizedValue)
@@ -296,6 +304,36 @@ function getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, se
   ]
 }
 
+function getAssessmentCountForSession(evaluations, selectedSession) {
+  if (!selectedSession || selectedSession.isHistorical) {
+    return 0
+  }
+
+  const selectedSessionDate = normalizeSessionDateKey(selectedSession.sessionDate)
+  const selectedTeamId = String(selectedSession.teamId ?? '').trim()
+  const selectedTeam = String(selectedSession.team ?? '').trim().toLowerCase()
+
+  return evaluations.filter((evaluation) => {
+    const evaluationSessionDate = normalizeSessionDateKey(evaluation.session || evaluation.date)
+    const evaluationTeamId = String(evaluation.teamId ?? '').trim()
+    const evaluationTeam = String(evaluation.team ?? '').trim().toLowerCase()
+
+    if (selectedSessionDate && evaluationSessionDate && selectedSessionDate !== evaluationSessionDate) {
+      return false
+    }
+
+    if (selectedTeamId && evaluationTeamId) {
+      return selectedTeamId === evaluationTeamId
+    }
+
+    if (selectedTeam && evaluationTeam) {
+      return selectedTeam === evaluationTeam
+    }
+
+    return false
+  }).length
+}
+
 export function SessionsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -336,6 +374,7 @@ export function SessionsPage() {
   const [sessionPlayerPage, setSessionPlayerPage] = useState(1)
   const [clearSessionTarget, setClearSessionTarget] = useState(null)
   const [completeSessionTarget, setCompleteSessionTarget] = useState(null)
+  const [deleteSessionTarget, setDeleteSessionTarget] = useState(null)
   const [deleteGameTarget, setDeleteGameTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0 && teams.length === 0)
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
@@ -355,8 +394,16 @@ export function SessionsPage() {
   )
   const selectedSession = combinedSessions.find((session) => session.id === selectedSessionId)
   const canCompleteSessions = Number(user?.roleRank ?? 0) >= 50
+  const canDeleteSessions = Number(user?.roleRank ?? 0) >= 50
   const selectedSessionCompleted = selectedSession?.status === 'completed'
   const selectedSessionLocked = selectedSessionCompleted && !canCompleteSessions
+  const activePlayerSection = selectedSession?.section || sessionForm.section
+  const activePlayerTeam = selectedSession?.team || sessionForm.team
+  const activePlayerTeamId = selectedSession?.teamId || sessionForm.teamId
+  const selectedSessionAssessmentCount = useMemo(
+    () => getAssessmentCountForSession(evaluations, selectedSession),
+    [evaluations, selectedSession],
+  )
   const completedPlayerNames = useMemo(() => {
     const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
     const localCompletedPlayerNames = readCompletedPlayerNames(user, selectedSessionId)
@@ -586,10 +633,13 @@ export function SessionsPage() {
     () =>
       players.filter(
         (player) =>
-          player.section === sessionForm.section &&
-          (!sessionForm.team || player.team === sessionForm.team),
+          player.section === activePlayerSection &&
+          (
+            (activePlayerTeamId && String(player.teamId ?? '') === String(activePlayerTeamId)) ||
+            (!activePlayerTeam || player.team === activePlayerTeam)
+          ),
       ),
-    [players, sessionForm.section, sessionForm.team],
+    [activePlayerSection, activePlayerTeam, activePlayerTeamId, players],
   )
   const paginatedFilteredPlayers = useMemo(
     () => getPaginatedItems(filteredPlayers, availablePlayerPage, AVAILABLE_PLAYER_PAGE_SIZE),
@@ -606,6 +656,8 @@ export function SessionsPage() {
     }
 
     setSessionPlayerPage(1)
+    setAvailablePlayerPage(1)
+    setSelectedPlayerIds([])
     setSessionForm((current) => ({
       ...current,
       teamId: selectedSession.teamId || current.teamId,
@@ -860,6 +912,64 @@ export function SessionsPage() {
     }
   }
 
+  const handleDeleteSession = () => {
+    if (!selectedSessionId || selectedSession?.isHistorical) {
+      setErrorMessage('Select a saved session before deleting it.')
+      return
+    }
+
+    if (!canDeleteSessions) {
+      setErrorMessage('Only managers and team admins can delete sessions.')
+      return
+    }
+
+    if (selectedSessionAssessmentCount > 0) {
+      setErrorMessage('This session has assessments and cannot be deleted.')
+      return
+    }
+
+    setDeleteSessionTarget({
+      session: selectedSession,
+      assessmentCount: selectedSessionAssessmentCount,
+      playerCount: sessionPlayers.length,
+      gameCount: sessionGames.length,
+    })
+  }
+
+  const confirmDeleteSession = async (password) => {
+    if (!deleteSessionTarget?.session?.id) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user?.email, password)
+      await deleteAssessmentSession({
+        user,
+        sessionId: deleteSessionTarget.session.id,
+      })
+      const nextSessions = sessions.filter((session) => session.id !== deleteSessionTarget.session.id)
+      setSessions(nextSessions)
+      setSessionPlayers([])
+      setSessionGames([])
+      setSelectedPlayerIds([])
+      setDeleteSessionTarget(null)
+      setSelectedSessionId(nextSessions[0]?.id || '')
+      writeSessionCache({
+        sessions: nextSessions,
+      })
+      showToast({ title: 'Session deleted', message: 'The session was removed.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not delete this session.')
+      showToast({ title: 'Session not deleted', message: error.message || 'Could not delete this session.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleImportPlayers = async (mode) => {
     if (!selectedSessionId) {
       setErrorMessage('Create or select a session first.')
@@ -868,6 +978,11 @@ export function SessionsPage() {
 
     if (selectedSessionLocked) {
       setErrorMessage('This session has been completed and can no longer be edited.')
+      return
+    }
+
+    if (selectedSession?.isHistorical) {
+      setErrorMessage('Historical sessions are read only. Create or select a saved session to add players.')
       return
     }
 
@@ -1064,6 +1179,17 @@ export function SessionsPage() {
                       className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Complete Session
+                    </button>
+                  ) : null}
+                  {canDeleteSessions && selectedSession && !selectedSession?.isHistorical ? (
+                    <button
+                      type="button"
+                      disabled={isSaving || selectedSessionAssessmentCount > 0}
+                      title={selectedSessionAssessmentCount > 0 ? 'Sessions with assessments cannot be deleted.' : ''}
+                      onClick={() => handleDeleteSession()}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600/20 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Delete Session
                     </button>
                   ) : null}
                   <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
@@ -1324,7 +1450,7 @@ export function SessionsPage() {
 
       <SectionCard
         title="Coach options"
-        description="Select a session, add all players from the chosen list, or pick specific players."
+        description="Select any saved session and add more players to its list when needed."
       >
         {sessions.length === 0 ? (
           <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
@@ -1346,6 +1472,15 @@ export function SessionsPage() {
                 ))}
               </select>
             </label>
+
+            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+              Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
+              {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
+                <span className="mt-2 block text-xs text-[var(--text-secondary)]">
+                  This session has {selectedSessionAssessmentCount} assessments, so it cannot be deleted.
+                </span>
+              ) : null}
+            </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               {paginatedFilteredPlayers.items.map((player) => (
@@ -1372,7 +1507,7 @@ export function SessionsPage() {
 
             {filteredPlayers.length === 0 ? (
               <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                No {sessionForm.section.toLowerCase()} players are available for {sessionForm.team || 'this team'}.
+                No {String(activePlayerSection || 'selected').toLowerCase()} players are available for {activePlayerTeam || 'this team'}.
               </div>
             ) : null}
 
@@ -1383,7 +1518,7 @@ export function SessionsPage() {
                 onClick={() => void handleImportPlayers('all')}
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Add All {sessionForm.section} Players
+                Add All {activePlayerSection} Players
               </button>
               <button
                 type="button"
@@ -1515,6 +1650,23 @@ export function SessionsPage() {
         onCancel={() => setDeleteGameTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeleteTournamentGame(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(deleteSessionTarget)}
+        isBusy={isSaving}
+        title="Delete session"
+        message="This removes the session, the player list, and any tournament results. Sessions with assessments cannot be deleted."
+        items={[
+          `Session: ${deleteSessionTarget?.session?.title || deleteSessionTarget?.session?.team || 'Selected session'}`,
+          `Players in session: ${deleteSessionTarget?.playerCount ?? 0}`,
+          `Tournament results: ${deleteSessionTarget?.gameCount ?? 0}`,
+          `Assessments linked: ${deleteSessionTarget?.assessmentCount ?? 0}`,
+        ]}
+        confirmLabel="Delete Session"
+        onCancel={() => setDeleteSessionTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteSession(password)}
       />
 
       <ConfirmModal
