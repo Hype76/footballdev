@@ -868,8 +868,8 @@ export function SessionsPage() {
   }
 
   const handleCompleteSession = async () => {
-    if (!selectedSessionId || selectedSession?.isHistorical) {
-      setErrorMessage('Select a saved session before completing it.')
+    if (!selectedSessionId || !selectedSession) {
+      setErrorMessage('Select a session before completing it.')
       return
     }
 
@@ -890,13 +890,42 @@ export function SessionsPage() {
     setErrorMessage('')
 
     try {
+      let sessionToCompleteId = selectedSessionId
+
+      if (completeSessionTarget.isHistorical) {
+        const matchingTeam = teams.find(
+          (team) =>
+            String(team.id ?? '') === String(completeSessionTarget.teamId ?? '') ||
+            String(team.name ?? '').trim().toLowerCase() === String(completeSessionTarget.team ?? '').trim().toLowerCase(),
+        )
+
+        if (!matchingTeam?.id) {
+          throw new Error('Create the team before completing this historical session.')
+        }
+
+        const createdSession = await createAssessmentSession({
+          user,
+          session: {
+            teamId: matchingTeam.id,
+            team: matchingTeam.name,
+            opponent: completeSessionTarget.opponent || '',
+            sessionType: completeSessionTarget.sessionType || 'training',
+            sessionDate: completeSessionTarget.sessionDate,
+            section: completeSessionTarget.section || 'Trial',
+          },
+        })
+        sessionToCompleteId = createdSession.id
+        setSelectedSessionId(createdSession.id)
+      }
+
       const completedSession = await completeAssessmentSession({
         user,
-        sessionId: selectedSessionId,
+        sessionId: sessionToCompleteId,
       })
-      const nextSessions = sessions.map((session) =>
-        session.id === completedSession.id ? completedSession : session,
-      )
+      const nextSessions = [
+        completedSession,
+        ...sessions.filter((session) => session.id !== completedSession.id),
+      ]
       setSessions(nextSessions)
       writeSessionCache({
         sessions: nextSessions,
@@ -1171,7 +1200,7 @@ export function SessionsPage() {
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{selectedSession?.team || 'No team entered'}</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  {canCompleteSessions && !selectedSessionCompleted && !selectedSession?.isHistorical ? (
+                  {canCompleteSessions && selectedSession && !selectedSessionCompleted ? (
                     <button
                       type="button"
                       disabled={isSaving}
