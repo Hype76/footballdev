@@ -154,6 +154,7 @@ export function LoginPage() {
             Built for football clubs
           </div>
           <InstallAppButton
+            wrapperClassName="lg:hidden"
             className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#d8ff2f]/30 bg-[#d8ff2f] px-4 py-3 text-sm font-black text-black transition hover:opacity-90"
             helpClassName="max-w-xs rounded-2xl border border-white/10 bg-black/50 px-3 py-2 text-xs font-semibold leading-5 text-slate-200"
           />

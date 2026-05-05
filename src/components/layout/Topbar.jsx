@@ -63,6 +63,7 @@ export function Topbar({ title, onMenuClick }) {
 
           <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <InstallAppButton
+              wrapperClassName="col-span-2 lg:hidden"
               className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--button-primary)] px-3 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
               helpClassName="col-span-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-xs font-semibold leading-5 text-[var(--text-primary)] sm:max-w-56"
             />
