@@ -9,6 +9,7 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
+  ASSESSMENT_EMAIL_TEMPLATE,
   PARENT_EMAIL_TEMPLATES,
   buildParentEmailTemplate,
   getEmailTemplateKey,
@@ -293,6 +294,9 @@ export function PlayerProfile() {
   const lastSection = evaluations[0]?.section || 'Trial'
   const lastTeam = evaluations[0]?.team || ''
   const primaryPlayer = players[0]
+  const isSquadPlayer =
+    players.some((player) => String(player.section ?? '').toLowerCase() === 'squad') ||
+    String(lastSection ?? '').toLowerCase() === 'squad'
   const profileParentName = primaryPlayer?.parentName || evaluations.find((evaluation) => evaluation.parentName)?.parentName || ''
   const profileParentEmail = primaryPlayer?.parentEmail || evaluations.find((evaluation) => evaluation.parentEmail)?.parentEmail || ''
   const profileParentContacts = normalizeParentContacts(primaryPlayer?.parentContacts, {
@@ -403,7 +407,7 @@ export function PlayerProfile() {
   )
 
   const getSelectedEmailTemplateKey = (evaluation) =>
-    selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
+    isSquadPlayer ? ASSESSMENT_EMAIL_TEMPLATE.key : selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
   const getSelectedInviteDate = (evaluation) => selectedInviteDates[evaluation.id] || ''
   const getEvaluationParentContacts = (evaluation) =>
     normalizeParentContacts(evaluation.parentContacts?.length ? evaluation.parentContacts : profileParentContacts, {
@@ -1682,6 +1686,7 @@ export function PlayerProfile() {
               const canShare = canShareEvaluation(user, evaluation)
               const evaluationParentContacts = getEvaluationParentContacts(evaluation)
               const selectedTemplateKey = getSelectedEmailTemplateKey(evaluation)
+              const availableEmailTemplates = isSquadPlayer ? [ASSESSMENT_EMAIL_TEMPLATE] : PARENT_EMAIL_TEMPLATES
               const shouldShowInviteDate = isInviteEmailTemplate(selectedTemplateKey)
               const hasSavedExportSelection = Array.isArray(selectedExportLabels)
 
@@ -1763,7 +1768,7 @@ export function PlayerProfile() {
                         }
                         className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                       >
-                        {PARENT_EMAIL_TEMPLATES.map((template) => (
+                        {availableEmailTemplates.map((template) => (
                           <option key={template.key} value={template.key}>
                             {template.label}
                           </option>

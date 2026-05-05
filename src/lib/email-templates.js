@@ -40,6 +40,8 @@ export const PARENT_EMAIL_TEMPLATES = [
   { key: 'offer', label: 'Offer Place' },
 ]
 
+export const ASSESSMENT_EMAIL_TEMPLATE = { key: 'assessment', label: 'Send Assessment' }
+
 export function isInviteEmailTemplate(templateKey) {
   return templateKey === 'progress' || templateKey === 'offer'
 }
@@ -74,7 +76,7 @@ export function getEmailTemplateLabel(decision) {
 
 function getValidEmailTemplateKey(templateKey, decision) {
   const normalizedTemplateKey = normalizeText(templateKey).toLowerCase()
-  return PARENT_EMAIL_TEMPLATES.some((template) => template.key === normalizedTemplateKey)
+  return [...PARENT_EMAIL_TEMPLATES, ASSESSMENT_EMAIL_TEMPLATE].some((template) => template.key === normalizedTemplateKey)
     ? normalizedTemplateKey
     : getEmailTemplateKey(decision)
 }
@@ -102,7 +104,22 @@ export function buildParentEmailTemplate({
   let subject = 'Player Trial Feedback'
   let bodyLines = []
 
-  if (resolvedTemplateKey === 'decline') {
+  if (resolvedTemplateKey === 'assessment') {
+    subject = `Player Feedback for ${resolvedPlayerName}`
+    bodyLines = [
+      greeting,
+      '',
+      `Please find the latest feedback report for ${resolvedPlayerName}.`,
+      '',
+      'The assessment details are included below and attached as a PDF for your records.',
+      '',
+      'If you have any questions, please reply to this email.',
+      '',
+      'Kind regards,',
+      resolvedCoachName,
+      resolvedTeamName,
+    ]
+  } else if (resolvedTemplateKey === 'decline') {
     subject = `Player Trial Feedback for ${resolvedPlayerName}`
     bodyLines = [
       greeting,
@@ -157,7 +174,7 @@ export function buildParentEmailTemplate({
     ]
   }
 
-  const template = PARENT_EMAIL_TEMPLATES.find((item) => item.key === resolvedTemplateKey)
+  const template = [...PARENT_EMAIL_TEMPLATES, ASSESSMENT_EMAIL_TEMPLATE].find((item) => item.key === resolvedTemplateKey)
 
   return {
     key: resolvedTemplateKey,
