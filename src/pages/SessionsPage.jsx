@@ -126,6 +126,14 @@ function normalizeProgressName(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
+function normalizeTeamName(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
 function normalizeSessionDateKey(value) {
   const normalizedValue = String(value ?? '').trim()
 
@@ -630,15 +638,26 @@ export function SessionsPage() {
   }, [selectedPlayerIds, selectedSessionId, workspaceStorageKey])
 
   const filteredPlayers = useMemo(
-    () =>
-      players.filter(
-        (player) =>
-          player.section === activePlayerSection &&
-          (
-            (activePlayerTeamId && String(player.teamId ?? '') === String(activePlayerTeamId)) ||
-            (!activePlayerTeam || player.team === activePlayerTeam)
-          ),
-      ),
+    () => {
+      const normalizedActiveTeam = normalizeTeamName(activePlayerTeam)
+      const sectionPlayers = players.filter((player) => player.section === activePlayerSection)
+      const teamMatchedPlayers = sectionPlayers.filter((player) => {
+        const playerTeamId = String(player.teamId ?? '').trim()
+        const playerTeam = normalizeTeamName(player.team)
+
+        if (activePlayerTeamId && playerTeamId) {
+          return String(activePlayerTeamId) === playerTeamId
+        }
+
+        if (!normalizedActiveTeam || !playerTeam) {
+          return true
+        }
+
+        return playerTeam === normalizedActiveTeam
+      })
+
+      return teamMatchedPlayers.length > 0 ? teamMatchedPlayers : sectionPlayers
+    },
     [activePlayerSection, activePlayerTeam, activePlayerTeamId, players],
   )
   const paginatedFilteredPlayers = useMemo(
@@ -1487,20 +1506,38 @@ export function SessionsPage() {
           </div>
         ) : (
           <div className="space-y-5">
-            <label className="block max-w-xl">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Active session</span>
-              <select
-                value={selectedSessionId}
-                onChange={(event) => handleOpenSession(event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              >
-                {combinedSessions.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {formatSessionType(session.sessionType)} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Active session</span>
+                <select
+                  value={selectedSessionId}
+                  onChange={(event) => handleOpenSession(event.target.value)}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                >
+                  {combinedSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {formatSessionType(session.sessionType)} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player list</span>
+                <select
+                  name="section"
+                  value={activePlayerSection}
+                  onChange={handleSessionFormChange}
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                >
+                  {EVALUATION_SECTIONS.map((section) => (
+                    <option key={section} value={section}>
+                      {section}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
               Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
