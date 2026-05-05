@@ -29,8 +29,8 @@ const USER_PROFILE_SELECT = [
 ].join(', ')
 
 export const SYSTEM_ROLE_OPTIONS = [
-  { key: 'admin', label: 'Admin', rank: 90, isSystem: true },
-  { key: 'head_manager', label: 'Head Manager', rank: 70, isSystem: true },
+  { key: 'admin', label: 'Club Admin', rank: 90, isSystem: true },
+  { key: 'head_manager', label: 'Team Admin', rank: 70, isSystem: true },
   { key: 'manager', label: 'Manager', rank: 50, isSystem: true },
   { key: 'coach', label: 'Coach', rank: 30, isSystem: true },
   { key: 'assistant_coach', label: 'Assistant Coach', rank: 20, isSystem: true },
@@ -261,6 +261,12 @@ function normalizeRoleKey(value) {
 }
 
 function normalizeRoleLabel(value, roleKey) {
+  const systemRole = SYSTEM_ROLE_OPTIONS.find((option) => option.key === normalizeRoleKey(roleKey))
+
+  if (systemRole) {
+    return systemRole.label
+  }
+
   const normalizedLabel = String(value ?? '').trim()
 
   if (normalizedLabel) {
@@ -1456,7 +1462,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
       club_name: String(clubName ?? '').trim(),
       reply_to_email: String(authUser.email ?? '').trim().toLowerCase(),
       role: 'admin',
-      role_label: 'Admin',
+      role_label: 'Club Admin',
       role_rank: 90,
       club_id: club.id,
     })
@@ -3600,7 +3606,7 @@ export async function completeAssessmentSession({ user, sessionId }) {
   }
 
   if (Number(user.roleRank ?? 0) < 50) {
-    throw new Error('Only managers and head managers can complete sessions.')
+    throw new Error('Only managers and team admins can complete sessions.')
   }
 
   const { data, error } = await supabase

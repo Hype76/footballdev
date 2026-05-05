@@ -822,7 +822,7 @@ export function SessionsPage() {
     }
 
     if (!canCompleteSessions) {
-      setErrorMessage('Only managers and head managers can complete sessions.')
+      setErrorMessage('Only managers and team admins can complete sessions.')
       return
     }
 

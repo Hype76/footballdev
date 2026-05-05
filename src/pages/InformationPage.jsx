@@ -19,11 +19,11 @@ const roleGuides = [
   },
   {
     key: 'head_manager',
-    label: 'Head Manager',
+    label: 'Team Admin',
     rank: 70,
     summary: 'Oversees managers, coaches, assessment structure, and player workflow.',
     capabilities: [
-      'Manage staff access for Head Manager level and below.',
+      'Manage staff access for Team Admin level and below.',
       'Configure assessment form fields in Form Builder.',
       'Create, edit, and review player records.',
       'Create sessions and assign players into training or match sessions.',

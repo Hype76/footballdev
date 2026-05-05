@@ -67,6 +67,14 @@ export function getRoleLabel(user) {
     return 'Unknown'
   }
 
+  if (user.role === 'admin') {
+    return 'Club Admin'
+  }
+
+  if (user.role === 'head_manager') {
+    return 'Team Admin'
+  }
+
   return user.roleLabel || user.role || 'Unknown'
 }
 
