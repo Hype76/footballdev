@@ -75,8 +75,6 @@ export function Sidebar({ isOpen, onClose }) {
               <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Coaching Suite</p>
-            <h1 className="mt-3 text-xl font-semibold tracking-tight text-[var(--text-primary)]">Football Operations</h1>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Evaluation and structured club access.</p>
           </div>
 
           <button
