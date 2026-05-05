@@ -16,6 +16,11 @@ import {
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
 import {
+  getSavedEvaluationExportLabels,
+  getSelectedEvaluationResponses,
+  saveEvaluationExportLabels,
+} from '../lib/evaluation-export-selection.js'
+import {
   buildEvaluationSummary,
   buildFieldMovement,
   buildRatingTrend,
@@ -148,6 +153,12 @@ export function PlayerProfile() {
   const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
   const [selectedParentContacts, setSelectedParentContacts] = useState({})
   const [selectedInviteDates, setSelectedInviteDates] = useState({})
+  const [selectedExportLabels, setSelectedExportLabels] = useState(() =>
+    getSavedEvaluationExportLabels({
+      clubId: user?.clubId,
+      playerName: routePlayerName,
+    }),
+  )
   const [evaluationPage, setEvaluationPage] = useState(1)
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState(null)
   const [evaluationDeleteTarget, setEvaluationDeleteTarget] = useState(null)
@@ -155,6 +166,15 @@ export function PlayerProfile() {
   const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
+
+  useEffect(() => {
+    setSelectedExportLabels(
+      getSavedEvaluationExportLabels({
+        clubId: user?.clubId,
+        playerName: routePlayerName,
+      }),
+    )
+  }, [routePlayerName, user?.clubId])
 
   useEffect(() => {
     let isMounted = true
@@ -398,6 +418,50 @@ export function PlayerProfile() {
     return nextContacts.length > 0 ? nextContacts : contacts.slice(0, 1)
   }
 
+  const getExportResponseItems = (evaluation) =>
+    Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
+      label,
+      value,
+    }))
+
+  const getSelectedExportResponseItems = (evaluation) =>
+    getSelectedEvaluationResponses(getExportResponseItems(evaluation), selectedExportLabels)
+
+  const handleToggleExportField = (label, responseItems) => {
+    const allLabels = responseItems.map((item) => item.label)
+    const currentLabels = Array.isArray(selectedExportLabels) ? selectedExportLabels : allLabels
+    const nextLabels = currentLabels.includes(label)
+      ? currentLabels.filter((item) => item !== label)
+      : [...currentLabels, label]
+
+    setSelectedExportLabels(nextLabels)
+    saveEvaluationExportLabels({
+      clubId: user?.clubId,
+      playerName: routePlayerName,
+      labels: nextLabels,
+    })
+  }
+
+  const handleSetAllExportFields = (responseItems) => {
+    const nextLabels = responseItems.map((item) => item.label)
+
+    setSelectedExportLabels(nextLabels)
+    saveEvaluationExportLabels({
+      clubId: user?.clubId,
+      playerName: routePlayerName,
+      labels: nextLabels,
+    })
+  }
+
+  const handleClearExportFields = () => {
+    setSelectedExportLabels([])
+    saveEvaluationExportLabels({
+      clubId: user?.clubId,
+      playerName: routePlayerName,
+      labels: [],
+    })
+  }
+
   const handleDownloadPdf = async (evaluation, mode) => {
     setPdfLoadingId(`${evaluation.id}:${mode}`)
     setErrorMessage('')
@@ -405,6 +469,7 @@ export function PlayerProfile() {
     try {
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
       const latestClubLogoUrl = await getLatestClubLogoUrl(user)
+      const selectedResponseItems = getSelectedExportResponseItems(evaluation)
       const summary = buildEvaluationSummary(evaluation, mode)
       const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
       const recipientNames = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
@@ -435,13 +500,7 @@ export function PlayerProfile() {
           emailBody: emailTemplate.body,
           recipientNames,
           recipientEmails,
-          responseItems:
-            mode === 'scored'
-              ? Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
-                  label,
-                  value,
-                }))
-              : [],
+          responseItems: mode !== 'without-scores' ? selectedResponseItems : [],
         },
       })
 
@@ -517,7 +576,7 @@ export function PlayerProfile() {
         clubContactEmail: user?.clubContactEmail,
         playerName: routePlayerName,
         summary: buildEvaluationSummary(evaluation, 'email'),
-        responses: [],
+        responses: getSelectedExportResponseItems(evaluation),
         subject: emailTemplate.subject,
         emailBody: emailTemplate.body,
         evaluationId: evaluation.id,
@@ -1617,15 +1676,14 @@ export function PlayerProfile() {
         ) : (
           <div className="space-y-4">
             {paginatedEvaluations.items.map((evaluation) => {
-              const responseItems = Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
-                label,
-                value,
-              }))
+              const responseItems = getExportResponseItems(evaluation)
+              const selectedResponseItems = getSelectedEvaluationResponses(responseItems, selectedExportLabels)
               const summary = buildEvaluationSummary(evaluation)
               const canShare = canShareEvaluation(user, evaluation)
               const evaluationParentContacts = getEvaluationParentContacts(evaluation)
               const selectedTemplateKey = getSelectedEmailTemplateKey(evaluation)
               const shouldShowInviteDate = isInviteEmailTemplate(selectedTemplateKey)
+              const hasSavedExportSelection = Array.isArray(selectedExportLabels)
 
               return (
                 <div
@@ -1759,6 +1817,72 @@ export function PlayerProfile() {
                           No parent contacts entered.
                         </div>
                       )}
+                    </div>
+                    <div className="xl:col-span-6">
+                      <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                              Choose what goes into the parent email and PDF. This choice is saved in this browser for {routePlayerName}.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSetAllExportFields(responseItems)}
+                              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                            >
+                              Select All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleClearExportFields}
+                              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+
+                        {responseItems.length > 0 ? (
+                          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                            {responseItems.map((item) => {
+                              const isSelected = hasSavedExportSelection
+                                ? selectedExportLabels.includes(item.label)
+                                : true
+
+                              return (
+                                <label
+                                  key={item.label}
+                                  className="flex min-h-11 items-start gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleToggleExportField(item.label, responseItems)}
+                                    className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="block font-semibold">{item.label}</span>
+                                    <span className="line-clamp-2 block break-words text-xs leading-5 text-[var(--text-muted)]">
+                                      {String(item.value ?? '').trim() || 'No data entered'}
+                                    </span>
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="mt-4 rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                            No evaluation responses were entered for this assessment.
+                          </p>
+                        )}
+
+                        <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
+                          {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"

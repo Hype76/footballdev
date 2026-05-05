@@ -67,7 +67,7 @@ export function EmailPreview({
         clubName,
         logoUrl,
         emailBody,
-        responses: [],
+        responses: responseItems,
       })
     : ''
 

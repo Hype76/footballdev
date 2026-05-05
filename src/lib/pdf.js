@@ -184,7 +184,7 @@ function buildResponseItemsMarkup(responseItems) {
 function buildPdfMarkup({ previewProps, mode, logoUrl }) {
   const showScoring = mode === 'scored'
   const showEmailTemplate = mode === 'email'
-  const responseItems = showScoring ? previewProps.responseItems ?? [] : []
+  const responseItems = mode !== 'without-scores' ? previewProps.responseItems ?? [] : []
 
   if (showEmailTemplate) {
     return buildEmailHtml({
@@ -195,7 +195,7 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
       logoUrl: previewProps.logoUrl,
       summary: previewProps.emailBody,
       emailBody: previewProps.emailBody,
-      responses: [],
+      responses: responseItems,
     })
   }
 

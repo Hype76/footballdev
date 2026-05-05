@@ -16,6 +16,11 @@ import {
   isInviteEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
+import {
+  getSavedEvaluationExportLabels,
+  getSelectedEvaluationResponses,
+  saveEvaluationExportLabels,
+} from '../lib/evaluation-export-selection.js'
 import { removeDraft, saveDraft } from '../lib/offline-drafts.js'
 import {
   buildComments,
@@ -176,6 +181,7 @@ export function CreateEvaluationPage() {
   const [emailTemplateKey, setEmailTemplateKey] = useState('')
   const [selectedParentContactIndexes, setSelectedParentContactIndexes] = useState([0])
   const [inviteDate, setInviteDate] = useState('')
+  const [selectedExportLabels, setSelectedExportLabels] = useState(null)
   const [actionErrorMessage, setActionErrorMessage] = useState('')
   const [dataRefreshNotice, setDataRefreshNotice] = useState('')
   const [teamsLoadErrorMessage, setTeamsLoadErrorMessage] = useState('')
@@ -622,6 +628,11 @@ export function CreateEvaluationPage() {
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
   const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
+  const selectedResponseItems = useMemo(
+    () => getSelectedEvaluationResponses(responseItems, selectedExportLabels),
+    [responseItems, selectedExportLabels],
+  )
+  const hasSavedExportSelection = Array.isArray(selectedExportLabels)
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
   const selectedEmailTemplateKey = emailTemplateKey || getEmailTemplateKey()
   const shouldShowInviteDate = previewMode === 'email' && isInviteEmailTemplate(selectedEmailTemplateKey)
@@ -675,6 +686,17 @@ export function CreateEvaluationPage() {
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
     : 'No teams are assigned to your account yet. Ask a manager to allocate you to at least one team.'
+
+  useEffect(() => {
+    const playerName = normalizePlayerName(formData.playerName)
+
+    setSelectedExportLabels(
+      getSavedEvaluationExportLabels({
+        clubId: user?.clubId,
+        playerName,
+      }),
+    )
+  }, [formData.playerName, user?.clubId])
 
   const buildEvaluationPayload = useCallback((id = offlineDraftId) => {
     const normalizedPlayerName = normalizePlayerName(formData.playerName)
@@ -898,6 +920,35 @@ export function CreateEvaluationPage() {
     })
   }
 
+  const saveExportSelection = (labels) => {
+    const playerName = normalizePlayerName(formData.playerName)
+
+    setSelectedExportLabels(labels)
+    saveEvaluationExportLabels({
+      clubId: user?.clubId,
+      playerName,
+      labels,
+    })
+  }
+
+  const handleToggleExportField = (label) => {
+    const allLabels = responseItems.map((item) => item.label)
+    const currentLabels = Array.isArray(selectedExportLabels) ? selectedExportLabels : allLabels
+    const nextLabels = currentLabels.includes(label)
+      ? currentLabels.filter((item) => item !== label)
+      : [...currentLabels, label]
+
+    saveExportSelection(nextLabels)
+  }
+
+  const handleSetAllExportFields = () => {
+    saveExportSelection(responseItems.map((item) => item.label))
+  }
+
+  const handleClearExportFields = () => {
+    saveExportSelection([])
+  }
+
   const handleDownloadPdf = async (mode = previewMode) => {
     setIsGeneratingPdf(true)
     setActionErrorMessage('')
@@ -921,7 +972,7 @@ export function CreateEvaluationPage() {
           emailBody: parentEmailTemplate.body,
           recipientNames: selectedParentName,
           recipientEmails: selectedParentEmail,
-          responseItems: mode === 'scored' ? responseItems : [],
+          responseItems: mode !== 'without-scores' ? selectedResponseItems : [],
         },
       })
     } catch (error) {
@@ -993,7 +1044,7 @@ export function CreateEvaluationPage() {
             clubContactEmail: user?.clubContactEmail,
             playerName: normalizedPlayerName,
             summary: previewSummary,
-            responses: responseItems,
+            responses: selectedResponseItems,
             subject: parentEmailTemplate.subject,
             emailBody: parentEmailTemplate.body,
             evaluationId: editingEvaluation?.id || evaluation.id,
@@ -1515,6 +1566,69 @@ export function CreateEvaluationPage() {
                   </div>
                 ) : null}
 
+                <div className="mb-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
+                      <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                        Choose what goes into the parent email and PDF. This choice is saved in this browser for this player.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSetAllExportFields}
+                        className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearExportFields}
+                        className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {responseItems.length > 0 ? (
+                    <div className="mt-4 grid gap-2 md:grid-cols-2">
+                      {responseItems.map((item) => {
+                        const isSelected = hasSavedExportSelection ? selectedExportLabels.includes(item.label) : true
+
+                        return (
+                          <label
+                            key={item.label}
+                            className="flex min-h-11 items-start gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleExportField(item.label)}
+                              className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                            />
+                            <span className="min-w-0">
+                              <span className="block font-semibold">{item.label}</span>
+                              <span className="block break-words text-xs leading-5 text-[var(--text-muted)]">
+                                {String(item.value ?? '').trim() || 'No data entered'}
+                              </span>
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-4 rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                      No evaluation responses have been entered yet.
+                    </p>
+                  )}
+
+                  <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
+                    {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
+                  </p>
+                </div>
+
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
@@ -1576,7 +1690,7 @@ export function CreateEvaluationPage() {
                   emailSubject={parentEmailTemplate.subject}
                   emailBody={parentEmailTemplate.body}
                   recipientNames={selectedParentName}
-                  responseItems={previewMode === 'scored' ? responseItems : []}
+                  responseItems={previewMode !== 'without-scores' ? selectedResponseItems : []}
                   mode={previewMode}
                 />
               </SectionCard>

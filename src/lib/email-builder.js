@@ -26,6 +26,23 @@ function normaliseResponses(responses) {
   return []
 }
 
+function buildResponseMarkup(responseItems) {
+  if (responseItems.length === 0) {
+    return '<p style="margin: 0; color: #64705f; font-size: 14px;">No selected evaluation details were included.</p>'
+  }
+
+  return responseItems
+    .map(
+      (item) => `
+        <div style="border: 1px solid #e7ece3; border-radius: 14px; background: #ffffff; padding: 14px; margin: 0 0 10px;">
+          <p style="margin: 0 0 6px; color: #4f6552; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">${escapeHtml(item.label)}</p>
+          <p style="margin: 0; color: #142018; font-size: 14px; line-height: 1.55; white-space: pre-wrap;">${formatLines(item.value || 'No data entered')}</p>
+        </div>
+      `,
+    )
+    .join('')
+}
+
 function getSafeLogoUrl(logoUrl) {
   const normalizedLogoUrl = String(logoUrl ?? '').trim()
 
@@ -82,16 +99,10 @@ export function buildEmailHtml({
       <h4 style="margin: 0 0 8px; font-size: 15px; line-height: 1.3;">Summary</h4>
       <div style="margin: 0 0 20px; font-size: 14px;">${formatLines(summaryContent)}</div>
 
-      <h4 style="margin: 0 0 8px; font-size: 15px; line-height: 1.3;">Evaluation</h4>
-      <ul style="padding-left: 20px; margin: 0 0 24px; font-size: 14px;">
-        ${
-          responseItems.length > 0
-            ? responseItems
-              .map((item) => `<li style="margin: 0 0 6px;"><strong>${escapeHtml(item.label)}:</strong> ${escapeHtml(item.value)}</li>`)
-              .join('')
-            : '<li style="margin: 0 0 6px;">No responses provided</li>'
-        }
-      </ul>
+      <h4 style="margin: 0 0 10px; font-size: 15px; line-height: 1.3;">Evaluation</h4>
+      <div style="margin: 0 0 24px;">
+        ${buildResponseMarkup(responseItems)}
+      </div>
 
       <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions, just reply to this email.</p>
       <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeHtml(resolvedClub || 'Club')} | ${escapeHtml(resolvedTeam || 'Team')}</p>
