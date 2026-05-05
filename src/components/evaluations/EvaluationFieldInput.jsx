@@ -42,21 +42,12 @@ const SCORE_HELP = [
   },
 ]
 
-function getScoreHelpText() {
-  return SCORE_HELP
-    .map((help, index) => `${index + 1}. ${help.label}: ${help.description}`)
-    .join('\n')
-}
-
 function ScoreInfo() {
-  const helpText = getScoreHelpText()
-
   return (
     <span className="group relative inline-flex">
       <button
         type="button"
         aria-label="Score information"
-        title={helpText}
         className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] text-sm font-bold text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus:border-[var(--accent)] focus:outline-none"
       >
         i
