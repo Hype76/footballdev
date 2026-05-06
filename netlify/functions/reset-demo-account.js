@@ -5,7 +5,7 @@ const DEMO_EMAIL = 'demo@playerfeedback.online'
 const DEMO_PASSWORD = 'Demo12345!'
 const DEMO_CLUB_NAME = 'Player Feedback Demo Club'
 const DEMO_USER_NAME = 'Demo User'
-const DEMO_CLUB_CONTACT_EMAIL = 'demo@playerfeedback.online'
+const DEMO_CLUB_CONTACT_EMAIL = 'demo.club@playerfeedback.test'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -253,7 +253,7 @@ async function seedDemoUser(clubId, authUserId) {
     force_password_change: false,
     team_name: 'U12 Demo',
     club_name: DEMO_CLUB_NAME,
-    reply_to_email: 'info@playerfeedback.online',
+    reply_to_email: DEMO_CLUB_CONTACT_EMAIL,
     onboarding_enabled: true,
     onboarding_completed_steps: [],
     onboarding_dismissed_at: null,
@@ -349,14 +349,14 @@ async function seedPlayers(clubId, teams, actorId) {
   const u12 = teams.find((team) => team.name === 'U12 Demo') || teams[0]
   const u14 = teams.find((team) => team.name === 'U14 Demo') || teams[0]
   const rows = [
-    ['Leo Carter', 'Trial', u12, ['Striker', 'Winger'], 'Sam Carter', 'sam.carter@example.com'],
-    ['Mason Hill', 'Trial', u12, ['CM'], 'Rachel Hill', 'rachel.hill@example.com'],
-    ['Noah Brooks', 'Trial', u14, ['CB'], 'Daniel Brooks', 'daniel.brooks@example.com'],
-    ['Oliver Reed', 'Trial', u14, ['GK'], 'Amelia Reed', 'amelia.reed@example.com'],
-    ['Ethan Clarke', 'Squad', u12, ['Winger'], 'Sarah Clarke', 'sarah.clarke@example.com'],
-    ['Finn Saunders', 'Squad', u12, ['CM', 'CDM'], 'Jon Saunders', 'jon.saunders@example.com'],
-    ['Freddie Norman', 'Squad', u14, ['ST'], 'Dave Norman', 'dave.norman@example.com'],
-    ['Brendan Templeton', 'Squad', u14, ['LB'], 'Louise Templeton', 'louise.templeton@example.com'],
+    ['Demo Trial Player 01', 'Trial', u12, ['Striker', 'Winger'], 'Demo Parent 01', 'demo.parent.01@playerfeedback.test'],
+    ['Demo Trial Player 02', 'Trial', u12, ['CM'], 'Demo Parent 02', 'demo.parent.02@playerfeedback.test'],
+    ['Demo Trial Player 03', 'Trial', u14, ['CB'], 'Demo Parent 03', 'demo.parent.03@playerfeedback.test'],
+    ['Demo Trial Player 04', 'Trial', u14, ['GK'], 'Demo Parent 04', 'demo.parent.04@playerfeedback.test'],
+    ['Demo Squad Player 01', 'Squad', u12, ['Winger'], 'Demo Parent 05', 'demo.parent.05@playerfeedback.test'],
+    ['Demo Squad Player 02', 'Squad', u12, ['CM', 'CDM'], 'Demo Parent 06', 'demo.parent.06@playerfeedback.test'],
+    ['Demo Squad Player 03', 'Squad', u14, ['ST'], 'Demo Parent 07', 'demo.parent.07@playerfeedback.test'],
+    ['Demo Squad Player 04', 'Squad', u14, ['LB'], 'Demo Parent 08', 'demo.parent.08@playerfeedback.test'],
   ]
 
   const insertedPlayers = await throwOnError(
@@ -413,7 +413,7 @@ function averageScore(values) {
 async function seedEvaluations(clubId, players, actorId) {
   const evaluationSeeds = [
     {
-      player: 'Leo Carter',
+      player: 'Demo Trial Player 01',
       values: {
         technical: 4,
         tactical: 3,
@@ -426,7 +426,7 @@ async function seedEvaluations(clubId, players, actorId) {
       },
     },
     {
-      player: 'Mason Hill',
+      player: 'Demo Trial Player 02',
       values: {
         technical: 3,
         tactical: 4,
@@ -439,7 +439,7 @@ async function seedEvaluations(clubId, players, actorId) {
       },
     },
     {
-      player: 'Ethan Clarke',
+      player: 'Demo Squad Player 01',
       values: {
         technical: 4,
         tactical: 4,
