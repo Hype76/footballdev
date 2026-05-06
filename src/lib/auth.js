@@ -500,9 +500,13 @@ export function AuthProvider({ children }) {
   const signUpWithClub = async ({ email, password, clubName }) => {
     setAuthError('')
 
+    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/login`
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo,
+      },
     })
 
     if (error) {
@@ -516,6 +520,21 @@ export function AuthProvider({ children }) {
       console.error(signupError)
       setAuthError(signupError.message)
       throw signupError
+    }
+
+    if (!data.session) {
+      setSession(null)
+      setAuthUser(null)
+      setUser(null)
+      setClubOptions([])
+      setTeamOptions([])
+      setIsProfileLoading(false)
+      setAuthError('')
+
+      return {
+        needsEmailVerification: true,
+        email: data.user.email || email,
+      }
     }
 
     try {
@@ -536,6 +555,11 @@ export function AuthProvider({ children }) {
       setClubOptions([])
       setIsProfileLoading(false)
       setAuthError('')
+
+      return {
+        needsEmailVerification: false,
+        user: profile,
+      }
     } catch (profileError) {
       console.error(profileError)
       setAuthError(profileError.message || 'Could not create your club.')

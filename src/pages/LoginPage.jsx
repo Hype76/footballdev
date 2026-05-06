@@ -148,11 +148,20 @@ export function LoginPage() {
 
     try {
       if (mode === 'signup') {
-        await signUpWithClub({
+        const signupResult = await signUpWithClub({
           email: formData.email.trim(),
           password: formData.password,
           clubName: formData.clubName.trim(),
         })
+
+        if (signupResult?.needsEmailVerification) {
+          setMode('login')
+          setFormData((current) => ({
+            ...current,
+            password: '',
+          }))
+          setLocalMessage('Account created. Please check your email to verify your account before logging in.')
+        }
       } else {
         await signInWithPassword({
           email: formData.email.trim(),
