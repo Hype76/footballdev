@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 export function ConfirmModal({
   confirmLabel = 'Confirm',
@@ -9,18 +9,33 @@ export function ConfirmModal({
   message,
   onCancel,
   onConfirm,
+  reasonLabel = 'Reason',
+  reasonPlaceholder = '',
+  requireReason = false,
   requirePassword = false,
   title = 'Confirm action',
 }) {
   const [password, setPassword] = useState('')
+  const [reason, setReason] = useState('')
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
 
-  useEffect(() => {
-    if (!isOpen) {
-      setPassword('')
-      setIsPasswordVisible(false)
-    }
-  }, [isOpen])
+  const resetFields = () => {
+    setPassword('')
+    setReason('')
+    setIsPasswordVisible(false)
+  }
+
+  const handleCancel = () => {
+    resetFields()
+    onCancel()
+  }
+
+  const handleConfirm = () => {
+    const nextPassword = password
+    const nextReason = reason
+    resetFields()
+    onConfirm(nextPassword, nextReason)
+  }
 
   if (!isOpen) {
     return null
@@ -43,6 +58,18 @@ export function ConfirmModal({
               ))}
             </ul>
           </div>
+        ) : null}
+        {requireReason ? (
+          <label className="mt-4 block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{reasonLabel}</span>
+            <textarea
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder={reasonPlaceholder}
+              rows={4}
+              className="min-h-28 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+            />
+          </label>
         ) : null}
         {requirePassword ? (
           <label className="mt-4 block">
@@ -70,7 +97,7 @@ export function ConfirmModal({
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={isBusy}
             className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -78,8 +105,8 @@ export function ConfirmModal({
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(password)}
-            disabled={isBusy || (requirePassword && !password.trim())}
+            onClick={handleConfirm}
+            disabled={isBusy || (requirePassword && !password.trim()) || (requireReason && !reason.trim())}
             className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isBusy ? 'Working...' : confirmLabel}

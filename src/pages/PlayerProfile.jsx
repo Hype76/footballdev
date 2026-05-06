@@ -1126,8 +1126,15 @@ export function PlayerProfile() {
     })
   }
 
-  const confirmDeletePlayer = async (password) => {
+  const confirmDeletePlayer = async (password, reason) => {
     if (!playerDeleteTarget) {
+      return
+    }
+
+    const archiveReason = String(reason ?? '').trim()
+
+    if (!archiveReason) {
+      setErrorMessage('Add a reason before archiving this player.')
       return
     }
 
@@ -1141,7 +1148,7 @@ export function PlayerProfile() {
           archivePlayer({
             user,
             playerId: player.id,
-            reason: 'Deleted from player profile',
+            reason: archiveReason,
           }),
         ),
       )
@@ -2108,8 +2115,11 @@ export function PlayerProfile() {
         itemsTitle="This will archive:"
         confirmLabel="Archive Player"
         onCancel={() => setPlayerDeleteTarget(null)}
+        requireReason
+        reasonLabel="Archive reason"
+        reasonPlaceholder="Explain why this player is being archived."
         requirePassword
-        onConfirm={(password) => void confirmDeletePlayer(password)}
+        onConfirm={(password, reason) => void confirmDeletePlayer(password, reason)}
       />
 
       <ConfirmModal
