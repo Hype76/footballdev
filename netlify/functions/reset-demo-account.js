@@ -34,6 +34,14 @@ async function throwOnError(result, message) {
   return result.data
 }
 
+async function ignoreMissingTable(promise, label) {
+  const result = await promise
+
+  if (result.error && result.error.code !== '42P01') {
+    console.error(`${label} failed`, result.error)
+  }
+}
+
 async function findAuthUserByEmail(email) {
   let page = 1
 
@@ -180,17 +188,17 @@ async function clearDemoClubData(clubId) {
   }
 
   await Promise.all([
-    supabaseAdmin.from('assessment_sessions').delete().eq('club_id', clubId),
-    supabaseAdmin.from('evaluations').delete().eq('club_id', clubId),
-    supabaseAdmin.from('player_staff_notes').delete().eq('club_id', clubId),
-    supabaseAdmin.from('communication_logs').delete().eq('club_id', clubId),
-    supabaseAdmin.from('audit_logs').delete().eq('club_id', clubId),
-    supabaseAdmin.from('record_backups').delete().eq('club_id', clubId),
-    supabaseAdmin.from('players').delete().eq('club_id', clubId),
-    supabaseAdmin.from('form_fields').delete().eq('club_id', clubId),
-    supabaseAdmin.from('club_roles').delete().eq('club_id', clubId),
-    supabaseAdmin.from('club_user_invites').delete().eq('club_id', clubId),
-    supabaseAdmin.from('teams').delete().eq('club_id', clubId),
+    ignoreMissingTable(supabaseAdmin.from('assessment_sessions').delete().eq('club_id', clubId), 'assessment_sessions cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('evaluations').delete().eq('club_id', clubId), 'evaluations cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('player_staff_notes').delete().eq('club_id', clubId), 'player_staff_notes cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('communication_logs').delete().eq('club_id', clubId), 'communication_logs cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('audit_logs').delete().eq('club_id', clubId), 'audit_logs cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('record_backups').delete().eq('club_id', clubId), 'record_backups cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('players').delete().eq('club_id', clubId), 'players cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('form_fields').delete().eq('club_id', clubId), 'form_fields cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('club_roles').delete().eq('club_id', clubId), 'club_roles cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('club_user_invites').delete().eq('club_id', clubId), 'club_user_invites cleanup'),
+    ignoreMissingTable(supabaseAdmin.from('teams').delete().eq('club_id', clubId), 'teams cleanup'),
   ])
 }
 
@@ -253,9 +261,6 @@ async function seedDemoUser(clubId, authUserId) {
         role: 'head_manager',
         role_label: 'Team Admin',
         role_rank: 70,
-        created_by: authUserId,
-        created_by_name: DEMO_USER_NAME,
-        created_by_email: DEMO_EMAIL,
       },
       { onConflict: 'auth_user_id,club_id' },
     ),
