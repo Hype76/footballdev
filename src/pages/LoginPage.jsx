@@ -107,20 +107,37 @@ export function LoginPage() {
     }))
   }
 
-  const handleDemoSubmit = (event) => {
+  const handleDemoSubmit = async (event) => {
     event.preventDefault()
+    setIsSubmitting(true)
+    setLocalError('')
+    setLocalMessage('')
 
-    const nextRequest = {
-      ...demoFormData,
-      planName: demoPlan?.name || '',
-      billingCycle,
-      createdAt: new Date().toISOString(),
+    try {
+      const response = await fetch('/.netlify/functions/send-demo-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...demoFormData,
+          planName: demoPlan?.name || '',
+          billingCycle,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Demo request could not be sent.')
+      }
+
+      setDemoPlan(null)
+      setDemoFormData(initialDemoFormData)
+      setLocalMessage('Demo request sent. We will be in touch shortly.')
+    } catch (error) {
+      console.error(error)
+      setLocalError(error.message || 'Demo request could not be sent.')
+    } finally {
+      setIsSubmitting(false)
     }
-    const existingRequests = JSON.parse(localStorage.getItem('demo-requests') || '[]')
-    localStorage.setItem('demo-requests', JSON.stringify([...existingRequests, nextRequest]))
-    setDemoPlan(null)
-    setDemoFormData(initialDemoFormData)
-    setLocalMessage('Demo request saved. Delivery will be connected when the destination email is set.')
   }
 
   const handleSubmit = async (event) => {
@@ -482,7 +499,7 @@ export function LoginPage() {
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Request Demo</p>
             <h2 className="mt-3 text-2xl font-black tracking-tight text-white">{demoPlan.name}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              Send your details and we will connect the demo request once the delivery address is set.
+              Send your details and we will contact you to arrange the demo.
             </p>
 
             <form className="mt-5 grid gap-4" onSubmit={handleDemoSubmit}>
@@ -533,19 +550,21 @@ export function LoginPage() {
               <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => {
                     setDemoPlan(null)
                     setDemoFormData(initialDemoFormData)
                   }}
-                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08]"
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90"
+                  disabled={isSubmitting}
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Request Demo
+                  {isSubmitting ? 'Sending...' : 'Request Demo'}
                 </button>
               </div>
             </form>
