@@ -22,25 +22,25 @@ const pricingPlans = [
     price: 'Free',
     priceLabel: 'No card needed',
     description: 'For one coach testing the basics before moving feedback online.',
-    features: ['1 team', '5 players', '10 evaluations per month', 'Basic form only', 'No PDF export', 'No email sending'],
+    features: ['1 team', '1 login', '5 players', '10 evaluations per month', 'Basic form only', 'No PDF export', 'No email sending'],
   },
   {
     name: 'Single Team',
     price: 9.99,
     description: 'For teams ready to send structured feedback to parents.',
-    features: ['2 weeks trial included', 'Cancel anytime', '1 team', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic logo branding'],
+    features: ['2 weeks trial included', 'Cancel anytime', '1 team', '3 logins', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic logo branding'],
   },
   {
     name: 'Small Club',
     price: 24.99,
     description: 'For growing clubs needing staff access and oversight.',
-    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Single Team', 'Up to 10 teams', 'Custom branding and themes', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
+    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Single Team', 'Up to 10 teams', 'Unlimited logins', 'Custom branding and themes', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
   },
   {
     name: 'Large Club',
     price: 'Contact us',
     description: 'For larger clubs that need more teams, onboarding, or custom support.',
-    features: ['Custom setup', 'More than 10 teams', 'Custom branding and themes', 'Custom onboarding', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
+    features: ['Custom setup', 'More than 10 teams', 'Unlimited logins', 'Custom branding and themes', 'Custom onboarding', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
   },
 ]
 
@@ -476,25 +476,36 @@ export function LoginPage() {
                       </li>
                     ))}
                   </ul>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (plan.name === 'Individual') {
+                  <div className="mt-6 grid gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
                         setMode('signup')
-                        return
-                      }
-
-                      setDemoPlan(plan)
-                    }}
-                    className={[
-                      'mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition',
-                      plan.name === 'Small Club'
-                        ? 'bg-[#d8ff2f] text-black hover:opacity-90'
-                        : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
-                    ].join(' ')}
-                  >
-                    {plan.name === 'Individual' ? 'Start Free' : 'Request Demo'}
-                  </button>
+                        setLocalMessage(
+                          plan.name === 'Individual'
+                            ? 'Create your free account to start.'
+                            : 'Checkout is being configured. You can still create an account or request a demo.',
+                        )
+                      }}
+                      className={[
+                        'inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition',
+                        plan.name === 'Small Club'
+                          ? 'bg-[#d8ff2f] text-black hover:opacity-90'
+                          : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
+                      ].join(' ')}
+                    >
+                      {plan.name === 'Individual' ? 'Start Free' : 'Choose Plan'}
+                    </button>
+                    {plan.name !== 'Individual' ? (
+                      <button
+                        type="button"
+                        onClick={() => setDemoPlan(plan)}
+                        className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.08]"
+                      >
+                        Request Demo
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               )
             })}

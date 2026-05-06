@@ -16,6 +16,7 @@ import {
   isInviteEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
+import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   getSavedEvaluationExportLabels,
   getSelectedEvaluationResponses,
@@ -519,6 +520,10 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
+      if (!hasPlanFeature(user, 'pdfExport')) {
+        throw new Error(createFeatureUpgradeMessage('pdfExport'))
+      }
+
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
       const latestClubLogoUrl = await getLatestClubLogoUrl(user)
       const selectedResponseItems = getSelectedExportResponseItems(evaluation)
@@ -596,6 +601,11 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
+      if (!hasPlanFeature(user, 'parentEmail')) {
+        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+        return
+      }
+
       const emailDetails = buildParentEmailPayload(evaluation)
 
       if (!emailDetails.recipientEmails) {
@@ -1942,7 +1952,7 @@ export function PlayerProfile() {
                     <button
                       type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'scored')}
-                      disabled={pdfLoadingId === `${evaluation.id}:scored` || !canShare}
+                      disabled={pdfLoadingId === `${evaluation.id}:scored` || !canShare || !hasPlanFeature(user, 'pdfExport')}
                       title="Download scored PDF"
                       className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -1951,7 +1961,7 @@ export function PlayerProfile() {
                     <button
                       type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'without-scores')}
-                      disabled={pdfLoadingId === `${evaluation.id}:without-scores` || !canShare}
+                      disabled={pdfLoadingId === `${evaluation.id}:without-scores` || !canShare || !hasPlanFeature(user, 'pdfExport')}
                       title="Download PDF without scores"
                       className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -1960,7 +1970,7 @@ export function PlayerProfile() {
                     <button
                       type="button"
                       onClick={() => void handleDownloadPdf(evaluation, 'email')}
-                      disabled={pdfLoadingId === `${evaluation.id}:email` || !canShare}
+                      disabled={pdfLoadingId === `${evaluation.id}:email` || !canShare || !hasPlanFeature(user, 'pdfExport')}
                       title="Download email template PDF"
                       className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -1969,7 +1979,7 @@ export function PlayerProfile() {
                     <button
                       type="button"
                       onClick={() => void handleSendParentEmail(evaluation)}
-                      disabled={emailSendingId === evaluation.id || !canShare}
+                      disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail')}
                       title="Send parent email"
                       className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >

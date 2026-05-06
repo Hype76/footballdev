@@ -26,6 +26,7 @@ export {
   normalizeUserProfile,
   requestLoginEmailChange,
   selectUserClub,
+  updateOwnOnboardingSettings,
   updateOwnThemeSettings,
   updateOwnUserSettings,
   updateSignedInPassword,
@@ -125,6 +126,7 @@ export {
   getClubSettings,
   importClubLogoFromUrl,
   updatePlatformClubStatus,
+  updatePlatformClubPlan,
   uploadClubLogo,
 } from './domain/platform.js'
 

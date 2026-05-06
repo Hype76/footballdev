@@ -9,6 +9,7 @@ import {
   isSuperAdmin,
   useAuth,
 } from '../../lib/auth.js'
+import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
 
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
@@ -42,6 +43,24 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     return true
+  }).map((item) => {
+    if (item.path === '/activity-log' && !hasPlanFeature(user, 'auditLogs')) {
+      return {
+        ...item,
+        disabled: true,
+        disabledMessage: createFeatureUpgradeMessage('auditLogs'),
+      }
+    }
+
+    if (item.path === '/form-builder' && !hasPlanFeature(user, 'customFormFields')) {
+      return {
+        ...item,
+        disabled: true,
+        disabledMessage: createFeatureUpgradeMessage('customFormFields'),
+      }
+    }
+
+    return item
   })
 
   const handleSignOut = async () => {
@@ -90,23 +109,36 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
 
         <nav className="mt-8 space-y-2 pb-4">
-          {navigationItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'block min-h-11 rounded-2xl px-4 py-3 text-sm font-medium transition',
-                  isActive
-                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                ].join(' ')
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {navigationItems.map((item) =>
+            item.disabled ? (
+              <button
+                key={item.path}
+                type="button"
+                title={item.disabledMessage}
+                data-onboarding={`nav-${item.path.replace('/', '')}`}
+                className="block min-h-11 w-full cursor-not-allowed rounded-2xl px-4 py-3 text-left text-sm font-medium text-[var(--text-muted)] opacity-55"
+              >
+                {item.label}
+              </button>
+            ) : (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                data-onboarding={`nav-${item.path.replace('/', '')}`}
+                className={({ isActive }) =>
+                  [
+                    'block min-h-11 rounded-2xl px-4 py-3 text-sm font-medium transition',
+                    isActive
+                      ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
+                  ].join(' ')
+                }
+              >
+                {item.label}
+              </NavLink>
+            ),
+          )}
         </nav>
 
         {isSuperAdmin(user) ? (

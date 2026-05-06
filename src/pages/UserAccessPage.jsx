@@ -6,6 +6,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import {
   canRemoveClubUser,
   canUpdateClubUserName,
@@ -144,6 +145,27 @@ export function UserAccessPage() {
     () => getPaginatedItems(pendingInvites, invitePage, INVITE_PAGE_SIZE),
     [invitePage, pendingInvites],
   )
+  const activeAndPendingEmailCount = useMemo(() => {
+    const emails = new Set()
+
+    members.forEach((member) => {
+      const email = String(member.email ?? '').trim().toLowerCase()
+      if (email) {
+        emails.add(email)
+      }
+    })
+
+    pendingInvites.forEach((invite) => {
+      const email = String(invite.email ?? '').trim().toLowerCase()
+      if (email) {
+        emails.add(email)
+      }
+    })
+
+    return emails.size
+  }, [members, pendingInvites])
+  const canAddMoreUsers = isWithinPlanLimit(user, 'staffLogins', activeAndPendingEmailCount)
+  const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
 
   if (!canManageUsers(user)) {
     return <Navigate to="/" replace />
@@ -200,6 +222,10 @@ export function UserAccessPage() {
     setErrorMessage('')
 
     try {
+      if (!canAddMoreUsers) {
+        throw new Error(staffLimitMessage)
+      }
+
       let selectedRole = assignableRoles.find((role) => role.roleKey === formState.roleKey)
 
       if (formState.roleKey === '__custom__') {
@@ -374,7 +400,11 @@ export function UserAccessPage() {
 
       <SectionCard
         title="Allocate role"
-        description="Admins and managers can allocate roles at their level or below. Custom roles are saved to this club."
+        description={
+          canAddMoreUsers
+            ? 'Admins and managers can allocate roles at their level or below. Custom roles are saved to this club.'
+            : staffLimitMessage
+        }
       >
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
@@ -459,7 +489,8 @@ export function UserAccessPage() {
             <div className="md:col-span-2">
               <button
                 type="submit"
-                disabled={isSaving}
+                disabled={isSaving || !canAddMoreUsers}
+                title={canAddMoreUsers ? undefined : staffLimitMessage}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {isSaving ? 'Saving...' : 'Allocate user'}

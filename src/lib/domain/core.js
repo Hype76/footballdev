@@ -26,7 +26,13 @@ const USER_PROFILE_SELECT = [
   'team_name',
   'club_name',
   'reply_to_email',
+  'onboarding_enabled',
+  'onboarding_completed_steps',
+  'onboarding_dismissed_at',
 ].join(', ')
+
+const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped'
+const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped)'
 
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Club Admin', rank: 90, isSystem: true },
@@ -994,6 +1000,9 @@ function normalizePlatformClubRow(row) {
     name: String(row.name ?? '').trim() || 'Unnamed club',
     contactEmail: String(row.contact_email ?? '').trim(),
     contactPhone: String(row.contact_phone ?? '').trim(),
+    planKey: String(row.plan_key ?? 'small_club').trim() || 'small_club',
+    planStatus: String(row.plan_status ?? 'active').trim() || 'active',
+    isPlanComped: Boolean(row.is_plan_comped ?? false),
     status: String(row.status ?? 'active').trim() || 'active',
     suspendedAt: row.suspended_at ?? '',
     createdAt: row.created_at ?? '',
@@ -1074,6 +1083,9 @@ function normalizeClubMembershipRow(row) {
     clubContactPhone: String(clubRow?.contact_phone ?? row.clubContactPhone ?? '').trim(),
     clubStatus: String(clubRow?.status ?? row.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: clubRow?.suspended_at ?? row.clubSuspendedAt ?? '',
+    planKey: String(clubRow?.plan_key ?? row.planKey ?? 'small_club').trim() || 'small_club',
+    planStatus: String(clubRow?.plan_status ?? row.planStatus ?? 'active').trim() || 'active',
+    isPlanComped: Boolean(clubRow?.is_plan_comped ?? row.isPlanComped ?? false),
     requireApproval: Boolean(clubRow?.require_approval ?? row.requireApproval ?? true),
   }
 }
@@ -1086,7 +1098,7 @@ async function fetchClubDetails(clubId) {
   return getCachedResource(`club:${clubId}`, async () => {
     const { data, error } = await supabase
       .from('clubs')
-      .select('id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at')
+      .select(CLUB_SELECT)
       .eq('id', clubId)
       .maybeSingle()
 
@@ -1129,9 +1141,19 @@ export function normalizeUserProfile(profile) {
     clubContactPhone: String(getClubValue(profile.clubs, 'contact_phone') ?? profile.clubContactPhone ?? '').trim(),
     clubStatus: String(getClubValue(profile.clubs, 'status') ?? profile.clubStatus ?? 'active').trim() || 'active',
     clubSuspendedAt: getClubValue(profile.clubs, 'suspended_at') ?? profile.clubSuspendedAt ?? '',
+    planKey: String(getClubValue(profile.clubs, 'plan_key') ?? profile.planKey ?? 'small_club').trim() || 'small_club',
+    planStatus: String(getClubValue(profile.clubs, 'plan_status') ?? profile.planStatus ?? 'active').trim() || 'active',
+    isPlanComped: Boolean(getClubValue(profile.clubs, 'is_plan_comped') ?? profile.isPlanComped ?? false),
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
     themeMode: String(profile.theme_mode ?? profile.themeMode ?? '').trim(),
     themeAccent: String(profile.theme_accent ?? profile.themeAccent ?? '').trim(),
+    onboardingEnabled: profile.onboarding_enabled ?? profile.onboardingEnabled ?? true,
+    onboardingCompletedSteps: Array.isArray(profile.onboarding_completed_steps)
+      ? profile.onboarding_completed_steps
+      : Array.isArray(profile.onboardingCompletedSteps)
+        ? profile.onboardingCompletedSteps
+        : [],
+    onboardingDismissedAt: profile.onboarding_dismissed_at ?? profile.onboardingDismissedAt ?? '',
     activeTeamId: String(profile.activeTeamId ?? '').trim(),
     activeTeamName: String(profile.activeTeamName ?? '').trim(),
   }
@@ -1159,7 +1181,7 @@ async function upsertClubMembershipFromInvite(authUser, invite) {
         onConflict: 'auth_user_id,club_id',
       },
     )
-    .select('*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at)')
+    .select(MEMBERSHIP_CLUB_SELECT)
     .single()
 
   if (error) {
@@ -1217,7 +1239,7 @@ async function getUserClubMemberships(authUser) {
 
   const { data, error } = await supabase
     .from('user_club_memberships')
-    .select('*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at)')
+    .select(MEMBERSHIP_CLUB_SELECT)
     .or(`auth_user_id.eq.${authUser.id},email.eq.${normalizedEmail}`)
     .order('created_at', { ascending: true })
 
@@ -1252,7 +1274,7 @@ async function syncMembershipFromUserRow(data, authUser) {
         onConflict: 'auth_user_id,club_id',
       },
     )
-    .select('*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at)')
+    .select(MEMBERSHIP_CLUB_SELECT)
     .single()
 
   if (error) {
@@ -1324,6 +1346,9 @@ export async function selectUserClub(authUser, clubId) {
       require_approval: selectedMembership.requireApproval,
       status: selectedMembership.clubStatus,
       suspended_at: selectedMembership.clubSuspendedAt,
+      plan_key: selectedMembership.planKey,
+      plan_status: selectedMembership.planStatus,
+      is_plan_comped: selectedMembership.isPlanComped,
     },
   })
 }
@@ -1449,7 +1474,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     .insert({
       name: String(clubName ?? '').trim(),
     })
-    .select('id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at')
+    .select(CLUB_SELECT)
     .single()
 
   if (clubError) {
@@ -1601,6 +1626,55 @@ export async function updateOwnThemeSettings({ authUser, mode, accent }) {
   })
 }
 
+export async function updateOwnOnboardingSettings({ authUser, enabled, completedSteps, dismissedAt }) {
+  if (!authUser?.id) {
+    throw new Error('Signed in user is required.')
+  }
+
+  const payload = {}
+
+  if (enabled !== undefined) {
+    payload.onboarding_enabled = Boolean(enabled)
+  }
+
+  if (Array.isArray(completedSteps)) {
+    payload.onboarding_completed_steps = completedSteps
+  }
+
+  if (dismissedAt !== undefined) {
+    payload.onboarding_dismissed_at = dismissedAt || null
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(payload)
+    .eq('id', authUser.id)
+    .select(USER_PROFILE_SELECT)
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`user-profile:${authUser.id}`)
+
+  let clubData = null
+
+  if (data.club_id) {
+    try {
+      clubData = await fetchClubDetails(data.club_id)
+    } catch (clubError) {
+      console.error(clubError)
+    }
+  }
+
+  return normalizeUserProfile({
+    ...data,
+    clubs: clubData,
+  })
+}
+
 export async function requestLoginEmailChange({ authUser, email }) {
   if (!authUser?.id) {
     throw new Error('Signed in user is required.')
@@ -1688,6 +1762,9 @@ export async function getClubSettings(clubId) {
     contactEmail: String(data.contact_email ?? '').trim(),
     contactPhone: String(data.contact_phone ?? '').trim(),
     requireApproval: Boolean(data.require_approval ?? true),
+    planKey: String(data.plan_key ?? 'small_club').trim() || 'small_club',
+    planStatus: String(data.plan_status ?? 'active').trim() || 'active',
+    isPlanComped: Boolean(data.is_plan_comped ?? false),
   }
 }
 
@@ -1711,7 +1788,7 @@ export async function updateClubSettings({ clubId, data }) {
     .from('clubs')
     .update(payload)
     .eq('id', clubId)
-    .select('id, name, logo_url, contact_email, contact_phone, require_approval')
+    .select(CLUB_SELECT)
     .single()
 
   if (error) {
@@ -1730,6 +1807,9 @@ export async function updateClubSettings({ clubId, data }) {
     contactEmail: String(updatedClub.contact_email ?? '').trim(),
     contactPhone: String(updatedClub.contact_phone ?? '').trim(),
     requireApproval: Boolean(updatedClub.require_approval ?? true),
+    planKey: String(updatedClub.plan_key ?? 'small_club').trim() || 'small_club',
+    planStatus: String(updatedClub.plan_status ?? 'active').trim() || 'active',
+    isPlanComped: Boolean(updatedClub.is_plan_comped ?? false),
   }
 }
 
@@ -4460,9 +4540,12 @@ export async function createPlatformClub({ user, name, contactEmail = '', contac
       name: normalizedName,
       contact_email: String(contactEmail ?? '').trim(),
       contact_phone: String(contactPhone ?? '').trim(),
+      plan_key: 'small_club',
+      plan_status: 'active',
+      is_plan_comped: false,
       status: 'active',
     })
-    .select('id, name, contact_email, contact_phone, status, suspended_at, created_at')
+    .select(`${CLUB_SELECT}, created_at`)
     .single()
 
   if (error) {
@@ -4498,7 +4581,7 @@ export async function updatePlatformClubStatus({ user, clubId, status }) {
       suspended_at: nextStatus === 'suspended' ? new Date().toISOString() : null,
     })
     .eq('id', clubId)
-    .select('id, name, contact_email, contact_phone, status, suspended_at, created_at')
+    .select(`${CLUB_SELECT}, created_at`)
     .single()
 
   if (error) {
@@ -4516,6 +4599,54 @@ export async function updatePlatformClubStatus({ user, clubId, status }) {
     metadata: {
       clubName: data.name,
       status: nextStatus,
+    },
+  })
+
+  return normalizePlatformClubRow(data)
+}
+
+export async function updatePlatformClubPlan({ user, clubId, planKey, planStatus = 'active', isPlanComped = false }) {
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can update club plans.')
+  }
+
+  const normalizedPlanKey = ['individual', 'single_team', 'small_club', 'large_club'].includes(planKey)
+    ? planKey
+    : 'small_club'
+  const normalizedPlanStatus = ['active', 'trialing', 'past_due', 'cancelled'].includes(planStatus)
+    ? planStatus
+    : 'active'
+
+  const { data, error } = await supabase
+    .from('clubs')
+    .update({
+      plan_key: normalizedPlanKey,
+      plan_status: normalizedPlanStatus,
+      is_plan_comped: Boolean(isPlanComped),
+      plan_updated_at: new Date().toISOString(),
+    })
+    .eq('id', clubId)
+    .select(`${CLUB_SELECT}, created_at`)
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-stats')
+  invalidateMemoryCacheByPrefix(`club:${clubId}`)
+  invalidateMemoryCacheByPrefix('user-profile:')
+  await createAuditLog({
+    user,
+    action: 'club_plan_updated',
+    entityType: 'club',
+    entityId: clubId,
+    metadata: {
+      clubName: data.name,
+      planKey: normalizedPlanKey,
+      planStatus: normalizedPlanStatus,
+      isPlanComped: Boolean(isPlanComped),
     },
   })
 
@@ -4590,7 +4721,7 @@ export async function getPlatformStats(user) {
     const [clubsResult, usersResult, teamsResult, playersResult, evaluationsResult, communicationLogsResult, auditLogsResult] = await Promise.all([
       supabase
         .from('clubs')
-        .select('id, name, contact_email, contact_phone, status, suspended_at, created_at')
+        .select(`${CLUB_SELECT}, created_at`)
         .order('name', { ascending: true }),
       supabase.from('users').select('id, email, role_label, role_rank, club_id').order('email', { ascending: true }),
       supabase.from('teams').select('id, name, club_id').order('name', { ascending: true }),
@@ -4655,6 +4786,9 @@ export async function getPlatformStats(user) {
           name: String(club.name ?? '').trim() || 'Unnamed club',
           contactEmail: String(club.contact_email ?? '').trim(),
           contactPhone: String(club.contact_phone ?? '').trim(),
+          planKey: String(club.plan_key ?? 'small_club').trim() || 'small_club',
+          planStatus: String(club.plan_status ?? 'active').trim() || 'active',
+          isPlanComped: Boolean(club.is_plan_comped ?? false),
           status: String(club.status ?? 'active').trim() || 'active',
           suspendedAt: club.suspended_at,
           createdAt: club.created_at,

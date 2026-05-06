@@ -3,6 +3,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewActivityLog, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import { getAuditLogs, getRecordBackups, withRequestTimeout } from '../lib/supabase.js'
 
 function formatDateTime(value) {
@@ -50,12 +51,13 @@ export function ActivityLogPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const canViewSystemLogs = isSuperAdmin(user)
+  const canUseAuditLogs = hasPlanFeature(user, 'auditLogs')
 
   useEffect(() => {
     let isMounted = true
 
     const loadLogs = async () => {
-      if (!canViewActivityLog(user)) {
+      if (!canViewActivityLog(user) || !canUseAuditLogs) {
         setLogs([])
         setIsLoading(false)
         return
@@ -96,7 +98,7 @@ export function ActivityLogPage() {
     return () => {
       isMounted = false
     }
-  }, [canViewSystemLogs, user])
+  }, [canUseAuditLogs, canViewSystemLogs, user])
 
   const actorOptions = useMemo(() => {
     const actors = new Map()
@@ -161,6 +163,18 @@ export function ActivityLogPage() {
           eyebrow="Activity"
           title="Activity log"
           description="You do not have access to the activity log."
+        />
+      </div>
+    )
+  }
+
+  if (!canUseAuditLogs) {
+    return (
+      <div className="space-y-5 sm:space-y-6">
+        <PageHeader
+          eyebrow="Activity"
+          title="Activity log"
+          description={createFeatureUpgradeMessage('auditLogs')}
         />
       </div>
     )

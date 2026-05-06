@@ -54,9 +54,14 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.clubContactPhone ?? '') === String(rightUser.clubContactPhone ?? '') &&
     String(leftUser.clubStatus ?? '') === String(rightUser.clubStatus ?? '') &&
     String(leftUser.clubSuspendedAt ?? '') === String(rightUser.clubSuspendedAt ?? '') &&
+    String(leftUser.planKey ?? '') === String(rightUser.planKey ?? '') &&
+    String(leftUser.planStatus ?? '') === String(rightUser.planStatus ?? '') &&
+    Boolean(leftUser.isPlanComped) === Boolean(rightUser.isPlanComped) &&
     Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
     String(leftUser.themeMode ?? '') === String(rightUser.themeMode ?? '') &&
     String(leftUser.themeAccent ?? '') === String(rightUser.themeAccent ?? '') &&
+    Boolean(leftUser.onboardingEnabled) === Boolean(rightUser.onboardingEnabled) &&
+    String(leftUser.onboardingDismissedAt ?? '') === String(rightUser.onboardingDismissedAt ?? '') &&
     String(leftUser.activeTeamId ?? '') === String(rightUser.activeTeamId ?? '') &&
     String(leftUser.activeTeamName ?? '') === String(rightUser.activeTeamName ?? '')
   )
@@ -610,6 +615,9 @@ export function AuthProvider({ children }) {
         clubLogoUrl: String(clubDetails.logoUrl ?? current.clubLogoUrl ?? '').trim(),
         clubContactEmail: String(clubDetails.contactEmail ?? current.clubContactEmail ?? '').trim(),
         clubContactPhone: String(clubDetails.contactPhone ?? current.clubContactPhone ?? '').trim(),
+        planKey: String(clubDetails.planKey ?? current.planKey ?? 'small_club').trim(),
+        planStatus: String(clubDetails.planStatus ?? current.planStatus ?? 'active').trim(),
+        isPlanComped: Boolean(clubDetails.isPlanComped ?? current.isPlanComped ?? false),
         requireApproval: Boolean(clubDetails.requireApproval ?? current.requireApproval ?? true),
       }
     })

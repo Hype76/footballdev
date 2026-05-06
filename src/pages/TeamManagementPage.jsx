@@ -29,6 +29,7 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 
 const initialCoachForm = {
   email: '',
@@ -234,6 +235,10 @@ export function TeamManagementPage() {
     () => getPaginatedItems(selectedTeamStaff, staffPage, STAFF_PAGE_SIZE),
     [selectedTeamStaff, staffPage],
   )
+  const canCreateMoreTeams = isWithinPlanLimit(user, 'teams', teams.length)
+  const canCreateMoreStaff = isWithinPlanLimit(user, 'staffLogins', users.length)
+  const teamLimitMessage = createLimitUpgradeMessage(user, 'teams', 'Teams')
+  const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
 
   useEffect(() => {
     if (coachForm.teamId || teams.length === 0) {
@@ -279,6 +284,10 @@ export function TeamManagementPage() {
     setErrorMessage('')
 
     try {
+      if (!isWithinPlanLimit(user, 'teams', teams.length)) {
+        throw new Error(createLimitUpgradeMessage(user, 'teams', 'Teams'))
+      }
+
       const createdTeam = await createTeam({
         user,
         name: newTeamName,
@@ -354,6 +363,10 @@ export function TeamManagementPage() {
     setErrorMessage('')
 
     try {
+      if (!isWithinPlanLimit(user, 'staffLogins', users.length)) {
+        throw new Error(createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins'))
+      }
+
       let selectedRole = assignableRoles.find((role) => role.roleKey === coachForm.roleKey)
 
       if (coachForm.roleKey === '__custom__') {
@@ -636,7 +649,13 @@ export function TeamManagementPage() {
 
       <SectionCard
         title="Create team"
-        description="Teams become selectable in assessments once created here. You can add staff access from this page as well."
+        description={
+          canCreateMoreTeams && canCreateMoreStaff
+            ? 'Teams become selectable in assessments once created here. You can add staff access from this page as well.'
+            : [!canCreateMoreTeams ? teamLimitMessage : '', !canCreateMoreStaff ? staffLimitMessage : '']
+                .filter(Boolean)
+                .join(' ')
+        }
       >
         <div className="grid gap-5 2xl:grid-cols-2">
           <form className="space-y-3" onSubmit={handleCreateTeam}>
@@ -653,7 +672,8 @@ export function TeamManagementPage() {
             </label>
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={isSaving || !canCreateMoreTeams}
+              title={canCreateMoreTeams ? undefined : teamLimitMessage}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Add Team
@@ -750,7 +770,8 @@ export function TeamManagementPage() {
 
             <button
               type="submit"
-              disabled={isSaving || assignableRoles.length === 0}
+              disabled={isSaving || assignableRoles.length === 0 || !canCreateMoreStaff}
+              title={canCreateMoreStaff ? undefined : staffLimitMessage}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Add Staff Access

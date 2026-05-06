@@ -17,6 +17,12 @@ import {
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
 import {
+  createFeatureUpgradeMessage,
+  createLimitUpgradeMessage,
+  hasPlanFeature,
+  isWithinPlanLimit,
+} from '../lib/plans.js'
+import {
   getSavedEvaluationExportLabels,
   getSelectedEvaluationResponses,
   saveEvaluationExportLabels,
@@ -683,6 +689,8 @@ export function CreateEvaluationPage() {
     ],
   )
   const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
+  const canUsePdfExport = hasPlanFeature(user, 'pdfExport')
+  const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
     : 'No teams are assigned to your account yet. Ask a manager to allocate you to at least one team.'
@@ -954,6 +962,10 @@ export function CreateEvaluationPage() {
     setActionErrorMessage('')
 
     try {
+      if (!canUsePdfExport) {
+        throw new Error(createFeatureUpgradeMessage('pdfExport'))
+      }
+
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
       const latestClubLogoUrl = await getLatestClubLogoUrl(user)
 
@@ -1005,6 +1017,20 @@ export function CreateEvaluationPage() {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
       const evaluation = buildEvaluationPayload(offlineDraftId)
 
+      if (!editingEvaluation?.id && user?.clubId) {
+        const allEvaluations = await getEvaluations({ user })
+        const currentMonth = new Date().toISOString().slice(0, 7)
+        const monthlyEvaluationCount = allEvaluations.filter((item) => {
+          const createdValue = item.createdAt || item.created_at || item.date
+          const parsedDate = new Date(createdValue)
+          return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 7) === currentMonth
+        }).length
+
+        if (!isWithinPlanLimit(user, 'monthlyEvaluations', monthlyEvaluationCount)) {
+          throw new Error(createLimitUpgradeMessage(user, 'monthlyEvaluations', 'Monthly assessments'))
+        }
+      }
+
       if (!navigator.onLine) {
         saveDraft({
           id: offlineDraftId,
@@ -1032,6 +1058,10 @@ export function CreateEvaluationPage() {
 
       if (previewMode === 'email' && selectedParentEmail) {
         try {
+          if (!canUseParentEmail) {
+            throw new Error(createFeatureUpgradeMessage('parentEmail'))
+          }
+
           setIsSendingParentEmail(true)
           await sendParentEmail({
             parentEmail: selectedParentEmail,
@@ -1641,7 +1671,7 @@ export function CreateEvaluationPage() {
                   <button
                     type="button"
                     onClick={() => void handleDownloadPdf(previewMode)}
-                    disabled={isGeneratingPdf}
+                    disabled={isGeneratingPdf || !canUsePdfExport}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isGeneratingPdf ? 'Preparing PDF...' : 'Download PDF'}
@@ -1649,7 +1679,7 @@ export function CreateEvaluationPage() {
                   <button
                     type="button"
                     onClick={() => void handleDownloadPdf('without-scores')}
-                    disabled={isGeneratingPdf}
+                    disabled={isGeneratingPdf || !canUsePdfExport}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isGeneratingPdf ? 'Preparing PDF...' : 'PDF Without Scores'}

@@ -6,6 +6,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageFormFields, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   addFormField,
   deleteFormField,
@@ -187,6 +188,7 @@ export function FormBuilderPage() {
   const customFields = fields.filter((field) => !field.isDefault)
   const visibleFields = fieldGroup === 'default' ? defaultFields : customFields
   const paginatedFields = getPaginatedItems(visibleFields, fieldPage, FIELD_PAGE_SIZE)
+  const canUseCustomFields = hasPlanFeature(user, 'customFormFields')
 
   const handleFormChange = (event) => {
     const { name, value, type, checked } = event.target
@@ -253,6 +255,10 @@ export function FormBuilderPage() {
     setSuccessMessage('')
 
     try {
+      if (!canUseCustomFields) {
+        throw new Error(createFeatureUpgradeMessage('customFormFields'))
+      }
+
       const createdField = await addFormField({
         user,
         field: {
@@ -464,7 +470,11 @@ export function FormBuilderPage() {
 
       <SectionCard
         title="Add field"
-        description="Create fast-scoring dropdowns, text fields, or custom select fields for your club form."
+        description={
+          canUseCustomFields
+            ? 'Create fast-scoring dropdowns, text fields, or custom select fields for your club form.'
+            : createFeatureUpgradeMessage('customFormFields')
+        }
       >
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleAddField}>
           <label className="block">
@@ -530,7 +540,7 @@ export function FormBuilderPage() {
           <div className="md:col-span-2">
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={isSaving || !canUseCustomFields}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSaving ? 'Saving...' : 'Add field'}

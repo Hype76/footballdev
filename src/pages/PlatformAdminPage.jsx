@@ -6,6 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { buildEmailHtml, buildPlayerFeedbackSubject, sendParentEmail } from '../lib/email-builder.js'
+import { PLAN_OPTIONS, getPlanName } from '../lib/plans.js'
 import {
   createPlatformClub,
   deletePlatformFeedback,
@@ -14,6 +15,7 @@ import {
   getPlatformStats,
   readViewCacheValue,
   updatePlatformFeedback,
+  updatePlatformClubPlan,
   updatePlatformClubStatus,
   withRequestTimeout,
   writeViewCache,
@@ -471,6 +473,29 @@ export function PlatformAdminPage() {
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Club status could not be updated.')
+    } finally {
+      setUpdatingClubId('')
+    }
+  }
+
+  const handleClubPlanChange = async (club, fieldName, value) => {
+    setUpdatingClubId(club.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await updatePlatformClubPlan({
+        user,
+        clubId: club.id,
+        planKey: fieldName === 'planKey' ? value : club.planKey,
+        planStatus: fieldName === 'planStatus' ? value : club.planStatus,
+        isPlanComped: fieldName === 'isPlanComped' ? value : club.isPlanComped,
+      })
+      setSuccessMessage('Club plan updated.')
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Club plan could not be updated.')
     } finally {
       setUpdatingClubId('')
     }
@@ -938,6 +963,50 @@ export function PlatformAdminPage() {
                     </p>
                     <p className="mt-2 text-sm text-[var(--text-muted)]">
                       Latest activity: {formatDate(club.latestActivityAt)}
+                    </p>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Plan</span>
+                        <select
+                          value={club.planKey || 'small_club'}
+                          disabled={updatingClubId === club.id}
+                          onChange={(event) => void handleClubPlanChange(club, 'planKey', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
+                        >
+                          {PLAN_OPTIONS.map((plan) => (
+                            <option key={plan.key} value={plan.key}>
+                              {plan.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Billing status</span>
+                        <select
+                          value={club.planStatus || 'active'}
+                          disabled={updatingClubId === club.id}
+                          onChange={(event) => void handleClubPlanChange(club, 'planStatus', event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
+                        >
+                          <option value="active">Active</option>
+                          <option value="trialing">Trialing</option>
+                          <option value="past_due">Past due</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </label>
+                      <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] md:mt-7">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(club.isPlanComped)}
+                          disabled={updatingClubId === club.id}
+                          onChange={(event) => void handleClubPlanChange(club, 'isPlanComped', event.target.checked)}
+                          className="h-4 w-4"
+                        />
+                        <span>Free access</span>
+                      </label>
+                    </div>
+                    <p className="mt-2 text-sm text-[var(--text-muted)]">
+                      Current plan: {getPlanName(club)}{club.isPlanComped ? ' | Free access enabled' : ''}
                     </p>
                     {club.suspendedAt ? (
                       <p className="mt-2 text-sm text-[var(--text-muted)]">Suspended: {formatDate(club.suspendedAt)}</p>

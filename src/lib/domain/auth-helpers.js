@@ -4,6 +4,7 @@ export {
   normalizeUserProfile,
   requestLoginEmailChange,
   selectUserClub,
+  updateOwnOnboardingSettings,
   updateOwnThemeSettings,
   updateOwnUserSettings,
   updateSignedInPassword,

@@ -5,6 +5,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useAuth } from '../lib/auth.js'
+import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import {
   EVALUATION_SECTIONS,
   createPlayer,
@@ -197,6 +198,10 @@ export function AddPlayerPage() {
     setErrorMessage('')
 
     try {
+      if (!isWithinPlanLimit(user, 'players', players.length)) {
+        throw new Error(createLimitUpgradeMessage(user, 'players', 'Players'))
+      }
+
       const createdPlayer = await createPlayer({
         user,
         player: playerForm,
@@ -227,6 +232,8 @@ export function AddPlayerPage() {
   const recentPlayers = [...players]
     .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime())
   const paginatedRecentPlayers = getPaginatedItems(recentPlayers, recentPlayerPage, RECENT_PLAYER_PAGE_SIZE)
+  const canAddMorePlayers = isWithinPlanLimit(user, 'players', players.length)
+  const playerLimitMessage = createLimitUpgradeMessage(user, 'players', 'Players')
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -251,7 +258,7 @@ export function AddPlayerPage() {
 
       <SectionCard
         title="Player details"
-        description="Add the player once, then start assessments from the player profile."
+        description={canAddMorePlayers ? 'Add the player once, then start assessments from the player profile.' : playerLimitMessage}
       >
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
@@ -312,7 +319,8 @@ export function AddPlayerPage() {
             <div className="flex items-end">
               <button
                 type="submit"
-                disabled={isAddingPlayer}
+                disabled={isAddingPlayer || !canAddMorePlayers}
+                title={canAddMorePlayers ? undefined : playerLimitMessage}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isAddingPlayer ? 'Adding...' : 'Add Player'}
