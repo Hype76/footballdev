@@ -32,11 +32,11 @@ import {
 } from '../hooks/players/playerProfileUtils.js'
 import {
   EVALUATION_SECTIONS,
+  archivePlayer,
   createCommunicationLog,
   createPlayerStaffNote,
   createEvaluation,
   deleteEvaluation,
-  deletePlayer,
   getEvaluations,
   getPlayerCommunicationLogs,
   getPlayerStaffNotes,
@@ -163,6 +163,7 @@ export function PlayerProfile() {
   const [evaluationPage, setEvaluationPage] = useState(1)
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState(null)
   const [evaluationDeleteTarget, setEvaluationDeleteTarget] = useState(null)
+  const [emailConfirmTarget, setEmailConfirmTarget] = useState(null)
   const [reassignConfirmTarget, setReassignConfirmTarget] = useState(null)
   const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -431,6 +432,53 @@ export function PlayerProfile() {
   const getSelectedExportResponseItems = (evaluation) =>
     getSelectedEvaluationResponses(getExportResponseItems(evaluation), selectedExportLabels)
 
+  const buildParentEmailPayload = (evaluation) => {
+    const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
+    const recipientEmails = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
+    const recipientNames = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
+    const templateKey = getSelectedEmailTemplateKey(evaluation)
+    const inviteDate = getSelectedInviteDate(evaluation)
+    const emailTemplate = buildParentEmailTemplate({
+      parentName: recipientNames,
+      playerName: routePlayerName,
+      coachName: evaluation.coach,
+      clubName: user?.clubName,
+      teamName: evaluation.team,
+      session: evaluation.session,
+      inviteDate,
+      templateKey,
+    })
+    const responses = getSelectedExportResponseItems(evaluation)
+
+    return {
+      evaluation,
+      inviteDate,
+      recipientEmails,
+      recipientNames,
+      responses,
+      templateKey,
+      templateName:
+        PARENT_EMAIL_TEMPLATES.find((template) => template.key === templateKey)?.label ||
+        ASSESSMENT_EMAIL_TEMPLATE.label,
+      payload: {
+        parentEmail: recipientEmails,
+        parentName: recipientNames,
+        displayName: user?.displayName || user?.username || user?.name,
+        team: user?.emailTeamName || evaluation.team,
+        club: user?.emailClubName || user?.clubName,
+        logoUrl: user?.clubLogoUrl || null,
+        replyToEmail: user?.replyToEmail || user?.clubContactEmail,
+        clubContactEmail: user?.clubContactEmail,
+        playerName: routePlayerName,
+        summary: buildEvaluationSummary(evaluation, 'email'),
+        responses,
+        subject: emailTemplate.subject,
+        emailBody: emailTemplate.body,
+        evaluationId: evaluation.id,
+      },
+    }
+  }
+
   const handleToggleExportField = (label, responseItems) => {
     const allLabels = responseItems.map((item) => item.label)
     const currentLabels = Array.isArray(selectedExportLabels) ? selectedExportLabels : allLabels
@@ -540,51 +588,39 @@ export function PlayerProfile() {
     }))
   }
 
-  const handleSendParentEmail = async (evaluation) => {
+  const handleSendParentEmail = (evaluation) => {
     if (emailSendingId) {
       return
     }
 
-    setEmailSendingId(evaluation.id)
     setErrorMessage('')
 
     try {
-      const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
-      const recipientEmails = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
-      const recipientNames = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
+      const emailDetails = buildParentEmailPayload(evaluation)
 
-      if (!recipientEmails) {
+      if (!emailDetails.recipientEmails) {
         setErrorMessage('Add a parent email before sending.')
         return
       }
 
-      const emailTemplate = buildParentEmailTemplate({
-        parentName: recipientNames,
-        playerName: routePlayerName,
-        coachName: evaluation.coach,
-        clubName: user?.clubName,
-        teamName: evaluation.team,
-        session: evaluation.session,
-        inviteDate: getSelectedInviteDate(evaluation),
-        templateKey: getSelectedEmailTemplateKey(evaluation),
-      })
+      setEmailConfirmTarget(emailDetails)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not prepare the parent email.')
+    }
+  }
 
-      await sendParentEmail({
-        parentEmail: recipientEmails,
-        parentName: recipientNames,
-        displayName: user?.displayName || user?.username || user?.name,
-        team: user?.emailTeamName || evaluation.team,
-        club: user?.emailClubName || user?.clubName,
-        logoUrl: user?.clubLogoUrl || null,
-        replyToEmail: user?.replyToEmail || user?.clubContactEmail,
-        clubContactEmail: user?.clubContactEmail,
-        playerName: routePlayerName,
-        summary: buildEvaluationSummary(evaluation, 'email'),
-        responses: getSelectedExportResponseItems(evaluation),
-        subject: emailTemplate.subject,
-        emailBody: emailTemplate.body,
-        evaluationId: evaluation.id,
-      })
+  const confirmSendParentEmail = async () => {
+    if (!emailConfirmTarget?.evaluation || emailSendingId) {
+      return
+    }
+
+    const { evaluation, payload, recipientEmails } = emailConfirmTarget
+    setEmailSendingId(evaluation.id)
+    setErrorMessage('')
+
+    try {
+      await sendParentEmail(payload)
       showToast({ title: 'Email sent successfully' })
 
       void createCommunicationLog({
@@ -600,6 +636,7 @@ export function PlayerProfile() {
       showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
     } finally {
       setEmailSendingId('')
+      setEmailConfirmTarget(null)
     }
   }
 
@@ -1099,14 +1136,20 @@ export function PlayerProfile() {
 
     try {
       await verifyCurrentUserPassword(user.email, password)
-      await deletePlayer(routePlayerName, user, {
-        playerIds: players.map((player) => player.id),
-      })
+      await Promise.all(
+        players.map((player) =>
+          archivePlayer({
+            user,
+            playerId: player.id,
+            reason: 'Deleted from player profile',
+          }),
+        ),
+      )
       clearViewCaches()
       navigate('/players', { replace: true })
     } catch (error) {
       console.error(error)
-      setErrorMessage('Could not delete this player.')
+      setErrorMessage('Could not archive this player.')
     } finally {
       setIsDeleting(false)
       setPlayerDeleteTarget(null)
@@ -1923,7 +1966,7 @@ export function PlayerProfile() {
                       title="Send parent email"
                       className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {emailSendingId === evaluation.id ? 'Sending...' : 'Send Email'}
+                      {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
                     </button>
                     {canEditEvaluation(user, evaluation) ? (
                       <button
@@ -2056,16 +2099,39 @@ export function PlayerProfile() {
         isOpen={Boolean(playerDeleteTarget)}
         isBusy={isDeleting}
         title="Delete player"
-        message="This removes the player record and saved assessments for this player."
+        message="This moves the player into archived players. Their saved assessments stay available for record keeping."
         items={[
           `Player: ${playerDeleteTarget?.playerName || routePlayerName}`,
-          `${playerDeleteTarget?.playerCount ?? players.length} player record entries`,
-          `${playerDeleteTarget?.evaluationCount ?? evaluations.length} saved assessments`,
+          `${playerDeleteTarget?.playerCount ?? players.length} player record entries moved to archive`,
+          `${playerDeleteTarget?.evaluationCount ?? evaluations.length} saved assessments kept in history`,
         ]}
-        confirmLabel="Delete Player"
+        itemsTitle="This will archive:"
+        confirmLabel="Archive Player"
         onCancel={() => setPlayerDeleteTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeletePlayer(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(emailConfirmTarget)}
+        isBusy={Boolean(emailConfirmTarget?.evaluation && emailSendingId === emailConfirmTarget.evaluation.id)}
+        title="Email parents"
+        message="Check the parent email details before sending."
+        itemsTitle="This will send:"
+        items={[
+          `Player: ${routePlayerName}`,
+          `Recipients: ${emailConfirmTarget?.recipientEmails || 'No recipients selected'}`,
+          `Template: ${emailConfirmTarget?.templateName || 'Parent email'}`,
+          `Subject: ${emailConfirmTarget?.payload?.subject || 'Player Feedback Report'}`,
+          `Team: ${emailConfirmTarget?.payload?.team || 'No team entered'}`,
+          `Club: ${emailConfirmTarget?.payload?.club || 'No club entered'}`,
+          `PDF attachment: Yes`,
+          `Evaluation fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
+          emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
+        ]}
+        confirmLabel="Send Now"
+        onCancel={() => setEmailConfirmTarget(null)}
+        onConfirm={() => void confirmSendParentEmail()}
       />
     </div>
   )

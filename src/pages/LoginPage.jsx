@@ -9,6 +9,13 @@ const initialFormData = {
   clubName: '',
 }
 
+const initialDemoFormData = {
+  name: '',
+  email: '',
+  phone: '',
+  clubTeamName: '',
+}
+
 const pricingPlans = [
   {
     name: 'Individual',
@@ -66,6 +73,8 @@ export function LoginPage() {
   const { authError, resetPassword, signInWithPassword, signUpWithClub } = useAuth()
   const [mode, setMode] = useState('login')
   const [formData, setFormData] = useState(initialFormData)
+  const [demoPlan, setDemoPlan] = useState(null)
+  const [demoFormData, setDemoFormData] = useState(initialDemoFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [billingCycle, setBillingCycle] = useState('monthly')
@@ -86,6 +95,32 @@ export function LoginPage() {
     setMode(nextMode)
     setLocalError('')
     setLocalMessage('')
+  }
+
+  const handleDemoChange = (event) => {
+    const { name, value } = event.target
+    setLocalError('')
+    setLocalMessage('')
+    setDemoFormData((current) => ({
+      ...current,
+      [name]: value,
+    }))
+  }
+
+  const handleDemoSubmit = (event) => {
+    event.preventDefault()
+
+    const nextRequest = {
+      ...demoFormData,
+      planName: demoPlan?.name || '',
+      billingCycle,
+      createdAt: new Date().toISOString(),
+    }
+    const existingRequests = JSON.parse(localStorage.getItem('demo-requests') || '[]')
+    localStorage.setItem('demo-requests', JSON.stringify([...existingRequests, nextRequest]))
+    setDemoPlan(null)
+    setDemoFormData(initialDemoFormData)
+    setLocalMessage('Demo request saved. Delivery will be connected when the destination email is set.')
   }
 
   const handleSubmit = async (event) => {
@@ -266,7 +301,8 @@ export function LoginPage() {
                       name="clubName"
                       value={formData.clubName}
                       onChange={handleChange}
-                      placeholder="Leave blank if joining an existing club"
+                      required
+                      placeholder="Your club or team name"
                       className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
                     />
                   </label>
@@ -416,7 +452,14 @@ export function LoginPage() {
                   </ul>
                   <button
                     type="button"
-                    onClick={() => setMode('signup')}
+                    onClick={() => {
+                      if (plan.name === 'Individual') {
+                        setMode('signup')
+                        return
+                      }
+
+                      setDemoPlan(plan)
+                    }}
                     className={[
                       'mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition',
                       plan.name === 'Small Club'
@@ -424,7 +467,7 @@ export function LoginPage() {
                         : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
                     ].join(' ')}
                   >
-                    {plan.price === 'Free' ? 'Start Free' : 'Choose Plan'}
+                    {plan.name === 'Individual' ? 'Start Free' : 'Request Demo'}
                   </button>
                 </div>
               )
@@ -432,6 +475,83 @@ export function LoginPage() {
           </div>
         </section>
       </div>
+
+      {demoPlan ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 px-4 py-6">
+          <div className="w-full max-w-xl rounded-[30px] border border-white/10 bg-[#0b130d] p-5 shadow-2xl shadow-black/50 sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Request Demo</p>
+            <h2 className="mt-3 text-2xl font-black tracking-tight text-white">{demoPlan.name}</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Send your details and we will connect the demo request once the delivery address is set.
+            </p>
+
+            <form className="mt-5 grid gap-4" onSubmit={handleDemoSubmit}>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-200">Name *</span>
+                <input
+                  type="text"
+                  name="name"
+                  value={demoFormData.name}
+                  onChange={handleDemoChange}
+                  required
+                  className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-200">Email *</span>
+                <input
+                  type="email"
+                  name="email"
+                  value={demoFormData.email}
+                  onChange={handleDemoChange}
+                  required
+                  className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-200">Phone Number</span>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={demoFormData.phone}
+                  onChange={handleDemoChange}
+                  className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-200">Club/Team Name *</span>
+                <input
+                  type="text"
+                  name="clubTeamName"
+                  value={demoFormData.clubTeamName}
+                  onChange={handleDemoChange}
+                  required
+                  className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+                />
+              </label>
+
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDemoPlan(null)
+                    setDemoFormData(initialDemoFormData)
+                  }}
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90"
+                >
+                  Request Demo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }
