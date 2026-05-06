@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import fallbackLogo from '../../assets/player-feedback-logo.png'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
+import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
 
 export function Topbar({ title, onMenuClick }) {
-  const { authUser, signOut, user } = useAuth()
+  const { authUser, demoRoleKey, setDemoRolePreview, signOut, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const roleLabel = user ? getRoleLabel(user) : 'Loading access'
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
@@ -62,6 +63,25 @@ export function Topbar({ title, onMenuClick }) {
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+            {isDemoUser(user) ? (
+              <label className="col-span-2 grid gap-1 sm:min-w-44">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                  Demo role
+                </span>
+                <select
+                  value={demoRoleKey || ''}
+                  onChange={(event) => setDemoRolePreview(event.target.value)}
+                  className="min-h-11 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                >
+                  <option value="">Default role</option>
+                  {DEMO_ROLE_OPTIONS.map((role) => (
+                    <option key={role.role} value={role.role}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <InstallAppButton
               wrapperClassName="col-span-2 lg:hidden"
               className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--button-primary)] px-3 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"

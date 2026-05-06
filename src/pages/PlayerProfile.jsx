@@ -16,6 +16,7 @@ import {
   isInviteEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
+import { isDemoUser } from '../lib/demo.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   getSavedEvaluationExportLabels,
@@ -117,6 +118,7 @@ export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const isDemoAccount = isDemoUser(user)
   const { showToast } = useToast()
   const routePlayerName = decodeURIComponent(id)
   const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${routePlayerName}` : ''
@@ -464,6 +466,7 @@ export function PlayerProfile() {
       payload: {
         parentEmail: recipientEmails,
         parentName: recipientNames,
+        senderEmail: user?.email,
         displayName: user?.displayName || user?.username || user?.name,
         team: user?.emailTeamName || evaluation.team,
         club: user?.emailClubName || user?.clubName,
@@ -1976,15 +1979,17 @@ export function PlayerProfile() {
                     >
                       {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleSendParentEmail(evaluation)}
-                      disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail')}
-                      title="Send parent email"
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
-                    </button>
+                    {!isDemoAccount ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleSendParentEmail(evaluation)}
+                        disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail')}
+                        title="Send parent email"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
+                      </button>
+                    ) : null}
                     {canEditEvaluation(user, evaluation) ? (
                       <button
                         type="button"

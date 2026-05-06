@@ -16,6 +16,7 @@ import {
   isInviteEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
+import { isDemoUser } from '../lib/demo.js'
 import {
   createFeatureUpgradeMessage,
   createLimitUpgradeMessage,
@@ -691,9 +692,16 @@ export function CreateEvaluationPage() {
   const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
   const canUsePdfExport = hasPlanFeature(user, 'pdfExport')
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
+  const isDemoAccount = isDemoUser(user)
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
     : 'No teams are assigned to your account yet. Ask a manager to allocate you to at least one team.'
+
+  useEffect(() => {
+    if (isDemoAccount && previewMode === 'email') {
+      setPreviewMode('scored')
+    }
+  }, [isDemoAccount, previewMode])
 
   useEffect(() => {
     const playerName = normalizePlayerName(formData.playerName)
@@ -1066,6 +1074,7 @@ export function CreateEvaluationPage() {
           await sendParentEmail({
             parentEmail: selectedParentEmail,
             parentName: selectedParentName,
+            senderEmail: user?.email,
             displayName: user?.displayName || user?.display_name || user?.username || user?.name,
             teamName: user?.team_name || user?.emailTeamName || formData.team,
             clubName: user?.club_name || user?.emailClubName || user?.clubName,
@@ -1542,7 +1551,7 @@ export function CreateEvaluationPage() {
                   {[
                     { key: 'scored', label: 'Scored Preview' },
                     { key: 'without-scores', label: 'Preview Without Scores' },
-                    { key: 'email', label: 'Email Template Preview' },
+                    ...(isDemoAccount ? [] : [{ key: 'email', label: 'Email Template Preview' }]),
                   ].map((option) => (
                     <button
                       key={option.key}

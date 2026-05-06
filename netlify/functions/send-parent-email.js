@@ -13,6 +13,8 @@ import { supabaseAdmin } from './_supabase.js'
 
 void supabaseAdmin
 
+const DEMO_EMAIL = 'demo@playerfeedback.online'
+
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
     .split('')
@@ -175,7 +177,12 @@ export async function handler(event) {
       evaluationId,
       playerName,
       parentName,
+      senderEmail,
     } = body
+
+    if (String(senderEmail ?? '').trim().toLowerCase() === DEMO_EMAIL) {
+      return failureResponse(403, 'Email sending is disabled for the demo account')
+    }
 
     recipients = normaliseRecipients(parentEmail)
 

@@ -1,3 +1,5 @@
+import { isDemoUser } from './demo.js'
+
 export const PLAN_KEYS = {
   individual: 'individual',
   singleTeam: 'single_team',
@@ -111,6 +113,10 @@ export function getPlanName(planOrUser) {
 }
 
 export function hasPlanFeature(user, featureName) {
+  if (isDemoUser(user) && featureName === 'parentEmail') {
+    return false
+  }
+
   if (user?.role === 'super_admin' || isPlanComped(user)) {
     return true
   }

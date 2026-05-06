@@ -2,6 +2,7 @@ import { useState } from 'react'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import InstallAppButton from '../components/pwa/InstallAppButton.jsx'
 import { useAuth } from '../lib/auth.js'
+import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 
 const initialFormData = {
   email: '',
@@ -140,6 +141,39 @@ export function LoginPage() {
     }
   }
 
+  const prepareDemoAccount = async () => {
+    const response = await fetch('/.netlify/functions/reset-demo-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'landing_page' }),
+    })
+    const result = await response.json().catch(() => ({}))
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || 'Demo account could not be opened.')
+    }
+  }
+
+  const handleDemoLogin = async () => {
+    setIsSubmitting(true)
+    setLocalError('')
+    setLocalMessage('Preparing demo workspace...')
+
+    try {
+      await prepareDemoAccount()
+      await signInWithPassword({
+        email: DEMO_EMAIL,
+        password: DEMO_PASSWORD,
+      })
+    } catch (error) {
+      console.error(error)
+      setLocalError(error.message || 'Demo account could not be opened.')
+      setLocalMessage('')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     setIsSubmitting(true)
@@ -163,6 +197,10 @@ export function LoginPage() {
           setLocalMessage('Account created. Please check your email to verify your account before logging in.')
         }
       } else {
+        if (isDemoEmail(formData.email)) {
+          throw new Error('Use the Open Demo Account button for demo access.')
+        }
+
         await signInWithPassword({
           email: formData.email.trim(),
           password: formData.password,
@@ -392,14 +430,24 @@ export function LoginPage() {
                     {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
                   </button>
                   {mode === 'login' ? (
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={handlePasswordReset}
-                      className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Forgot password
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={handleDemoLogin}
+                        className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-[#d8ff2f]/30 bg-[#d8ff2f]/10 px-5 py-3 text-sm font-black text-[#d8ff2f] transition hover:bg-[#d8ff2f]/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Open Demo Account
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={handlePasswordReset}
+                        className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Forgot password
+                      </button>
+                    </>
                   ) : null}
                 </div>
               </form>

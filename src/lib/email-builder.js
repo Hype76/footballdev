@@ -147,6 +147,7 @@ export async function sendParentEmail(data) {
       logoUrl: data.logoUrl,
       playerName: data.playerName,
       parentName: data.parentName,
+      senderEmail: data.senderEmail,
       idempotencyKey: data.idempotencyKey,
       evaluationId: data.evaluationId,
     }),

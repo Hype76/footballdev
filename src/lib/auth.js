@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { DEMO_ROLE_STORAGE_KEY, getDemoRole, isDemoUser } from './demo.js'
 import { supabase } from './supabase-client.js'
 
 const AuthContext = createContext(null)
@@ -215,13 +216,19 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [authError, setAuthError] = useState('')
+  const [demoRoleKey, setDemoRoleKeyState] = useState(() => window.sessionStorage.getItem(DEMO_ROLE_STORAGE_KEY) || '')
   const userRef = useRef(null)
+  const demoRoleKeyRef = useRef(demoRoleKey)
   const hasBootstrappedRef = useRef(false)
   const activeSyncIdRef = useRef(0)
 
   useEffect(() => {
     userRef.current = user
   }, [user])
+
+  useEffect(() => {
+    demoRoleKeyRef.current = demoRoleKey
+  }, [demoRoleKey])
 
   const applyTeamSelection = async (profile) => {
     if (!profile || isSuperAdmin(profile) || isClubAdmin(profile)) {
@@ -273,6 +280,29 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const applyDemoRolePreview = (profile, roleKey = demoRoleKeyRef.current) => {
+    if (!profile || !isDemoUser(profile)) {
+      return profile
+    }
+
+    const previewRole = getDemoRole(roleKey)
+
+    if (!previewRole) {
+      return {
+        ...profile,
+        isDemoAccount: true,
+      }
+    }
+
+    return {
+      ...profile,
+      isDemoAccount: true,
+      role: previewRole.role,
+      roleLabel: previewRole.label,
+      roleRank: previewRole.rank,
+    }
+  }
+
   useEffect(() => {
     let isMounted = true
 
@@ -300,6 +330,8 @@ export function AuthProvider({ children }) {
       setAuthError('')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      window.sessionStorage.removeItem(DEMO_ROLE_STORAGE_KEY)
+      setDemoRoleKeyState('')
       finishBootstrap()
     }
 
@@ -345,13 +377,16 @@ export function AuthProvider({ children }) {
         }
 
         const profileWithTeam = await applyTeamSelection(profile)
+        const profileWithDemoPreview = applyDemoRolePreview(profileWithTeam)
 
         if (!isMounted || activeSyncIdRef.current !== syncId) {
           return
         }
 
         setClubOptions([])
-        setUser((currentUser) => (areUsersEquivalent(currentUser, profileWithTeam) ? currentUser : profileWithTeam))
+        setUser((currentUser) =>
+          areUsersEquivalent(currentUser, profileWithDemoPreview) ? currentUser : profileWithDemoPreview,
+        )
         setIsProfileLoading(false)
         setAuthError('')
       } catch (error) {
@@ -468,7 +503,7 @@ export function AuthProvider({ children }) {
       window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       const profileWithTeam = await applyTeamSelection(profile)
-      setUser(profileWithTeam)
+      setUser(applyDemoRolePreview(profileWithTeam))
       setClubOptions([])
       setAuthError('')
     } catch (error) {
@@ -500,6 +535,20 @@ export function AuthProvider({ children }) {
       }
     })
     setTeamOptions([])
+  }
+
+  const setDemoRolePreview = (roleKey) => {
+    const nextRoleKey = String(roleKey ?? '')
+
+    if (nextRoleKey) {
+      window.sessionStorage.setItem(DEMO_ROLE_STORAGE_KEY, nextRoleKey)
+    } else {
+      window.sessionStorage.removeItem(DEMO_ROLE_STORAGE_KEY)
+    }
+
+    setDemoRoleKeyState(nextRoleKey)
+    demoRoleKeyRef.current = nextRoleKey
+    setUser((currentUser) => applyDemoRolePreview(currentUser, nextRoleKey))
   }
 
   const signUpWithClub = async ({ email, password, clubName }) => {
@@ -654,8 +703,10 @@ export function AuthProvider({ children }) {
       signOut,
       updateCurrentClubDetails,
       updateCurrentUserDetails,
+      demoRoleKey,
+      setDemoRolePreview,
     }),
-    [authError, authUser, clubOptions, isLoading, isProfileLoading, session, teamOptions, user],
+    [authError, authUser, clubOptions, demoRoleKey, isLoading, isProfileLoading, session, teamOptions, user],
   )
 
   return createElement(AuthContext.Provider, { value }, children)
