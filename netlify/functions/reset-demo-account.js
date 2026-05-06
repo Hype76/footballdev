@@ -5,6 +5,7 @@ const DEMO_EMAIL = 'demo@playerfeedback.online'
 const DEMO_PASSWORD = 'Demo12345!'
 const DEMO_CLUB_NAME = 'Player Feedback Demo Club'
 const DEMO_USER_NAME = 'Demo User'
+const DEMO_CLUB_CONTACT_EMAIL = 'demo@playerfeedback.online'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -106,24 +107,18 @@ async function ensureDemoAuthUser() {
   return data.user
 }
 
-async function ensureDemoClub(authUserId) {
-  const { data: existingProfile } = await supabaseAdmin
-    .from('users')
-    .select('club_id')
-    .eq('id', authUserId)
+async function ensureDemoClub() {
+  const { data: existingClub, error: existingClubError } = await supabaseAdmin
+    .from('clubs')
+    .select('id')
+    .eq('name', DEMO_CLUB_NAME)
     .maybeSingle()
 
-  let clubId = existingProfile?.club_id || ''
-
-  if (!clubId) {
-    const { data: existingClub } = await supabaseAdmin
-      .from('clubs')
-      .select('id')
-      .eq('name', DEMO_CLUB_NAME)
-      .maybeSingle()
-
-    clubId = existingClub?.id || ''
+  if (existingClubError) {
+    throw existingClubError
   }
+
+  let clubId = existingClub?.id || ''
 
   if (!clubId) {
     const insertedClub = await throwOnError(
@@ -131,7 +126,7 @@ async function ensureDemoClub(authUserId) {
         .from('clubs')
         .insert({
           name: DEMO_CLUB_NAME,
-          contact_email: 'info@playerfeedback.online',
+          contact_email: DEMO_CLUB_CONTACT_EMAIL,
           contact_phone: '01223 000000',
           require_approval: false,
           status: 'active',
@@ -151,7 +146,7 @@ async function ensureDemoClub(authUserId) {
       .from('clubs')
       .update({
         name: DEMO_CLUB_NAME,
-        contact_email: 'info@playerfeedback.online',
+        contact_email: DEMO_CLUB_CONTACT_EMAIL,
         contact_phone: '01223 000000',
         require_approval: false,
         status: 'active',
@@ -165,6 +160,27 @@ async function ensureDemoClub(authUserId) {
   )
 
   return clubId
+}
+
+async function detachDemoUserFromRealData(authUserId, demoClubId) {
+  await Promise.all([
+    ignoreMissingTable(
+      supabaseAdmin
+        .from('user_club_memberships')
+        .delete()
+        .eq('auth_user_id', authUserId)
+        .neq('club_id', demoClubId),
+      'demo real membership cleanup',
+    ),
+    ignoreMissingTable(
+      supabaseAdmin
+        .from('club_user_invites')
+        .delete()
+        .eq('email', DEMO_EMAIL)
+        .neq('club_id', demoClubId),
+      'demo real invite cleanup',
+    ),
+  ])
 }
 
 async function clearDemoClubData(clubId) {
@@ -610,8 +626,9 @@ export async function handler(event) {
     }
 
     const authUser = await ensureDemoAuthUser()
-    const clubId = await ensureDemoClub(authUser.id)
+    const clubId = await ensureDemoClub()
 
+    await detachDemoUserFromRealData(authUser.id, clubId)
     await clearDemoClubData(clubId)
     await seedDemoUser(clubId, authUser.id)
     await seedRoles(clubId, authUser.id)
