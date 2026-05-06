@@ -2838,7 +2838,7 @@ export async function reorderFormFields(fields, user) {
   )
 }
 
-export async function getEvaluations({ user, status, playerName, section } = {}) {
+export async function getEvaluations({ user, status, playerName, section, includeArchivedPlayers = false } = {}) {
   if (!user) {
     return []
   }
@@ -2869,9 +2869,13 @@ export async function getEvaluations({ user, status, playerName, section } = {})
     query = query.eq('team', user.activeTeamName)
   }
 
-  const [{ data, error }, teams] = await Promise.all([
+  const shouldLoadArchivedPlayers = user.role !== 'super_admin' && user.clubId && !includeArchivedPlayers
+  const [{ data, error }, teams, archivedPlayers] = await Promise.all([
     query,
     user.role === 'super_admin' ? Promise.resolve([]) : getTeams(user).catch(() => []),
+    shouldLoadArchivedPlayers
+      ? getPlayers({ user, status: 'archived', includeArchived: true }).catch(() => [])
+      : Promise.resolve([]),
   ])
 
   if (error) {
@@ -2880,16 +2884,31 @@ export async function getEvaluations({ user, status, playerName, section } = {})
   }
 
   const teamsByName = new Map(teams.map((team) => [String(team.name ?? '').trim().toLowerCase(), team]))
+  const archivedPlayerIds = new Set(archivedPlayers.map((player) => String(player.id ?? '').trim()).filter(Boolean))
+  const archivedPlayerNames = new Set(
+    archivedPlayers.map((player) => String(player.playerName ?? '').trim().toLowerCase()).filter(Boolean),
+  )
 
-  return (data ?? []).map((row) => {
-    const normalizedRow = normalizeEvaluationRow(row)
-    const matchingTeam = teamsByName.get(normalizedRow.team.toLowerCase())
+  return (data ?? [])
+    .map((row) => normalizeEvaluationRow(row))
+    .filter((evaluation) => {
+      if (includeArchivedPlayers || (archivedPlayerIds.size === 0 && archivedPlayerNames.size === 0)) {
+        return true
+      }
 
-    return {
-      ...normalizedRow,
-      teamRequireApproval: Boolean(matchingTeam?.requireApproval ?? row.team_require_approval ?? true),
-    }
-  })
+      const evaluationPlayerId = String(evaluation.playerId ?? '').trim()
+      const evaluationPlayerName = String(evaluation.playerName ?? '').trim().toLowerCase()
+
+      return !archivedPlayerIds.has(evaluationPlayerId) && !archivedPlayerNames.has(evaluationPlayerName)
+    })
+    .map((evaluation) => {
+      const matchingTeam = teamsByName.get(evaluation.team.toLowerCase())
+
+      return {
+        ...evaluation,
+        teamRequireApproval: Boolean(matchingTeam?.requireApproval ?? evaluation.teamRequireApproval ?? true),
+      }
+    })
 }
 
 export async function getPlayers({ user, section, playerName, status, includeArchived = false } = {}) {
