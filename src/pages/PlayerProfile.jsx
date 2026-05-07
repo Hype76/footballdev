@@ -515,6 +515,7 @@ export function PlayerProfile() {
         displayName: user?.displayName || user?.username || user?.name,
         team: user?.emailTeamName || evaluation.team,
         club: user?.emailClubName || user?.clubName,
+        planKey: user?.planKey,
         logoUrl: user?.clubLogoUrl || null,
         replyToEmail: user?.replyToEmail || user?.clubContactEmail,
         clubContactEmail: user?.clubContactEmail,
@@ -602,6 +603,7 @@ export function PlayerProfile() {
         mode,
         previewProps: {
           clubName: user?.clubName || user?.team || 'Club Name',
+          planKey: user?.planKey,
           logoUrl: latestClubLogoUrl || fallbackLogo,
           playerName: routePlayerName,
           team: evaluation.team,

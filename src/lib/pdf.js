@@ -192,6 +192,7 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
       playerName: previewProps.playerName,
       teamName: previewProps.team,
       clubName: previewProps.clubName,
+      planKey: previewProps.planKey,
       logoUrl: previewProps.logoUrl,
       summary: previewProps.emailBody,
       emailBody: previewProps.emailBody,

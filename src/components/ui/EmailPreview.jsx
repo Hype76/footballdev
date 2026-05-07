@@ -44,6 +44,7 @@ function formatSessionForDisplay(value) {
 
 export function EmailPreview({
   clubName = 'Club Name',
+  planKey = '',
   logoUrl = '',
   playerName = 'Player Name',
   team = '',
@@ -65,6 +66,7 @@ export function EmailPreview({
         playerName,
         teamName: team,
         clubName,
+        planKey,
         logoUrl,
         emailBody,
         responses: responseItems,

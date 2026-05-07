@@ -58,6 +58,22 @@ function getSafeLogoUrl(logoUrl) {
   }
 }
 
+export function shouldShowWebsiteAdvert(planKey) {
+  return ['single_team', 'small_club'].includes(String(planKey ?? '').trim())
+}
+
+function buildWebsiteAdvertMarkup(planKey) {
+  if (!shouldShowWebsiteAdvert(planKey)) {
+    return ''
+  }
+
+  return `
+      <div style="border-top: 1px solid #e7ece3; margin-top: 20px; padding-top: 14px;">
+        <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Player Feedback | playerfeedback.online</p>
+      </div>
+  `
+}
+
 export function buildEmailHtml({
   parentName,
   playerName,
@@ -69,6 +85,7 @@ export function buildEmailHtml({
   responses,
   emailBody,
   logoUrl,
+  planKey,
 }) {
   const responseItems = normaliseResponses(responses)
   const summaryContent = emailBody || summary || 'No summary provided'
@@ -113,6 +130,7 @@ export function buildEmailHtml({
 
       <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions, just reply to this email.</p>
       <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeHtml(resolvedClub || 'Club')} | ${escapeHtml(resolvedTeam || 'Team')}</p>
+      ${buildWebsiteAdvertMarkup(planKey)}
     </div>
   `
 }
@@ -155,6 +173,7 @@ export async function sendParentEmail(data) {
       playerName: data.playerName,
       parentName: data.parentName,
       senderEmail: data.senderEmail,
+      planKey: data.planKey,
       idempotencyKey: data.idempotencyKey,
       evaluationId: data.evaluationId,
     }),

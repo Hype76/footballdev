@@ -1034,6 +1034,7 @@ export function CreateEvaluationPage() {
         mode,
         previewProps: {
           clubName: user?.clubName || 'Club Name',
+          planKey: user?.planKey,
           logoUrl: latestClubLogoUrl || fallbackLogo,
           playerName: formData.playerName || 'Player Name',
           team: formData.team,
@@ -1134,6 +1135,7 @@ export function CreateEvaluationPage() {
             displayName: user?.displayName || user?.display_name || user?.username || user?.name,
             teamName: user?.team_name || user?.emailTeamName || formData.team,
             clubName: user?.club_name || user?.emailClubName || user?.clubName,
+            planKey: user?.planKey,
             logoUrl: user?.clubLogoUrl || null,
             replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
             clubContactEmail: user?.clubContactEmail,
@@ -1784,6 +1786,7 @@ export function CreateEvaluationPage() {
               >
                 <EmailPreview
                   clubName={user?.clubName || 'Club Name'}
+                  planKey={user?.planKey}
                   logoUrl={user?.clubLogoUrl || fallbackLogo}
                   playerName={formData.playerName || 'Player Name'}
                   team={formData.team}
