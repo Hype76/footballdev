@@ -55,6 +55,9 @@ async function claimStripeCheckoutForProfile(session, profile) {
       planKey: String(result.club.planKey ?? profile.planKey ?? 'small_club').trim(),
       planStatus: String(result.club.planStatus ?? profile.planStatus ?? 'active').trim(),
       isPlanComped: Boolean(result.club.isPlanComped ?? profile.isPlanComped ?? false),
+      role: result.user?.role ?? profile.role,
+      roleLabel: result.user?.roleLabel ?? profile.roleLabel,
+      roleRank: Number(result.user?.roleRank ?? profile.roleRank ?? 0),
     }
   } catch (error) {
     console.error(error)

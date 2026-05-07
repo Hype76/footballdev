@@ -10,6 +10,7 @@ import {
   normalizePlanKey,
   normalizePlanStatus,
 } from './_stripe-billing.js'
+import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
 
 function getRawBody(event) {
   return event.isBase64Encoded
@@ -45,21 +46,17 @@ async function updateClubFromBillingRecord(record, { preserveComped = false } = 
     return
   }
 
-  let isPlanComped = false
+  const { data: currentClub, error: currentClubError } = await supabaseAdmin
+    .from('clubs')
+    .select('plan_key, is_plan_comped')
+    .eq('id', record.club_id)
+    .maybeSingle()
 
-  if (preserveComped) {
-    const { data: currentClub, error: currentClubError } = await supabaseAdmin
-      .from('clubs')
-      .select('is_plan_comped')
-      .eq('id', record.club_id)
-      .maybeSingle()
-
-    if (currentClubError) {
-      throw currentClubError
-    }
-
-    isPlanComped = Boolean(currentClub?.is_plan_comped)
+  if (currentClubError) {
+    throw currentClubError
   }
+
+  const isPlanComped = preserveComped ? Boolean(currentClub?.is_plan_comped) : false
 
   const { error } = await supabaseAdmin
     .from('clubs')
@@ -77,6 +74,13 @@ async function updateClubFromBillingRecord(record, { preserveComped = false } = 
 
   if (error) {
     throw error
+  }
+
+  if (shouldPromoteBillPayer(currentClub?.plan_key, record.plan_key)) {
+    await promoteClubBillPayerToAdmin(supabaseAdmin, {
+      clubId: record.club_id,
+      customerEmail: record.customer_email,
+    })
   }
 }
 

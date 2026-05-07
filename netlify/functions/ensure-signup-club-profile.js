@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './_supabase.js'
 import { json } from './_stripe-billing.js'
+import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
 
 const USER_PROFILE_SELECT = [
   'id',
@@ -563,9 +564,29 @@ async function createSignupWorkspace(authUser, requestedClubName) {
 async function repairExistingSignupWorkspace(authUser, existingProfile, body) {
   let club = await getClub(existingProfile.club_id)
   const checkoutRecord = await getLatestCheckoutRecord(authUser, club?.id)
+  let profile = existingProfile
 
   if (checkoutRecord?.id) {
+    const previousPlanKey = club?.plan_key
     club = await updateClubBillingFromCheckout(club.id, checkoutRecord)
+
+    if (shouldPromoteBillPayer(previousPlanKey, club?.plan_key)) {
+      const promotion = await promoteClubBillPayerToAdmin(supabaseAdmin, {
+        clubId: club.id,
+        customerEmail: checkoutRecord.customer_email,
+        fallbackUserId: authUser.id,
+      })
+
+      if (promotion?.userId === existingProfile.id) {
+        const clubAdminRole = getClubAdminRole()
+        profile = {
+          ...profile,
+          role: clubAdminRole.role,
+          role_label: clubAdminRole.roleLabel,
+          role_rank: clubAdminRole.roleRank,
+        }
+      }
+    }
   }
 
   const hasBillingLink = Boolean(
@@ -576,8 +597,6 @@ async function repairExistingSignupWorkspace(authUser, existingProfile, body) {
       club?.is_plan_comped,
   )
   const shouldRepairAsFree = club?.plan_key === 'small_club' && !hasBillingLink && hasPublicSignupClubMetadata(authUser)
-  let profile = existingProfile
-
   if (shouldRepairAsFree) {
     const { data: repairedClub, error: clubError } = await supabaseAdmin
       .from('clubs')

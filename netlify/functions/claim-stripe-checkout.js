@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './_supabase.js'
 import { json } from './_stripe-billing.js'
+import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -62,6 +63,16 @@ async function claimLatestCheckout(profile) {
     return null
   }
 
+  const { data: currentClub, error: currentClubError } = await supabaseAdmin
+    .from('clubs')
+    .select('plan_key')
+    .eq('id', profile.club_id)
+    .maybeSingle()
+
+  if (currentClubError) {
+    throw currentClubError
+  }
+
   const now = new Date().toISOString()
   const { data: claimedRecord, error: claimError } = await supabaseAdmin
     .from('stripe_checkout_records')
@@ -96,7 +107,18 @@ async function claimLatestCheckout(profile) {
     throw clubError
   }
 
-  return claimedRecord
+  const promotion = shouldPromoteBillPayer(currentClub?.plan_key, claimedRecord.plan_key)
+    ? await promoteClubBillPayerToAdmin(supabaseAdmin, {
+        clubId: profile.club_id,
+        customerEmail: claimedRecord.customer_email || normalizedEmail,
+        fallbackUserId: profile.id,
+      })
+    : null
+
+  return {
+    ...claimedRecord,
+    promotion,
+  }
 }
 
 export async function handler(event) {
@@ -120,6 +142,13 @@ export async function handler(event) {
         planStatus: claimedRecord.plan_status,
         isPlanComped: false,
       },
+      user: claimedRecord.promotion?.userId === profile.id
+        ? {
+            role: claimedRecord.promotion.role,
+            roleLabel: claimedRecord.promotion.roleLabel,
+            roleRank: claimedRecord.promotion.roleRank,
+          }
+        : null,
     })
   } catch (error) {
     console.error(error)

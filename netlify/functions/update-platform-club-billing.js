@@ -2,6 +2,7 @@ import process from 'node:process'
 import Stripe from 'stripe'
 import { supabaseAdmin } from './_supabase.js'
 import { json, normalizePlanStatus } from './_stripe-billing.js'
+import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
 
 const VALID_PLAN_KEYS = ['individual', 'single_team', 'small_club', 'large_club']
 
@@ -63,6 +64,22 @@ async function setSubscriptionPause(subscriptionId, isPaused) {
   }
 }
 
+async function getLatestBillingCustomerEmail(clubId) {
+  const { data, error } = await supabaseAdmin
+    .from('stripe_checkout_records')
+    .select('customer_email')
+    .eq('club_id', clubId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return String(data?.customer_email ?? '').trim().toLowerCase()
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed' })
@@ -112,6 +129,17 @@ export async function handler(event) {
       throw updateError
     }
 
+    let promotion = null
+
+    if (shouldPromoteBillPayer(currentClub.plan_key, nextPlanKey)) {
+      const customerEmail = await getLatestBillingCustomerEmail(clubId)
+      promotion = await promoteClubBillPayerToAdmin(supabaseAdmin, {
+        clubId,
+        customerEmail,
+        fallbackToHighestRole: true,
+      })
+    }
+
     await supabaseAdmin.from('audit_logs').insert({
       actor_id: admin.id,
       actor_email: admin.email,
@@ -127,6 +155,8 @@ export async function handler(event) {
         planStatus: nextPlanStatus,
         isPlanComped: nextIsPlanComped,
         pauseResult,
+        promotedUserId: promotion?.userId || null,
+        promotedUserEmail: promotion?.email || null,
       },
     })
 
