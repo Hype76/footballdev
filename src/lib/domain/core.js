@@ -6,6 +6,7 @@ import {
   supabase,
 } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
+import { createLimitUpgradeMessage, getPlanLimit } from '../plans.js'
 export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from '../supabase-client.js'
 const VIEW_CACHE_PREFIX = 'view-cache:'
 const MEMORY_CACHE_TTL_MS = 30 * 1000
@@ -1404,7 +1405,7 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
   return applyActiveMembership(authUser, selectedMembership)
 }
 
-async function createClubAndManagerProfileWithServer({ authUser, clubName }) {
+async function ensureSignupClubProfileWithServer({ authUser, clubName }) {
   await blockDemoMutation(authUser)
 
   const { data: sessionData } = await supabase.auth.getSession()
@@ -1504,6 +1505,23 @@ export async function fetchUserProfile(authUser, options = {}) {
       })
     }
 
+    if (!isDemoAuthUser && data?.role === 'admin' && data?.club_id) {
+      try {
+        const ensuredProfile = await ensureSignupClubProfileWithServer({
+          authUser,
+          clubName: getSignupClubName(authUser),
+        })
+
+        if (ensuredProfile?.planKey === 'individual' || ensuredProfile?.planKey === 'single_team') {
+          return ensuredProfile
+        }
+
+        data = await loadUserRow()
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
     if (!isDemoAuthUser && data?.club_id) {
       await claimInvitedUserProfiles(authUser)
     }
@@ -1591,7 +1609,7 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
   await blockDemoMutation(authUser)
 
   try {
-    return await createClubAndManagerProfileWithServer({ authUser, clubName })
+    return await ensureSignupClubProfileWithServer({ authUser, clubName })
   } catch (serverError) {
     console.error(serverError)
   }
@@ -1600,6 +1618,8 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
     .from('clubs')
     .insert({
       name: String(clubName ?? '').trim(),
+      plan_key: 'individual',
+      plan_status: 'active',
     })
     .select(CLUB_SELECT)
     .single()
@@ -1622,9 +1642,9 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
         display_name: getDisplayName(authUser),
         club_name: String(clubName ?? '').trim(),
         reply_to_email: String(authUser.email ?? '').trim().toLowerCase(),
-        role: 'admin',
-        role_label: 'Club Admin',
-        role_rank: 90,
+        role: 'head_manager',
+        role_label: 'Team Admin',
+        role_rank: 70,
         club_id: club.id,
       },
       {
@@ -1640,6 +1660,37 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
   }
 
   await syncMembershipFromUserRow(userProfile, authUser)
+
+  const { data: team, error: teamError } = await supabase
+    .from('teams')
+    .insert({
+      club_id: club.id,
+      name: String(clubName ?? '').trim() || club.name || 'My Team',
+      created_by: authUser.id,
+      ...getEntryIdentity(userProfile),
+      updated_by: authUser.id,
+      ...getEntryIdentity(userProfile, 'updated_by'),
+    })
+    .select('id')
+    .single()
+
+  if (teamError) {
+    console.error(teamError)
+  } else if (team?.id) {
+    const { error: staffError } = await supabase.from('team_staff').upsert(
+      {
+        team_id: team.id,
+        user_id: authUser.id,
+      },
+      {
+        onConflict: 'team_id,user_id',
+      },
+    )
+
+    if (staffError) {
+      console.error(staffError)
+    }
+  }
 
   return normalizeUserProfile({
     ...userProfile,
@@ -2529,6 +2580,24 @@ export async function createTeam({ user, name }) {
 
   if (!user?.clubId) {
     throw new Error('Club ID is required.')
+  }
+
+  const teamLimit = getPlanLimit(user, 'teams')
+
+  if (teamLimit !== null && teamLimit !== undefined) {
+    const { count, error: countError } = await supabase
+      .from('teams')
+      .select('id', { count: 'exact', head: true })
+      .eq('club_id', user.clubId)
+
+    if (countError) {
+      console.error(countError)
+      throw countError
+    }
+
+    if (Number(count ?? 0) >= Number(teamLimit)) {
+      throw new Error(createLimitUpgradeMessage(user, 'teams', 'Teams'))
+    }
   }
 
   const { data, error } = await supabase

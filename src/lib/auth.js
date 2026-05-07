@@ -144,6 +144,10 @@ export function canManageUsers(user) {
     return false
   }
 
+  if (user.planKey === 'individual' && !user.isPlanComped) {
+    return isSuperAdmin(user)
+  }
+
   return isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50
 }
 

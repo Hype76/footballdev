@@ -5,6 +5,7 @@ import {
   canCreateEvaluation,
   canManageClubSettings,
   canManageFormFields,
+  canManageTeamSettings,
   canManageUsers,
   canViewPlatformFeedback,
   canViewActivityLog,
@@ -35,6 +36,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/user-access') {
       return canManageUsers(user)
+    }
+
+    if (item.path === '/teams') {
+      return canManageTeamSettings(user)
     }
 
     if (item.path === '/activity-log') {

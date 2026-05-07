@@ -26,6 +26,17 @@ const USER_PROFILE_SELECT = [
 
 const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at'
 const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at)'
+const FREE_PLAN_KEY = 'individual'
+const TEAM_MANAGER_ROLE = {
+  role: 'head_manager',
+  roleLabel: 'Team Admin',
+  roleRank: 70,
+}
+const CLUB_ADMIN_ROLE = {
+  role: 'admin',
+  roleLabel: 'Club Admin',
+  roleRank: 90,
+}
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -83,6 +94,18 @@ function getSignupClubName(authUser, requestedClubName) {
   return fallbackName || 'My Club'
 }
 
+function hasPublicSignupClubMetadata(authUser) {
+  return Boolean(
+    String(
+      authUser?.user_metadata?.club_name ??
+        authUser?.user_metadata?.clubName ??
+        authUser?.raw_user_meta_data?.club_name ??
+        authUser?.raw_user_meta_data?.clubName ??
+        '',
+    ).trim(),
+  )
+}
+
 function getClubFromMembership(membership) {
   return Array.isArray(membership?.clubs) ? membership.clubs[0] : membership?.clubs
 }
@@ -135,6 +158,40 @@ async function getClub(clubId) {
   return data
 }
 
+async function getLatestCheckoutRecord(authUser, clubId = '') {
+  const email = normalizeEmail(authUser.email)
+
+  if (!email) {
+    return null
+  }
+
+  let query = supabaseAdmin
+    .from('stripe_checkout_records')
+    .select('*')
+    .ilike('customer_email', email)
+    .in('plan_status', ['active', 'trialing'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (clubId) {
+    query = query.or(`club_id.is.null,club_id.eq.${clubId}`)
+  } else {
+    query = query.is('club_id', null)
+  }
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+function getSignupRole(planKey) {
+  return planKey === FREE_PLAN_KEY ? TEAM_MANAGER_ROLE : CLUB_ADMIN_ROLE
+}
+
 async function getFirstMembership(authUser) {
   const email = normalizeEmail(authUser.email)
   const { data, error } = await supabaseAdmin
@@ -180,7 +237,60 @@ async function seedDefaultClubRoles(clubId) {
   }
 }
 
-async function insertClubWithUniqueName(baseName) {
+async function claimCheckoutRecord(checkoutRecord, clubId) {
+  if (!checkoutRecord?.id || !clubId) {
+    return checkoutRecord
+  }
+
+  const now = new Date().toISOString()
+  const { data, error } = await supabaseAdmin
+    .from('stripe_checkout_records')
+    .update({
+      club_id: clubId,
+      claimed_at: checkoutRecord.claimed_at || now,
+      updated_at: now,
+    })
+    .eq('id', checkoutRecord.id)
+    .select('*')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+async function updateClubBillingFromCheckout(clubId, checkoutRecord) {
+  if (!clubId || !checkoutRecord?.id) {
+    return null
+  }
+
+  const claimedRecord = await claimCheckoutRecord(checkoutRecord, clubId)
+  const { data, error } = await supabaseAdmin
+    .from('clubs')
+    .update({
+      plan_key: claimedRecord.plan_key,
+      plan_status: claimedRecord.plan_status,
+      is_plan_comped: false,
+      stripe_customer_id: claimedRecord.stripe_customer_id || null,
+      stripe_subscription_id: claimedRecord.stripe_subscription_id || null,
+      stripe_price_id: claimedRecord.stripe_price_id || null,
+      current_period_end: claimedRecord.current_period_end || null,
+      plan_updated_at: new Date().toISOString(),
+    })
+    .eq('id', clubId)
+    .select(CLUB_SELECT)
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return data
+}
+
+async function insertClubWithUniqueName(baseName, extraPayload = {}) {
   const normalizedBaseName = String(baseName ?? '').trim() || 'My Club'
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -189,6 +299,7 @@ async function insertClubWithUniqueName(baseName) {
       .from('clubs')
       .insert({
         name,
+        ...extraPayload,
       })
       .select(CLUB_SELECT)
       .single()
@@ -262,6 +373,66 @@ async function applyMembership(authUser, membership) {
   }
 }
 
+async function ensureTeamForProfile({ authUser, club, profile, teamName }) {
+  if (!club?.id || !profile?.id) {
+    return null
+  }
+
+  const { data: existingTeams, error: teamsError } = await supabaseAdmin
+    .from('teams')
+    .select('*')
+    .eq('club_id', club.id)
+    .order('created_at', { ascending: true })
+
+  if (teamsError) {
+    throw teamsError
+  }
+
+  let team = existingTeams?.[0] ?? null
+
+  if (!team) {
+    const resolvedTeamName = String(teamName ?? club.name ?? 'My Team').trim() || 'My Team'
+    const { data: insertedTeam, error: teamError } = await supabaseAdmin
+      .from('teams')
+      .insert({
+        club_id: club.id,
+        name: resolvedTeamName,
+        created_by: profile.id,
+        created_by_name: profile.name || profile.username || '',
+        created_by_email: normalizeEmail(profile.email || authUser.email),
+        updated_by: profile.id,
+        updated_by_name: profile.name || profile.username || '',
+        updated_by_email: normalizeEmail(profile.email || authUser.email),
+      })
+      .select('*')
+      .single()
+
+    if (teamError) {
+      throw teamError
+    }
+
+    team = insertedTeam
+  }
+
+  const { error: staffError } = await supabaseAdmin
+    .from('team_staff')
+    .upsert(
+      {
+        team_id: team.id,
+        user_id: profile.id,
+      },
+      {
+        onConflict: 'team_id,user_id',
+      },
+    )
+
+  if (staffError) {
+    throw staffError
+  }
+
+  return team
+}
+
 async function applyInvite(authUser, invite) {
   const displayName = getDisplayName(authUser)
   const email = normalizeEmail(authUser.email || invite.email)
@@ -312,7 +483,24 @@ async function createSignupWorkspace(authUser, requestedClubName) {
   const email = normalizeEmail(authUser.email)
   const clubName = getSignupClubName(authUser, requestedClubName)
   const displayName = getDisplayName(authUser)
-  const club = await insertClubWithUniqueName(clubName)
+  const checkoutRecord = await getLatestCheckoutRecord(authUser)
+  const planKey = checkoutRecord?.plan_key || FREE_PLAN_KEY
+  const planStatus = checkoutRecord?.plan_status || 'active'
+  const signupRole = getSignupRole(planKey)
+  const club = await insertClubWithUniqueName(clubName, {
+    plan_key: planKey,
+    plan_status: planStatus,
+    is_plan_comped: false,
+    stripe_customer_id: checkoutRecord?.stripe_customer_id || null,
+    stripe_subscription_id: checkoutRecord?.stripe_subscription_id || null,
+    stripe_price_id: checkoutRecord?.stripe_price_id || null,
+    current_period_end: checkoutRecord?.current_period_end || null,
+    plan_updated_at: new Date().toISOString(),
+  })
+
+  if (checkoutRecord?.id) {
+    await claimCheckoutRecord(checkoutRecord, club.id)
+  }
 
   await seedDefaultClubRoles(club.id)
 
@@ -327,9 +515,9 @@ async function createSignupWorkspace(authUser, requestedClubName) {
         display_name: displayName,
         club_name: club.name,
         reply_to_email: email,
-        role: 'admin',
-        role_label: 'Club Admin',
-        role_rank: 90,
+        role: signupRole.role,
+        role_label: signupRole.roleLabel,
+        role_rank: signupRole.roleRank,
         club_id: club.id,
         force_password_change: false,
       },
@@ -352,9 +540,9 @@ async function createSignupWorkspace(authUser, requestedClubName) {
         email,
         username: displayName,
         name: displayName,
-        role: 'admin',
-        role_label: 'Club Admin',
-        role_rank: 90,
+        role: signupRole.role,
+        role_label: signupRole.roleLabel,
+        role_rank: signupRole.roleRank,
         club_id: club.id,
         updated_at: new Date().toISOString(),
       },
@@ -365,6 +553,74 @@ async function createSignupWorkspace(authUser, requestedClubName) {
 
   if (membershipError) {
     throw membershipError
+  }
+
+  await ensureTeamForProfile({ authUser, club, profile, teamName: clubName })
+
+  return { profile, club }
+}
+
+async function repairExistingSignupWorkspace(authUser, existingProfile, body) {
+  let club = await getClub(existingProfile.club_id)
+  const checkoutRecord = await getLatestCheckoutRecord(authUser, club?.id)
+
+  if (checkoutRecord?.id) {
+    club = await updateClubBillingFromCheckout(club.id, checkoutRecord)
+  }
+
+  const hasBillingLink = Boolean(
+    club?.stripe_customer_id ||
+      club?.stripe_subscription_id ||
+      club?.stripe_price_id ||
+      checkoutRecord?.id ||
+      club?.is_plan_comped,
+  )
+  const shouldRepairAsFree = club?.plan_key === 'small_club' && !hasBillingLink && hasPublicSignupClubMetadata(authUser)
+  let profile = existingProfile
+
+  if (shouldRepairAsFree) {
+    const { data: repairedClub, error: clubError } = await supabaseAdmin
+      .from('clubs')
+      .update({
+        plan_key: FREE_PLAN_KEY,
+        plan_status: 'active',
+        plan_updated_at: new Date().toISOString(),
+      })
+      .eq('id', club.id)
+      .select(CLUB_SELECT)
+      .single()
+
+    if (clubError) {
+      throw clubError
+    }
+
+    club = repairedClub
+
+    const { data: repairedProfile, error: profileError } = await supabaseAdmin
+      .from('users')
+      .update({
+        role: TEAM_MANAGER_ROLE.role,
+        role_label: TEAM_MANAGER_ROLE.roleLabel,
+        role_rank: TEAM_MANAGER_ROLE.roleRank,
+      })
+      .eq('id', existingProfile.id)
+      .select(USER_PROFILE_SELECT)
+      .single()
+
+    if (profileError) {
+      throw profileError
+    }
+
+    profile = repairedProfile
+  }
+
+  if (club?.plan_key === FREE_PLAN_KEY || club?.plan_key === 'single_team') {
+    await ensureTeamForProfile({
+      authUser,
+      club,
+      profile,
+      teamName: getSignupClubName(authUser, body.clubName),
+    })
   }
 
   return { profile, club }
@@ -381,8 +637,8 @@ export async function handler(event) {
     const existingProfile = await getUserProfile(authUser.id)
 
     if (existingProfile?.club_id) {
-      const club = await getClub(existingProfile.club_id)
-      return json(200, { success: true, profile: existingProfile, club })
+      const result = await repairExistingSignupWorkspace(authUser, existingProfile, body)
+      return json(200, { success: true, ...result })
     }
 
     const membership = await getFirstMembership(authUser)
