@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import InstallAppButton from '../components/pwa/InstallAppButton.jsx'
 import { useAuth } from '../lib/auth.js'
@@ -45,6 +45,22 @@ const pricingPlans = [
   },
 ]
 
+const checkoutPriceEnvByPlan = {
+  'Single Team': {
+    monthly: 'VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID',
+    annual: 'VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID',
+  },
+  'Small Club': {
+    monthly: 'VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID',
+    annual: 'VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID',
+  },
+}
+
+function getCheckoutPriceId(planName, billingCycle) {
+  const envName = checkoutPriceEnvByPlan[planName]?.[billingCycle]
+  return envName ? import.meta.env[envName] : ''
+}
+
 function formatPrice(plan, billingCycle) {
   if (typeof plan.price !== 'number') {
     return plan.price
@@ -81,6 +97,20 @@ export function LoginPage() {
   const [billingCycle, setBillingCycle] = useState('monthly')
   const [localMessage, setLocalMessage] = useState('')
   const [localError, setLocalError] = useState('')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const checkoutStatus = params.get('checkout')
+
+    if (checkoutStatus === 'success') {
+      setMode('signup')
+      setLocalMessage('Checkout completed. Create your club account to continue.')
+    }
+
+    if (checkoutStatus === 'cancelled') {
+      setLocalMessage('Checkout was cancelled. You can choose a plan again when ready.')
+    }
+  }, [])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -136,6 +166,57 @@ export function LoginPage() {
     } catch (error) {
       console.error(error)
       setLocalError(error.message || 'Demo request could not be sent.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleChoosePlan = async (plan) => {
+    setLocalError('')
+    setLocalMessage('')
+
+    if (plan.name === 'Individual') {
+      setMode('signup')
+      setLocalMessage('Create your free account to start.')
+      return
+    }
+
+    if (plan.name === 'Large Club') {
+      setDemoPlan(plan)
+      return
+    }
+
+    const priceId = getCheckoutPriceId(plan.name, billingCycle)
+
+    if (!priceId) {
+      setLocalError('Checkout is not configured for this plan yet.')
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch('/.netlify/functions/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          priceId,
+          planName: plan.name,
+          billingCycle,
+          customerEmail: formData.email.trim() || undefined,
+          clubName: formData.clubName.trim() || undefined,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false || !result.url) {
+        throw new Error(result.message || 'Checkout could not be started.')
+      }
+
+      window.location.assign(result.url)
+    } catch (error) {
+      console.error(error)
+      setLocalError(error.message || 'Checkout could not be started.')
     } finally {
       setIsSubmitting(false)
     }
@@ -527,22 +608,17 @@ export function LoginPage() {
                   <div className="mt-6 grid gap-3">
                     <button
                       type="button"
-                      onClick={() => {
-                        setMode('signup')
-                        setLocalMessage(
-                          plan.name === 'Individual'
-                            ? 'Create your free account to start.'
-                            : 'Checkout is being configured. You can still create an account or request a demo.',
-                        )
-                      }}
+                      disabled={isSubmitting}
+                      onClick={() => handleChoosePlan(plan)}
                       className={[
                         'inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition',
                         plan.name === 'Small Club'
                           ? 'bg-[#d8ff2f] text-black hover:opacity-90'
                           : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
+                        isSubmitting ? 'cursor-not-allowed opacity-60' : '',
                       ].join(' ')}
                     >
-                      {plan.name === 'Individual' ? 'Start Free' : 'Choose Plan'}
+                      {plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' ? 'Contact Us' : 'Choose Plan'}
                     </button>
                     {plan.name !== 'Individual' ? (
                       <button
