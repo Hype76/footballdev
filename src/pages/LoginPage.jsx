@@ -627,7 +627,7 @@ export function LoginPage() {
 
           <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">What you can do</p>
-            <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">One place for the daily work of running football teams.</h2>
+            <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Built to support the daily work of running football teams.</h2>
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {[
                 ['Create player assessments', 'Score technical, tactical, physical, and attitude areas using your own club form.'],
