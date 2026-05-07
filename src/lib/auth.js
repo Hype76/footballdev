@@ -207,7 +207,7 @@ export function canViewBilling(user) {
     return true
   }
 
-  return Number(user.roleRank ?? 0) >= 90
+  return Number(user.roleRank ?? 0) >= 70
 }
 
 export function canDeletePlayer(user) {
