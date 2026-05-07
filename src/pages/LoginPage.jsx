@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import InstallAppButton from '../components/pwa/InstallAppButton.jsx'
 import { useAuth } from '../lib/auth.js'
@@ -72,6 +72,7 @@ function formatPriceLabel(plan, billingCycle) {
 
 export function LoginPage() {
   const { authError, resetPassword, signInWithPassword, signUpWithClub } = useAuth()
+  const signupBoxRef = useRef(null)
   const [mode, setMode] = useState('login')
   const [formData, setFormData] = useState(initialFormData)
   const [demoPlan, setDemoPlan] = useState(null)
@@ -162,6 +163,9 @@ export function LoginPage() {
     if (plan.name === 'Individual') {
       setMode('signup')
       setLocalMessage('Create your free account to start.')
+      window.setTimeout(() => {
+        signupBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 0)
       return
     }
 
@@ -371,7 +375,7 @@ export function LoginPage() {
             </div>
           </section>
 
-          <section className="order-1 lg:order-2">
+          <section ref={signupBoxRef} className="order-1 lg:order-2">
             <div className="mx-auto w-full max-w-md rounded-[32px] border border-white/10 bg-[#0b130d]/90 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-6">
               <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden rounded-[30px] border border-[#d8ff2f]/30 bg-black/50 shadow-xl shadow-[#d8ff2f]/10 sm:h-32 sm:w-32">
                 <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-contain p-2" />
