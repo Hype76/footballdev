@@ -45,22 +45,6 @@ const pricingPlans = [
   },
 ]
 
-const checkoutPriceEnvByPlan = {
-  'Single Team': {
-    monthly: 'VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID',
-    annual: 'VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID',
-  },
-  'Small Club': {
-    monthly: 'VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID',
-    annual: 'VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID',
-  },
-}
-
-function getCheckoutPriceId(planName, billingCycle) {
-  const envName = checkoutPriceEnvByPlan[planName]?.[billingCycle]
-  return envName ? import.meta.env[envName] : ''
-}
-
 function formatPrice(plan, billingCycle) {
   if (typeof plan.price !== 'number') {
     return plan.price
@@ -186,13 +170,6 @@ export function LoginPage() {
       return
     }
 
-    const priceId = getCheckoutPriceId(plan.name, billingCycle)
-
-    if (!priceId) {
-      setLocalError('Checkout is not configured for this plan yet.')
-      return
-    }
-
     setIsSubmitting(true)
 
     try {
@@ -200,7 +177,6 @@ export function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          priceId,
           planName: plan.name,
           billingCycle,
           customerEmail: formData.email.trim() || undefined,
@@ -564,6 +540,18 @@ export function LoginPage() {
               ))}
             </div>
           </div>
+
+          {localError ? (
+            <div className="mt-4 rounded-[20px] border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-semibold text-[#ffc2cf]">
+              {localError}
+            </div>
+          ) : null}
+
+          {localMessage ? (
+            <div className="mt-4 rounded-[20px] border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
+              {localMessage}
+            </div>
+          ) : null}
 
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {pricingPlans.map((plan) => {

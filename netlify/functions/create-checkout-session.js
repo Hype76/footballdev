@@ -1,14 +1,20 @@
 import process from 'node:process'
 import Stripe from 'stripe'
 
-const configuredPrices = new Set(
-  [
-    process.env.VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID,
-    process.env.VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID,
-    process.env.VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID,
-    process.env.VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID,
-  ].filter(Boolean),
-)
+function getPriceId(planName, billingCycle) {
+  const prices = {
+    'Single Team': {
+      monthly: process.env.VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID,
+      annual: process.env.VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID,
+    },
+    'Small Club': {
+      monthly: process.env.VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID,
+      annual: process.env.VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID,
+    },
+  }
+
+  return prices[planName]?.[billingCycle] || ''
+}
 
 function json(statusCode, body) {
   return {
@@ -33,13 +39,13 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event.body || '{}')
-    const priceId = cleanString(body.priceId)
     const planName = cleanString(body.planName)
     const billingCycle = cleanString(body.billingCycle)
     const customerEmail = cleanString(body.customerEmail)
     const clubName = cleanString(body.clubName)
+    const priceId = getPriceId(planName, billingCycle)
 
-    if (!priceId || !configuredPrices.has(priceId)) {
+    if (!priceId) {
       return json(400, { success: false, message: 'This plan is not available for checkout yet' })
     }
 
