@@ -57,6 +57,7 @@ export function BillingPage() {
   const { session, user } = useAuth()
   const [billing, setBilling] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
@@ -117,6 +118,37 @@ export function BillingPage() {
     [user],
   )
   const visibleClub = clubBilling || fallbackClub
+  const testerAccessExpired = Boolean(user?.testerAccessExpired)
+
+  const handleChoosePlan = async (planName) => {
+    setIsCheckoutLoading(planName)
+    setErrorMessage('')
+
+    try {
+      const response = await fetch('/.netlify/functions/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planName,
+          billingCycle: 'monthly',
+          customerEmail: user?.email || undefined,
+          clubName: user?.clubName || undefined,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false || !result.url) {
+        throw new Error(result.message || 'Checkout could not be started.')
+      }
+
+      window.location.assign(result.url)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Checkout could not be started right now.')
+    } finally {
+      setIsCheckoutLoading('')
+    }
+  }
 
   if (!canViewBilling(user)) {
     return <Navigate to="/" replace />
@@ -137,6 +169,13 @@ export function BillingPage() {
         />
       ) : null}
 
+      {testerAccessExpired ? (
+        <NoticeBanner
+          title="Tester access has ended"
+          message="Your club data is still safe. Choose a paid plan below to continue using the workspace."
+        />
+      ) : null}
+
       <SectionCard
         title="Current plan"
         description="Your club access is controlled by the tier shown here."
@@ -154,7 +193,7 @@ export function BillingPage() {
             <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Status</p>
               <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">
-                {visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus)}
+                {testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus)}
               </p>
             </div>
             <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
@@ -168,6 +207,27 @@ export function BillingPage() {
           </div>
         )}
       </SectionCard>
+
+      {testerAccessExpired ? (
+        <SectionCard
+          title="Choose a paid plan"
+          description="Start paid access for this club so the workspace can be used again."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            {['Single Team', 'Small Club'].map((planName) => (
+              <button
+                key={planName}
+                type="button"
+                disabled={Boolean(isCheckoutLoading)}
+                onClick={() => void handleChoosePlan(planName)}
+                className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isCheckoutLoading === planName ? 'Opening checkout...' : `Choose ${planName}`}
+              </button>
+            ))}
+          </div>
+        </SectionCard>
+      ) : null}
 
       <SectionCard
         title="Invoices"

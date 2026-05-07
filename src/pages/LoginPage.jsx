@@ -8,6 +8,7 @@ const initialFormData = {
   email: '',
   password: '',
   clubName: '',
+  accessCode: '',
 }
 
 const initialDemoFormData = {
@@ -343,6 +344,7 @@ export function LoginPage() {
           email: formData.email.trim(),
           password: formData.password,
           clubName: formData.clubName.trim(),
+          accessCode: formData.accessCode.trim(),
         })
 
         if (signupResult?.needsEmailVerification) {
@@ -530,6 +532,23 @@ export function LoginPage() {
                       placeholder="Your club or team name"
                       className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
                     />
+                  </label>
+                ) : null}
+
+                {mode === 'signup' ? (
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-bold text-slate-200">Tester access code</span>
+                    <input
+                      type="text"
+                      name="accessCode"
+                      value={formData.accessCode}
+                      onChange={handleChange}
+                      placeholder="Optional code from Player Feedback"
+                      className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm uppercase text-white outline-none transition placeholder:normal-case placeholder:text-slate-500 focus:border-[#d8ff2f]"
+                    />
+                    <span className="mt-2 block text-xs leading-5 text-slate-400">
+                      Use this only if you have been given temporary tester access.
+                    </span>
                   </label>
                 ) : null}
 

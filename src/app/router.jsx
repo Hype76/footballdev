@@ -11,6 +11,7 @@ import {
   canViewActivityLog,
   canViewBilling,
   isSuperAdmin,
+  isTesterAccessExpired,
   useAuth,
 } from '../lib/auth.js'
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
@@ -113,6 +114,26 @@ function AccountSuspendedState() {
   )
 }
 
+function TesterAccessExpiredState() {
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Billing</p>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Tester access has ended</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+          Your temporary tester access has expired. Your club data is still safe, but a paid plan is needed to continue using the workspace.
+        </p>
+        <a
+          href="/billing"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+        >
+          View Billing Options
+        </a>
+      </div>
+    </div>
+  )
+}
+
 function isClubSuspended(user) {
   return user?.clubStatus === 'suspended'
 }
@@ -132,6 +153,10 @@ function getDefaultWorkspacePath(user) {
 
   if (isAccountSuspended(user) || isClubSuspended(user)) {
     return '/'
+  }
+
+  if (isTesterAccessExpired(user)) {
+    return '/billing'
   }
 
   if (canManageTeamSettings(user)) {
@@ -245,6 +270,10 @@ function WorkspaceHome() {
     return <ClubSuspendedState />
   }
 
+  if (isTesterAccessExpired(user)) {
+    return <Navigate to="/billing" replace />
+  }
+
   return <RedirectToWorkspaceHome user={user} />
 }
 
@@ -298,6 +327,10 @@ function RequireClubWorkspace() {
     return <ClubSuspendedState />
   }
 
+  if (isTesterAccessExpired(user)) {
+    return <TesterAccessExpiredState />
+  }
+
   return <Outlet />
 }
 
@@ -335,6 +368,10 @@ function RequirePlayerWorkflowAccess() {
 
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
+  }
+
+  if (isTesterAccessExpired(user)) {
+    return <TesterAccessExpiredState />
   }
 
   if (!canCreateEvaluation(user)) {
@@ -394,6 +431,10 @@ function RequireFormBuilderAccess() {
     return <ClubSuspendedState />
   }
 
+  if (isTesterAccessExpired(user)) {
+    return <TesterAccessExpiredState />
+  }
+
   if (!canManageFormFields(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -437,6 +478,10 @@ function RequireParentEmailTemplatesAccess() {
     return <ClubSuspendedState />
   }
 
+  if (isTesterAccessExpired(user)) {
+    return <TesterAccessExpiredState />
+  }
+
   if (!canManageParentEmailTemplates(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -478,6 +523,10 @@ function RequireClubSettingsAccess() {
 
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
+  }
+
+  if (isTesterAccessExpired(user)) {
+    return <TesterAccessExpiredState />
   }
 
   if (!canManageClubSettings(user)) {
@@ -566,6 +615,10 @@ function RequireUserAccess() {
     return <ClubSuspendedState />
   }
 
+  if (isTesterAccessExpired(user)) {
+    return <TesterAccessExpiredState />
+  }
+
   if (!canManageUsers(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -609,6 +662,10 @@ function RequireTeamSettingsAccess() {
     return <ClubSuspendedState />
   }
 
+  if (isTesterAccessExpired(user)) {
+    return <TesterAccessExpiredState />
+  }
+
   if (!canManageTeamSettings(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -646,6 +703,10 @@ function RequireActivityLogAccess() {
 
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
+  }
+
+  if (isTesterAccessExpired(user)) {
+    return <TesterAccessExpiredState />
   }
 
   if (!canViewActivityLog(user)) {

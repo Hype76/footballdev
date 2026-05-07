@@ -15,6 +15,22 @@ const defaultCouponForm = {
   firstTimeOnly: false,
 }
 
+const defaultTesterCodeForm = {
+  label: '',
+  code: '',
+  planKey: 'single_team',
+  expiresInDays: '30',
+  maxUses: '1',
+  assignedEmail: '',
+}
+
+const testerPlanOptions = [
+  { key: 'individual', label: 'Individual' },
+  { key: 'single_team', label: 'Single Team' },
+  { key: 'small_club', label: 'Small Club' },
+  { key: 'large_club', label: 'Large Club' },
+]
+
 function formatDate(value) {
   if (!value) {
     return 'No date'
@@ -63,17 +79,26 @@ function formatExpiry(coupon) {
 export function PlatformBillingOptionsPage() {
   const { session, user } = useAuth()
   const [coupons, setCoupons] = useState([])
+  const [testerCodes, setTesterCodes] = useState([])
   const [couponForm, setCouponForm] = useState(defaultCouponForm)
+  const [testerCodeForm, setTesterCodeForm] = useState(defaultTesterCodeForm)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSavingTesterCode, setIsSavingTesterCode] = useState(false)
   const [livePromotionId, setLivePromotionId] = useState('')
   const [deletingCouponId, setDeletingCouponId] = useState('')
+  const [updatingTesterCodeId, setUpdatingTesterCodeId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
   const sortedCoupons = useMemo(
     () => [...coupons].sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || ''))),
     [coupons],
+  )
+
+  const sortedTesterCodes = useMemo(
+    () => [...testerCodes].sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || ''))),
+    [testerCodes],
   )
 
   const loadCoupons = useCallback(async () => {
@@ -109,11 +134,120 @@ export function PlatformBillingOptionsPage() {
     void loadCoupons()
   }, [loadCoupons])
 
+  const loadTesterCodes = useCallback(async () => {
+    if (!session?.access_token || !isSuperAdmin(user)) {
+      return
+    }
+
+    try {
+      const response = await fetch('/.netlify/functions/manage-tester-access-codes', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Tester access codes could not be loaded')
+      }
+
+      setTesterCodes(Array.isArray(result.codes) ? result.codes : [])
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Tester access codes could not be loaded right now.')
+    }
+  }, [session?.access_token, user])
+
+  useEffect(() => {
+    void loadTesterCodes()
+  }, [loadTesterCodes])
+
   const handleCouponChange = (fieldName, value) => {
     setCouponForm((current) => ({
       ...current,
       [fieldName]: value,
     }))
+  }
+
+  const handleTesterCodeChange = (fieldName, value) => {
+    setTesterCodeForm((current) => ({
+      ...current,
+      [fieldName]: value,
+    }))
+  }
+
+  const handleCreateTesterCode = async (event) => {
+    event.preventDefault()
+
+    if (!session?.access_token) {
+      return
+    }
+
+    setIsSavingTesterCode(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const response = await fetch('/.netlify/functions/manage-tester-access-codes', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testerCodeForm),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Tester access code could not be created')
+      }
+
+      setTesterCodes(Array.isArray(result.codes) ? result.codes : [])
+      setTesterCodeForm(defaultTesterCodeForm)
+      setSuccessMessage('Tester access code created.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Tester access code could not be created.')
+    } finally {
+      setIsSavingTesterCode(false)
+    }
+  }
+
+  const handleToggleTesterCode = async (code) => {
+    if (!session?.access_token || !code.id) {
+      return
+    }
+
+    setUpdatingTesterCodeId(code.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const response = await fetch('/.netlify/functions/manage-tester-access-codes', {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: code.id,
+          isActive: !code.isActive,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Tester access code could not be updated')
+      }
+
+      setTesterCodes(Array.isArray(result.codes) ? result.codes : [])
+      setSuccessMessage(!code.isActive ? 'Tester access code enabled.' : 'Tester access code disabled.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Tester access code could not be updated.')
+    } finally {
+      setUpdatingTesterCodeId('')
+    }
   }
 
   const handleCreateCoupon = async (event) => {
@@ -369,6 +503,134 @@ export function PlatformBillingOptionsPage() {
             </button>
           </div>
         </form>
+      </SectionCard>
+
+      <SectionCard
+        title="Create tester access code"
+        description="Give selected testers temporary plan access without asking for a payment card."
+      >
+        <form onSubmit={handleCreateTesterCode} className="grid gap-4 xl:grid-cols-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Label</span>
+            <input
+              value={testerCodeForm.label}
+              onChange={(event) => handleTesterCodeChange('label', event.target.value)}
+              placeholder="Cambourne tester"
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Access code</span>
+            <input
+              required
+              value={testerCodeForm.code}
+              onChange={(event) => handleTesterCodeChange('code', event.target.value)}
+              placeholder="TESTER-30"
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm uppercase text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Plan level</span>
+            <select
+              value={testerCodeForm.planKey}
+              onChange={(event) => handleTesterCodeChange('planKey', event.target.value)}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            >
+              {testerPlanOptions.map((plan) => (
+                <option key={plan.key} value={plan.key}>
+                  {plan.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Runs for days</span>
+            <input
+              required
+              type="number"
+              min="1"
+              value={testerCodeForm.expiresInDays}
+              onChange={(event) => handleTesterCodeChange('expiresInDays', event.target.value)}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Max uses</span>
+            <input
+              required
+              type="number"
+              min="1"
+              value={testerCodeForm.maxUses}
+              onChange={(event) => handleTesterCodeChange('maxUses', event.target.value)}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="block xl:col-span-2">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Assigned email</span>
+            <input
+              type="email"
+              value={testerCodeForm.assignedEmail}
+              onChange={(event) => handleTesterCodeChange('assignedEmail', event.target.value)}
+              placeholder="Optional. Leave blank for any email."
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <div className="xl:col-span-4">
+            <button
+              type="submit"
+              disabled={isSavingTesterCode}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              {isSavingTesterCode ? 'Creating...' : 'Create Tester Code'}
+            </button>
+          </div>
+        </form>
+      </SectionCard>
+
+      <SectionCard
+        title="Tester access codes"
+        description="These codes grant temporary access. Expired tester accounts keep their data but must choose a paid plan to continue."
+      >
+        {sortedTesterCodes.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+            No tester access codes have been created yet.
+          </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {sortedTesterCodes.map((code) => {
+              const planLabel = testerPlanOptions.find((plan) => plan.key === code.planKey)?.label || code.planKey
+              const hasExpired = code.expiresAt && new Date(code.expiresAt).getTime() <= Date.now()
+
+              return (
+                <div key={code.id} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[var(--text-primary)]">{code.label || code.code}</p>
+                      <p className="mt-1 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{code.code}</p>
+                    </div>
+                    <span className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                      {hasExpired ? 'Expired' : code.isActive ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+                  <div className="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
+                    <p><span className="font-semibold text-[var(--text-primary)]">Plan:</span> {planLabel}</p>
+                    <p><span className="font-semibold text-[var(--text-primary)]">Email:</span> {code.assignedEmail || 'Any email'}</p>
+                    <p><span className="font-semibold text-[var(--text-primary)]">Uses:</span> {code.redeemedCount} of {code.maxUses}</p>
+                    <p><span className="font-semibold text-[var(--text-primary)]">Expires:</span> {formatDate(code.expiresAt)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={updatingTesterCodeId === code.id}
+                    onClick={() => void handleToggleTesterCode(code)}
+                    className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {updatingTesterCodeId === code.id ? 'Saving...' : code.isActive ? 'Disable Code' : 'Enable Code'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </SectionCard>
 
       <SectionCard

@@ -109,6 +109,10 @@ export function getPlan(planOrUser) {
 }
 
 export function isPlanComped(value) {
+  if (value?.testerAccessExpired) {
+    return false
+  }
+
   return Boolean(value?.isPlanComped ?? value?.is_plan_comped)
 }
 

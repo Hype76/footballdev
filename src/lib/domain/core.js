@@ -44,8 +44,8 @@ const USER_PROFILE_SELECT = [
   'reply_to_email',
 ].join(', ')
 
-const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at'
-const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at)'
+const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
+const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
 
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Club Admin', rank: 90, isSystem: true },
@@ -272,11 +272,15 @@ async function blockDemoMutation(account) {
 }
 
 function getPlanGateUser(user, club = null) {
+  const testerAccessExpiresAt = user?.testerAccessExpiresAt ?? user?.tester_access_expires_at ?? club?.tester_access_expires_at ?? club?.testerAccessExpiresAt
+  const testerAccessExpired = isPastDate(testerAccessExpiresAt)
+
   return {
     ...user,
     planKey: user?.planKey ?? user?.plan_key ?? club?.plan_key ?? club?.planKey,
     planStatus: user?.planStatus ?? user?.plan_status ?? club?.plan_status ?? club?.planStatus,
-    isPlanComped: user?.isPlanComped ?? user?.is_plan_comped ?? club?.is_plan_comped ?? club?.isPlanComped,
+    isPlanComped: testerAccessExpired ? false : (user?.isPlanComped ?? user?.is_plan_comped ?? club?.is_plan_comped ?? club?.isPlanComped),
+    testerAccessExpired,
   }
 }
 
@@ -547,6 +551,15 @@ function getClubValue(clubs, key) {
   }
 
   return clubs?.[key]
+}
+
+function isPastDate(value) {
+  if (!value) {
+    return false
+  }
+
+  const parsedDate = new Date(value)
+  return !Number.isNaN(parsedDate.getTime()) && parsedDate.getTime() <= Date.now()
 }
 
 function getDisplayName(profile) {
@@ -1369,6 +1382,9 @@ export function normalizeUserProfile(profile) {
     getClubName(profile.clubs) ||
     String(profile.team ?? '').trim() ||
     (roleKey === 'super_admin' ? 'Platform' : 'Unassigned Club')
+  const testerAccessExpiresAt = getClubValue(profile.clubs, 'tester_access_expires_at') ?? profile.testerAccessExpiresAt ?? ''
+  const testerAccessExpired = isPastDate(testerAccessExpiresAt)
+  const isPlanComped = Boolean(getClubValue(profile.clubs, 'is_plan_comped') ?? profile.isPlanComped ?? false)
 
   return {
     id: profile.id,
@@ -1394,12 +1410,18 @@ export function normalizeUserProfile(profile) {
     clubSuspendedAt: getClubValue(profile.clubs, 'suspended_at') ?? profile.clubSuspendedAt ?? '',
     planKey: String(getClubValue(profile.clubs, 'plan_key') ?? profile.planKey ?? 'small_club').trim() || 'small_club',
     planStatus: String(getClubValue(profile.clubs, 'plan_status') ?? profile.planStatus ?? 'active').trim() || 'active',
-    isPlanComped: Boolean(getClubValue(profile.clubs, 'is_plan_comped') ?? profile.isPlanComped ?? false),
+    isPlanComped: testerAccessExpired ? false : isPlanComped,
     stripeCustomerId: String(getClubValue(profile.clubs, 'stripe_customer_id') ?? profile.stripeCustomerId ?? '').trim(),
     stripeSubscriptionId: String(getClubValue(profile.clubs, 'stripe_subscription_id') ?? profile.stripeSubscriptionId ?? '').trim(),
     stripePriceId: String(getClubValue(profile.clubs, 'stripe_price_id') ?? profile.stripePriceId ?? '').trim(),
     currentPeriodEnd: getClubValue(profile.clubs, 'current_period_end') ?? profile.currentPeriodEnd ?? '',
     planUpdatedAt: getClubValue(profile.clubs, 'plan_updated_at') ?? profile.planUpdatedAt ?? '',
+    testerAccessCodeId: getClubValue(profile.clubs, 'tester_access_code_id') ?? profile.testerAccessCodeId ?? '',
+    testerAccessCode: String(getClubValue(profile.clubs, 'tester_access_code') ?? profile.testerAccessCode ?? '').trim(),
+    testerAccessEmail: String(getClubValue(profile.clubs, 'tester_access_email') ?? profile.testerAccessEmail ?? '').trim(),
+    testerAccessRedeemedAt: getClubValue(profile.clubs, 'tester_access_redeemed_at') ?? profile.testerAccessRedeemedAt ?? '',
+    testerAccessExpiresAt,
+    testerAccessExpired,
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
     themeMode: String(profile.theme_mode ?? profile.themeMode ?? '').trim(),
     themeAccent: String(profile.theme_accent ?? profile.themeAccent ?? '').trim(),
@@ -1594,7 +1616,7 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
   return applyActiveMembership(authUser, selectedMembership)
 }
 
-async function ensureSignupClubProfileWithServer({ authUser, clubName }) {
+async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '' }) {
   await blockDemoMutation(authUser)
 
   const { data: sessionData } = await supabase.auth.getSession()
@@ -1612,6 +1634,7 @@ async function ensureSignupClubProfileWithServer({ authUser, clubName }) {
     },
     body: JSON.stringify({
       clubName: String(clubName ?? '').trim(),
+      accessCode: String(accessCode ?? '').trim(),
     }),
   })
   const result = await response.json().catch(() => ({}))
@@ -1794,13 +1817,16 @@ export async function fetchUserProfile(authUser, options = {}) {
   })
 }
 
-export async function createClubAndManagerProfile({ authUser, clubName }) {
+export async function createClubAndManagerProfile({ authUser, clubName, accessCode = '' }) {
   await blockDemoMutation(authUser)
 
   try {
-    return await ensureSignupClubProfileWithServer({ authUser, clubName })
+    return await ensureSignupClubProfileWithServer({ authUser, clubName, accessCode })
   } catch (serverError) {
     console.error(serverError)
+    if (String(accessCode ?? '').trim()) {
+      throw serverError
+    }
   }
 
   const { data: club, error: clubError } = await supabase

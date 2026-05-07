@@ -66,7 +66,7 @@ export async function handler(event) {
 
     const { data: club, error: clubError } = await supabaseAdmin
       .from('clubs')
-      .select('id, name, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at')
+      .select('id, name, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_expires_at')
       .eq('id', clubId)
       .single()
 
@@ -76,7 +76,8 @@ export async function handler(event) {
 
     const callerRank = Number(caller.role_rank ?? 0)
     const isIndividualPlan = club.plan_key === 'individual' && !club.is_plan_comped
-    const canAccessBilling = caller.role === 'super_admin' || callerRank >= 90 || (isIndividualPlan && callerRank >= 70)
+    const testerAccessExpired = club.tester_access_expires_at && new Date(club.tester_access_expires_at).getTime() <= Date.now()
+    const canAccessBilling = caller.role === 'super_admin' || callerRank >= 90 || testerAccessExpired || (isIndividualPlan && callerRank >= 70)
 
     if (!canAccessBilling) {
       return json(403, { success: false, message: 'Billing is only available to the highest billing role for this account' })
@@ -110,6 +111,7 @@ export async function handler(event) {
           stripePriceId: club.stripe_price_id || '',
           currentPeriodEnd: club.current_period_end || '',
           planUpdatedAt: club.plan_updated_at || '',
+          testerAccessExpiresAt: club.tester_access_expires_at || '',
         },
         invoices,
       },

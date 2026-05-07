@@ -100,6 +100,12 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.stripePriceId ?? '') === String(rightUser.stripePriceId ?? '') &&
     String(leftUser.currentPeriodEnd ?? '') === String(rightUser.currentPeriodEnd ?? '') &&
     String(leftUser.planUpdatedAt ?? '') === String(rightUser.planUpdatedAt ?? '') &&
+    String(leftUser.testerAccessCodeId ?? '') === String(rightUser.testerAccessCodeId ?? '') &&
+    String(leftUser.testerAccessCode ?? '') === String(rightUser.testerAccessCode ?? '') &&
+    String(leftUser.testerAccessEmail ?? '') === String(rightUser.testerAccessEmail ?? '') &&
+    String(leftUser.testerAccessRedeemedAt ?? '') === String(rightUser.testerAccessRedeemedAt ?? '') &&
+    String(leftUser.testerAccessExpiresAt ?? '') === String(rightUser.testerAccessExpiresAt ?? '') &&
+    Boolean(leftUser.testerAccessExpired) === Boolean(rightUser.testerAccessExpired) &&
     Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
     String(leftUser.themeMode ?? '') === String(rightUser.themeMode ?? '') &&
     String(leftUser.themeAccent ?? '') === String(rightUser.themeAccent ?? '') &&
@@ -192,6 +198,10 @@ export function canViewBilling(user) {
     return false
   }
 
+  if (isTesterAccessExpired(user)) {
+    return true
+  }
+
   if (isDemoAccount(user)) {
     return true
   }
@@ -209,6 +219,10 @@ export function canViewBilling(user) {
   }
 
   return Number(user.roleRank ?? 0) >= 70
+}
+
+export function isTesterAccessExpired(user) {
+  return Boolean(user?.testerAccessExpired)
 }
 
 export function canDeletePlayer(user) {
@@ -632,7 +646,7 @@ export function AuthProvider({ children }) {
     setUser((currentUser) => applyDemoRolePreview(currentUser, nextRoleKey))
   }
 
-  const signUpWithClub = async ({ email, password, clubName }) => {
+  const signUpWithClub = async ({ email, password, clubName, accessCode = '' }) => {
     setAuthError('')
 
     const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/login`
@@ -643,6 +657,7 @@ export function AuthProvider({ children }) {
         emailRedirectTo,
         data: {
           club_name: String(clubName ?? '').trim(),
+          tester_access_code: String(accessCode ?? '').trim().toUpperCase(),
         },
       },
     })
@@ -679,9 +694,10 @@ export function AuthProvider({ children }) {
       const { createClubAndManagerProfile, fetchUserProfile } = await loadAuthDataModule()
       const profile = String(clubName ?? '').trim()
         ? await createClubAndManagerProfile({
-            authUser: data.user,
-            clubName,
-          })
+          authUser: data.user,
+          clubName,
+          accessCode,
+        })
         : await fetchUserProfile(data.user)
 
       setSession(data.session ?? null)

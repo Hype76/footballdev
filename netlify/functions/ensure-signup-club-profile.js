@@ -25,8 +25,8 @@ const USER_PROFILE_SELECT = [
   'onboarding_dismissed_at',
 ].join(', ')
 
-const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at'
-const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at)'
+const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
+const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
 const FREE_PLAN_KEY = 'individual'
 const TEAM_MANAGER_ROLE = {
   role: 'head_manager',
@@ -56,6 +56,13 @@ function normalizeWords(value) {
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function normalizeAccessCode(value) {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '-')
 }
 
 function getDisplayName(authUser) {
@@ -93,6 +100,22 @@ function getSignupClubName(authUser, requestedClubName) {
   const fallbackName = normalizeWords(domainName.replace(/[-_]+/g, ' '))
 
   return fallbackName || 'My Club'
+}
+
+function getSignupAccessCode(authUser, requestedAccessCode) {
+  const explicitAccessCode = normalizeAccessCode(requestedAccessCode)
+
+  if (explicitAccessCode) {
+    return explicitAccessCode
+  }
+
+  return normalizeAccessCode(
+    authUser?.user_metadata?.tester_access_code ??
+      authUser?.user_metadata?.access_code ??
+      authUser?.raw_user_meta_data?.tester_access_code ??
+      authUser?.raw_user_meta_data?.access_code ??
+      '',
+  )
 }
 
 function hasPublicSignupClubMetadata(authUser) {
@@ -260,6 +283,66 @@ async function claimCheckoutRecord(checkoutRecord, clubId) {
   }
 
   return data
+}
+
+async function redeemTesterAccessCode(authUser, requestedAccessCode) {
+  const code = getSignupAccessCode(authUser, requestedAccessCode)
+
+  if (!code) {
+    return null
+  }
+
+  const email = normalizeEmail(authUser.email)
+  const now = new Date()
+  const { data: accessCode, error } = await supabaseAdmin
+    .from('tester_access_codes')
+    .select('*')
+    .eq('code', code)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  if (!accessCode || !accessCode.is_active) {
+    throw new Error('This tester access code is not valid.')
+  }
+
+  const expiresAt = new Date(accessCode.expires_at)
+
+  if (Number.isNaN(expiresAt.getTime()) || expiresAt <= now) {
+    throw new Error('This tester access code has expired.')
+  }
+
+  const assignedEmail = normalizeEmail(accessCode.assigned_email)
+
+  if (assignedEmail && assignedEmail !== email) {
+    throw new Error('This tester access code is assigned to a different email address.')
+  }
+
+  if (Number(accessCode.redeemed_count ?? 0) >= Number(accessCode.max_uses ?? 1)) {
+    throw new Error('This tester access code has already been used.')
+  }
+
+  return accessCode
+}
+
+async function markTesterAccessCodeRedeemed(accessCode) {
+  if (!accessCode?.id) {
+    return
+  }
+
+  const { error } = await supabaseAdmin
+    .from('tester_access_codes')
+    .update({
+      redeemed_count: Number(accessCode.redeemed_count ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', accessCode.id)
+
+  if (error) {
+    throw error
+  }
 }
 
 async function updateClubBillingFromCheckout(clubId, checkoutRecord) {
@@ -480,27 +563,37 @@ async function applyInvite(authUser, invite) {
   return applyMembership(authUser, membership)
 }
 
-async function createSignupWorkspace(authUser, requestedClubName) {
+async function createSignupWorkspace(authUser, requestedClubName, requestedAccessCode = '') {
   const email = normalizeEmail(authUser.email)
   const clubName = getSignupClubName(authUser, requestedClubName)
   const displayName = getDisplayName(authUser)
-  const checkoutRecord = await getLatestCheckoutRecord(authUser)
-  const planKey = checkoutRecord?.plan_key || FREE_PLAN_KEY
+  const testerAccessCode = await redeemTesterAccessCode(authUser, requestedAccessCode)
+  const checkoutRecord = testerAccessCode ? null : await getLatestCheckoutRecord(authUser)
+  const planKey = testerAccessCode?.plan_key || checkoutRecord?.plan_key || FREE_PLAN_KEY
   const planStatus = checkoutRecord?.plan_status || 'active'
   const signupRole = getSignupRole(planKey)
   const club = await insertClubWithUniqueName(clubName, {
     plan_key: planKey,
     plan_status: planStatus,
-    is_plan_comped: false,
+    is_plan_comped: Boolean(testerAccessCode),
     stripe_customer_id: checkoutRecord?.stripe_customer_id || null,
     stripe_subscription_id: checkoutRecord?.stripe_subscription_id || null,
     stripe_price_id: checkoutRecord?.stripe_price_id || null,
     current_period_end: checkoutRecord?.current_period_end || null,
+    tester_access_code_id: testerAccessCode?.id || null,
+    tester_access_code: testerAccessCode?.code || null,
+    tester_access_email: testerAccessCode ? email : null,
+    tester_access_redeemed_at: testerAccessCode ? new Date().toISOString() : null,
+    tester_access_expires_at: testerAccessCode?.expires_at || null,
     plan_updated_at: new Date().toISOString(),
   })
 
   if (checkoutRecord?.id) {
     await claimCheckoutRecord(checkoutRecord, club.id)
+  }
+
+  if (testerAccessCode?.id) {
+    await markTesterAccessCodeRedeemed(testerAccessCode)
   }
 
   await seedDefaultClubRoles(club.id)
@@ -666,7 +759,7 @@ export async function handler(event) {
       ? await applyMembership(authUser, membership)
       : invite
         ? await applyInvite(authUser, invite)
-        : await createSignupWorkspace(authUser, body.clubName)
+        : await createSignupWorkspace(authUser, body.clubName, body.accessCode)
 
     return json(200, { success: true, ...result })
   } catch (error) {
