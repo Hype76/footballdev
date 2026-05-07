@@ -67,6 +67,7 @@ export function PlatformBillingOptionsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [livePromotionId, setLivePromotionId] = useState('')
+  const [deletingCouponId, setDeletingCouponId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
@@ -149,6 +150,51 @@ export function PlatformBillingOptionsPage() {
       setErrorMessage(error.message || 'Coupon could not be created.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleDeleteCoupon = async (coupon) => {
+    if (!session?.access_token || !coupon.id) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${coupon.name || coupon.code || 'this coupon'}? This disables the promotion code and removes the coupon from Stripe where possible.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingCouponId(coupon.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const response = await fetch('/.netlify/functions/manage-stripe-coupons', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          couponId: coupon.id,
+          promotionCodeId: coupon.promotionCodeId,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Coupon could not be deleted')
+      }
+
+      setCoupons(Array.isArray(result.coupons) ? result.coupons : [])
+      setSuccessMessage('Coupon deleted.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Coupon could not be deleted.')
+    } finally {
+      setDeletingCouponId('')
     }
   }
 
@@ -362,14 +408,24 @@ export function PlatformBillingOptionsPage() {
                     First purchase only
                   </p>
                 ) : null}
-                <button
-                  type="button"
-                  disabled={!coupon.promotionCodeId || livePromotionId === coupon.promotionCodeId}
-                  onClick={() => void handleSetLivePromotion(coupon)}
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {livePromotionId === coupon.promotionCodeId ? 'Saving...' : coupon.liveOnWebsite ? 'Hide From Website' : 'Show Live'}
-                </button>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={!coupon.promotionCodeId || livePromotionId === coupon.promotionCodeId}
+                    onClick={() => void handleSetLivePromotion(coupon)}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {livePromotionId === coupon.promotionCodeId ? 'Saving...' : coupon.liveOnWebsite ? 'Hide From Website' : 'Show Live'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deletingCouponId === coupon.id}
+                    onClick={() => void handleDeleteCoupon(coupon)}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#7f1d1d] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[#fecaca] transition hover:bg-[#3f151a] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deletingCouponId === coupon.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

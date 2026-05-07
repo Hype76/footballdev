@@ -211,6 +211,41 @@ async function setLivePromotion(stripe, body) {
   await Promise.all(updates)
 }
 
+async function deleteCoupon(stripe, body) {
+  const couponId = cleanText(body.couponId, 120)
+  const promotionCodeId = cleanText(body.promotionCodeId, 120)
+
+  if (!couponId && !promotionCodeId) {
+    throw new Error('Coupon is required')
+  }
+
+  let resolvedCouponId = couponId
+
+  if (promotionCodeId) {
+    const promotionCode = await stripe.promotionCodes.retrieve(promotionCodeId)
+    const promotionCoupon = promotionCode.promotion?.coupon ?? promotionCode.coupon
+    resolvedCouponId = resolvedCouponId || (typeof promotionCoupon === 'string' ? promotionCoupon : promotionCoupon?.id)
+
+    await stripe.promotionCodes.update(promotionCodeId, {
+      active: false,
+      metadata: {
+        show_live: 'false',
+      },
+    })
+  }
+
+  if (!resolvedCouponId) {
+    throw new Error('Coupon was not found')
+  }
+
+  await stripe.coupons.del(resolvedCouponId)
+
+  return {
+    couponId: resolvedCouponId,
+    promotionCodeId,
+  }
+}
+
 export async function handler(event) {
   try {
     const admin = await getPlatformAdmin(event)
@@ -264,6 +299,28 @@ export async function handler(event) {
         metadata: {
           promotionCodeId: cleanText(body.promotionCodeId, 120),
           showLive: Boolean(body.showLive),
+        },
+      })
+
+      const coupons = await listCoupons(stripe)
+      return json(200, { success: true, coupons })
+    }
+
+    if (event.httpMethod === 'DELETE') {
+      const body = JSON.parse(event.body || '{}')
+      const deleted = await deleteCoupon(stripe, body)
+
+      await supabaseAdmin.from('audit_logs').insert({
+        actor_id: admin.id,
+        actor_email: admin.email,
+        actor_role: admin.role,
+        actor_role_rank: 100,
+        action: 'billing_coupon_deleted',
+        entity_type: 'billing_coupon',
+        entity_id: deleted.couponId,
+        metadata: {
+          couponId: deleted.couponId,
+          promotionCodeId: deleted.promotionCodeId,
         },
       })
 
