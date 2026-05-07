@@ -17,6 +17,23 @@ const initialDemoFormData = {
   clubTeamName: '',
 }
 
+function getFriendlyAuthErrorMessage(error, mode) {
+  const rawMessage = String(error?.message ?? '').trim()
+  const normalizedMessage = rawMessage.toLowerCase()
+
+  if (normalizedMessage.includes('email rate limit') || normalizedMessage.includes('rate limit')) {
+    return mode === 'signup'
+      ? 'Too many sign-up emails have been sent. Please wait a few minutes, then try again, or log in if you already created the account.'
+      : 'Too many emails have been sent. Please wait a few minutes, then try again.'
+  }
+
+  if (normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists')) {
+    return 'An account already exists for this email. Use Login, or use Forgot password if you need access.'
+  }
+
+  return rawMessage || 'Authentication failed.'
+}
+
 const pricingPlans = [
   {
     name: 'Individual',
@@ -73,6 +90,7 @@ function formatPriceLabel(plan, billingCycle) {
 export function LoginPage() {
   const { authError, resetPassword, signInWithPassword, signUpWithClub } = useAuth()
   const signupBoxRef = useRef(null)
+  const submitLockRef = useRef(false)
   const [mode, setMode] = useState('login')
   const [formData, setFormData] = useState(initialFormData)
   const [demoPlan, setDemoPlan] = useState(null)
@@ -237,6 +255,12 @@ export function LoginPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+
+    if (submitLockRef.current) {
+      return
+    }
+
+    submitLockRef.current = true
     setIsSubmitting(true)
     setLocalError('')
     setLocalMessage('')
@@ -269,8 +293,9 @@ export function LoginPage() {
       }
     } catch (error) {
       console.error(error)
-      setLocalError(error.message || 'Authentication failed.')
+      setLocalError(getFriendlyAuthErrorMessage(error, mode))
     } finally {
+      submitLockRef.current = false
       setIsSubmitting(false)
     }
   }
