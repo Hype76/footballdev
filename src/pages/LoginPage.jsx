@@ -87,6 +87,53 @@ function formatPriceLabel(plan, billingCycle) {
   return billingCycle === 'annual' ? 'per year' : 'per month'
 }
 
+function formatPromotionDiscount(promotion) {
+  if (!promotion) {
+    return ''
+  }
+
+  if (promotion.percentOff) {
+    return `${promotion.percentOff}% off`
+  }
+
+  if (promotion.amountOff) {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: promotion.currency || 'GBP',
+    }).format(Number(promotion.amountOff) / 100)
+  }
+
+  return ''
+}
+
+function formatPromotionDuration(promotion) {
+  if (!promotion) {
+    return ''
+  }
+
+  if (promotion.duration === 'forever') {
+    return 'forever'
+  }
+
+  if (promotion.duration === 'repeating') {
+    const months = Number(promotion.durationInMonths ?? 0)
+    return months === 1 ? 'for 1 month' : `for ${months || 1} months`
+  }
+
+  return 'once'
+}
+
+function getPromotionSummary(promotion) {
+  const discount = formatPromotionDiscount(promotion)
+  const duration = formatPromotionDuration(promotion)
+
+  if (!discount) {
+    return ''
+  }
+
+  return [discount, duration, promotion?.firstTimeOnly ? 'first purchase only' : ''].filter(Boolean).join(' | ')
+}
+
 export function LoginPage() {
   const { authError, resetPassword, signInWithPassword, signUpWithClub } = useAuth()
   const signupBoxRef = useRef(null)
@@ -98,6 +145,7 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [billingCycle, setBillingCycle] = useState('monthly')
+  const [livePromotion, setLivePromotion] = useState(null)
   const [localMessage, setLocalMessage] = useState('')
   const [localError, setLocalError] = useState('')
 
@@ -112,6 +160,29 @@ export function LoginPage() {
 
     if (checkoutStatus === 'cancelled') {
       setLocalMessage('Checkout was cancelled. You can choose a plan again when ready.')
+    }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadLivePromotion = async () => {
+      try {
+        const response = await fetch('/.netlify/functions/get-live-promotion')
+        const result = await response.json().catch(() => ({}))
+
+        if (isMounted && response.ok && result.success !== false) {
+          setLivePromotion(result.promotion ?? null)
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    void loadLivePromotion()
+
+    return () => {
+      isMounted = false
     }
   }, [])
 
@@ -203,6 +274,7 @@ export function LoginPage() {
           billingCycle,
           customerEmail: formData.email.trim() || undefined,
           clubName: formData.clubName.trim() || undefined,
+          livePromotionCodeId: livePromotion?.promotionCodeId || undefined,
         }),
       })
       const result = await response.json().catch(() => ({}))
@@ -582,9 +654,16 @@ export function LoginPage() {
             </div>
           ) : null}
 
+          {livePromotion ? (
+            <div className="mt-4 rounded-[24px] border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-5 py-4 text-sm font-bold text-[#d8ff2f]">
+              Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
+            </div>
+          ) : null}
+
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {pricingPlans.map((plan) => {
               const priceLabel = formatPriceLabel(plan, billingCycle)
+              const showPromotion = livePromotion && typeof plan.price === 'number'
 
               return (
                 <div
@@ -595,6 +674,11 @@ export function LoginPage() {
                     <span className="absolute right-5 top-5 whitespace-nowrap rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
                       Popular
                     </span>
+                  ) : null}
+                  {showPromotion ? (
+                    <div className="mb-4 rounded-2xl border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-[#d8ff2f]">
+                      {getPromotionSummary(livePromotion)}
+                    </div>
                   ) : null}
                   <div className="min-h-[132px] pr-16">
                     <p className="text-lg font-black text-white">{plan.name}</p>
@@ -612,6 +696,11 @@ export function LoginPage() {
                     {priceLabel ? <span className="ml-2 text-sm font-semibold text-slate-400">{priceLabel}</span> : null}
                     {typeof plan.price === 'number' && billingCycle === 'annual' ? (
                       <p className="mt-2 text-xs font-semibold text-[#d8ff2f]">2 months free compared with monthly</p>
+                    ) : null}
+                    {showPromotion ? (
+                      <p className="mt-2 text-xs font-semibold text-[#d8ff2f]">
+                        Code {livePromotion.code} auto-applied at checkout
+                      </p>
                     ) : null}
                   </div>
                   <ul className="mt-6 grow space-y-3">

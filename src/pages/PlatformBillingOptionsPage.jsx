@@ -66,6 +66,7 @@ export function PlatformBillingOptionsPage() {
   const [couponForm, setCouponForm] = useState(defaultCouponForm)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [livePromotionId, setLivePromotionId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
@@ -148,6 +149,44 @@ export function PlatformBillingOptionsPage() {
       setErrorMessage(error.message || 'Coupon could not be created.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleSetLivePromotion = async (coupon) => {
+    if (!session?.access_token || !coupon.promotionCodeId) {
+      return
+    }
+
+    const shouldShowLive = !coupon.liveOnWebsite
+    setLivePromotionId(coupon.promotionCodeId)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const response = await fetch('/.netlify/functions/manage-stripe-coupons', {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          promotionCodeId: coupon.promotionCodeId,
+          showLive: shouldShowLive,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Live promotion could not be updated')
+      }
+
+      setCoupons(Array.isArray(result.coupons) ? result.coupons : [])
+      setSuccessMessage(shouldShowLive ? 'Promotion is live on the website.' : 'Promotion is no longer live on the website.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Live promotion could not be updated.')
+    } finally {
+      setLivePromotionId('')
     }
   }
 
@@ -308,7 +347,7 @@ export function PlatformBillingOptionsPage() {
                     <p className="mt-1 text-sm text-[var(--text-muted)]">{formatDiscount(coupon)}</p>
                   </div>
                   <span className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                    {coupon.active ? 'Active' : 'Inactive'}
+                    {coupon.liveOnWebsite ? 'Live' : coupon.active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <p className="mt-4 text-sm font-semibold text-[var(--text-primary)]">{coupon.code || 'No code'}</p>
@@ -323,6 +362,14 @@ export function PlatformBillingOptionsPage() {
                     First purchase only
                   </p>
                 ) : null}
+                <button
+                  type="button"
+                  disabled={!coupon.promotionCodeId || livePromotionId === coupon.promotionCodeId}
+                  onClick={() => void handleSetLivePromotion(coupon)}
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {livePromotionId === coupon.promotionCodeId ? 'Saving...' : coupon.liveOnWebsite ? 'Hide From Website' : 'Show Live'}
+                </button>
               </div>
             ))}
           </div>

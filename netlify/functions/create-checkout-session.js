@@ -21,6 +21,35 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim().slice(0, 120) : ''
 }
 
+function isLiveWebsitePromotion(promotionCode) {
+  return String(promotionCode?.metadata?.show_live ?? '').trim().toLowerCase() === 'true'
+}
+
+function isFutureTimestamp(value) {
+  return !value || Number(value) > Math.floor(Date.now() / 1000)
+}
+
+async function getValidatedLivePromotionCodeId(stripe, promotionCodeId) {
+  const normalizedPromotionCodeId = cleanString(promotionCodeId)
+
+  if (!normalizedPromotionCodeId) {
+    return ''
+  }
+
+  try {
+    const promotionCode = await stripe.promotionCodes.retrieve(normalizedPromotionCodeId)
+
+    if (!promotionCode?.active || !isLiveWebsitePromotion(promotionCode) || !isFutureTimestamp(promotionCode.expires_at)) {
+      return ''
+    }
+
+    return promotionCode.id
+  } catch (error) {
+    console.error(error)
+    return ''
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed' })
@@ -46,13 +75,15 @@ export async function handler(event) {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2026-02-25.clover',
     })
+    const livePromotionCodeId = await getValidatedLivePromotionCodeId(stripe, body.livePromotionCodeId)
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${appUrl}/login?checkout=success&plan=${encodeURIComponent(planName)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/login?checkout=cancelled`,
-      allow_promotion_codes: true,
+      allow_promotion_codes: !livePromotionCodeId,
+      discounts: livePromotionCodeId ? [{ promotion_code: livePromotionCodeId }] : undefined,
       customer_email: customerEmail || undefined,
       subscription_data: {
         trial_period_days: 14,

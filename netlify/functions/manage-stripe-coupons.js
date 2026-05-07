@@ -13,6 +13,10 @@ function cleanText(value, maxLength = 120) {
   return String(value ?? '').replace(/[<>\r\n]/g, '').trim().slice(0, maxLength)
 }
 
+function isLiveWebsitePromotion(promotionCode) {
+  return String(promotionCode?.metadata?.show_live ?? '').trim().toLowerCase() === 'true'
+}
+
 function getEndOfDayTimestamp(value) {
   const normalizedValue = String(value ?? '').trim()
 
@@ -85,7 +89,7 @@ async function listCoupons(stripe) {
   for (const promotionCode of promotionCodes.data) {
     const promotionCoupon = promotionCode.promotion?.coupon ?? promotionCode.coupon
     const couponId = typeof promotionCoupon === 'string' ? promotionCoupon : promotionCoupon?.id
-    if (couponId && !promotionCodeByCoupon.has(couponId)) {
+    if (couponId && (!promotionCodeByCoupon.has(couponId) || isLiveWebsitePromotion(promotionCode))) {
       promotionCodeByCoupon.set(couponId, promotionCode)
     }
   }
@@ -107,6 +111,7 @@ async function listCoupons(stripe) {
       promotionCodeId: promotionCode?.id || '',
       expiresAt: promotionCode?.expires_at ? new Date(promotionCode.expires_at * 1000).toISOString() : null,
       firstTimeOnly: Boolean(promotionCode?.restrictions?.first_time_transaction),
+      liveOnWebsite: isLiveWebsitePromotion(promotionCode),
       active: promotionCode?.active ?? coupon.valid,
       createdAt: coupon.created ? new Date(coupon.created * 1000).toISOString() : null,
     }
@@ -180,6 +185,32 @@ async function createCoupon(stripe, body) {
   }
 }
 
+async function setLivePromotion(stripe, body) {
+  const promotionCodeId = cleanText(body.promotionCodeId, 120)
+  const showLive = Boolean(body.showLive)
+
+  if (showLive && !promotionCodeId) {
+    throw new Error('Promotion code is required')
+  }
+
+  const promotionCodes = await stripe.promotionCodes.list({ limit: 100 })
+  const updates = promotionCodes.data
+    .filter((promotionCode) => promotionCode.id === promotionCodeId || isLiveWebsitePromotion(promotionCode))
+    .map((promotionCode) =>
+      stripe.promotionCodes.update(promotionCode.id, {
+        metadata: {
+          show_live: showLive && promotionCode.id === promotionCodeId ? 'true' : 'false',
+        },
+      }),
+    )
+
+  if (showLive && !promotionCodes.data.some((promotionCode) => promotionCode.id === promotionCodeId)) {
+    throw new Error('Promotion code was not found')
+  }
+
+  await Promise.all(updates)
+}
+
 export async function handler(event) {
   try {
     const admin = await getPlatformAdmin(event)
@@ -211,6 +242,28 @@ export async function handler(event) {
           redeemBy: created.coupon.redeem_by,
           expiresAt: created.promotionCode.expires_at,
           firstTimeOnly: Boolean(created.promotionCode.restrictions?.first_time_transaction),
+        },
+      })
+
+      const coupons = await listCoupons(stripe)
+      return json(200, { success: true, coupons })
+    }
+
+    if (event.httpMethod === 'PATCH') {
+      const body = JSON.parse(event.body || '{}')
+      await setLivePromotion(stripe, body)
+
+      await supabaseAdmin.from('audit_logs').insert({
+        actor_id: admin.id,
+        actor_email: admin.email,
+        actor_role: admin.role,
+        actor_role_rank: 100,
+        action: 'billing_live_promotion_updated',
+        entity_type: 'billing_promotion_code',
+        entity_id: cleanText(body.promotionCodeId, 120) || null,
+        metadata: {
+          promotionCodeId: cleanText(body.promotionCodeId, 120),
+          showLive: Boolean(body.showLive),
         },
       })
 
