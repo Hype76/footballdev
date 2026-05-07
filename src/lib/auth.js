@@ -120,6 +120,14 @@ export function isSuperAdmin(user) {
   return user?.role === 'super_admin'
 }
 
+export function isDemoAccount(user) {
+  return Boolean(user?.isDemoAccount) || isDemoUser(user)
+}
+
+export function canViewPlatformFeedback(user) {
+  return Boolean(user) && !isDemoAccount(user)
+}
+
 export function isClubAdmin(user) {
   return user?.role === 'admin'
 }

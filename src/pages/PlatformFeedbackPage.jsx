@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { isSuperAdmin, useAuth } from '../lib/auth.js'
+import { canViewPlatformFeedback, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   createPlatformFeedback,
   getPlatformFeedback,
@@ -36,7 +37,7 @@ function formatDate(value) {
 }
 
 export function PlatformFeedbackPage() {
-  const { user } = useAuth()
+  const { isLoading: isAuthLoading, isProfileLoading, session, user } = useAuth()
   const [feedbackItems, setFeedbackItems] = useState(() => {
     const cachedItems = readViewCacheValue(cacheKey, 'feedbackItems', [])
     return Array.isArray(cachedItems) ? cachedItems : []
@@ -61,7 +62,7 @@ export function PlatformFeedbackPage() {
     let isMounted = true
 
     const runLoad = async () => {
-      if (!user) {
+      if (!canViewPlatformFeedback(user)) {
         setIsLoading(false)
         return
       }
@@ -149,6 +150,18 @@ export function PlatformFeedbackPage() {
   }
 
   const paginatedFeedback = getPaginatedItems(feedbackItems, feedbackPage, FEEDBACK_PAGE_SIZE)
+
+  if ((isAuthLoading && !session?.user) || (!user && isProfileLoading)) {
+    return (
+      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-8 text-sm font-medium text-[var(--text-muted)]">
+        Loading...
+      </div>
+    )
+  }
+
+  if (!canViewPlatformFeedback(user)) {
+    return <Navigate to="/" replace />
+  }
 
   return (
     <div className="space-y-5 sm:space-y-6">

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { getRoleLabel, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { canViewPlatformFeedback, getRoleLabel, isSuperAdmin, useAuth } from '../lib/auth.js'
 
 const roleGuides = [
   {
@@ -123,9 +123,18 @@ function RoleCard({ guide }) {
 export function InformationPage() {
   const { user } = useAuth()
   const currentRank = Number(user?.roleRank ?? 0)
+  const canAccessPlatformFeedback = canViewPlatformFeedback(user)
   const visibleRoleGuides = isSuperAdmin(user)
     ? roleGuides
     : roleGuides.filter((guide) => guide.rank <= currentRank)
+  const visibleGuides = canAccessPlatformFeedback
+    ? visibleRoleGuides
+    : visibleRoleGuides.map((guide) => ({
+        ...guide,
+        capabilities: guide.capabilities.filter(
+          (capability) => !capability.toLowerCase().includes('platform feedback'),
+        ),
+      }))
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -170,9 +179,11 @@ export function InformationPage() {
             <StepCard number="5" title="Share with parents">
               On the player profile, select the parent recipients, choose the email template, then download a scored PDF or email template PDF.
             </StepCard>
-            <StepCard number="6" title="Raise feedback">
-              Use Platform Feedback in the sidebar to suggest improvements. Other clubs can vote on feedback so the most useful ideas are easier to prioritise.
-            </StepCard>
+            {canAccessPlatformFeedback ? (
+              <StepCard number="6" title="Raise feedback">
+                Use Platform Feedback in the sidebar to suggest improvements. Other clubs can vote on feedback so the most useful ideas are easier to prioritise.
+              </StepCard>
+            ) : null}
           </div>
         </SectionCard>
       )}
@@ -182,13 +193,13 @@ export function InformationPage() {
           title="Role access"
           description="You can see your role and the roles below it. Higher club management permissions are intentionally hidden."
         >
-          {visibleRoleGuides.length === 0 ? (
+          {visibleGuides.length === 0 ? (
             <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
               No role guide is available for this account yet.
             </div>
           ) : (
             <div className="grid gap-4 xl:grid-cols-2">
-              {visibleRoleGuides.map((guide) => (
+              {visibleGuides.map((guide) => (
                 <RoleCard key={guide.key} guide={guide} />
               ))}
             </div>
@@ -224,12 +235,14 @@ export function InformationPage() {
               Open Platform Admin
             </Link>
           )}
-          <Link
-            to="/platform-feedback"
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-          >
-            Open Platform Feedback
-          </Link>
+          {canAccessPlatformFeedback ? (
+            <Link
+              to="/platform-feedback"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            >
+              Open Platform Feedback
+            </Link>
+          ) : null}
         </div>
       </SectionCard>
     </div>
