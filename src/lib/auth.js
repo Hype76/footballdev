@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, createElement, useContext, useEffect, useRef, useState } from 'react'
 import { DEMO_ROLE_STORAGE_KEY, getDemoRole, isDemoUser } from './demo.js'
 import { supabase } from './supabase-client.js'
 
@@ -103,8 +103,6 @@ function areUsersEquivalent(leftUser, rightUser) {
     Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
     String(leftUser.themeMode ?? '') === String(rightUser.themeMode ?? '') &&
     String(leftUser.themeAccent ?? '') === String(rightUser.themeAccent ?? '') &&
-    Boolean(leftUser.onboardingEnabled) === Boolean(rightUser.onboardingEnabled) &&
-    String(leftUser.onboardingDismissedAt ?? '') === String(rightUser.onboardingDismissedAt ?? '') &&
     String(leftUser.activeTeamId ?? '') === String(rightUser.activeTeamId ?? '') &&
     String(leftUser.activeTeamName ?? '') === String(rightUser.activeTeamName ?? '')
   )
@@ -777,29 +775,26 @@ export function AuthProvider({ children }) {
     })
   }
 
-  const value = useMemo(
-    () => ({
-      session,
-      authUser,
-      user,
-      clubOptions,
-      teamOptions,
-      isLoading,
-      isProfileLoading,
-      authError,
-      signInWithPassword,
-      signUpWithClub,
-      selectClub,
-      selectTeam,
-      resetPassword,
-      signOut,
-      updateCurrentClubDetails,
-      updateCurrentUserDetails,
-      demoRoleKey,
-      setDemoRolePreview,
-    }),
-    [authError, authUser, clubOptions, demoRoleKey, isLoading, isProfileLoading, session, teamOptions, user],
-  )
+  const value = {
+    session,
+    authUser,
+    user,
+    clubOptions,
+    teamOptions,
+    isLoading,
+    isProfileLoading,
+    authError,
+    signInWithPassword,
+    signUpWithClub,
+    selectClub,
+    selectTeam,
+    resetPassword,
+    signOut,
+    updateCurrentClubDetails,
+    updateCurrentUserDetails,
+    demoRoleKey,
+    setDemoRolePreview,
+  }
 
   return createElement(AuthContext.Provider, { value }, children)
 }

@@ -32,9 +32,6 @@ const USER_PROFILE_SELECT = [
   'team_name',
   'club_name',
   'reply_to_email',
-  'onboarding_enabled',
-  'onboarding_completed_steps',
-  'onboarding_dismissed_at',
 ].join(', ')
 
 const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at'
@@ -1367,13 +1364,6 @@ export function normalizeUserProfile(profile) {
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
     themeMode: String(profile.theme_mode ?? profile.themeMode ?? '').trim(),
     themeAccent: String(profile.theme_accent ?? profile.themeAccent ?? '').trim(),
-    onboardingEnabled: profile.onboarding_enabled ?? profile.onboardingEnabled ?? true,
-    onboardingCompletedSteps: Array.isArray(profile.onboarding_completed_steps)
-      ? profile.onboarding_completed_steps
-      : Array.isArray(profile.onboardingCompletedSteps)
-        ? profile.onboardingCompletedSteps
-        : [],
-    onboardingDismissedAt: profile.onboarding_dismissed_at ?? profile.onboardingDismissedAt ?? '',
     activeTeamId: String(profile.activeTeamId ?? '').trim(),
     activeTeamName: String(profile.activeTeamName ?? '').trim(),
   }
@@ -1963,57 +1953,6 @@ export async function updateOwnThemeSettings({ authUser, mode, accent }) {
       theme_mode: normalizedMode,
       theme_accent: normalizedAccent,
     })
-    .eq('id', authUser.id)
-    .select(USER_PROFILE_SELECT)
-    .single()
-
-  if (error) {
-    console.error(error)
-    throw error
-  }
-
-  invalidateMemoryCacheByPrefix(`user-profile:${authUser.id}`)
-
-  let clubData = null
-
-  if (data.club_id) {
-    try {
-      clubData = await fetchClubDetails(data.club_id)
-    } catch (clubError) {
-      console.error(clubError)
-    }
-  }
-
-  return normalizeUserProfile({
-    ...data,
-    clubs: clubData,
-  })
-}
-
-export async function updateOwnOnboardingSettings({ authUser, enabled, completedSteps, dismissedAt }) {
-  if (!authUser?.id) {
-    throw new Error('Signed in user is required.')
-  }
-
-  await blockDemoMutation(authUser)
-
-  const payload = {}
-
-  if (enabled !== undefined) {
-    payload.onboarding_enabled = Boolean(enabled)
-  }
-
-  if (Array.isArray(completedSteps)) {
-    payload.onboarding_completed_steps = completedSteps
-  }
-
-  if (dismissedAt !== undefined) {
-    payload.onboarding_dismissed_at = dismissedAt || null
-  }
-
-  const { data, error } = await supabase
-    .from('users')
-    .update(payload)
     .eq('id', authUser.id)
     .select(USER_PROFILE_SELECT)
     .single()

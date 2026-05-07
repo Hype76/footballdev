@@ -140,7 +140,6 @@ export function Sidebar({ isOpen, onClose }) {
                 key={item.path}
                 type="button"
                 title={item.disabledMessage}
-                data-onboarding={`nav-${item.path.replace('/', '')}`}
                 className="block min-h-11 w-full cursor-not-allowed rounded-2xl px-4 py-3 text-left text-sm font-medium text-[var(--text-muted)] opacity-55"
               >
                 {item.label}
@@ -150,7 +149,6 @@ export function Sidebar({ isOpen, onClose }) {
                 key={item.path}
                 to={item.path}
                 onClick={onClose}
-                data-onboarding={`nav-${item.path.replace('/', '')}`}
                 className={({ isActive }) =>
                   [
                     'block min-h-11 rounded-2xl px-4 py-3 text-sm font-medium transition',

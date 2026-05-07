@@ -4,10 +4,8 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { getRoleLabel, isDemoAccount, useAuth } from '../lib/auth.js'
-import { restartOnboarding } from '../lib/onboarding.js'
 import {
   requestLoginEmailChange,
-  updateOwnOnboardingSettings,
   updateOwnThemeSettings,
   updateOwnUserSettings,
   updateSignedInPassword,
@@ -46,7 +44,6 @@ export function UserSettingsPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
   const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
-  const [onboardingEnabled, setOnboardingEnabled] = useState(user?.onboardingEnabled !== false)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -57,7 +54,6 @@ export function UserSettingsPage() {
     setEmailTeamName(user?.emailTeamName || user?.activeTeamName || '')
     setEmailClubName(user?.emailClubName || user?.clubName || '')
     setReplyToEmail(user?.replyToEmail || user?.email || authUser?.email || '')
-    setOnboardingEnabled(user?.onboardingEnabled !== false)
   }, [
     authUser?.email,
     user?.activeTeamName,
@@ -67,7 +63,6 @@ export function UserSettingsPage() {
     user?.emailClubName,
     user?.emailTeamName,
     user?.name,
-    user?.onboardingEnabled,
     user?.replyToEmail,
     user?.username,
   ])
@@ -263,56 +258,6 @@ export function UserSettingsPage() {
     void persistThemePreferences(nextPreferences)
   }
 
-  const handleOnboardingToggle = async (nextValue) => {
-    if (isDemoSettings) {
-      return
-    }
-
-    setOnboardingEnabled(nextValue)
-    setSuccessMessage('')
-    setErrorMessage('')
-
-    try {
-      const updatedProfile = await updateOwnOnboardingSettings({
-        authUser,
-        enabled: nextValue,
-        dismissedAt: nextValue ? '' : new Date().toISOString(),
-      })
-      updateCurrentUserDetails(updatedProfile)
-      showToast({
-        title: nextValue ? 'Onboarding enabled' : 'Onboarding disabled',
-        message: nextValue ? 'Guided tips will show again for your role and plan.' : 'Guided tips are now hidden.',
-      })
-    } catch (error) {
-      console.error(error)
-      setOnboardingEnabled(!nextValue)
-      showToast({ title: 'Onboarding not saved', message: 'Try again in a moment.', tone: 'error' })
-    }
-  }
-
-  const handleRestartOnboarding = async () => {
-    if (isDemoSettings) {
-      return
-    }
-
-    setSuccessMessage('')
-    setErrorMessage('')
-
-    try {
-      await restartOnboarding({
-        authUser,
-        updateCurrentUserDetails,
-        user,
-        updateOwnOnboardingSettings,
-      })
-      setOnboardingEnabled(true)
-      showToast({ title: 'Onboarding restarted', message: 'Guided tips will show again.' })
-    } catch (error) {
-      console.error(error)
-      showToast({ title: 'Onboarding not restarted', message: 'Try again in a moment.', tone: 'error' })
-    }
-  }
-
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
   const canUseThemes = hasPlanFeature(user, 'themes')
 
@@ -489,32 +434,6 @@ export function UserSettingsPage() {
             {!canUseThemes ? (
               <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">{createFeatureUpgradeMessage('themes')}</p>
             ) : null}
-          </SectionCard>
-
-          <SectionCard
-            title="Onboarding"
-            description="Control the guided tips shown for your role and current plan."
-          >
-            <div className="space-y-4">
-              <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
-                <input
-                  type="checkbox"
-                  checked={onboardingEnabled}
-                  onChange={(event) => void handleOnboardingToggle(event.target.checked)}
-                  disabled={isDemoSettings}
-                  className="h-4 w-4 rounded border-[var(--border-color)]"
-                />
-                <span>Show guided onboarding tips</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => void handleRestartOnboarding()}
-                disabled={isDemoSettings}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Restart onboarding
-              </button>
-            </div>
           </SectionCard>
 
           <SectionCard

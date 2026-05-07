@@ -57,8 +57,8 @@ const pricingPlans = [
   {
     name: 'Large Club',
     price: 'Contact us',
-    description: 'For larger clubs that need more teams, onboarding, or custom support.',
-    features: ['Custom setup', 'More than 10 teams', 'Unlimited logins', 'Custom branding and themes', 'Custom onboarding', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
+    description: 'For larger clubs that need more teams, rollout help, or custom support.',
+    features: ['Custom setup', 'More than 10 teams', 'Unlimited logins', 'Custom branding and themes', 'Custom rollout support', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
   },
 ]
 

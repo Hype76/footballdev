@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatches } from 'react-router-dom'
-import { OnboardingGuide } from '../onboarding/OnboardingGuide.jsx'
 import { useAuth } from '../../lib/auth.js'
 import { createAuditLog } from '../../lib/supabase.js'
 import {
@@ -285,7 +284,6 @@ export function Layout() {
           </div>
         </div>
       ) : null}
-      <OnboardingGuide />
     </div>
   )
 }
