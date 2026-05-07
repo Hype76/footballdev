@@ -187,7 +187,15 @@ export function canManageClubSettings(user) {
 }
 
 export function canViewBilling(user) {
-  if (!user?.clubId) {
+  if (!user) {
+    return false
+  }
+
+  if (isDemoAccount(user)) {
+    return true
+  }
+
+  if (!user.clubId) {
     return false
   }
 
