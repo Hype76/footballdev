@@ -50,6 +50,37 @@ async function getValidatedLivePromotionCodeId(stripe, promotionCodeId) {
   }
 }
 
+async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
+  const checkoutParams = {
+    mode: 'subscription',
+    line_items: [{ price: params.priceId, quantity: 1 }],
+    success_url: `${params.appUrl}/login?checkout=success&plan=${encodeURIComponent(params.planName)}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${params.appUrl}/login?checkout=cancelled`,
+    customer_email: params.customerEmail || undefined,
+    subscription_data: {
+      trial_period_days: 14,
+      metadata: {
+        planName: params.planName,
+        billingCycle: params.billingCycle,
+        clubName: params.clubName,
+      },
+    },
+    metadata: {
+      planName: params.planName,
+      billingCycle: params.billingCycle,
+      clubName: params.clubName,
+    },
+  }
+
+  if (livePromotionCodeId) {
+    checkoutParams.discounts = [{ promotion_code: livePromotionCodeId }]
+  } else {
+    checkoutParams.allow_promotion_codes = true
+  }
+
+  return stripe.checkout.sessions.create(checkoutParams)
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed' })
@@ -77,30 +108,30 @@ export async function handler(event) {
     })
     const livePromotionCodeId = await getValidatedLivePromotionCodeId(stripe, body.livePromotionCodeId)
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl}/login?checkout=success&plan=${encodeURIComponent(planName)}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/login?checkout=cancelled`,
-      allow_promotion_codes: !livePromotionCodeId,
-      discounts: livePromotionCodeId ? [{ promotion_code: livePromotionCodeId }] : undefined,
-      customer_email: customerEmail || undefined,
-      subscription_data: {
-        trial_period_days: 14,
-        metadata: {
-          planName,
-          billingCycle,
-          clubName,
-        },
-      },
-      metadata: {
-        planName,
-        billingCycle,
-        clubName,
-      },
-    })
+    const checkoutParams = {
+      appUrl,
+      billingCycle,
+      clubName,
+      customerEmail,
+      planName,
+      priceId,
+    }
+    let session
+    let promotionApplied = Boolean(livePromotionCodeId)
 
-    return json(200, { success: true, url: session.url })
+    try {
+      session = await createCheckoutSession(stripe, checkoutParams, livePromotionCodeId)
+    } catch (promotionError) {
+      if (!livePromotionCodeId) {
+        throw promotionError
+      }
+
+      console.error('Auto promotion checkout failed', promotionError)
+      promotionApplied = false
+      session = await createCheckoutSession(stripe, checkoutParams)
+    }
+
+    return json(200, { success: true, url: session.url, promotionApplied })
   } catch (error) {
     console.error(error)
     return json(500, { success: false, message: 'Checkout could not be started' })
