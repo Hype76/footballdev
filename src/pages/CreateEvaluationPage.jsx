@@ -10,7 +10,9 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
+  EMAIL_TEMPLATE_AUDIENCES,
   isInviteEmailTemplate,
+  normalizeEmailTemplateAudience,
   renderParentEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
@@ -47,7 +49,9 @@ import {
 } from '../hooks/evaluations/evaluationFormUtils.js'
 import {
   EVALUATION_SECTIONS,
+  PLAYER_CONTACT_TYPES,
   createEvaluation,
+  getContactTemplateAudiences,
   getEvaluations,
   getAvailableTeamsForUser,
   getDefaultFormFields,
@@ -57,6 +61,7 @@ import {
   formatParentContactEmails,
   formatParentContactNames,
   normalizeParentContacts,
+  normalizePlayerContactType,
   readViewCache,
   readViewCacheValue,
   updateEvaluation,
@@ -366,6 +371,7 @@ export function CreateEvaluationPage() {
             parentName: parentContacts[0]?.name || '',
             parentEmail: parentContacts[0]?.email || '',
             parentContacts,
+            contactType: normalizePlayerContactType(matchingPlayer.contactType),
             team: requestedTeam || matchingPlayer.team || current.team,
             section: requestedSection || matchingPlayer.section || current.section,
           }))
@@ -463,6 +469,7 @@ export function CreateEvaluationPage() {
               parentName: targetEvaluation.parentName,
               parentEmail: targetEvaluation.parentEmail,
             }),
+            contactType: normalizePlayerContactType(targetEvaluation.contactType),
           }),
         )
         setSelectedParentContactIndexes(
@@ -565,7 +572,7 @@ export function CreateEvaluationPage() {
       setIsLoadingEmailTemplates(true)
 
       try {
-        const nextTemplates = await getParentEmailTemplates({ user })
+        const nextTemplates = await getParentEmailTemplates({ user, audience: 'all' })
 
         if (isMounted) {
           setEmailTemplates(nextTemplates)
@@ -676,6 +683,27 @@ export function CreateEvaluationPage() {
   const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
   const canUsePdfExport = hasPlanFeature(user, 'pdfExport')
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
+  const normalizedContactType = normalizePlayerContactType(formData.contactType)
+  const contactAudiences = getContactTemplateAudiences(normalizedContactType)
+  const contactAudience = normalizedContactType === PLAYER_CONTACT_TYPES.self ? EMAIL_TEMPLATE_AUDIENCES.player : EMAIL_TEMPLATE_AUDIENCES.parent
+  const contactNoun =
+    normalizedContactType === PLAYER_CONTACT_TYPES.self
+      ? 'player'
+      : normalizedContactType === PLAYER_CONTACT_TYPES.both
+        ? 'parent and player'
+        : 'parent'
+  const contactNounPlural =
+    normalizedContactType === PLAYER_CONTACT_TYPES.self
+      ? 'player'
+      : normalizedContactType === PLAYER_CONTACT_TYPES.both
+        ? 'parents and player'
+        : 'parents'
+  const contactLabel =
+    normalizedContactType === PLAYER_CONTACT_TYPES.self
+      ? 'Player'
+      : normalizedContactType === PLAYER_CONTACT_TYPES.both
+        ? 'Contact'
+        : 'Parent'
   const selectedResponseItems = useMemo(
     () => getSelectedEvaluationResponses(responseItems, selectedExportLabels),
     [responseItems, selectedExportLabels],
@@ -693,8 +721,14 @@ export function CreateEvaluationPage() {
   const hasSavedExportSelection = Array.isArray(selectedExportLabels)
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
   const availableEmailTemplates = useMemo(
-    () => emailTemplates.filter((template) => template.key !== 'assessment' && template.isEnabled !== false),
-    [emailTemplates],
+    () =>
+      emailTemplates.filter(
+        (template) =>
+          normalizeEmailTemplateAudience(template.audience) === contactAudience &&
+          template.key !== 'assessment' &&
+          template.isEnabled !== false,
+      ),
+    [contactAudience, emailTemplates],
   )
   const selectedEmailTemplateKey = emailTemplateKey || availableEmailTemplates[0]?.key || ''
   const selectedEmailTemplate = availableEmailTemplates.find((template) => template.key === selectedEmailTemplateKey) ?? null
@@ -704,14 +738,20 @@ export function CreateEvaluationPage() {
       normalizeParentContacts(formData.parentContacts, {
         parentName: formData.parentName,
         parentEmail: formData.parentEmail,
+        contactType: normalizedContactType,
       }),
-    [formData.parentContacts, formData.parentEmail, formData.parentName],
+    [formData.parentContacts, formData.parentEmail, formData.parentName, normalizedContactType],
   )
   const selectedParentContacts = useMemo(() => {
     const selectedContacts = parentContacts.filter((_, index) => selectedParentContactIndexes.includes(index))
     return selectedContacts.length > 0 ? selectedContacts : parentContacts.slice(0, 1)
   }, [parentContacts, selectedParentContactIndexes])
-  const selectedParentName = formatParentContactNames(selectedParentContacts, formData.parentName)
+  const previewContactType = contactAudience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
+  const selectedPreviewContacts = selectedParentContacts.filter((contact) => contact.type === previewContactType)
+  const selectedParentName = formatParentContactNames(
+    selectedPreviewContacts.length > 0 ? selectedPreviewContacts : selectedParentContacts,
+    previewContactType === PLAYER_CONTACT_TYPES.self ? formData.playerName : formData.parentName,
+  )
   const selectedParentEmail = formatParentContactEmails(selectedParentContacts, formData.parentEmail)
   const previewSummary = useMemo(
     () =>
@@ -724,6 +764,7 @@ export function CreateEvaluationPage() {
   const parentEmailTemplate = useMemo(
     () => {
       const fields = {
+        recipientName: selectedParentName,
         parentName: selectedParentName,
         playerName: formData.playerName,
         coachName: formData.coachName,
@@ -801,6 +842,7 @@ export function CreateEvaluationPage() {
       parentName: parentContacts[0]?.name ?? '',
       parentEmail: parentContacts[0]?.email ?? '',
       parentContacts,
+      contactType: normalizedContactType,
       session: formData.session,
       date: new Date().toLocaleDateString(),
       scores,
@@ -818,6 +860,7 @@ export function CreateEvaluationPage() {
     editingEvaluation,
     formData,
     formResponses,
+    normalizedContactType,
     offlineDraftId,
     parentContacts,
     savedPlayers,
@@ -924,6 +967,7 @@ export function CreateEvaluationPage() {
         parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
         parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
         parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
+        contactType: matchingPlayer ? normalizePlayerContactType(matchingPlayer.contactType) : current.contactType,
         team: matchingPlayer?.team || current.team,
         section: matchingPlayer?.section || current.section,
       }))
@@ -944,6 +988,7 @@ export function CreateEvaluationPage() {
         parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
         parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
         parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
+        contactType: matchingPlayer ? normalizePlayerContactType(matchingPlayer.contactType) : current.contactType,
         section: matchingPlayer?.section || current.section,
       }))
       setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
@@ -969,6 +1014,7 @@ export function CreateEvaluationPage() {
       parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
       parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
       parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
+      contactType: matchingPlayer ? normalizePlayerContactType(matchingPlayer.contactType) : current.contactType,
       team: matchingPlayer?.team || current.team,
     }))
     setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
@@ -1033,7 +1079,7 @@ export function CreateEvaluationPage() {
       }
 
       if (mode === 'email' && !selectedEmailTemplate) {
-        throw new Error('Create a parent email template before exporting an email template PDF.')
+        throw new Error(`Create a ${contactNoun} email template before exporting an email template PDF.`)
       }
 
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
@@ -1133,32 +1179,70 @@ export function CreateEvaluationPage() {
             throw new Error(createFeatureUpgradeMessage('parentEmail'))
           }
 
-          if (!selectedEmailTemplate) {
-            throw new Error('Create a parent email template before sending an email.')
+          setIsSendingParentEmail(true)
+          const emailJobs = contactAudiences
+            .map((audience) => {
+              const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
+              const contacts = selectedParentContacts.filter((contact) => contact.type === contactType)
+              const recipientEmail = contacts.length > 0 ? formatParentContactEmails(contacts) : ''
+              const recipientName = contacts.length > 0 ? formatParentContactNames(contacts, contactType === PLAYER_CONTACT_TYPES.self ? formData.playerName : formData.parentName) : ''
+
+              if (!recipientEmail) {
+                return null
+              }
+
+              const template = emailTemplates.find(
+                (item) =>
+                  normalizeEmailTemplateAudience(item.audience) === audience &&
+                  item.key === selectedEmailTemplateKey &&
+                  item.isEnabled !== false,
+              )
+
+              if (!template) {
+                throw new Error(`Create a ${audience} email template before sending an email.`)
+              }
+
+              const renderedTemplate = renderParentEmailTemplate(template, {
+                recipientName,
+                parentName: recipientName,
+                playerName: normalizedPlayerName,
+                coachName: formData.coachName,
+                clubName: user?.clubName,
+                teamName: formData.team,
+                session: formData.session,
+                inviteDate,
+                summary: previewSummary,
+              })
+
+              return sendParentEmail({
+                parentEmail: recipientEmail,
+                parentName: recipientName,
+                senderEmail: user?.email,
+                displayName: user?.displayName || user?.display_name || user?.username || user?.name,
+                teamName: user?.team_name || user?.emailTeamName || formData.team,
+                clubName: user?.club_name || user?.emailClubName || user?.clubName,
+                planKey: user?.planKey,
+                logoUrl: user?.clubLogoUrl || null,
+                replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
+                clubContactEmail: user?.clubContactEmail,
+                playerName: normalizedPlayerName,
+                summary: previewSummary,
+                responses: selectedResponseItems,
+                subject: renderedTemplate.subject,
+                emailBody: renderedTemplate.body,
+                evaluationId: editingEvaluation?.id || evaluation.id,
+              })
+            })
+            .filter(Boolean)
+
+          if (emailJobs.length === 0) {
+            throw new Error(`Add a ${contactNoun} email before sending.`)
           }
 
-          setIsSendingParentEmail(true)
-          await sendParentEmail({
-            parentEmail: selectedParentEmail,
-            parentName: selectedParentName,
-            senderEmail: user?.email,
-            displayName: user?.displayName || user?.display_name || user?.username || user?.name,
-            teamName: user?.team_name || user?.emailTeamName || formData.team,
-            clubName: user?.club_name || user?.emailClubName || user?.clubName,
-            planKey: user?.planKey,
-            logoUrl: user?.clubLogoUrl || null,
-            replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
-            clubContactEmail: user?.clubContactEmail,
-            playerName: normalizedPlayerName,
-            summary: previewSummary,
-            responses: selectedResponseItems,
-            subject: parentEmailTemplate.subject,
-            emailBody: parentEmailTemplate.body,
-            evaluationId: editingEvaluation?.id || evaluation.id,
-          })
+          await Promise.all(emailJobs)
           showToast({ title: 'Email sent successfully' })
         } catch (emailError) {
-          console.error('Parent email failed', emailError)
+          console.error('Email failed', emailError)
           showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
         }
       }
@@ -1439,7 +1523,7 @@ export function CreateEvaluationPage() {
                   </label>
 
                   <div className="md:col-span-2">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent PDF Recipients</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{contactLabel} PDF Recipients</span>
                     {parentContacts.length > 0 ? (
                     <div className="grid gap-3 md:grid-cols-2">
                         {parentContacts.map((contact, index) => (
@@ -1454,7 +1538,7 @@ export function CreateEvaluationPage() {
                               className="h-4 w-4 accent-[var(--accent)]"
                             />
                             <span className="min-w-0">
-                              <span className="block font-semibold">{contact.name || 'Parent/Guardian'}</span>
+                              <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}</span>
                               <span className="block break-words text-xs text-[var(--text-muted)]">{contact.email || 'No email entered'}</span>
                             </span>
                           </label>
@@ -1463,7 +1547,9 @@ export function CreateEvaluationPage() {
                     ) : (
                       <div className="grid gap-4 md:grid-cols-2">
                         <label className="block">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Name</span>
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                            {contactLabel} Name
+                          </span>
                           <input
                             type="text"
                             name="parentName"
@@ -1473,7 +1559,9 @@ export function CreateEvaluationPage() {
                           />
                         </label>
                         <label className="block">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Email</span>
+                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                            {contactLabel} Email
+                          </span>
                           <input
                             type="email"
                             name="parentEmail"
@@ -1485,7 +1573,7 @@ export function CreateEvaluationPage() {
                       </div>
                     )}
                     <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                      Selected parents are used for parent email PDF templates.
+                      Selected {contactNounPlural} are used for {contactNoun} email PDF templates.
                     </p>
                   </div>
 
@@ -1657,7 +1745,11 @@ export function CreateEvaluationPage() {
                     ) : (
                       <NoticeBanner
                         title="Create an email template first"
-                        message={isLoadingEmailTemplates ? 'Loading parent email templates...' : 'Ask a manager to save a club parent email template before sending emails.'}
+                        message={
+                          isLoadingEmailTemplates
+                            ? `Loading ${contactNoun} email templates...`
+                            : `Ask a manager to save a club ${contactNoun} email template before sending emails.`
+                        }
                         tone="info"
                       />
                     )}
@@ -1686,7 +1778,7 @@ export function CreateEvaluationPage() {
                     <div>
                       <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
                       <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                        Choose what goes into the parent email and PDF. This choice is saved in this browser for this player.
+                        Choose what goes into the {contactNoun} email and PDF. This choice is saved in this browser for this player.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1792,7 +1884,7 @@ export function CreateEvaluationPage() {
             <div className="section">
               <SectionCard
                 title="Preview"
-                description="This preview updates live. Switch between the full scored report and the parent email template."
+                description={`This preview updates live. Switch between the full scored report and the ${contactNoun} email template.`}
               >
                 <EmailPreview
                   clubName={user?.clubName || 'Club Name'}

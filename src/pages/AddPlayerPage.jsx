@@ -8,9 +8,11 @@ import { useAuth } from '../lib/auth.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import {
   EVALUATION_SECTIONS,
+  PLAYER_CONTACT_TYPES,
   createPlayer,
   getAvailableTeamsForUser,
   getPlayers,
+  normalizePlayerContactType,
   readViewCache,
   readViewCacheValue,
   withRequestTimeout,
@@ -24,11 +26,68 @@ function createInitialPlayerForm() {
     team: '',
     positions: [],
     positionDraft: '',
+    contactType: PLAYER_CONTACT_TYPES.parent,
     parentContacts: [{ name: '', email: '' }],
   }
 }
 
 const RECENT_PLAYER_PAGE_SIZE = 8
+const CONTACT_TYPE_OPTIONS = [
+  {
+    value: PLAYER_CONTACT_TYPES.self,
+    label: 'Self',
+    description: 'Send player emails to the player directly.',
+  },
+  {
+    value: PLAYER_CONTACT_TYPES.parent,
+    label: 'Parent/Guardian',
+    description: 'Send parent emails to parent or guardian contacts.',
+  },
+  {
+    value: PLAYER_CONTACT_TYPES.both,
+    label: 'Both',
+    description: 'Send player emails to the player and parent emails to parents or guardians.',
+  },
+]
+
+function contactTypeAllowsSelf(contactType) {
+  return contactType === PLAYER_CONTACT_TYPES.self || contactType === PLAYER_CONTACT_TYPES.both
+}
+
+function contactTypeAllowsParents(contactType) {
+  return contactType === PLAYER_CONTACT_TYPES.parent || contactType === PLAYER_CONTACT_TYPES.both
+}
+
+function ensureContactsForType(contacts, contactType, playerName = '') {
+  const normalizedContactType = normalizePlayerContactType(contactType)
+  const nextContacts = Array.isArray(contacts)
+    ? contacts
+        .map((contact) => ({
+          name: String(contact?.name ?? '').trim(),
+          email: String(contact?.email ?? '').trim(),
+          type: String(contact?.type ?? '').trim().toLowerCase() === PLAYER_CONTACT_TYPES.self
+            ? PLAYER_CONTACT_TYPES.self
+            : PLAYER_CONTACT_TYPES.parent,
+        }))
+    : []
+  const filteredContacts = nextContacts.filter((contact) => {
+    if (contact.type === PLAYER_CONTACT_TYPES.self) {
+      return contactTypeAllowsSelf(normalizedContactType)
+    }
+
+    return contactTypeAllowsParents(normalizedContactType)
+  })
+
+  if (contactTypeAllowsSelf(normalizedContactType) && !filteredContacts.some((contact) => contact.type === PLAYER_CONTACT_TYPES.self)) {
+    filteredContacts.unshift({ name: playerName, email: '', type: PLAYER_CONTACT_TYPES.self })
+  }
+
+  if (contactTypeAllowsParents(normalizedContactType) && !filteredContacts.some((contact) => contact.type === PLAYER_CONTACT_TYPES.parent)) {
+    filteredContacts.push({ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent })
+  }
+
+  return filteredContacts.length > 0 ? filteredContacts : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
+}
 
 export function AddPlayerPage() {
   const { user } = useAuth()
@@ -125,45 +184,70 @@ export function AddPlayerPage() {
     setErrorMessage('')
     setPlayerForm((current) => ({
       ...current,
-      [name]: value,
-    }))
-  }
-
-  const handleParentContactChange = (index, fieldName, value) => {
-    setMessage('')
-    setErrorMessage('')
-    setPlayerForm((current) => ({
-      ...current,
-      parentContacts: current.parentContacts.map((contact, contactIndex) =>
-        contactIndex === index
-          ? {
-              ...contact,
-              [fieldName]: value,
-            }
-          : contact,
+      [name]: name === 'contactType' ? normalizePlayerContactType(value) : value,
+      parentContacts: ensureContactsForType(
+        current.parentContacts,
+        name === 'contactType' ? value : current.contactType,
+        name === 'playerName' ? value : current.playerName,
       ),
     }))
   }
 
-  const handleAddParentContact = () => {
+  const handleParentContactChange = (contactType, index, fieldName, value) => {
+    setMessage('')
+    setErrorMessage('')
+    setPlayerForm((current) => {
+      const contacts = ensureContactsForType(current.parentContacts, current.contactType, current.playerName)
+      let typedIndex = -1
+
+      return {
+        ...current,
+        parentContacts: contacts.map((contact) => {
+          if (contact.type !== contactType) {
+            return contact
+          }
+
+          typedIndex += 1
+          return typedIndex === index
+            ? {
+                ...contact,
+                [fieldName]: value,
+              }
+            : contact
+        }),
+      }
+    })
+  }
+
+  const handleAddParentContact = (contactType) => {
     setMessage('')
     setErrorMessage('')
     setPlayerForm((current) => ({
       ...current,
-      parentContacts: [...current.parentContacts, { name: '', email: '' }],
+      parentContacts: [...ensureContactsForType(current.parentContacts, current.contactType, current.playerName), { name: '', email: '', type: contactType }],
     }))
   }
 
-  const handleRemoveParentContact = (index) => {
+  const handleRemoveParentContact = (contactType, index) => {
     setMessage('')
     setErrorMessage('')
-    setPlayerForm((current) => ({
-      ...current,
-      parentContacts:
-        current.parentContacts.length > 1
-          ? current.parentContacts.filter((_, contactIndex) => contactIndex !== index)
-          : [{ name: '', email: '' }],
-    }))
+    setPlayerForm((current) => {
+      const contacts = ensureContactsForType(current.parentContacts, current.contactType, current.playerName)
+      let typedIndex = -1
+      const nextContacts = contacts.filter((contact) => {
+        if (contact.type !== contactType) {
+          return true
+        }
+
+        typedIndex += 1
+        return typedIndex !== index
+      })
+
+      return {
+        ...current,
+        parentContacts: ensureContactsForType(nextContacts, current.contactType, current.playerName),
+      }
+    })
   }
 
   const handleAddPosition = () => {
@@ -234,13 +318,43 @@ export function AddPlayerPage() {
   const paginatedRecentPlayers = getPaginatedItems(recentPlayers, recentPlayerPage, RECENT_PLAYER_PAGE_SIZE)
   const canAddMorePlayers = isWithinPlanLimit(user, 'players', players.length)
   const playerLimitMessage = createLimitUpgradeMessage(user, 'players', 'Players')
+  const normalizedContactType = normalizePlayerContactType(playerForm.contactType)
+  const contactGroups = [
+    ...(contactTypeAllowsSelf(normalizedContactType)
+      ? [
+          {
+            type: PLAYER_CONTACT_TYPES.self,
+            title: 'Player Contact',
+            description: 'Used for direct player emails and player PDF reports.',
+            addLabel: 'Add Player Contact',
+            removeLabel: 'Remove Player Contact',
+            nameLabel: 'Player Name',
+            emailLabel: 'Player Email',
+          },
+        ]
+      : []),
+    ...(contactTypeAllowsParents(normalizedContactType)
+      ? [
+          {
+            type: PLAYER_CONTACT_TYPES.parent,
+            title: 'Parent/Guardian Contacts',
+            description: 'Used for parent or guardian emails and PDF reports.',
+            addLabel: 'Add Parent',
+            removeLabel: 'Remove Parent',
+            nameLabel: 'Name',
+            emailLabel: 'Email',
+          },
+        ]
+      : []),
+  ]
+  const preparedContacts = ensureContactsForType(playerForm.parentContacts, normalizedContactType, playerForm.playerName)
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Add Player"
         title="Add player"
-        description="Create a Trial or Squad player record, assign the team, and add parent contact details."
+        description="Create a Trial or Squad player record, assign the team, and add the right contact details."
       />
 
       {errorMessage ? (
@@ -327,51 +441,93 @@ export function AddPlayerPage() {
               </button>
             </div>
 
-            <div className="md:col-span-2 xl:col-span-2">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="block text-sm font-semibold text-[var(--text-primary)]">Parent Contacts</span>
-                <button
-                  type="button"
-                  onClick={handleAddParentContact}
-                  className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                >
-                  Add Parent
-                </button>
-              </div>
-              <div className="space-y-3">
-                {playerForm.parentContacts.map((contact, index) => (
-                  <div key={index} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Name</span>
-                        <input
-                          type="text"
-                          value={contact.name}
-                          onChange={(event) => handleParentContactChange(index, 'name', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Email</span>
-                        <input
-                          type="email"
-                          value={contact.email}
-                          onChange={(event) => handleParentContactChange(index, 'email', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                      </label>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveParentContact(index)}
-                      className="mt-3 inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                    >
-                      Remove Parent
-                    </button>
-                  </div>
+            <div className="md:col-span-2 xl:col-span-4">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Primary Contact Type</span>
+              <div className="grid gap-3 md:grid-cols-3">
+                {CONTACT_TYPE_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className={`flex min-h-11 items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
+                      normalizedContactType === option.value
+                        ? 'border-[var(--accent)] bg-[var(--panel-soft)] text-[var(--text-primary)]'
+                        : 'border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-muted)]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="contactType"
+                      value={option.value}
+                      checked={normalizedContactType === option.value}
+                      onChange={handlePlayerFormChange}
+                      className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                    />
+                    <span>
+                      <span className="block font-semibold text-[var(--text-primary)]">{option.label}</span>
+                      <span className="mt-1 block text-xs leading-5">{option.description}</span>
+                    </span>
+                  </label>
                 ))}
               </div>
             </div>
+
+            {contactGroups.map((group) => {
+              const contacts = preparedContacts.filter((contact) => contact.type === group.type)
+
+              return (
+                <div key={group.type} className="md:col-span-2 xl:col-span-2">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="block text-sm font-semibold text-[var(--text-primary)]">{group.title}</span>
+                      <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{group.description}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAddParentContact(group.type)}
+                      className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                    >
+                      {group.addLabel}
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {contacts.map((contact, index) => (
+                      <div key={`${group.type}-${index}`} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="block">
+                            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                              {group.nameLabel}
+                            </span>
+                            <input
+                              type="text"
+                              value={contact.name}
+                              onChange={(event) => handleParentContactChange(group.type, index, 'name', event.target.value)}
+                              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                              {group.emailLabel}
+                            </span>
+                            <input
+                              type="email"
+                              value={contact.email}
+                              onChange={(event) => handleParentContactChange(group.type, index, 'email', event.target.value)}
+                              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                            />
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveParentContact(group.type, index)}
+                          className="mt-3 inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                        >
+                          {group.removeLabel}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
 
             <div className="md:col-span-2 xl:col-span-4">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>

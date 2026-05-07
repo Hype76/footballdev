@@ -10,6 +10,7 @@ export function createInitialFormData(user, defaults = {}) {
     parentName: '',
     parentEmail: '',
     parentContacts: [],
+    contactType: 'parent',
     ...defaults,
   }
 }

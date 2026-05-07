@@ -102,6 +102,7 @@ export function getEditableParentContacts(player) {
 export function createPlayerDraft(player) {
   return {
     ...player,
+    contactType: player?.contactType || 'parent',
     parentContacts: getEditableParentContacts(player),
   }
 }

@@ -42,7 +42,13 @@ export const PARENT_EMAIL_TEMPLATES = [
 
 export const ASSESSMENT_EMAIL_TEMPLATE = { key: 'assessment', label: 'Send Assessment' }
 
+export const EMAIL_TEMPLATE_AUDIENCES = {
+  parent: 'parent',
+  player: 'player',
+}
+
 export const EMAIL_TEMPLATE_FIELDS = [
+  { key: 'recipientName', label: 'Recipient name' },
   { key: 'parentName', label: 'Parent name' },
   { key: 'playerName', label: 'Player name' },
   { key: 'coachName', label: 'Coach name' },
@@ -136,12 +142,115 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   },
 ]
 
+export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
+  {
+    key: 'decline',
+    label: 'No Place Offered',
+    subject: 'Player Trial Feedback for {playerName}',
+    body: [
+      'Dear {playerName},',
+      '',
+      'Thank you so much for coming along to {session}. We really enjoyed having you involved.',
+      '',
+      'Unfortunately, on this occasion we will not be offering you a place in the squad. We had a very strong group trialling, which made it a tough decision.',
+      '',
+      'We want to say how much we appreciated your effort throughout, and we wish you all the very best for the upcoming season and your continued football journey.',
+      '',
+      'Thanks again for your time.',
+      'Kind regards,',
+      '{coachName}',
+      '{teamName}',
+    ].join('\n'),
+  },
+  {
+    key: 'progress',
+    label: 'Invite Back',
+    subject: 'Follow-up Trial Invitation for {playerName}',
+    body: [
+      'Dear {playerName},',
+      '',
+      'Thank you for attending {session}. It was great to see you in action.',
+      '',
+      'We saw some really positive things and would love to invite you back for another session so we can take a further look.',
+      '',
+      'We would also like to invite you to take part in a friendly match with us on {inviteDate}. This will give us a chance to see you in a match environment.',
+      '',
+      'Please let us know if you are available to attend both the session and the match.',
+      '',
+      'Kind regards,',
+      '{coachName}',
+      '{teamName}',
+    ].join('\n'),
+  },
+  {
+    key: 'offer',
+    label: 'Offer Place',
+    subject: 'Squad Offer for {playerName}',
+    body: [
+      'Dear {playerName},',
+      '',
+      'Thank you for attending {session}.',
+      'We were really impressed with you and are delighted to offer you a place in our squad for the upcoming season.',
+      '',
+      'We would also like to invite you to join us for a friendly match on {inviteDate}. This will be a great opportunity to meet the team and get involved.',
+      '',
+      'Please let us know if you would like to accept the place, and we will send over full details for next steps, training, and the season ahead.',
+      '',
+      'Kind regards,',
+      '{coachName}',
+      '{teamName}',
+    ].join('\n'),
+  },
+  {
+    key: 'assessment',
+    label: 'Send Assessment',
+    subject: 'Player Feedback for {playerName}',
+    body: [
+      'Dear {playerName},',
+      '',
+      'Please find your latest feedback report.',
+      '',
+      '{summary}',
+      '',
+      'The assessment details are included below and attached as a PDF for your records.',
+      '',
+      'If you have any questions, please reply to this email.',
+      '',
+      'Kind regards,',
+      '{coachName}',
+      '{teamName}',
+    ].join('\n'),
+  },
+]
+
+export function normalizeEmailTemplateAudience(value) {
+  return String(value ?? '').trim().toLowerCase() === EMAIL_TEMPLATE_AUDIENCES.player
+    ? EMAIL_TEMPLATE_AUDIENCES.player
+    : EMAIL_TEMPLATE_AUDIENCES.parent
+}
+
 export function getDefaultParentEmailTemplates() {
   return DEFAULT_PARENT_EMAIL_TEMPLATES.map((template, index) => ({
     ...template,
+    audience: EMAIL_TEMPLATE_AUDIENCES.parent,
     orderIndex: index + 1,
     isEnabled: true,
   }))
+}
+
+export function getDefaultPlayerEmailTemplates() {
+  return DEFAULT_PLAYER_EMAIL_TEMPLATES.map((template, index) => ({
+    ...template,
+    audience: EMAIL_TEMPLATE_AUDIENCES.player,
+    orderIndex: index + 1,
+    isEnabled: true,
+  }))
+}
+
+export function getDefaultEmailTemplates(audience = EMAIL_TEMPLATE_AUDIENCES.parent) {
+  return normalizeEmailTemplateAudience(audience) === EMAIL_TEMPLATE_AUDIENCES.player
+    ? getDefaultPlayerEmailTemplates()
+    : getDefaultParentEmailTemplates()
 }
 
 export function isInviteEmailTemplate(templateKey) {
@@ -221,6 +330,7 @@ export function renderParentEmailTemplate(template, fields = {}) {
 
   return {
     key: template.key,
+    audience: normalizeEmailTemplateAudience(template.audience),
     label: template.label || getParentEmailTemplateLabel(template.key),
     subject: renderTemplateText(template.subject, fields),
     body: renderTemplateText(template.body, fields),

@@ -7,11 +7,21 @@ import {
 } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
 import { createFeatureUpgradeMessage, createLimitUpgradeMessage, getPlanLimit, hasPlanFeature } from '../plans.js'
-import { getDefaultParentEmailTemplates, validateParentEmailTemplateContent } from '../email-templates.js'
+import {
+  EMAIL_TEMPLATE_AUDIENCES,
+  getDefaultEmailTemplates,
+  normalizeEmailTemplateAudience,
+  validateParentEmailTemplateContent,
+} from '../email-templates.js'
 export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from '../supabase-client.js'
 const VIEW_CACHE_PREFIX = 'view-cache:'
 const MEMORY_CACHE_TTL_MS = 30 * 1000
 const DEMO_MUTATION_ERROR_MESSAGE = 'Demo accounts cannot save changes.'
+export const PLAYER_CONTACT_TYPES = {
+  parent: 'parent',
+  self: 'self',
+  both: 'both',
+}
 const memoryCache = new Map()
 const inFlightMemoryRequests = new Map()
 const USER_PROFILE_SELECT = [
@@ -691,6 +701,7 @@ function normalizeEvaluationRow(row) {
     parentName: String(row.parent_name ?? row.parentName ?? '').trim(),
     parentEmail: String(row.parent_email ?? row.parentEmail ?? '').trim(),
     parentContacts,
+    contactType: normalizePlayerContactType(row.contact_type ?? row.contactType ?? (row.is_adult || row.isAdult ? 'self' : 'parent')),
     session: String(row.session ?? '').trim(),
     date:
       String(row.date ?? '').trim() ||
@@ -737,6 +748,7 @@ function mapEvaluationToRow(data) {
     parent_name: primaryParent.name,
     parent_email: primaryParent.email,
     parent_contacts: parentContacts,
+    contact_type: normalizePlayerContactType(data.contactType ?? data.contact_type ?? (data.isAdult || data.is_adult ? 'self' : 'parent')),
     session: data.session,
     date: data.date,
     scores: data.scores,
@@ -769,6 +781,7 @@ function normalizePlayerRow(row) {
     section: String(row.section ?? 'Trial').trim() || 'Trial',
     team: String(row.team ?? '').trim(),
     positions,
+    contactType: normalizePlayerContactType(row.contact_type ?? row.contactType ?? (row.is_adult || row.isAdult ? 'self' : 'parent')),
     parentName: parentContacts[0]?.name ?? '',
     parentEmail: parentContacts[0]?.email ?? '',
     parentContacts,
@@ -898,11 +911,15 @@ function normalizePlayerStaffNoteRow(row) {
 }
 
 export function normalizeParentContacts(parentContacts, fallback = {}) {
+  const fallbackType = normalizePlayerContactType(fallback.contactType) === PLAYER_CONTACT_TYPES.self ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
   const contacts = Array.isArray(parentContacts) ? parentContacts : []
   const normalizedContacts = contacts
     .map((contact) => ({
       name: String(contact?.name ?? contact?.parentName ?? '').trim(),
       email: String(contact?.email ?? contact?.parentEmail ?? '').trim(),
+      type: String(contact?.type ?? contact?.contactType ?? '').trim().toLowerCase() === PLAYER_CONTACT_TYPES.self
+        ? PLAYER_CONTACT_TYPES.self
+        : PLAYER_CONTACT_TYPES.parent,
     }))
     .filter((contact) => contact.name || contact.email)
 
@@ -918,9 +935,30 @@ export function normalizeParentContacts(parentContacts, fallback = {}) {
         {
           name: fallbackName,
           email: fallbackEmail,
+          type: fallbackType,
         },
       ]
     : []
+}
+
+export function normalizePlayerContactType(value) {
+  const normalizedValue = String(value ?? '').trim().toLowerCase()
+
+  return Object.values(PLAYER_CONTACT_TYPES).includes(normalizedValue) ? normalizedValue : PLAYER_CONTACT_TYPES.parent
+}
+
+export function getContactTemplateAudiences(contactType) {
+  const normalizedContactType = normalizePlayerContactType(contactType)
+
+  if (normalizedContactType === PLAYER_CONTACT_TYPES.self) {
+    return ['player']
+  }
+
+  if (normalizedContactType === PLAYER_CONTACT_TYPES.both) {
+    return ['parent', 'player']
+  }
+
+  return ['parent']
 }
 
 export function formatParentContactNames(parentContacts, fallbackName = '') {
@@ -1003,6 +1041,7 @@ function mapPlayerToRow(player, user) {
     section: EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Trial',
     team: String(player.team ?? '').trim(),
     positions,
+    contact_type: normalizePlayerContactType(player.contactType ?? player.contact_type ?? (player.isAdult || player.is_adult ? 'self' : 'parent')),
     parent_name: primaryParent.name,
     parent_email: primaryParent.email,
     parent_contacts: parentContacts,
@@ -3401,6 +3440,7 @@ function normalizeParentEmailTemplateRow(row) {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
     key: String(row.template_key ?? row.key ?? '').trim(),
+    audience: normalizeEmailTemplateAudience(row.audience),
     label: String(row.label ?? '').trim(),
     subject: String(row.subject ?? '').trim(),
     body: String(row.body ?? '').trim(),
@@ -3413,6 +3453,7 @@ function normalizeParentEmailTemplateRow(row) {
 
 function normalizeParentEmailTemplatePayload({ user, template }) {
   const templateKey = String(template?.key ?? template?.templateKey ?? '').trim().toLowerCase()
+  const audience = normalizeEmailTemplateAudience(template?.audience)
   const label = String(template?.label ?? '').trim()
   const subject = String(template?.subject ?? '').trim()
   const body = String(template?.body ?? '').trim()
@@ -3438,6 +3479,7 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
   return {
     club_id: user.clubId,
     template_key: templateKey,
+    audience,
     label,
     subject,
     body,
@@ -3448,14 +3490,16 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
   }
 }
 
-export function getDefaultClubParentEmailTemplates() {
-  return getDefaultParentEmailTemplates()
+export function getDefaultClubParentEmailTemplates(audience = EMAIL_TEMPLATE_AUDIENCES.parent) {
+  return getDefaultEmailTemplates(audience)
 }
 
-export async function getParentEmailTemplates({ user, includeDisabled = false } = {}) {
+export async function getParentEmailTemplates({ user, includeDisabled = false, audience = EMAIL_TEMPLATE_AUDIENCES.parent } = {}) {
   if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
     return []
   }
+
+  const normalizedAudience = String(audience ?? '').trim().toLowerCase()
 
   let query = supabase
     .from('parent_email_templates')
@@ -3466,6 +3510,10 @@ export async function getParentEmailTemplates({ user, includeDisabled = false } 
 
   if (!includeDisabled) {
     query = query.eq('is_enabled', true)
+  }
+
+  if (normalizedAudience !== 'all') {
+    query = query.eq('audience', normalizeEmailTemplateAudience(audience))
   }
 
   const { data, error } = await query
@@ -3504,7 +3552,7 @@ export async function upsertParentEmailTemplate({ user, template }) {
   const { data, error } = await supabase
     .from('parent_email_templates')
     .upsert(payload, {
-      onConflict: 'club_id,template_key',
+      onConflict: 'club_id,audience,template_key',
     })
     .select('*')
     .single()

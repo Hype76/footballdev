@@ -9,8 +9,10 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
+  EMAIL_TEMPLATE_AUDIENCES,
   getEmailTemplateKey,
   isInviteEmailTemplate,
+  normalizeEmailTemplateAudience,
   renderParentEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
@@ -32,6 +34,7 @@ import {
 } from '../hooks/players/playerProfileUtils.js'
 import {
   EVALUATION_SECTIONS,
+  PLAYER_CONTACT_TYPES,
   archivePlayer,
   createCommunicationLog,
   createPlayerStaffNote,
@@ -41,10 +44,12 @@ import {
   getPlayerCommunicationLogs,
   getPlayerStaffNotes,
   getParentEmailTemplates,
+  getContactTemplateAudiences,
   getPlayers,
   formatParentContactEmails,
   formatParentContactNames,
   normalizeParentContacts,
+  normalizePlayerContactType,
   clearViewCaches,
   promotePlayerToSquad,
   readViewCache,
@@ -289,7 +294,7 @@ export function PlayerProfile() {
       }
 
       try {
-        const nextTemplates = await getParentEmailTemplates({ user })
+        const nextTemplates = await getParentEmailTemplates({ user, audience: 'all' })
 
         if (isMounted) {
           setEmailTemplates(nextTemplates)
@@ -334,9 +339,13 @@ export function PlayerProfile() {
     String(lastSection ?? '').toLowerCase() === 'squad'
   const profileParentName = primaryPlayer?.parentName || evaluations.find((evaluation) => evaluation.parentName)?.parentName || ''
   const profileParentEmail = primaryPlayer?.parentEmail || evaluations.find((evaluation) => evaluation.parentEmail)?.parentEmail || ''
+  const profileContactType = normalizePlayerContactType(
+    primaryPlayer?.contactType || evaluations.find((evaluation) => evaluation.contactType)?.contactType,
+  )
   const profileParentContacts = normalizeParentContacts(primaryPlayer?.parentContacts, {
     parentName: profileParentName,
     parentEmail: profileParentEmail,
+    contactType: profileContactType,
   })
   const reassignPlayerOptions = useMemo(
     () =>
@@ -377,11 +386,11 @@ export function PlayerProfile() {
       },
       {
         key: 'parents',
-        label: 'Parent details',
+        label: 'Contact details',
         preview: (evaluation) =>
           formatParentContactNames(evaluation?.parentContacts, evaluation?.parentName) ||
           formatParentContactEmails(evaluation?.parentContacts, evaluation?.parentEmail) ||
-          'No parent details entered',
+          'No contact details entered',
       },
       {
         key: 'session',
@@ -442,12 +451,19 @@ export function PlayerProfile() {
   )
 
   const activeEmailTemplates = emailTemplates.filter((template) => template.isEnabled !== false)
-  const getAvailableEmailTemplates = () =>
-    isSquadPlayer
-      ? activeEmailTemplates.filter((template) => template.key === 'assessment')
-      : activeEmailTemplates.filter((template) => template.key !== 'assessment')
-  const getSelectedEmailTemplate = (evaluation) => {
-    const availableTemplates = getAvailableEmailTemplates(evaluation)
+  const getEvaluationContactType = (evaluation) => normalizePlayerContactType(evaluation.contactType || profileContactType)
+  const getEmailPreviewAudience = (evaluation) =>
+    getEvaluationContactType(evaluation) === PLAYER_CONTACT_TYPES.self ? EMAIL_TEMPLATE_AUDIENCES.player : EMAIL_TEMPLATE_AUDIENCES.parent
+  const getAvailableEmailTemplates = (evaluation, audience = getEmailPreviewAudience(evaluation)) =>
+    activeEmailTemplates.filter((template) => {
+      if (normalizeEmailTemplateAudience(template.audience) !== audience) {
+        return false
+      }
+
+      return isSquadPlayer ? template.key === 'assessment' : template.key !== 'assessment'
+    })
+  const getSelectedEmailTemplate = (evaluation, audience = getEmailPreviewAudience(evaluation)) => {
+    const availableTemplates = getAvailableEmailTemplates(evaluation, audience)
     const selectedKey = selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
     return availableTemplates.find((template) => template.key === selectedKey) ?? availableTemplates[0] ?? null
   }
@@ -457,6 +473,7 @@ export function PlayerProfile() {
     normalizeParentContacts(evaluation.parentContacts?.length ? evaluation.parentContacts : profileParentContacts, {
       parentName: evaluation.parentName || profileParentName,
       parentEmail: evaluation.parentEmail || profileParentEmail,
+      contactType: getEvaluationContactType(evaluation),
     })
   const getSelectedEvaluationParentContacts = (evaluation) => {
     const contacts = getEvaluationParentContacts(evaluation)
@@ -477,55 +494,81 @@ export function PlayerProfile() {
 
   const buildParentEmailPayload = (evaluation) => {
     const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
-    const recipientEmails = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
-    const recipientNames = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
-    const selectedTemplate = getSelectedEmailTemplate(evaluation)
-
-    if (!selectedTemplate) {
-      throw new Error('Create a parent email template before sending an email.')
-    }
-
-    const templateKey = selectedTemplate.key
+    const selectedKey = selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
     const inviteDate = getSelectedInviteDate(evaluation)
-    const emailTemplate = renderParentEmailTemplate(selectedTemplate, {
-      parentName: recipientNames,
-      playerName: routePlayerName,
-      coachName: evaluation.coach,
-      clubName: user?.clubName,
-      teamName: evaluation.team,
-      session: evaluation.session,
-      inviteDate,
-      summary: buildEvaluationSummary(evaluation, 'email'),
-      templateKey,
-    })
     const responses = getSelectedExportResponseItems(evaluation)
+    const payloads = getContactTemplateAudiences(getEvaluationContactType(evaluation))
+      .map((audience) => {
+        const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
+        const contacts = selectedContacts.filter((contact) => contact.type === contactType)
+        const recipientEmails = contacts.length > 0 ? formatParentContactEmails(contacts) : ''
+        const recipientNames = contacts.length > 0
+          ? formatParentContactNames(contacts, contactType === PLAYER_CONTACT_TYPES.self ? routePlayerName : evaluation.parentName || profileParentName)
+          : ''
+
+        if (!recipientEmails) {
+          return null
+        }
+
+        const selectedTemplate = getSelectedEmailTemplate(evaluation, audience)
+
+        if (!selectedTemplate) {
+          throw new Error(`Create a ${audience} email template before sending an email.`)
+        }
+
+        const emailTemplate = renderParentEmailTemplate(selectedTemplate, {
+          recipientName: recipientNames,
+          parentName: recipientNames,
+          playerName: routePlayerName,
+          coachName: evaluation.coach,
+          clubName: user?.clubName,
+          teamName: evaluation.team,
+          session: evaluation.session,
+          inviteDate,
+          summary: buildEvaluationSummary(evaluation, 'email'),
+          templateKey: selectedTemplate.key,
+        })
+
+        return {
+          audience,
+          recipientEmails,
+          recipientNames,
+          templateName: selectedTemplate.label,
+          payload: {
+            parentEmail: recipientEmails,
+            parentName: recipientNames,
+            senderEmail: user?.email,
+            displayName: user?.displayName || user?.username || user?.name,
+            team: user?.emailTeamName || evaluation.team,
+            club: user?.emailClubName || user?.clubName,
+            planKey: user?.planKey,
+            logoUrl: user?.clubLogoUrl || null,
+            replyToEmail: user?.replyToEmail || user?.clubContactEmail,
+            clubContactEmail: user?.clubContactEmail,
+            playerName: routePlayerName,
+            summary: buildEvaluationSummary(evaluation, 'email'),
+            responses,
+            subject: emailTemplate.subject,
+            emailBody: emailTemplate.body,
+            evaluationId: evaluation.id,
+          },
+        }
+      })
+      .filter(Boolean)
+
+    if (payloads.length === 0) {
+      throw new Error('Add an email contact before sending.')
+    }
 
     return {
       evaluation,
       inviteDate,
-      recipientEmails,
-      recipientNames,
+      recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
+      recipientNames: payloads.map((item) => item.recipientNames).join(', '),
       responses,
-      templateKey,
-      templateName: selectedTemplate.label,
-      payload: {
-        parentEmail: recipientEmails,
-        parentName: recipientNames,
-        senderEmail: user?.email,
-        displayName: user?.displayName || user?.username || user?.name,
-        team: user?.emailTeamName || evaluation.team,
-        club: user?.emailClubName || user?.clubName,
-        planKey: user?.planKey,
-        logoUrl: user?.clubLogoUrl || null,
-        replyToEmail: user?.replyToEmail || user?.clubContactEmail,
-        clubContactEmail: user?.clubContactEmail,
-        playerName: routePlayerName,
-        summary: buildEvaluationSummary(evaluation, 'email'),
-        responses,
-        subject: emailTemplate.subject,
-        emailBody: emailTemplate.body,
-        evaluationId: evaluation.id,
-      },
+      templateKey: selectedKey,
+      templateName: payloads.map((item) => item.templateName).join(', '),
+      payloads,
     }
   }
 
@@ -578,11 +621,18 @@ export function PlayerProfile() {
       const selectedResponseItems = getSelectedExportResponseItems(evaluation)
       const summary = buildEvaluationSummary(evaluation, mode)
       const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
-      const recipientNames = formatParentContactNames(selectedContacts, evaluation.parentName || profileParentName)
+      const previewAudience = getEmailPreviewAudience(evaluation)
+      const previewContactType = previewAudience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
+      const previewContacts = selectedContacts.filter((contact) => contact.type === previewContactType)
+      const recipientNames = formatParentContactNames(
+        previewContacts.length > 0 ? previewContacts : selectedContacts,
+        previewContactType === PLAYER_CONTACT_TYPES.self ? routePlayerName : evaluation.parentName || profileParentName,
+      )
       const recipientEmails = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
       const selectedTemplate = getSelectedEmailTemplate(evaluation)
       const emailTemplate = mode === 'email' && selectedTemplate
         ? renderParentEmailTemplate(selectedTemplate, {
+            recipientName: recipientNames,
             parentName: recipientNames,
             playerName: routePlayerName,
             coachName: evaluation.coach,
@@ -595,7 +645,7 @@ export function PlayerProfile() {
         : { subject: '', body: '' }
 
       if (mode === 'email' && !selectedTemplate) {
-        throw new Error('Create a parent email template before exporting an email template PDF.')
+        throw new Error('Create an email template before exporting an email template PDF.')
       }
 
       await exportEvaluationPdf({
@@ -666,7 +716,7 @@ export function PlayerProfile() {
       const emailDetails = buildParentEmailPayload(evaluation)
 
       if (!emailDetails.recipientEmails) {
-        setErrorMessage('Add a parent email before sending.')
+        setErrorMessage('Add an email contact before sending.')
         return
       }
 
@@ -682,12 +732,12 @@ export function PlayerProfile() {
       return
     }
 
-    const { evaluation, payload, recipientEmails } = emailConfirmTarget
+    const { evaluation, payloads, recipientEmails } = emailConfirmTarget
     setEmailSendingId(evaluation.id)
     setErrorMessage('')
 
     try {
-      await sendParentEmail(payload)
+      await Promise.all(payloads.map((item) => sendParentEmail(item.payload)))
       showToast({ title: 'Email sent successfully' })
 
       void createCommunicationLog({
@@ -1370,12 +1420,24 @@ export function PlayerProfile() {
                           className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
+                      <label className="block md:col-span-2 xl:col-span-3">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Primary Contact Type</span>
+                        <select
+                          value={normalizePlayerContactType(draft.contactType)}
+                          onChange={(event) => handlePlayerDraftChange(player.id, 'contactType', normalizePlayerContactType(event.target.value))}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        >
+                          <option value={PLAYER_CONTACT_TYPES.self}>Self</option>
+                          <option value={PLAYER_CONTACT_TYPES.parent}>Parent/Guardian</option>
+                          <option value={PLAYER_CONTACT_TYPES.both}>Both</option>
+                        </select>
+                      </label>
                       <div className="md:col-span-2 xl:col-span-3">
                         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <span className="block text-sm font-semibold text-[var(--text-primary)]">Parent Contacts</span>
+                            <span className="block text-sm font-semibold text-[var(--text-primary)]">Contacts</span>
                             <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-                              Add multiple parents or guardians. Each contact can have a separate name and email.
+                              Add the contacts used for player, parent, or combined communication.
                             </p>
                           </div>
                           <button
@@ -1383,18 +1445,18 @@ export function PlayerProfile() {
                             onClick={() => handleAddParentContact(player.id)}
                             className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                           >
-                            Add Another Parent
+                            Add Another Contact
                           </button>
                         </div>
                         <div className="grid gap-3 md:grid-cols-2">
                           {getEditableParentContacts(draft).map((contact, index) => (
                             <div key={index} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
                               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                                Parent {index + 1}
+                                Contact {index + 1}
                               </p>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="block">
-                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Name</span>
+                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Name</span>
                                   <input
                                     value={contact.name}
                                     onChange={(event) => handleParentContactDraftChange(player.id, index, 'name', event.target.value)}
@@ -1402,7 +1464,7 @@ export function PlayerProfile() {
                                   />
                                 </label>
                                 <label className="block">
-                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Parent Email</span>
+                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Email</span>
                                   <input
                                     type="email"
                                     value={contact.email}
@@ -1416,7 +1478,7 @@ export function PlayerProfile() {
                                 onClick={() => handleRemoveParentContact(player.id, index)}
                                 className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                               >
-                                Remove Parent
+                                Remove Contact
                               </button>
                             </div>
                           ))}
@@ -1487,7 +1549,7 @@ export function PlayerProfile() {
                           <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.team || 'No team entered'}</p>
                         </div>
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Parents</p>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Contacts</p>
                           <div className="mt-2 space-y-1">
                             {normalizeParentContacts(player.parentContacts, {
                               parentName: player.parentName,
@@ -1498,11 +1560,11 @@ export function PlayerProfile() {
                                 parentEmail: player.parentEmail,
                               }).map((contact, index) => (
                                 <p key={index} className="break-words text-sm font-semibold text-[var(--text-primary)]">
-                                  {contact.name || 'Parent/Guardian'}{contact.email ? ` | ${contact.email}` : ''}
+                                  {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}{contact.email ? ` | ${contact.email}` : ''}
                                 </p>
                               ))
                             ) : (
-                              <p className="text-sm font-semibold text-[var(--text-primary)]">No parent details entered</p>
+                              <p className="text-sm font-semibold text-[var(--text-primary)]">No contact details entered</p>
                             )}
                           </div>
                         </div>
@@ -1895,7 +1957,7 @@ export function PlayerProfile() {
                       </label>
                     ) : (
                       <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
-                        Create a club parent email template before sending emails.
+                        Create a club email template before sending emails.
                       </div>
                     )}
                     {shouldShowInviteDate ? (
@@ -2044,10 +2106,10 @@ export function PlayerProfile() {
                         type="button"
                         onClick={() => void handleSendParentEmail(evaluation)}
                         disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
-                        title="Send parent email"
+                        title="Send email"
                         className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
+                        {emailSendingId === evaluation.id ? 'Sending...' : 'Send Email'}
                       </button>
                     ) : null}
                     {canEditEvaluation(user, evaluation) ? (
@@ -2200,16 +2262,16 @@ export function PlayerProfile() {
       <ConfirmModal
         isOpen={Boolean(emailConfirmTarget)}
         isBusy={Boolean(emailConfirmTarget?.evaluation && emailSendingId === emailConfirmTarget.evaluation.id)}
-        title="Email parents"
-        message="Check the parent email details before sending."
+        title="Send email"
+        message="Check the email details before sending."
         itemsTitle="This will send:"
         items={[
           `Player: ${routePlayerName}`,
           `Recipients: ${emailConfirmTarget?.recipientEmails || 'No recipients selected'}`,
-          `Template: ${emailConfirmTarget?.templateName || 'Parent email'}`,
-          `Subject: ${emailConfirmTarget?.payload?.subject || 'Player Feedback Report'}`,
-          `Team: ${emailConfirmTarget?.payload?.team || 'No team entered'}`,
-          `Club: ${emailConfirmTarget?.payload?.club || 'No club entered'}`,
+          `Template: ${emailConfirmTarget?.templateName || 'Email template'}`,
+          `Subject: ${emailConfirmTarget?.payloads?.[0]?.payload?.subject || 'Player Feedback Report'}`,
+          `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
+          `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
           `PDF attachment: Yes`,
           `Evaluation fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
