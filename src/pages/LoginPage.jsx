@@ -404,7 +404,7 @@ export function LoginPage() {
             </div>
             <div className="min-w-0">
               <p className="truncate text-lg font-black tracking-tight sm:text-xl">Player Feedback</p>
-              <p className="truncate text-xs text-slate-400 sm:text-sm">Football trial and player feedback software</p>
+              <p className="truncate text-xs text-slate-400 sm:text-sm">Club operations and player feedback software</p>
             </div>
           </div>
           <div className="hidden items-center gap-2 rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-2 text-xs font-semibold text-[#d8ff2f] sm:flex">
@@ -420,34 +420,37 @@ export function LoginPage() {
         <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[1.08fr_0.92fr] lg:py-10">
           <section className="order-2 lg:order-1">
             <div className="inline-flex rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">
-              Built for football clubs
+              Football club operations
             </div>
 
-            <h1 className="mt-6 max-w-2xl space-y-4 text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl xl:text-6xl">
-              <span className="flex items-start gap-4">
-                <span className="shrink-0 text-[0.9em] leading-none text-[#d8ff2f]">{"\u2713"}</span>
-                <span>Run trials properly.</span>
-              </span>
-              <span className="flex items-start gap-4">
-                <span className="shrink-0 text-[0.9em] leading-none text-[#d8ff2f]">{"\u2713"}</span>
-                <span>Track players clearly.</span>
-              </span>
-              <span className="flex items-start gap-4">
-                <span className="shrink-0 text-[0.9em] leading-none text-[#d8ff2f]">{"\u2713"}</span>
-                <span>Send feedback faster.</span>
-              </span>
+            <h1 className="mt-6 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl xl:text-6xl">
+              Player feedback and club management software for grassroots football.
             </h1>
 
             <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-              Player Feedback gives clubs one workspace for sessions, trialists, squad players, custom assessment
-              forms, parent ready PDFs, staff roles, and activity history.
+              Assess players, manage trials, organise sessions, and send professional feedback to parents from one simple club workspace.
             </p>
+
+            <div className="mt-7 max-w-2xl space-y-4 text-2xl font-black leading-tight tracking-tight sm:text-3xl">
+              <span className="flex items-start gap-4">
+                <span className="shrink-0 text-[#d8ff2f]">{"\u2713"}</span>
+                <span>Run trials with clear notes and decisions.</span>
+              </span>
+              <span className="flex items-start gap-4">
+                <span className="shrink-0 text-[#d8ff2f]">{"\u2713"}</span>
+                <span>Keep trial and squad records organised.</span>
+              </span>
+              <span className="flex items-start gap-4">
+                <span className="shrink-0 text-[#d8ff2f]">{"\u2713"}</span>
+                <span>Give parents feedback they can understand.</span>
+              </span>
+            </div>
 
             <div className="mt-8 grid max-w-3xl gap-3 sm:grid-cols-3">
               {[
-                ['Sessions', 'Create match or training sessions and assess players from one queue.'],
-                ['Players', 'Keep trial and squad histories separate, searchable, and easy to update.'],
-                ['Feedback', 'Export scored reports or parent friendly email template PDFs.'],
+                ['Trials', 'Build trial lists, record coach ratings, and keep decisions in one place.'],
+                ['Players', 'Store player history, parent contacts, positions, and squad status clearly.'],
+                ['Parents', 'Create clean reports and email templates without rewriting notes every time.'],
               ].map(([title, copy]) => (
                 <div key={title} className="rounded-[24px] border border-white/10 bg-white/[0.05] p-4 backdrop-blur">
                   <p className="text-sm font-bold text-white">{title}</p>
@@ -458,15 +461,15 @@ export function LoginPage() {
 
             <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
               <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-5">
-                <p className="text-3xl font-black">Controlled</p>
+                <p className="text-3xl font-black">Role based</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Staff see the teams, players, and tools their role allows.
+                  Coaches, managers, and club admins only see the teams and tools they need.
                 </p>
               </div>
               <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-5">
                 <p className="text-3xl font-black">Club branded</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Club logos are used inside the app and on exported feedback.
+                  Use your club logo inside the app and on parent-facing feedback.
                 </p>
               </div>
             </div>
@@ -613,7 +616,73 @@ export function LoginPage() {
           </section>
         </div>
 
-        <section className="pb-8">
+        <section className="space-y-5 pb-8">
+          <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Why it exists</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Better feedback for players. Less admin for coaches.</h2>
+            <p className="mt-4 max-w-4xl text-base leading-8 text-slate-300">
+              Grassroots clubs work hard to give players a fair chance, but trial notes, parent messages, emails, and paper forms can quickly become messy. Player Feedback helps clubs keep development records organised, communicate properly with parents, and save coaches time after every session.
+            </p>
+          </div>
+
+          <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">What you can do</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">One place for the daily work of running football teams.</h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {[
+                ['Create player assessments', 'Score technical, tactical, physical, and attitude areas using your own club form.'],
+                ['Send parent reports', 'Turn coach notes into professional parent-ready feedback, with or without scores.'],
+                ['Manage trialists and squad players', 'Keep trial players separate from squad players while retaining full history.'],
+                ['Organise sessions', 'Create training, match, and tournament sessions, then assess players from the session list.'],
+                ['Manage teams and staff', 'Assign coaches to teams and keep access controlled by role.'],
+                ['Use it on mobile', 'Coaches can open it on phones, tablets, and desktops, with installable app support.'],
+              ].map(([title, copy]) => (
+                <div key={title} className="rounded-[24px] border border-white/10 bg-[#0b130d]/80 p-5">
+                  <p className="text-lg font-black text-white">{title}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-400">{copy}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Real club workflows</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Built around how football clubs actually work.</h2>
+              <div className="mt-6 space-y-4">
+                {[
+                  ['Trial nights', 'Add trialists, collect coach ratings, choose invite back, no place offered, or offer place, then send the right parent message.'],
+                  ['Training sessions', 'Build a session list, add players during the session, and complete assessments when coaches are ready.'],
+                  ['Squad reviews', 'Review previous assessments, track progress over time, and keep private staff notes away from parent PDFs.'],
+                  ['Tournaments', 'Record multiple games in a tournament and keep player feedback linked to the correct session.'],
+                ].map(([title, copy]) => (
+                  <div key={title} className="rounded-[24px] border border-white/10 bg-[#0b130d]/80 p-4">
+                    <p className="font-black text-white">{title}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Simple and trusted</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Clear for coaches. Useful for parents.</h2>
+              <div className="mt-6 space-y-4">
+                {[
+                  ['Club accounts', 'Each club has its own workspace, teams, staff roles, player records, and settings.'],
+                  ['Professional output', 'Reports and emails use clean wording, club branding, and selected assessment fields.'],
+                  ['No more lost notes', 'Player history, actions, and activity logs stay connected to the right club and team.'],
+                  ['Easy onboarding', 'Start small with one team, then add more staff, teams, and custom forms when needed.'],
+                ].map(([title, copy]) => (
+                  <div key={title} className="rounded-[24px] border border-white/10 bg-[#0b130d]/80 p-4">
+                    <p className="font-black text-white">{title}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-4 rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Pricing</p>
