@@ -457,8 +457,8 @@ export function LoginPage() {
             </div>
 
             <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
-              <div className="rounded-[28px] border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 p-5">
-                <p className="text-3xl font-black text-[#d8ff2f]">Controlled</p>
+              <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-5">
+                <p className="text-3xl font-black">Controlled</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
                   Staff see the teams, players, and tools their role allows.
                 </p>
