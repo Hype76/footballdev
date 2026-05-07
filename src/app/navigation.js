@@ -27,4 +27,8 @@ export const primaryNavigation = [
     label: 'Archived Players',
     path: '/archived-players',
   },
+  {
+    label: 'Billing',
+    path: '/billing',
+  },
 ]

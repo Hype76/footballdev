@@ -121,12 +121,15 @@ export {
 export {
   createPlatformClub,
   deletePlatformClub,
+  deletePlatformTeam,
+  deletePlatformUser,
   getPlatformStats,
   updateClubSettings,
   getClubSettings,
   importClubLogoFromUrl,
   updatePlatformClubStatus,
   updatePlatformClubPlan,
+  updatePlatformUserStatus,
   uploadClubLogo,
 } from './domain/platform.js'
 

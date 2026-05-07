@@ -475,7 +475,7 @@ export function TeamManagementPage() {
 
     try {
       await verifyCurrentUserPassword(user.email, password)
-      await deleteTeam(teamDeleteTarget.id)
+      await deleteTeam(teamDeleteTarget.id, user)
       const nextTeams = teams.filter((team) => team.id !== teamDeleteTarget.id)
       const nextAssignments = assignments.filter((assignment) => assignment.teamId !== teamDeleteTarget.id)
       setTeams(nextTeams)

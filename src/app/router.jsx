@@ -32,6 +32,7 @@ function lazyRoute(importer, exportName) {
 const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'AddPlayerPage')
 const ActivityLogPage = lazyRoute(() => import('../pages/ActivityLogPage.jsx'), 'ActivityLogPage')
 const ArchivedPlayersPage = lazyRoute(() => import('../pages/ArchivedPlayersPage.jsx'), 'ArchivedPlayersPage')
+const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'BillingPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
@@ -98,8 +99,21 @@ function ClubSuspendedState() {
   )
 }
 
+function AccountSuspendedState() {
+  return (
+    <RouteGateState
+      title="Account access suspended"
+      message="This account has been suspended. Contact your club admin or platform support if this should be reactivated."
+    />
+  )
+}
+
 function isClubSuspended(user) {
   return user?.clubStatus === 'suspended'
+}
+
+function isAccountSuspended(user) {
+  return user?.accountStatus === 'suspended'
 }
 
 function getDefaultWorkspacePath(user) {
@@ -111,7 +125,7 @@ function getDefaultWorkspacePath(user) {
     return '/platform-admin'
   }
 
-  if (isClubSuspended(user)) {
+  if (isAccountSuspended(user) || isClubSuspended(user)) {
     return '/'
   }
 
@@ -209,6 +223,10 @@ function WorkspaceHome() {
     return <Navigate to="/platform-admin" replace />
   }
 
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
+  }
+
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
   }
@@ -258,6 +276,10 @@ function RequireClubWorkspace() {
     return <Navigate to="/platform-admin" replace />
   }
 
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
+  }
+
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
   }
@@ -291,6 +313,10 @@ function RequirePlayerWorkflowAccess() {
 
   if (isSuperAdmin(user)) {
     return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
   }
 
   if (isClubSuspended(user)) {
@@ -346,6 +372,10 @@ function RequireFormBuilderAccess() {
     return <Navigate to="/platform-admin" replace />
   }
 
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
+  }
+
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
   }
@@ -383,6 +413,10 @@ function RequireClubSettingsAccess() {
 
   if (isSuperAdmin(user)) {
     return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
   }
 
   if (isClubSuspended(user)) {
@@ -424,6 +458,10 @@ function RequireUserAccess() {
     return <Navigate to="/platform-admin" replace />
   }
 
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
+  }
+
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
   }
@@ -463,6 +501,10 @@ function RequireTeamSettingsAccess() {
     return <Navigate to="/platform-admin" replace />
   }
 
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
+  }
+
   if (isClubSuspended(user)) {
     return <ClubSuspendedState />
   }
@@ -496,6 +538,14 @@ function RequireActivityLogAccess() {
         message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
       />
     )
+  }
+
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
   }
 
   if (!canViewActivityLog(user)) {
@@ -799,6 +849,17 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Club Settings',
+                },
+              },
+              {
+                path: 'billing',
+                element: (
+                  <PageSuspense>
+                    <BillingPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Billing',
                 },
               },
             ],

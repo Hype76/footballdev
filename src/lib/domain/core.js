@@ -21,6 +21,8 @@ const USER_PROFILE_SELECT = [
   'role_label',
   'role_rank',
   'club_id',
+  'status',
+  'suspended_at',
   'force_password_change',
   'theme_mode',
   'theme_accent',
@@ -33,8 +35,8 @@ const USER_PROFILE_SELECT = [
   'onboarding_dismissed_at',
 ].join(', ')
 
-const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped'
-const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped)'
+const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at'
+const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at)'
 
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Club Admin', rank: 90, isSystem: true },
@@ -1048,6 +1050,11 @@ function normalizePlatformClubRow(row) {
     planKey: String(row.plan_key ?? 'small_club').trim() || 'small_club',
     planStatus: String(row.plan_status ?? 'active').trim() || 'active',
     isPlanComped: Boolean(row.is_plan_comped ?? false),
+    stripeCustomerId: String(row.stripe_customer_id ?? '').trim(),
+    stripeSubscriptionId: String(row.stripe_subscription_id ?? '').trim(),
+    stripePriceId: String(row.stripe_price_id ?? '').trim(),
+    currentPeriodEnd: row.current_period_end ?? '',
+    planUpdatedAt: row.plan_updated_at ?? '',
     status: String(row.status ?? 'active').trim() || 'active',
     suspendedAt: row.suspended_at ?? '',
     createdAt: row.created_at ?? '',
@@ -1178,6 +1185,8 @@ export function normalizeUserProfile(profile) {
     role: roleKey,
     roleLabel,
     roleRank,
+    accountStatus: String(profile.status ?? profile.accountStatus ?? 'active').trim() || 'active',
+    accountSuspendedAt: profile.suspended_at ?? profile.accountSuspendedAt ?? '',
     clubId: profile.club_id ?? profile.clubId ?? '',
     clubName,
     team: clubName,
@@ -1189,6 +1198,11 @@ export function normalizeUserProfile(profile) {
     planKey: String(getClubValue(profile.clubs, 'plan_key') ?? profile.planKey ?? 'small_club').trim() || 'small_club',
     planStatus: String(getClubValue(profile.clubs, 'plan_status') ?? profile.planStatus ?? 'active').trim() || 'active',
     isPlanComped: Boolean(getClubValue(profile.clubs, 'is_plan_comped') ?? profile.isPlanComped ?? false),
+    stripeCustomerId: String(getClubValue(profile.clubs, 'stripe_customer_id') ?? profile.stripeCustomerId ?? '').trim(),
+    stripeSubscriptionId: String(getClubValue(profile.clubs, 'stripe_subscription_id') ?? profile.stripeSubscriptionId ?? '').trim(),
+    stripePriceId: String(getClubValue(profile.clubs, 'stripe_price_id') ?? profile.stripePriceId ?? '').trim(),
+    currentPeriodEnd: getClubValue(profile.clubs, 'current_period_end') ?? profile.currentPeriodEnd ?? '',
+    planUpdatedAt: getClubValue(profile.clubs, 'plan_updated_at') ?? profile.planUpdatedAt ?? '',
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
     themeMode: String(profile.theme_mode ?? profile.themeMode ?? '').trim(),
     themeAccent: String(profile.theme_accent ?? profile.themeAccent ?? '').trim(),
@@ -2481,8 +2495,19 @@ export async function createTeam({ user, name }) {
   return normalizeTeamRow(data)
 }
 
-export async function deleteTeam(teamId) {
-  await blockDemoMutation()
+export async function deleteTeam(teamId, user = null) {
+  await blockDemoMutation(user)
+
+  const { data: teamRow, error: teamError } = await supabase
+    .from('teams')
+    .select('id, name, club_id')
+    .eq('id', teamId)
+    .maybeSingle()
+
+  if (teamError) {
+    console.error(teamError)
+    throw teamError
+  }
 
   const { error } = await supabase.from('teams').delete().eq('id', teamId)
 
@@ -2494,6 +2519,19 @@ export async function deleteTeam(teamId) {
   invalidateMemoryCacheByPrefix('teams:')
   invalidateMemoryCacheByPrefix('available-teams:')
   invalidateMemoryCacheByPrefix('team-assignments:')
+
+  if (user) {
+    await createAuditLog({
+      user,
+      action: 'team_deleted',
+      entityType: 'team',
+      entityId: teamId,
+      metadata: {
+        teamName: teamRow?.name || '',
+        clubId: teamRow?.club_id || user.clubId || '',
+      },
+    })
+  }
 }
 
 export async function getTeamStaffAssignments(user) {
@@ -4893,6 +4931,187 @@ export async function deletePlatformClub({ user, clubId }) {
   })
 }
 
+export async function updatePlatformUserStatus({ user, targetUserId, status }) {
+  await blockDemoMutation(user)
+
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can update user status.')
+  }
+
+  const normalizedTargetUserId = String(targetUserId ?? '').trim()
+
+  if (!normalizedTargetUserId) {
+    throw new Error('User ID is required.')
+  }
+
+  if (String(user.id) === normalizedTargetUserId) {
+    throw new Error('You cannot suspend your own platform admin account.')
+  }
+
+  const nextStatus = status === 'suspended' ? 'suspended' : 'active'
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      status: nextStatus,
+      suspended_at: nextStatus === 'suspended' ? new Date().toISOString() : null,
+    })
+    .eq('id', normalizedTargetUserId)
+    .neq('role', 'super_admin')
+    .select(USER_PROFILE_SELECT)
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('platform-stats')
+  invalidateMemoryCacheByPrefix(`club-users:${data.club_id}`)
+  invalidateMemoryCacheByPrefix('visible-club-users:')
+  clearViewCaches()
+
+  await createAuditLog({
+    user,
+    action: nextStatus === 'suspended' ? 'user_suspended' : 'user_reactivated',
+    entityType: 'user',
+    entityId: normalizedTargetUserId,
+    metadata: {
+      email: data.email,
+      status: nextStatus,
+      clubId: data.club_id,
+    },
+  })
+
+  return normalizeUserProfile(data)
+}
+
+export async function deletePlatformUser({ user, targetUserId }) {
+  await blockDemoMutation(user)
+
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can delete users.')
+  }
+
+  const normalizedTargetUserId = String(targetUserId ?? '').trim()
+
+  if (!normalizedTargetUserId) {
+    throw new Error('User ID is required.')
+  }
+
+  if (String(user.id) === normalizedTargetUserId) {
+    throw new Error('You cannot delete your own platform admin account.')
+  }
+
+  const { data: targetUser, error: targetUserError } = await supabase
+    .from('users')
+    .select('id, email, username, name, role, role_label, role_rank, club_id')
+    .eq('id', normalizedTargetUserId)
+    .neq('role', 'super_admin')
+    .single()
+
+  if (targetUserError) {
+    console.error(targetUserError)
+    throw targetUserError
+  }
+
+  const deleteResults = await Promise.all([
+    supabase.from('team_staff').delete().eq('user_id', normalizedTargetUserId),
+    supabase.from('user_club_memberships').delete().eq('auth_user_id', normalizedTargetUserId),
+  ])
+  const firstDeleteError = deleteResults.find((result) => result.error)?.error
+
+  if (firstDeleteError) {
+    console.error(firstDeleteError)
+    throw firstDeleteError
+  }
+
+  const { error: userError } = await supabase
+    .from('users')
+    .delete()
+    .eq('id', normalizedTargetUserId)
+    .neq('role', 'super_admin')
+
+  if (userError) {
+    console.error(userError)
+    throw userError
+  }
+
+  invalidateMemoryCacheByPrefix('platform-stats')
+  invalidateMemoryCacheByPrefix(`club-users:${targetUser.club_id}`)
+  invalidateMemoryCacheByPrefix(`user-access:${targetUser.club_id}`)
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('visible-club-users:')
+  clearViewCaches()
+
+  await createAuditLog({
+    user,
+    action: 'platform_user_deleted',
+    entityType: 'user',
+    entityId: normalizedTargetUserId,
+    metadata: {
+      email: targetUser.email,
+      name: targetUser.name || targetUser.username,
+      role: targetUser.role_label || targetUser.role,
+      clubId: targetUser.club_id,
+    },
+  })
+}
+
+export async function deletePlatformTeam({ user, teamId }) {
+  await blockDemoMutation(user)
+
+  if (user?.role !== 'super_admin') {
+    throw new Error('Only platform admins can delete teams.')
+  }
+
+  const normalizedTeamId = String(teamId ?? '').trim()
+
+  if (!normalizedTeamId) {
+    throw new Error('Team ID is required.')
+  }
+
+  const { data: teamRow, error: teamError } = await supabase
+    .from('teams')
+    .select('id, name, club_id')
+    .eq('id', normalizedTeamId)
+    .single()
+
+  if (teamError) {
+    console.error(teamError)
+    throw teamError
+  }
+
+  const { error: deleteError } = await supabase
+    .from('teams')
+    .delete()
+    .eq('id', normalizedTeamId)
+
+  if (deleteError) {
+    console.error(deleteError)
+    throw deleteError
+  }
+
+  invalidateMemoryCacheByPrefix('platform-stats')
+  invalidateMemoryCacheByPrefix(`teams:${teamRow.club_id}`)
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  clearViewCaches()
+
+  await createAuditLog({
+    user,
+    action: 'platform_team_deleted',
+    entityType: 'team',
+    entityId: normalizedTeamId,
+    metadata: {
+      teamName: teamRow.name,
+      clubId: teamRow.club_id,
+    },
+  })
+}
+
 export async function getPlatformStats(user) {
   if (user?.role !== 'super_admin') {
     return {
@@ -4914,7 +5133,7 @@ export async function getPlatformStats(user) {
         .from('clubs')
         .select(`${CLUB_SELECT}, created_at`)
         .order('name', { ascending: true }),
-      supabase.from('users').select('id, email, role_label, role_rank, club_id').order('email', { ascending: true }),
+      supabase.from('users').select('id, email, username, name, role, role_label, role_rank, club_id, status, suspended_at').order('email', { ascending: true }),
       supabase.from('teams').select('id, name, club_id').order('name', { ascending: true }),
       supabase.from('players').select('id, club_id, section, status, created_at'),
       supabase.from('evaluations').select('id, club_id, section, status, created_at'),
@@ -5005,8 +5224,12 @@ export async function getPlatformStats(user) {
           users: clubUsers.map((member) => ({
             id: member.id,
             email: String(member.email ?? '').trim(),
+            name: String(member.name ?? member.username ?? '').trim(),
+            role: String(member.role ?? '').trim(),
             roleLabel: String(member.role_label ?? '').trim() || 'User',
             roleRank: Number(member.role_rank ?? 0),
+            status: String(member.status ?? 'active').trim() || 'active',
+            suspendedAt: member.suspended_at ?? '',
           })),
           teams: clubTeams.map((team) => ({
             id: team.id,

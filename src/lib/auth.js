@@ -79,6 +79,8 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.role ?? '') === String(rightUser.role ?? '') &&
     String(leftUser.roleLabel ?? '') === String(rightUser.roleLabel ?? '') &&
     Number(leftUser.roleRank ?? 0) === Number(rightUser.roleRank ?? 0) &&
+    String(leftUser.accountStatus ?? '') === String(rightUser.accountStatus ?? '') &&
+    String(leftUser.accountSuspendedAt ?? '') === String(rightUser.accountSuspendedAt ?? '') &&
     String(leftUser.clubId ?? '') === String(rightUser.clubId ?? '') &&
     String(leftUser.clubName ?? '') === String(rightUser.clubName ?? '') &&
     String(leftUser.team ?? '') === String(rightUser.team ?? '') &&
@@ -90,6 +92,11 @@ function areUsersEquivalent(leftUser, rightUser) {
     String(leftUser.planKey ?? '') === String(rightUser.planKey ?? '') &&
     String(leftUser.planStatus ?? '') === String(rightUser.planStatus ?? '') &&
     Boolean(leftUser.isPlanComped) === Boolean(rightUser.isPlanComped) &&
+    String(leftUser.stripeCustomerId ?? '') === String(rightUser.stripeCustomerId ?? '') &&
+    String(leftUser.stripeSubscriptionId ?? '') === String(rightUser.stripeSubscriptionId ?? '') &&
+    String(leftUser.stripePriceId ?? '') === String(rightUser.stripePriceId ?? '') &&
+    String(leftUser.currentPeriodEnd ?? '') === String(rightUser.currentPeriodEnd ?? '') &&
+    String(leftUser.planUpdatedAt ?? '') === String(rightUser.planUpdatedAt ?? '') &&
     Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
     String(leftUser.themeMode ?? '') === String(rightUser.themeMode ?? '') &&
     String(leftUser.themeAccent ?? '') === String(rightUser.themeAccent ?? '') &&
@@ -712,6 +719,11 @@ export function AuthProvider({ children }) {
         planKey: String(clubDetails.planKey ?? current.planKey ?? 'small_club').trim(),
         planStatus: String(clubDetails.planStatus ?? current.planStatus ?? 'active').trim(),
         isPlanComped: Boolean(clubDetails.isPlanComped ?? current.isPlanComped ?? false),
+        stripeCustomerId: String(clubDetails.stripeCustomerId ?? current.stripeCustomerId ?? '').trim(),
+        stripeSubscriptionId: String(clubDetails.stripeSubscriptionId ?? current.stripeSubscriptionId ?? '').trim(),
+        stripePriceId: String(clubDetails.stripePriceId ?? current.stripePriceId ?? '').trim(),
+        currentPeriodEnd: clubDetails.currentPeriodEnd ?? current.currentPeriodEnd ?? '',
+        planUpdatedAt: clubDetails.planUpdatedAt ?? current.planUpdatedAt ?? '',
         requireApproval: Boolean(clubDetails.requireApproval ?? current.requireApproval ?? true),
       }
     })

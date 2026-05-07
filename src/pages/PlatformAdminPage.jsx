@@ -11,12 +11,15 @@ import {
   createPlatformClub,
   deletePlatformFeedback,
   deletePlatformClub,
+  deletePlatformTeam,
+  deletePlatformUser,
   getPlatformFeedback,
   getPlatformStats,
   readViewCacheValue,
   updatePlatformFeedback,
   updatePlatformClubPlan,
   updatePlatformClubStatus,
+  updatePlatformUserStatus,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -59,6 +62,8 @@ export function PlatformAdminPage() {
   const [clubPage, setClubPage] = useState(1)
   const [feedbackDeleteTarget, setFeedbackDeleteTarget] = useState(null)
   const [clubDeleteTarget, setClubDeleteTarget] = useState(null)
+  const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
+  const [accountActionTarget, setAccountActionTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => !stats)
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -69,6 +74,8 @@ export function PlatformAdminPage() {
   const [previewPdfUrl, setPreviewPdfUrl] = useState('')
   const [testEmailDebug, setTestEmailDebug] = useState(null)
   const [updatingClubId, setUpdatingClubId] = useState('')
+  const [updatingTeamId, setUpdatingTeamId] = useState('')
+  const [updatingUserId, setUpdatingUserId] = useState('')
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -505,6 +512,87 @@ export function PlatformAdminPage() {
     setClubDeleteTarget(club)
   }
 
+  const handleDeleteTeam = async (club, team) => {
+    setTeamDeleteTarget({
+      ...team,
+      clubName: club.name,
+      clubId: club.id,
+    })
+  }
+
+  const confirmDeleteTeam = async (password) => {
+    if (!teamDeleteTarget) {
+      return
+    }
+
+    setUpdatingTeamId(teamDeleteTarget.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user.email, password)
+      await deletePlatformTeam({
+        user,
+        teamId: teamDeleteTarget.id,
+      })
+      setSuccessMessage('Team deleted.')
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Team could not be deleted.')
+    } finally {
+      setUpdatingTeamId('')
+      setTeamDeleteTarget(null)
+    }
+  }
+
+  const handleAccountAction = async (club, member, action) => {
+    setAccountActionTarget({
+      ...member,
+      clubId: club.id,
+      clubName: club.name,
+      action,
+    })
+  }
+
+  const confirmAccountAction = async (password) => {
+    if (!accountActionTarget) {
+      return
+    }
+
+    setUpdatingUserId(accountActionTarget.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user.email, password)
+
+      if (accountActionTarget.action === 'delete') {
+        await deletePlatformUser({
+          user,
+          targetUserId: accountActionTarget.id,
+        })
+        setSuccessMessage('User access deleted.')
+      } else {
+        const nextStatus = accountActionTarget.action === 'suspend' ? 'suspended' : 'active'
+        await updatePlatformUserStatus({
+          user,
+          targetUserId: accountActionTarget.id,
+          status: nextStatus,
+        })
+        setSuccessMessage(nextStatus === 'suspended' ? 'User suspended.' : 'User reactivated.')
+      }
+
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'User account action could not be completed.')
+    } finally {
+      setUpdatingUserId('')
+      setAccountActionTarget(null)
+    }
+  }
+
   const confirmDeleteClub = async (password) => {
     if (!clubDeleteTarget) {
       return
@@ -906,8 +994,8 @@ export function PlatformAdminPage() {
       </SectionCard>
 
       <SectionCard
-        title="Club usage"
-        description="Operational usage only. Player names and child contact details are intentionally excluded."
+        title="Account management"
+        description="Manage clubs, teams, and adult user access. Player names and child contact details are intentionally excluded."
       >
         <div className="mb-5 max-w-sm">
           <label className="block">
@@ -1060,15 +1148,60 @@ export function PlatformAdminPage() {
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Adult user emails</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Adult user accounts</p>
                     <div className="mt-3 space-y-2">
                       {club.users.length === 0 ? (
                         <p className="text-sm text-[var(--text-muted)]">No users found.</p>
                       ) : (
                         club.users.map((member) => (
                           <div key={member.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                            <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{member.email}</p>
-                            <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">{member.roleLabel}</p>
+                            <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                              <div className="min-w-0">
+                                <p className="break-words text-sm font-semibold text-[var(--text-primary)]">
+                                  {member.name || 'No name entered'}
+                                </p>
+                                <p className="mt-1 break-words text-sm text-[var(--text-muted)]">{member.email}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  <span className="rounded-full border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                                    {member.roleLabel}
+                                  </span>
+                                  <span
+                                    className={[
+                                      'rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]',
+                                      member.status === 'suspended'
+                                        ? 'bg-red-500/15 text-red-300'
+                                        : 'bg-[var(--button-primary)] text-[var(--button-primary-text)]',
+                                    ].join(' ')}
+                                  >
+                                    {member.status === 'suspended' ? 'Suspended' : 'Active'}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
+                                <button
+                                  type="button"
+                                  disabled={updatingUserId === member.id}
+                                  onClick={() =>
+                                    void handleAccountAction(
+                                      club,
+                                      member,
+                                      member.status === 'suspended' ? 'reactivate' : 'suspend',
+                                    )
+                                  }
+                                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {member.status === 'suspended' ? 'Reactivate' : 'Suspend'}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={updatingUserId === member.id}
+                                  onClick={() => void handleAccountAction(club, member, 'delete')}
+                                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         ))
                       )}
@@ -1076,18 +1209,26 @@ export function PlatformAdminPage() {
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Teams and role mix</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Teams</p>
+                    <div className="mt-3 space-y-2">
                       {club.teams.length === 0 ? (
                         <p className="text-sm text-[var(--text-muted)]">No teams found.</p>
                       ) : (
                         club.teams.map((team) => (
-                          <span
+                          <div
                             key={team.id}
-                            className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]"
+                            className="flex flex-col gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                           >
-                            {team.name}
-                          </span>
+                            <span className="text-sm font-semibold text-[var(--text-primary)]">{team.name}</span>
+                            <button
+                              type="button"
+                              disabled={updatingTeamId === team.id}
+                              onClick={() => void handleDeleteTeam(club, team)}
+                              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Delete Team
+                            </button>
+                          </div>
                         ))
                       )}
                     </div>
@@ -1152,6 +1293,55 @@ export function PlatformAdminPage() {
         onCancel={() => setClubDeleteTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeleteClub(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(teamDeleteTarget)}
+        isBusy={Boolean(updatingTeamId)}
+        title="Delete team"
+        message="This is a platform admin action and cannot be undone from the app."
+        items={[
+          `Team: ${teamDeleteTarget?.name || 'Selected team'}`,
+          `Club: ${teamDeleteTarget?.clubName || 'No club entered'}`,
+          'Team staff allocations linked to this team',
+          'Team links on sessions will be cleared by the database where required',
+        ]}
+        confirmLabel="Delete Team"
+        onCancel={() => setTeamDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeleteTeam(password)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(accountActionTarget)}
+        isBusy={Boolean(updatingUserId)}
+        title={
+          accountActionTarget?.action === 'delete'
+            ? 'Delete user access'
+            : accountActionTarget?.action === 'suspend'
+              ? 'Suspend user access'
+              : 'Reactivate user access'
+        }
+        message="This platform admin action requires your password before it can continue."
+        items={[
+          `Name: ${accountActionTarget?.name || 'No name entered'}`,
+          `Email: ${accountActionTarget?.email || 'No email entered'}`,
+          `Club: ${accountActionTarget?.clubName || 'No club entered'}`,
+          `Role: ${accountActionTarget?.roleLabel || 'User'}`,
+          accountActionTarget?.action === 'delete'
+            ? 'The user profile, club membership, and team allocations will be removed from the app.'
+            : 'The user will be blocked from using their workspace until reactivated.',
+        ]}
+        confirmLabel={
+          accountActionTarget?.action === 'delete'
+            ? 'Delete User'
+            : accountActionTarget?.action === 'suspend'
+              ? 'Suspend User'
+              : 'Reactivate User'
+        }
+        onCancel={() => setAccountActionTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmAccountAction(password)}
       />
     </div>
   )

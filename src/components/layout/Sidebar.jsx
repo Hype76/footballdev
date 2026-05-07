@@ -3,6 +3,7 @@ import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
+  canManageClubSettings,
   canManageFormFields,
   canManageUsers,
   canViewPlatformFeedback,
@@ -42,6 +43,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/form-builder') {
       return canManageFormFields(user)
+    }
+
+    if (item.path === '/billing') {
+      return canManageClubSettings(user)
     }
 
     return true
