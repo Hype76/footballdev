@@ -303,7 +303,7 @@ export function FormBuilderPage() {
 
     try {
       await verifyCurrentUserPassword(user.email, password)
-      await deleteFormField(fieldDeleteTarget.id)
+      await deleteFormField(fieldDeleteTarget.id, user)
       const nextFields = fields
         .filter((field) => field.id !== fieldDeleteTarget.id)
         .map((field, index) => ({

@@ -5,6 +5,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageClubSettings, useAuth } from '../lib/auth.js'
+import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   MAX_LOGO_FILE_SIZE_BYTES,
   getClubSettings,
@@ -143,6 +144,8 @@ export function ClubSettingsPage() {
     return <Navigate to="/" replace />
   }
 
+  const canUseBasicBranding = hasPlanFeature(user, 'basicBranding')
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target
     setIsSaved(false)
@@ -159,6 +162,13 @@ export function ClubSettingsPage() {
     setUploadSuccessMessage('')
     setErrorTitle('')
     setErrorMessage('')
+
+    if (!canUseBasicBranding) {
+      setSelectedLogoFile(null)
+      setErrorTitle('Logo upload problem')
+      setErrorMessage(createFeatureUpgradeMessage('basicBranding'))
+      return
+    }
 
     if (!nextFile) {
       setSelectedLogoFile(null)
@@ -192,6 +202,7 @@ export function ClubSettingsPage() {
       const updatedClub = await updateClubSettings({
         clubId: user.clubId,
         data: formData,
+        user,
       })
 
       setFormData({
@@ -227,6 +238,12 @@ export function ClubSettingsPage() {
       return
     }
 
+    if (!canUseBasicBranding) {
+      setErrorTitle('Logo upload problem')
+      setErrorMessage(createFeatureUpgradeMessage('basicBranding'))
+      return
+    }
+
     if (!selectedLogoFile) {
       setErrorTitle('Logo upload problem')
       setErrorMessage('Select a logo file before uploading.')
@@ -243,6 +260,7 @@ export function ClubSettingsPage() {
       const logoUrl = await uploadClubLogo({
         clubId: user.clubId,
         file: selectedLogoFile,
+        user,
       })
 
       const updatedClub = await updateClubSettings({
@@ -251,6 +269,7 @@ export function ClubSettingsPage() {
           ...formData,
           logoUrl,
         },
+        user,
       })
 
       setFormData({
@@ -332,15 +351,18 @@ export function ClubSettingsPage() {
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
+                    disabled={!canUseBasicBranding}
                     className="block min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] file:mr-4 file:rounded-xl file:border-0 file:bg-[var(--panel-soft)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[var(--text-primary)]"
                   />
-                  <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">PNG, JPG, or SVG. Maximum file size 2MB.</p>
+                  <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+                    {canUseBasicBranding ? 'PNG, JPG, or SVG. Maximum file size 2MB.' : createFeatureUpgradeMessage('basicBranding')}
+                  </p>
                 </label>
 
                 <button
                   type="button"
                   onClick={handleLogoUpload}
-                  disabled={isUploading || !selectedLogoFile}
+                  disabled={isUploading || !selectedLogoFile || !canUseBasicBranding}
                   className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isUploading ? 'Uploading...' : 'Upload Logo'}

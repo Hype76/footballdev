@@ -6,7 +6,7 @@ import {
   supabase,
 } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
-import { createLimitUpgradeMessage, getPlanLimit } from '../plans.js'
+import { createFeatureUpgradeMessage, createLimitUpgradeMessage, getPlanLimit, hasPlanFeature } from '../plans.js'
 export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from '../supabase-client.js'
 const VIEW_CACHE_PREFIX = 'view-cache:'
 const MEMORY_CACHE_TTL_MS = 30 * 1000
@@ -261,6 +261,165 @@ async function blockDemoMutation(account) {
   if (isDemoAccountValue(account) || (!hasDemoIdentity && await isCurrentSessionDemoUser())) {
     throw new Error(DEMO_MUTATION_ERROR_MESSAGE)
   }
+}
+
+function getPlanGateUser(user, club = null) {
+  return {
+    ...user,
+    planKey: user?.planKey ?? user?.plan_key ?? club?.plan_key ?? club?.planKey,
+    planStatus: user?.planStatus ?? user?.plan_status ?? club?.plan_status ?? club?.planStatus,
+    isPlanComped: user?.isPlanComped ?? user?.is_plan_comped ?? club?.is_plan_comped ?? club?.isPlanComped,
+  }
+}
+
+async function getClubPlanGateUser({ user = null, clubId = '' } = {}) {
+  if (user?.planKey || user?.plan_key || user?.role === 'super_admin') {
+    return getPlanGateUser(user)
+  }
+
+  const normalizedClubId = String(clubId || user?.clubId || user?.club_id || '').trim()
+
+  if (!normalizedClubId) {
+    return getPlanGateUser(user)
+  }
+
+  const club = await fetchClubDetails(normalizedClubId)
+  return getPlanGateUser(user, club)
+}
+
+async function assertClubFeature({ user = null, clubId = '', featureName }) {
+  const planUser = await getClubPlanGateUser({ user, clubId })
+
+  if (!hasPlanFeature(planUser, featureName)) {
+    throw new Error(createFeatureUpgradeMessage(featureName))
+  }
+}
+
+async function assertClubLimitAvailable({ user = null, clubId = '', limitName, label, currentCount }) {
+  const planUser = await getClubPlanGateUser({ user, clubId })
+  const limit = getPlanLimit(planUser, limitName)
+
+  if (limit !== null && limit !== undefined && Number(currentCount ?? 0) >= Number(limit)) {
+    throw new Error(createLimitUpgradeMessage(planUser, limitName, label))
+  }
+}
+
+async function getActivePlayerCount(clubId) {
+  const { count, error } = await supabase
+    .from('players')
+    .select('id', { count: 'exact', head: true })
+    .eq('club_id', clubId)
+    .neq('status', 'archived')
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return Number(count ?? 0)
+}
+
+async function findExistingPlayer({ clubId, section, playerName }) {
+  const normalizedSection = EVALUATION_SECTIONS.includes(section) ? section : 'Trial'
+  const normalizedPlayerName = normalizeWords(playerName)
+
+  if (!clubId || !normalizedPlayerName) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('players')
+    .select('id, status')
+    .eq('club_id', clubId)
+    .eq('section', normalizedSection)
+    .eq('player_name', normalizedPlayerName)
+    .maybeSingle()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return data ?? null
+}
+
+async function assertPlayerLimitForUpsert({ user = null, clubId, section, playerName }) {
+  const existingPlayer = await findExistingPlayer({ clubId, section, playerName })
+
+  if (existingPlayer && String(existingPlayer.status ?? '').trim().toLowerCase() !== 'archived') {
+    return existingPlayer
+  }
+
+  const activePlayerCount = await getActivePlayerCount(clubId)
+  await assertClubLimitAvailable({
+    user,
+    clubId,
+    limitName: 'players',
+    label: 'Players',
+    currentCount: activePlayerCount,
+  })
+
+  return existingPlayer
+}
+
+async function getMonthlyEvaluationCount(clubId, referenceDate = new Date()) {
+  const monthStart = new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), 1)).toISOString()
+
+  const { count, error } = await supabase
+    .from('evaluations')
+    .select('id', { count: 'exact', head: true })
+    .eq('club_id', clubId)
+    .gte('created_at', monthStart)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return Number(count ?? 0)
+}
+
+async function getClubAccessEmails(clubId) {
+  const [usersResult, invitesResult] = await Promise.all([
+    supabase.from('users').select('email').eq('club_id', clubId),
+    supabase.from('club_user_invites').select('email').eq('club_id', clubId).is('accepted_at', null),
+  ])
+
+  if (usersResult.error) {
+    console.error(usersResult.error)
+    throw usersResult.error
+  }
+
+  if (invitesResult.error) {
+    console.error(invitesResult.error)
+    throw invitesResult.error
+  }
+
+  return new Set(
+    [
+      ...(usersResult.data ?? []).map((row) => row.email),
+      ...(invitesResult.data ?? []).map((row) => row.email),
+    ]
+      .map((email) => String(email ?? '').trim().toLowerCase())
+      .filter(Boolean),
+  )
+}
+
+async function assertStaffLoginLimitForEmail({ user, email }) {
+  const normalizedEmail = String(email ?? '').trim().toLowerCase()
+  const accessEmails = await getClubAccessEmails(user.clubId)
+
+  if (accessEmails.has(normalizedEmail)) {
+    return
+  }
+
+  await assertClubLimitAvailable({
+    user,
+    clubId: user.clubId,
+    limitName: 'staffLogins',
+    label: 'Staff logins',
+    currentCount: accessEmails.size,
+  })
 }
 
 function getEntryIdentity(user, prefix = 'created_by') {
@@ -1777,6 +1936,23 @@ export async function updateOwnThemeSettings({ authUser, mode, accent }) {
 
   await blockDemoMutation(authUser)
 
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select(USER_PROFILE_SELECT)
+    .eq('id', authUser.id)
+    .single()
+
+  if (profileError) {
+    console.error(profileError)
+    throw profileError
+  }
+
+  await assertClubFeature({
+    user: normalizeUserProfile(profile),
+    clubId: profile.club_id,
+    featureName: 'themes',
+  })
+
   const normalizedMode = ['system', 'dark', 'light'].includes(mode) ? mode : 'system'
   const normalizedAccent = ['yellow', 'blue', 'green', 'red', 'purple'].includes(accent) ? accent : 'yellow'
 
@@ -1961,11 +2137,32 @@ export async function getClubSettings(clubId) {
   }
 }
 
-export async function updateClubSettings({ clubId, data }) {
-  await blockDemoMutation()
+export async function updateClubSettings({ clubId, data, user = null }) {
+  await blockDemoMutation(user)
 
   if (!clubId) {
     throw new Error('Club ID is required.')
+  }
+
+  const currentClub = await fetchClubDetails(clubId)
+  const currentLogoUrl = String(currentClub?.logo_url ?? '').trim()
+  const nextLogoUrl = String(data.logoUrl ?? '').trim()
+  const logoChanged = nextLogoUrl !== currentLogoUrl
+
+  if (logoChanged) {
+    await assertClubFeature({
+      user,
+      clubId,
+      featureName: 'basicBranding',
+    })
+  }
+
+  if (data.requireApproval !== undefined && Boolean(data.requireApproval) !== Boolean(currentClub?.require_approval ?? true)) {
+    await assertClubFeature({
+      user,
+      clubId,
+      featureName: 'approvalWorkflow',
+    })
   }
 
   const payload = {
@@ -2110,12 +2307,18 @@ async function uploadClubLogoBlob({ clubId, blob }) {
   return appendLogoCacheBuster(publicUrl)
 }
 
-export async function uploadClubLogo({ clubId, file }) {
-  await blockDemoMutation()
+export async function uploadClubLogo({ clubId, file, user = null }) {
+  await blockDemoMutation(user)
 
   if (!clubId) {
     throw new Error('Club ID is required.')
   }
+
+  await assertClubFeature({
+    user,
+    clubId,
+    featureName: 'basicBranding',
+  })
 
   if (!(file instanceof File)) {
     throw new Error('A logo file is required.')
@@ -2132,14 +2335,20 @@ export async function uploadClubLogo({ clubId, file }) {
   return uploadClubLogoBlob({ clubId, blob: file })
 }
 
-export async function importClubLogoFromUrl({ clubId, logoUrl }) {
-  await blockDemoMutation()
+export async function importClubLogoFromUrl({ clubId, logoUrl, user = null }) {
+  await blockDemoMutation(user)
 
   const normalizedLogoUrl = String(logoUrl ?? '').trim()
 
   if (!clubId) {
     throw new Error('Club ID is required.')
   }
+
+  await assertClubFeature({
+    user,
+    clubId,
+    featureName: 'basicBranding',
+  })
 
   if (!normalizedLogoUrl) {
     return ''
@@ -2436,6 +2645,14 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
   }
 
   if (data.requireApproval !== undefined) {
+    if (Boolean(data.requireApproval) !== Boolean(currentTeam.require_approval ?? true)) {
+      await assertClubFeature({
+        user,
+        clubId: currentTeam.club_id,
+        featureName: 'approvalWorkflow',
+      })
+    }
+
     payload.require_approval = Boolean(data.requireApproval)
   }
 
@@ -2767,6 +2984,11 @@ export async function assignClubUserRole({ user, email, role }) {
   const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)
   const roleRank = normalizeRoleRank(role.roleRank ?? role.rank, roleKey)
 
+  await assertStaffLoginLimitForEmail({
+    user,
+    email: normalizedEmail,
+  })
+
   const { data: existingUsers, error: existingUsersError } = await supabase
     .from('users')
     .select(USER_PROFILE_SELECT)
@@ -2863,6 +3085,11 @@ export async function createStaffUserWithPassword({ user, email, password, role 
   const roleKey = normalizeRoleKey(role.roleKey ?? role.key)
   const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)
   const roleRank = normalizeRoleRank(role.roleRank ?? role.rank, roleKey)
+
+  await assertStaffLoginLimitForEmail({
+    user,
+    email: normalizedEmail,
+  })
 
   const { data, error } = await supabase.functions.invoke('create-staff-user', {
     body: {
@@ -3107,6 +3334,13 @@ export async function getConfiguredFormFields({ user } = {}) {
 }
 
 export async function getFormFields({ user } = {}) {
+  if (user && !hasPlanFeature(user, 'customFormFields')) {
+    return {
+      fields: getDefaultFormFields(),
+      isFallback: true,
+    }
+  }
+
   try {
     const configuredFields = await getConfiguredFormFields({ user })
 
@@ -3128,6 +3362,11 @@ export async function getFormFields({ user } = {}) {
 
 export async function addFormField({ user, field }) {
   await blockDemoMutation(user)
+  await assertClubFeature({
+    user,
+    clubId: user?.clubId,
+    featureName: 'customFormFields',
+  })
 
   const nextOrderIndex = Number(field.orderIndex ?? Date.now())
   const payload = mapFormFieldToRow(
@@ -3152,6 +3391,11 @@ export async function addFormField({ user, field }) {
 
 export async function updateFormField(id, fieldData, user) {
   await blockDemoMutation(user)
+  await assertClubFeature({
+    user,
+    clubId: user?.clubId ?? fieldData?.clubId,
+    featureName: 'customFormFields',
+  })
 
   const payload = mapFormFieldToRow(
     fieldData,
@@ -3173,8 +3417,13 @@ export async function updateFormField(id, fieldData, user) {
   return normalizeFormFieldRow(updatedRow)
 }
 
-export async function deleteFormField(id) {
-  await blockDemoMutation()
+export async function deleteFormField(id, user = null) {
+  await blockDemoMutation(user)
+  await assertClubFeature({
+    user,
+    clubId: user?.clubId,
+    featureName: 'customFormFields',
+  })
 
   const { error } = await supabase.from('form_fields').delete().eq('id', id)
 
@@ -3186,6 +3435,11 @@ export async function deleteFormField(id) {
 
 export async function reorderFormFields(fields, user) {
   await blockDemoMutation(user)
+  await assertClubFeature({
+    user,
+    clubId: user?.clubId,
+    featureName: 'customFormFields',
+  })
 
   await Promise.all(
     fields.map((field, index) =>
@@ -3325,6 +3579,13 @@ export async function createPlayer({ user, player }) {
   if (!user?.clubId || user.role === 'super_admin') {
     throw new Error('A club user is required to add players.')
   }
+
+  await assertPlayerLimitForUpsert({
+    user,
+    clubId: user.clubId,
+    section: player.section,
+    playerName: player.playerName ?? player.name,
+  })
 
   const payload = {
     ...mapPlayerToRow(player, user),
@@ -3565,6 +3826,10 @@ export async function getAuditLogs({ user, limit = 100 } = {}) {
   }
 
   if (user.role !== 'super_admin' && Number(user.roleRank ?? 0) < 50) {
+    return []
+  }
+
+  if (user.role !== 'super_admin' && !hasPlanFeature(user, 'auditLogs')) {
     return []
   }
 
@@ -4594,16 +4859,43 @@ export async function deletePlatformFeedback({ user, feedbackId }) {
 }
 
 export async function createEvaluation(data) {
-  await blockDemoMutation({
+  const evaluationUser = {
     id: data.coachId,
+    clubId: data.clubId,
     email: data.createdByEmail,
+    name: data.createdByName ?? data.coach,
+    role: data.createdByRole,
+    roleRank: data.createdByRoleRank,
+    planKey: data.planKey,
+    planStatus: data.planStatus,
+    isPlanComped: data.isPlanComped,
     isDemoAccount: data.isDemoAccount,
-  })
+  }
+
+  await blockDemoMutation(evaluationUser)
 
   let linkedPlayerId = data.playerId || ''
   let linkedTeamId = data.teamId || ''
 
+  if (data.clubId) {
+    const monthlyEvaluationCount = await getMonthlyEvaluationCount(data.clubId)
+    await assertClubLimitAvailable({
+      user: evaluationUser,
+      clubId: data.clubId,
+      limitName: 'monthlyEvaluations',
+      label: 'Monthly assessments',
+      currentCount: monthlyEvaluationCount,
+    })
+  }
+
   if (data.clubId && data.playerName && data.section) {
+    await assertPlayerLimitForUpsert({
+      user: evaluationUser,
+      clubId: data.clubId,
+      section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
+      playerName: data.playerName,
+    })
+
     const { data: playerRow, error: playerError } = await supabase.from('players').upsert(
       {
         club_id: data.clubId,

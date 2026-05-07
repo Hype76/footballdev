@@ -12,6 +12,7 @@ import {
   updateOwnUserSettings,
   updateSignedInPassword,
 } from '../lib/supabase.js'
+import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   getStoredThemeAccent,
   getStoredThemeMode,
@@ -231,6 +232,11 @@ export function UserSettingsPage() {
   }
 
   const handleThemeModeChange = (nextThemeMode) => {
+    if (!hasPlanFeature(user, 'themes')) {
+      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes'), tone: 'error' })
+      return
+    }
+
     const nextPreferences = saveThemePreferences({
       mode: nextThemeMode,
       accent: themeAccent,
@@ -242,6 +248,11 @@ export function UserSettingsPage() {
   }
 
   const handleThemeAccentChange = (nextThemeAccent) => {
+    if (!hasPlanFeature(user, 'themes')) {
+      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes'), tone: 'error' })
+      return
+    }
+
     const nextPreferences = saveThemePreferences({
       mode: themeMode,
       accent: nextThemeAccent,
@@ -303,6 +314,7 @@ export function UserSettingsPage() {
   }
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
+  const canUseThemes = hasPlanFeature(user, 'themes')
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -447,6 +459,7 @@ export function UserSettingsPage() {
                 <select
                   value={themeMode}
                   onChange={(event) => handleThemeModeChange(event.target.value)}
+                  disabled={!canUseThemes}
                   className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   {themeModeOptions.map((option) => (
@@ -462,6 +475,7 @@ export function UserSettingsPage() {
                 <select
                   value={themeAccent}
                   onChange={(event) => handleThemeAccentChange(event.target.value)}
+                  disabled={!canUseThemes}
                   className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   {themeAccentOptions.map((option) => (
@@ -472,6 +486,9 @@ export function UserSettingsPage() {
                 </select>
               </label>
             </div>
+            {!canUseThemes ? (
+              <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">{createFeatureUpgradeMessage('themes')}</p>
+            ) : null}
           </SectionCard>
 
           <SectionCard

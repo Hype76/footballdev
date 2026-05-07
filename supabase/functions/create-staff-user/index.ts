@@ -55,6 +55,46 @@ function isExistingAuthUserError(error: { message?: string } | null | undefined)
   return message.includes('already') || message.includes('registered') || message.includes('exists')
 }
 
+const STAFF_LOGIN_LIMITS: Record<string, number | null> = {
+  individual: 1,
+  single_team: 3,
+  small_club: null,
+  large_club: null,
+}
+
+function getStaffLoginLimit(club: { plan_key?: string | null; is_plan_comped?: boolean | null } | null | undefined) {
+  if (club?.is_plan_comped) {
+    return null
+  }
+
+  const planKey = String(club?.plan_key ?? 'small_club').trim() || 'small_club'
+  return STAFF_LOGIN_LIMITS[planKey] ?? STAFF_LOGIN_LIMITS.small_club
+}
+
+async function getClubAccessEmails(adminClient: ReturnType<typeof createClient>, clubId: string) {
+  const [usersResult, invitesResult] = await Promise.all([
+    adminClient.from('users').select('email').eq('club_id', clubId),
+    adminClient.from('club_user_invites').select('email').eq('club_id', clubId).is('accepted_at', null),
+  ])
+
+  if (usersResult.error) {
+    throw usersResult.error
+  }
+
+  if (invitesResult.error) {
+    throw invitesResult.error
+  }
+
+  return new Set(
+    [
+      ...(usersResult.data ?? []).map((row: { email?: string | null }) => row.email),
+      ...(invitesResult.data ?? []).map((row: { email?: string | null }) => row.email),
+    ]
+      .map((value) => normalizeEmail(value))
+      .filter(Boolean),
+  )
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -122,6 +162,25 @@ Deno.serve(async (request) => {
 
     if (roleRank > Number(requester.role_rank ?? 0)) {
       return jsonResponse({ error: 'You cannot assign a role above your own level.' }, 403)
+    }
+
+    const { data: club, error: clubError } = await adminClient
+      .from('clubs')
+      .select('plan_key, is_plan_comped')
+      .eq('id', clubId)
+      .single()
+
+    if (clubError || !club) {
+      return jsonResponse({ error: 'Club plan could not be checked.' }, 400)
+    }
+
+    const staffLoginLimit = getStaffLoginLimit(club)
+    const accessEmails = await getClubAccessEmails(adminClient, clubId)
+
+    if (!accessEmails.has(email) && staffLoginLimit !== null && accessEmails.size >= staffLoginLimit) {
+      return jsonResponse({
+        error: `Staff logins are limited to ${staffLoginLimit} on your current plan. Upgrade to Small Club to add more.`,
+      }, 403)
     }
 
     const { data: existingProfile } = await adminClient
