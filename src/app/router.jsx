@@ -215,10 +215,19 @@ function PageSuspense({ children }) {
 }
 
 function WorkspaceHome() {
-  const { user } = useAuth()
+  const { authError, isProfileLoading, user } = useAuth()
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
 
   if (!user) {
-    return <RouteContentSkeleton />
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
   }
 
   if (isSuperAdmin(user)) {

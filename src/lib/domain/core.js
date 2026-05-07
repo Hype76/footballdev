@@ -1404,6 +1404,40 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
   return applyActiveMembership(authUser, selectedMembership)
 }
 
+async function createClubAndManagerProfileWithServer({ authUser, clubName }) {
+  await blockDemoMutation(authUser)
+
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+
+  if (!accessToken) {
+    throw new Error('Login again before creating your club.')
+  }
+
+  const response = await fetch('/.netlify/functions/ensure-signup-club-profile', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      clubName: String(clubName ?? '').trim(),
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false || !result.profile) {
+    throw new Error(result.message || result.error || 'Could not create your club profile.')
+  }
+
+  invalidateMemoryCacheByPrefix(`user-profile:${authUser.id}`)
+  return normalizeUserProfile({
+    ...result.profile,
+    clubs: result.club ?? result.profile.clubs ?? null,
+    email: result.profile.email || authUser.email,
+  })
+}
+
 export async function selectUserClub(authUser, clubId) {
   if (!authUser?.id || !clubId) {
     throw new Error('Choose a club to continue.')
@@ -1470,7 +1504,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       })
     }
 
-    if (!isDemoAuthUser) {
+    if (!isDemoAuthUser && data?.club_id) {
       await claimInvitedUserProfiles(authUser)
     }
 
@@ -1555,6 +1589,12 @@ export async function fetchUserProfile(authUser, options = {}) {
 
 export async function createClubAndManagerProfile({ authUser, clubName }) {
   await blockDemoMutation(authUser)
+
+  try {
+    return await createClubAndManagerProfileWithServer({ authUser, clubName })
+  } catch (serverError) {
+    console.error(serverError)
+  }
 
   const { data: club, error: clubError } = await supabase
     .from('clubs')
