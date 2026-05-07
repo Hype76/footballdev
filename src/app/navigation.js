@@ -16,6 +16,10 @@ export const primaryNavigation = [
     path: '/form-builder',
   },
   {
+    label: 'Email Templates',
+    path: '/parent-email-templates',
+  },
+  {
     label: 'User Access',
     path: '/user-access',
   },

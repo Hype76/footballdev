@@ -4,6 +4,7 @@ import { primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
   canManageFormFields,
+  canManageParentEmailTemplates,
   canManageTeamSettings,
   canManageUsers,
   canViewPlatformFeedback,
@@ -50,6 +51,10 @@ export function Sidebar({ isOpen, onClose }) {
       return canManageFormFields(user)
     }
 
+    if (item.path === '/parent-email-templates') {
+      return canManageParentEmailTemplates(user)
+    }
+
     if (item.path === '/billing') {
       return canViewBilling(user)
     }
@@ -69,6 +74,14 @@ export function Sidebar({ isOpen, onClose }) {
         ...item,
         disabled: true,
         disabledMessage: createFeatureUpgradeMessage('customFormFields'),
+      }
+    }
+
+    if (item.path === '/parent-email-templates' && !hasPlanFeature(user, 'parentEmail')) {
+      return {
+        ...item,
+        disabled: true,
+        disabledMessage: createFeatureUpgradeMessage('parentEmail'),
       }
     }
 

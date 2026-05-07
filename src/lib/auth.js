@@ -178,6 +178,10 @@ export function canManageFormFields(user) {
   return !isSuperAdmin(user) && !isClubAdmin(user) && Number(user?.roleRank ?? 0) >= 50
 }
 
+export function canManageParentEmailTemplates(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && Number(user?.roleRank ?? 0) >= 50
+}
+
 export function canManageClubSettings(user) {
   return isClubAdmin(user)
 }

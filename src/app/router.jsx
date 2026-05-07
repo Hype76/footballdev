@@ -5,6 +5,7 @@ import {
   canCreateEvaluation,
   canManageClubSettings,
   canManageFormFields,
+  canManageParentEmailTemplates,
   canManageTeamSettings,
   canManageUsers,
   canViewActivityLog,
@@ -40,6 +41,7 @@ const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 
 const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
 const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
+const ParentEmailTemplatesPage = lazyRoute(() => import('../pages/ParentEmailTemplatesPage.jsx'), 'ParentEmailTemplatesPage')
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
 const PlayersPage = lazyRoute(() => import('../pages/PlayersPage.jsx'), 'PlayersPage')
 const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx'), 'PlatformAdminPage')
@@ -393,6 +395,49 @@ function RequireFormBuilderAccess() {
   }
 
   if (!canManageFormFields(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireParentEmailTemplatesAccess() {
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
+  }
+
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
+  }
+
+  if (!canManageParentEmailTemplates(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -910,6 +955,22 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Form Builder',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireParentEmailTemplatesAccess />,
+            children: [
+              {
+                path: 'parent-email-templates',
+                element: (
+                  <PageSuspense>
+                    <ParentEmailTemplatesPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Email Templates',
                 },
               },
             ],

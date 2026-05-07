@@ -10,10 +10,8 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
-  PARENT_EMAIL_TEMPLATES,
-  buildParentEmailTemplate,
-  getEmailTemplateKey,
   isInviteEmailTemplate,
+  renderParentEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
 import { isDemoUser } from '../lib/demo.js'
@@ -54,6 +52,7 @@ import {
   getAvailableTeamsForUser,
   getDefaultFormFields,
   getFormFields,
+  getParentEmailTemplates,
   getPlayers,
   formatParentContactEmails,
   formatParentContactNames,
@@ -186,6 +185,8 @@ export function CreateEvaluationPage() {
   const [previewMode, setPreviewMode] = useState('scored')
   const [showPreviousAssessments, setShowPreviousAssessments] = useState(false)
   const [emailTemplateKey, setEmailTemplateKey] = useState('')
+  const [emailTemplates, setEmailTemplates] = useState([])
+  const [isLoadingEmailTemplates, setIsLoadingEmailTemplates] = useState(false)
   const [selectedParentContactIndexes, setSelectedParentContactIndexes] = useState([0])
   const [inviteDate, setInviteDate] = useState('')
   const [selectedExportLabels, setSelectedExportLabels] = useState(null)
@@ -553,6 +554,43 @@ export function CreateEvaluationPage() {
   }, [fieldsCacheKey, isPlatformOwner, user, userScopeKey])
 
   useEffect(() => {
+    let isMounted = true
+
+    const loadEmailTemplates = async () => {
+      if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+        setEmailTemplates([])
+        return
+      }
+
+      setIsLoadingEmailTemplates(true)
+
+      try {
+        const nextTemplates = await getParentEmailTemplates({ user })
+
+        if (isMounted) {
+          setEmailTemplates(nextTemplates)
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setEmailTemplates([])
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingEmailTemplates(false)
+        }
+      }
+    }
+
+    void loadEmailTemplates()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user, userScopeKey])
+
+  useEffect(() => {
     if (!isSaved) {
       return undefined
     }
@@ -641,7 +679,12 @@ export function CreateEvaluationPage() {
   )
   const hasSavedExportSelection = Array.isArray(selectedExportLabels)
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
-  const selectedEmailTemplateKey = emailTemplateKey || getEmailTemplateKey()
+  const availableEmailTemplates = useMemo(
+    () => emailTemplates.filter((template) => template.key !== 'assessment' && template.isEnabled !== false),
+    [emailTemplates],
+  )
+  const selectedEmailTemplateKey = emailTemplateKey || availableEmailTemplates[0]?.key || ''
+  const selectedEmailTemplate = availableEmailTemplates.find((template) => template.key === selectedEmailTemplateKey) ?? null
   const shouldShowInviteDate = previewMode === 'email' && isInviteEmailTemplate(selectedEmailTemplateKey)
   const parentContacts = useMemo(
     () =>
@@ -666,8 +709,8 @@ export function CreateEvaluationPage() {
     [comments, formResponses],
   )
   const parentEmailTemplate = useMemo(
-    () =>
-      buildParentEmailTemplate({
+    () => {
+      const fields = {
         parentName: selectedParentName,
         playerName: formData.playerName,
         coachName: formData.coachName,
@@ -675,16 +718,21 @@ export function CreateEvaluationPage() {
         teamName: formData.team,
         session: formData.session,
         inviteDate,
-        templateKey: selectedEmailTemplateKey,
-      }),
+        summary: previewSummary,
+      }
+
+      return selectedEmailTemplate
+        ? renderParentEmailTemplate(selectedEmailTemplate, fields)
+        : { key: '', label: '', subject: '', body: '' }
+    },
     [
       formData.coachName,
       formData.playerName,
       formData.session,
       formData.team,
-      emailTemplateKey,
       inviteDate,
-      selectedEmailTemplateKey,
+      previewSummary,
+      selectedEmailTemplate,
       selectedParentName,
       user?.clubName,
     ],
@@ -974,6 +1022,10 @@ export function CreateEvaluationPage() {
         throw new Error(createFeatureUpgradeMessage('pdfExport'))
       }
 
+      if (mode === 'email' && !selectedEmailTemplate) {
+        throw new Error('Create a parent email template before exporting an email template PDF.')
+      }
+
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
       const latestClubLogoUrl = await getLatestClubLogoUrl(user)
 
@@ -997,7 +1049,7 @@ export function CreateEvaluationPage() {
       })
     } catch (error) {
       console.error('PDF export failed', error)
-      setActionErrorMessage('The PDF could not be generated right now. Try again in a moment.')
+      setActionErrorMessage(error.message || 'The PDF could not be generated right now. Try again in a moment.')
     } finally {
       setIsGeneratingPdf(false)
     }
@@ -1068,6 +1120,10 @@ export function CreateEvaluationPage() {
         try {
           if (!canUseParentEmail) {
             throw new Error(createFeatureUpgradeMessage('parentEmail'))
+          }
+
+          if (!selectedEmailTemplate) {
+            throw new Error('Create a parent email template before sending an email.')
           }
 
           setIsSendingParentEmail(true)
@@ -1571,20 +1627,28 @@ export function CreateEvaluationPage() {
 
                 {previewMode === 'email' ? (
                   <div className="mb-4 grid gap-4 md:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
-                      <select
-                        value={selectedEmailTemplateKey}
-                        onChange={(event) => setEmailTemplateKey(event.target.value)}
-                        className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                      >
-                        {PARENT_EMAIL_TEMPLATES.map((template) => (
-                          <option key={template.key} value={template.key}>
-                            {template.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    {availableEmailTemplates.length > 0 ? (
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
+                        <select
+                          value={selectedEmailTemplateKey}
+                          onChange={(event) => setEmailTemplateKey(event.target.value)}
+                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        >
+                          {availableEmailTemplates.map((template) => (
+                            <option key={template.key} value={template.key}>
+                              {template.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <NoticeBanner
+                        title="Create an email template first"
+                        message={isLoadingEmailTemplates ? 'Loading parent email templates...' : 'Ask a manager to save a club parent email template before sending emails.'}
+                        tone="info"
+                      />
+                    )}
 
                     {shouldShowInviteDate ? (
                       <label className="block">

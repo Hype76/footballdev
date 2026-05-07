@@ -7,6 +7,7 @@ import {
 } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
 import { createFeatureUpgradeMessage, createLimitUpgradeMessage, getPlanLimit, hasPlanFeature } from '../plans.js'
+import { getDefaultParentEmailTemplates, validateParentEmailTemplateContent } from '../email-templates.js'
 export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from '../supabase-client.js'
 const VIEW_CACHE_PREFIX = 'view-cache:'
 const MEMORY_CACHE_TTL_MS = 30 * 1000
@@ -3454,6 +3455,127 @@ export async function reorderFormFields(fields, user) {
       ),
     ),
   )
+}
+
+function normalizeParentEmailTemplateRow(row) {
+  return {
+    id: row.id,
+    clubId: row.club_id ?? row.clubId ?? '',
+    key: String(row.template_key ?? row.key ?? '').trim(),
+    label: String(row.label ?? '').trim(),
+    subject: String(row.subject ?? '').trim(),
+    body: String(row.body ?? '').trim(),
+    isEnabled: Boolean(row.is_enabled ?? row.isEnabled ?? true),
+    orderIndex: Number(row.order_index ?? row.orderIndex ?? 0),
+    updatedAt: row.updated_at ?? row.updatedAt ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  }
+}
+
+function normalizeParentEmailTemplatePayload({ user, template }) {
+  const templateKey = String(template?.key ?? template?.templateKey ?? '').trim().toLowerCase()
+  const label = String(template?.label ?? '').trim()
+  const subject = String(template?.subject ?? '').trim()
+  const body = String(template?.body ?? '').trim()
+
+  if (!templateKey) {
+    throw new Error('Template key is required.')
+  }
+
+  if (!label) {
+    throw new Error('Template name is required.')
+  }
+
+  if (!subject) {
+    throw new Error('Template subject is required.')
+  }
+
+  if (!body) {
+    throw new Error('Template body is required.')
+  }
+
+  validateParentEmailTemplateContent({ subject, body })
+
+  return {
+    club_id: user.clubId,
+    template_key: templateKey,
+    label,
+    subject,
+    body,
+    is_enabled: template?.isEnabled !== false,
+    order_index: Number(template?.orderIndex ?? 0),
+    updated_by: getEntryUserId(user),
+    ...getEntryIdentity(user, 'updated_by'),
+  }
+}
+
+export function getDefaultClubParentEmailTemplates() {
+  return getDefaultParentEmailTemplates()
+}
+
+export async function getParentEmailTemplates({ user, includeDisabled = false } = {}) {
+  if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+    return []
+  }
+
+  let query = supabase
+    .from('parent_email_templates')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .order('order_index', { ascending: true })
+    .order('label', { ascending: true })
+
+  if (!includeDisabled) {
+    query = query.eq('is_enabled', true)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeParentEmailTemplateRow)
+}
+
+export async function upsertParentEmailTemplate({ user, template }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  if (Number(user.roleRank ?? 0) < 50 || user.role === 'super_admin') {
+    throw new Error('Only managers and above can manage parent email templates.')
+  }
+
+  await assertClubFeature({
+    user,
+    clubId: user.clubId,
+    featureName: 'parentEmail',
+  })
+
+  const payload = {
+    ...normalizeParentEmailTemplatePayload({ user, template }),
+    created_by: getEntryUserId(user),
+    ...getEntryIdentity(user),
+  }
+
+  const { data, error } = await supabase
+    .from('parent_email_templates')
+    .upsert(payload, {
+      onConflict: 'club_id,template_key',
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return normalizeParentEmailTemplateRow(data)
 }
 
 export async function getEvaluations({ user, status, playerName, section, includeArchivedPlayers = false } = {}) {

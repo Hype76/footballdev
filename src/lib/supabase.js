@@ -43,6 +43,12 @@ export {
 } from './domain/form-fields.js'
 
 export {
+  getDefaultClubParentEmailTemplates,
+  getParentEmailTemplates,
+  upsertParentEmailTemplate,
+} from './domain/core.js'
+
+export {
   createClubRole,
   createStaffUserWithPassword,
   deleteClubInvite,
