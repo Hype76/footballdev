@@ -3722,6 +3722,15 @@ export async function restorePlayer({ user, playerId }) {
     ? currentPlayer.archivedPreviousStatus
     : 'active'
 
+  if (restoredStatus !== 'archived') {
+    await assertPlayerLimitForUpsert({
+      user,
+      clubId: user.clubId,
+      section: currentPlayer.section,
+      playerName: currentPlayer.playerName,
+    })
+  }
+
   const { data, error } = await supabase
     .from('players')
     .update({
