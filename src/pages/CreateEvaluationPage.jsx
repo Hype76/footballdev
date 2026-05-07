@@ -673,9 +673,22 @@ export function CreateEvaluationPage() {
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
   const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
+  const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
+  const canUsePdfExport = hasPlanFeature(user, 'pdfExport')
+  const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
   const selectedResponseItems = useMemo(
     () => getSelectedEvaluationResponses(responseItems, selectedExportLabels),
     [responseItems, selectedExportLabels],
+  )
+  const previewResponseItems = useMemo(
+    () => {
+      if (previewMode === 'without-scores') {
+        return []
+      }
+
+      return canUsePdfExport || canUseParentEmail ? selectedResponseItems : responseItems
+    },
+    [canUseParentEmail, canUsePdfExport, previewMode, responseItems, selectedResponseItems],
   )
   const hasSavedExportSelection = Array.isArray(selectedExportLabels)
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
@@ -737,9 +750,6 @@ export function CreateEvaluationPage() {
       user?.clubName,
     ],
   )
-  const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
-  const canUsePdfExport = hasPlanFeature(user, 'pdfExport')
-  const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
   const isDemoAccount = isDemoUser(user)
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
@@ -1796,7 +1806,7 @@ export function CreateEvaluationPage() {
                   emailSubject={parentEmailTemplate.subject}
                   emailBody={parentEmailTemplate.body}
                   recipientNames={selectedParentName}
-                  responseItems={previewMode !== 'without-scores' ? selectedResponseItems : []}
+                  responseItems={previewResponseItems}
                   mode={previewMode}
                 />
               </SectionCard>
