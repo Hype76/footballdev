@@ -106,6 +106,7 @@ async function listCoupons(stripe) {
       code: promotionCode?.code || '',
       promotionCodeId: promotionCode?.id || '',
       expiresAt: promotionCode?.expires_at ? new Date(promotionCode.expires_at * 1000).toISOString() : null,
+      firstTimeOnly: Boolean(promotionCode?.restrictions?.first_time_transaction),
       active: promotionCode?.active ?? coupon.valid,
       createdAt: coupon.created ? new Date(coupon.created * 1000).toISOString() : null,
     }
@@ -120,6 +121,7 @@ async function createCoupon(stripe, body) {
   const percentOff = Number(body.percentOff || 0)
   const amountOff = Number(body.amountOff || 0)
   const expiresAt = getEndOfDayTimestamp(body.expiresAt)
+  const firstTimeOnly = Boolean(body.firstTimeOnly)
 
   if (!name) {
     throw new Error('Coupon name is required')
@@ -164,6 +166,12 @@ async function createCoupon(stripe, body) {
     promotionCodePayload.expires_at = expiresAt
   }
 
+  if (firstTimeOnly) {
+    promotionCodePayload.restrictions = {
+      first_time_transaction: true,
+    }
+  }
+
   const promotionCode = await stripe.promotionCodes.create(promotionCodePayload)
 
   return {
@@ -202,6 +210,7 @@ export async function handler(event) {
           duration: created.coupon.duration,
           redeemBy: created.coupon.redeem_by,
           expiresAt: created.promotionCode.expires_at,
+          firstTimeOnly: Boolean(created.promotionCode.restrictions?.first_time_transaction),
         },
       })
 

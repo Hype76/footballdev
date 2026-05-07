@@ -12,6 +12,7 @@ const defaultCouponForm = {
   duration: 'once',
   durationInMonths: '3',
   expiresAt: '',
+  firstTimeOnly: false,
 }
 
 function formatDate(value) {
@@ -264,6 +265,15 @@ export function PlatformBillingOptionsPage() {
               Optional. This stops new redemptions after the selected date.
             </span>
           </label>
+          <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 xl:self-end">
+            <input
+              type="checkbox"
+              checked={couponForm.firstTimeOnly}
+              onChange={(event) => handleCouponChange('firstTimeOnly', event.target.checked)}
+              className="h-4 w-4 accent-[var(--accent)]"
+            />
+            <span className="text-sm font-semibold text-[var(--text-primary)]">First purchase only</span>
+          </label>
           <div className="xl:col-span-4">
             <button
               type="submit"
@@ -308,6 +318,11 @@ export function PlatformBillingOptionsPage() {
                 <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                   {formatExpiry(coupon)}
                 </p>
+                {coupon.firstTimeOnly ? (
+                  <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    First purchase only
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>
