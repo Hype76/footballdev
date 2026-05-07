@@ -40,9 +40,25 @@ async function markEventProcessed(event) {
   return true
 }
 
-async function updateClubFromBillingRecord(record) {
+async function updateClubFromBillingRecord(record, { preserveComped = false } = {}) {
   if (!record?.club_id) {
     return
+  }
+
+  let isPlanComped = false
+
+  if (preserveComped) {
+    const { data: currentClub, error: currentClubError } = await supabaseAdmin
+      .from('clubs')
+      .select('is_plan_comped')
+      .eq('id', record.club_id)
+      .maybeSingle()
+
+    if (currentClubError) {
+      throw currentClubError
+    }
+
+    isPlanComped = Boolean(currentClub?.is_plan_comped)
   }
 
   const { error } = await supabaseAdmin
@@ -50,7 +66,7 @@ async function updateClubFromBillingRecord(record) {
     .update({
       plan_key: record.plan_key,
       plan_status: record.plan_status,
-      is_plan_comped: false,
+      is_plan_comped: isPlanComped,
       stripe_customer_id: record.stripe_customer_id || null,
       stripe_subscription_id: record.stripe_subscription_id || null,
       stripe_price_id: record.stripe_price_id || null,
@@ -211,7 +227,7 @@ async function updateSubscriptionRecord(subscription, rawPayload) {
   }
 
   if (data) {
-    await updateClubFromBillingRecord(data)
+    await updateClubFromBillingRecord(data, { preserveComped: true })
   }
 }
 

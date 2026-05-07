@@ -167,6 +167,34 @@ export function Sidebar({ isOpen, onClose }) {
             >
               Platform Admin
             </NavLink>
+            <NavLink
+              to="/platform-clubs"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
+                ].join(' ')
+              }
+            >
+              Club/Team Management
+            </NavLink>
+            <NavLink
+              to="/platform-billing-options"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
+                ].join(' ')
+              }
+            >
+              Billing Options
+            </NavLink>
             {canAccessPlatformFeedback ? (
               <NavLink
                 to="/platform-feedback"

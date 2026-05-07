@@ -42,6 +42,8 @@ const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFo
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
 const PlayersPage = lazyRoute(() => import('../pages/PlayersPage.jsx'), 'PlayersPage')
 const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx'), 'PlatformAdminPage')
+const PlatformBillingOptionsPage = lazyRoute(() => import('../pages/PlatformBillingOptionsPage.jsx'), 'PlatformBillingOptionsPage')
+const PlatformClubManagementPage = lazyRoute(() => import('../pages/PlatformClubManagementPage.jsx'), 'PlatformClubManagementPage')
 const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPage.jsx'), 'PlatformFeedbackPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
@@ -638,6 +640,28 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Platform Admin',
+                },
+              },
+              {
+                path: 'platform-clubs',
+                element: (
+                  <PageSuspense>
+                    <PlatformClubManagementPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Club and Team Management',
+                },
+              },
+              {
+                path: 'platform-billing-options',
+                element: (
+                  <PageSuspense>
+                    <PlatformBillingOptionsPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Billing Options',
                 },
               },
             ],

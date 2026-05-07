@@ -17,7 +17,6 @@ import {
   getPlatformStats,
   readViewCacheValue,
   updatePlatformFeedback,
-  updatePlatformClubPlan,
   updatePlatformClubStatus,
   updatePlatformUserStatus,
   withRequestTimeout,
@@ -49,8 +48,22 @@ function formatDate(value) {
   }).format(parsedDate)
 }
 
-export function PlatformAdminPage() {
-  const { user } = useAuth()
+const PAGE_META = {
+  dashboard: {
+    title: 'Platform dashboard',
+    description: 'View platform usage and test the live email pipeline without exposing player personal details.',
+  },
+  clubs: {
+    title: 'Club and team management',
+    description: 'Manage clubs, teams, adult user access, and platform controlled plan overrides.',
+  },
+}
+
+export function PlatformAdminPage({ section = 'dashboard' }) {
+  const { session, user } = useAuth()
+  const pageMeta = PAGE_META[section] || PAGE_META.dashboard
+  const showDashboard = section === 'dashboard'
+  const showClubManagement = section === 'clubs'
   const [stats, setStats] = useState(() => readViewCacheValue(cacheKey, 'stats', null))
   const [feedbackItems, setFeedbackItems] = useState(() => {
     const cachedItems = readViewCacheValue(feedbackCacheKey, 'feedbackItems', [])
@@ -491,14 +504,26 @@ export function PlatformAdminPage() {
     setSuccessMessage('')
 
     try {
-      await updatePlatformClubPlan({
-        user,
-        clubId: club.id,
-        planKey: fieldName === 'planKey' ? value : club.planKey,
-        planStatus: fieldName === 'planStatus' ? value : club.planStatus,
-        isPlanComped: fieldName === 'isPlanComped' ? value : club.isPlanComped,
+      const response = await fetch('/.netlify/functions/update-platform-club-billing', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clubId: club.id,
+          planKey: fieldName === 'planKey' ? value : club.planKey,
+          planStatus: fieldName === 'planStatus' ? value : club.planStatus,
+          isPlanComped: fieldName === 'isPlanComped' ? value : club.isPlanComped,
+        }),
       })
-      setSuccessMessage('Club plan updated.')
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Club plan could not be updated.')
+      }
+
+      setSuccessMessage(result.message || 'Club plan updated.')
       refreshStats()
     } catch (error) {
       console.error(error)
@@ -625,11 +650,11 @@ export function PlatformAdminPage() {
   if (!isSuperAdmin(user)) {
     return (
       <div className="space-y-5 sm:space-y-6">
-        <PageHeader
-          eyebrow="Platform"
-          title="Platform dashboard"
-          description="This area is only available to platform administrators."
-        />
+      <PageHeader
+        eyebrow="Platform"
+        title={pageMeta.title}
+        description="This area is only available to platform administrators."
+      />
       </div>
     )
   }
@@ -638,8 +663,8 @@ export function PlatformAdminPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Platform"
-        title="Platform dashboard"
-        description="View platform usage, clubs, teams, and adult user emails without exposing player personal details."
+        title={pageMeta.title}
+        description={pageMeta.description}
       />
 
       {errorMessage ? (
@@ -655,6 +680,7 @@ export function PlatformAdminPage() {
         </div>
       ) : null}
 
+      {showDashboard ? (
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           ['Clubs', stats?.totals?.clubs ?? 0],
@@ -672,7 +698,9 @@ export function PlatformAdminPage() {
           </div>
         ))}
       </div>
+      ) : null}
 
+      {showDashboard ? (
       <SectionCard
         title="Test Email"
         description="Preview and send through the live email and PDF pipeline."
@@ -846,7 +874,9 @@ export function PlatformAdminPage() {
           ) : null}
         </form>
       </SectionCard>
+      ) : null}
 
+      {showClubManagement ? (
       <SectionCard
         title="Manage clubs"
         description="Create clubs, suspend access, reactivate access, or delete unused club workspaces."
@@ -887,7 +917,9 @@ export function PlatformAdminPage() {
           </button>
         </form>
       </SectionCard>
+      ) : null}
 
+      {showDashboard ? (
       <SectionCard
         title="Platform feedback"
         description="Review product feedback, update status, add internal notes, or remove completed items."
@@ -992,7 +1024,9 @@ export function PlatformAdminPage() {
           </div>
         )}
       </SectionCard>
+      ) : null}
 
+      {showClubManagement ? (
       <SectionCard
         title="Account management"
         description="Manage clubs, teams, and adult user access. Player names and child contact details are intentionally excluded."
@@ -1259,6 +1293,7 @@ export function PlatformAdminPage() {
           </div>
         )}
       </SectionCard>
+      ) : null}
 
       <ConfirmModal
         isOpen={Boolean(feedbackDeleteTarget)}
