@@ -601,6 +601,9 @@ export function AuthProvider({ children }) {
       password,
       options: {
         emailRedirectTo,
+        data: {
+          club_name: String(clubName ?? '').trim(),
+        },
       },
     })
 

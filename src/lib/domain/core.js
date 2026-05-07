@@ -209,6 +209,26 @@ function normalizeWords(value) {
     .join(' ')
 }
 
+function getSignupClubName(authUser) {
+  const metadataClubName = String(
+    authUser?.user_metadata?.club_name ??
+      authUser?.user_metadata?.clubName ??
+      authUser?.raw_user_meta_data?.club_name ??
+      authUser?.raw_user_meta_data?.clubName ??
+      '',
+  ).trim()
+
+  if (metadataClubName) {
+    return metadataClubName
+  }
+
+  const emailDomain = String(authUser?.email ?? '').split('@')[1] ?? ''
+  const domainName = emailDomain.split('.')[0] ?? ''
+  const fallbackName = normalizeWords(domainName.replace(/[-_]+/g, ' '))
+
+  return fallbackName || 'My Club'
+}
+
 function getEntryUserName(user) {
   return String(user?.username ?? user?.name ?? user?.email ?? '').trim()
 }
@@ -1425,7 +1445,10 @@ export async function fetchUserProfile(authUser, options = {}) {
       const memberships = await getUserClubMemberships(authUser)
 
       if (memberships.length === 0) {
-        throw new Error('User profile not found.')
+        return createClubAndManagerProfile({
+          authUser,
+          clubName: getSignupClubName(authUser),
+        })
       }
 
       if (memberships.length > 1 && !selectedClubId) {
