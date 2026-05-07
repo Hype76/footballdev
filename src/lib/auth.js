@@ -195,7 +195,7 @@ export function canViewBilling(user) {
     return true
   }
 
-  if (user.planKey === 'individual' && !user.isPlanComped) {
+  if (user.planKey === 'individual') {
     return true
   }
 
