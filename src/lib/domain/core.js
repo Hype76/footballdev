@@ -5,9 +5,11 @@ import {
   REQUEST_TIMEOUT_MS,
   supabase,
 } from '../supabase-client.js'
+import { isDemoEmail } from '../demo.js'
 export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from '../supabase-client.js'
 const VIEW_CACHE_PREFIX = 'view-cache:'
 const MEMORY_CACHE_TTL_MS = 30 * 1000
+const DEMO_MUTATION_ERROR_MESSAGE = 'Demo accounts cannot save changes.'
 const memoryCache = new Map()
 const inFlightMemoryRequests = new Map()
 const USER_PROFILE_SELECT = [
@@ -213,6 +215,29 @@ function getEntryUserName(user) {
 
 function getEntryUserEmail(user) {
   return String(user?.email ?? '').trim().toLowerCase()
+}
+
+function isDemoAccountValue(account) {
+  return Boolean(account?.isDemoAccount) || isDemoEmail(account?.email)
+}
+
+async function isCurrentSessionDemoUser() {
+  const { data, error } = await supabase.auth.getUser()
+
+  if (error) {
+    console.error(error)
+    return false
+  }
+
+  return isDemoEmail(data?.user?.email)
+}
+
+async function blockDemoMutation(account) {
+  const hasDemoIdentity = Boolean(account?.isDemoAccount || account?.email)
+
+  if (isDemoAccountValue(account) || (!hasDemoIdentity && await isCurrentSessionDemoUser())) {
+    throw new Error(DEMO_MUTATION_ERROR_MESSAGE)
+  }
 }
 
 function getEntryIdentity(user, prefix = 'created_by') {
@@ -1327,6 +1352,7 @@ export async function selectUserClub(authUser, clubId) {
     throw new Error('Choose a club to continue.')
   }
 
+  await blockDemoMutation(authUser)
   await claimInvitedUserProfiles(authUser)
   const memberships = await getUserClubMemberships(authUser)
   const selectedMembership = memberships.find((membership) => String(membership.clubId) === String(clubId))
@@ -1356,6 +1382,7 @@ export async function selectUserClub(authUser, clubId) {
 export async function fetchUserProfile(authUser, options = {}) {
   const selectedClubId = String(options.selectedClubId ?? '').trim()
   const cacheKey = `user-profile:${authUser?.id || ''}:${selectedClubId || 'active'}`
+  const isDemoAuthUser = isDemoAccountValue(authUser)
 
   if (!authUser?.id) {
     throw new Error('User profile not found.')
@@ -1386,9 +1413,15 @@ export async function fetchUserProfile(authUser, options = {}) {
       })
     }
 
-    await claimInvitedUserProfiles(authUser)
+    if (!isDemoAuthUser) {
+      await claimInvitedUserProfiles(authUser)
+    }
 
     if (!data) {
+      if (isDemoAuthUser) {
+        throw new Error('Demo profile not found.')
+      }
+
       const memberships = await getUserClubMemberships(authUser)
 
       if (memberships.length === 0) {
@@ -1405,14 +1438,14 @@ export async function fetchUserProfile(authUser, options = {}) {
       const selectedMembership =
         memberships.find((membership) => String(membership.clubId) === selectedClubId) ?? memberships[0]
       data = await applyActiveMembership(authUser, selectedMembership)
-    } else {
+    } else if (!isDemoAuthUser) {
       await syncMembershipFromUserRow(data, authUser)
     }
 
     const authEmail = String(authUser.email ?? '').trim().toLowerCase()
     const profileEmail = String(data.email ?? '').trim().toLowerCase()
 
-    if (authEmail && authEmail !== profileEmail) {
+    if (!isDemoAuthUser && authEmail && authEmail !== profileEmail) {
       const { data: syncedData, error: syncError } = await supabase
         .from('users')
         .update({
@@ -1437,7 +1470,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       }
     }
 
-    if (memberships.length > 1 && selectedClubId && String(data.club_id) !== selectedClubId) {
+    if (!isDemoAuthUser && memberships.length > 1 && selectedClubId && String(data.club_id) !== selectedClubId) {
       const selectedMembership = memberships.find((membership) => String(membership.clubId) === selectedClubId)
 
       if (!selectedMembership) {
@@ -1469,6 +1502,8 @@ export async function fetchUserProfile(authUser, options = {}) {
 }
 
 export async function createClubAndManagerProfile({ authUser, clubName }) {
+  await blockDemoMutation(authUser)
+
   const { data: club, error: clubError } = await supabase
     .from('clubs')
     .insert({
@@ -1526,6 +1561,8 @@ export async function updateOwnUserSettings({
   if (!authUser?.id) {
     throw new Error('Signed in user is required.')
   }
+
+  await blockDemoMutation(authUser)
 
   const normalizedUsername = normalizeWords(username)
   const normalizedDisplayName = normalizeWords(displayName)
@@ -1590,6 +1627,8 @@ export async function updateOwnThemeSettings({ authUser, mode, accent }) {
     throw new Error('Signed in user is required.')
   }
 
+  await blockDemoMutation(authUser)
+
   const normalizedMode = ['system', 'dark', 'light'].includes(mode) ? mode : 'system'
   const normalizedAccent = ['yellow', 'blue', 'green', 'red', 'purple'].includes(accent) ? accent : 'yellow'
 
@@ -1630,6 +1669,8 @@ export async function updateOwnOnboardingSettings({ authUser, enabled, completed
   if (!authUser?.id) {
     throw new Error('Signed in user is required.')
   }
+
+  await blockDemoMutation(authUser)
 
   const payload = {}
 
@@ -1680,6 +1721,8 @@ export async function requestLoginEmailChange({ authUser, email }) {
     throw new Error('Signed in user is required.')
   }
 
+  await blockDemoMutation(authUser)
+
   const normalizedEmail = String(email ?? '').trim().toLowerCase()
 
   if (!normalizedEmail) {
@@ -1728,6 +1771,8 @@ export async function requestLoginEmailChange({ authUser, email }) {
 }
 
 export async function updateSignedInPassword(password) {
+  await blockDemoMutation()
+
   const normalizedPassword = String(password ?? '')
 
   if (normalizedPassword.length < 8) {
@@ -1769,6 +1814,8 @@ export async function getClubSettings(clubId) {
 }
 
 export async function updateClubSettings({ clubId, data }) {
+  await blockDemoMutation()
+
   if (!clubId) {
     throw new Error('Club ID is required.')
   }
@@ -1916,6 +1963,8 @@ async function uploadClubLogoBlob({ clubId, blob }) {
 }
 
 export async function uploadClubLogo({ clubId, file }) {
+  await blockDemoMutation()
+
   if (!clubId) {
     throw new Error('Club ID is required.')
   }
@@ -1936,6 +1985,8 @@ export async function uploadClubLogo({ clubId, file }) {
 }
 
 export async function importClubLogoFromUrl({ clubId, logoUrl }) {
+  await blockDemoMutation()
+
   const normalizedLogoUrl = String(logoUrl ?? '').trim()
 
   if (!clubId) {
@@ -2012,6 +2063,17 @@ export async function getClubRoles(user) {
   let roles = await loadRoles()
 
   if (roles.length === 0) {
+    if (isDemoAccountValue(user)) {
+      return getDefaultClubRoles().map((role) => ({
+        id: role.key,
+        clubId: user.clubId,
+        roleKey: role.key,
+        roleLabel: role.label,
+        roleRank: role.rank,
+        isSystem: true,
+      }))
+    }
+
     await seedDefaultClubRolesForClub(user.clubId)
     roles = await loadRoles()
   }
@@ -2020,6 +2082,8 @@ export async function getClubRoles(user) {
 }
 
 export async function createClubRole({ user, label, rank = 10 }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId) {
     throw new Error('Club ID is required.')
   }
@@ -2199,6 +2263,8 @@ export async function getTeams(user) {
 }
 
 export async function updateTeamSettings({ teamId, data, user = null }) {
+  await blockDemoMutation(user)
+
   if (!teamId) {
     throw new Error('Team ID is required.')
   }
@@ -2362,6 +2428,8 @@ async function getSessionTeamsForUser(user) {
 }
 
 export async function createTeam({ user, name }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId) {
     throw new Error('Club ID is required.')
   }
@@ -2391,6 +2459,8 @@ export async function createTeam({ user, name }) {
 }
 
 export async function deleteTeam(teamId) {
+  await blockDemoMutation()
+
   const { error } = await supabase.from('teams').delete().eq('id', teamId)
 
   if (error) {
@@ -2427,6 +2497,8 @@ export async function getTeamStaffAssignments(user) {
 }
 
 export async function replaceTeamStaffAssignments(teamId, userIds) {
+  await blockDemoMutation()
+
   const normalizedUserIds = [...new Set((userIds ?? []).map((userId) => String(userId).trim()).filter(Boolean))]
 
   const { data: teamRow, error: teamError } = await supabase
@@ -2494,6 +2566,8 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
 }
 
 export async function assignClubUserRole({ user, email, role }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId) {
     throw new Error('Club ID is required.')
   }
@@ -2579,6 +2653,8 @@ export async function assignClubUserRole({ user, email, role }) {
 }
 
 export async function createStaffUserWithPassword({ user, email, password, role }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId) {
     throw new Error('Club ID is required.')
   }
@@ -2668,6 +2744,8 @@ export function canUpdateClubUserName(actor, targetUser) {
 }
 
 export async function updateClubUserName({ user, member, name }) {
+  await blockDemoMutation(user)
+
   if (!canUpdateClubUserName(user, member)) {
     throw new Error('You can only update names for users at your role level or below.')
   }
@@ -2723,6 +2801,8 @@ export async function updateClubUserName({ user, member, name }) {
 }
 
 export async function removeClubUser({ user, member }) {
+  await blockDemoMutation(user)
+
   if (!canRemoveClubUser(user, member)) {
     throw new Error('You can only remove users at your role level or below.')
   }
@@ -2792,6 +2872,8 @@ export async function removeClubUser({ user, member }) {
 }
 
 export async function deleteClubInvite(inviteId) {
+  await blockDemoMutation()
+
   const { error } = await supabase.from('club_user_invites').delete().eq('id', inviteId)
 
   if (error) {
@@ -2826,6 +2908,10 @@ export async function getConfiguredFormFields({ user } = {}) {
     return configuredFields
   }
 
+  if (isDemoAccountValue(user)) {
+    return []
+  }
+
   await seedDefaultFormFields()
   return loadConfiguredFields()
 }
@@ -2851,6 +2937,8 @@ export async function getFormFields({ user } = {}) {
 }
 
 export async function addFormField({ user, field }) {
+  await blockDemoMutation(user)
+
   const nextOrderIndex = Number(field.orderIndex ?? Date.now())
   const payload = mapFormFieldToRow(
     {
@@ -2873,6 +2961,8 @@ export async function addFormField({ user, field }) {
 }
 
 export async function updateFormField(id, fieldData, user) {
+  await blockDemoMutation(user)
+
   const payload = mapFormFieldToRow(
     fieldData,
     user,
@@ -2894,6 +2984,8 @@ export async function updateFormField(id, fieldData, user) {
 }
 
 export async function deleteFormField(id) {
+  await blockDemoMutation()
+
   const { error } = await supabase.from('form_fields').delete().eq('id', id)
 
   if (error) {
@@ -2903,6 +2995,8 @@ export async function deleteFormField(id) {
 }
 
 export async function reorderFormFields(fields, user) {
+  await blockDemoMutation(user)
+
   await Promise.all(
     fields.map((field, index) =>
       updateFormField(
@@ -3036,6 +3130,8 @@ export async function getPlayers({ user, section, playerName, status, includeArc
 }
 
 export async function createPlayer({ user, player }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || user.role === 'super_admin') {
     throw new Error('A club user is required to add players.')
   }
@@ -3075,6 +3171,8 @@ export async function createPlayer({ user, player }) {
 }
 
 export async function archivePlayer({ user, playerId, reason }) {
+  await blockDemoMutation(user)
+
   const normalizedReason = String(reason ?? '').trim()
 
   if (!user?.clubId || user.role === 'super_admin') {
@@ -3146,6 +3244,8 @@ export async function archivePlayer({ user, playerId, reason }) {
 }
 
 export async function restorePlayer({ user, playerId }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || user.role === 'super_admin') {
     throw new Error('A club user is required to restore players.')
   }
@@ -3210,6 +3310,10 @@ export async function restorePlayer({ user, playerId }) {
 }
 
 export async function createAuditLog({ user, action, entityType, entityId, metadata = {} }) {
+  if (isDemoAccountValue(user) || (!user && await isCurrentSessionDemoUser())) {
+    return
+  }
+
   if (!action || !entityType) {
     return
   }
@@ -3337,6 +3441,10 @@ export async function createCommunicationLog({
   recipientEmail = '',
   metadata = {},
 }) {
+  if (isDemoAccountValue(user)) {
+    return
+  }
+
   if (!user?.clubId || !user?.id || !action) {
     return
   }
@@ -3408,6 +3516,8 @@ export async function getPlayerDecisionLogs({ user, limit = 1000 } = {}) {
 }
 
 export async function createPlayerStaffNote({ user, playerId, note }) {
+  await blockDemoMutation(user)
+
   const normalizedNote = String(note ?? '').trim()
 
   if (!user?.clubId || !user?.id || !playerId || !normalizedNote) {
@@ -3464,6 +3574,8 @@ export async function getPlayerStaffNotes({ user, playerId, limit = 50 } = {}) {
 }
 
 export async function updatePlayer({ user, playerId, player }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || user.role === 'super_admin') {
     throw new Error('A club user is required to update players.')
   }
@@ -3514,6 +3626,8 @@ export async function updatePlayer({ user, playerId, player }) {
 }
 
 export async function promotePlayerToSquad({ user, playerId }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || user.role === 'super_admin') {
     throw new Error('A club user is required to promote players.')
   }
@@ -3575,6 +3689,8 @@ export async function promotePlayerToSquad({ user, playerId }) {
 }
 
 export async function deletePlayerRecord({ user, playerId }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || user.role === 'super_admin') {
     throw new Error('A club user is required to delete players.')
   }
@@ -3646,6 +3762,8 @@ export async function getAssessmentSessions({ user } = {}) {
 }
 
 export async function createAssessmentSession({ user, session }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || user.role === 'super_admin') {
     throw new Error('A club user is required to create sessions.')
   }
@@ -3708,6 +3826,8 @@ export async function createAssessmentSession({ user, session }) {
 }
 
 export async function completeAssessmentSession({ user, sessionId }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || !sessionId) {
     throw new Error('Session and club are required.')
   }
@@ -3801,6 +3921,8 @@ export async function getAssessmentSessionGames({ user, sessionId } = {}) {
 }
 
 export async function createAssessmentSessionGame({ user, sessionId, game }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || !sessionId) {
     throw new Error('Session and club are required.')
   }
@@ -3858,6 +3980,8 @@ export async function createAssessmentSessionGame({ user, sessionId, game }) {
 }
 
 export async function deleteAssessmentSessionGame({ user, gameId }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || !gameId) {
     throw new Error('Game result is required.')
   }
@@ -3889,6 +4013,8 @@ export async function deleteAssessmentSessionGame({ user, gameId }) {
 }
 
 export async function deleteAssessmentSession({ user, sessionId }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || !sessionId) {
     throw new Error('Session and club are required.')
   }
@@ -3980,6 +4106,8 @@ export async function deleteAssessmentSession({ user, sessionId }) {
 }
 
 export async function addPlayersToAssessmentSession({ user, sessionId, players }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || !sessionId) {
     throw new Error('Session and club are required.')
   }
@@ -4036,6 +4164,8 @@ export async function addPlayersToAssessmentSession({ user, sessionId, players }
 }
 
 export async function updateAssessmentSessionPlayer({ user, sessionPlayerId, notes }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || !sessionPlayerId) {
     throw new Error('Session player is required.')
   }
@@ -4062,6 +4192,8 @@ export async function updateAssessmentSessionPlayer({ user, sessionPlayerId, not
 }
 
 export async function clearAssessmentSessionPlayers({ user, sessionId }) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId || !sessionId) {
     throw new Error('Session and club are required.')
   }
@@ -4117,6 +4249,8 @@ export async function getPlatformFeedback(user) {
 }
 
 export async function createPlatformFeedback({ user, message }) {
+  await blockDemoMutation(user)
+
   const normalizedMessage = String(message ?? '').trim()
 
   if (!user?.id || !user?.clubId) {
@@ -4158,6 +4292,8 @@ export async function createPlatformFeedback({ user, message }) {
 }
 
 export async function votePlatformFeedback({ user, feedbackId }) {
+  await blockDemoMutation(user)
+
   if (!user?.id || !feedbackId) {
     throw new Error('Feedback and user are required.')
   }
@@ -4181,6 +4317,8 @@ export async function votePlatformFeedback({ user, feedbackId }) {
 }
 
 export async function unvotePlatformFeedback({ user, feedbackId }) {
+  await blockDemoMutation(user)
+
   if (!user?.id || !feedbackId) {
     throw new Error('Feedback and user are required.')
   }
@@ -4200,6 +4338,8 @@ export async function unvotePlatformFeedback({ user, feedbackId }) {
 }
 
 export async function updatePlatformFeedback({ user, feedbackId, data }) {
+  await blockDemoMutation(user)
+
   if (user?.role !== 'super_admin') {
     throw new Error('Only platform admins can update feedback.')
   }
@@ -4247,6 +4387,8 @@ export async function updatePlatformFeedback({ user, feedbackId, data }) {
 }
 
 export async function deletePlatformFeedback({ user, feedbackId }) {
+  await blockDemoMutation(user)
+
   if (user?.role !== 'super_admin') {
     throw new Error('Only platform admins can delete feedback.')
   }
@@ -4262,6 +4404,12 @@ export async function deletePlatformFeedback({ user, feedbackId }) {
 }
 
 export async function createEvaluation(data) {
+  await blockDemoMutation({
+    id: data.coachId,
+    email: data.createdByEmail,
+    isDemoAccount: data.isDemoAccount,
+  })
+
   let linkedPlayerId = data.playerId || ''
   let linkedTeamId = data.teamId || ''
 
@@ -4353,6 +4501,12 @@ export async function createEvaluation(data) {
 }
 
 export async function updateEvaluation(id, data, clubId) {
+  await blockDemoMutation({
+    id: data.updatedBy || data.coachId,
+    email: data.updatedByEmail || data.createdByEmail,
+    isDemoAccount: data.isDemoAccount,
+  })
+
   const payload = mapEvaluationToRow(data)
   delete payload.created_by_name
   delete payload.created_by_email
@@ -4374,6 +4528,8 @@ export async function updateEvaluation(id, data, clubId) {
 }
 
 export async function deleteEvaluation({ user, evaluationId }) {
+  await blockDemoMutation(user)
+
   if (!user?.id || user.role !== 'super_admin' && Number(user.roleRank ?? 0) < 50) {
     throw new Error('Only managers and above can delete assessments.')
   }
@@ -4420,6 +4576,8 @@ export async function deleteEvaluation({ user, evaluationId }) {
 }
 
 export async function updateEvaluationStatus(id, status, clubId, options = {}) {
+  await blockDemoMutation(options.user)
+
   const payload = {
     status,
     rejection_reason: status === 'Rejected' ? String(options.rejectionReason ?? '').trim() : null,
@@ -4456,6 +4614,8 @@ export async function updateEvaluationStatus(id, status, clubId, options = {}) {
 }
 
 export async function deletePlayer(playerName, user, options = {}) {
+  await blockDemoMutation(user)
+
   if (!user?.clubId && user?.role !== 'super_admin') {
     throw new Error('Club ID is required.')
   }
@@ -4524,6 +4684,8 @@ export async function deletePlayer(playerName, user, options = {}) {
 }
 
 export async function createPlatformClub({ user, name, contactEmail = '', contactPhone = '' }) {
+  await blockDemoMutation(user)
+
   if (user?.role !== 'super_admin') {
     throw new Error('Only platform admins can create clubs.')
   }
@@ -4569,6 +4731,8 @@ export async function createPlatformClub({ user, name, contactEmail = '', contac
 }
 
 export async function updatePlatformClubStatus({ user, clubId, status }) {
+  await blockDemoMutation(user)
+
   if (user?.role !== 'super_admin') {
     throw new Error('Only platform admins can update club status.')
   }
@@ -4606,6 +4770,8 @@ export async function updatePlatformClubStatus({ user, clubId, status }) {
 }
 
 export async function updatePlatformClubPlan({ user, clubId, planKey, planStatus = 'active', isPlanComped = false }) {
+  await blockDemoMutation(user)
+
   if (user?.role !== 'super_admin') {
     throw new Error('Only platform admins can update club plans.')
   }
@@ -4654,6 +4820,8 @@ export async function updatePlatformClubPlan({ user, clubId, planKey, planStatus
 }
 
 export async function deletePlatformClub({ user, clubId }) {
+  await blockDemoMutation(user)
+
   if (user?.role !== 'super_admin') {
     throw new Error('Only platform admins can delete clubs.')
   }

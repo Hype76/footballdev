@@ -3,7 +3,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
-import { getRoleLabel, useAuth } from '../lib/auth.js'
+import { getRoleLabel, isDemoAccount, useAuth } from '../lib/auth.js'
 import { restartOnboarding } from '../lib/onboarding.js'
 import {
   requestLoginEmailChange,
@@ -30,6 +30,7 @@ function createInitialPasswordState() {
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
   const { showToast } = useToast()
+  const isDemoSettings = isDemoAccount(user)
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
   const [displayName, setDisplayName] = useState(user?.displayName || user?.username || user?.name || '')
@@ -84,6 +85,11 @@ export function UserSettingsPage() {
 
   const handleProfileSubmit = async (event) => {
     event.preventDefault()
+
+    if (isDemoSettings) {
+      return
+    }
+
     setIsSavingProfile(true)
     setSuccessMessage('')
     setErrorMessage('')
@@ -117,6 +123,11 @@ export function UserSettingsPage() {
 
   const handleEmailSubmit = async (event) => {
     event.preventDefault()
+
+    if (isDemoSettings) {
+      return
+    }
+
     setIsSavingEmail(true)
     setSuccessMessage('')
     setErrorMessage('')
@@ -148,6 +159,11 @@ export function UserSettingsPage() {
 
   const handlePasswordSubmit = async (event) => {
     event.preventDefault()
+
+    if (isDemoSettings) {
+      return
+    }
+
     setIsSavingPassword(true)
     setSuccessMessage('')
     setErrorMessage('')
@@ -171,6 +187,10 @@ export function UserSettingsPage() {
   }
 
   const handleResetPassword = async () => {
+    if (isDemoSettings) {
+      return
+    }
+
     setIsSendingReset(true)
     setSuccessMessage('')
     setErrorMessage('')
@@ -189,6 +209,10 @@ export function UserSettingsPage() {
   }
 
   const persistThemePreferences = async (nextPreferences) => {
+    if (isDemoSettings) {
+      return
+    }
+
     try {
       const updatedProfile = await updateOwnThemeSettings({
         authUser,
@@ -229,6 +253,10 @@ export function UserSettingsPage() {
   }
 
   const handleOnboardingToggle = async (nextValue) => {
+    if (isDemoSettings) {
+      return
+    }
+
     setOnboardingEnabled(nextValue)
     setSuccessMessage('')
     setErrorMessage('')
@@ -252,6 +280,10 @@ export function UserSettingsPage() {
   }
 
   const handleRestartOnboarding = async () => {
+    if (isDemoSettings) {
+      return
+    }
+
     setSuccessMessage('')
     setErrorMessage('')
 
@@ -396,7 +428,7 @@ export function UserSettingsPage() {
 
             <button
               type="submit"
-              disabled={isSavingProfile}
+              disabled={isSavingProfile || isDemoSettings}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSavingProfile ? 'Saving...' : 'Save account'}
@@ -452,6 +484,7 @@ export function UserSettingsPage() {
                   type="checkbox"
                   checked={onboardingEnabled}
                   onChange={(event) => void handleOnboardingToggle(event.target.checked)}
+                  disabled={isDemoSettings}
                   className="h-4 w-4 rounded border-[var(--border-color)]"
                 />
                 <span>Show guided onboarding tips</span>
@@ -459,7 +492,8 @@ export function UserSettingsPage() {
               <button
                 type="button"
                 onClick={() => void handleRestartOnboarding()}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                disabled={isDemoSettings}
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Restart onboarding
               </button>
@@ -477,14 +511,15 @@ export function UserSettingsPage() {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  disabled={isDemoSettings}
                   required
                   autoComplete="email"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
               <button
                 type="submit"
-                disabled={isSavingEmail}
+                disabled={isSavingEmail || isDemoSettings}
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingEmail ? 'Requesting...' : 'Update login email'}
@@ -509,9 +544,10 @@ export function UserSettingsPage() {
                       password: event.target.value,
                     }))
                   }
+                  disabled={isDemoSettings}
                   minLength={8}
                   autoComplete="new-password"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
 
@@ -526,9 +562,10 @@ export function UserSettingsPage() {
                       confirmPassword: event.target.value,
                     }))
                   }
+                  disabled={isDemoSettings}
                   minLength={8}
                   autoComplete="new-password"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
             </div>
@@ -538,6 +575,7 @@ export function UserSettingsPage() {
                 type="checkbox"
                 checked={showPassword}
                 onChange={(event) => setShowPassword(event.target.checked)}
+                disabled={isDemoSettings}
                 className="h-4 w-4 rounded border-[var(--border-color)]"
               />
               <span>Show password</span>
@@ -546,7 +584,7 @@ export function UserSettingsPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="submit"
-                disabled={isSavingPassword || !passwordData.password || !passwordData.confirmPassword}
+                disabled={isSavingPassword || isDemoSettings || !passwordData.password || !passwordData.confirmPassword}
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingPassword ? 'Updating...' : 'Update password'}
@@ -555,7 +593,7 @@ export function UserSettingsPage() {
               <button
                 type="button"
                 onClick={() => void handleResetPassword()}
-                disabled={isSendingReset}
+                disabled={isSendingReset || isDemoSettings}
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSendingReset ? 'Sending...' : 'Send reset email'}
