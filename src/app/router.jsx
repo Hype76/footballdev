@@ -8,6 +8,7 @@ import {
   canManageTeamSettings,
   canManageUsers,
   canViewActivityLog,
+  canViewBilling,
   isSuperAdmin,
   useAuth,
 } from '../lib/auth.js'
@@ -435,6 +436,49 @@ function RequireClubSettingsAccess() {
   }
 
   if (!canManageClubSettings(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireBillingAccess() {
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user && isProfileLoading) {
+    return <RouteContentSkeleton />
+  }
+
+  if (!user) {
+    return (
+      <RouteGateState
+        title="Account details unavailable"
+        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+      />
+    )
+  }
+
+  if (isSuperAdmin(user)) {
+    return <Navigate to="/platform-admin" replace />
+  }
+
+  if (isAccountSuspended(user)) {
+    return <AccountSuspendedState />
+  }
+
+  if (isClubSuspended(user)) {
+    return <ClubSuspendedState />
+  }
+
+  if (!canViewBilling(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -884,6 +928,11 @@ export const router = createBrowserRouter([
                   title: 'Club Settings',
                 },
               },
+            ],
+          },
+          {
+            element: <RequireBillingAccess />,
+            children: [
               {
                 path: 'billing',
                 element: (

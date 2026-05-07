@@ -57,10 +57,6 @@ export async function handler(event) {
   try {
     const caller = await getCaller(event)
 
-    if (caller.role !== 'super_admin' && Number(caller.role_rank ?? 0) < 90) {
-      return json(403, { success: false, message: 'Billing is only available to club admins' })
-    }
-
     const requestedClubId = String(event.queryStringParameters?.clubId || '').trim()
     const clubId = caller.role === 'super_admin' ? requestedClubId : caller.club_id
 
@@ -76,6 +72,14 @@ export async function handler(event) {
 
     if (clubError || !club) {
       return json(404, { success: false, message: 'Club billing record not found' })
+    }
+
+    const callerRank = Number(caller.role_rank ?? 0)
+    const isIndividualPlan = club.plan_key === 'individual' && !club.is_plan_comped
+    const canAccessBilling = caller.role === 'super_admin' || callerRank >= 90 || (isIndividualPlan && callerRank >= 70)
+
+    if (!canAccessBilling) {
+      return json(403, { success: false, message: 'Billing is only available to the highest billing role for this account' })
     }
 
     let invoices = []

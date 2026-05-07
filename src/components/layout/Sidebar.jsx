@@ -3,12 +3,12 @@ import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
-  canManageClubSettings,
   canManageFormFields,
   canManageTeamSettings,
   canManageUsers,
   canViewPlatformFeedback,
   canViewActivityLog,
+  canViewBilling,
   isSuperAdmin,
   useAuth,
 } from '../../lib/auth.js'
@@ -51,7 +51,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (item.path === '/billing') {
-      return canManageClubSettings(user)
+      return canViewBilling(user)
     }
 
     return true

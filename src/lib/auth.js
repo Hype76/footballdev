@@ -182,6 +182,22 @@ export function canManageClubSettings(user) {
   return isClubAdmin(user)
 }
 
+export function canViewBilling(user) {
+  if (!user?.clubId) {
+    return false
+  }
+
+  if (isSuperAdmin(user)) {
+    return true
+  }
+
+  if (user.planKey === 'individual' && !user.isPlanComped) {
+    return Number(user.roleRank ?? 0) >= 70
+  }
+
+  return Number(user.roleRank ?? 0) >= 90
+}
+
 export function canDeletePlayer(user) {
   return Boolean(user?.clubId) && Number(user?.roleRank ?? 0) >= 20
 }
