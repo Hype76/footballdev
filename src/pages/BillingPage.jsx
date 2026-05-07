@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canManageClubSettings, useAuth } from '../lib/auth.js'
+import { canManageClubSettings, canViewBilling, useAuth } from '../lib/auth.js'
 import { getPlanName } from '../lib/plans.js'
 
 function formatDate(value) {
@@ -118,7 +118,7 @@ export function BillingPage() {
   )
   const visibleClub = clubBilling || fallbackClub
 
-  if (!canManageClubSettings(user)) {
+  if (!canViewBilling(user)) {
     return <Navigate to="/" replace />
   }
 

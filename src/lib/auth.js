@@ -196,7 +196,7 @@ export function canViewBilling(user) {
   }
 
   if (user.planKey === 'individual' && !user.isPlanComped) {
-    return Number(user.roleRank ?? 0) >= 70
+    return true
   }
 
   return Number(user.roleRank ?? 0) >= 90
