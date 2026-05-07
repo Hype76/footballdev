@@ -1381,6 +1381,29 @@ async function applyActiveMembership(authUser, membership) {
   return data
 }
 
+async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
+  const memberships = await getUserClubMemberships(authUser)
+
+  if (memberships.length === 0) {
+    return createClubAndManagerProfile({
+      authUser,
+      clubName: getSignupClubName(authUser),
+    })
+  }
+
+  if (memberships.length > 1 && !selectedClubId) {
+    return {
+      requiresClubSelection: true,
+      clubOptions: memberships,
+    }
+  }
+
+  const selectedMembership =
+    memberships.find((membership) => String(membership.clubId) === selectedClubId) ?? memberships[0]
+
+  return applyActiveMembership(authUser, selectedMembership)
+}
+
 export async function selectUserClub(authUser, clubId) {
   if (!authUser?.id || !clubId) {
     throw new Error('Choose a club to continue.')
@@ -1456,27 +1479,19 @@ export async function fetchUserProfile(authUser, options = {}) {
         throw new Error('Demo profile not found.')
       }
 
-      const memberships = await getUserClubMemberships(authUser)
-
-      if (memberships.length === 0) {
-        return createClubAndManagerProfile({
-          authUser,
-          clubName: getSignupClubName(authUser),
-        })
+      data = await resolveIncompleteClubProfile(authUser, selectedClubId)
+      if (data?.requiresClubSelection) {
+        return data
       }
-
-      if (memberships.length > 1 && !selectedClubId) {
-        return {
-          requiresClubSelection: true,
-          clubOptions: memberships,
-        }
-      }
-
-      const selectedMembership =
-        memberships.find((membership) => String(membership.clubId) === selectedClubId) ?? memberships[0]
-      data = await applyActiveMembership(authUser, selectedMembership)
     } else if (!isDemoAuthUser) {
       await syncMembershipFromUserRow(data, authUser)
+    }
+
+    if (!isDemoAuthUser && data?.role !== 'super_admin' && !data?.club_id) {
+      data = await resolveIncompleteClubProfile(authUser, selectedClubId)
+      if (data?.requiresClubSelection) {
+        return data
+      }
     }
 
     const authEmail = String(authUser.email ?? '').trim().toLowerCase()
@@ -1558,19 +1573,24 @@ export async function createClubAndManagerProfile({ authUser, clubName }) {
 
   const { data: userProfile, error: userError } = await supabase
     .from('users')
-    .insert({
-      id: authUser.id,
-      email: authUser.email,
-      username: getDisplayName(authUser),
-      name: getDisplayName(authUser),
-      display_name: getDisplayName(authUser),
-      club_name: String(clubName ?? '').trim(),
-      reply_to_email: String(authUser.email ?? '').trim().toLowerCase(),
-      role: 'admin',
-      role_label: 'Club Admin',
-      role_rank: 90,
-      club_id: club.id,
-    })
+    .upsert(
+      {
+        id: authUser.id,
+        email: authUser.email,
+        username: getDisplayName(authUser),
+        name: getDisplayName(authUser),
+        display_name: getDisplayName(authUser),
+        club_name: String(clubName ?? '').trim(),
+        reply_to_email: String(authUser.email ?? '').trim().toLowerCase(),
+        role: 'admin',
+        role_label: 'Club Admin',
+        role_rank: 90,
+        club_id: club.id,
+      },
+      {
+        onConflict: 'id',
+      },
+    )
     .select(USER_PROFILE_SELECT)
     .single()
 
