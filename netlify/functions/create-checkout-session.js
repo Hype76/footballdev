@@ -1,5 +1,6 @@
 import process from 'node:process'
 import Stripe from 'stripe'
+import { json } from './_stripe-billing.js'
 
 function getPriceId(planName, billingCycle) {
   const prices = {
@@ -14,14 +15,6 @@ function getPriceId(planName, billingCycle) {
   }
 
   return prices[planName]?.[billingCycle] || ''
-}
-
-function json(statusCode, body) {
-  return {
-    statusCode,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }
 }
 
 function cleanString(value) {
@@ -57,7 +50,7 @@ export async function handler(event) {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl}/login?checkout=success&plan=${encodeURIComponent(planName)}`,
+      success_url: `${appUrl}/login?checkout=success&plan=${encodeURIComponent(planName)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/login?checkout=cancelled`,
       allow_promotion_codes: true,
       customer_email: customerEmail || undefined,

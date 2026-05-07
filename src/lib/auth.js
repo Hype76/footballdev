@@ -30,6 +30,38 @@ function getPasswordResetRedirectUrl() {
   return `${resolvedOrigin.replace(/\/$/, '')}/reset-password`
 }
 
+async function claimStripeCheckoutForProfile(session, profile) {
+  if (!session?.access_token || !profile?.clubId) {
+    return profile
+  }
+
+  try {
+    const response = await fetch('/.netlify/functions/claim-stripe-checkout', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ clubId: profile.clubId }),
+    })
+    const result = await response.json().catch(() => ({}))
+
+    if (!response.ok || result.success === false || !result.claimed || !result.club) {
+      return profile
+    }
+
+    return {
+      ...profile,
+      planKey: String(result.club.planKey ?? profile.planKey ?? 'small_club').trim(),
+      planStatus: String(result.club.planStatus ?? profile.planStatus ?? 'active').trim(),
+      isPlanComped: Boolean(result.club.isPlanComped ?? profile.isPlanComped ?? false),
+    }
+  } catch (error) {
+    console.error(error)
+    return profile
+  }
+}
+
 function areUsersEquivalent(leftUser, rightUser) {
   if (!leftUser || !rightUser) {
     return false
@@ -376,7 +408,8 @@ export function AuthProvider({ children }) {
           window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
         }
 
-        const profileWithTeam = await applyTeamSelection(profile)
+        const profileWithBilling = await claimStripeCheckoutForProfile(nextSession, profile)
+        const profileWithTeam = await applyTeamSelection(profileWithBilling)
         const profileWithDemoPreview = applyDemoRolePreview(profileWithTeam)
 
         if (!isMounted || activeSyncIdRef.current !== syncId) {
@@ -602,9 +635,10 @@ export function AuthProvider({ children }) {
 
       setSession(data.session ?? null)
       setAuthUser(data.user)
-      setUser(profile)
-      if (profile?.clubId) {
-        window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
+      const profileWithBilling = await claimStripeCheckoutForProfile(data.session, profile)
+      setUser(profileWithBilling)
+      if (profileWithBilling?.clubId) {
+        window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profileWithBilling.clubId)
       }
       setClubOptions([])
       setIsProfileLoading(false)
@@ -612,7 +646,7 @@ export function AuthProvider({ children }) {
 
       return {
         needsEmailVerification: false,
-        user: profile,
+        user: profileWithBilling,
       }
     } catch (profileError) {
       console.error(profileError)
