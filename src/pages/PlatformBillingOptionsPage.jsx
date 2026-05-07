@@ -11,6 +11,7 @@ const defaultCouponForm = {
   amountOff: '',
   duration: 'once',
   durationInMonths: '3',
+  expiresAt: '',
 }
 
 function formatDate(value) {
@@ -44,6 +45,18 @@ function formatDiscount(coupon) {
   }
 
   return 'No discount'
+}
+
+function formatExpiry(coupon) {
+  if (coupon.expiresAt) {
+    return `Ends ${formatDate(coupon.expiresAt)}`
+  }
+
+  if (coupon.redeemBy) {
+    return `Ends ${formatDate(coupon.redeemBy)}`
+  }
+
+  return 'No end date'
 }
 
 export function PlatformBillingOptionsPage() {
@@ -239,6 +252,18 @@ export function PlatformBillingOptionsPage() {
               />
             </label>
           ) : null}
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">End date</span>
+            <input
+              type="date"
+              value={couponForm.expiresAt}
+              onChange={(event) => handleCouponChange('expiresAt', event.target.value)}
+              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+            <span className="mt-2 block text-xs text-[var(--text-muted)]">
+              Optional. This stops new redemptions after the selected date.
+            </span>
+          </label>
           <div className="xl:col-span-4">
             <button
               type="submit"
@@ -279,6 +304,9 @@ export function PlatformBillingOptionsPage() {
                 <p className="mt-4 text-sm font-semibold text-[var(--text-primary)]">{coupon.code || 'No code'}</p>
                 <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                   {coupon.duration}{coupon.durationInMonths ? ` | ${coupon.durationInMonths} months` : ''} | {formatDate(coupon.createdAt)}
+                </p>
+                <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                  {formatExpiry(coupon)}
                 </p>
               </div>
             ))}

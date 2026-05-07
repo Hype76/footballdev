@@ -13,6 +13,28 @@ function cleanText(value, maxLength = 120) {
   return String(value ?? '').replace(/[<>\r\n]/g, '').trim().slice(0, maxLength)
 }
 
+function getEndOfDayTimestamp(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return null
+  }
+
+  const parsedDate = new Date(`${normalizedValue}T23:59:59Z`)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null
+  }
+
+  const timestamp = Math.floor(parsedDate.getTime() / 1000)
+
+  if (timestamp <= Math.floor(Date.now() / 1000)) {
+    throw new Error('End date must be in the future')
+  }
+
+  return timestamp
+}
+
 async function getPlatformAdmin(event) {
   const token = getBearerToken(event)
 
@@ -61,7 +83,8 @@ async function listCoupons(stripe) {
 
   const promotionCodeByCoupon = new Map()
   for (const promotionCode of promotionCodes.data) {
-    const couponId = typeof promotionCode.coupon === 'string' ? promotionCode.coupon : promotionCode.coupon?.id
+    const promotionCoupon = promotionCode.promotion?.coupon ?? promotionCode.coupon
+    const couponId = typeof promotionCoupon === 'string' ? promotionCoupon : promotionCoupon?.id
     if (couponId && !promotionCodeByCoupon.has(couponId)) {
       promotionCodeByCoupon.set(couponId, promotionCode)
     }
@@ -78,9 +101,11 @@ async function listCoupons(stripe) {
       currency: coupon.currency,
       duration: coupon.duration,
       durationInMonths: coupon.duration_in_months,
+      redeemBy: coupon.redeem_by ? new Date(coupon.redeem_by * 1000).toISOString() : null,
       valid: coupon.valid,
       code: promotionCode?.code || '',
       promotionCodeId: promotionCode?.id || '',
+      expiresAt: promotionCode?.expires_at ? new Date(promotionCode.expires_at * 1000).toISOString() : null,
       active: promotionCode?.active ?? coupon.valid,
       createdAt: coupon.created ? new Date(coupon.created * 1000).toISOString() : null,
     }
@@ -94,6 +119,7 @@ async function createCoupon(stripe, body) {
   const durationInMonths = Number(body.durationInMonths || 0)
   const percentOff = Number(body.percentOff || 0)
   const amountOff = Number(body.amountOff || 0)
+  const expiresAt = getEndOfDayTimestamp(body.expiresAt)
 
   if (!name) {
     throw new Error('Coupon name is required')
@@ -112,6 +138,10 @@ async function createCoupon(stripe, body) {
     couponPayload.duration_in_months = durationInMonths > 0 ? durationInMonths : 3
   }
 
+  if (expiresAt) {
+    couponPayload.redeem_by = expiresAt
+  }
+
   if (percentOff > 0) {
     couponPayload.percent_off = Math.min(percentOff, 100)
   } else if (amountOff > 0) {
@@ -122,10 +152,19 @@ async function createCoupon(stripe, body) {
   }
 
   const coupon = await stripe.coupons.create(couponPayload)
-  const promotionCode = await stripe.promotionCodes.create({
-    coupon: coupon.id,
+  const promotionCodePayload = {
+    promotion: {
+      type: 'coupon',
+      coupon: coupon.id,
+    },
     code,
-  })
+  }
+
+  if (expiresAt) {
+    promotionCodePayload.expires_at = expiresAt
+  }
+
+  const promotionCode = await stripe.promotionCodes.create(promotionCodePayload)
 
   return {
     coupon,
@@ -161,6 +200,8 @@ export async function handler(event) {
           percentOff: created.coupon.percent_off,
           amountOff: created.coupon.amount_off,
           duration: created.coupon.duration,
+          redeemBy: created.coupon.redeem_by,
+          expiresAt: created.promotionCode.expires_at,
         },
       })
 
