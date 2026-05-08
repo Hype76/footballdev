@@ -41,6 +41,8 @@ const initialCoachForm = {
 
 const TEAM_PAGE_SIZE = 8
 const STAFF_PAGE_SIZE = 8
+const PARTIAL_TEAM_DATA_MESSAGE =
+  'Some team or staff records could not be refreshed. Missing items will appear once the data is entered or the connection settles.'
 
 function getStaffDisplayName(member) {
   return String(member?.name || member?.username || member?.email || 'Unnamed staff').trim()
@@ -143,7 +145,7 @@ export function TeamManagementPage() {
         })
 
         if (hasFailure) {
-          setErrorMessage('Some team data could not be loaded. Missing values will show as empty until data is entered.')
+          setErrorMessage(PARTIAL_TEAM_DATA_MESSAGE)
         }
       } finally {
         if (isMounted) {
@@ -642,8 +644,8 @@ export function TeamManagementPage() {
 
       {errorMessage ? (
         <NoticeBanner
-          title="Team data is only partly available"
-          message="Some team or staff records could not be refreshed. Missing items will appear once the data is entered or the connection settles."
+          title={errorMessage === PARTIAL_TEAM_DATA_MESSAGE ? 'Team data is only partly available' : 'Action could not be completed'}
+          message={errorMessage}
         />
       ) : null}
 

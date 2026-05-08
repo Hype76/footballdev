@@ -12,6 +12,10 @@ export const primaryNavigation = [
     path: '/add-player',
   },
   {
+    label: 'Teams',
+    path: '/teams',
+  },
+  {
     label: 'Form Builder',
     path: '/form-builder',
   },
