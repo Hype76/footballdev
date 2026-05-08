@@ -536,6 +536,52 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       detail: 'Restricted admin users',
     },
   ]
+  const suspendedClubs = (stats?.clubs ?? []).filter((club) => club.status === 'suspended').length
+  const compedClubs = (stats?.clubs ?? []).filter((club) => club.isPlanComped).length
+  const clubManagementStats = [
+    {
+      label: 'Club workspaces',
+      value: platformTotals.clubs ?? 0,
+      caption: `${suspendedClubs} suspended`,
+    },
+    {
+      label: 'Adult users',
+      value: platformTotals.users ?? 0,
+      caption: `${platformTotals.clubUsers ?? 0} linked to clubs`,
+    },
+    {
+      label: 'Teams',
+      value: platformTotals.teams ?? 0,
+      caption: 'Created across clubs',
+    },
+    {
+      label: 'Free access',
+      value: compedClubs,
+      caption: 'Platform controlled overrides',
+    },
+  ]
+  const feedbackStats = [
+    {
+      label: 'Feedback items',
+      value: feedbackItems.length,
+      caption: 'Submitted ideas',
+    },
+    {
+      label: 'Open items',
+      value: feedbackItems.filter((item) => item.status === 'open').length,
+      caption: 'Needs review',
+    },
+    {
+      label: 'Planned',
+      value: feedbackItems.filter((item) => item.status === 'planned').length,
+      caption: 'Roadmap candidates',
+    },
+    {
+      label: 'Votes',
+      value: feedbackItems.reduce((total, item) => total + Number(item.voteCount ?? 0), 0),
+      caption: 'Total user votes',
+    },
+  ]
 
   if (!isSuperAdmin(user)) {
     return (
@@ -684,6 +730,50 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       ) : null}
 
       {showClubManagement ? (
+        <div className="space-y-5">
+          <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_44%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+            <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
+            <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--accent)]">Club control centre</p>
+                <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
+                  Manage club access, plans, teams, and adult staff accounts from one place.
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)] sm:text-base">
+                  This area avoids showing child personal details and focuses only on club level operations.
+                </p>
+              </div>
+              <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {isLoading ? 'Refreshing club data' : 'Club data loaded'}
+                  </p>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+                  Filter by club, review billing state, suspend access, or remove unused workspaces.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {clubManagementStats.map((item) => (
+              <div
+                key={item.label}
+                className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+              >
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
+                <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
+                <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {showClubManagement ? (
       <SectionCard
         title="Manage clubs"
         description="Create clubs, suspend access, reactivate access, or delete unused club workspaces."
@@ -724,6 +814,50 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           </button>
         </form>
       </SectionCard>
+      ) : null}
+
+      {showDashboard ? (
+        <div className="space-y-5">
+          <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_44%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+            <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
+            <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--accent)]">Feedback command centre</p>
+                <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
+                  Track product feedback, votes, public comments, and roadmap status.
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)] sm:text-base">
+                  Admin replies are visible to users, so clubs can see what is planned, in progress, or complete.
+                </p>
+              </div>
+              <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {isFeedbackLoading ? 'Refreshing feedback' : 'Feedback board loaded'}
+                  </p>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+                  Prioritise product work from the most requested ideas.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {feedbackStats.map((item) => (
+              <div
+                key={item.label}
+                className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+              >
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
+                <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
+                <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       {showDashboard ? (

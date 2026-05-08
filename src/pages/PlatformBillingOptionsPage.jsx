@@ -100,6 +100,35 @@ export function PlatformBillingOptionsPage() {
     () => [...testerCodes].sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || ''))),
     [testerCodes],
   )
+  const liveCouponCount = sortedCoupons.filter((coupon) => coupon.liveOnWebsite).length
+  const activeCouponCount = sortedCoupons.filter((coupon) => coupon.active).length
+  const activeTesterCodeCount = sortedTesterCodes.filter((code) => {
+    const hasExpired = code.expiresAt && new Date(code.expiresAt).getTime() <= Date.now()
+    return code.isActive && !hasExpired
+  }).length
+  const testerRedemptionCount = sortedTesterCodes.reduce((total, code) => total + Number(code.redeemedCount ?? 0), 0)
+  const billingStats = [
+    {
+      label: 'Coupons',
+      value: sortedCoupons.length,
+      caption: `${activeCouponCount} active`,
+    },
+    {
+      label: 'Live website codes',
+      value: liveCouponCount,
+      caption: 'Visible on landing page',
+    },
+    {
+      label: 'Tester codes',
+      value: sortedTesterCodes.length,
+      caption: `${activeTesterCodeCount} available`,
+    },
+    {
+      label: 'Tester uses',
+      value: testerRedemptionCount,
+      caption: 'Redeemed access codes',
+    },
+  ]
 
   const loadCoupons = useCallback(async () => {
     if (!session?.access_token || !isSuperAdmin(user)) {
@@ -402,6 +431,46 @@ export function PlatformBillingOptionsPage() {
           {successMessage}
         </div>
       ) : null}
+
+      <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_44%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+        <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
+        <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--accent)]">Billing control centre</p>
+            <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
+              Manage public promotions, tester access, and checkout discounts.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)] sm:text-base">
+              Keep paid plans clean while giving testers temporary access without asking for a payment card.
+            </p>
+          </div>
+          <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+            <div className="flex items-center gap-3">
+              <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                {isLoading ? 'Refreshing billing data' : 'Billing data loaded'}
+              </p>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+              Stripe coupons and tester access codes are managed from this page.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {billingStats.map((item) => (
+          <div
+            key={item.label}
+            className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
+            <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
+            <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
+          </div>
+        ))}
+      </div>
 
       <SectionCard
         title="Create discount coupon"
