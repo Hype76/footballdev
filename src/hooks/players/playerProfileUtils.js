@@ -96,13 +96,18 @@ export function getEditableParentContacts(player) {
     parentEmail: player?.parentEmail,
   })
 
-  return contacts.length > 0 ? contacts : [{ name: '', email: '' }]
+  const parentContacts = contacts.map((contact) => ({
+    ...contact,
+    type: 'parent',
+  }))
+
+  return parentContacts.length > 0 ? parentContacts : [{ name: '', email: '', type: 'parent' }]
 }
 
 export function createPlayerDraft(player) {
   return {
     ...player,
-    contactType: player?.contactType || 'parent',
+    contactType: 'parent',
     parentContacts: getEditableParentContacts(player),
   }
 }

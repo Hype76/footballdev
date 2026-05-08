@@ -342,9 +342,6 @@ export function PlayerProfile() {
   const lastSection = profilePlayers[0]?.section || evaluations[0]?.section || 'Trial'
   const lastTeam = profilePlayers[0]?.team || evaluations[0]?.team || ''
   const primaryPlayer = profilePlayers[0]
-  const isSquadPlayer =
-    profilePlayers.some((player) => String(player.section ?? '').toLowerCase() === 'squad') ||
-    String(lastSection ?? '').toLowerCase() === 'squad'
   const profileParentName = primaryPlayer?.parentName || evaluations.find((evaluation) => evaluation.parentName)?.parentName || ''
   const profileParentEmail = primaryPlayer?.parentEmail || evaluations.find((evaluation) => evaluation.parentEmail)?.parentEmail || ''
   const profileContactType = normalizePlayerContactType(
@@ -706,7 +703,7 @@ export function PlayerProfile() {
       ...current,
       [playerId]: {
         ...current[playerId],
-        [fieldName]: value,
+        [fieldName]: fieldName === 'playerName' ? String(value ?? '') : value,
       },
     }))
   }
@@ -810,15 +807,16 @@ export function PlayerProfile() {
       const draft = current[playerId] ?? {}
       const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
         ? draft.parentContacts
-        : [{ name: draft.parentName || '', email: draft.parentEmail || '' }]
-      const nextContacts = contacts.length > 0 ? contacts : [{ name: '', email: '' }]
+        : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
+      const nextContacts = contacts.length > 0 ? contacts : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
       const updatedContacts = nextContacts.map((contact, contactIndex) =>
         contactIndex === index
           ? {
               ...contact,
+              type: PLAYER_CONTACT_TYPES.parent,
               [fieldName]: value,
             }
-          : contact,
+          : { ...contact, type: PLAYER_CONTACT_TYPES.parent },
       )
 
       return {
@@ -839,13 +837,16 @@ export function PlayerProfile() {
       const draft = current[playerId] ?? {}
       const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
         ? draft.parentContacts
-        : [{ name: draft.parentName || '', email: draft.parentEmail || '' }]
+        : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
 
       return {
         ...current,
         [playerId]: {
           ...draft,
-          parentContacts: [...contacts, { name: '', email: '' }],
+          parentContacts: [
+            ...contacts.map((contact) => ({ ...contact, type: PLAYER_CONTACT_TYPES.parent })),
+            { name: '', email: '', type: PLAYER_CONTACT_TYPES.parent },
+          ],
         },
       }
     })
@@ -857,9 +858,9 @@ export function PlayerProfile() {
       const draft = current[playerId] ?? {}
       const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
         ? draft.parentContacts
-        : [{ name: draft.parentName || '', email: draft.parentEmail || '' }]
+        : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
       const nextContacts = contacts.filter((_, contactIndex) => contactIndex !== index)
-      const fallbackContacts = nextContacts.length > 0 ? nextContacts : [{ name: '', email: '' }]
+      const fallbackContacts = nextContacts.length > 0 ? nextContacts : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
 
       return {
         ...current,
@@ -867,7 +868,7 @@ export function PlayerProfile() {
           ...draft,
           parentName: fallbackContacts[0]?.name ?? '',
           parentEmail: fallbackContacts[0]?.email ?? '',
-          parentContacts: fallbackContacts,
+          parentContacts: fallbackContacts.map((contact) => ({ ...contact, type: PLAYER_CONTACT_TYPES.parent })),
         },
       }
     })
@@ -1202,6 +1203,7 @@ export function PlayerProfile() {
         playerId,
         player: {
           ...draft,
+          contactType: PLAYER_CONTACT_TYPES.parent,
           parentContacts: getEditableParentContacts(draft),
         },
       })
@@ -1406,6 +1408,7 @@ export function PlayerProfile() {
                         <input
                           value={draft.playerName}
                           onChange={(event) => handlePlayerDraftChange(player.id, 'playerName', event.target.value)}
+                          onKeyDown={(event) => event.stopPropagation()}
                           className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
@@ -1431,24 +1434,12 @@ export function PlayerProfile() {
                           className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
-                      <label className="block md:col-span-2 xl:col-span-3">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Primary Contact Type</span>
-                        <select
-                          value={normalizePlayerContactType(draft.contactType)}
-                          onChange={(event) => handlePlayerDraftChange(player.id, 'contactType', normalizePlayerContactType(event.target.value))}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        >
-                          <option value={PLAYER_CONTACT_TYPES.self}>Self</option>
-                          <option value={PLAYER_CONTACT_TYPES.parent}>Parent/Guardian</option>
-                          <option value={PLAYER_CONTACT_TYPES.both}>Both</option>
-                        </select>
-                      </label>
                       <div className="md:col-span-2 xl:col-span-3">
                         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <span className="block text-sm font-semibold text-[var(--text-primary)]">Contacts</span>
                             <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-                              Add the contacts used for player, parent, or combined communication.
+                              Add parent or guardian contacts used for player communication.
                             </p>
                           </div>
                           <button
