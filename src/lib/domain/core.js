@@ -741,7 +741,7 @@ function normalizeEvaluationRow(row) {
     scores,
     averageScore: averageScore !== null ? Number(averageScore) : null,
     comments,
-    decision: String(row.decision ?? 'Progress').trim() || 'Progress',
+    decision: String(row.decision ?? '').trim(),
     status: String(row.status ?? 'Submitted').trim() || 'Submitted',
     rejectionReason: String(row.rejection_reason ?? row.rejectionReason ?? '').trim(),
     reviewedBy: row.reviewed_by ?? row.reviewedBy ?? '',
@@ -761,9 +761,9 @@ function mapEvaluationToRow(data) {
   const createdByEmail = String(data.createdByEmail ?? '').trim().toLowerCase()
   const updatedByName = String(data.updatedByName ?? createdByName).trim()
   const updatedByEmail = String(data.updatedByEmail ?? createdByEmail).trim().toLowerCase()
-  const normalizedDecision = ['Yes', 'No', 'Progress'].includes(String(data.decision ?? '').trim())
+  const normalizedDecision = ['', 'Yes', 'No'].includes(String(data.decision ?? '').trim())
     ? String(data.decision ?? '').trim()
-    : 'Progress'
+    : ''
 
   return {
     id: data.id || undefined,

@@ -852,7 +852,7 @@ export function CreateEvaluationPage() {
       averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
       comments,
       formResponses,
-      decision: 'Progress',
+      decision: editingEvaluation?.decision || '',
       status: editingEvaluation?.status || 'Submitted',
       createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
     }
