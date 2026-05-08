@@ -103,7 +103,7 @@ export function getAverageScore(formResponses) {
 }
 
 export function createResponseItems(fields, responseValues, includeEmptyValues = false) {
-  return fields
+  return sortResponseItemsByValueType(fields
     .map((field) => {
       const value = normalizeResponseValue(field, responseValues[field.id])
 
@@ -116,7 +116,20 @@ export function createResponseItems(fields, responseValues, includeEmptyValues =
         value,
       }
     })
-    .filter(Boolean)
+    .filter(Boolean))
+}
+
+export function sortResponseItemsByValueType(items = []) {
+  return [...items].sort((left, right) => {
+    const leftIsNumber = typeof left?.value === 'number' && !Number.isNaN(left.value)
+    const rightIsNumber = typeof right?.value === 'number' && !Number.isNaN(right.value)
+
+    if (leftIsNumber === rightIsNumber) {
+      return 0
+    }
+
+    return leftIsNumber ? -1 : 1
+  })
 }
 
 export function parseStoredDraft(storageKey) {

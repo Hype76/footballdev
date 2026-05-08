@@ -30,6 +30,7 @@ import {
   formatTrendDate,
   getEditableParentContacts,
 } from '../hooks/players/playerProfileUtils.js'
+import { sortResponseItemsByValueType } from '../hooks/evaluations/evaluationFormUtils.js'
 import {
   EVALUATION_SECTIONS,
   PLAYER_CONTACT_TYPES,
@@ -490,10 +491,12 @@ export function PlayerProfile() {
   }
 
   const getExportResponseItems = (evaluation) =>
-    Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
-      label,
-      value,
-    }))
+    sortResponseItemsByValueType(
+      Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
+        label,
+        value,
+      })),
+    )
 
   const getSelectedExportResponseItems = (evaluation) =>
     getSelectedEvaluationResponses(getExportResponseItems(evaluation), selectedExportLabels)
