@@ -2106,10 +2106,10 @@ export function PlayerProfile() {
                         type="button"
                         onClick={() => void handleSendParentEmail(evaluation)}
                         disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
-                        title="Send email"
+                        title="Email parents"
                         className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {emailSendingId === evaluation.id ? 'Sending...' : 'Send Email'}
+                        {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
                       </button>
                     ) : null}
                     {canEditEvaluation(user, evaluation) ? (
@@ -2262,7 +2262,7 @@ export function PlayerProfile() {
       <ConfirmModal
         isOpen={Boolean(emailConfirmTarget)}
         isBusy={Boolean(emailConfirmTarget?.evaluation && emailSendingId === emailConfirmTarget.evaluation.id)}
-        title="Send email"
+        title="Email parents"
         message="Check the email details before sending."
         itemsTitle="This will send:"
         items={[

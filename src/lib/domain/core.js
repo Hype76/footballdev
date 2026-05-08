@@ -748,6 +748,9 @@ function mapEvaluationToRow(data) {
   const createdByEmail = String(data.createdByEmail ?? '').trim().toLowerCase()
   const updatedByName = String(data.updatedByName ?? createdByName).trim()
   const updatedByEmail = String(data.updatedByEmail ?? createdByEmail).trim().toLowerCase()
+  const normalizedDecision = ['Yes', 'No', 'Progress'].includes(String(data.decision ?? '').trim())
+    ? String(data.decision ?? '').trim()
+    : 'Progress'
 
   return {
     id: data.id || undefined,
@@ -774,7 +777,7 @@ function mapEvaluationToRow(data) {
     average_score: data.averageScore,
     comments: data.comments,
     form_responses: data.formResponses,
-    decision: data.decision,
+    decision: normalizedDecision,
     status: data.status,
     rejection_reason: data.rejectionReason || null,
     reviewed_by: data.reviewedBy || null,

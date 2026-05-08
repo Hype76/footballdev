@@ -845,7 +845,7 @@ export function CreateEvaluationPage() {
       averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
       comments,
       formResponses,
-      decision: '',
+      decision: 'Progress',
       status: editingEvaluation?.status || 'Submitted',
       createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
     }
@@ -1839,7 +1839,11 @@ export function CreateEvaluationPage() {
                     disabled={isSubmitting || !canSubmitEvaluation}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
-                    {isSubmitting ? (isSendingParentEmail ? 'Sending Email...' : 'Saving...') : 'Submit Evaluation'}
+                    {isSubmitting
+                      ? (isSendingParentEmail ? 'Emailing Parents...' : 'Saving...')
+                      : previewMode === 'email'
+                        ? 'Save & Email Parents'
+                        : 'Submit Evaluation'}
                   </button>
                   <button
                     type="button"
