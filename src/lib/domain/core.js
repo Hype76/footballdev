@@ -4448,15 +4448,81 @@ export async function deleteArchivedPlayers({ user, playerIds }) {
     throw new Error('Select at least one archived player to delete.')
   }
 
-  const { error: evaluationDeleteError } = await supabase
+  const { data: archivedPlayers, error: archivedPlayerLookupError } = await supabase
+    .from('players')
+    .select('id, player_name')
+    .eq('club_id', user.clubId)
+    .eq('status', 'archived')
+    .in('id', normalizedPlayerIds)
+
+  if (archivedPlayerLookupError) {
+    console.error(archivedPlayerLookupError)
+    throw archivedPlayerLookupError
+  }
+
+  if (!archivedPlayers?.length) {
+    throw new Error('No archived players were found. Check permissions or refresh archived players.')
+  }
+
+  const archivedPlayerNames = Array.from(
+    new Set(archivedPlayers.map((player) => String(player.player_name ?? '').trim()).filter(Boolean)),
+  )
+  const { data: clubSessions, error: clubSessionsError } = await supabase
+    .from('assessment_sessions')
+    .select('id')
+    .eq('club_id', user.clubId)
+
+  if (clubSessionsError) {
+    console.error(clubSessionsError)
+    throw clubSessionsError
+  }
+
+  const clubSessionIds = (clubSessions ?? []).map((session) => session.id).filter(Boolean)
+  const { error: evaluationIdDeleteError } = await supabase
     .from('evaluations')
     .delete()
     .eq('club_id', user.clubId)
     .in('player_id', normalizedPlayerIds)
 
-  if (evaluationDeleteError) {
-    console.error(evaluationDeleteError)
-    throw evaluationDeleteError
+  if (evaluationIdDeleteError) {
+    console.error(evaluationIdDeleteError)
+    throw evaluationIdDeleteError
+  }
+
+  if (archivedPlayerNames.length > 0) {
+    const { error: evaluationNameDeleteError } = await supabase
+      .from('evaluations')
+      .delete()
+      .eq('club_id', user.clubId)
+      .in('player_name', archivedPlayerNames)
+
+    if (evaluationNameDeleteError) {
+      console.error(evaluationNameDeleteError)
+      throw evaluationNameDeleteError
+    }
+  }
+
+  const { error: sessionPlayerIdDeleteError } = await supabase
+    .from('assessment_session_players')
+    .delete()
+    .in('player_id', normalizedPlayerIds)
+
+  if (sessionPlayerIdDeleteError) {
+    console.error(sessionPlayerIdDeleteError)
+    throw sessionPlayerIdDeleteError
+  }
+
+  if (clubSessionIds.length > 0 && archivedPlayerNames.length > 0) {
+    const { error: sessionPlayerNameDeleteError } = await supabase
+      .from('assessment_session_players')
+      .delete()
+      .in('session_id', clubSessionIds)
+      .in('player_name', archivedPlayerNames)
+
+    if (sessionPlayerNameDeleteError) {
+      console.error(sessionPlayerNameDeleteError)
+      throw sessionPlayerNameDeleteError
+    }
   }
 
   const { data: deletedPlayers, error: playerDeleteError } = await supabase
