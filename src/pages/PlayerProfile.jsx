@@ -659,12 +659,12 @@ export function PlayerProfile() {
           team: evaluation.team,
           section: evaluation.section,
           session: evaluation.session,
-          summary,
+          summary: mode === 'without-scores' ? '' : summary,
           emailSubject: emailTemplate.subject,
           emailBody: emailTemplate.body,
           recipientNames,
           recipientEmails,
-          responseItems: mode !== 'without-scores' ? selectedResponseItems : [],
+          responseItems: selectedResponseItems,
         },
       })
 

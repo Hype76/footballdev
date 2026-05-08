@@ -710,13 +710,9 @@ export function CreateEvaluationPage() {
   )
   const previewResponseItems = useMemo(
     () => {
-      if (previewMode === 'without-scores') {
-        return []
-      }
-
       return canUsePdfExport || canUseParentEmail ? selectedResponseItems : responseItems
     },
-    [canUseParentEmail, canUsePdfExport, previewMode, responseItems, selectedResponseItems],
+    [canUseParentEmail, canUsePdfExport, responseItems, selectedResponseItems],
   )
   const hasSavedExportSelection = Array.isArray(selectedExportLabels)
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
@@ -1096,12 +1092,12 @@ export function CreateEvaluationPage() {
           team: formData.team,
           section: formData.section,
           session: formData.session,
-          summary: previewSummary,
+          summary: mode === 'without-scores' ? '' : previewSummary,
           emailSubject: parentEmailTemplate.subject,
           emailBody: parentEmailTemplate.body,
           recipientNames: selectedParentName,
           recipientEmails: selectedParentEmail,
-          responseItems: mode !== 'without-scores' ? selectedResponseItems : [],
+          responseItems: selectedResponseItems,
         },
       })
     } catch (error) {
@@ -1894,7 +1890,7 @@ export function CreateEvaluationPage() {
                   team={formData.team}
                   section={formData.section}
                   session={formData.session}
-                  summary={previewSummary}
+                  summary={previewMode === 'without-scores' ? '' : previewSummary}
                   emailSubject={parentEmailTemplate.subject}
                   emailBody={parentEmailTemplate.body}
                   recipientNames={selectedParentName}

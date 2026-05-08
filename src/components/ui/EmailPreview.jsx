@@ -42,6 +42,16 @@ function formatSessionForDisplay(value) {
   }).format(parsedDate)
 }
 
+function isTextResponseItem(item) {
+  const value = String(item?.value ?? '').trim()
+
+  if (!value) {
+    return false
+  }
+
+  return Number.isNaN(Number(value))
+}
+
 export function EmailPreview({
   clubName = 'Club Name',
   planKey = '',
@@ -60,6 +70,9 @@ export function EmailPreview({
   const resolvedLogoUrl = logoUrl || fallbackLogo
   const showScoring = mode === 'scored'
   const showEmailTemplate = mode === 'email'
+  const visibleResponseItems = mode === 'without-scores'
+    ? responseItems.filter(isTextResponseItem)
+    : responseItems
   const sharedEmailHtml = showEmailTemplate
     ? buildEmailHtml({
         parentName: recipientNames,
@@ -116,24 +129,26 @@ export function EmailPreview({
           </div>
         </div>
 
-        <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
-            {showEmailTemplate ? 'Email Subject' : 'Summary'}
-          </p>
-          <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
-            {showEmailTemplate ? emailSubject || 'No email subject available.' : summary || 'No written summary provided.'}
-          </p>
-        </div>
+        {showScoring || showEmailTemplate ? (
+          <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
+              {showEmailTemplate ? 'Email Subject' : 'Summary'}
+            </p>
+            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+              {showEmailTemplate ? emailSubject || 'No email subject available.' : summary || 'No written summary provided.'}
+            </p>
+          </div>
+        ) : null}
 
         {showScoring ? (
           <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Evaluation Responses</p>
 
-            {responseItems.length === 0 ? (
+            {visibleResponseItems.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">No responses provided.</p>
             ) : (
               <div className="mt-4 grid gap-3">
-                {responseItems.map((item) => (
+                {visibleResponseItems.map((item) => (
                   <div key={item.label} className="section rounded-2xl border border-[#e2e7de] bg-white px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">{item.label}</p>
                     <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
@@ -157,8 +172,22 @@ export function EmailPreview({
           </div>
         ) : (
           <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Scores</p>
-            <p className="mt-4 text-sm leading-6 text-slate-700">Scores are not included in this PDF.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Evaluation Responses</p>
+
+            {visibleResponseItems.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-500">No selected text fields were provided.</p>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                {visibleResponseItems.map((item) => (
+                  <div key={item.label} className="section rounded-2xl border border-[#e2e7de] bg-white px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">{item.label}</p>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                      {formatPreviewValue(item.value)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>

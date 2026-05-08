@@ -21,6 +21,16 @@ function formatPreviewValue(value) {
   return normalizedValue || 'Not provided'
 }
 
+function isTextResponseItem(item) {
+  const value = String(item?.value ?? '').trim()
+
+  if (!value) {
+    return false
+  }
+
+  return Number.isNaN(Number(value))
+}
+
 function formatSessionForDisplay(value) {
   const normalizedValue = String(value ?? '').trim()
 
@@ -184,7 +194,9 @@ function buildResponseItemsMarkup(responseItems) {
 function buildPdfMarkup({ previewProps, mode, logoUrl }) {
   const showScoring = mode === 'scored'
   const showEmailTemplate = mode === 'email'
-  const responseItems = mode !== 'without-scores' ? previewProps.responseItems ?? [] : []
+  const responseItems = mode === 'without-scores'
+    ? (previewProps.responseItems ?? []).filter(isTextResponseItem)
+    : previewProps.responseItems ?? []
 
   if (showEmailTemplate) {
     return buildEmailHtml({
@@ -242,10 +254,16 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
         </div>
       </div>
 
-      <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
-        <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">${showScoring ? 'Summary' : 'Email Subject'}</p>
-        <p style="margin: 8px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(showEmailTemplate ? previewProps.emailSubject || 'No email subject available.' : previewProps.summary || 'No written summary provided.')}</p>
-      </div>
+      ${
+        showScoring || showEmailTemplate
+          ? `
+            <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
+              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">${showScoring ? 'Summary' : 'Email Subject'}</p>
+              <p style="margin: 8px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(showEmailTemplate ? previewProps.emailSubject || 'No email subject available.' : previewProps.summary || 'No written summary provided.')}</p>
+            </div>
+          `
+          : ''
+      }
 
       ${
         showScoring
@@ -266,8 +284,10 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
           `
             : `
             <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
-              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Scores</p>
-              <p style="margin: 8px 0 0; color: #334155; font-size: 12px; line-height: 1.45;">Scores are not included in this PDF.</p>
+              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Evaluation Responses</p>
+              <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px;">
+                ${buildResponseItemsMarkup(responseItems).replace('No responses provided.', 'No selected text fields were provided.')}
+              </div>
             </div>
           `
       }
