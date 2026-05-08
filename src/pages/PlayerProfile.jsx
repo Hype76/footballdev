@@ -331,11 +331,19 @@ export function PlayerProfile() {
       ? scoredEvaluations.reduce((sum, evaluation) => sum + evaluation.averageScore, 0) / scoredEvaluations.length
       : null
 
-  const lastSection = evaluations[0]?.section || 'Trial'
-  const lastTeam = evaluations[0]?.team || ''
-  const primaryPlayer = players[0]
+  const profilePlayers = useMemo(() => {
+    if (players.length <= 1) {
+      return players
+    }
+
+    const squadPlayer = players.find((player) => String(player.section ?? '').toLowerCase() === 'squad')
+    return [squadPlayer ?? players[0]]
+  }, [players])
+  const lastSection = profilePlayers[0]?.section || evaluations[0]?.section || 'Trial'
+  const lastTeam = profilePlayers[0]?.team || evaluations[0]?.team || ''
+  const primaryPlayer = profilePlayers[0]
   const isSquadPlayer =
-    players.some((player) => String(player.section ?? '').toLowerCase() === 'squad') ||
+    profilePlayers.some((player) => String(player.section ?? '').toLowerCase() === 'squad') ||
     String(lastSection ?? '').toLowerCase() === 'squad'
   const profileParentName = primaryPlayer?.parentName || evaluations.find((evaluation) => evaluation.parentName)?.parentName || ''
   const profileParentEmail = primaryPlayer?.parentEmail || evaluations.find((evaluation) => evaluation.parentEmail)?.parentEmail || ''
@@ -1376,13 +1384,13 @@ export function PlayerProfile() {
         title="Player details"
         description="Edit section, team, and parent contact details here."
       >
-        {players.length === 0 ? (
+        {profilePlayers.length === 0 ? (
           <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No saved player details yet. This profile was created from assessment history.
           </div>
         ) : (
           <div className="space-y-4">
-            {players.map((player) => {
+            {profilePlayers.map((player) => {
               const draft = playerDrafts[player.id] ?? player
               const isEditing = editingPlayerId === player.id
 

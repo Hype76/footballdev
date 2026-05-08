@@ -373,7 +373,7 @@ export function CreateEvaluationPage() {
             parentContacts,
             contactType: normalizePlayerContactType(matchingPlayer.contactType),
             team: requestedTeam || matchingPlayer.team || current.team,
-            section: requestedSection || matchingPlayer.section || current.section,
+            section: matchingPlayer.section || requestedSection || current.section,
           }))
           setSelectedParentContactIndexes(parentContacts.length > 0 ? parentContacts.map((_, index) => index) : [0])
         }
@@ -815,7 +815,6 @@ export function CreateEvaluationPage() {
     const matchingPlayer = savedPlayers.find(
       (player) =>
         player.playerName === normalizedPlayerName &&
-        player.section === formData.section &&
         (!formData.team || player.team === String(formData.team).trim()),
     )
 
@@ -917,18 +916,12 @@ export function CreateEvaluationPage() {
     user,
   ])
 
-  const findSavedPlayer = (playerName, team = formData.team, section = formData.section) => {
+  const findSavedPlayer = (playerName, team = formData.team) => {
     const normalizedPlayerName = normalizePlayerName(playerName)
     const normalizedTeam = String(team ?? '').trim()
-    const normalizedSection = String(section ?? '').trim()
     const sameNamePlayers = savedPlayers.filter((player) => normalizePlayerName(player.playerName) === normalizedPlayerName)
 
     return (
-      sameNamePlayers.find(
-        (player) =>
-          (!normalizedTeam || player.team === normalizedTeam) &&
-          (!normalizedSection || player.section === normalizedSection),
-      ) ||
       sameNamePlayers.find((player) => !normalizedTeam || player.team === normalizedTeam) ||
       sameNamePlayers[0]
     )
@@ -972,7 +965,7 @@ export function CreateEvaluationPage() {
     }
 
     if (name === 'team') {
-      const matchingPlayer = findSavedPlayer(formData.playerName, value, formData.section)
+      const matchingPlayer = findSavedPlayer(formData.playerName, value)
       const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
         parentName: matchingPlayer?.parentName,
         parentEmail: matchingPlayer?.parentEmail,
@@ -995,25 +988,6 @@ export function CreateEvaluationPage() {
       ...current,
       [name]: value,
     }))
-  }
-
-  const handleSectionChange = (section) => {
-    const matchingPlayer = findSavedPlayer(formData.playerName, formData.team, section)
-    const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
-      parentName: matchingPlayer?.parentName,
-      parentEmail: matchingPlayer?.parentEmail,
-    })
-
-    setFormData((current) => ({
-      ...current,
-      section,
-      parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
-      parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
-      parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
-      contactType: matchingPlayer ? normalizePlayerContactType(matchingPlayer.contactType) : current.contactType,
-      team: matchingPlayer?.team || current.team,
-    }))
-    setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
   }
 
   const handleResponseChange = (fieldId, value) => {
@@ -1585,24 +1559,6 @@ export function CreateEvaluationPage() {
                     <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Current session: {readableSession}</p>
                   </label>
 
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-3">
-                  {EVALUATION_SECTIONS.map((section) => (
-                    <button
-                      key={section}
-                      type="button"
-                      onClick={() => handleSectionChange(section)}
-                      className={[
-                        'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
-                        formData.section === section
-                          ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                          : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-                      ].join(' ')}
-                    >
-                      {section}
-                    </button>
-                  ))}
                 </div>
               </SectionCard>
 

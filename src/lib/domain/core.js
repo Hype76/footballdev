@@ -337,9 +337,9 @@ async function getActivePlayerCount(clubId) {
   return Number(count ?? 0)
 }
 
-async function findExistingPlayer({ clubId, section, playerName }) {
-  const normalizedSection = EVALUATION_SECTIONS.includes(section) ? section : 'Trial'
+async function findExistingPlayer({ clubId, section, playerName, team = '' }) {
   const normalizedPlayerName = normalizeWords(playerName)
+  const normalizedTeam = String(team ?? '').trim()
 
   if (!clubId || !normalizedPlayerName) {
     return null
@@ -347,22 +347,22 @@ async function findExistingPlayer({ clubId, section, playerName }) {
 
   const { data, error } = await supabase
     .from('players')
-    .select('id, status')
+    .select('id, status, section, team')
     .eq('club_id', clubId)
-    .eq('section', normalizedSection)
     .eq('player_name', normalizedPlayerName)
-    .maybeSingle()
+    .order('updated_at', { ascending: false })
 
   if (error) {
     console.error(error)
     throw error
   }
 
-  return data ?? null
+  const rows = data ?? []
+  return rows.find((player) => normalizedTeam && String(player.team ?? '').trim() === normalizedTeam) ?? rows[0] ?? null
 }
 
-async function assertPlayerLimitForUpsert({ user = null, clubId, section, playerName }) {
-  const existingPlayer = await findExistingPlayer({ clubId, section, playerName })
+async function assertPlayerLimitForUpsert({ user = null, clubId, section, playerName, team = '' }) {
+  const existingPlayer = await findExistingPlayer({ clubId, section, playerName, team })
 
   if (existingPlayer && String(existingPlayer.status ?? '').trim().toLowerCase() !== 'archived') {
     return existingPlayer
@@ -3745,6 +3745,7 @@ export async function createPlayer({ user, player }) {
     clubId: user.clubId,
     section: player.section,
     playerName: player.playerName ?? player.name,
+    team: player.team,
   })
 
   const payload = {
@@ -3752,13 +3753,16 @@ export async function createPlayer({ user, player }) {
     created_by: getEntryUserId(user),
     ...getEntryIdentity(user),
   }
-  const { data, error } = await supabase
-    .from('players')
-    .upsert(payload, {
-      onConflict: 'club_id,section,player_name',
-    })
-    .select('*')
-    .single()
+  const existingPlayer = await findExistingPlayer({
+    clubId: user.clubId,
+    section: player.section,
+    playerName: player.playerName ?? player.name,
+    team: player.team,
+  })
+  const query = existingPlayer?.id
+    ? supabase.from('players').update(payload).eq('id', existingPlayer.id)
+    : supabase.from('players').insert(payload)
+  const { data, error } = await query.select('*').single()
 
   if (error) {
     console.error(error)
@@ -5102,31 +5106,41 @@ export async function createEvaluation(data) {
       clubId: data.clubId,
       section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
       playerName: data.playerName,
+      team: data.team,
     })
 
-    const { data: playerRow, error: playerError } = await supabase.from('players').upsert(
-      {
-        club_id: data.clubId,
-        player_name: normalizeWords(data.playerName),
-        section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
-        team: String(data.team ?? '').trim(),
-        parent_name: String(data.parentName ?? '').trim(),
-        parent_email: String(data.parentEmail ?? '').trim(),
-        parent_contacts: normalizeParentContacts(data.parentContacts, {
-          parentName: data.parentName,
-          parentEmail: data.parentEmail,
-        }),
-        created_by: data.coachId || null,
-        created_by_name: String(data.createdByName ?? data.coach ?? '').trim(),
-        created_by_email: String(data.createdByEmail ?? '').trim().toLowerCase(),
-        updated_by: data.updatedBy || data.coachId || null,
-        updated_by_name: String(data.updatedByName ?? data.createdByName ?? data.coach ?? '').trim(),
-        updated_by_email: String(data.updatedByEmail ?? data.createdByEmail ?? '').trim().toLowerCase(),
-      },
-      {
-        onConflict: 'club_id,section,player_name',
-      },
-    ).select('id').single()
+    const existingPlayer = await findExistingPlayer({
+      clubId: data.clubId,
+      section: data.section,
+      playerName: data.playerName,
+      team: data.team,
+    })
+    const playerPayload = {
+      club_id: data.clubId,
+      player_name: normalizeWords(data.playerName),
+      section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
+      team: String(data.team ?? '').trim(),
+      parent_name: String(data.parentName ?? '').trim(),
+      parent_email: String(data.parentEmail ?? '').trim(),
+      parent_contacts: normalizeParentContacts(data.parentContacts, {
+        parentName: data.parentName,
+        parentEmail: data.parentEmail,
+      }),
+      ...(existingPlayer?.id
+        ? {}
+        : {
+            created_by: data.coachId || null,
+            created_by_name: String(data.createdByName ?? data.coach ?? '').trim(),
+            created_by_email: String(data.createdByEmail ?? '').trim().toLowerCase(),
+          }),
+      updated_by: data.updatedBy || data.coachId || null,
+      updated_by_name: String(data.updatedByName ?? data.createdByName ?? data.coach ?? '').trim(),
+      updated_by_email: String(data.updatedByEmail ?? data.createdByEmail ?? '').trim().toLowerCase(),
+    }
+    const playerQuery = existingPlayer?.id
+      ? supabase.from('players').update(playerPayload).eq('id', existingPlayer.id)
+      : supabase.from('players').insert(playerPayload)
+    const { data: playerRow, error: playerError } = await playerQuery.select('id').single()
 
     if (playerError) {
       console.error(playerError)
