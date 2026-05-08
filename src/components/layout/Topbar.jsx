@@ -6,8 +6,9 @@ import { getRoleLabel, useAuth } from '../../lib/auth.js'
 import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
 
 export function Topbar({ title, onMenuClick }) {
-  const { authUser, demoRoleKey, setDemoRolePreview, signOut, user } = useAuth()
+  const { authUser, demoRoleKey, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
   const roleLabel = user ? getRoleLabel(user) : 'Loading access'
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
   const logoUrl = user?.clubLogoUrl || fallbackLogo
@@ -22,6 +23,23 @@ export function Topbar({ title, onMenuClick }) {
       console.error(error)
     } finally {
       setIsSigningOut(false)
+    }
+  }
+
+  const handleTeamChange = async (event) => {
+    const teamId = event.target.value
+
+    if (!teamId || teamId === user?.activeTeamId) {
+      return
+    }
+
+    try {
+      setIsSwitchingTeam(true)
+      await selectTeam(teamId)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsSwitchingTeam(false)
     }
   }
 
@@ -77,6 +95,26 @@ export function Topbar({ title, onMenuClick }) {
                   {DEMO_ROLE_OPTIONS.map((role) => (
                     <option key={role.role} value={role.role}>
                       {role.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {teamOptions?.length > 1 ? (
+              <label className="col-span-2 grid gap-1 sm:min-w-44">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                  Team view
+                </span>
+                <select
+                  value={user?.activeTeamId || ''}
+                  onChange={handleTeamChange}
+                  disabled={isSwitchingTeam}
+                  className="min-h-11 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">Select team</option>
+                  {teamOptions.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
                     </option>
                   ))}
                 </select>

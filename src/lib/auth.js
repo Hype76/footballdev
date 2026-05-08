@@ -366,7 +366,7 @@ export function AuthProvider({ children }) {
       }
     }
 
-    setTeamOptions([])
+    setTeamOptions(assignedTeams)
     return {
       ...profile,
       activeTeamId: selectedTeam.id,
@@ -629,7 +629,6 @@ export function AuthProvider({ children }) {
         activeTeamName: selectedTeam.name,
       }
     })
-    setTeamOptions([])
   }
 
   const setDemoRolePreview = (roleKey) => {

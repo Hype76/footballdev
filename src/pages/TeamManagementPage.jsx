@@ -243,17 +243,6 @@ export function TeamManagementPage() {
   const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
 
   useEffect(() => {
-    if (coachForm.teamId || teams.length === 0) {
-      return
-    }
-
-    setCoachForm((current) => ({
-      ...current,
-      teamId: current.teamId || teams[0]?.id || '',
-    }))
-  }, [coachForm.teamId, teams])
-
-  useEffect(() => {
     if (selectedTeamId && teams.some((team) => team.id === selectedTeamId)) {
       return
     }
@@ -309,7 +298,7 @@ export function TeamManagementPage() {
       setNewTeamName('')
       setCoachForm((current) => ({
         ...current,
-        teamId: current.teamId || createdTeam.id,
+        teamId: '',
       }))
       setSelectedTeamId(createdTeam.id)
       setMessage('Team created.')
@@ -433,7 +422,7 @@ export function TeamManagementPage() {
       setCoachForm({
         email: '',
         password: '',
-        teamId: selectedTeamId,
+        teamId: '',
         roleKey: selectedRole.roleKey || 'coach',
         customRoleLabel: '',
       })
