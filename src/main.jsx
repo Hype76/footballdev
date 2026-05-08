@@ -15,7 +15,12 @@ window.addEventListener('vite:preloadError', (event) => {
   recoverFromStaleChunk(event.payload)
 })
 
-registerSW({ immediate: true })
+registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    window.location.reload()
+  },
+})
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
