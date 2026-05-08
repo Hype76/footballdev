@@ -340,6 +340,7 @@ async function getActivePlayerCount(clubId) {
 async function findExistingPlayer({ clubId, section, playerName, team = '' }) {
   const normalizedPlayerName = normalizeWords(playerName)
   const normalizedTeam = String(team ?? '').trim()
+  const normalizedSection = EVALUATION_SECTIONS.includes(section) ? section : ''
 
   if (!clubId || !normalizedPlayerName) {
     return null
@@ -358,7 +359,19 @@ async function findExistingPlayer({ clubId, section, playerName, team = '' }) {
   }
 
   const rows = data ?? []
-  return rows.find((player) => normalizedTeam && String(player.team ?? '').trim() === normalizedTeam) ?? rows[0] ?? null
+  return (
+    rows.find(
+      (player) =>
+        normalizedTeam &&
+        normalizedSection &&
+        String(player.team ?? '').trim() === normalizedTeam &&
+        player.section === normalizedSection,
+    ) ??
+    rows.find((player) => normalizedTeam && String(player.team ?? '').trim() === normalizedTeam) ??
+    rows.find((player) => normalizedSection && player.section === normalizedSection) ??
+    rows[0] ??
+    null
+  )
 }
 
 async function assertPlayerLimitForUpsert({ user = null, clubId, section, playerName, team = '' }) {
@@ -3750,6 +3763,10 @@ export async function createPlayer({ user, player }) {
 
   const payload = {
     ...mapPlayerToRow(player, user),
+    status: player.status || 'active',
+    archived_at: null,
+    archived_by: null,
+    archived_reason: null,
     created_by: getEntryUserId(user),
     ...getEntryIdentity(user),
   }
@@ -3762,7 +3779,20 @@ export async function createPlayer({ user, player }) {
   const query = existingPlayer?.id
     ? supabase.from('players').update(payload).eq('id', existingPlayer.id)
     : supabase.from('players').insert(payload)
-  const { data, error } = await query.select('*').single()
+  let { data, error } = await query.select('*').single()
+
+  if (!existingPlayer?.id && error?.code === '23505') {
+    const fallback = await supabase
+      .from('players')
+      .upsert(payload, {
+        onConflict: 'club_id,section,player_name',
+      })
+      .select('*')
+      .single()
+
+    data = fallback.data
+    error = fallback.error
+  }
 
   if (error) {
     console.error(error)

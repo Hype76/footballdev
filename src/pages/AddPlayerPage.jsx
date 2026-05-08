@@ -307,7 +307,12 @@ export function AddPlayerPage() {
       setMessage('Player added.')
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not add player.')
+      const message = String(error.message ?? '')
+      setErrorMessage(
+        message.includes('duplicate key value')
+          ? 'This player already exists. Open the existing player profile or refresh the list and try again.'
+          : message || 'Could not add player.',
+      )
     } finally {
       setIsAddingPlayer(false)
     }
