@@ -129,13 +129,13 @@ export function EmailPreview({
           </div>
         </div>
 
-        {showScoring || showEmailTemplate ? (
+        {showEmailTemplate ? (
           <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
-              {showEmailTemplate ? 'Email Subject' : 'Summary'}
+              Email Subject
             </p>
             <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
-              {showEmailTemplate ? emailSubject || 'No email subject available.' : summary || 'No written summary provided.'}
+              {emailSubject || 'No email subject available.'}
             </p>
           </div>
         ) : null}

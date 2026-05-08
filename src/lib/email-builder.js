@@ -88,7 +88,7 @@ export function buildEmailHtml({
   planKey,
 }) {
   const responseItems = normaliseResponses(responses)
-  const summaryContent = emailBody || summary || 'No summary provided'
+  const templateBody = String(emailBody ?? '').trim()
   const hasTemplateBody = Boolean(String(emailBody ?? '').trim())
   const resolvedTeam = teamName || team
   const resolvedClub = clubName || club
@@ -108,7 +108,7 @@ export function buildEmailHtml({
 
       ${
         hasTemplateBody
-          ? `<div style="margin: 0 0 20px; font-size: 14px;">${formatLines(summaryContent)}</div>`
+          ? `<div style="margin: 0 0 20px; font-size: 14px;">${formatLines(templateBody)}</div>`
           : `
               <p style="margin: 0 0 14px; font-size: 15px;">Hi ${escapeHtml(resolvedParent)},</p>
               <p style="margin: 0 0 20px; font-size: 15px;">Here is the latest player feedback report for ${escapeHtml(resolvedPlayer)}.</p>
@@ -117,9 +117,6 @@ export function buildEmailHtml({
                 <h3 style="margin: 0 0 8px; font-size: 18px; line-height: 1.3;">${escapeHtml(resolvedPlayer)}</h3>
                 <p style="margin: 0; font-size: 14px;"><strong>Team:</strong> ${escapeHtml(resolvedTeam || 'Team')}</p>
               </div>
-
-              <h4 style="margin: 0 0 8px; font-size: 15px; line-height: 1.3;">Summary</h4>
-              <div style="margin: 0 0 20px; font-size: 14px;">${formatLines(summaryContent)}</div>
             `
       }
 

@@ -537,7 +537,7 @@ export function PlayerProfile() {
           teamName: evaluation.team,
           session: evaluation.session,
           inviteDate,
-          summary: buildEvaluationSummary(evaluation, 'email'),
+          summary: '',
           templateKey: selectedTemplate.key,
         })
 
@@ -558,7 +558,7 @@ export function PlayerProfile() {
             replyToEmail: user?.replyToEmail || user?.clubContactEmail,
             clubContactEmail: user?.clubContactEmail,
             playerName: routePlayerName,
-            summary: buildEvaluationSummary(evaluation, 'email'),
+            summary: '',
             responses,
             subject: emailTemplate.subject,
             emailBody: emailTemplate.body,
@@ -631,7 +631,6 @@ export function PlayerProfile() {
       const { exportEvaluationPdf } = await import('../lib/pdf.js')
       const latestClubLogoUrl = await getLatestClubLogoUrl(user)
       const selectedResponseItems = getSelectedExportResponseItems(evaluation)
-      const summary = buildEvaluationSummary(evaluation, mode)
       const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
       const previewAudience = getEmailPreviewAudience(evaluation)
       const previewContactType = previewAudience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
@@ -652,7 +651,7 @@ export function PlayerProfile() {
             teamName: evaluation.team,
             session: evaluation.session,
             inviteDate: getSelectedInviteDate(evaluation),
-            summary,
+            summary: '',
           })
         : { subject: '', body: '' }
 
@@ -671,7 +670,7 @@ export function PlayerProfile() {
           team: evaluation.team,
           section: evaluation.section,
           session: evaluation.session,
-          summary: mode === 'without-scores' ? '' : summary,
+          summary: '',
           emailSubject: emailTemplate.subject,
           emailBody: emailTemplate.body,
           recipientNames,

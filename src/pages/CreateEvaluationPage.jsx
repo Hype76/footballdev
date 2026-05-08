@@ -777,7 +777,7 @@ export function CreateEvaluationPage() {
         teamName: formData.team,
         session: formData.session,
         inviteDate,
-        summary: previewSummary,
+        summary: '',
       }
 
       return selectedEmailTemplate
@@ -790,7 +790,6 @@ export function CreateEvaluationPage() {
       formData.session,
       formData.team,
       inviteDate,
-      previewSummary,
       selectedEmailTemplate,
       selectedParentName,
       user?.clubName,
@@ -1190,7 +1189,7 @@ export function CreateEvaluationPage() {
                 teamName: formData.team,
                 session: formData.session,
                 inviteDate,
-                summary: previewSummary,
+                summary: '',
               })
 
               return sendParentEmail({
@@ -1205,7 +1204,7 @@ export function CreateEvaluationPage() {
                 replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
                 clubContactEmail: user?.clubContactEmail,
                 playerName: normalizedPlayerName,
-                summary: previewSummary,
+                summary: '',
                 responses: selectedResponseItems,
                 subject: renderedTemplate.subject,
                 emailBody: renderedTemplate.body,
