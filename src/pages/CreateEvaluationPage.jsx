@@ -719,14 +719,23 @@ export function CreateEvaluationPage() {
   const availableEmailTemplates = useMemo(
     () =>
       emailTemplates.filter(
-        (template) =>
-          normalizeEmailTemplateAudience(template.audience) === contactAudience &&
-          template.key !== 'assessment' &&
-          template.isEnabled !== false,
+        (template) => {
+          const sectionAvailability = Array.isArray(template.sectionAvailability)
+            ? template.sectionAvailability
+            : EVALUATION_SECTIONS
+
+          return (
+            normalizeEmailTemplateAudience(template.audience) === contactAudience &&
+            sectionAvailability.includes(formData.section) &&
+            template.isEnabled !== false
+          )
+        },
       ),
-    [contactAudience, emailTemplates],
+    [contactAudience, emailTemplates, formData.section],
   )
-  const selectedEmailTemplateKey = emailTemplateKey || availableEmailTemplates[0]?.key || ''
+  const selectedEmailTemplateKey = availableEmailTemplates.some((template) => template.key === emailTemplateKey)
+    ? emailTemplateKey
+    : availableEmailTemplates[0]?.key || ''
   const selectedEmailTemplate = availableEmailTemplates.find((template) => template.key === selectedEmailTemplateKey) ?? null
   const shouldShowInviteDate = previewMode === 'email' && isInviteEmailTemplate(selectedEmailTemplateKey)
   const parentContacts = useMemo(

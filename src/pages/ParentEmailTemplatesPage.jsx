@@ -7,6 +7,7 @@ import { canManageParentEmailTemplates, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import { EMAIL_TEMPLATE_AUDIENCES, EMAIL_TEMPLATE_FIELDS, validateParentEmailTemplateContent } from '../lib/email-templates.js'
 import {
+  EVALUATION_SECTIONS,
   getDefaultClubParentEmailTemplates,
   getParentEmailTemplates,
   upsertParentEmailTemplate,
@@ -89,6 +90,30 @@ export function ParentEmailTemplatesPage() {
             }
           : template,
       ),
+    )
+  }
+
+  const toggleTemplateSection = (templateKey, section, checked) => {
+    setMessage('')
+    setErrorMessage('')
+    setTemplates((current) =>
+      current.map((template) => {
+        if (template.key !== templateKey) {
+          return template
+        }
+
+        const currentSections = Array.isArray(template.sectionAvailability)
+          ? template.sectionAvailability.filter((item) => EVALUATION_SECTIONS.includes(item))
+          : [...EVALUATION_SECTIONS]
+        const nextSections = checked
+          ? [...new Set([...currentSections, section])]
+          : currentSections.filter((item) => item !== section)
+
+        return {
+          ...template,
+          sectionAvailability: nextSections,
+        }
+      }),
     )
   }
 
@@ -207,6 +232,32 @@ export function ParentEmailTemplatesPage() {
                 />
                 <span>Available for this club</span>
               </label>
+
+              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Available for sections</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {EVALUATION_SECTIONS.map((section) => {
+                    const selectedSections = Array.isArray(template.sectionAvailability)
+                      ? template.sectionAvailability
+                      : [...EVALUATION_SECTIONS]
+
+                    return (
+                      <label
+                        key={section}
+                        className="flex min-h-10 items-center gap-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSections.includes(section)}
+                          onChange={(event) => toggleTemplateSection(template.key, section, event.target.checked)}
+                          className="h-4 w-4 rounded border-[var(--border-color)]"
+                        />
+                        <span>{section}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
 
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Subject</span>

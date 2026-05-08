@@ -3500,6 +3500,13 @@ export async function reorderFormFields(fields, user) {
 }
 
 function normalizeParentEmailTemplateRow(row) {
+  const rawSectionAvailability = row.section_availability ?? row.sectionAvailability ?? []
+  const sectionAvailability = Array.isArray(rawSectionAvailability)
+    ? rawSectionAvailability
+        .map((section) => String(section ?? '').trim())
+        .filter((section) => EVALUATION_SECTIONS.includes(section))
+    : []
+
   return {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
@@ -3509,6 +3516,7 @@ function normalizeParentEmailTemplateRow(row) {
     subject: String(row.subject ?? '').trim(),
     body: String(row.body ?? '').trim(),
     isEnabled: Boolean(row.is_enabled ?? row.isEnabled ?? true),
+    sectionAvailability: sectionAvailability.length > 0 ? sectionAvailability : [...EVALUATION_SECTIONS],
     orderIndex: Number(row.order_index ?? row.orderIndex ?? 0),
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
     createdAt: row.created_at ?? row.createdAt ?? '',
@@ -3521,6 +3529,11 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
   const label = String(template?.label ?? '').trim()
   const subject = String(template?.subject ?? '').trim()
   const body = String(template?.body ?? '').trim()
+  const sectionAvailability = Array.isArray(template?.sectionAvailability)
+    ? template.sectionAvailability
+        .map((section) => String(section ?? '').trim())
+        .filter((section) => EVALUATION_SECTIONS.includes(section))
+    : [...EVALUATION_SECTIONS]
 
   if (!templateKey) {
     throw new Error('Template key is required.')
@@ -3538,6 +3551,10 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
     throw new Error('Template body is required.')
   }
 
+  if (sectionAvailability.length === 0) {
+    throw new Error('Choose at least one section for this template.')
+  }
+
   validateParentEmailTemplateContent({ subject, body })
 
   return {
@@ -3548,6 +3565,7 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
     subject,
     body,
     is_enabled: template?.isEnabled !== false,
+    section_availability: sectionAvailability,
     order_index: Number(template?.orderIndex ?? 0),
     updated_by: getEntryUserId(user),
     ...getEntryIdentity(user, 'updated_by'),

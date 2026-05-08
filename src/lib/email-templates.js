@@ -65,6 +65,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'decline',
     label: 'No Place Offered',
+    sectionAvailability: ['Trial'],
     subject: 'Player Trial Feedback for {playerName}',
     body: [
       'Dear {parentName},',
@@ -84,6 +85,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'progress',
     label: 'Invite Back',
+    sectionAvailability: ['Trial'],
     subject: 'Follow-up Trial Invitation for {playerName}',
     body: [
       'Dear {parentName},',
@@ -104,6 +106,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'offer',
     label: 'Offer Place',
+    sectionAvailability: ['Trial'],
     subject: 'Squad Offer for {playerName}',
     body: [
       'Dear {parentName},',
@@ -123,6 +126,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'assessment',
     label: 'Send Assessment',
+    sectionAvailability: ['Squad'],
     subject: 'Player Feedback for {playerName}',
     body: [
       'Dear {parentName},',
@@ -146,6 +150,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   {
     key: 'decline',
     label: 'No Place Offered',
+    sectionAvailability: ['Trial'],
     subject: 'Player Trial Feedback for {playerName}',
     body: [
       'Dear {playerName},',
@@ -165,6 +170,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   {
     key: 'progress',
     label: 'Invite Back',
+    sectionAvailability: ['Trial'],
     subject: 'Follow-up Trial Invitation for {playerName}',
     body: [
       'Dear {playerName},',
@@ -185,6 +191,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   {
     key: 'offer',
     label: 'Offer Place',
+    sectionAvailability: ['Trial'],
     subject: 'Squad Offer for {playerName}',
     body: [
       'Dear {playerName},',
@@ -204,6 +211,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   {
     key: 'assessment',
     label: 'Send Assessment',
+    sectionAvailability: ['Squad'],
     subject: 'Player Feedback for {playerName}',
     body: [
       'Dear {playerName},',

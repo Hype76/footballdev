@@ -468,7 +468,11 @@ export function PlayerProfile() {
         return false
       }
 
-      return isSquadPlayer ? template.key === 'assessment' : template.key !== 'assessment'
+      const sectionAvailability = Array.isArray(template.sectionAvailability)
+        ? template.sectionAvailability
+        : EVALUATION_SECTIONS
+
+      return sectionAvailability.includes(evaluation.section || lastSection)
     })
   const getSelectedEmailTemplate = (evaluation, audience = getEmailPreviewAudience(evaluation)) => {
     const availableTemplates = getAvailableEmailTemplates(evaluation, audience)
