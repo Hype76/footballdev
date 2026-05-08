@@ -5863,24 +5863,50 @@ export async function getPlatformStats(user) {
       const timestamp = new Date(row.created_at).getTime()
       return !Number.isNaN(timestamp) && timestamp >= sevenDaysAgo
     }
+    const isArchivedPlayer = (player) => String(player.status ?? '').toLowerCase() === 'archived'
+    const isSharedExport = (log) => {
+      const channel = String(log.channel ?? '').toLowerCase()
+      const action = String(log.action ?? '').toLowerCase()
+
+      return (
+        ['email', 'pdf'].includes(channel) ||
+        action.includes('email') ||
+        action.includes('pdf') ||
+        action.includes('share') ||
+        action.includes('export')
+      )
+    }
+    const activePlayers = players.filter((player) => !isArchivedPlayer(player))
+    const archivedPlayers = players.filter(isArchivedPlayer)
+    const sharedExports = communicationLogs.filter(isSharedExport)
+    const platformAdmins = users.filter((member) => member.role === 'super_admin')
+    const clubUsers = users.filter((member) => member.club_id)
 
     return {
       totals: {
         clubs: clubs.length,
         users: users.length,
+        clubUsers: clubUsers.length,
+        platformAdmins: platformAdmins.length,
         teams: teams.length,
-        players: players.length,
+        players: activePlayers.length,
+        playerRecords: players.length,
+        archivedPlayers: archivedPlayers.length,
         evaluations: evaluations.length,
-        communications: communicationLogs.length,
+        communications: sharedExports.length,
+        communicationRows: communicationLogs.length,
+        auditEvents: auditLogs.length,
         recentEvaluations: evaluations.filter(isRecent).length,
-        recentCommunications: communicationLogs.filter(isRecent).length,
+        recentCommunications: sharedExports.filter(isRecent).length,
       },
       clubs: clubs.map((club) => {
         const clubUsers = users.filter((member) => member.club_id === club.id)
         const clubTeams = teams.filter((team) => team.club_id === club.id)
         const clubPlayers = players.filter((player) => player.club_id === club.id)
+        const activeClubPlayers = clubPlayers.filter((player) => !isArchivedPlayer(player))
         const clubEvaluations = evaluations.filter((evaluation) => evaluation.club_id === club.id)
         const clubCommunicationLogs = communicationLogs.filter((log) => log.club_id === club.id)
+        const clubSharedExports = clubCommunicationLogs.filter(isSharedExport)
         const clubAuditLogs = auditLogs.filter((log) => log.club_id === club.id)
         const clubActivityTimestamps = [...clubEvaluations, ...clubCommunicationLogs, ...clubAuditLogs]
           .map((row) => new Date(row.created_at).getTime())
@@ -5906,19 +5932,21 @@ export async function getPlatformStats(user) {
           createdAt: club.created_at,
           userCount: clubUsers.length,
           teamCount: clubTeams.length,
-          playerCount: clubPlayers.length,
+          playerCount: activeClubPlayers.length,
+          archivedPlayerCount: clubPlayers.filter(isArchivedPlayer).length,
           evaluationCount: clubEvaluations.length,
-          communicationCount: clubCommunicationLogs.length,
+          communicationCount: clubSharedExports.length,
+          communicationRowCount: clubCommunicationLogs.length,
           recentEvaluationCount: clubEvaluations.filter(isRecent).length,
-          recentCommunicationCount: clubCommunicationLogs.filter(isRecent).length,
+          recentCommunicationCount: clubSharedExports.filter(isRecent).length,
           submittedCount: clubEvaluations.filter((evaluation) => evaluation.status === 'Submitted').length,
           approvedCount: clubEvaluations.filter((evaluation) => evaluation.status === 'Approved').length,
           rejectedCount: clubEvaluations.filter((evaluation) => evaluation.status === 'Rejected').length,
           trialCount: clubEvaluations.filter((evaluation) => evaluation.section === 'Trial').length,
           squadCount: clubEvaluations.filter((evaluation) => evaluation.section === 'Squad').length,
-          trialPlayerCount: clubPlayers.filter((player) => player.section === 'Trial').length,
-          squadPlayerCount: clubPlayers.filter((player) => player.section === 'Squad').length,
-          promotedPlayerCount: clubPlayers.filter((player) => player.status === 'promoted').length,
+          trialPlayerCount: activeClubPlayers.filter((player) => player.section === 'Trial').length,
+          squadPlayerCount: activeClubPlayers.filter((player) => player.section === 'Squad').length,
+          promotedPlayerCount: activeClubPlayers.filter((player) => player.status === 'promoted').length,
           latestActivityAt,
           roleCounts: Object.entries(roleCounts)
             .map(([label, count]) => ({ label, count }))

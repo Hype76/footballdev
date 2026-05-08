@@ -5,7 +5,6 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
-import { buildEmailHtml, buildPlayerFeedbackSubject, sendParentEmail } from '../lib/email-builder.js'
 import { PLAN_OPTIONS, getPlanName } from '../lib/plans.js'
 import {
   createPlatformClub,
@@ -51,7 +50,7 @@ function formatDate(value) {
 const PAGE_META = {
   dashboard: {
     title: 'Platform dashboard',
-    description: 'View platform usage and test the live email pipeline without exposing player personal details.',
+    description: 'Monitor platform usage, club growth, and operational health without exposing player personal details.',
   },
   clubs: {
     title: 'Club and team management',
@@ -81,11 +80,6 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isSavingClub, setIsSavingClub] = useState(false)
-  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
-  const [isPreviewingPdf, setIsPreviewingPdf] = useState(false)
-  const [previewEmailHtml, setPreviewEmailHtml] = useState('')
-  const [previewPdfUrl, setPreviewPdfUrl] = useState('')
-  const [testEmailDebug, setTestEmailDebug] = useState(null)
   const [updatingClubId, setUpdatingClubId] = useState('')
   const [updatingTeamId, setUpdatingTeamId] = useState('')
   const [updatingUserId, setUpdatingUserId] = useState('')
@@ -96,19 +90,6 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     name: '',
     contactEmail: '',
     contactPhone: '',
-  })
-  const [testEmailForm, setTestEmailForm] = useState({
-    parentEmail: user?.email || '',
-    parentName: 'Parent/Guardian',
-    playerName: 'Test Player',
-    teamName: 'U12',
-    clubName: 'Test FC',
-    summary: 'Strong performance, good awareness.',
-    responses: [
-      { label: 'Passing', value: 'Good' },
-      { label: 'Positioning', value: 'Average' },
-      { label: 'Effort', value: 'Excellent' },
-    ],
   })
 
   useEffect(() => {
@@ -298,154 +279,6 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     }))
     setErrorMessage('')
     setSuccessMessage('')
-  }
-
-  const handleTestEmailChange = (fieldName, value) => {
-    setTestEmailForm((current) => ({
-      ...current,
-      [fieldName]: value,
-    }))
-    setErrorMessage('')
-    setSuccessMessage('')
-  }
-
-  const handleTestResponseChange = (index, fieldName, value) => {
-    setTestEmailForm((current) => ({
-      ...current,
-      responses: current.responses.map((response, responseIndex) =>
-        responseIndex === index
-          ? {
-              ...response,
-              [fieldName]: value,
-            }
-          : response,
-      ),
-    }))
-    setErrorMessage('')
-    setSuccessMessage('')
-  }
-
-  const handleAddTestResponse = () => {
-    setTestEmailForm((current) => ({
-      ...current,
-      responses: [...current.responses, { label: '', value: '' }],
-    }))
-  }
-
-  const handleRemoveTestResponse = (index) => {
-    setTestEmailForm((current) => ({
-      ...current,
-      responses: current.responses.filter((_, responseIndex) => responseIndex !== index),
-    }))
-  }
-
-  const handleUseSampleData = () => {
-    setTestEmailForm((current) => ({
-      ...current,
-      playerName: 'Test Player',
-      teamName: 'U12',
-      clubName: 'Test FC',
-      summary: 'Strong performance, good awareness.',
-      responses: [
-        { label: 'Passing', value: 'Good' },
-        { label: 'Positioning', value: 'Average' },
-        { label: 'Effort', value: 'Excellent' },
-      ],
-    }))
-    setPreviewEmailHtml('')
-    setPreviewPdfUrl('')
-    setTestEmailDebug(null)
-    setSuccessMessage('Sample test data loaded.')
-  }
-
-  const getTestEmailPayload = () => {
-    const subject = buildPlayerFeedbackSubject({
-      playerName: testEmailForm.playerName,
-      teamName: testEmailForm.teamName,
-    })
-
-    return {
-      parentEmail: testEmailForm.parentEmail,
-      parentName: testEmailForm.parentName,
-      displayName: user?.displayName || user?.username || user?.name || 'Platform Admin',
-      teamName: testEmailForm.teamName,
-      clubName: testEmailForm.clubName,
-      replyToEmail: user?.replyToEmail || user?.clubContactEmail || user?.email,
-      clubContactEmail: user?.clubContactEmail,
-      logoUrl: user?.clubLogoUrl || null,
-      playerName: testEmailForm.playerName,
-      summary: testEmailForm.summary,
-      responses: testEmailForm.responses.filter((item) => item.label || item.value),
-      subject,
-    }
-  }
-
-  const handlePreviewEmail = () => {
-    const payload = getTestEmailPayload()
-    const html = buildEmailHtml(payload)
-    setPreviewEmailHtml(html)
-    setTestEmailDebug((current) => ({
-      ...(current ?? {}),
-      htmlSize: html.length,
-    }))
-    setSuccessMessage('Email preview generated.')
-  }
-
-  const handlePreviewPdf = async () => {
-    setIsPreviewingPdf(true)
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    try {
-      const payload = getTestEmailPayload()
-      const response = await fetch('/.netlify/functions/test-pdf-preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'PDF preview failed')
-      }
-
-      setPreviewPdfUrl(`data:application/pdf;base64,${result.pdfBase64}`)
-      setTestEmailDebug((current) => ({
-        ...(current ?? {}),
-        htmlSize: result.htmlSize,
-        pdfSize: result.pdfSize,
-      }))
-      setSuccessMessage('PDF preview generated.')
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('PDF preview could not be generated.')
-    } finally {
-      setIsPreviewingPdf(false)
-    }
-  }
-
-  const handleSendTestEmail = async (event) => {
-    event.preventDefault()
-    setIsSendingTestEmail(true)
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    try {
-      const result = await sendParentEmail(getTestEmailPayload())
-
-      setTestEmailDebug((current) => ({
-        ...(current ?? {}),
-        sendResponseId: result.id || 'No response ID returned',
-        hasAttachment: result.hasAttachment,
-        htmlSize: result.htmlSize,
-      }))
-      setSuccessMessage('Test email sent with PDF attached')
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Test email failed - check logs')
-    } finally {
-      setIsSendingTestEmail(false)
-    }
   }
 
   const handleCreateClub = async (event) => {
@@ -647,6 +480,63 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     }
   }
 
+  const platformTotals = stats?.totals ?? {}
+  const planBreakdown = (stats?.clubs ?? []).reduce((items, club) => {
+    const planName = getPlanName(club.planKey)
+    items[planName] = (items[planName] ?? 0) + 1
+    return items
+  }, {})
+  const dashboardStats = [
+    {
+      label: 'Clubs',
+      value: platformTotals.clubs ?? 0,
+      caption: 'Live club workspaces',
+      detail: `${Object.keys(planBreakdown).length} plan types active`,
+    },
+    {
+      label: 'Adult users',
+      value: platformTotals.users ?? 0,
+      caption: 'Signed in staff accounts',
+      detail: `${platformTotals.clubUsers ?? 0} linked to clubs`,
+    },
+    {
+      label: 'Teams',
+      value: platformTotals.teams ?? 0,
+      caption: 'Operational team spaces',
+      detail: 'Across all clubs',
+    },
+    {
+      label: 'Active players',
+      value: platformTotals.players ?? 0,
+      caption: 'Visible player records',
+      detail: `${platformTotals.archivedPlayers ?? 0} archived`,
+    },
+    {
+      label: 'Assessments',
+      value: platformTotals.evaluations ?? 0,
+      caption: 'Saved player reports',
+      detail: `${platformTotals.recentEvaluations ?? 0} in the last 7 days`,
+    },
+    {
+      label: 'Shared exports',
+      value: platformTotals.communications ?? 0,
+      caption: 'Emails, PDFs, and shares',
+      detail: `${platformTotals.recentCommunications ?? 0} in the last 7 days`,
+    },
+    {
+      label: 'Audit events',
+      value: platformTotals.auditEvents ?? 0,
+      caption: 'Tracked admin actions',
+      detail: 'Accountability trail',
+    },
+    {
+      label: 'Platform admins',
+      value: platformTotals.platformAdmins ?? 0,
+      caption: 'Owner level access',
+      detail: 'Restricted admin users',
+    },
+  ]
+
   if (!isSuperAdmin(user)) {
     return (
       <div className="space-y-5 sm:space-y-6">
@@ -681,199 +571,116 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       ) : null}
 
       {showDashboard ? (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ['Clubs', stats?.totals?.clubs ?? 0],
-          ['Adult users', stats?.totals?.users ?? 0],
-          ['Teams', stats?.totals?.teams ?? 0],
-          ['Players', stats?.totals?.players ?? 0],
-          ['Assessments', stats?.totals?.evaluations ?? 0],
-          ['Shared exports', stats?.totals?.communications ?? 0],
-          ['7 day assessments', stats?.totals?.recentEvaluations ?? 0],
-          ['7 day shares', stats?.totals?.recentCommunications ?? 0],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{label}</p>
-            <p className="mt-3 text-3xl font-semibold text-[var(--text-primary)]">{value}</p>
-          </div>
-        ))}
-      </div>
-      ) : null}
-
-      {showDashboard ? (
-      <SectionCard
-        title="Test Email"
-        description="Preview and send through the live email and PDF pipeline."
-      >
-        <form onSubmit={handleSendTestEmail} className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Test email address</span>
-              <input
-                required
-                type="email"
-                value={testEmailForm.parentEmail}
-                onChange={(event) => handleTestEmailChange('parentEmail', event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Parent name</span>
-              <input
-                value={testEmailForm.parentName}
-                onChange={(event) => handleTestEmailChange('parentName', event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player name</span>
-              <input
-                required
-                value={testEmailForm.playerName}
-                onChange={(event) => handleTestEmailChange('playerName', event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
-              <input
-                required
-                value={testEmailForm.teamName}
-                onChange={(event) => handleTestEmailChange('teamName', event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-            <label className="block md:col-span-2">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Club name</span>
-              <input
-                required
-                value={testEmailForm.clubName}
-                onChange={(event) => handleTestEmailChange('clubName', event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-            <label className="block md:col-span-2">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Summary</span>
-              <textarea
-                required
-                rows="3"
-                value={testEmailForm.summary}
-                onChange={(event) => handleTestEmailChange('summary', event.target.value)}
-                className="min-h-24 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-          </div>
-
-          <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-5">
+          <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_42%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+            <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 left-10 h-52 w-52 rounded-full bg-sky-400 opacity-10 blur-3xl" />
+            <div className="relative grid gap-6 xl:grid-cols-[1.35fr_0.65fr] xl:items-end">
               <div>
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Responses</p>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">These are included in the same HTML used by email and PDF.</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--accent)]">Live platform overview</p>
+                <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
+                  Clean operational numbers across clubs, teams, users, and player feedback.
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)] sm:text-base">
+                  This dashboard shows platform level health without exposing child names or player personal details.
+                </p>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={handleUseSampleData}
-                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]"
-                >
-                  Use Sample Data
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddTestResponse}
-                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]"
-                >
-                  Add Response
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {testEmailForm.responses.map((response, index) => (
-                <div key={`${index}-${response.label}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                  <input
-                    value={response.label}
-                    onChange={(event) => handleTestResponseChange(index, 'label', event.target.value)}
-                    placeholder="Label"
-                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                  />
-                  <input
-                    value={response.value}
-                    onChange={(event) => handleTestResponseChange(index, 'value', event.target.value)}
-                    placeholder="Value"
-                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTestResponse(index)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200"
-                  >
-                    Remove
-                  </button>
+              <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {isLoading ? 'Refreshing live stats' : 'Live stats loaded'}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 xl:flex-row">
-            <button
-              type="button"
-              onClick={handlePreviewEmail}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-            >
-              Preview Email
-            </button>
-            <button
-              type="button"
-              onClick={() => void handlePreviewPdf()}
-              disabled={isPreviewingPdf}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isPreviewingPdf ? 'Generating PDF...' : 'Preview PDF'}
-            </button>
-            <button
-              type="submit"
-              disabled={isSendingTestEmail}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSendingTestEmail ? 'Sending...' : 'Send Test Email'}
-            </button>
-          </div>
-
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-6 text-[var(--text-muted)]">
-            From: {user?.displayName || user?.username || user?.name || 'Platform Admin'} ({testEmailForm.teamName || 'Team'} - {testEmailForm.clubName || 'Club'}) &lt;feedback@playerfeedback.online&gt;
-            <br />
-            Reply to: {user?.replyToEmail || user?.clubContactEmail || user?.email || 'No reply-to email set'}
-            <br />
-            Subject: {buildPlayerFeedbackSubject({ playerName: testEmailForm.playerName, teamName: testEmailForm.teamName })}
-          </div>
-
-          {testEmailDebug ? (
-            <div className="grid gap-3 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm text-[var(--text-muted)] sm:grid-cols-2 xl:grid-cols-4">
-              <p>HTML size: {testEmailDebug.htmlSize ?? 'Not generated'} bytes</p>
-              <p>PDF size: {testEmailDebug.pdfSize ?? 'Not generated'} bytes</p>
-              <p>Attachment: {testEmailDebug.hasAttachment === undefined ? 'Not sent' : testEmailDebug.hasAttachment ? 'Yes' : 'No'}</p>
-              <p>Send response ID: {testEmailDebug.sendResponseId ?? 'Not sent'}</p>
-            </div>
-          ) : null}
-
-          {previewEmailHtml ? (
-            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Email HTML Preview</p>
-              <div className="max-h-[520px] overflow-auto rounded-2xl bg-white p-4">
-                <div dangerouslySetInnerHTML={{ __html: previewEmailHtml }} />
+                <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+                  Last refresh: {new Intl.DateTimeFormat('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  }).format(new Date())}
+                </p>
+                <button
+                  type="button"
+                  onClick={refreshStats}
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:-translate-y-0.5 hover:bg-[var(--panel-soft)]"
+                >
+                  Refresh platform stats
+                </button>
               </div>
             </div>
-          ) : null}
+          </section>
 
-          {previewPdfUrl ? (
-            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">PDF Preview</p>
-              <iframe title="PDF preview" src={previewPdfUrl} className="h-[620px] w-full rounded-2xl border border-[var(--border-color)] bg-white" />
-            </div>
-          ) : null}
-        </form>
-      </SectionCard>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {dashboardStats.map((item) => (
+              <div
+                key={item.label}
+                className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+              >
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
+                    <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
+                  </div>
+                  <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--accent)] opacity-70 transition group-hover:scale-150 group-hover:opacity-100" />
+                </div>
+                <p className="mt-4 text-sm font-semibold text-[var(--text-primary)]">{item.caption}</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <SectionCard
+              title="Plan mix"
+              description="How active club workspaces are currently distributed."
+            >
+              <div className="space-y-3">
+                {Object.entries(planBreakdown).length > 0 ? (
+                  Object.entries(planBreakdown).map(([planName, count]) => (
+                    <div key={planName} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">{planName}</p>
+                        <p className="text-lg font-semibold text-[var(--accent)]">{count}</p>
+                      </div>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--panel-bg)]">
+                        <div
+                          className="h-full rounded-full bg-[var(--accent)] transition-all duration-700"
+                          style={{
+                            width: `${Math.max(8, Math.round((count / Math.max(1, platformTotals.clubs ?? 1)) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm text-[var(--text-muted)]">
+                    No plan data is available yet.
+                  </p>
+                )}
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Data hygiene"
+              description="Separated live records from archived and internal platform records."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Active players</p>
+                  <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">{platformTotals.players ?? 0}</p>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">{platformTotals.archivedPlayers ?? 0} archived records excluded</p>
+                </div>
+                <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Share rows</p>
+                  <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">{platformTotals.communications ?? 0}</p>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">{platformTotals.communicationRows ?? 0} total communication rows</p>
+                </div>
+              </div>
+            </SectionCard>
+          </div>
+        </div>
       ) : null}
 
       {showClubManagement ? (
