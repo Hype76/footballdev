@@ -1,3 +1,5 @@
+import { formatUkDate } from './date-format.js'
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -77,16 +79,11 @@ function formatSessionForDisplay(session) {
   }
 
   if (typeof session === 'string') {
-    return session
+    return formatUkDate(session, session)
   }
 
   if (session instanceof Date && !Number.isNaN(session.getTime())) {
-    return session.toLocaleDateString('en-GB', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+    return formatUkDate(session.toISOString().slice(0, 10), '')
   }
 
   return String(session)

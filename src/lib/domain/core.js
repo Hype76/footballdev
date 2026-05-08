@@ -5,6 +5,7 @@ import {
   REQUEST_TIMEOUT_MS,
   supabase,
 } from '../supabase-client.js'
+import { formatUkDate } from '../date-format.js'
 import { isDemoEmail } from '../demo.js'
 import {
   canEditClubIdentity,
@@ -738,7 +739,7 @@ function normalizeEvaluationRow(row) {
     session: String(row.session ?? '').trim(),
     date:
       String(row.date ?? '').trim() ||
-      (row.created_at ? new Date(row.created_at).toLocaleDateString() : ''),
+      (row.created_at ? formatUkDate(row.created_at, '') : ''),
     scores,
     averageScore: averageScore !== null ? Number(averageScore) : null,
     comments,

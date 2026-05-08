@@ -5,6 +5,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { formatUkDateTime } from '../lib/date-format.js'
 import { PLAN_OPTIONS, getPlanName } from '../lib/plans.js'
 import {
   createPlatformClub,
@@ -38,13 +39,7 @@ function formatDate(value) {
     return 'No activity yet'
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(parsedDate)
+  return formatUkDateTime(parsedDate.toISOString(), 'No activity yet')
 }
 
 const PAGE_META = {
@@ -639,12 +634,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                   </p>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-                  Last refresh: {new Intl.DateTimeFormat('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  }).format(new Date())}
+                  Last refresh: {formatUkDateTime(new Date().toISOString(), 'No activity yet')}
                 </p>
                 <button
                   type="button"

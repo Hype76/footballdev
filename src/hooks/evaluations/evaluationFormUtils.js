@@ -1,4 +1,5 @@
 import { getClubSettings } from '../../lib/supabase.js'
+import { formatUkDate } from '../../lib/date-format.js'
 
 export function createInitialFormData(user, defaults = {}) {
   return {
@@ -189,12 +190,7 @@ export function formatSessionForDisplay(value) {
     return 'Not scheduled'
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(`${normalizedValue}T00:00:00`))
+  return formatUkDate(normalizedValue, 'Not scheduled')
 }
 
 export function parseAssessmentQueue(value) {

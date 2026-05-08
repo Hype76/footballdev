@@ -7,6 +7,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { formatUkDate } from '../lib/date-format.js'
 import {
   EVALUATION_SECTIONS,
   addPlayersToAssessmentSession,
@@ -79,12 +80,7 @@ function formatSessionDate(value) {
     return normalizedValue
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(parsedDate)
+  return formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
 }
 
 function readStoredSessionWorkspace(storageKey) {

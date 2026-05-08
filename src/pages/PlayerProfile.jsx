@@ -16,6 +16,7 @@ import {
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
 import { isDemoUser } from '../lib/demo.js'
+import { formatUkDate, formatUkDateTime } from '../lib/date-format.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   getSavedEvaluationExportLabels,
@@ -99,6 +100,17 @@ function getDraftParentContacts(player) {
     : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
 }
 
+function getContactEmailAddresses(contact) {
+  return String(contact?.email ?? '')
+    .split(/[;,]/)
+    .map((email) => email.trim())
+    .filter(Boolean)
+}
+
+function getContactRecipientName(contact, fallbackName) {
+  return String(contact?.name ?? '').trim() || String(fallbackName ?? '').trim() || 'Parent/Guardian'
+}
+
 function buildCommentsFromMergedResponses(formResponses) {
   const findResponse = (labels) => {
     const matchingEntry = Object.entries(formResponses ?? {}).find(([label]) =>
@@ -119,7 +131,7 @@ const PROFILE_EVALUATION_PAGE_SIZE = 5
 
 function formatActivityDate(value) {
   const parsedDate = new Date(value)
-  return Number.isNaN(parsedDate.getTime()) ? 'No date entered' : parsedDate.toLocaleString()
+  return Number.isNaN(parsedDate.getTime()) ? 'No date entered' : formatUkDateTime(parsedDate.toISOString(), 'No date entered')
 }
 
 function getActivityLabel(log) {
@@ -188,6 +200,7 @@ export function PlayerProfile() {
   )
   const [evaluationPage, setEvaluationPage] = useState(1)
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState(null)
+  const [noPlaceArchiveTarget, setNoPlaceArchiveTarget] = useState(null)
   const [evaluationDeleteTarget, setEvaluationDeleteTarget] = useState(null)
   const [emailConfirmTarget, setEmailConfirmTarget] = useState(null)
   const [reassignConfirmTarget, setReassignConfirmTarget] = useState(null)
@@ -527,16 +540,12 @@ export function PlayerProfile() {
     const inviteDate = getSelectedInviteDate(evaluation)
     const responses = getSelectedExportResponseItems(evaluation)
     const payloads = getContactTemplateAudiences(getEvaluationContactType(evaluation))
-      .map((audience) => {
+      .flatMap((audience) => {
         const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
         const contacts = selectedContacts.filter((contact) => contact.type === contactType)
-        const recipientEmails = contacts.length > 0 ? formatParentContactEmails(contacts) : ''
-        const recipientNames = contacts.length > 0
-          ? formatParentContactNames(contacts, contactType === PLAYER_CONTACT_TYPES.self ? routePlayerName : evaluation.parentName || profileParentName)
-          : ''
 
-        if (!recipientEmails) {
-          return null
+        if (contacts.length === 0) {
+          return []
         }
 
         const selectedTemplate = getSelectedEmailTemplate(evaluation, audience)
@@ -545,45 +554,53 @@ export function PlayerProfile() {
           throw new Error(`Create a ${audience} email template before sending an email.`)
         }
 
-        const emailTemplate = renderParentEmailTemplate(selectedTemplate, {
-          recipientName: recipientNames,
-          parentName: recipientNames,
-          playerName: routePlayerName,
-          coachName: evaluation.coach,
-          clubName: user?.clubName,
-          teamName: evaluation.team,
-          session: evaluation.session,
-          inviteDate,
-          summary: '',
-          templateKey: selectedTemplate.key,
-        })
+        return contacts.flatMap((contact) =>
+          getContactEmailAddresses(contact).map((recipientEmail) => {
+            const recipientName = getContactRecipientName(
+              contact,
+              contactType === PLAYER_CONTACT_TYPES.self ? routePlayerName : evaluation.parentName || profileParentName,
+            )
+            const emailTemplate = renderParentEmailTemplate(selectedTemplate, {
+              recipientName,
+              parentName: recipientName,
+              playerName: routePlayerName,
+              coachName: evaluation.coach,
+              clubName: user?.clubName,
+              teamName: evaluation.team,
+              session: evaluation.session,
+              inviteDate,
+              summary: '',
+              templateKey: selectedTemplate.key,
+            })
 
-        return {
-          audience,
-          recipientEmails,
-          recipientNames,
-          templateName: selectedTemplate.label,
-          payload: {
-            parentEmail: recipientEmails,
-            parentName: recipientNames,
-            senderEmail: user?.email,
-            displayName: user?.displayName || user?.username || user?.name,
-            team: user?.emailTeamName || evaluation.team,
-            club: user?.emailClubName || user?.clubName,
-            section: evaluation.section,
-            session: evaluation.session,
-            planKey: user?.planKey,
-            logoUrl: user?.clubLogoUrl || null,
-            replyToEmail: user?.replyToEmail || user?.clubContactEmail,
-            clubContactEmail: user?.clubContactEmail,
-            playerName: routePlayerName,
-            summary: '',
-            responses,
-            subject: emailTemplate.subject,
-            emailBody: emailTemplate.body,
-            evaluationId: evaluation.id,
-          },
-        }
+            return {
+              audience,
+              recipientEmails: recipientEmail,
+              recipientNames: recipientName,
+              templateName: selectedTemplate.label,
+              payload: {
+                parentEmail: recipientEmail,
+                parentName: recipientName,
+                senderEmail: user?.email,
+                displayName: user?.displayName || user?.username || user?.name,
+                team: user?.emailTeamName || evaluation.team,
+                club: user?.emailClubName || user?.clubName,
+                section: evaluation.section,
+                session: evaluation.session,
+                planKey: user?.planKey,
+                logoUrl: user?.clubLogoUrl || null,
+                replyToEmail: user?.replyToEmail || user?.clubContactEmail,
+                clubContactEmail: user?.clubContactEmail,
+                playerName: routePlayerName,
+                summary: '',
+                responses,
+                subject: emailTemplate.subject,
+                emailBody: emailTemplate.body,
+                evaluationId: evaluation.id,
+              },
+            }
+          }),
+        )
       })
       .filter(Boolean)
 
@@ -703,12 +720,57 @@ export function PlayerProfile() {
         const nextActivity = await getPlayerCommunicationLogs({ user, playerId })
         setActivityLogs(nextActivity)
       }
+
+      if (emailConfirmTarget.templateKey === 'decline' && canDeletePlayer(user) && players.length > 0) {
+        setNoPlaceArchiveTarget({
+          playerName: routePlayerName,
+          playerCount: players.length,
+          evaluationCount: evaluations.length,
+        })
+      }
     } catch (error) {
       console.error(error)
       showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
     } finally {
       setEmailSendingId('')
       setEmailConfirmTarget(null)
+    }
+  }
+
+  const confirmArchiveAfterNoPlaceEmail = async (_password, reason) => {
+    if (!noPlaceArchiveTarget) {
+      return
+    }
+
+    const archiveReason = String(reason ?? '').trim()
+
+    if (!archiveReason) {
+      setErrorMessage('Add a reason before archiving this player.')
+      return
+    }
+
+    setIsDeleting(true)
+    setErrorMessage('')
+
+    try {
+      await Promise.all(
+        players.map((player) =>
+          archivePlayer({
+            user,
+            playerId: player.id,
+            reason: archiveReason,
+          }),
+        ),
+      )
+      clearViewCaches()
+      showToast({ title: 'Player archived' })
+      navigate('/players', { replace: true })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not archive this player.')
+    } finally {
+      setIsDeleting(false)
+      setNoPlaceArchiveTarget(null)
     }
   }
 
@@ -1025,7 +1087,7 @@ export function PlayerProfile() {
         parentEmail: parentContacts[0]?.email ?? mergeCoreSource.parentEmail ?? '',
         parentContacts,
         session: sessionSource?.session || `Merged assessment from ${mergeSelectedEvaluations.length} reports`,
-        date: dateSource?.date || new Date().toLocaleDateString(),
+        date: dateSource?.date || formatUkDate(new Date().toISOString().slice(0, 10)),
         scores: mergedScores,
         averageScore: mergePreviewAverage,
         comments: mergedComments,
@@ -2201,6 +2263,25 @@ export function PlayerProfile() {
         confirmLabel="Send Now"
         onCancel={() => setEmailConfirmTarget(null)}
         onConfirm={() => void confirmSendParentEmail()}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(noPlaceArchiveTarget)}
+        isBusy={isDeleting}
+        title="Archive player?"
+        message="The No Place Offered email has been sent. Do you want to move this player to archived players now?"
+        items={[
+          `Player: ${noPlaceArchiveTarget?.playerName || routePlayerName}`,
+          `${noPlaceArchiveTarget?.playerCount ?? players.length} player record entries moved to archive`,
+          `${noPlaceArchiveTarget?.evaluationCount ?? evaluations.length} saved assessments kept in history`,
+        ]}
+        itemsTitle="If you continue:"
+        confirmLabel="Archive Player"
+        onCancel={() => setNoPlaceArchiveTarget(null)}
+        requireReason
+        reasonLabel="Archive reason"
+        reasonPlaceholder="Explain why this player is being archived."
+        onConfirm={(password, reason) => void confirmArchiveAfterNoPlaceEmail(password, reason)}
       />
     </div>
   )

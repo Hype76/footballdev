@@ -5,6 +5,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewPlatformFeedback, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { formatUkDate } from '../lib/date-format.js'
 import {
   createPlatformFeedback,
   getPlatformFeedback,
@@ -29,11 +30,7 @@ function formatDate(value) {
     return 'No date'
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(parsedDate)
+  return formatUkDate(parsedDate.toISOString().slice(0, 10), 'No date')
 }
 
 export function PlatformFeedbackPage() {

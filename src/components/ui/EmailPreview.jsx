@@ -1,5 +1,6 @@
 import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { buildEmailHtml } from '../../lib/email-builder.js'
+import { formatUkDate } from '../../lib/date-format.js'
 
 function formatPreviewValue(value) {
   if (typeof value === 'number') {
@@ -34,12 +35,7 @@ function formatSessionForDisplay(value) {
     return normalizedValue
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(parsedDate)
+  return formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
 }
 
 function isTextResponseItem(item) {

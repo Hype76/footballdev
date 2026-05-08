@@ -6,6 +6,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { formatUkDate } from '../lib/date-format.js'
 import {
   deleteArchivedPlayers,
   getPlayers,
@@ -26,7 +27,7 @@ function formatDate(value) {
   }
 
   const parsedDate = new Date(normalizedValue)
-  return Number.isNaN(parsedDate.getTime()) ? normalizedValue : parsedDate.toLocaleDateString()
+  return Number.isNaN(parsedDate.getTime()) ? normalizedValue : formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
 }
 
 export function ArchivedPlayersPage() {

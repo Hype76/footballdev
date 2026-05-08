@@ -1,5 +1,6 @@
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import { buildEmailHtml } from './email-builder.js'
+import { formatUkDate } from './date-format.js'
 
 const LOGO_TIMEOUT_MS = 2500
 
@@ -55,12 +56,7 @@ function formatSessionForDisplay(value) {
     return normalizedValue
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(parsedDate)
+  return formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
 }
 
 function waitForPaint() {

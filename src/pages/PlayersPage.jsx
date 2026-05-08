@@ -6,6 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { ArchivePlayerModal } from '../components/players/ArchivePlayerModal.jsx'
 import { canCreateEvaluation, useAuth } from '../lib/auth.js'
+import { formatUkDate } from '../lib/date-format.js'
 import {
   EVALUATION_SECTIONS,
   archivePlayer,
@@ -41,7 +42,7 @@ function formatDate(value) {
   }
 
   const parsedDate = new Date(normalizedValue)
-  return Number.isNaN(parsedDate.getTime()) ? normalizedValue : parsedDate.toLocaleDateString()
+  return Number.isNaN(parsedDate.getTime()) ? normalizedValue : formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
 }
 
 const PLAYER_PAGE_SIZE = 12

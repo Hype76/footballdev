@@ -3,6 +3,7 @@ import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewActivityLog, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { formatUkDateTime } from '../lib/date-format.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import { getAuditLogs, getRecordBackups, withRequestTimeout } from '../lib/supabase.js'
 
@@ -17,7 +18,7 @@ function formatDateTime(value) {
     return 'No date recorded'
   }
 
-  return date.toLocaleString()
+  return formatUkDateTime(date.toISOString(), 'No date recorded')
 }
 
 function formatAction(value) {

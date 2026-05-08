@@ -1,4 +1,5 @@
 import { getClubSettings, normalizeParentContacts } from '../../lib/supabase.js'
+import { formatUkDate } from '../../lib/date-format.js'
 
 export function buildEvaluationSummary(evaluation, mode = 'scored') {
   if (mode === 'email') {
@@ -32,7 +33,7 @@ export function formatTrendDate(evaluation) {
     return evaluation.date
   }
 
-  return evaluation.createdAt ? new Date(evaluation.createdAt).toLocaleDateString() : 'No date entered'
+  return evaluation.createdAt ? formatUkDate(evaluation.createdAt, 'No date entered') : 'No date entered'
 }
 
 export function buildRatingTrend(evaluations) {

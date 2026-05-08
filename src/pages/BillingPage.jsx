@@ -4,6 +4,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewBilling, useAuth } from '../lib/auth.js'
+import { formatUkDate } from '../lib/date-format.js'
 import { getPlanName } from '../lib/plans.js'
 
 function formatDate(value) {
@@ -17,11 +18,7 @@ function formatDate(value) {
     return 'Not available'
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(parsedDate)
+  return formatUkDate(parsedDate.toISOString().slice(0, 10), 'Not available')
 }
 
 function formatMoney(amount, currency) {
