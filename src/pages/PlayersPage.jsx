@@ -249,9 +249,7 @@ export function PlayersPage() {
   )
 
   const totalEvaluations = playerRows.reduce((sum, player) => sum + player.totalEvaluations, 0)
-  const averageScore = getAverageScore(evaluations)
   const evaluatedPlayerCount = playerRows.filter((player) => player.totalEvaluations > 0).length
-  const scoredPlayerCount = playerRows.filter((player) => player.averageScore !== null).length
   const trialPlayerCount = playerRows.filter((player) => player.section === 'Trial').length
   const squadPlayerCount = playerRows.filter((player) => player.section === 'Squad').length
 
@@ -378,7 +376,7 @@ export function PlayersPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Link
           to="/players?section=Trial"
           aria-label="View trial players"
@@ -403,17 +401,6 @@ export function PlayersPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Evaluations</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{totalEvaluations}</p>
           <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{evaluatedPlayerCount} players</p>
-        </Link>
-        <Link
-          to="/players?view=scored"
-          aria-label="View players with scored evaluations"
-          className="block cursor-pointer rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Average Score</p>
-          <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">
-            {averageScore !== null ? averageScore.toFixed(1) : '-'}
-          </p>
-          <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{scoredPlayerCount} scored players</p>
         </Link>
       </div>
 
