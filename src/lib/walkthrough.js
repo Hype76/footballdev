@@ -216,6 +216,23 @@ export const WALKTHROUGHS = {
       },
     ],
   },
+  '/parent-email-templates': {
+    key: 'parent-email-templates',
+    plans: [PLAN_KEYS.singleTeam, PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
+    minimumRank: 50,
+    steps: [
+      {
+        target: 'sidebar-parent-email-templates',
+        title: 'Email Templates',
+        body: 'Use Email Templates to prepare reusable parent messages for offers, invite backs, and no place offered outcomes.',
+      },
+      {
+        target: 'page-header',
+        title: 'Manage parent messaging',
+        body: 'Templates save staff time and keep parent communication consistent. Coaches can use these templates when sending parent feedback.',
+      },
+    ],
+  },
   '/activity-log': {
     key: 'activity-log',
     plans: [PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
@@ -230,6 +247,23 @@ export const WALKTHROUGHS = {
         target: 'page-header',
         title: 'Review staff activity',
         body: 'Use filters to see relevant activity by user and event type. Team staff only see activity for their active team.',
+      },
+    ],
+  },
+  '/archived-players': {
+    key: 'archived-players',
+    plans: commonPlayerPlans,
+    minimumRank: 10,
+    steps: [
+      {
+        target: 'sidebar-archived-players',
+        title: 'Archived Players',
+        body: 'Archived Players keeps removed players out of active lists while preserving their details and assessment history.',
+      },
+      {
+        target: 'page-header',
+        title: 'Restore when needed',
+        body: 'Use this page to find archived players, review the archive reason, and restore them when they should return to active use.',
       },
     ],
   },
