@@ -218,7 +218,11 @@ export function canViewBilling(user) {
     return true
   }
 
-  return Number(user.roleRank ?? 0) >= 70
+  if (user.planKey === 'single_team') {
+    return user.role === 'head_manager' || Number(user.roleRank ?? 0) >= 70
+  }
+
+  return isClubAdmin(user)
 }
 
 export function isTesterAccessExpired(user) {
