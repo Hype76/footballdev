@@ -6,7 +6,13 @@ import {
   supabase,
 } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
-import { createFeatureUpgradeMessage, createLimitUpgradeMessage, getPlanLimit, hasPlanFeature } from '../plans.js'
+import {
+  canEditClubIdentity,
+  createFeatureUpgradeMessage,
+  createLimitUpgradeMessage,
+  getPlanLimit,
+  hasPlanFeature,
+} from '../plans.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   getDefaultEmailTemplates,
@@ -1937,6 +1943,22 @@ export async function updateOwnUserSettings({
     throw new Error('Username is required.')
   }
 
+  const { data: currentProfile, error: currentProfileError } = await supabase
+    .from('users')
+    .select(`${USER_PROFILE_SELECT}, clubs:club_id (${CLUB_SELECT})`)
+    .eq('id', authUser.id)
+    .single()
+
+  if (currentProfileError) {
+    console.error(currentProfileError)
+    throw currentProfileError
+  }
+
+  const currentUser = normalizeUserProfile(currentProfile)
+  const safeClubName = canEditClubIdentity(currentUser)
+    ? normalizedClubName
+    : String(currentUser.emailClubName || currentUser.clubName || '').trim()
+
   const { data, error } = await supabase
     .from('users')
     .update({
@@ -1944,7 +1966,7 @@ export async function updateOwnUserSettings({
       name: normalizedUsername,
       display_name: normalizedDisplayName,
       team_name: normalizedTeamName,
-      club_name: normalizedClubName,
+      club_name: safeClubName,
       reply_to_email: normalizedReplyToEmail,
     })
     .eq('id', authUser.id)
@@ -3913,6 +3935,19 @@ export async function createAuditLog({ user, action, entityType, entityId, metad
     return
   }
 
+  const normalizedMetadata =
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? { ...metadata }
+      : {}
+
+  if (user?.activeTeamId && !normalizedMetadata.teamId) {
+    normalizedMetadata.teamId = user.activeTeamId
+  }
+
+  if (user?.activeTeamName && !normalizedMetadata.teamName) {
+    normalizedMetadata.teamName = user.activeTeamName
+  }
+
   const { error } = await supabase.from('audit_logs').insert({
     club_id: user?.clubId || null,
     actor_id: user?.id || null,
@@ -3923,7 +3958,7 @@ export async function createAuditLog({ user, action, entityType, entityId, metad
     action,
     entity_type: entityType,
     entity_id: entityId || null,
-    metadata,
+    metadata: normalizedMetadata,
   })
 
   if (error) {
@@ -4001,9 +4036,35 @@ export async function getAuditLogs({ user, limit = 100 } = {}) {
   }
 
   const currentRank = Number(user.roleRank ?? 0)
-  return normalizedLogs.filter(
+  const rankFilteredLogs = normalizedLogs.filter(
     (log) => String(log.actorId) === String(user.id) || Number(log.actorRoleRank ?? 0) <= currentRank,
   )
+
+  if (user.role === 'admin') {
+    return rankFilteredLogs
+  }
+
+  const activeTeamId = String(user.activeTeamId ?? '').trim()
+
+  if (!activeTeamId) {
+    return rankFilteredLogs.filter((log) => String(log.actorId) === String(user.id))
+  }
+
+  const visibleUsers = await getVisibleClubUsers(user)
+  const visibleActorIds = new Set([
+    String(user.id),
+    ...visibleUsers.map((member) => String(member.id ?? '').trim()).filter(Boolean),
+  ])
+
+  return rankFilteredLogs.filter((log) => {
+    const logTeamId = String(log.metadata?.teamId ?? log.metadata?.team_id ?? '').trim()
+
+    if (logTeamId) {
+      return logTeamId === activeTeamId
+    }
+
+    return visibleActorIds.has(String(log.actorId))
+  })
 }
 
 export async function getRecordBackups({ user, limit = 50 } = {}) {

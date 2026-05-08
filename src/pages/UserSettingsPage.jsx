@@ -10,7 +10,7 @@ import {
   updateOwnUserSettings,
   updateSignedInPassword,
 } from '../lib/supabase.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { canEditClubIdentity, createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   getStoredThemeAccent,
   getStoredThemeMode,
@@ -96,7 +96,7 @@ export function UserSettingsPage() {
         username,
         displayName,
         teamName: emailTeamName,
-        clubName: emailClubName,
+        clubName: canEditEmailClubName ? emailClubName : user?.emailClubName || user?.clubName || '',
         replyToEmail,
       })
 
@@ -260,6 +260,7 @@ export function UserSettingsPage() {
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
   const canUseThemes = hasPlanFeature(user, 'themes')
+  const canEditEmailClubName = canEditClubIdentity(user)
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -333,11 +334,21 @@ export function UserSettingsPage() {
                   <input
                     type="text"
                     value={emailClubName}
-                    onChange={(event) => setEmailClubName(event.target.value)}
+                    onChange={(event) => {
+                      if (canEditEmailClubName) {
+                        setEmailClubName(event.target.value)
+                      }
+                    }}
                     required
+                    disabled={!canEditEmailClubName}
                     placeholder="Cambourne FC"
-                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                   />
+                  {!canEditEmailClubName ? (
+                    <span className="mt-2 block text-xs leading-5 text-[var(--text-muted)]">
+                      Only the top role for this plan can change the club name used in sender details.
+                    </span>
+                  ) : null}
                 </label>
 
                 <label className="block">

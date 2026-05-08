@@ -132,6 +132,32 @@ export function hasPlanFeature(user, featureName) {
   return Boolean(getPlan(user).features[featureName])
 }
 
+export function canEditClubIdentity(user) {
+  if (!user || isDemoUser(user)) {
+    return false
+  }
+
+  if (user.role === 'super_admin') {
+    return true
+  }
+
+  if (!user.clubId) {
+    return false
+  }
+
+  const planKey = getPlanKey(user)
+
+  if (planKey === PLAN_KEYS.individual) {
+    return true
+  }
+
+  if (planKey === PLAN_KEYS.singleTeam) {
+    return user.role === 'head_manager' || Number(user.roleRank ?? 0) >= 70
+  }
+
+  return user.role === 'admin'
+}
+
 export function getPlanLimit(user, limitName) {
   if (user?.role === 'super_admin' || isPlanComped(user)) {
     return null
