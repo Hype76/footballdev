@@ -14,6 +14,7 @@ import {
 } from '../../lib/theme.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
+import { WalkthroughProvider } from '../walkthrough/WalkthroughProvider.jsx'
 
 export function Layout() {
   const { authError, clubOptions, isProfileLoading, selectClub, selectTeam, teamOptions, user } = useAuth()
@@ -183,27 +184,28 @@ export function Layout() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
-        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+    <WalkthroughProvider>
+      <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+        <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
+          <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-72">
-          <Topbar
-            title={activeTitle}
-            onMenuClick={() => setIsSidebarOpen(true)}
-          />
+          <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-72">
+            <Topbar
+              title={activeTitle}
+              onMenuClick={() => setIsSidebarOpen(true)}
+            />
 
-          <main className="flex-1 px-0 py-2 sm:px-4 sm:py-5 md:px-5 md:py-6 xl:px-8">
-            <div className="mx-auto w-full max-w-7xl">
-              <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-[28px] sm:border sm:p-5 md:p-6">
-                <Outlet />
+            <main className="flex-1 px-0 py-2 sm:px-4 sm:py-5 md:px-5 md:py-6 xl:px-8">
+              <div className="mx-auto w-full max-w-7xl">
+                <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-[28px] sm:border sm:p-5 md:p-6">
+                  <Outlet />
+                </div>
               </div>
-            </div>
-          </main>
+            </main>
+          </div>
         </div>
-      </div>
 
-      {clubOptions.length > 1 ? (
+        {clubOptions.length > 1 ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
           <div className="w-full max-w-xl rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Club</p>
@@ -243,9 +245,9 @@ export function Layout() {
             ) : null}
           </div>
         </div>
-      ) : null}
+        ) : null}
 
-      {clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId ? (
+        {clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
           <div className="w-full max-w-xl rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Team</p>
@@ -283,7 +285,8 @@ export function Layout() {
             ) : null}
           </div>
         </div>
-      ) : null}
-    </div>
+        ) : null}
+      </div>
+    </WalkthroughProvider>
   )
 }

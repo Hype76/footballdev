@@ -3,6 +3,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
+import { useWalkthrough } from '../components/walkthrough/WalkthroughProvider.jsx'
 import { getRoleLabel, isDemoAccount, useAuth } from '../lib/auth.js'
 import {
   requestLoginEmailChange,
@@ -18,6 +19,7 @@ import {
   themeAccentOptions,
   themeModeOptions,
 } from '../lib/theme.js'
+import { resetWalkthrough } from '../lib/walkthrough.js'
 
 function createInitialPasswordState() {
   return {
@@ -28,6 +30,7 @@ function createInitialPasswordState() {
 
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
+  const walkthrough = useWalkthrough()
   const { showToast } = useToast()
   const isDemoSettings = isDemoAccount(user)
   const [username, setUsername] = useState(user?.username || user?.name || '')
@@ -258,6 +261,20 @@ export function UserSettingsPage() {
     void persistThemePreferences(nextPreferences)
   }
 
+  const handleRestartWalkthrough = () => {
+    resetWalkthrough(user)
+    showToast({ title: 'Walkthrough restarted', message: 'Open a sidebar page to see its walkthrough again.' })
+  }
+
+  const handleWalkthroughDisabledChange = (event) => {
+    const disabled = event.target.checked
+    walkthrough?.setDisabled(disabled)
+    showToast({
+      title: disabled ? 'Walkthrough disabled' : 'Walkthrough enabled',
+      message: disabled ? 'Guided walkthroughs will not open automatically.' : 'Guided walkthroughs will open on eligible pages.',
+    })
+  }
+
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
   const canUseThemes = hasPlanFeature(user, 'themes')
   const canEditEmailClubName = canEditClubIdentity(user)
@@ -445,6 +462,33 @@ export function UserSettingsPage() {
             {!canUseThemes ? (
               <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">{createFeatureUpgradeMessage('themes')}</p>
             ) : null}
+          </SectionCard>
+
+          <SectionCard
+            title="Walkthrough"
+            description="Control guided page walkthroughs for this account."
+          >
+            <div className="space-y-4">
+              <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  checked={Boolean(walkthrough?.disabled)}
+                  onChange={handleWalkthroughDisabledChange}
+                  className="h-4 w-4 rounded border-[var(--border-color)]"
+                />
+                <span>Disable walkthroughs</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleRestartWalkthrough}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+              >
+                Restart walkthrough
+              </button>
+              <p className="text-xs leading-5 text-[var(--text-muted)]">
+                Walkthroughs only show information that matches your current role, plan, and page access.
+              </p>
+            </div>
           </SectionCard>
 
           <SectionCard

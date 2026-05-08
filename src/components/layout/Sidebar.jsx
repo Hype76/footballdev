@@ -15,6 +15,10 @@ import {
 } from '../../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
 
+function getSidebarTourId(path) {
+  return `sidebar-${String(path ?? '').replace(/^\//, '').replace(/\//g, '-') || 'home'}`
+}
+
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
   const logoUrl = user?.clubLogoUrl || fallbackLogo
@@ -148,6 +152,7 @@ export function Sidebar({ isOpen, onClose }) {
               <NavLink
                 key={item.path}
                 to={item.path}
+                data-tour-id={getSidebarTourId(item.path)}
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
@@ -171,6 +176,7 @@ export function Sidebar({ isOpen, onClose }) {
             </p>
             <NavLink
               to="/platform-admin"
+              data-tour-id="sidebar-platform-admin"
               onClick={onClose}
               className={({ isActive }) =>
                 [
@@ -185,6 +191,7 @@ export function Sidebar({ isOpen, onClose }) {
             </NavLink>
             <NavLink
               to="/platform-clubs"
+              data-tour-id="sidebar-platform-clubs"
               onClick={onClose}
               className={({ isActive }) =>
                 [
@@ -199,6 +206,7 @@ export function Sidebar({ isOpen, onClose }) {
             </NavLink>
             <NavLink
               to="/platform-billing-options"
+              data-tour-id="sidebar-platform-billing-options"
               onClick={onClose}
               className={({ isActive }) =>
                 [
@@ -214,6 +222,7 @@ export function Sidebar({ isOpen, onClose }) {
             {canAccessPlatformFeedback ? (
               <NavLink
                 to="/platform-feedback"
+                data-tour-id="sidebar-platform-feedback"
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
@@ -237,6 +246,7 @@ export function Sidebar({ isOpen, onClose }) {
             </p>
             <NavLink
               to="/information"
+              data-tour-id="sidebar-information"
               onClick={onClose}
               className={({ isActive }) =>
                 [
@@ -257,6 +267,7 @@ export function Sidebar({ isOpen, onClose }) {
               </p>
               <NavLink
                 to="/platform-feedback"
+                data-tour-id="sidebar-platform-feedback"
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
