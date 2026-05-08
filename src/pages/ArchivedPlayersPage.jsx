@@ -7,7 +7,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
-  deletePlayerRecord,
+  deleteArchivedPlayers,
   getPlayers,
   readViewCache,
   readViewCacheValue,
@@ -182,14 +182,10 @@ export function ArchivedPlayersPage() {
 
     try {
       await verifyCurrentUserPassword(user.email, password)
-      await Promise.all(
-        playersToDelete.map((player) =>
-          deletePlayerRecord({
-            user,
-            playerId: player.id,
-          }),
-        ),
-      )
+      await deleteArchivedPlayers({
+        user,
+        playerIds: playersToDelete.map((player) => player.id),
+      })
 
       const deletedIds = new Set(playersToDelete.map((player) => player.id))
       const nextPlayers = players.filter((player) => !deletedIds.has(player.id))

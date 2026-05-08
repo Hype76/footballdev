@@ -4433,6 +4433,64 @@ export async function deletePlayerRecord({ user, playerId }) {
   })
 }
 
+export async function deleteArchivedPlayers({ user, playerIds }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to delete archived players.')
+  }
+
+  const normalizedPlayerIds = Array.from(
+    new Set((Array.isArray(playerIds) ? playerIds : []).map((playerId) => String(playerId ?? '').trim()).filter(Boolean)),
+  )
+
+  if (normalizedPlayerIds.length === 0) {
+    throw new Error('Select at least one archived player to delete.')
+  }
+
+  const { error: evaluationDeleteError } = await supabase
+    .from('evaluations')
+    .delete()
+    .eq('club_id', user.clubId)
+    .in('player_id', normalizedPlayerIds)
+
+  if (evaluationDeleteError) {
+    console.error(evaluationDeleteError)
+    throw evaluationDeleteError
+  }
+
+  const { data: deletedPlayers, error: playerDeleteError } = await supabase
+    .from('players')
+    .delete()
+    .eq('club_id', user.clubId)
+    .eq('status', 'archived')
+    .in('id', normalizedPlayerIds)
+    .select('id, player_name')
+
+  if (playerDeleteError) {
+    console.error(playerDeleteError)
+    throw playerDeleteError
+  }
+
+  if (!deletedPlayers?.length) {
+    throw new Error('No archived players were deleted. Check permissions or refresh archived players.')
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'archived_players_deleted',
+    entityType: 'player',
+    metadata: {
+      playerIds: deletedPlayers.map((player) => player.id),
+      playerNames: deletedPlayers.map((player) => player.player_name).filter(Boolean),
+    },
+  })
+
+  return deletedPlayers
+}
+
 export async function getAssessmentSessions({ user } = {}) {
   if (!user?.clubId || user.role === 'super_admin') {
     return []
