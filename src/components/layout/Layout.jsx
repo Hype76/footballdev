@@ -245,7 +245,7 @@ export function Layout() {
         </div>
       ) : null}
 
-      {clubOptions.length === 0 && teamOptions.length > 1 ? (
+      {clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
           <div className="w-full max-w-xl rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Team</p>
