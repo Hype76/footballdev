@@ -1166,6 +1166,8 @@ export function CreateEvaluationPage() {
                   displayName: user?.displayName || user?.display_name || user?.username || user?.name,
                   teamName: user?.team_name || user?.emailTeamName || formData.team,
                   clubName: user?.club_name || user?.emailClubName || user?.clubName,
+                  section: formData.section,
+                  session: formData.session,
                   planKey: user?.planKey,
                   logoUrl: user?.clubLogoUrl || null,
                   replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,

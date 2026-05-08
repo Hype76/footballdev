@@ -550,6 +550,8 @@ export function PlayerProfile() {
             displayName: user?.displayName || user?.username || user?.name,
             team: user?.emailTeamName || evaluation.team,
             club: user?.emailClubName || user?.clubName,
+            section: evaluation.section,
+            session: evaluation.session,
             planKey: user?.planKey,
             logoUrl: user?.clubLogoUrl || null,
             replyToEmail: user?.replyToEmail || user?.clubContactEmail,
