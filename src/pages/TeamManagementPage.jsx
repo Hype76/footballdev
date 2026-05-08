@@ -181,22 +181,6 @@ export function TeamManagementPage() {
     () => teamAssignments.find((team) => team.id === selectedTeamId) ?? teamAssignments[0] ?? null,
     [selectedTeamId, teamAssignments],
   )
-  const staffAssignedTeamIds = useMemo(() => {
-    const assignedTeamIds = new Map()
-
-    assignments.forEach((assignment) => {
-      const userId = String(assignment.userId ?? '').trim()
-      const teamId = String(assignment.teamId ?? '').trim()
-
-      if (!userId || !teamId) {
-        return
-      }
-
-      assignedTeamIds.set(userId, [...(assignedTeamIds.get(userId) ?? []), teamId])
-    })
-
-    return assignedTeamIds
-  }, [assignments])
   const selectedTeamStaff = useMemo(
     () =>
       selectedTeam
@@ -427,13 +411,6 @@ export function TeamManagementPage() {
       const createdStaffId = createdStaff?.profile?.id || createdStaff?.id || ''
 
       if (selectedTeamId && createdStaffId) {
-        const existingTeamIds = staffAssignedTeamIds.get(String(createdStaffId)) ?? []
-        const isAlreadyAssignedToAnotherTeam = existingTeamIds.some((teamId) => String(teamId) !== selectedTeamId)
-
-        if (isAlreadyAssignedToAnotherTeam) {
-          throw new Error('This staff member is already assigned to another team. Remove them from that team before adding them here.')
-        }
-
         const nextStaffIds = [...new Set([...(currentTeam?.staffIds ?? []), createdStaffId])]
         const savedAssignments = await replaceTeamStaffAssignments(selectedTeamId, nextStaffIds)
         nextAssignments = [...assignments.filter((assignment) => assignment.teamId !== selectedTeamId), ...savedAssignments]
@@ -532,18 +509,6 @@ export function TeamManagementPage() {
         return
       }
 
-      const existingTeamIds = staffAssignedTeamIds.get(String(userId)) ?? []
-      const isAlreadyAssignedToAnotherTeam = existingTeamIds.some((existingTeamId) => String(existingTeamId) !== String(teamId))
-
-      if (isAlreadyAssignedToAnotherTeam) {
-        setErrorMessage('This staff member is already assigned to another team. Remove them from that team before adding them here.')
-        showToast({
-          title: 'Staff not added',
-          message: 'This staff member already has team access elsewhere.',
-          tone: 'error',
-        })
-        return
-      }
     }
 
     const currentTeam = teamAssignments.find((team) => team.id === teamId)
