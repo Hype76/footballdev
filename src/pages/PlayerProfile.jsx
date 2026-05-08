@@ -200,7 +200,6 @@ export function PlayerProfile() {
   )
   const [evaluationPage, setEvaluationPage] = useState(1)
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState(null)
-  const [noPlaceArchiveTarget, setNoPlaceArchiveTarget] = useState(null)
   const [evaluationDeleteTarget, setEvaluationDeleteTarget] = useState(null)
   const [emailConfirmTarget, setEmailConfirmTarget] = useState(null)
   const [reassignConfirmTarget, setReassignConfirmTarget] = useState(null)
@@ -721,56 +720,12 @@ export function PlayerProfile() {
         setActivityLogs(nextActivity)
       }
 
-      if (emailConfirmTarget.templateKey === 'decline' && canDeletePlayer(user) && players.length > 0) {
-        setNoPlaceArchiveTarget({
-          playerName: routePlayerName,
-          playerCount: players.length,
-          evaluationCount: evaluations.length,
-        })
-      }
     } catch (error) {
       console.error(error)
       showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
     } finally {
       setEmailSendingId('')
       setEmailConfirmTarget(null)
-    }
-  }
-
-  const confirmArchiveAfterNoPlaceEmail = async (_password, reason) => {
-    if (!noPlaceArchiveTarget) {
-      return
-    }
-
-    const archiveReason = String(reason ?? '').trim()
-
-    if (!archiveReason) {
-      setErrorMessage('Add a reason before archiving this player.')
-      return
-    }
-
-    setIsDeleting(true)
-    setErrorMessage('')
-
-    try {
-      await Promise.all(
-        players.map((player) =>
-          archivePlayer({
-            user,
-            playerId: player.id,
-            reason: archiveReason,
-          }),
-        ),
-      )
-      clearViewCaches()
-      showToast({ title: 'Player archived' })
-      navigate('/players', { replace: true })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage('Could not archive this player.')
-    } finally {
-      setIsDeleting(false)
-      setNoPlaceArchiveTarget(null)
     }
   }
 
@@ -2265,24 +2220,6 @@ export function PlayerProfile() {
         onConfirm={() => void confirmSendParentEmail()}
       />
 
-      <ConfirmModal
-        isOpen={Boolean(noPlaceArchiveTarget)}
-        isBusy={isDeleting}
-        title="Archive player?"
-        message="The No Place Offered email has been sent. Do you want to move this player to archived players now?"
-        items={[
-          `Player: ${noPlaceArchiveTarget?.playerName || routePlayerName}`,
-          `${noPlaceArchiveTarget?.playerCount ?? players.length} player record entries moved to archive`,
-          `${noPlaceArchiveTarget?.evaluationCount ?? evaluations.length} saved assessments kept in history`,
-        ]}
-        itemsTitle="If you continue:"
-        confirmLabel="Archive Player"
-        onCancel={() => setNoPlaceArchiveTarget(null)}
-        requireReason
-        reasonLabel="Archive reason"
-        reasonPlaceholder="Explain why this player is being archived."
-        onConfirm={(password, reason) => void confirmArchiveAfterNoPlaceEmail(password, reason)}
-      />
     </div>
   )
 }
