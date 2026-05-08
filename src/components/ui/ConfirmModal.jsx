@@ -43,12 +43,12 @@ export function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 py-6">
-      <div className="w-full max-w-lg rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl sm:p-6">
+      <div className="w-full max-w-lg rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl sm:p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Please confirm</p>
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h2>
         {message ? <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{message}</p> : null}
         {items.length > 0 ? (
-          <div className="mt-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
             <p className="text-sm font-semibold text-[var(--text-primary)]">{itemsTitle}</p>
             <ul className="mt-3 space-y-2">
               {items.map((item) => (
@@ -67,7 +67,7 @@ export function ConfirmModal({
               onChange={(event) => setReason(event.target.value)}
               placeholder={reasonPlaceholder}
               rows={4}
-              className="min-h-28 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+              className="min-h-28 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
             />
           </label>
         ) : null}
@@ -76,7 +76,7 @@ export function ConfirmModal({
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
               Enter your password to confirm
             </span>
-            <div className="flex rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
+            <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
@@ -99,7 +99,7 @@ export function ConfirmModal({
             type="button"
             onClick={handleCancel}
             disabled={isBusy}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
@@ -107,7 +107,7 @@ export function ConfirmModal({
             type="button"
             onClick={handleConfirm}
             disabled={isBusy || (requirePassword && !password.trim()) || (requireReason && !reason.trim())}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isBusy ? 'Working...' : confirmLabel}
           </button>

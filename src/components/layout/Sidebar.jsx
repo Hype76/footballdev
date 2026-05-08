@@ -119,7 +119,7 @@ export function Sidebar({ isOpen, onClose }) {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)]">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]">
               <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Coaching Suite</p>
@@ -128,7 +128,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] lg:hidden"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] lg:hidden"
             aria-label="Close navigation"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -144,7 +144,7 @@ export function Sidebar({ isOpen, onClose }) {
                 key={item.path}
                 type="button"
                 title={item.disabledMessage}
-                className="block min-h-11 w-full cursor-not-allowed rounded-2xl px-4 py-3 text-left text-sm font-medium text-[var(--text-muted)] opacity-55"
+                className="block min-h-11 w-full cursor-not-allowed rounded-lg px-4 py-3 text-left text-sm font-medium text-[var(--text-muted)] opacity-55"
               >
                 {item.label}
               </button>
@@ -156,7 +156,7 @@ export function Sidebar({ isOpen, onClose }) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
-                    'block min-h-11 rounded-2xl px-4 py-3 text-sm font-medium transition',
+                    'block min-h-11 rounded-lg px-4 py-3 text-sm font-medium transition',
                     isActive
                       ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
                       : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
@@ -170,7 +170,7 @@ export function Sidebar({ isOpen, onClose }) {
         </nav>
 
         {isSuperAdmin(user) ? (
-          <div className="mt-2 rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+          <div className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
             <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
               Platform tools
             </p>
@@ -180,7 +180,7 @@ export function Sidebar({ isOpen, onClose }) {
               onClick={onClose}
               className={({ isActive }) =>
                 [
-                  'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                  'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
                   isActive
                     ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
                     : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
@@ -195,7 +195,7 @@ export function Sidebar({ isOpen, onClose }) {
               onClick={onClose}
               className={({ isActive }) =>
                 [
-                  'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                  'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
                   isActive
                     ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
                     : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
@@ -210,7 +210,7 @@ export function Sidebar({ isOpen, onClose }) {
               onClick={onClose}
               className={({ isActive }) =>
                 [
-                  'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                  'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
                   isActive
                     ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
                     : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
@@ -226,7 +226,7 @@ export function Sidebar({ isOpen, onClose }) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
-                    'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                    'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
                     isActive
                       ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
                       : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
@@ -240,7 +240,7 @@ export function Sidebar({ isOpen, onClose }) {
         ) : null}
 
         <div className="mt-auto pt-4">
-          <div className="mb-3 rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+          <div className="mb-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
             <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
               Information
             </p>
@@ -250,7 +250,7 @@ export function Sidebar({ isOpen, onClose }) {
               onClick={onClose}
               className={({ isActive }) =>
                 [
-                  'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                  'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
                   isActive
                     ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
                     : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
@@ -261,7 +261,7 @@ export function Sidebar({ isOpen, onClose }) {
             </NavLink>
           </div>
           {!isSuperAdmin(user) && canAccessPlatformFeedback ? (
-            <div className="mb-3 rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+            <div className="mb-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
               <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
                 Platform feedback
               </p>
@@ -271,7 +271,7 @@ export function Sidebar({ isOpen, onClose }) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
-                    'mt-2 block min-h-11 rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                    'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
                     isActive
                       ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
                       : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
@@ -285,7 +285,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
           >
             Sign out
           </button>

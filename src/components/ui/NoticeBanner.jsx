@@ -5,7 +5,7 @@ export function NoticeBanner({ title, message, tone = 'error' }) {
       : 'border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-primary)]'
 
   return (
-    <div className={`rounded-[20px] border px-4 py-4 ${toneClassName}`}>
+    <div className={`rounded-lg border px-4 py-4 ${toneClassName}`}>
       <p className="text-sm font-semibold">{title}</p>
       {message ? <p className="mt-1 text-sm leading-6 opacity-90">{message}</p> : null}
     </div>

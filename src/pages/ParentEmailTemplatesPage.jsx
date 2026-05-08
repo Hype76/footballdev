@@ -177,7 +177,7 @@ export function ParentEmailTemplatesPage() {
       >
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {EMAIL_TEMPLATE_FIELDS.map((field) => (
-            <div key={field.key} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+            <div key={field.key} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
               <p className="text-sm font-semibold text-[var(--text-primary)]">{field.label}</p>
               <p className="mt-1 font-mono text-xs text-[var(--text-secondary)]">{`{${field.key}}`}</p>
             </div>
@@ -194,7 +194,7 @@ export function ParentEmailTemplatesPage() {
             key={item.key}
             type="button"
             onClick={() => setAudience(item.key)}
-            className={`inline-flex min-h-11 items-center justify-center rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+            className={`inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold transition ${
               audience === item.key
                 ? 'border-[var(--accent)] bg-[var(--button-primary)] text-[var(--button-primary-text)]'
                 : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
@@ -207,7 +207,7 @@ export function ParentEmailTemplatesPage() {
 
       {isLoading ? (
         <SectionCard title="Templates" description="Loading club templates.">
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading templates...
           </div>
         </SectionCard>
@@ -223,7 +223,7 @@ export function ParentEmailTemplatesPage() {
             }
           >
             <div className="space-y-4">
-              <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
                 <input
                   type="checkbox"
                   checked={template.isEnabled !== false}
@@ -233,7 +233,7 @@ export function ParentEmailTemplatesPage() {
                 <span>Available for this club</span>
               </label>
 
-              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Available for sections</p>
                 <div className="mt-3 flex flex-wrap gap-3">
                   {EVALUATION_SECTIONS.map((section) => {
@@ -244,7 +244,7 @@ export function ParentEmailTemplatesPage() {
                     return (
                       <label
                         key={section}
-                        className="flex min-h-10 items-center gap-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+                        className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
                       >
                         <input
                           type="checkbox"
@@ -265,7 +265,7 @@ export function ParentEmailTemplatesPage() {
                   type="text"
                   value={template.subject}
                   onChange={(event) => updateTemplate(template.key, 'subject', event.target.value)}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
@@ -275,7 +275,7 @@ export function ParentEmailTemplatesPage() {
                   value={template.body}
                   onChange={(event) => updateTemplate(template.key, 'body', event.target.value)}
                   rows={12}
-                  className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-6 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-6 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
@@ -285,7 +285,7 @@ export function ParentEmailTemplatesPage() {
                     key={field.key}
                     type="button"
                     onClick={() => insertField(template.key, field.key)}
-                    className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                   >
                     {`Add {${field.key}}`}
                   </button>
@@ -297,14 +297,14 @@ export function ParentEmailTemplatesPage() {
                   type="button"
                   onClick={() => void saveTemplate(template)}
                   disabled={savingKey === template.key}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {savingKey === template.key ? 'Saving...' : 'Save Template'}
                 </button>
                 <button
                   type="button"
                   onClick={() => resetTemplate(template.key)}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                 >
                   Use Default
                 </button>

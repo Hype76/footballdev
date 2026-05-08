@@ -53,7 +53,7 @@ function ToastMessage({ toast, onDismiss }) {
       : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)]'
 
   return (
-    <div className={`rounded-[20px] border px-4 py-3 shadow-lg shadow-black/20 ${toneClassName}`}>
+    <div className={`rounded-lg border px-4 py-3 shadow-lg shadow-black/20 ${toneClassName}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold">{toast.title}</p>
@@ -62,7 +62,7 @@ function ToastMessage({ toast, onDismiss }) {
         <button
           type="button"
           onClick={onDismiss}
-          className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-xl border border-current/20 text-sm font-semibold"
+          className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-lg border border-current/20 text-sm font-semibold"
           aria-label="Dismiss notification"
         >
           x

@@ -613,7 +613,7 @@ export function TeamManagementPage() {
       />
 
       {message ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           {message}
         </div>
       ) : null}
@@ -645,14 +645,14 @@ export function TeamManagementPage() {
                 onChange={(event) => setNewTeamName(event.target.value)}
                 placeholder="U12 Blue"
                 required
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
             <button
               type="submit"
               disabled={isSaving || !canCreateMoreTeams}
               title={canCreateMoreTeams ? undefined : teamLimitMessage}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Add Team
             </button>
@@ -668,13 +668,13 @@ export function TeamManagementPage() {
                   value={coachForm.email}
                   onChange={handleCoachFormChange}
                   required
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
-                <div className="flex rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
+                <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
                   <input
                     type={isCoachPasswordVisible ? 'text' : 'password'}
                     name="password"
@@ -702,7 +702,7 @@ export function TeamManagementPage() {
                   value={coachForm.roleKey}
                   onChange={handleCoachFormChange}
                   required
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   {assignableRoles.map((role) => (
                     <option key={role.roleKey} value={role.roleKey}>
@@ -720,7 +720,7 @@ export function TeamManagementPage() {
                   value={coachForm.teamId}
                   onChange={handleCoachFormChange}
                   required
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   <option value="">Select team access</option>
                   {teams.map((team) => (
@@ -741,7 +741,7 @@ export function TeamManagementPage() {
                   value={coachForm.customRoleLabel}
                   onChange={handleCoachFormChange}
                   required
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
             ) : null}
@@ -750,7 +750,7 @@ export function TeamManagementPage() {
               type="submit"
               disabled={isSaving || assignableRoles.length === 0 || !canCreateMoreStaff}
               title={canCreateMoreStaff ? undefined : staffLimitMessage}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Add Staff Access
             </button>
@@ -763,16 +763,16 @@ export function TeamManagementPage() {
         description="Select one club team, then manage the staff currently allocated to that team."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading teams...
           </div>
         ) : teamAssignments.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No teams created yet.
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-[minmax(220px,360px)_minmax(0,1fr)]">
-            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
               <p className="text-sm font-semibold text-[var(--text-primary)]">Club teams</p>
               <p className="mt-1 text-sm text-[var(--text-muted)]">Choose a team to manage its staff access.</p>
               <div className="mt-4 space-y-2">
@@ -782,7 +782,7 @@ export function TeamManagementPage() {
                     type="button"
                     onClick={() => setSelectedTeamId(team.id)}
                     className={[
-                      'w-full rounded-2xl border px-4 py-3 text-left transition',
+                      'w-full rounded-lg border px-4 py-3 text-left transition',
                       selectedTeam?.id === team.id
                         ? 'border-[var(--accent)] bg-[var(--panel-soft)]'
                         : 'border-[var(--border-color)] bg-[var(--panel-bg)] hover:bg-[var(--panel-soft)]',
@@ -804,7 +804,7 @@ export function TeamManagementPage() {
             </div>
 
             {selectedTeam ? (
-              <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
@@ -819,7 +819,7 @@ export function TeamManagementPage() {
                               [selectedTeam.id]: event.target.value,
                             }))
                           }
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
                       <button
@@ -829,7 +829,7 @@ export function TeamManagementPage() {
                           String(teamNameDrafts[selectedTeam.id] ?? selectedTeam.name).trim() === selectedTeam.name
                         }
                         onClick={() => void handleTeamNameSave(selectedTeam.id)}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
                       >
                         Save Name
                       </button>
@@ -842,13 +842,13 @@ export function TeamManagementPage() {
                     type="button"
                     disabled={isSaving}
                     onClick={() => void handleDeleteTeam(selectedTeam.id)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Delete Team
                   </button>
                 </div>
 
-                <div className="mt-5 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+                <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">Add existing staff</p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
                     Search club staff, then add the selected person to this team.
@@ -861,7 +861,7 @@ export function TeamManagementPage() {
                         value={staffSearch}
                         onChange={(event) => setStaffSearch(event.target.value)}
                         placeholder="Search by name, email, or role"
-                        className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                       />
                     </label>
                   </div>
@@ -869,7 +869,7 @@ export function TeamManagementPage() {
                     <select
                       value={staffToAddId}
                       onChange={(event) => setStaffToAddId(event.target.value)}
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     >
                       <option value="">Select staff member</option>
                       {filteredAvailableStaffForSelectedTeam.map((member) => (
@@ -882,7 +882,7 @@ export function TeamManagementPage() {
                       type="button"
                       disabled={isSaving || !staffToAddId}
                       onClick={() => void handleAddExistingStaffToTeam()}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Add To Team
                     </button>
@@ -892,7 +892,7 @@ export function TeamManagementPage() {
                 <div className="mt-5">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">Allocated staff</p>
                   {selectedTeamStaff.length === 0 ? (
-                    <div className="mt-3 rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                    <div className="mt-3 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-6 text-sm text-[var(--text-muted)]">
                       No staff are allocated to this team yet.
                     </div>
                   ) : (
@@ -900,7 +900,7 @@ export function TeamManagementPage() {
                       {paginatedSelectedTeamStaff.items.map((member) => (
                         <div
                           key={member.id}
-                          className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4"
+                          className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4"
                         >
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0">
@@ -916,7 +916,7 @@ export function TeamManagementPage() {
                               type="button"
                               disabled={isSaving}
                               onClick={() => void handleRemoveStaffFromSelectedTeam(member.id)}
-                              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               Remove
                             </button>

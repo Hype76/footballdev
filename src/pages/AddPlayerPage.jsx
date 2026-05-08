@@ -370,7 +370,7 @@ export function AddPlayerPage() {
       ) : null}
 
       {message ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           {message}
         </div>
       ) : null}
@@ -380,11 +380,11 @@ export function AddPlayerPage() {
         description={canAddMorePlayers ? 'Add the player once, then start assessments from the player profile.' : playerLimitMessage}
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading player setup...
           </div>
         ) : availableTeams.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No teams are available yet. Create a team first, then add players into Trial or Squad.
           </div>
         ) : (
@@ -397,7 +397,7 @@ export function AddPlayerPage() {
                 value={playerForm.playerName}
                 onChange={handlePlayerFormChange}
                 required
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
 
@@ -407,7 +407,7 @@ export function AddPlayerPage() {
                 name="section"
                 value={playerForm.section}
                 onChange={handlePlayerFormChange}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
                 {EVALUATION_SECTIONS.map((section) => (
                   <option key={section} value={section}>
@@ -424,7 +424,7 @@ export function AddPlayerPage() {
                 value={playerForm.team}
                 onChange={handlePlayerFormChange}
                 required
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
                 <option value="">Select team</option>
                 {availableTeams.map((team) => (
@@ -440,7 +440,7 @@ export function AddPlayerPage() {
                 type="submit"
                 disabled={isAddingPlayer || !canAddMorePlayers}
                 title={canAddMorePlayers ? undefined : playerLimitMessage}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isAddingPlayer ? 'Adding...' : 'Add Player'}
               </button>
@@ -452,7 +452,7 @@ export function AddPlayerPage() {
                 {CONTACT_TYPE_OPTIONS.map((option) => (
                   <label
                     key={option.value}
-                    className={`flex min-h-11 items-start gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
+                    className={`flex min-h-11 items-start gap-3 rounded-lg border px-4 py-3 text-sm transition ${
                       normalizedContactType === option.value
                         ? 'border-[var(--accent)] bg-[var(--panel-soft)] text-[var(--text-primary)]'
                         : 'border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-muted)]'
@@ -488,14 +488,14 @@ export function AddPlayerPage() {
                     <button
                       type="button"
                       onClick={() => handleAddParentContact(group.type)}
-                      className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                     >
                       {group.addLabel}
                     </button>
                   </div>
                   <div className="space-y-3">
                     {contacts.map((contact, index) => (
-                      <div key={`${group.type}-${index}`} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                      <div key={`${group.type}-${index}`} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
                         <div className="grid gap-3 sm:grid-cols-2">
                           <label className="block">
                             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -505,7 +505,7 @@ export function AddPlayerPage() {
                               type="text"
                               value={contact.name}
                               onChange={(event) => handleParentContactChange(group.type, index, 'name', event.target.value)}
-                              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                             />
                           </label>
                           <label className="block">
@@ -516,14 +516,14 @@ export function AddPlayerPage() {
                               type="email"
                               value={contact.email}
                               onChange={(event) => handleParentContactChange(group.type, index, 'email', event.target.value)}
-                              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                             />
                           </label>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleRemoveParentContact(group.type, index)}
-                          className="mt-3 inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                          className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                         >
                           {group.removeLabel}
                         </button>
@@ -543,12 +543,12 @@ export function AddPlayerPage() {
                   value={playerForm.positionDraft}
                   onChange={handlePlayerFormChange}
                   placeholder="Add position, for example Striker"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
                 <button
                   type="button"
                   onClick={handleAddPosition}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                 >
                   Add Position
                 </button>
@@ -560,7 +560,7 @@ export function AddPlayerPage() {
                       key={position}
                       type="button"
                       onClick={() => handleRemovePosition(position)}
-                      className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                     >
                       {position} remove
                     </button>
@@ -580,7 +580,7 @@ export function AddPlayerPage() {
         description="Open a player profile to edit details or start an assessment."
       >
         {recentPlayers.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No player records yet.
           </div>
         ) : (
@@ -589,7 +589,7 @@ export function AddPlayerPage() {
               <Link
                 key={player.id}
                 to={`/player/${encodeURIComponent(player.playerName)}`}
-                className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 transition hover:bg-[var(--panel-soft)]"
+                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 transition hover:bg-[var(--panel-soft)]"
               >
                 <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
                 <p className="mt-2 text-sm text-[var(--text-muted)]">{player.section} | {player.team || 'No team'}</p>

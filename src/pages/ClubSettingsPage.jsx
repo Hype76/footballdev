@@ -309,13 +309,13 @@ export function ClubSettingsPage() {
       />
 
       {isSaved ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           Saved successfully
         </div>
       ) : null}
 
       {uploadSuccessMessage ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           {uploadSuccessMessage}
         </div>
       ) : null}
@@ -333,14 +333,14 @@ export function ClubSettingsPage() {
         description="These details are used in the topbar and parent-facing preview."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading club settings...
           </div>
         ) : (
           <div className="grid gap-5 xl:grid-cols-[0.72fr_1fr]">
-            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Logo preview</p>
-              <div className="mt-4 flex min-h-48 items-center justify-center overflow-hidden rounded-[24px] border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+              <div className="mt-4 flex min-h-48 items-center justify-center overflow-hidden rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
                 <img src={resolvedLogoUrl} alt={formData.name || 'Club logo'} className="max-h-40 w-auto object-contain" />
               </div>
 
@@ -352,7 +352,7 @@ export function ClubSettingsPage() {
                     accept="image/*"
                     onChange={handleFileChange}
                     disabled={!canUseBasicBranding}
-                    className="block min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] file:mr-4 file:rounded-xl file:border-0 file:bg-[var(--panel-soft)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[var(--text-primary)]"
+                    className="block min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--panel-soft)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[var(--text-primary)]"
                   />
                   <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
                     {canUseBasicBranding ? 'PNG, JPG, or SVG. Maximum file size 2MB.' : createFeatureUpgradeMessage('basicBranding')}
@@ -363,7 +363,7 @@ export function ClubSettingsPage() {
                   type="button"
                   onClick={handleLogoUpload}
                   disabled={isUploading || !selectedLogoFile || !canUseBasicBranding}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isUploading ? 'Uploading...' : 'Upload Logo'}
                 </button>
@@ -379,7 +379,7 @@ export function ClubSettingsPage() {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
@@ -390,7 +390,7 @@ export function ClubSettingsPage() {
                   name="contactEmail"
                   value={formData.contactEmail}
                   onChange={handleChange}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
@@ -401,7 +401,7 @@ export function ClubSettingsPage() {
                   name="contactPhone"
                   value={formData.contactPhone}
                   onChange={handleChange}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
 
@@ -409,7 +409,7 @@ export function ClubSettingsPage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {isSaving ? 'Saving...' : 'Save changes'}
                 </button>

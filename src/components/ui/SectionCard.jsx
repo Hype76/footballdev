@@ -2,7 +2,7 @@ export function SectionCard({ title, description, children, actions, tourId }) {
   return (
     <section
       data-tour-id={tourId}
-      className="min-w-0 rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 shadow-sm shadow-slate-900/10 sm:rounded-[24px] sm:p-5 lg:p-6"
+      className="min-w-0 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:p-5 lg:p-6"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">

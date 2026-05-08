@@ -27,7 +27,7 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
   const endItem = Math.min(safePage * pageSize, totalItems)
 
   return (
-    <div className="mt-4 flex flex-col gap-3 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
+    <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
       <p>
         Showing {startItem} to {endItem} of {totalItems}
       </p>
@@ -36,18 +36,18 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
           type="button"
           onClick={() => onPageChange(safePage - 1)}
           disabled={safePage <= 1}
-          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Previous
         </button>
-        <span className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-center font-semibold text-[var(--text-primary)] sm:px-4">
+        <span className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-center font-semibold text-[var(--text-primary)] sm:px-4">
           {safePage} of {totalPages}
         </span>
         <button
           type="button"
           onClick={() => onPageChange(safePage + 1)}
           disabled={safePage >= totalPages}
-          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Next
         </button>

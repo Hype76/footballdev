@@ -611,14 +611,14 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       ) : null}
 
       {successMessage ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
           {successMessage}
         </div>
       ) : null}
 
       {showDashboard ? (
         <div className="space-y-5">
-          <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_42%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+          <section className="relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
             <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-24 left-10 h-52 w-52 rounded-full bg-sky-400 opacity-10 blur-3xl" />
             <div className="relative grid gap-6 xl:grid-cols-[1.35fr_0.65fr] xl:items-end">
@@ -631,7 +631,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                   This dashboard shows platform level health without exposing child names or player personal details.
                 </p>
               </div>
-              <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
                 <div className="flex items-center gap-3">
                   <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
                   <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -649,7 +649,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                 <button
                   type="button"
                   onClick={refreshStats}
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:-translate-y-0.5 hover:bg-[var(--panel-soft)]"
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:-translate-y-0.5 hover:bg-[var(--panel-soft)]"
                 >
                   Refresh platform stats
                 </button>
@@ -661,9 +661,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             {dashboardStats.map((item) => (
               <div
                 key={item.label}
-                className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+                className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
               >
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
@@ -685,7 +685,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
               <div className="space-y-3">
                 {Object.entries(planBreakdown).length > 0 ? (
                   Object.entries(planBreakdown).map(([planName, count]) => (
-                    <div key={planName} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                    <div key={planName} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                       <div className="flex items-center justify-between gap-4">
                         <p className="text-sm font-semibold text-[var(--text-primary)]">{planName}</p>
                         <p className="text-lg font-semibold text-[var(--accent)]">{count}</p>
@@ -701,7 +701,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                     </div>
                   ))
                 ) : (
-                  <p className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm text-[var(--text-muted)]">
+                  <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm text-[var(--text-muted)]">
                     No plan data is available yet.
                   </p>
                 )}
@@ -713,12 +713,12 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
               description="Separated live records from archived and internal platform records."
             >
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Active players</p>
                   <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">{platformTotals.players ?? 0}</p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{platformTotals.archivedPlayers ?? 0} archived records excluded</p>
                 </div>
-                <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Share rows</p>
                   <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">{platformTotals.communications ?? 0}</p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{platformTotals.communicationRows ?? 0} total communication rows</p>
@@ -731,7 +731,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
       {showClubManagement ? (
         <div className="space-y-5">
-          <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_44%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+          <section className="relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
             <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
             <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
               <div>
@@ -743,7 +743,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                   This area avoids showing child personal details and focuses only on club level operations.
                 </p>
               </div>
-              <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
                 <div className="flex items-center gap-3">
                   <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
                   <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -761,9 +761,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             {clubManagementStats.map((item) => (
               <div
                 key={item.label}
-                className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+                className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
               >
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
                 <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
                 <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
@@ -785,7 +785,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
               required
               value={newClubForm.name}
               onChange={(event) => handleNewClubChange('name', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -794,7 +794,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
               type="email"
               value={newClubForm.contactEmail}
               onChange={(event) => handleNewClubChange('contactEmail', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -802,13 +802,13 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             <input
               value={newClubForm.contactPhone}
               onChange={(event) => handleNewClubChange('contactPhone', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <button
             type="submit"
             disabled={isSavingClub}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSavingClub ? 'Adding...' : 'Add Club'}
           </button>
@@ -818,7 +818,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
       {showDashboard ? (
         <div className="space-y-5">
-          <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_44%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+          <section className="relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
             <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
             <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
               <div>
@@ -830,7 +830,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                   Admin replies are visible to users, so clubs can see what is planned, in progress, or complete.
                 </p>
               </div>
-              <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
                 <div className="flex items-center gap-3">
                   <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
                   <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -848,9 +848,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             {feedbackStats.map((item) => (
               <div
                 key={item.label}
-                className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+                className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
               >
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
                 <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
                 <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
@@ -866,11 +866,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         description="Review product feedback, update status, add internal notes, or remove completed items."
       >
         {isFeedbackLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             Loading feedback...
           </div>
         ) : feedbackItems.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No platform feedback has been submitted yet.
           </div>
         ) : (
@@ -882,7 +882,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
               }
 
               return (
-                <div key={item.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
+                <div key={item.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
                   <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
                     <div>
                       <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{item.message}</p>
@@ -896,7 +896,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                         <select
                           value={draft.status}
                           onChange={(event) => handleFeedbackDraftChange(item.id, 'status', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         >
                           <option value="open">Open</option>
                           <option value="planned">Planned</option>
@@ -909,11 +909,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                   </div>
 
                   {item.comments?.length ? (
-                    <div className="mt-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+                    <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">Visible comments</p>
                       <div className="mt-3 space-y-3">
                         {item.comments.map((comment) => (
-                          <div key={comment.id} className="rounded-2xl bg-[var(--panel-alt)] px-4 py-3">
+                          <div key={comment.id} className="rounded-lg bg-[var(--panel-alt)] px-4 py-3">
                             <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{comment.message}</p>
                             <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                               Platform admin | {formatDate(comment.createdAt)}
@@ -931,7 +931,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                       value={draft.adminComment}
                       onChange={(event) => handleFeedbackDraftChange(item.id, 'adminComment', event.target.value)}
                       placeholder="This will be visible to users on the feedback board."
-                      className="min-h-24 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      className="min-h-24 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
                   </label>
 
@@ -940,7 +940,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                       type="button"
                       disabled={updatingFeedbackId === item.id}
                       onClick={() => void handleSaveFeedback(item)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Save
                     </button>
@@ -948,7 +948,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                       type="button"
                       disabled={updatingFeedbackId === item.id}
                       onClick={() => void handleDeleteFeedback(item)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Delete
                     </button>
@@ -981,7 +981,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                 setSelectedClubId(event.target.value)
                 setClubPage(1)
               }}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             >
               <option value="All">All clubs</option>
               {(stats?.clubs ?? []).map((club) => (
@@ -994,17 +994,17 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         </div>
 
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             Loading platform stats...
           </div>
         ) : visibleClubs.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No clubs found yet.
           </div>
         ) : (
           <div className="space-y-4">
             {paginatedVisibleClubs.items.map((club) => (
-              <div key={club.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
+              <div key={club.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
                 <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
@@ -1034,7 +1034,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                           value={club.planKey || 'small_club'}
                           disabled={updatingClubId === club.id}
                           onChange={(event) => void handleClubPlanChange(club, 'planKey', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
                         >
                           {PLAN_OPTIONS.map((plan) => (
                             <option key={plan.key} value={plan.key}>
@@ -1049,7 +1049,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                           value={club.planStatus || 'active'}
                           disabled={updatingClubId === club.id}
                           onChange={(event) => void handleClubPlanChange(club, 'planStatus', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
                         >
                           <option value="active">Active</option>
                           <option value="trialing">Trialing</option>
@@ -1057,7 +1057,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                           <option value="cancelled">Cancelled</option>
                         </select>
                       </label>
-                      <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] md:mt-7">
+                      <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] md:mt-7">
                         <input
                           type="checkbox"
                           checked={Boolean(club.isPlanComped)}
@@ -1079,7 +1079,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                         type="button"
                         disabled={updatingClubId === club.id}
                         onClick={() => void handleToggleClubStatus(club)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {club.status === 'suspended' ? 'Reactivate' : 'Suspend'}
                       </button>
@@ -1087,34 +1087,34 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                         type="button"
                         disabled={updatingClubId === club.id}
                         onClick={() => void handleDeleteClub(club)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Delete
                       </button>
                     </div>
                   </div>
                   <div className="grid w-full gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 2xl:max-w-[620px]">
-                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Users</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.userCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Teams</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.teamCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Players</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.playerCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Shares</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.communicationCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Trial</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.trialPlayerCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">Squad</p>
                       <p className="mt-2 font-semibold text-[var(--text-primary)]">{club.squadPlayerCount}</p>
                     </div>
@@ -1129,7 +1129,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                         <p className="text-sm text-[var(--text-muted)]">No users found.</p>
                       ) : (
                         club.users.map((member) => (
-                          <div key={member.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                          <div key={member.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                             <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                               <div className="min-w-0">
                                 <p className="break-words text-sm font-semibold text-[var(--text-primary)]">
@@ -1163,7 +1163,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                                       member.status === 'suspended' ? 'reactivate' : 'suspend',
                                     )
                                   }
-                                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {member.status === 'suspended' ? 'Reactivate' : 'Suspend'}
                                 </button>
@@ -1171,7 +1171,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                                   type="button"
                                   disabled={updatingUserId === member.id}
                                   onClick={() => void handleAccountAction(club, member, 'delete')}
-                                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   Delete
                                 </button>
@@ -1192,14 +1192,14 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                         club.teams.map((team) => (
                           <div
                             key={team.id}
-                            className="flex flex-col gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                            className="flex flex-col gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <span className="text-sm font-semibold text-[var(--text-primary)]">{team.name}</span>
                             <button
                               type="button"
                               disabled={updatingTeamId === team.id}
                               onClick={() => void handleDeleteTeam(club, team)}
-                              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               Delete Team
                             </button>
@@ -1212,7 +1212,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                         <p className="text-sm text-[var(--text-muted)]">No role data found.</p>
                       ) : (
                         club.roleCounts.map((role) => (
-                          <div key={role.label} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                          <div key={role.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                             <p className="text-sm font-semibold text-[var(--text-primary)]">{role.label}</p>
                             <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                               {role.count} users

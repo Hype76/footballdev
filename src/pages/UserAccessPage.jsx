@@ -386,7 +386,7 @@ export function UserAccessPage() {
       />
 
       {message ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           {message}
         </div>
       ) : null}
@@ -407,11 +407,11 @@ export function UserAccessPage() {
         }
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading roles...
           </div>
         ) : assignableRoles.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No role data entered yet, or role data could not be loaded.
           </div>
         ) : (
@@ -424,13 +424,13 @@ export function UserAccessPage() {
                 value={formState.email}
                 onChange={handleChange}
                 required
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
 
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
-              <div className="flex rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
+              <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
                 <input
                   type={isPasswordVisible ? 'text' : 'password'}
                   name="password"
@@ -458,7 +458,7 @@ export function UserAccessPage() {
                 value={formState.roleKey}
                 onChange={handleChange}
                 required
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
                 {assignableRoles.map((role) => (
                   <option key={role.roleKey} value={role.roleKey}>
@@ -478,7 +478,7 @@ export function UserAccessPage() {
                   value={formState.customRoleLabel}
                   onChange={handleChange}
                   required={formState.roleKey === '__custom__'}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
                 <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
                   Custom roles are saved at the support level and can be reused later.
@@ -491,7 +491,7 @@ export function UserAccessPage() {
                 type="submit"
                 disabled={isSaving || !canAddMoreUsers}
                 title={canAddMoreUsers ? undefined : staffLimitMessage}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {isSaving ? 'Saving...' : 'Allocate user'}
               </button>
@@ -505,11 +505,11 @@ export function UserAccessPage() {
         description="Existing users are listed here only where your role and team access allows."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading active users...
           </div>
         ) : members.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No active users found for this club.
           </div>
         ) : (
@@ -517,7 +517,7 @@ export function UserAccessPage() {
             {paginatedMembers.items.map((member) => (
               <div
                 key={member.id}
-                className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
+                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -533,7 +533,7 @@ export function UserAccessPage() {
                         type="button"
                         disabled={isSaving}
                         onClick={() => handleRemoveMember(member)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Remove
                       </button>
@@ -550,14 +550,14 @@ export function UserAccessPage() {
                         type="text"
                         value={nameDrafts[member.id] ?? ''}
                         onChange={(event) => handleNameDraftChange(member.id, event.target.value)}
-                        className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                        className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                       />
                     </label>
                     <button
                       type="button"
                       disabled={isSaving || String(nameDrafts[member.id] ?? '').trim() === String(member.name ?? '').trim()}
                       onClick={() => handleUpdateMemberName(member)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Save name
                     </button>
@@ -580,11 +580,11 @@ export function UserAccessPage() {
         description="Invited or pre-assigned emails will receive the saved role when they sign in."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading pending allocations...
           </div>
         ) : pendingInvites.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No pending allocations.
           </div>
         ) : (
@@ -592,7 +592,7 @@ export function UserAccessPage() {
             {paginatedInvites.items.map((invite) => (
               <div
                 key={invite.id}
-                className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
+                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -603,7 +603,7 @@ export function UserAccessPage() {
                     type="button"
                     disabled={isSaving}
                     onClick={() => handleDeleteInvite(invite)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Remove
                   </button>

@@ -189,7 +189,7 @@ export function ActivityLogPage() {
       />
 
       {errorMessage ? (
-        <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+        <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
           {errorMessage}
         </div>
       ) : null}
@@ -199,11 +199,11 @@ export function ActivityLogPage() {
         description="Managers and above can see activity for users at their role level or below. Platform admins can see platform-wide activity."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading activity...
           </div>
         ) : logs.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No activity has been recorded yet.
           </div>
         ) : (
@@ -217,7 +217,7 @@ export function ActivityLogPage() {
                     setSelectedActorId(event.target.value)
                     setLogPage(1)
                   }}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   <option value="">All allowed users</option>
                   {actorOptions.map((actor) => (
@@ -235,7 +235,7 @@ export function ActivityLogPage() {
                     setSelectedAction(event.target.value)
                     setLogPage(1)
                   }}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   <option value="">All events</option>
                   {actionOptions.map((action) => (
@@ -248,7 +248,7 @@ export function ActivityLogPage() {
             </div>
 
             {filteredLogs.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
                 No activity matches these filters.
               </div>
             ) : null}
@@ -256,7 +256,7 @@ export function ActivityLogPage() {
             {paginatedLogs.items.map((log) => (
               <article
                 key={log.id}
-                className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
+                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
@@ -293,11 +293,11 @@ export function ActivityLogPage() {
           description="Core record changes are copied automatically so platform admins have a fallback trail."
         >
           {isLoading ? (
-            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
               Loading backups...
             </div>
           ) : backups.length === 0 ? (
-            <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+            <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
               No backup entries have been recorded yet.
             </div>
           ) : (
@@ -305,7 +305,7 @@ export function ActivityLogPage() {
               {paginatedBackups.items.map((backup) => (
                 <article
                   key={backup.id}
-                  className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
+                  className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
                 >
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">

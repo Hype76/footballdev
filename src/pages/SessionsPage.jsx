@@ -1200,7 +1200,7 @@ export function SessionsPage() {
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
 
       {completedSessionId ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-primary)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-semibold">Session assessments completed</p>
@@ -1211,7 +1211,7 @@ export function SessionsPage() {
             <button
               type="button"
               onClick={() => setSearchParams({})}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
             >
               Dismiss
             </button>
@@ -1224,16 +1224,16 @@ export function SessionsPage() {
         description="Reopen any saved session to continue notes, add players, or carry on assessments."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading saved sessions...
           </div>
         ) : combinedSessions.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No saved sessions yet. Create a session below and it will appear here.
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
-            <div className="rounded-2xl border border-[var(--accent)] bg-[var(--panel-soft)] px-4 py-4">
+            <div className="rounded-lg border border-[var(--accent)] bg-[var(--panel-soft)] px-4 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1255,7 +1255,7 @@ export function SessionsPage() {
                       type="button"
                       disabled={isSaving}
                       onClick={() => void handleCompleteSession()}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Complete Session
                     </button>
@@ -1266,12 +1266,12 @@ export function SessionsPage() {
                       disabled={isSaving || Boolean(deleteSessionDisabledReason)}
                       title={deleteSessionDisabledReason}
                       onClick={() => handleDeleteSession()}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600/20 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600/20 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Delete Session
                     </button>
                   ) : null}
-                  <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+                  <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
                     Current Session
                   </span>
                 </div>
@@ -1284,7 +1284,7 @@ export function SessionsPage() {
                 value=""
                 onChange={(event) => handleOpenSession(event.target.value)}
                 disabled={previousSessions.length === 0}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="">
                   {previousSessions.length === 0 ? 'No previous sessions yet' : 'Choose previous session'}
@@ -1317,7 +1317,7 @@ export function SessionsPage() {
                   required
                   placeholder="Opponent team"
                   disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
 
@@ -1331,7 +1331,7 @@ export function SessionsPage() {
                   required
                   min="0"
                   disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
 
@@ -1345,7 +1345,7 @@ export function SessionsPage() {
                   required
                   min="0"
                   disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
 
@@ -1357,7 +1357,7 @@ export function SessionsPage() {
                   value={gameForm.gameDate}
                   onChange={handleGameFormChange}
                   disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
 
@@ -1370,7 +1370,7 @@ export function SessionsPage() {
                   onChange={handleGameFormChange}
                   placeholder="Optional game note"
                   disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
 
@@ -1378,7 +1378,7 @@ export function SessionsPage() {
                 <button
                   type="submit"
                   disabled={isSaving || selectedSessionLocked}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? 'Saving...' : 'Add Result'}
                 </button>
@@ -1386,17 +1386,17 @@ export function SessionsPage() {
             </form>
 
             {isSessionGamesLoading ? (
-              <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
                 Loading tournament results...
               </div>
             ) : sessionGames.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
                 No tournament game results have been added yet.
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 {sessionGames.map((game) => (
-                  <div key={game.id} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                  <div key={game.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -1411,7 +1411,7 @@ export function SessionsPage() {
                         type="button"
                         disabled={isSaving || selectedSessionLocked}
                         onClick={() => void handleDeleteTournamentGame(game.id)}
-                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600/20 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-red-500/40 bg-red-600/20 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Delete
                       </button>
@@ -1429,11 +1429,11 @@ export function SessionsPage() {
         description="Use a date only. Times are not required for assessments."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading session setup...
           </div>
         ) : teams.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No teams are available yet. Create a team first, then sessions can be planned.
           </div>
         ) : (
@@ -1445,7 +1445,7 @@ export function SessionsPage() {
                 value={sessionForm.teamId}
                 onChange={handleSessionFormChange}
                 required
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
                 <option value="">Select team</option>
                 {teams.map((team) => (
@@ -1463,7 +1463,7 @@ export function SessionsPage() {
                 value={sessionForm.sessionType}
                 onChange={handleSessionFormChange}
                 required
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
                 <option value="">Select session type</option>
                 <option value="training">Training</option>
@@ -1481,7 +1481,7 @@ export function SessionsPage() {
                   value={sessionForm.opponent}
                   onChange={handleSessionFormChange}
                   placeholder="Opposition team"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
             ) : null}
@@ -1494,7 +1494,7 @@ export function SessionsPage() {
                 value={sessionForm.sessionDate}
                 onChange={handleSessionFormChange}
                 required
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
 
@@ -1504,7 +1504,7 @@ export function SessionsPage() {
                 name="section"
                 value={sessionForm.section}
                 onChange={handleSessionFormChange}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
                 {EVALUATION_SECTIONS.map((section) => (
                   <option key={section} value={section}>
@@ -1518,7 +1518,7 @@ export function SessionsPage() {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSaving ? 'Saving...' : 'Create Session'}
               </button>
@@ -1532,7 +1532,7 @@ export function SessionsPage() {
         description="Select any saved session and add more players to its list when needed."
       >
         {sessions.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No sessions created yet.
           </div>
         ) : (
@@ -1543,7 +1543,7 @@ export function SessionsPage() {
                 <select
                   value={selectedSessionId}
                   onChange={(event) => handleOpenSession(event.target.value)}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   {combinedSessions.map((session) => (
                     <option key={session.id} value={session.id}>
@@ -1559,7 +1559,7 @@ export function SessionsPage() {
                   name="section"
                   value={activePlayerSection}
                   onChange={handleSessionFormChange}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   {EVALUATION_SECTIONS.map((section) => (
                     <option key={section} value={section}>
@@ -1570,7 +1570,7 @@ export function SessionsPage() {
               </label>
             </div>
 
-            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
               Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
               {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
                 <span className="mt-2 block text-xs text-[var(--text-secondary)]">
@@ -1583,7 +1583,7 @@ export function SessionsPage() {
               {paginatedFilteredPlayers.items.map((player) => (
                 <label
                   key={player.id}
-                  className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                  className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
                 >
                   <input
                     type="checkbox"
@@ -1603,7 +1603,7 @@ export function SessionsPage() {
             />
 
             {filteredPlayers.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
                 No {String(activePlayerSection || 'selected').toLowerCase()} players are available for {activePlayerTeam || 'this team'}.
               </div>
             ) : null}
@@ -1613,7 +1613,7 @@ export function SessionsPage() {
                 type="button"
                 disabled={isSaving || filteredPlayers.length === 0 || selectedSessionLocked}
                 onClick={() => void handleImportPlayers('all')}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Add All {activePlayerSection} Players
               </button>
@@ -1621,7 +1621,7 @@ export function SessionsPage() {
                 type="button"
                 disabled={isSaving || selectedPlayerIds.length === 0 || selectedSessionLocked}
                 onClick={() => void handleImportPlayers('selected')}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Add Selected Players
               </button>
@@ -1635,21 +1635,21 @@ export function SessionsPage() {
         description="Coaches can record quick notes during the game or training, then start every assessment in sequence."
       >
         {!selectedSessionId ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             Select a session to manage players.
           </div>
         ) : isSessionPlayersLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading session players...
           </div>
         ) : sessionPlayers.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No players have been added to this session yet.
           </div>
         ) : (
           <div className="space-y-4">
             {selectedSessionCompleted ? (
-              <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
                 {canCompleteSessions
                   ? 'This session has been completed. Managers can still correct notes or assessments if needed.'
                   : 'This session has been completed. Notes and assessments are kept for review, but the session is no longer editable.'}
@@ -1670,7 +1670,7 @@ export function SessionsPage() {
                   type="button"
                   onClick={handleAssessAll}
                   disabled={selectedSessionLocked}
-                  className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {completedPlayerNames.length > 0 ? 'Continue Assessments' : 'Assess All'}
                 </button>
@@ -1678,7 +1678,7 @@ export function SessionsPage() {
                   type="button"
                   disabled={isSaving || selectedSessionLocked}
                   onClick={() => void handleClearSessionPlayers()}
-                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Clear Session
                 </button>
@@ -1686,7 +1686,7 @@ export function SessionsPage() {
             </div>
 
             {paginatedSessionPlayers.items.map((player) => (
-              <div key={player.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div key={player.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
@@ -1701,7 +1701,7 @@ export function SessionsPage() {
                     type="button"
                     disabled={selectedSessionLocked}
                     onClick={() => navigate(buildAssessmentUrl(player.playerName))}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Assess Player
                   </button>

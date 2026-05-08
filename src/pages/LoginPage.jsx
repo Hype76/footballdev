@@ -395,13 +395,13 @@ export function LoginPage() {
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute left-[-10%] top-[-20%] h-[560px] w-[560px] rounded-full bg-[#d8ff2f]/18 blur-[100px]" />
         <div className="absolute bottom-[-25%] right-[-10%] h-[600px] w-[600px] rounded-full bg-[#1f8a47]/22 blur-[110px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(216,255,47,0.05),transparent_35%,rgba(255,255,255,0.04))]" />
+        <div className="absolute inset-0 bg-[#071008]" />
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
-        <header className="flex items-center justify-between gap-4 rounded-[32px] border border-white/10 bg-white/[0.04] px-4 py-4 backdrop-blur sm:px-6">
+        <header className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-4 backdrop-blur sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[24px] border border-[#d8ff2f]/30 bg-black/50 shadow-lg shadow-[#d8ff2f]/10 sm:h-24 sm:w-24">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d8ff2f]/30 bg-black/50 shadow-lg shadow-[#d8ff2f]/10 sm:h-24 sm:w-24">
               <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-contain p-1" />
             </div>
             <div className="min-w-0">
@@ -414,7 +414,7 @@ export function LoginPage() {
           </div>
           <InstallAppButton
             wrapperClassName="lg:hidden"
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#d8ff2f]/30 bg-[#d8ff2f] px-4 py-3 text-sm font-black text-black"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f] px-4 py-3 text-sm font-black text-black"
           />
         </header>
 
@@ -453,7 +453,7 @@ export function LoginPage() {
                 ['Players', 'Store player history, parent contacts, positions, and squad status clearly.'],
                 ['Parents', 'Create clean reports and email templates without rewriting notes every time.'],
               ].map(([title, copy]) => (
-                <div key={title} className="rounded-[24px] border border-white/10 bg-white/[0.05] p-4 backdrop-blur">
+                <div key={title} className="rounded-lg border border-white/10 bg-white/[0.05] p-4 backdrop-blur">
                   <p className="text-sm font-bold text-white">{title}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
                 </div>
@@ -461,13 +461,13 @@ export function LoginPage() {
             </div>
 
             <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
-              <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-5">
+              <div className="rounded-lg border border-white/10 bg-white/[0.05] p-5">
                 <p className="text-3xl font-black">Role based</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
                   Coaches, managers, and club admins only see the teams and tools they need.
                 </p>
               </div>
-              <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-5">
+              <div className="rounded-lg border border-white/10 bg-white/[0.05] p-5">
                 <p className="text-3xl font-black">Club branded</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
                   Use your club logo inside the app and on parent-facing feedback.
@@ -477,11 +477,11 @@ export function LoginPage() {
           </section>
 
           <section ref={signupBoxRef} className="order-1 lg:order-2">
-            <div className="mx-auto w-full max-w-md rounded-[32px] border border-white/10 bg-[#0b130d]/90 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-6">
-              <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden rounded-[30px] border border-[#d8ff2f]/30 bg-black/50 shadow-xl shadow-[#d8ff2f]/10 sm:h-32 sm:w-32">
+            <div className="mx-auto w-full max-w-md rounded-lg border border-white/10 bg-[#0b130d]/90 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-6">
+              <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border border-[#d8ff2f]/30 bg-black/50 shadow-xl shadow-[#d8ff2f]/10 sm:h-32 sm:w-32">
                 <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-contain p-2" />
               </div>
-              <div className="rounded-[26px] border border-[#d8ff2f]/15 bg-[linear-gradient(135deg,rgba(216,255,47,0.14),rgba(255,255,255,0.04))] p-5">
+              <div className="rounded-lg border border-[#d8ff2f]/15 bg-[#111d12] p-5">
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#d8ff2f]">
                   {mode === 'signup' ? 'Create account' : 'Secure login'}
                 </p>
@@ -495,12 +495,12 @@ export function LoginPage() {
                 </p>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+              <div className="mt-5 grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1">
                 <button
                   type="button"
                   onClick={() => handleModeChange('login')}
                   className={[
-                    'min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
+                    'min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition',
                     mode === 'login' ? 'bg-[#d8ff2f] text-black' : 'text-slate-300 hover:text-white',
                   ].join(' ')}
                 >
@@ -510,7 +510,7 @@ export function LoginPage() {
                   type="button"
                   onClick={() => handleModeChange('signup')}
                   className={[
-                    'min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
+                    'min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition',
                     mode === 'signup' ? 'bg-[#d8ff2f] text-black' : 'text-slate-300 hover:text-white',
                   ].join(' ')}
                 >
@@ -529,7 +529,7 @@ export function LoginPage() {
                       onChange={handleChange}
                       required
                       placeholder="Your club or team name"
-                      className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
+                      className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
                     />
                   </label>
                 ) : null}
@@ -543,7 +543,7 @@ export function LoginPage() {
                       value={formData.accessCode}
                       onChange={handleChange}
                       placeholder="Optional code from Player Feedback"
-                      className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm uppercase text-white outline-none transition placeholder:normal-case placeholder:text-slate-500 focus:border-[#d8ff2f]"
+                      className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm uppercase text-white outline-none transition placeholder:normal-case placeholder:text-slate-500 focus:border-[#d8ff2f]"
                     />
                     <span className="mt-2 block text-xs leading-5 text-slate-400">
                       Use this only if you have been given temporary tester access.
@@ -561,13 +561,13 @@ export function LoginPage() {
                     required
                     autoComplete="email"
                     placeholder="you@club.com"
-                    className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
+                    className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
                   />
                 </label>
 
                 <label className="block">
                   <span className="mb-2 block text-sm font-bold text-slate-200">Password</span>
-                  <div className="flex rounded-2xl border border-white/10 bg-[#101b12] focus-within:border-[#d8ff2f]">
+                  <div className="flex rounded-lg border border-white/10 bg-[#101b12] focus-within:border-[#d8ff2f]">
                     <input
                       type={isPasswordVisible ? 'text' : 'password'}
                       name="password"
@@ -589,13 +589,13 @@ export function LoginPage() {
                 </label>
 
                 {localError || authError ? (
-                  <div className="rounded-[20px] border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-semibold text-[#ffc2cf]">
+                  <div className="rounded-lg border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-semibold text-[#ffc2cf]">
                     {localError || authError}
                   </div>
                 ) : null}
 
                 {localMessage ? (
-                  <div className="rounded-[20px] border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
+                  <div className="rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
                     {localMessage}
                   </div>
                 ) : null}
@@ -604,7 +604,7 @@ export function LoginPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
                   </button>
@@ -614,7 +614,7 @@ export function LoginPage() {
                         type="button"
                         disabled={isSubmitting}
                         onClick={handleDemoLogin}
-                        className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-[#d8ff2f]/30 bg-[#d8ff2f]/10 px-5 py-3 text-sm font-black text-[#d8ff2f] transition hover:bg-[#d8ff2f]/15 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f]/10 px-5 py-3 text-sm font-black text-[#d8ff2f] transition hover:bg-[#d8ff2f]/15 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Open Demo Account
                       </button>
@@ -622,7 +622,7 @@ export function LoginPage() {
                         type="button"
                         disabled={isSubmitting}
                         onClick={handlePasswordReset}
-                        className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Forgot password
                       </button>
@@ -635,7 +635,7 @@ export function LoginPage() {
         </div>
 
         <section className="space-y-5 pb-8">
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Why it exists</p>
             <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Better feedback for players. Less admin for coaches.</h2>
             <p className="mt-4 max-w-4xl text-base leading-8 text-slate-300">
@@ -643,7 +643,7 @@ export function LoginPage() {
             </p>
           </div>
 
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">What you can do</p>
             <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Built to support the daily work of running football teams.</h2>
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -655,7 +655,7 @@ export function LoginPage() {
                 ['Manage teams and staff', 'Assign coaches to teams and keep access controlled by role.'],
                 ['Use it on mobile', 'Coaches can open it on phones, tablets, and desktops, with installable app support.'],
               ].map(([title, copy]) => (
-                <div key={title} className="rounded-[24px] border border-white/10 bg-[#0b130d]/80 p-5">
+                <div key={title} className="rounded-lg border border-white/10 bg-[#0b130d]/80 p-5">
                   <p className="text-lg font-black text-white">{title}</p>
                   <p className="mt-3 text-sm leading-6 text-slate-400">{copy}</p>
                 </div>
@@ -664,7 +664,7 @@ export function LoginPage() {
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Real club workflows</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Built around how football clubs actually work.</h2>
               <div className="mt-6 space-y-4">
@@ -674,7 +674,7 @@ export function LoginPage() {
                   ['Squad reviews', 'Review previous assessments, track progress over time, and keep private staff notes away from parent emails.'],
                   ['Tournaments', 'Record multiple games in a tournament and keep player feedback linked to the correct session.'],
                 ].map(([title, copy]) => (
-                  <div key={title} className="rounded-[24px] border border-white/10 bg-[#0b130d]/80 p-4">
+                  <div key={title} className="rounded-lg border border-white/10 bg-[#0b130d]/80 p-4">
                     <p className="font-black text-white">{title}</p>
                     <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
                   </div>
@@ -682,7 +682,7 @@ export function LoginPage() {
               </div>
             </div>
 
-            <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Simple and trusted</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Clear for coaches. Useful for parents.</h2>
               <div className="mt-6 space-y-4">
@@ -692,7 +692,7 @@ export function LoginPage() {
                   ['No more lost notes', 'Player history, actions, and activity logs stay connected to the right club and team.'],
                   ['Easy onboarding', 'Start small with one team, then add more staff, teams, and custom forms when needed.'],
                 ].map(([title, copy]) => (
-                  <div key={title} className="rounded-[24px] border border-white/10 bg-[#0b130d]/80 p-4">
+                  <div key={title} className="rounded-lg border border-white/10 bg-[#0b130d]/80 p-4">
                     <p className="font-black text-white">{title}</p>
                     <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
                   </div>
@@ -701,7 +701,7 @@ export function LoginPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-[32px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Pricing</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Simple plans for growing clubs</h2>
@@ -709,7 +709,7 @@ export function LoginPage() {
                 Start small, then move to a paid plan when your club needs more structure. Annual billing for paid plans is charged at 10 months.
               </p>
             </div>
-            <div className="grid w-full max-w-xs grid-cols-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+            <div className="grid w-full max-w-xs grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1">
               {[
                 ['monthly', 'Monthly'],
                 ['annual', 'Annual'],
@@ -719,7 +719,7 @@ export function LoginPage() {
                   type="button"
                   onClick={() => setBillingCycle(key)}
                   className={[
-                    'min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
+                    'min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition',
                     billingCycle === key ? 'bg-[#d8ff2f] text-black' : 'text-slate-300 hover:text-white',
                   ].join(' ')}
                 >
@@ -730,19 +730,19 @@ export function LoginPage() {
           </div>
 
           {localError ? (
-            <div className="mt-4 rounded-[20px] border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-semibold text-[#ffc2cf]">
+            <div className="mt-4 rounded-lg border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-semibold text-[#ffc2cf]">
               {localError}
             </div>
           ) : null}
 
           {localMessage ? (
-            <div className="mt-4 rounded-[20px] border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
+            <div className="mt-4 rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
               {localMessage}
             </div>
           ) : null}
 
           {livePromotion ? (
-            <div className="mt-4 rounded-[24px] border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-5 py-4 text-sm font-bold text-[#d8ff2f]">
+            <div className="mt-4 rounded-lg border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-5 py-4 text-sm font-bold text-[#d8ff2f]">
               Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
             </div>
           ) : null}
@@ -755,7 +755,7 @@ export function LoginPage() {
               return (
                 <div
                   key={plan.name}
-                  className="relative flex flex-col rounded-[30px] border border-white/10 bg-[#0b130d]/90 p-5 shadow-xl shadow-black/20 backdrop-blur"
+                  className="relative flex flex-col rounded-lg border border-white/10 bg-[#0b130d]/90 p-5 shadow-xl shadow-black/20 backdrop-blur"
                 >
                   {plan.name === 'Small Club' ? (
                     <span className="absolute right-5 top-5 whitespace-nowrap rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
@@ -763,7 +763,7 @@ export function LoginPage() {
                     </span>
                   ) : null}
                   {showPromotion ? (
-                    <div className="mb-4 rounded-2xl border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-[#d8ff2f]">
+                    <div className="mb-4 rounded-lg border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-[#d8ff2f]">
                       {getPromotionSummary(livePromotion)}
                     </div>
                   ) : null}
@@ -804,7 +804,7 @@ export function LoginPage() {
                       disabled={isSubmitting}
                       onClick={() => handleChoosePlan(plan)}
                       className={[
-                        'inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition',
+                        'inline-flex min-h-12 items-center justify-center rounded-lg px-5 py-3 text-sm font-black transition',
                         plan.name === 'Small Club'
                           ? 'bg-[#d8ff2f] text-black hover:opacity-90'
                           : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
@@ -817,7 +817,7 @@ export function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setDemoPlan(plan)}
-                        className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.08]"
+                        className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.08]"
                       >
                         Request Demo
                       </button>
@@ -832,7 +832,7 @@ export function LoginPage() {
 
       {demoPlan ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 px-4 py-6">
-          <div className="w-full max-w-xl rounded-[30px] border border-white/10 bg-[#0b130d] p-5 shadow-2xl shadow-black/50 sm:p-6">
+          <div className="w-full max-w-xl rounded-lg border border-white/10 bg-[#0b130d] p-5 shadow-2xl shadow-black/50 sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Request Demo</p>
             <h2 className="mt-3 text-2xl font-black tracking-tight text-white">{demoPlan.name}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300">
@@ -848,7 +848,7 @@ export function LoginPage() {
                   value={demoFormData.name}
                   onChange={handleDemoChange}
                   required
-                  className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+                  className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
                 />
               </label>
               <label className="block">
@@ -859,7 +859,7 @@ export function LoginPage() {
                   value={demoFormData.email}
                   onChange={handleDemoChange}
                   required
-                  className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+                  className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
                 />
               </label>
               <label className="block">
@@ -869,7 +869,7 @@ export function LoginPage() {
                   name="phone"
                   value={demoFormData.phone}
                   onChange={handleDemoChange}
-                  className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+                  className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
                 />
               </label>
               <label className="block">
@@ -880,7 +880,7 @@ export function LoginPage() {
                   value={demoFormData.clubTeamName}
                   onChange={handleDemoChange}
                   required
-                  className="min-h-12 w-full rounded-2xl border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+                  className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
                 />
               </label>
 
@@ -892,14 +892,14 @@ export function LoginPage() {
                     setDemoPlan(null)
                     setDemoFormData(initialDemoFormData)
                   }}
-                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSubmitting ? 'Sending...' : 'Request Demo'}
                 </button>

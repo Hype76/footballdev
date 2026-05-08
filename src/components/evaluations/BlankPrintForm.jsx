@@ -16,7 +16,7 @@ export function BlankPrintForm({ clubName, logoUrl, fields }) {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {['Player Name', 'Team', 'Coach', 'Parent Email', 'Session', 'Section'].map((label) => (
-            <div key={label} className="section rounded-2xl border border-slate-200 px-4 py-4">
+            <div key={label} className="section rounded-lg border border-slate-200 px-4 py-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
               <div className="mt-4 h-6 border-b border-slate-300" />
             </div>
@@ -25,12 +25,12 @@ export function BlankPrintForm({ clubName, logoUrl, fields }) {
 
         <div className="mt-8 space-y-4">
           {fields.map((field) => (
-            <div key={field.id} className="section rounded-2xl border border-slate-200 px-4 py-4">
+            <div key={field.id} className="section rounded-lg border border-slate-200 px-4 py-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{field.label}</p>
               {field.type === 'textarea' ? (
-                <div className="mt-4 h-28 rounded-2xl border border-slate-200 bg-slate-50" />
+                <div className="mt-4 h-28 rounded-lg border border-slate-200 bg-slate-50" />
               ) : (
-                <div className="mt-4 h-10 rounded-2xl border border-slate-200 bg-slate-50" />
+                <div className="mt-4 h-10 rounded-lg border border-slate-200 bg-slate-50" />
               )}
             </div>
           ))}

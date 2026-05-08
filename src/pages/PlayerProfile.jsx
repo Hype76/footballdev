@@ -79,6 +79,26 @@ function calculateMergedAverage(formResponses) {
   return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
 }
 
+function getDraftParentContacts(player) {
+  const contacts = Array.isArray(player?.parentContacts) ? player.parentContacts : []
+  const draftContacts = contacts.map((contact) => ({
+    name: String(contact?.name ?? contact?.parentName ?? ''),
+    email: String(contact?.email ?? contact?.parentEmail ?? ''),
+    type: PLAYER_CONTACT_TYPES.parent,
+  }))
+
+  if (draftContacts.length > 0) {
+    return draftContacts
+  }
+
+  const fallbackName = String(player?.parentName ?? '')
+  const fallbackEmail = String(player?.parentEmail ?? '')
+
+  return fallbackName || fallbackEmail
+    ? [{ name: fallbackName, email: fallbackEmail, type: PLAYER_CONTACT_TYPES.parent }]
+    : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
+}
+
 function buildCommentsFromMergedResponses(formResponses) {
   const findResponse = (labels) => {
     const matchingEntry = Object.entries(formResponses ?? {}).find(([label]) =>
@@ -1236,21 +1256,21 @@ export function PlayerProfile() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Player name</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{routePlayerName}</p>
         </div>
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Total evaluations</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{evaluations.length}</p>
         </div>
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Average score</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">
             {overallAverage !== null ? overallAverage.toFixed(1) : '-'}
           </p>
         </div>
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Latest section</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{lastSection}</p>
         </div>
@@ -1261,7 +1281,7 @@ export function PlayerProfile() {
         description="Shows how the player's assessment scores are moving over time."
       >
         {ratingTrend.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No scored evaluations yet.
           </div>
         ) : (
@@ -1271,7 +1291,7 @@ export function PlayerProfile() {
                 const scorePercent = Math.max(0, Math.min(100, (Number(evaluation.averageScore) / ratingTrendMax) * 100))
 
                 return (
-                  <div key={evaluation.id} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                  <div key={evaluation.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">{formatTrendDate(evaluation)}</p>
                       <p className="text-sm font-semibold text-[var(--text-primary)]">{evaluation.averageScore.toFixed(1)}</p>
@@ -1291,11 +1311,11 @@ export function PlayerProfile() {
             </div>
 
             {fieldMovement.length > 0 ? (
-              <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Field movement</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {fieldMovement.map((item) => (
-                    <div key={item.label} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                    <div key={item.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{item.label}</p>
                       <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
                         {item.firstValue} to {item.latestValue}
@@ -1317,7 +1337,7 @@ export function PlayerProfile() {
         description="Edit section, team, and parent contact details here."
       >
         {profilePlayers.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No saved player details yet. This profile was created from assessment history.
           </div>
         ) : (
@@ -1327,7 +1347,7 @@ export function PlayerProfile() {
               const isEditing = editingPlayerId === player.id
 
               return (
-                <div key={player.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <div key={player.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                   {isEditing ? (
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                       <label className="block">
@@ -1336,7 +1356,7 @@ export function PlayerProfile() {
                           value={draft.playerName}
                           onChange={(event) => handlePlayerDraftChange(player.id, 'playerName', event.target.value)}
                           onKeyDown={(event) => event.stopPropagation()}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
                       <label className="block">
@@ -1344,7 +1364,7 @@ export function PlayerProfile() {
                         <select
                           value={draft.section}
                           onChange={(event) => handlePlayerDraftChange(player.id, 'section', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         >
                           {EVALUATION_SECTIONS.map((section) => (
                             <option key={section} value={section}>
@@ -1358,7 +1378,7 @@ export function PlayerProfile() {
                         <input
                           value={draft.team}
                           onChange={(event) => handlePlayerDraftChange(player.id, 'team', event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
                       <div className="md:col-span-2 xl:col-span-3">
@@ -1372,14 +1392,14 @@ export function PlayerProfile() {
                           <button
                             type="button"
                             onClick={() => handleAddParentContact(player.id)}
-                            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                           >
                             Add Another Contact
                           </button>
                         </div>
                         <div className="grid gap-3 md:grid-cols-2">
-                          {getEditableParentContacts(draft).map((contact, index) => (
-                            <div key={index} className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                          {getDraftParentContacts(draft).map((contact, index) => (
+                            <div key={index} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
                               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                                 Contact {index + 1}
                               </p>
@@ -1389,7 +1409,7 @@ export function PlayerProfile() {
                                   <input
                                     value={contact.name}
                                     onChange={(event) => handleParentContactDraftChange(player.id, index, 'name', event.target.value)}
-                                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                                   />
                                 </label>
                                 <label className="block">
@@ -1398,14 +1418,14 @@ export function PlayerProfile() {
                                     type="email"
                                     value={contact.email}
                                     onChange={(event) => handleParentContactDraftChange(player.id, index, 'email', event.target.value)}
-                                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                                   />
                                 </label>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveParentContact(player.id, index)}
-                                className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+                                className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                               >
                                 Remove Contact
                               </button>
@@ -1420,12 +1440,12 @@ export function PlayerProfile() {
                             value={draft.positionDraft ?? ''}
                             onChange={(event) => handlePlayerDraftChange(player.id, 'positionDraft', event.target.value)}
                             placeholder="Add position"
-                            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                           />
                           <button
                             type="button"
                             onClick={() => handleAddPlayerPosition(player.id)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                           >
                             Add Position
                           </button>
@@ -1437,7 +1457,7 @@ export function PlayerProfile() {
                                 key={position}
                                 type="button"
                                 onClick={() => handleRemovePlayerPosition(player.id, position)}
-                                className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                               >
                                 {position} remove
                               </button>
@@ -1452,7 +1472,7 @@ export function PlayerProfile() {
                           type="button"
                           disabled={isSavingPlayer}
                           onClick={() => void handleSavePlayer(player.id)}
-                          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Save
                         </button>
@@ -1460,7 +1480,7 @@ export function PlayerProfile() {
                           type="button"
                           disabled={isSavingPlayer}
                           onClick={() => setEditingPlayerId('')}
-                          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Cancel
                         </button>
@@ -1516,7 +1536,7 @@ export function PlayerProfile() {
                             type="button"
                             disabled={isPromotingId === player.id}
                             onClick={() => void handlePromotePlayer(player.id)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {isPromotingId === player.id ? 'Promoting...' : 'Promote to Squad'}
                           </button>
@@ -1524,7 +1544,7 @@ export function PlayerProfile() {
                         <button
                           type="button"
                           onClick={() => handleStartEditingPlayer(player)}
-                          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                         >
                           Edit Details
                         </button>
@@ -1541,7 +1561,7 @@ export function PlayerProfile() {
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Link
           to={`/create?player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(lastTeam)}&section=${encodeURIComponent(lastSection)}`}
-          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
         >
           Add New Evaluation
         </Link>
@@ -1550,7 +1570,7 @@ export function PlayerProfile() {
             type="button"
             disabled={isDeleting}
             onClick={handleDeletePlayer}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDeleting ? 'Deleting...' : 'Delete This Player'}
           </button>
@@ -1567,7 +1587,7 @@ export function PlayerProfile() {
               {evaluations.map((evaluation) => (
                 <label
                   key={evaluation.id}
-                  className="flex min-h-11 items-start gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                  className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
                 >
                   <input
                     type="checkbox"
@@ -1586,13 +1606,13 @@ export function PlayerProfile() {
             </div>
 
             {mergeSelectedEvaluations.length >= 2 ? (
-              <div className="space-y-4 rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div className="space-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <label className="block">
                   <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Main details source</span>
                   <select
                     value={mergeCoreSource?.id || ''}
                     onChange={(event) => setMergeCoreSourceId(event.target.value)}
-                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                   >
                     {mergeSelectedEvaluations.map((evaluation) => (
                       <option key={evaluation.id} value={evaluation.id}>
@@ -1615,12 +1635,12 @@ export function PlayerProfile() {
                       const selectedSource = getMergeDetailSource(field.key)
 
                       return (
-                        <label key={field.key} className="block rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                        <label key={field.key} className="block rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
                           <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{field.label}</span>
                           <select
                             value={mergeDetailSources[field.key] || mergeCoreSource?.id || ''}
                             onChange={(event) => handleMergeDetailSourceChange(field.key, event.target.value)}
-                            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                           >
                             {mergeSelectedEvaluations.map((evaluation) => (
                               <option key={evaluation.id} value={evaluation.id}>
@@ -1644,7 +1664,7 @@ export function PlayerProfile() {
                   </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {mergeFieldLabels.map((label) => (
-                      <label key={label} className="block rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+                      <label key={label} className="block rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
                         <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{label}</span>
                         <select
                           value={
@@ -1657,7 +1677,7 @@ export function PlayerProfile() {
                             ''
                           }
                           onChange={(event) => handleMergeFieldSourceChange(label, event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         >
                           {mergeSelectedEvaluations
                             .filter((evaluation) => Object.prototype.hasOwnProperty.call(evaluation.formResponses ?? {}, label))
@@ -1675,7 +1695,7 @@ export function PlayerProfile() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-[var(--text-primary)]">Merged score preview</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -1686,14 +1706,14 @@ export function PlayerProfile() {
                     type="button"
                     disabled={isMergingEvaluations}
                     onClick={() => void handleCreateMergedEvaluation()}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isMergingEvaluations ? 'Saving...' : 'Save Merged Assessment'}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
                 Select at least two assessments to build a merged report.
               </div>
             )}
@@ -1713,7 +1733,7 @@ export function PlayerProfile() {
                 value={noteDraft}
                 onChange={(event) => setNoteDraft(event.target.value)}
                 rows={4}
-                className="w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 placeholder="Add a staff-only note for this player"
               />
             </label>
@@ -1721,19 +1741,19 @@ export function PlayerProfile() {
               type="button"
               onClick={() => void handleSaveStaffNote()}
               disabled={isSavingNote || !noteDraft.trim() || !primaryPlayer?.id}
-              className="mt-3 inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSavingNote ? 'Saving...' : 'Save Note'}
             </button>
 
             <div className="mt-4 space-y-3">
               {staffNotes.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+                <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
                   No staff notes yet.
                 </div>
               ) : (
                 staffNotes.map((note) => (
-                  <div key={note.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                  <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
                     <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{note.note}</p>
                     <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                       {note.userName || note.userEmail || 'Staff'} | {formatActivityDate(note.createdAt)}
@@ -1748,12 +1768,12 @@ export function PlayerProfile() {
             <p className="text-sm font-semibold text-[var(--text-primary)]">Player activity</p>
             <div className="mt-3 space-y-3">
               {activityLogs.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+                <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
                   No player activity logged yet.
                 </div>
               ) : (
                 activityLogs.slice(0, 10).map((log) => (
-                  <div key={log.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                  <div key={log.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">{getActivityLabel(log)}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">
                       {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
@@ -1774,11 +1794,11 @@ export function PlayerProfile() {
         description="History is scoped by club and role, with sharing actions available on each evaluation."
       >
         {isLoading ? (
-          <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center text-sm font-medium text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center text-sm font-medium text-[var(--text-muted)]">
             Loading player history...
           </div>
         ) : evaluations.length === 0 ? (
-          <div className="rounded-[24px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Player History</p>
             <p className="mt-3 text-xl font-semibold text-[var(--text-primary)]">No history for this player yet</p>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
@@ -1801,7 +1821,7 @@ export function PlayerProfile() {
               return (
                 <div
                   key={evaluation.id}
-                  className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5"
+                  className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5"
                 >
                   <div>
                     <div>
@@ -1811,7 +1831,7 @@ export function PlayerProfile() {
                     </div>
                   </div>
 
-                  <div className="mt-5 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                  <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <p className="text-sm font-semibold text-[var(--text-primary)]">Move report to another player</p>
@@ -1824,7 +1844,7 @@ export function PlayerProfile() {
                           type="button"
                           onClick={() => void handleDeleteEvaluation(evaluation)}
                           disabled={isDeletingEvaluationId === evaluation.id}
-                          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isDeletingEvaluationId === evaluation.id ? 'Deleting...' : 'Delete Assessment'}
                         </button>
@@ -1840,7 +1860,7 @@ export function PlayerProfile() {
                           value={selectedReassignTargets[evaluation.id] || ''}
                           onChange={(event) => handleReassignTargetChange(evaluation.id, event.target.value)}
                           disabled={reassignPlayerOptions.length === 0}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <option value="">
                             {reassignPlayerOptions.length === 0 ? 'No other players available' : 'Select player'}
@@ -1856,7 +1876,7 @@ export function PlayerProfile() {
                         type="button"
                         onClick={() => void handleReassignEvaluation(evaluation)}
                         disabled={!selectedReassignTargets[evaluation.id] || isReassigningId === evaluation.id}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
                       >
                         {isReassigningId === evaluation.id ? 'Moving...' : 'Move Report'}
                       </button>
@@ -1875,7 +1895,7 @@ export function PlayerProfile() {
                               [evaluation.id]: event.target.value,
                             }))
                           }
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         >
                           {availableEmailTemplates.map((template) => (
                             <option key={template.key} value={template.key}>
@@ -1885,7 +1905,7 @@ export function PlayerProfile() {
                         </select>
                       </label>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                      <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
                         Create a club email template before sending emails.
                       </div>
                     )}
@@ -1901,7 +1921,7 @@ export function PlayerProfile() {
                               [evaluation.id]: event.target.value,
                             }))
                           }
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                       </label>
                     ) : (
@@ -1910,7 +1930,7 @@ export function PlayerProfile() {
                     <div>
                       <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email recipients</span>
                       {evaluationParentContacts.length > 0 ? (
-                        <div className="space-y-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
+                        <div className="space-y-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
                           {evaluationParentContacts.map((contact, index) => {
                             const selectedIndexes =
                               selectedParentContacts[evaluation.id] ?? evaluationParentContacts.map((_, contactIndex) => contactIndex)
@@ -1932,13 +1952,13 @@ export function PlayerProfile() {
                           })}
                         </div>
                       ) : (
-                        <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                        <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
                           No parent contacts entered.
                         </div>
                       )}
                     </div>
                     <div className="xl:col-span-6">
-                      <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
@@ -1950,14 +1970,14 @@ export function PlayerProfile() {
                             <button
                               type="button"
                               onClick={() => handleSetAllExportFields(responseItems)}
-                              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                             >
                               Select All
                             </button>
                             <button
                               type="button"
                               onClick={handleClearExportFields}
-                              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                             >
                               Clear
                             </button>
@@ -1974,7 +1994,7 @@ export function PlayerProfile() {
                               return (
                                 <label
                                   key={item.label}
-                                  className="flex min-h-11 items-start gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                                  className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
                                 >
                                   <input
                                     type="checkbox"
@@ -1993,7 +2013,7 @@ export function PlayerProfile() {
                             })}
                           </div>
                         ) : (
-                          <p className="mt-4 rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                          <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
                             No evaluation responses were entered for this assessment.
                           </p>
                         )}
@@ -2009,7 +2029,7 @@ export function PlayerProfile() {
                         onClick={() => void handleSendParentEmail(evaluation)}
                         disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
                         title="Email parents"
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
                       </button>
@@ -2018,7 +2038,7 @@ export function PlayerProfile() {
                       <button
                         type="button"
                         onClick={() => navigate(`/assess-player?evaluationId=${encodeURIComponent(evaluation.id)}&player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(evaluation.team || '')}&section=${encodeURIComponent(evaluation.section || 'Trial')}&session=${encodeURIComponent(evaluation.session || '')}`)}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Edit Assessment
                       </button>
@@ -2026,7 +2046,7 @@ export function PlayerProfile() {
                   </div>
 
                   {selectedTemplateKey === 'decline' && canDeletePlayer(user) ? (
-                    <div className="mt-4 rounded-[20px] border border-red-500/30 bg-red-950/20 p-4">
+                    <div className="mt-4 rounded-lg border border-red-500/30 bg-red-950/20 p-4">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                           <p className="text-sm font-semibold text-[var(--text-primary)]">No place offered</p>
@@ -2038,7 +2058,7 @@ export function PlayerProfile() {
                           type="button"
                           disabled={isDeleting}
                           onClick={handleDeletePlayer}
-                          className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isDeleting ? 'Removing...' : 'Remove From System'}
                         </button>
@@ -2069,7 +2089,7 @@ export function PlayerProfile() {
                     <div className="mt-3 space-y-2">
                       {responseItems.length > 0 ? (
                         responseItems.map((item) => (
-                          <div key={item.label} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                          <div key={item.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{item.label}</p>
                             <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{String(item.value)}</p>
                           </div>

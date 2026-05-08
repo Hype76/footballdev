@@ -55,9 +55,9 @@ export function ResetPasswordPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#020702] px-4 py-8 text-white sm:px-6">
-      <section className="w-full max-w-xl rounded-[32px] border border-[#20301f] bg-[#0b140c] px-6 py-8 shadow-xl shadow-black/30 sm:px-10 sm:py-10">
+      <section className="w-full max-w-xl rounded-lg border border-[#20301f] bg-[#0b140c] px-6 py-8 shadow-xl shadow-black/30 sm:px-10 sm:py-10">
         <div className="flex items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-[#bfff2f]/30 bg-black/30">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-[#bfff2f]/30 bg-black/30">
             <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-cover" />
           </div>
           <div>
@@ -80,7 +80,7 @@ export function ResetPasswordPage() {
               onChange={handleChange}
               required
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-2xl border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#c6ff2f]"
+              className="min-h-11 w-full rounded-lg border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#c6ff2f]"
             />
           </label>
 
@@ -93,11 +93,11 @@ export function ResetPasswordPage() {
               onChange={handleChange}
               required
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-2xl border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#c6ff2f]"
+              className="min-h-11 w-full rounded-lg border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#c6ff2f]"
             />
           </label>
 
-          <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm font-semibold text-slate-200">
+          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm font-semibold text-slate-200">
             <input
               type="checkbox"
               checked={isPasswordVisible}
@@ -108,13 +108,13 @@ export function ResetPasswordPage() {
           </label>
 
           {errorMessage ? (
-            <div className="rounded-[20px] border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-medium text-[#ffc2cf]">
+            <div className="rounded-lg border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-medium text-[#ffc2cf]">
               {errorMessage}
             </div>
           ) : null}
 
           {message ? (
-            <div className="rounded-[20px] border border-[#20301f] bg-[#142414] px-4 py-3 text-sm font-medium text-[#c6ff2f]">
+            <div className="rounded-lg border border-[#20301f] bg-[#142414] px-4 py-3 text-sm font-medium text-[#c6ff2f]">
               {message}
             </div>
           ) : null}
@@ -122,7 +122,7 @@ export function ResetPasswordPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[#c6ff2f] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#c6ff2f] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Updating...' : 'Update Password'}
           </button>

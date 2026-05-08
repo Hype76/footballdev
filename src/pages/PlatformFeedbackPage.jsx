@@ -175,7 +175,7 @@ export function PlatformFeedbackPage() {
 
   if ((isAuthLoading && !session?.user) || (!user && isProfileLoading)) {
     return (
-      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-8 text-sm font-medium text-[var(--text-muted)]">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-8 text-sm font-medium text-[var(--text-muted)]">
         Loading...
       </div>
     )
@@ -194,14 +194,14 @@ export function PlatformFeedbackPage() {
       />
 
       {successMessage ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
           {successMessage}
         </div>
       ) : null}
 
       {errorMessage ? <NoticeBanner title="Feedback action failed" message={errorMessage} /> : null}
 
-      <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_44%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+      <section className="relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
         <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
         <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
           <div>
@@ -213,7 +213,7 @@ export function PlatformFeedbackPage() {
               Feedback stays visible so clubs can see what has been requested, planned, and completed.
             </p>
           </div>
-          <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
             <div className="flex items-center gap-3">
               <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
               <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -231,9 +231,9 @@ export function PlatformFeedbackPage() {
         {feedbackStats.map((item) => (
           <div
             key={item.label}
-            className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+            className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
           >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
             <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
             <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
@@ -255,13 +255,13 @@ export function PlatformFeedbackPage() {
                   setErrorMessage('')
                   setSuccessMessage('')
                 }}
-                className="min-h-36 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-36 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSaving ? 'Submitting...' : 'Submit Feedback'}
             </button>
@@ -271,17 +271,17 @@ export function PlatformFeedbackPage() {
 
       <SectionCard title="Feedback board" description="Vote for feedback you agree with so platform admins can prioritise it.">
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             Loading feedback...
           </div>
         ) : feedbackItems.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No feedback has been submitted yet.
           </div>
         ) : (
           <div className="space-y-3">
             {paginatedFeedback.items.map((item) => (
-              <div key={item.id} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div key={item.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{item.message}</p>
@@ -294,7 +294,7 @@ export function PlatformFeedbackPage() {
                     onClick={() => handleVote(item)}
                     disabled={activeVoteId === item.id}
                     className={[
-                      'inline-flex min-h-11 shrink-0 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
+                      'inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
                       item.hasVoted
                         ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
                         : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
@@ -304,13 +304,13 @@ export function PlatformFeedbackPage() {
                   </button>
                 </div>
                 {item.comments?.length ? (
-                  <div className="mt-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+                  <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                       Platform comments
                     </p>
                     <div className="mt-3 space-y-3">
                       {item.comments.map((comment) => (
-                        <div key={comment.id} className="rounded-2xl bg-[var(--panel-alt)] px-4 py-3">
+                        <div key={comment.id} className="rounded-lg bg-[var(--panel-alt)] px-4 py-3">
                           <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{comment.message}</p>
                           <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                             Platform admin | {formatDate(comment.createdAt)}

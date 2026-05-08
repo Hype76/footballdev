@@ -216,7 +216,7 @@ export function ArchivedPlayersPage() {
 
       {errorMessage ? <NoticeBanner title="Archived players partly available" message={errorMessage} tone="info" /> : null}
       {message ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           {message}
         </div>
       ) : null}
@@ -236,7 +236,7 @@ export function ArchivedPlayersPage() {
               type="button"
               disabled={selectedPlayerIds.length === 0 || isDeleting}
               onClick={() => openDeleteModal('selected')}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Delete selected
             </button>
@@ -244,7 +244,7 @@ export function ArchivedPlayersPage() {
               type="button"
               disabled={players.length === 0 || isDeleting}
               onClick={() => openDeleteModal('all')}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Clear all
             </button>
@@ -261,22 +261,22 @@ export function ArchivedPlayersPage() {
               setPlayerPage(1)
             }}
             placeholder="Search player, team, or archive reason"
-            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
           />
         </label>
 
         {isLoading ? (
-          <div className="mt-5 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             Loading archived players...
           </div>
         ) : filteredPlayers.length === 0 ? (
-          <div className="mt-5 rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="mt-5 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No archived players found.
           </div>
         ) : (
           <div className="mt-5 grid gap-3">
             {paginatedPlayers.items.map((player) => (
-              <div key={player.id} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div key={player.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
                   <label className="flex items-start pt-1">
                     <input
@@ -307,7 +307,7 @@ export function ArchivedPlayersPage() {
                       type="button"
                       disabled={isRestoringId === player.id}
                       onClick={() => void handleRestorePlayer(player)}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
                     >
                       {isRestoringId === player.id ? 'Restoring...' : 'Restore'}
                     </button>

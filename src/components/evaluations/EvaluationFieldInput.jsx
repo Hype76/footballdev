@@ -48,11 +48,11 @@ function ScoreInfo() {
       <button
         type="button"
         aria-label="Score information"
-        className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] text-sm font-bold text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus:border-[var(--accent)] focus:outline-none"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-sm font-bold text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus:border-[var(--accent)] focus:outline-none"
       >
         i
       </button>
-      <span className="pointer-events-none absolute right-0 top-12 z-20 hidden w-80 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-left text-xs leading-5 text-[var(--text-primary)] shadow-xl shadow-black/20 group-hover:block group-focus-within:block">
+      <span className="pointer-events-none absolute right-0 top-12 z-20 hidden w-80 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-left text-xs leading-5 text-[var(--text-primary)] shadow-xl shadow-black/20 group-hover:block group-focus-within:block">
         <span className="mb-3 block text-sm font-semibold text-[var(--text-primary)]">Scoring guide</span>
         {SCORE_HELP.map((help, index) => (
           <span key={help.label} className="mt-2 block">
@@ -69,7 +69,7 @@ function ScoreInfo() {
 
 export function EvaluationFieldInput({ field, value, onChange }) {
   const sharedClassName =
-    'min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]'
+    'min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]'
 
   if (field.type === 'textarea') {
     return (
@@ -78,7 +78,7 @@ export function EvaluationFieldInput({ field, value, onChange }) {
         onChange={(event) => onChange(field.id, event.target.value)}
         required={field.required}
         rows="4"
-        className="min-h-32 w-full rounded-3xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+        className="min-h-32 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
       />
     )
   }

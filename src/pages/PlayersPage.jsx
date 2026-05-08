@@ -371,7 +371,7 @@ export function PlayersPage() {
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
       {message ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           {message}
         </div>
       ) : null}
@@ -380,7 +380,7 @@ export function PlayersPage() {
         <Link
           to="/players?section=Trial"
           aria-label="View trial players"
-          className="block cursor-pointer rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          className="block cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Trial Players</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{trialPlayerCount}</p>
@@ -388,7 +388,7 @@ export function PlayersPage() {
         <Link
           to="/players?section=Squad"
           aria-label="View squad players"
-          className="block cursor-pointer rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          className="block cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Squad Players</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{squadPlayerCount}</p>
@@ -396,7 +396,7 @@ export function PlayersPage() {
         <Link
           to="/players?view=evaluated"
           aria-label="View players with completed evaluations"
-          className="block cursor-pointer rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          className="block cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Evaluations</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{totalEvaluations}</p>
@@ -419,7 +419,7 @@ export function PlayersPage() {
                 setPlayerPage(1)
               }}
               placeholder="Search player or team"
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
 
@@ -428,7 +428,7 @@ export function PlayersPage() {
             <select
               value={urlSection}
               onChange={(event) => updateListFilter({ section: event.target.value })}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             >
               <option value="All">All</option>
               {EVALUATION_SECTIONS.map((section) => (
@@ -441,11 +441,11 @@ export function PlayersPage() {
         </div>
 
         {isLoading ? (
-          <div className="mt-5 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             Loading players...
           </div>
         ) : filteredPlayers.length === 0 ? (
-          <div className="mt-5 rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="mt-5 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             {viewFilter === 'evaluated'
               ? 'No players with completed evaluations found.'
               : viewFilter === 'scored'
@@ -466,7 +466,7 @@ export function PlayersPage() {
               return (
               <div
                 key={getPlayerKey(player.playerName)}
-                className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
+                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
               >
                 <button
                   type="button"
@@ -510,7 +510,7 @@ export function PlayersPage() {
                       type="button"
                       disabled={actionLoadingKey === `${player.playerId}:${action}`}
                       onClick={(event) => void handlePlayerAction(event, player, action)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {actionLoadingKey === `${player.playerId}:${action}` ? 'Saving...' : label}
                     </button>
@@ -519,14 +519,14 @@ export function PlayersPage() {
                     type="button"
                     disabled={actionLoadingKey === `${player.playerId}:archive`}
                     onClick={(event) => handleArchivePlayer(event, player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {actionLoadingKey === `${player.playerId}:archive` ? 'Archiving...' : 'Archive'}
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
                   >
                     Open Profile
                   </button>

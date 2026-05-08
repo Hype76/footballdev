@@ -103,7 +103,7 @@ function WalkthroughOverlay({
           />
           <div className="absolute bottom-0 left-0 right-0 bg-black/70" style={{ top: bottomTop }} />
           <div
-            className="pointer-events-none absolute rounded-[24px] border-2 border-[var(--accent)] shadow-[0_0_0_4px_rgba(255,255,255,0.08),0_0_36px_rgba(203,255,51,0.35)]"
+            className="pointer-events-none absolute rounded-lg border-2 border-[var(--accent)] shadow-[0_0_0_4px_rgba(255,255,255,0.08),0_0_36px_rgba(203,255,51,0.35)]"
             style={rect}
           />
         </>
@@ -112,7 +112,7 @@ function WalkthroughOverlay({
       )}
 
       <div
-        className="absolute rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 shadow-2xl shadow-black/50 sm:p-5"
+        className="absolute rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 shadow-2xl shadow-black/50 sm:p-5"
         style={tooltipStyle}
       >
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">
@@ -124,7 +124,7 @@ function WalkthroughOverlay({
           <button
             type="button"
             onClick={onSkip}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
           >
             Skip
           </button>
@@ -133,14 +133,14 @@ function WalkthroughOverlay({
               type="button"
               onClick={onBack}
               disabled={currentIndex === 0}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Back
             </button>
             <button
               type="button"
               onClick={currentIndex + 1 >= totalSteps ? onFinish : onNext}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)]"
             >
               {currentIndex + 1 >= totalSteps ? 'Finish' : 'Next'}
             </button>

@@ -87,7 +87,7 @@ export function EmailPreview({
 
   return (
     <div className="print-container">
-      <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-[22px] border border-[var(--border-color)] bg-white p-3 shadow-sm shadow-slate-200/40 sm:rounded-[28px] sm:p-6 lg:p-8">
+      <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-[var(--border-color)] bg-white p-3 shadow-sm shadow-slate-200/40 sm:rounded-lg sm:p-6 lg:p-8">
         <div className="section flex flex-col gap-4 border-b border-[#e7ece3] pb-5 sm:gap-6 sm:pb-6 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">
@@ -101,7 +101,7 @@ export function EmailPreview({
             <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{clubName}</h2>
           </div>
 
-          <div className="inline-flex min-h-11 items-center rounded-2xl bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#4f6552] md:shrink-0">
+          <div className="inline-flex min-h-11 items-center rounded-lg bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#4f6552] md:shrink-0">
             {section || 'Trial'}
           </div>
         </div>
@@ -113,15 +113,15 @@ export function EmailPreview({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="section rounded-2xl border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3">
+            <div className="section rounded-lg border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Team</p>
               <p className="mt-2 text-sm font-medium text-slate-700">{team || 'Not provided'}</p>
             </div>
-            <div className="section rounded-2xl border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3">
+            <div className="section rounded-lg border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Session</p>
               <p className="mt-2 text-sm font-medium text-slate-700">{formatSessionForDisplay(session)}</p>
             </div>
-            <div className="section rounded-2xl border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3 sm:col-span-2">
+            <div className="section rounded-lg border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3 sm:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Section</p>
               <p className="mt-2 text-sm font-medium text-slate-700">{section}</p>
             </div>
@@ -129,7 +129,7 @@ export function EmailPreview({
         </div>
 
         {showEmailTemplate ? (
-          <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
+          <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
               Email Subject
             </p>
@@ -140,7 +140,7 @@ export function EmailPreview({
         ) : null}
 
         {showScoring ? (
-          <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
+          <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Evaluation Responses</p>
 
             {visibleResponseItems.length === 0 ? (
@@ -148,7 +148,7 @@ export function EmailPreview({
             ) : (
               <div className="mt-4 grid gap-3">
                 {visibleResponseItems.map((item) => (
-                  <div key={item.label} className="section rounded-2xl border border-[#e2e7de] bg-white px-4 py-3">
+                  <div key={item.label} className="section rounded-lg border border-[#e2e7de] bg-white px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">{item.label}</p>
                     <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
                       {formatPreviewValue(item.value)}
@@ -159,9 +159,9 @@ export function EmailPreview({
             )}
           </div>
         ) : showEmailTemplate ? (
-          <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
+          <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Parent Message</p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-[#e7ece3] bg-white text-sm leading-6 text-slate-700">
+            <div className="mt-4 overflow-hidden rounded-lg border border-[#e7ece3] bg-white text-sm leading-6 text-slate-700">
               {emailBody ? (
                 <div dangerouslySetInnerHTML={{ __html: sharedEmailHtml }} />
               ) : (
@@ -170,7 +170,7 @@ export function EmailPreview({
             </div>
           </div>
         ) : (
-          <div className="section mt-6 rounded-[22px] border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-[24px] sm:p-5">
+          <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Evaluation Responses</p>
 
             {visibleResponseItems.length === 0 ? (
@@ -178,7 +178,7 @@ export function EmailPreview({
             ) : (
               <div className="mt-4 grid gap-3">
                 {visibleResponseItems.map((item) => (
-                  <div key={item.label} className="section rounded-2xl border border-[#e2e7de] bg-white px-4 py-3">
+                  <div key={item.label} className="section rounded-lg border border-[#e2e7de] bg-white px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">{item.label}</p>
                     <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
                       {formatPreviewValue(item.value)}

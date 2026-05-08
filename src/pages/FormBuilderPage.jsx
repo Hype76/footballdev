@@ -443,7 +443,7 @@ export function FormBuilderPage() {
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             {defaultTemplateFields.map((field) => (
-              <div key={field.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+              <div key={field.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{field.label}</p>
                 <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[var(--text-secondary)]">{getFieldTypeLabel(field.type)}</p>
               </div>
@@ -460,7 +460,7 @@ export function FormBuilderPage() {
               type="button"
               onClick={() => void refreshFields()}
               disabled={isSaving}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSaving ? 'Loading...' : 'Load default form'}
             </button>
@@ -485,7 +485,7 @@ export function FormBuilderPage() {
               value={fieldForm.label}
               onChange={handleFormChange}
               required
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
 
@@ -495,7 +495,7 @@ export function FormBuilderPage() {
               name="type"
               value={fieldForm.type}
               onChange={handleFormChange}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             >
               {FIELD_TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -514,19 +514,19 @@ export function FormBuilderPage() {
                 value={fieldForm.options}
                 onChange={handleFormChange}
                 placeholder="Option A, Option B, Option C"
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
           ) : null}
 
           {isScoreType(fieldForm.type) ? (
-            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 md:col-span-2">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 md:col-span-2">
               <p className="text-sm font-semibold text-[var(--text-primary)]">Score options</p>
               <p className="mt-2 text-sm text-[var(--text-muted)]">{createScoreOptions(fieldForm.type).join(', ')}</p>
             </div>
           ) : null}
 
-          <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
             <input
               type="checkbox"
               name="required"
@@ -541,7 +541,7 @@ export function FormBuilderPage() {
             <button
               type="submit"
               disabled={isSaving || !canUseCustomFields}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSaving ? 'Saving...' : 'Add field'}
             </button>
@@ -561,7 +561,7 @@ export function FormBuilderPage() {
               setFieldPage(1)
             }}
             className={[
-              'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
+              'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
               fieldGroup === 'default'
                 ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
                 : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
@@ -576,7 +576,7 @@ export function FormBuilderPage() {
               setFieldPage(1)
             }}
             className={[
-              'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
+              'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
               fieldGroup === 'custom'
                 ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
                 : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
@@ -587,15 +587,15 @@ export function FormBuilderPage() {
         </div>
 
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
             Loading fields...
           </div>
         ) : fields.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             No fields found for this club.
           </div>
         ) : visibleFields.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
             {fieldGroup === 'default'
               ? 'No default fields are configured yet. Load the default form to start.'
               : 'No custom fields have been added yet.'}
@@ -609,17 +609,17 @@ export function FormBuilderPage() {
               return (
                 <div
                   key={field.id}
-                  className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
+                  className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
                 >
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
                     <div className="grid gap-4 md:grid-cols-2">
                       {field.isDefault ? (
                         <>
-                          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Label</p>
                             <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{field.label}</p>
                           </div>
-                          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Type</p>
                             <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{getFieldTypeLabel(field.type)}</p>
                           </div>
@@ -632,7 +632,7 @@ export function FormBuilderPage() {
                               type="text"
                               value={draft.label}
                               onChange={(event) => handleDraftChange(field.id, 'label', event.target.value)}
-                              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                             />
                           </label>
                           <label className="block">
@@ -640,7 +640,7 @@ export function FormBuilderPage() {
                             <select
                               value={draft.type}
                               onChange={(event) => handleDraftChange(field.id, 'type', event.target.value)}
-                              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                             >
                               {FIELD_TYPE_OPTIONS.map((option) => (
                                 <option key={option.value} value={option.value}>
@@ -658,19 +658,19 @@ export function FormBuilderPage() {
                                 value={draft.options}
                                 onChange={(event) => handleDraftChange(field.id, 'options', event.target.value)}
                                 placeholder="Option A, Option B, Option C"
-                                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                               />
                             </label>
                           ) : null}
 
                           {isScoreType(draft.type) ? (
-                            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 md:col-span-2">
+                            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 md:col-span-2">
                               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Score options</p>
                               <p className="mt-2 text-sm text-[var(--text-muted)]">{createScoreOptions(draft.type).join(', ')}</p>
                             </div>
                           ) : null}
 
-                          <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+                          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
                             <input
                               type="checkbox"
                               checked={draft.required}
@@ -688,7 +688,7 @@ export function FormBuilderPage() {
                         type="button"
                         disabled={isSaving || fieldIndex === 0}
                         onClick={() => handleMoveField(field.id, -1)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Move up
                       </button>
@@ -696,7 +696,7 @@ export function FormBuilderPage() {
                         type="button"
                         disabled={isSaving || fieldIndex === fields.length - 1}
                         onClick={() => handleMoveField(field.id, 1)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Move down
                       </button>
@@ -704,12 +704,12 @@ export function FormBuilderPage() {
                         type="button"
                         disabled={isSaving}
                         onClick={() => handleToggleEnabled(field)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {draft.isEnabled ? 'Disable' : 'Enable'}
                       </button>
                       {field.isDefault ? (
-                        <div className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-muted)]">
+                        <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-muted)]">
                           Default field
                         </div>
                       ) : (
@@ -718,7 +718,7 @@ export function FormBuilderPage() {
                             type="button"
                             disabled={isSaving}
                             onClick={() => handleSaveField(field)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             Save
                           </button>
@@ -726,7 +726,7 @@ export function FormBuilderPage() {
                             type="button"
                             disabled={isSaving}
                             onClick={() => handleDeleteField(field.id)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             Delete
                           </button>

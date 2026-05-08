@@ -288,7 +288,7 @@ export function UserSettingsPage() {
       />
 
       {successMessage ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
           {successMessage}
         </div>
       ) : null}
@@ -311,11 +311,11 @@ export function UserSettingsPage() {
                 onChange={(event) => setUsername(event.target.value)}
                 required
                 autoComplete="nickname"
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
 
-            <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
               <p className="text-sm font-semibold text-[var(--text-primary)]">Parent email identity</p>
               <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
                 Emails will be sent from feedback@playerfeedback.online. Parent replies will go to your reply-to email.
@@ -330,7 +330,7 @@ export function UserSettingsPage() {
                     onChange={(event) => setDisplayName(event.target.value)}
                     required
                     autoComplete="name"
-                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                   />
                 </label>
 
@@ -342,7 +342,7 @@ export function UserSettingsPage() {
                     onChange={(event) => setEmailTeamName(event.target.value)}
                     required
                     placeholder="U12"
-                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                   />
                 </label>
 
@@ -359,7 +359,7 @@ export function UserSettingsPage() {
                     required
                     disabled={!canEditEmailClubName}
                     placeholder="Cambourne FC"
-                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   {!canEditEmailClubName ? (
                     <span className="mt-2 block text-xs leading-5 text-[var(--text-muted)]">
@@ -377,12 +377,12 @@ export function UserSettingsPage() {
                     required
                     autoComplete="email"
                     placeholder="coach@club.com"
-                    className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                   />
                 </label>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+              <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Sender preview</p>
                 <p className="mt-2 break-words text-sm font-medium text-[var(--text-primary)]">
                   {senderPreview} &lt;feedback@playerfeedback.online&gt;
@@ -391,20 +391,20 @@ export function UserSettingsPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Email</p>
                 <p className="mt-2 break-words text-sm font-medium text-[var(--text-primary)]">
                   {user?.email || authUser?.email || 'No email found'}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Role</p>
                 <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">{getRoleLabel(user)}</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Workspace</p>
               <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">
                 {user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'No club assigned'}
@@ -414,7 +414,7 @@ export function UserSettingsPage() {
             <button
               type="submit"
               disabled={isSavingProfile || isDemoSettings}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSavingProfile ? 'Saving...' : 'Save account'}
             </button>
@@ -433,7 +433,7 @@ export function UserSettingsPage() {
                   value={themeMode}
                   onChange={(event) => handleThemeModeChange(event.target.value)}
                   disabled={!canUseThemes}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   {themeModeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -449,7 +449,7 @@ export function UserSettingsPage() {
                   value={themeAccent}
                   onChange={(event) => handleThemeAccentChange(event.target.value)}
                   disabled={!canUseThemes}
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   {themeAccentOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -469,7 +469,7 @@ export function UserSettingsPage() {
             description="Control guided page walkthroughs for this account."
           >
             <div className="space-y-4">
-              <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
                 <input
                   type="checkbox"
                   checked={Boolean(walkthrough?.disabled)}
@@ -481,7 +481,7 @@ export function UserSettingsPage() {
               <button
                 type="button"
                 onClick={handleRestartWalkthrough}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
               >
                 Restart walkthrough
               </button>
@@ -505,13 +505,13 @@ export function UserSettingsPage() {
                   disabled={isDemoSettings}
                   required
                   autoComplete="email"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
               <button
                 type="submit"
                 disabled={isSavingEmail || isDemoSettings}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingEmail ? 'Requesting...' : 'Update login email'}
               </button>
@@ -538,7 +538,7 @@ export function UserSettingsPage() {
                   disabled={isDemoSettings}
                   minLength={8}
                   autoComplete="new-password"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
 
@@ -556,12 +556,12 @@ export function UserSettingsPage() {
                   disabled={isDemoSettings}
                   minLength={8}
                   autoComplete="new-password"
-                  className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </label>
             </div>
 
-            <label className="inline-flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+            <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
               <input
                 type="checkbox"
                 checked={showPassword}
@@ -576,7 +576,7 @@ export function UserSettingsPage() {
               <button
                 type="submit"
                 disabled={isSavingPassword || isDemoSettings || !passwordData.password || !passwordData.confirmPassword}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingPassword ? 'Updating...' : 'Update password'}
               </button>
@@ -585,7 +585,7 @@ export function UserSettingsPage() {
                 type="button"
                 onClick={() => void handleResetPassword()}
                 disabled={isSendingReset || isDemoSettings}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSendingReset ? 'Sending...' : 'Send reset email'}
               </button>

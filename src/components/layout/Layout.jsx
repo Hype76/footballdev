@@ -197,7 +197,7 @@ export function Layout() {
 
             <main className="flex-1 px-0 py-2 sm:px-4 sm:py-5 md:px-5 md:py-6 xl:px-8">
               <div className="mx-auto w-full max-w-7xl">
-                <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-[28px] sm:border sm:p-5 md:p-6">
+                <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:border sm:p-5 md:p-6">
                   <Outlet />
                 </div>
               </div>
@@ -207,7 +207,7 @@ export function Layout() {
 
         {clubOptions.length > 1 ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
-          <div className="w-full max-w-xl rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
+          <div className="w-full max-w-xl rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Club</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Which club do you want to open?</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
@@ -221,7 +221,7 @@ export function Layout() {
                   type="button"
                   onClick={() => handleClubSelect(option.clubId)}
                   disabled={isProfileLoading}
-                  className="flex min-h-16 w-full items-center justify-between gap-4 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
@@ -239,7 +239,7 @@ export function Layout() {
             </div>
 
             {clubSelectionError || authError ? (
-              <div className="mt-4 rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+              <div className="mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
                 {clubSelectionError || authError}
               </div>
             ) : null}
@@ -249,7 +249,7 @@ export function Layout() {
 
         {clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
-          <div className="w-full max-w-xl rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
+          <div className="w-full max-w-xl rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Team</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Which team do you want to work with?</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
@@ -263,7 +263,7 @@ export function Layout() {
                   type="button"
                   onClick={() => handleTeamSelect(option.id)}
                   disabled={isProfileLoading}
-                  className="flex min-h-16 w-full items-center justify-between gap-4 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
@@ -279,7 +279,7 @@ export function Layout() {
             </div>
 
             {clubSelectionError || authError ? (
-              <div className="mt-4 rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+              <div className="mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
                 {clubSelectionError || authError}
               </div>
             ) : null}

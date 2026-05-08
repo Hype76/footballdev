@@ -427,12 +427,12 @@ export function PlatformBillingOptionsPage() {
       ) : null}
 
       {successMessage ? (
-        <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
           {successMessage}
         </div>
       ) : null}
 
-      <section className="relative overflow-hidden rounded-[34px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top_left,var(--panel-soft),var(--panel-bg)_44%,var(--panel-alt))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
+      <section className="relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
         <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
         <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
           <div>
@@ -444,7 +444,7 @@ export function PlatformBillingOptionsPage() {
               Keep paid plans clean while giving testers temporary access without asking for a payment card.
             </p>
           </div>
-          <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
             <div className="flex items-center gap-3">
               <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
               <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -462,9 +462,9 @@ export function PlatformBillingOptionsPage() {
         {billingStats.map((item) => (
           <div
             key={item.label}
-            className="group relative overflow-hidden rounded-[26px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+            className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
           >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--accent)] via-sky-400 to-transparent opacity-70" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
             <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
             <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
@@ -483,7 +483,7 @@ export function PlatformBillingOptionsPage() {
               required
               value={couponForm.name}
               onChange={(event) => handleCouponChange('name', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -492,7 +492,7 @@ export function PlatformBillingOptionsPage() {
               required
               value={couponForm.code}
               onChange={(event) => handleCouponChange('code', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm uppercase text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm uppercase text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -503,7 +503,7 @@ export function PlatformBillingOptionsPage() {
               max="100"
               value={couponForm.percentOff}
               onChange={(event) => handleCouponChange('percentOff', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -514,7 +514,7 @@ export function PlatformBillingOptionsPage() {
               step="0.01"
               value={couponForm.amountOff}
               onChange={(event) => handleCouponChange('amountOff', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -522,7 +522,7 @@ export function PlatformBillingOptionsPage() {
             <select
               value={couponForm.duration}
               onChange={(event) => handleCouponChange('duration', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             >
               <option value="once">Once</option>
               <option value="repeating">Repeating</option>
@@ -537,7 +537,7 @@ export function PlatformBillingOptionsPage() {
                 min="1"
                 value={couponForm.durationInMonths}
                 onChange={(event) => handleCouponChange('durationInMonths', event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               />
             </label>
           ) : null}
@@ -547,13 +547,13 @@ export function PlatformBillingOptionsPage() {
               type="date"
               value={couponForm.expiresAt}
               onChange={(event) => handleCouponChange('expiresAt', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
             <span className="mt-2 block text-xs text-[var(--text-muted)]">
               Optional. This stops new redemptions after the selected date.
             </span>
           </label>
-          <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 xl:self-end">
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 xl:self-end">
             <input
               type="checkbox"
               checked={couponForm.firstTimeOnly}
@@ -566,7 +566,7 @@ export function PlatformBillingOptionsPage() {
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSaving ? 'Creating...' : 'Create Coupon'}
             </button>
@@ -585,7 +585,7 @@ export function PlatformBillingOptionsPage() {
               value={testerCodeForm.label}
               onChange={(event) => handleTesterCodeChange('label', event.target.value)}
               placeholder="Cambourne tester"
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -595,7 +595,7 @@ export function PlatformBillingOptionsPage() {
               value={testerCodeForm.code}
               onChange={(event) => handleTesterCodeChange('code', event.target.value)}
               placeholder="TESTER-30"
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm uppercase text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm uppercase text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -603,7 +603,7 @@ export function PlatformBillingOptionsPage() {
             <select
               value={testerCodeForm.planKey}
               onChange={(event) => handleTesterCodeChange('planKey', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             >
               {testerPlanOptions.map((plan) => (
                 <option key={plan.key} value={plan.key}>
@@ -620,7 +620,7 @@ export function PlatformBillingOptionsPage() {
               min="1"
               value={testerCodeForm.expiresInDays}
               onChange={(event) => handleTesterCodeChange('expiresInDays', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block">
@@ -631,7 +631,7 @@ export function PlatformBillingOptionsPage() {
               min="1"
               value={testerCodeForm.maxUses}
               onChange={(event) => handleTesterCodeChange('maxUses', event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <label className="block xl:col-span-2">
@@ -641,14 +641,14 @@ export function PlatformBillingOptionsPage() {
               value={testerCodeForm.assignedEmail}
               onChange={(event) => handleTesterCodeChange('assignedEmail', event.target.value)}
               placeholder="Optional. Leave blank for any email."
-              className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
           <div className="xl:col-span-4">
             <button
               type="submit"
               disabled={isSavingTesterCode}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSavingTesterCode ? 'Creating...' : 'Create Tester Code'}
             </button>
@@ -661,7 +661,7 @@ export function PlatformBillingOptionsPage() {
         description="These codes grant temporary access. Expired tester accounts keep their data but must choose a paid plan to continue."
       >
         {sortedTesterCodes.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No tester access codes have been created yet.
           </div>
         ) : (
@@ -671,7 +671,7 @@ export function PlatformBillingOptionsPage() {
               const hasExpired = code.expiresAt && new Date(code.expiresAt).getTime() <= Date.now()
 
               return (
-                <div key={code.id} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <div key={code.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-[var(--text-primary)]">{code.label || code.code}</p>
@@ -691,7 +691,7 @@ export function PlatformBillingOptionsPage() {
                     type="button"
                     disabled={updatingTesterCodeId === code.id}
                     onClick={() => void handleToggleTesterCode(code)}
-                    className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {updatingTesterCodeId === code.id ? 'Saving...' : code.isActive ? 'Disable Code' : 'Enable Code'}
                   </button>
@@ -707,17 +707,17 @@ export function PlatformBillingOptionsPage() {
         description="Use these promotion codes when applying discounts during checkout."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             Loading coupons...
           </div>
         ) : sortedCoupons.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No coupons have been created yet.
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {sortedCoupons.map((coupon) => (
-              <div key={coupon.id} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div key={coupon.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-[var(--text-primary)]">{coupon.name || coupon.id}</p>
@@ -744,7 +744,7 @@ export function PlatformBillingOptionsPage() {
                     type="button"
                     disabled={!coupon.promotionCodeId || livePromotionId === coupon.promotionCodeId}
                     onClick={() => void handleSetLivePromotion(coupon)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {livePromotionId === coupon.promotionCodeId ? 'Saving...' : coupon.liveOnWebsite ? 'Hide From Website' : 'Show Live'}
                   </button>
@@ -752,7 +752,7 @@ export function PlatformBillingOptionsPage() {
                     type="button"
                     disabled={deletingCouponId === coupon.id}
                     onClick={() => void handleDeleteCoupon(coupon)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[#7f1d1d] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[#fecaca] transition hover:bg-[#3f151a] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#7f1d1d] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[#fecaca] transition hover:bg-[#3f151a] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {deletingCouponId === coupon.id ? 'Deleting...' : 'Delete'}
                   </button>

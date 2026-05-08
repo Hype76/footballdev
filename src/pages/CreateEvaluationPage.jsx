@@ -1340,7 +1340,7 @@ export function CreateEvaluationPage() {
         />
 
         {isSaved ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
             Evaluation saved
           </div>
         ) : null}
@@ -1363,32 +1363,32 @@ export function CreateEvaluationPage() {
             title="Platform account"
             description="Super admins oversee the platform. Assessments must be created from a club user account."
           >
-            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm leading-6 text-[var(--text-muted)]">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm leading-6 text-[var(--text-muted)]">
               Use this account to manage clubs, users, and the wider workspace. Switch into a club-linked account to
               assess players.
             </div>
           </SectionCard>
         ) : isLoadingFields ? (
           <SectionCard title="Form" description="Loading the configured evaluation fields for this club.">
-            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
               Loading form fields...
             </div>
           </SectionCard>
         ) : isLoadingTeams ? (
           <SectionCard title="Teams" description="Loading the available teams for this account.">
-            <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
               Loading teams...
             </div>
           </SectionCard>
         ) : teamsLoadErrorMessage ? (
           <SectionCard title="Teams unavailable" description="The team list could not be loaded for this account just now.">
-            <div className="space-y-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
+            <div className="space-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
               <p>{teamsLoadErrorMessage}</p>
               {canManageUsers(user) ? (
                 <div>
                   <Link
                     to="/teams"
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                   >
                     Open Team Management
                   </Link>
@@ -1401,13 +1401,13 @@ export function CreateEvaluationPage() {
             title="No teams available"
             description="Assessments now use real club teams so staff can be routed and filtered correctly."
           >
-            <div className="space-y-4 rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
+            <div className="space-y-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
               <p>{noTeamsMessage}</p>
               {canManageUsers(user) ? (
                 <div>
                   <Link
                     to="/teams"
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
                   >
                     Open Team Management
                   </Link>
@@ -1432,7 +1432,7 @@ export function CreateEvaluationPage() {
                       onChange={handleFieldChange}
                       required
                       list="saved-player-list"
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
                     <datalist id="saved-player-list">
                       {savedPlayers.map((player) => (
@@ -1448,7 +1448,7 @@ export function CreateEvaluationPage() {
                       value={formData.team}
                       onChange={handleFieldChange}
                       required
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     >
                       <option value="">Select team</option>
                       {availableTeams.map((team) => (
@@ -1471,7 +1471,7 @@ export function CreateEvaluationPage() {
                       name="coachName"
                       value={formData.coachName}
                       readOnly
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
                     />
                   </label>
 
@@ -1482,7 +1482,7 @@ export function CreateEvaluationPage() {
                         {parentContacts.map((contact, index) => (
                           <label
                             key={`${contact.email || contact.name}-${index}`}
-                            className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                            className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
                           >
                             <input
                               type="checkbox"
@@ -1508,7 +1508,7 @@ export function CreateEvaluationPage() {
                             name="parentName"
                             value={formData.parentName}
                             onChange={handleFieldChange}
-                            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                           />
                         </label>
                         <label className="block">
@@ -1520,7 +1520,7 @@ export function CreateEvaluationPage() {
                             name="parentEmail"
                             value={formData.parentEmail}
                             onChange={handleFieldChange}
-                            className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                           />
                         </label>
                       </div>
@@ -1537,7 +1537,7 @@ export function CreateEvaluationPage() {
                       name="session"
                       value={formatSessionForInput(formData.session)}
                       onChange={handleFieldChange}
-                      className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     />
                     <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Current session: {readableSession}</p>
                   </label>
@@ -1557,7 +1557,7 @@ export function CreateEvaluationPage() {
                     <button
                       type="button"
                       onClick={() => setShowPreviousAssessments((current) => !current)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                     >
                       {showPreviousAssessments ? 'Hide Previous Assessments' : 'View Previous Assessments'}
                     </button>
@@ -1568,7 +1568,7 @@ export function CreateEvaluationPage() {
                         const previousAssessmentItems = buildPreviousAssessmentItems(evaluation)
 
                         return (
-                          <div key={evaluation.id} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                          <div key={evaluation.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                               <p className="font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
                               <p className="text-sm font-semibold text-[var(--text-secondary)]">
@@ -1584,13 +1584,13 @@ export function CreateEvaluationPage() {
                             <div className="mt-3 grid gap-2 md:grid-cols-2">
                               {previousAssessmentItems.length > 0 ? (
                                 previousAssessmentItems.map((item) => (
-                                  <div key={item.label} className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+                                  <div key={item.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
                                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{item.label}</p>
                                     <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-muted)]">{item.value}</p>
                                   </div>
                                 ))
                               ) : (
-                                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-muted)] md:col-span-2">
+                                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-muted)] md:col-span-2">
                                   No assessment details were entered.
                                 </div>
                               )}
@@ -1612,7 +1612,7 @@ export function CreateEvaluationPage() {
                 }
               >
                 {enabledFields.length === 0 ? (
-                  <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+                  <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
                     No evaluation fields are enabled for this club. Enable fields in the form builder first.
                   </div>
                 ) : (
@@ -1634,7 +1634,7 @@ export function CreateEvaluationPage() {
                 title="Submit and export"
                 description="Choose the preview mode or print the blank form before saving."
               >
-                <div className="mb-4 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+                <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
                   Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
                 </div>
 
@@ -1649,7 +1649,7 @@ export function CreateEvaluationPage() {
                       type="button"
                       onClick={() => setPreviewMode(option.key)}
                       className={[
-                        'inline-flex min-h-11 items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition',
+                        'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
                         previewMode === option.key
                           ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
                           : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
@@ -1668,7 +1668,7 @@ export function CreateEvaluationPage() {
                         <select
                           value={selectedEmailTemplateKey}
                           onChange={(event) => setEmailTemplateKey(event.target.value)}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         >
                           {availableEmailTemplates.map((template) => (
                             <option key={template.key} value={template.key}>
@@ -1698,7 +1698,7 @@ export function CreateEvaluationPage() {
                           type="date"
                           value={inviteDate}
                           onChange={(event) => setInviteDate(normalizeSessionValue(event.target.value))}
-                          className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                         />
                         <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
                           This is only used in invite email templates. The Session field above remains the saved current session date.
@@ -1708,7 +1708,7 @@ export function CreateEvaluationPage() {
                   </div>
                 ) : null}
 
-                <div className="mb-4 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+                <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
@@ -1720,14 +1720,14 @@ export function CreateEvaluationPage() {
                       <button
                         type="button"
                         onClick={handleSetAllExportFields}
-                        className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                       >
                         Select All
                       </button>
                       <button
                         type="button"
                         onClick={handleClearExportFields}
-                        className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                       >
                         Clear
                       </button>
@@ -1742,7 +1742,7 @@ export function CreateEvaluationPage() {
                         return (
                           <label
                             key={item.label}
-                            className="flex min-h-11 items-start gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                            className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
                           >
                             <input
                               type="checkbox"
@@ -1761,7 +1761,7 @@ export function CreateEvaluationPage() {
                       })}
                     </div>
                   ) : (
-                    <p className="mt-4 rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                    <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
                       No evaluation responses have been entered yet.
                     </p>
                   )}
@@ -1776,7 +1776,7 @@ export function CreateEvaluationPage() {
                     type="button"
                     onClick={handleSubmitClick}
                     disabled={isSubmitting || !canSubmitEvaluation}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isSubmitting
                       ? (isSendingParentEmail ? 'Emailing Parents...' : 'Saving...')
@@ -1787,7 +1787,7 @@ export function CreateEvaluationPage() {
                   <button
                     type="button"
                     onClick={() => setIsPrintingBlankView(true)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                   >
                     Print Blank Form
                   </button>
@@ -1795,7 +1795,7 @@ export function CreateEvaluationPage() {
                     <button
                       type="button"
                       onClick={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                     >
                       Save & Go to Player
                     </button>

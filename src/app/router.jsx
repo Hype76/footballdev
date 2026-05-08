@@ -59,7 +59,7 @@ const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx')
 function LoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8">
-      <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-bg)] px-6 py-5 text-sm font-medium text-[var(--text-muted)]">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-6 py-5 text-sm font-medium text-[var(--text-muted)]">
         Loading...
       </div>
     </main>
@@ -69,16 +69,16 @@ function LoadingScreen() {
 function RouteContentSkeleton() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
         <div className="h-4 w-28 rounded-full bg-[var(--panel-soft)]" />
-        <div className="mt-5 h-10 w-64 rounded-2xl bg-[var(--panel-soft)]" />
-        <div className="mt-4 h-5 w-full max-w-xl rounded-2xl bg-[var(--panel-soft)]" />
+        <div className="mt-5 h-10 w-64 rounded-lg bg-[var(--panel-soft)]" />
+        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[var(--panel-soft)]" />
       </div>
-      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-8">
-        <div className="h-8 w-40 rounded-2xl bg-[var(--panel-soft)]" />
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-8">
+        <div className="h-8 w-40 rounded-lg bg-[var(--panel-soft)]" />
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="h-28 rounded-[24px] bg-[var(--panel-soft)]" />
-          <div className="h-28 rounded-[24px] bg-[var(--panel-soft)]" />
+          <div className="h-28 rounded-lg bg-[var(--panel-soft)]" />
+          <div className="h-28 rounded-lg bg-[var(--panel-soft)]" />
         </div>
       </div>
     </div>
@@ -88,7 +88,7 @@ function RouteContentSkeleton() {
 function RouteGateState({ title, message }) {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Workspace</p>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{message}</p>
@@ -118,7 +118,7 @@ function AccountSuspendedState() {
 function TesterAccessExpiredState() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Billing</p>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Tester access has ended</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
@@ -126,7 +126,7 @@ function TesterAccessExpiredState() {
         </p>
         <a
           href="/billing"
-          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
         >
           View Billing Options
         </a>
@@ -138,7 +138,7 @@ function TesterAccessExpiredState() {
 function PlanAccessRequiredState() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Billing</p>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Plan access needs attention</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
@@ -146,7 +146,7 @@ function PlanAccessRequiredState() {
         </p>
         <a
           href="/billing"
-          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
         >
           View Billing Options
         </a>
@@ -208,7 +208,7 @@ function RouteErrorFallback({ error }) {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Page Error</p>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{message}</p>
@@ -216,13 +216,13 @@ function RouteErrorFallback({ error }) {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
           >
             Refresh App
           </button>
           <a
             href="/"
-            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
           >
             Go To Workspace
           </a>

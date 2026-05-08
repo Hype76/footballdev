@@ -139,7 +139,7 @@ const platformAdminGuide = [
 
 function InfoCard({ title, children }) {
   return (
-    <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
       <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
       <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{children}</div>
     </div>
@@ -150,7 +150,7 @@ function DetailList({ items }) {
   return (
     <div className="mt-4 space-y-2">
       {items.map((item) => (
-        <div key={item} className="rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+        <div key={item} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
           <p className="text-sm leading-6 text-[var(--text-primary)]">{item}</p>
         </div>
       ))}
@@ -160,7 +160,7 @@ function DetailList({ items }) {
 
 function PlanCard({ plan, isCurrent }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
+    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-[var(--text-primary)]">{plan.label}</h3>
@@ -179,7 +179,7 @@ function PlanCard({ plan, isCurrent }) {
 
 function RoleCard({ guide }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
+    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
       <h3 className="text-lg font-semibold text-[var(--text-primary)]">{guide.label}</h3>
       <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{guide.summary}</p>
       <DetailList items={guide.capabilities} />
@@ -241,13 +241,13 @@ export function InformationPage() {
 
         <SectionCard title="Quick links" description="Common platform destinations.">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link to="/platform-admin" className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90">
+            <Link to="/platform-admin" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90">
               Open Platform Admin
             </Link>
-            <Link to="/platform-billing-options" className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
+            <Link to="/platform-billing-options" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
               Open Billing Options
             </Link>
-            <Link to="/platform-feedback" className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
+            <Link to="/platform-feedback" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
               Open Platform Feedback
             </Link>
           </div>
@@ -265,7 +265,7 @@ export function InformationPage() {
       />
 
       {isDemoAccount(user) ? (
-        <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4">
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4">
           <p className="text-sm font-semibold text-[var(--text-primary)]">Demo workspace</p>
           <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
             Demo users can explore the workspace and billing page, but destructive actions and account setting changes are blocked.
@@ -350,7 +350,7 @@ export function InformationPage() {
 
       <SectionCard title="Role access" description="Roles shown here are your role and lower roles. Higher roles are hidden unless you have them.">
         {visibleRoleGuides.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No role guide is available for this account yet.
           </div>
         ) : (
@@ -364,19 +364,19 @@ export function InformationPage() {
 
       <SectionCard title="Quick links" description="Common places to go next.">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <Link to="/players" className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90">
+          <Link to="/players" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90">
             Open Players
           </Link>
-          <Link to="/sessions" className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
+          <Link to="/sessions" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
             Open Sessions
           </Link>
           {canUseBilling ? (
-            <Link to="/billing" className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
+            <Link to="/billing" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
               Open Billing
             </Link>
           ) : null}
           {canAccessPlatformFeedback ? (
-            <Link to="/platform-feedback" className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
+            <Link to="/platform-feedback" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
               Open Platform Feedback
             </Link>
           ) : null}

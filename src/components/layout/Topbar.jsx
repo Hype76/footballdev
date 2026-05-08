@@ -50,7 +50,7 @@ export function Topbar({ title, onMenuClick }) {
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] lg:hidden"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] lg:hidden"
             aria-label="Open navigation"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -58,7 +58,7 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/20 sm:h-14 sm:w-14">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/20 sm:h-14 sm:w-14">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
           </div>
 
@@ -72,7 +72,7 @@ export function Topbar({ title, onMenuClick }) {
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="grid w-full gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <div className="min-w-0 px-2 py-1 sm:px-3 sm:py-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Signed in</p>
             <p className="mt-1 truncate text-sm font-medium text-[var(--text-primary)]">{userLabel}</p>
@@ -89,7 +89,7 @@ export function Topbar({ title, onMenuClick }) {
                 <select
                   value={demoRoleKey || ''}
                   onChange={(event) => setDemoRolePreview(event.target.value)}
-                  className="min-h-11 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   <option value="">Default role</option>
                   {DEMO_ROLE_OPTIONS.map((role) => (
@@ -109,7 +109,7 @@ export function Topbar({ title, onMenuClick }) {
                   value={user?.activeTeamId || ''}
                   onChange={handleTeamChange}
                   disabled={isSwitchingTeam}
-                  className="min-h-11 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="">Select team</option>
                   {teamOptions.map((team) => (
@@ -122,11 +122,11 @@ export function Topbar({ title, onMenuClick }) {
             ) : null}
             <InstallAppButton
               wrapperClassName="col-span-2 lg:hidden"
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--button-primary)] px-3 py-3 text-sm font-semibold text-[var(--button-primary-text)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--button-primary)] px-3 py-3 text-sm font-semibold text-[var(--button-primary-text)]"
             />
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
             >
               My Settings
             </Link>
@@ -134,7 +134,7 @@ export function Topbar({ title, onMenuClick }) {
               type="button"
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>

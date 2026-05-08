@@ -181,26 +181,26 @@ export function BillingPage() {
         description="Your club access is controlled by the tier shown here."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             Loading billing details...
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Tier</p>
               <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{getPlanName(visibleClub)}</p>
             </div>
-            <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Status</p>
               <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">
                 {testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus)}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Next billing date</p>
               <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{formatDate(visibleClub?.currentPeriodEnd)}</p>
             </div>
-            <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Last updated</p>
               <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{formatDate(visibleClub?.planUpdatedAt)}</p>
             </div>
@@ -220,7 +220,7 @@ export function BillingPage() {
                 type="button"
                 disabled={Boolean(isCheckoutLoading)}
                 onClick={() => void handleChoosePlan(planName)}
-                className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCheckoutLoading === planName ? 'Opening checkout...' : `Choose ${planName}`}
               </button>
@@ -234,11 +234,11 @@ export function BillingPage() {
         description="Invoices appear here once billing has created them for this subscription."
       >
         {isLoading ? (
-          <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             Loading invoices...
           </div>
         ) : (billing?.invoices ?? []).length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             No invoices are available yet.
           </div>
         ) : (
@@ -246,7 +246,7 @@ export function BillingPage() {
             {billing.invoices.map((invoice) => (
               <div
                 key={invoice.id}
-                className="grid gap-3 rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 md:grid-cols-[1fr_auto_auto]"
+                className="grid gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 md:grid-cols-[1fr_auto_auto]"
               >
                 <div>
                   <p className="font-semibold text-[var(--text-primary)]">{invoice.number}</p>
@@ -263,7 +263,7 @@ export function BillingPage() {
                       href={invoice.hostedInvoiceUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                     >
                       View
                     </a>
@@ -273,7 +273,7 @@ export function BillingPage() {
                       href={invoice.invoicePdf}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
                     >
                       Download
                     </a>
