@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canManageClubSettings, canViewBilling, useAuth } from '../lib/auth.js'
+import { canViewBilling, useAuth } from '../lib/auth.js'
 import { getPlanName } from '../lib/plans.js'
 
 function formatDate(value) {
@@ -64,7 +64,7 @@ export function BillingPage() {
     let isMounted = true
 
     const loadBilling = async () => {
-      if (!session?.access_token || !user?.clubId || !canManageClubSettings(user)) {
+      if (!session?.access_token || !user?.clubId || !canViewBilling(user)) {
         setIsLoading(false)
         return
       }

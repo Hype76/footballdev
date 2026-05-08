@@ -116,6 +116,15 @@ export function isPlanComped(value) {
   return Boolean(value?.isPlanComped ?? value?.is_plan_comped)
 }
 
+export function isPlanAccessActive(value) {
+  if (value?.role === 'super_admin' || isPlanComped(value)) {
+    return true
+  }
+
+  const status = String(value?.planStatus ?? value?.plan_status ?? '').trim()
+  return status === 'active' || status === 'trialing'
+}
+
 export function getPlanName(planOrUser) {
   return getPlan(planOrUser).name
 }
@@ -127,6 +136,10 @@ export function hasPlanFeature(user, featureName) {
 
   if (user?.role === 'super_admin' || isPlanComped(user)) {
     return true
+  }
+
+  if (!isPlanAccessActive(user)) {
+    return false
   }
 
   return Boolean(getPlan(user).features[featureName])
@@ -161,6 +174,10 @@ export function canEditClubIdentity(user) {
 export function getPlanLimit(user, limitName) {
   if (user?.role === 'super_admin' || isPlanComped(user)) {
     return null
+  }
+
+  if (!isPlanAccessActive(user)) {
+    return 0
   }
 
   return getPlan(user).limits[limitName] ?? null

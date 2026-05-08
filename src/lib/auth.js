@@ -1,5 +1,6 @@
 import { createContext, createElement, useContext, useEffect, useRef, useState } from 'react'
 import { DEMO_ROLE_STORAGE_KEY, getDemoRole, isDemoUser } from './demo.js'
+import { isPlanAccessActive } from './plans.js'
 import { supabase } from './supabase-client.js'
 
 const AuthContext = createContext(null)
@@ -151,6 +152,10 @@ export function canManageUsers(user) {
     return false
   }
 
+  if (!isSuperAdmin(user) && !isPlanAccessActive(user)) {
+    return false
+  }
+
   if (user.planKey === 'individual' && !user.isPlanComped) {
     return isSuperAdmin(user)
   }
@@ -163,7 +168,7 @@ export function canViewActivityLog(user) {
 }
 
 export function canManageTeamSettings(user) {
-  return isClubAdmin(user)
+  return isClubAdmin(user) && isPlanAccessActive(user)
 }
 
 export function canAssignRole(user, targetRole) {
@@ -190,7 +195,7 @@ export function canManageParentEmailTemplates(user) {
 }
 
 export function canManageClubSettings(user) {
-  return isClubAdmin(user)
+  return isClubAdmin(user) && isPlanAccessActive(user)
 }
 
 export function canViewBilling(user) {
@@ -246,7 +251,7 @@ export function canCreateEvaluation(user) {
     return false
   }
 
-  return Boolean(user.clubId) && !isSuperAdmin(user) && !isClubAdmin(user)
+  return Boolean(user.clubId) && !isSuperAdmin(user) && !isClubAdmin(user) && isPlanAccessActive(user)
 }
 
 export function canEditEvaluation(user, evaluation) {

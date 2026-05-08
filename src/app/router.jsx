@@ -15,6 +15,7 @@ import {
   useAuth,
 } from '../lib/auth.js'
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
+import { hasPlanFeature, isPlanAccessActive } from '../lib/plans.js'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -134,6 +135,26 @@ function TesterAccessExpiredState() {
   )
 }
 
+function PlanAccessRequiredState() {
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Billing</p>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Plan access needs attention</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+          This workspace needs an active plan before staff can keep using club tools. Your existing club data remains safe.
+        </p>
+        <a
+          href="/billing"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+        >
+          View Billing Options
+        </a>
+      </div>
+    </div>
+  )
+}
+
 function isClubSuspended(user) {
   return user?.clubStatus === 'suspended'
 }
@@ -156,6 +177,10 @@ function getDefaultWorkspacePath(user) {
   }
 
   if (isTesterAccessExpired(user)) {
+    return '/billing'
+  }
+
+  if (!isPlanAccessActive(user)) {
     return '/billing'
   }
 
@@ -274,6 +299,10 @@ function WorkspaceHome() {
     return <Navigate to="/billing" replace />
   }
 
+  if (!isPlanAccessActive(user)) {
+    return <Navigate to="/billing" replace />
+  }
+
   return <RedirectToWorkspaceHome user={user} />
 }
 
@@ -329,6 +358,10 @@ function RequireClubWorkspace() {
 
   if (isTesterAccessExpired(user)) {
     return <TesterAccessExpiredState />
+  }
+
+  if (!isPlanAccessActive(user)) {
+    return <PlanAccessRequiredState />
   }
 
   return <Outlet />
@@ -439,6 +472,10 @@ function RequireFormBuilderAccess() {
     return <RedirectToWorkspaceHome user={user} />
   }
 
+  if (!hasPlanFeature(user, 'customFormFields')) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
   return <Outlet />
 }
 
@@ -483,6 +520,10 @@ function RequireParentEmailTemplatesAccess() {
   }
 
   if (!canManageParentEmailTemplates(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  if (!hasPlanFeature(user, 'parentEmail')) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -710,6 +751,10 @@ function RequireActivityLogAccess() {
   }
 
   if (!canViewActivityLog(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  if (!isSuperAdmin(user) && !hasPlanFeature(user, 'auditLogs')) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
