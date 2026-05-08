@@ -305,7 +305,7 @@ export function ClubSettingsPage() {
       <PageHeader
         eyebrow="Club Settings"
         title="Club details"
-        description="Update the shared club information shown across the workspace and every exported PDF."
+        description="Update the shared club information shown across the workspace and parent-facing previews."
       />
 
       {isSaved ? (
@@ -330,7 +330,7 @@ export function ClubSettingsPage() {
 
       <SectionCard
         title="Club profile"
-        description="These details are used in the topbar, parent-facing preview, and exported PDF files."
+        description="These details are used in the topbar and parent-facing preview."
       >
         {isLoading ? (
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">

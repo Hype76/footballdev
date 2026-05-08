@@ -59,7 +59,7 @@ const roleGuides = [
       'View assigned team players.',
       'Create assessments from sessions or player profiles.',
       'Use the live preview while assessing players.',
-      'Download or email reports only when the plan includes those features.',
+      'Email reports only when the plan includes that feature.',
     ],
   },
   {
@@ -82,7 +82,7 @@ const planGuides = [
     summary: 'Free team admin account for a single team workspace.',
     details: [
       'One team, one staff login, five active players, and ten assessments per month.',
-      'Assessment preview is available, but PDF download and parent email sending are upgrade features.',
+      'Assessment preview is available, but parent email sending is an upgrade feature.',
       'Billing is visible so the account can upgrade from the sidebar.',
     ],
   },
@@ -92,7 +92,7 @@ const planGuides = [
     summary: 'Paid plan for one team that needs sharing and form controls.',
     details: [
       'One team, three staff logins, and twenty active players.',
-      'Includes PDF export, parent emails, parent email templates, and custom form fields.',
+      'Includes parent emails, parent email templates, and custom form fields.',
       'Parent emails include a small Player Feedback website advert.',
     ],
   },
@@ -102,7 +102,7 @@ const planGuides = [
     summary: 'Club plan for several teams and fuller management controls.',
     details: [
       'Up to ten teams with unlimited players and staff logins.',
-      'Includes PDF export, parent emails, custom templates, custom branding, themes, and audit logs.',
+      'Includes parent emails, custom templates, custom branding, themes, and audit logs.',
       'Parent emails include a small Player Feedback website advert.',
     ],
   },
@@ -198,7 +198,6 @@ export function InformationPage() {
   const currentPlanKey = String(user?.planKey ?? '').trim()
   const canUseBilling = canViewBilling(user)
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
-  const canUsePdfExport = hasPlanFeature(user, 'pdfExport')
   const canUseTemplates = canManageParentEmailTemplates(user)
   const canUseStaffManagement = canManageUsers(user)
   const canAccessPlatformFeedback = canViewPlatformFeedback(user)
@@ -301,7 +300,7 @@ export function InformationPage() {
             Complete the assessment form and use the live preview. Individual accounts can preview even though exports are locked.
           </InfoCard>
           <InfoCard title="6. Share reports">
-            Paid plans can download PDFs. Plans with parent email can use club templates and email parents from the player profile or assessment flow.
+            Plans with parent email can use club templates and email parents from the player profile or assessment flow.
           </InfoCard>
         </div>
       </SectionCard>
@@ -328,10 +327,10 @@ export function InformationPage() {
                 ? 'Parent email templates are club templates. Ask a Manager, Team Admin, or Club Admin to create them.'
                 : 'Parent email templates are available on tiers that include parent email.'}
           </InfoCard>
-          <InfoCard title="PDF and email sharing">
-            {canUsePdfExport
-              ? 'PDF export is enabled for this plan. Parent email sending depends on the parent email feature and available templates.'
-              : 'PDF download and parent email sending are upgrade features. The live assessment preview remains available.'}
+          <InfoCard title="Email sharing">
+            {canUseParentEmail
+              ? 'Parent email sending is enabled for this plan and depends on available templates.'
+              : 'Parent email sending is an upgrade feature. The live assessment preview remains available.'}
           </InfoCard>
           <InfoCard title="Archived players">
             Restoring an archived player checks the current active player limit. If the club is already at the limit, restore is blocked until space is available.

@@ -520,7 +520,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     {
       label: 'Shared exports',
       value: platformTotals.communications ?? 0,
-      caption: 'Emails, PDFs, and shares',
+      caption: 'Emails and shares',
       detail: `${platformTotals.recentCommunications ?? 0} in the last 7 days`,
     },
     {

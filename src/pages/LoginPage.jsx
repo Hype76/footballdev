@@ -41,13 +41,13 @@ const pricingPlans = [
     price: 'Free',
     priceLabel: 'No card needed',
     description: 'For one coach testing the basics before moving feedback online.',
-    features: ['1 team', '1 login', '5 players', '10 evaluations per month', 'Basic form only', 'No PDF export', 'No email sending'],
+    features: ['1 team', '1 login', '5 players', '10 evaluations per month', 'Basic form only', 'No email sending'],
   },
   {
     name: 'Single Team',
     price: 9.99,
     description: 'For teams ready to send structured feedback to parents.',
-    features: ['2 weeks trial included', 'Cancel anytime', '1 team', '3 logins', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'PDF export', 'Custom form fields', 'Basic logo branding'],
+    features: ['2 weeks trial included', 'Cancel anytime', '1 team', '3 logins', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'Custom form fields', 'Basic logo branding'],
   },
   {
     name: 'Small Club',
@@ -671,7 +671,7 @@ export function LoginPage() {
                 {[
                   ['Trial nights', 'Add trialists, collect coach ratings, choose invite back, no place offered, or offer place, then send the right parent message.'],
                   ['Training sessions', 'Build a session list, add players during the session, and complete assessments when coaches are ready.'],
-                  ['Squad reviews', 'Review previous assessments, track progress over time, and keep private staff notes away from parent PDFs.'],
+                  ['Squad reviews', 'Review previous assessments, track progress over time, and keep private staff notes away from parent emails.'],
                   ['Tournaments', 'Record multiple games in a tournament and keep player feedback linked to the correct session.'],
                 ].map(([title, copy]) => (
                   <div key={title} className="rounded-[24px] border border-white/10 bg-[#0b130d]/80 p-4">

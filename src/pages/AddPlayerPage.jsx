@@ -330,7 +330,7 @@ export function AddPlayerPage() {
           {
             type: PLAYER_CONTACT_TYPES.self,
             title: 'Player Contact',
-            description: 'Used for direct player emails and player PDF reports.',
+            description: 'Used for direct player emails.',
             addLabel: 'Add Player Contact',
             removeLabel: 'Remove Player Contact',
             nameLabel: 'Player Name',
@@ -343,7 +343,7 @@ export function AddPlayerPage() {
           {
             type: PLAYER_CONTACT_TYPES.parent,
             title: 'Parent/Guardian Contacts',
-            description: 'Used for parent or guardian emails and PDF reports.',
+            description: 'Used for parent or guardian emails.',
             addLabel: 'Add Parent',
             removeLabel: 'Remove Parent',
             nameLabel: 'Name',

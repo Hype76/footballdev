@@ -41,7 +41,6 @@ import {
   formatSessionForInput,
   getAverageScore,
   getDraftStorageKey,
-  getLatestClubLogoUrl,
   normalizePlayerName,
   normalizeSessionValue,
   parseAssessmentQueue,
@@ -50,6 +49,7 @@ import {
 import {
   EVALUATION_SECTIONS,
   PLAYER_CONTACT_TYPES,
+  createCommunicationLog,
   createEvaluation,
   getContactTemplateAudiences,
   getEvaluations,
@@ -184,7 +184,6 @@ export function CreateEvaluationPage() {
   const [isSaved, setIsSaved] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingParentEmail, setIsSendingParentEmail] = useState(false)
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [isPrintingBlankView, setIsPrintingBlankView] = useState(false)
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
@@ -682,7 +681,6 @@ export function CreateEvaluationPage() {
   const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
   const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
-  const canUsePdfExport = hasPlanFeature(user, 'pdfExport')
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
   const normalizedContactType = normalizePlayerContactType(formData.contactType)
   const contactAudiences = getContactTemplateAudiences(normalizedContactType)
@@ -711,9 +709,9 @@ export function CreateEvaluationPage() {
   )
   const previewResponseItems = useMemo(
     () => {
-      return canUsePdfExport || canUseParentEmail ? selectedResponseItems : responseItems
+      return canUseParentEmail ? selectedResponseItems : responseItems
     },
-    [canUseParentEmail, canUsePdfExport, responseItems, selectedResponseItems],
+    [canUseParentEmail, responseItems, selectedResponseItems],
   )
   const hasSavedExportSelection = Array.isArray(selectedExportLabels)
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
@@ -1051,49 +1049,6 @@ export function CreateEvaluationPage() {
     saveExportSelection([])
   }
 
-  const handleDownloadPdf = async (mode = previewMode) => {
-    setIsGeneratingPdf(true)
-    setActionErrorMessage('')
-
-    try {
-      if (!canUsePdfExport) {
-        throw new Error(createFeatureUpgradeMessage('pdfExport'))
-      }
-
-      if (mode === 'email' && !selectedEmailTemplate) {
-        throw new Error(`Create a ${contactNoun} email template before exporting an email template PDF.`)
-      }
-
-      const { exportEvaluationPdf } = await import('../lib/pdf.js')
-      const latestClubLogoUrl = await getLatestClubLogoUrl(user)
-
-      await exportEvaluationPdf({
-        filename: `${normalizePlayerName(formData.playerName || 'evaluation')}-${mode}.pdf`,
-        mode,
-        previewProps: {
-          clubName: user?.clubName || 'Club Name',
-          planKey: user?.planKey,
-          logoUrl: latestClubLogoUrl || fallbackLogo,
-          playerName: formData.playerName || 'Player Name',
-          team: formData.team,
-          section: formData.section,
-          session: formData.session,
-          summary: mode === 'without-scores' ? '' : previewSummary,
-          emailSubject: parentEmailTemplate.subject,
-          emailBody: parentEmailTemplate.body,
-          recipientNames: selectedParentName,
-          recipientEmails: selectedParentEmail,
-          responseItems: selectedResponseItems,
-        },
-      })
-    } catch (error) {
-      console.error('PDF export failed', error)
-      setActionErrorMessage(error.message || 'The PDF could not be generated right now. Try again in a moment.')
-    } finally {
-      setIsGeneratingPdf(false)
-    }
-  }
-
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -1202,24 +1157,27 @@ export function CreateEvaluationPage() {
                 summary: '',
               })
 
-              return sendParentEmail({
-                parentEmail: recipientEmail,
-                parentName: recipientName,
-                senderEmail: user?.email,
-                displayName: user?.displayName || user?.display_name || user?.username || user?.name,
-                teamName: user?.team_name || user?.emailTeamName || formData.team,
-                clubName: user?.club_name || user?.emailClubName || user?.clubName,
-                planKey: user?.planKey,
-                logoUrl: user?.clubLogoUrl || null,
-                replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
-                clubContactEmail: user?.clubContactEmail,
-                playerName: normalizedPlayerName,
-                summary: '',
-                responses: selectedResponseItems,
-                subject: renderedTemplate.subject,
-                emailBody: renderedTemplate.body,
-                evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
-              })
+              return {
+                recipientEmail,
+                job: sendParentEmail({
+                  parentEmail: recipientEmail,
+                  parentName: recipientName,
+                  senderEmail: user?.email,
+                  displayName: user?.displayName || user?.display_name || user?.username || user?.name,
+                  teamName: user?.team_name || user?.emailTeamName || formData.team,
+                  clubName: user?.club_name || user?.emailClubName || user?.clubName,
+                  planKey: user?.planKey,
+                  logoUrl: user?.clubLogoUrl || null,
+                  replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
+                  clubContactEmail: user?.clubContactEmail,
+                  playerName: normalizedPlayerName,
+                  summary: '',
+                  responses: selectedResponseItems,
+                  subject: renderedTemplate.subject,
+                  emailBody: renderedTemplate.body,
+                  evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+                }),
+              }
             })
             .filter(Boolean)
 
@@ -1227,7 +1185,15 @@ export function CreateEvaluationPage() {
             throw new Error(`Add a ${contactNoun} email before sending.`)
           }
 
-          await Promise.all(emailJobs)
+          await Promise.all(emailJobs.map((emailJob) => emailJob.job))
+          await createCommunicationLog({
+            user,
+            playerId: savedEvaluation?.playerId || evaluation.playerId,
+            evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+            channel: 'email',
+            action: 'parent_email_sent',
+            recipientEmail: emailJobs.map((emailJob) => emailJob.recipientEmail).join(','),
+          })
           showToast({ title: 'Email sent successfully' })
         } catch (emailError) {
           console.error('Email failed', emailError)
@@ -1508,7 +1474,7 @@ export function CreateEvaluationPage() {
                   </label>
 
                   <div className="md:col-span-2">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{contactLabel} PDF Recipients</span>
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{contactLabel} Email Recipients</span>
                     {parentContacts.length > 0 ? (
                     <div className="grid gap-3 md:grid-cols-2">
                         {parentContacts.map((contact, index) => (
@@ -1558,7 +1524,7 @@ export function CreateEvaluationPage() {
                       </div>
                     )}
                     <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                      Selected {contactNounPlural} are used for {contactNoun} email PDF templates.
+                      Selected {contactNounPlural} are used for {contactNoun} email templates.
                     </p>
                   </div>
 
@@ -1580,7 +1546,7 @@ export function CreateEvaluationPage() {
               {previousEvaluations.length > 0 ? (
                 <SectionCard
                   title="Previous assessments"
-                  description="Use this while assessing an existing player. These notes are for reference only and are not added to the new PDF."
+                  description="Use this while assessing an existing player. These notes are for reference only and are not added to the new assessment."
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm leading-6 text-[var(--text-muted)]">
@@ -1664,7 +1630,7 @@ export function CreateEvaluationPage() {
 
               <SectionCard
                 title="Submit and export"
-                description="Choose the preview mode, export the PDF, or print the blank form before saving."
+                description="Choose the preview mode or print the blank form before saving."
               >
                 <div className="mb-4 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
                   Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
@@ -1745,7 +1711,7 @@ export function CreateEvaluationPage() {
                     <div>
                       <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
                       <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                        Choose what goes into the {contactNoun} email and PDF. This choice is saved in this browser for this player.
+                        Choose what goes into the {contactNoun} email. This choice is saved in this browser for this player.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1815,22 +1781,6 @@ export function CreateEvaluationPage() {
                       : previewMode === 'email'
                         ? 'Save & Email Parents'
                         : 'Submit Evaluation'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDownloadPdf(previewMode)}
-                    disabled={isGeneratingPdf || !canUsePdfExport}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                  >
-                    {isGeneratingPdf ? 'Preparing PDF...' : 'Download PDF'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDownloadPdf('without-scores')}
-                    disabled={isGeneratingPdf || !canUsePdfExport}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                  >
-                    {isGeneratingPdf ? 'Preparing PDF...' : 'PDF Without Scores'}
                   </button>
                   <button
                     type="button"

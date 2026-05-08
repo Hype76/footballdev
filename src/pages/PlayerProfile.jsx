@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import fallbackLogo from '../assets/player-feedback-logo.png'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
@@ -30,7 +29,6 @@ import {
   createPlayerDraft,
   formatTrendDate,
   getEditableParentContacts,
-  getLatestClubLogoUrl,
 } from '../hooks/players/playerProfileUtils.js'
 import {
   EVALUATION_SECTIONS,
@@ -105,9 +103,9 @@ function formatActivityDate(value) {
 
 function getActivityLabel(log) {
   const labels = {
-    scored_pdf_downloaded: 'PDF with scores downloaded',
-    pdf_without_scores_downloaded: 'PDF without scores downloaded',
-    email_template_pdf_downloaded: 'Email template PDF downloaded',
+    scored_pdf_downloaded: 'Report with scores downloaded',
+    pdf_without_scores_downloaded: 'Report without scores downloaded',
+    email_template_pdf_downloaded: 'Email template report downloaded',
     parent_email_sent: 'Parent email sent',
     staff_note_added: 'Staff note added',
     invite_back_selected: 'Invite back selected',
@@ -151,7 +149,6 @@ export function PlayerProfile() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDeletingEvaluationId, setIsDeletingEvaluationId] = useState('')
   const [isMergingEvaluations, setIsMergingEvaluations] = useState(false)
-  const [pdfLoadingId, setPdfLoadingId] = useState('')
   const [emailSendingId, setEmailSendingId] = useState('')
   const [selectedReassignTargets, setSelectedReassignTargets] = useState({})
   const [mergeSelectedIds, setMergeSelectedIds] = useState([])
@@ -616,87 +613,6 @@ export function PlayerProfile() {
     })
   }
 
-  const handleDownloadPdf = async (evaluation, mode) => {
-    setPdfLoadingId(`${evaluation.id}:${mode}`)
-    setErrorMessage('')
-
-    try {
-      if (!hasPlanFeature(user, 'pdfExport')) {
-        throw new Error(createFeatureUpgradeMessage('pdfExport'))
-      }
-
-      const { exportEvaluationPdf } = await import('../lib/pdf.js')
-      const latestClubLogoUrl = await getLatestClubLogoUrl(user)
-      const selectedResponseItems = getSelectedExportResponseItems(evaluation)
-      const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
-      const previewAudience = getEmailPreviewAudience(evaluation)
-      const previewContactType = previewAudience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
-      const previewContacts = selectedContacts.filter((contact) => contact.type === previewContactType)
-      const recipientNames = formatParentContactNames(
-        previewContacts.length > 0 ? previewContacts : selectedContacts,
-        previewContactType === PLAYER_CONTACT_TYPES.self ? routePlayerName : evaluation.parentName || profileParentName,
-      )
-      const recipientEmails = formatParentContactEmails(selectedContacts, evaluation.parentEmail || profileParentEmail)
-      const selectedTemplate = getSelectedEmailTemplate(evaluation)
-      const emailTemplate = mode === 'email' && selectedTemplate
-        ? renderParentEmailTemplate(selectedTemplate, {
-            recipientName: recipientNames,
-            parentName: recipientNames,
-            playerName: routePlayerName,
-            coachName: evaluation.coach,
-            clubName: user?.clubName,
-            teamName: evaluation.team,
-            session: evaluation.session,
-            inviteDate: getSelectedInviteDate(evaluation),
-            summary: '',
-          })
-        : { subject: '', body: '' }
-
-      if (mode === 'email' && !selectedTemplate) {
-        throw new Error('Create an email template before exporting an email template PDF.')
-      }
-
-      await exportEvaluationPdf({
-        filename: `${routePlayerName}-${mode}.pdf`,
-        mode,
-        previewProps: {
-          clubName: user?.clubName || user?.team || 'Club Name',
-          planKey: user?.planKey,
-          logoUrl: latestClubLogoUrl || fallbackLogo,
-          playerName: routePlayerName,
-          team: evaluation.team,
-          section: evaluation.section,
-          session: evaluation.session,
-          summary: '',
-          emailSubject: emailTemplate.subject,
-          emailBody: emailTemplate.body,
-          recipientNames,
-          recipientEmails,
-          responseItems: selectedResponseItems,
-        },
-      })
-
-      void createCommunicationLog({
-        user,
-        playerId: evaluation.playerId || primaryPlayer?.id,
-        evaluationId: evaluation.id,
-        channel: 'pdf',
-        action:
-          mode === 'scored'
-            ? 'scored_pdf_downloaded'
-            : mode === 'without-scores'
-              ? 'pdf_without_scores_downloaded'
-              : 'email_template_pdf_downloaded',
-        recipientEmail: recipientEmails,
-      }).catch((error) => console.error(error))
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Could not generate the PDF.')
-    } finally {
-      setPdfLoadingId('')
-    }
-  }
-
   const handlePlayerDraftChange = (playerId, fieldName, value) => {
     setErrorMessage('')
     setPlayerDrafts((current) => ({
@@ -748,14 +664,20 @@ export function PlayerProfile() {
       await Promise.all(payloads.map((item) => sendParentEmail(item.payload)))
       showToast({ title: 'Email sent successfully' })
 
-      void createCommunicationLog({
+      const playerId = evaluation.playerId || primaryPlayer?.id
+      await createCommunicationLog({
         user,
-        playerId: evaluation.playerId || primaryPlayer?.id,
+        playerId,
         evaluationId: evaluation.id,
         channel: 'email',
         action: 'parent_email_sent',
         recipientEmail: recipientEmails,
-      }).catch((error) => console.error(error))
+      })
+
+      if (playerId) {
+        const nextActivity = await getPlayerCommunicationLogs({ user, playerId })
+        setActivityLogs(nextActivity)
+      }
     } catch (error) {
       console.error(error)
       showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
@@ -1776,7 +1698,7 @@ export function PlayerProfile() {
 
       <SectionCard
         title="Staff notes and activity"
-        description="Internal notes and staff actions stay inside the club workspace. They are not added to parent PDFs."
+        description="Internal notes and staff actions stay inside the club workspace. They are not added to parent emails."
       >
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div>
@@ -1981,7 +1903,7 @@ export function PlayerProfile() {
                       <div className="hidden xl:block" />
                     )}
                     <div>
-                      <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">PDF recipients</span>
+                      <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email recipients</span>
                       {evaluationParentContacts.length > 0 ? (
                         <div className="space-y-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
                           {evaluationParentContacts.map((contact, index) => {
@@ -2016,7 +1938,7 @@ export function PlayerProfile() {
                           <div>
                             <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
                             <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                              Choose what goes into the parent email and PDF. This choice is saved in this browser for {routePlayerName}.
+                              Choose what goes into the parent email. This choice is saved in this browser for {routePlayerName}.
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -2076,33 +1998,6 @@ export function PlayerProfile() {
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadPdf(evaluation, 'scored')}
-                      disabled={pdfLoadingId === `${evaluation.id}:scored` || !canShare || !hasPlanFeature(user, 'pdfExport')}
-                      title="Download scored PDF"
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {pdfLoadingId === `${evaluation.id}:scored` ? 'Preparing...' : 'PDF With Scores'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadPdf(evaluation, 'without-scores')}
-                      disabled={pdfLoadingId === `${evaluation.id}:without-scores` || !canShare || !hasPlanFeature(user, 'pdfExport')}
-                      title="Download PDF without scores"
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {pdfLoadingId === `${evaluation.id}:without-scores` ? 'Preparing...' : 'PDF Without Scores'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadPdf(evaluation, 'email')}
-                      disabled={pdfLoadingId === `${evaluation.id}:email` || !canShare || !hasPlanFeature(user, 'pdfExport') || availableEmailTemplates.length === 0}
-                      title="Download email template PDF"
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {pdfLoadingId === `${evaluation.id}:email` ? 'Preparing...' : 'Email Template PDF'}
-                    </button>
                     {!isDemoAccount ? (
                       <button
                         type="button"
@@ -2131,7 +2026,7 @@ export function PlayerProfile() {
                         <div>
                           <p className="text-sm font-semibold text-[var(--text-primary)]">No place offered</p>
                           <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                            If this player is no longer needed, you can remove them from the system after preparing the parent PDF.
+                            If this player is no longer needed, you can remove them from the system after preparing the parent email.
                           </p>
                         </div>
                         <button
@@ -2274,7 +2169,7 @@ export function PlayerProfile() {
           `Subject: ${emailConfirmTarget?.payloads?.[0]?.payload?.subject || 'Player Feedback Report'}`,
           `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
-          `PDF attachment: Yes`,
+          `Attachment: Yes`,
           `Evaluation fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}
