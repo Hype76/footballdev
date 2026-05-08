@@ -62,6 +62,7 @@ import {
   formatParentContactNames,
   normalizeParentContacts,
   normalizePlayerContactType,
+  clearViewCaches,
   readViewCache,
   readViewCacheValue,
   updateEvaluation,
@@ -825,6 +826,7 @@ export function CreateEvaluationPage() {
         player.playerName === normalizedPlayerName &&
         (!formData.team || player.team === String(formData.team).trim()),
     )
+    const assessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
 
     return {
       ...(editingEvaluation || {}),
@@ -834,6 +836,7 @@ export function CreateEvaluationPage() {
       team: String(formData.team).trim(),
       teamId: matchingTeam?.id || '',
       section: formData.section,
+      assessmentSessionId,
       clubId: user?.clubId,
       coachId: user?.id,
       coach: String(user?.name || formData.coachName).trim(),
@@ -868,6 +871,7 @@ export function CreateEvaluationPage() {
     parentContacts,
     savedPlayers,
     scores,
+    searchParams,
     user,
   ])
 
@@ -1143,10 +1147,16 @@ export function CreateEvaluationPage() {
         return
       }
 
+      const savedEvaluation = editingEvaluation
+        ? await updateEvaluation(editingEvaluation.id, evaluation, user?.clubId)
+        : await createEvaluation(evaluation)
+
+      clearViewCaches()
+
       if (editingEvaluation) {
-        await updateEvaluation(editingEvaluation.id, evaluation, user?.clubId)
+        setEditingEvaluation(savedEvaluation)
       } else {
-        await createEvaluation(evaluation)
+        setOfflineDraftId(createLocalId())
       }
 
       removeDraft(offlineDraftId)
@@ -1208,7 +1218,7 @@ export function CreateEvaluationPage() {
                 responses: selectedResponseItems,
                 subject: renderedTemplate.subject,
                 emailBody: renderedTemplate.body,
-                evaluationId: editingEvaluation?.id || evaluation.id,
+                evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
               })
             })
             .filter(Boolean)
@@ -1291,9 +1301,7 @@ export function CreateEvaluationPage() {
 
       setLastSavedPlayerName(normalizedPlayerName)
       setSelectedParentContactIndexes([0])
-      if (editingEvaluation) {
-        setEditingEvaluation(evaluation)
-      } else {
+      if (!editingEvaluation) {
         setFormData(
           createInitialFormData(user, {
             playerName: queryPlayerName,
@@ -1307,7 +1315,6 @@ export function CreateEvaluationPage() {
       setLastUsedSession(nextSessionValue)
       setIsSaved(true)
       setOfflineStatusMessage('')
-      setOfflineDraftId(createLocalId())
     } catch (error) {
       console.error('Evaluation submit failed', error)
       setIsSaved(false)

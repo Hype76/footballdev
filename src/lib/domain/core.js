@@ -722,6 +722,7 @@ function normalizeEvaluationRow(row) {
     team: String(row.team ?? '').trim() || 'Unassigned Club',
     teamRequireApproval: Boolean(row.teamRequireApproval ?? row.team_require_approval ?? row.require_approval ?? true),
     section: String(row.section ?? row.evaluation_section ?? 'Trial').trim() || 'Trial',
+    assessmentSessionId: row.assessment_session_id ?? row.assessmentSessionId ?? '',
     clubId: row.club_id ?? row.clubId ?? '',
     coachId: row.coach_id ?? row.coachId ?? '',
     coach: String(row.coach ?? row.coach_name ?? '').trim() || 'Unknown Coach',
@@ -772,6 +773,7 @@ function mapEvaluationToRow(data) {
     team: data.team,
     team_id: data.teamId || null,
     section: data.section || 'Trial',
+    assessment_session_id: data.assessmentSessionId || data.assessment_session_id || null,
     club_id: data.clubId,
     coach_id: data.coachId,
     coach: data.coach,
@@ -5174,6 +5176,7 @@ export async function createEvaluation(data) {
         parentName: data.parentName,
         parentEmail: data.parentEmail,
       }),
+      contact_type: normalizePlayerContactType(data.contactType ?? data.contact_type ?? (data.isAdult || data.is_adult ? 'self' : 'parent')),
       ...(existingPlayer?.id
         ? {}
         : {
@@ -5232,6 +5235,9 @@ export async function createEvaluation(data) {
   }
 
   invalidateMemoryCacheByPrefix(`players:${data.clubId}:`)
+  invalidateMemoryCacheByPrefix(`evaluations:${data.clubId}:`)
+  invalidateMemoryCacheByPrefix(`assessment-sessions:${data.clubId}:`)
+  clearViewCaches()
   await createAuditLog({
     user: {
       id: data.coachId,
@@ -5275,6 +5281,11 @@ export async function updateEvaluation(id, data, clubId) {
     console.error(error)
     throw error
   }
+
+  invalidateMemoryCacheByPrefix(`players:${clubId}:`)
+  invalidateMemoryCacheByPrefix(`evaluations:${clubId}:`)
+  invalidateMemoryCacheByPrefix(`assessment-sessions:${clubId}:`)
+  clearViewCaches()
 
   return normalizeEvaluationRow(updatedRow)
 }

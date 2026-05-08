@@ -281,6 +281,7 @@ function getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, se
   }
 
   const sessionPlayerNames = new Set(sessionPlayers.map((player) => normalizeProgressName(player.playerName)).filter(Boolean))
+  const selectedSessionId = String(selectedSession.id ?? '').trim()
   const selectedSessionDate = normalizeSessionDateKey(selectedSession.sessionDate)
   const selectedTeam = String(selectedSession.team ?? '').trim().toLowerCase()
 
@@ -292,6 +293,12 @@ function getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, se
 
           if (!sessionPlayerNames.has(playerName)) {
             return false
+          }
+
+          const evaluationSessionId = String(evaluation.assessmentSessionId ?? evaluation.assessment_session_id ?? '').trim()
+
+          if (selectedSessionId && evaluationSessionId) {
+            return selectedSessionId === evaluationSessionId
           }
 
           const evaluationSessionDate = normalizeSessionDateKey(evaluation.session || evaluation.date)
@@ -317,11 +324,18 @@ function getAssessmentCountForSession(evaluations, selectedSession) {
     return 0
   }
 
+  const selectedSessionId = String(selectedSession.id ?? '').trim()
   const selectedSessionDate = normalizeSessionDateKey(selectedSession.sessionDate)
   const selectedTeamId = String(selectedSession.teamId ?? '').trim()
   const selectedTeam = String(selectedSession.team ?? '').trim().toLowerCase()
 
   return evaluations.filter((evaluation) => {
+    const evaluationSessionId = String(evaluation.assessmentSessionId ?? evaluation.assessment_session_id ?? '').trim()
+
+    if (selectedSessionId && evaluationSessionId) {
+      return selectedSessionId === evaluationSessionId
+    }
+
     const evaluationSessionDate = normalizeSessionDateKey(evaluation.session || evaluation.date)
     const evaluationTeamId = String(evaluation.teamId ?? '').trim()
     const evaluationTeam = String(evaluation.team ?? '').trim().toLowerCase()
@@ -421,9 +435,7 @@ export function SessionsPage() {
     const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
     const localCompletedPlayerNames = readCompletedPlayerNames(user, selectedSessionId)
 
-    return dbCompletedPlayerNames.length > 0
-      ? dbCompletedPlayerNames
-      : localCompletedPlayerNames
+    return [...new Set([...dbCompletedPlayerNames, ...localCompletedPlayerNames])]
   }, [evaluations, selectedSession, selectedSessionId, sessionPlayers, user])
   const previousSessions = useMemo(
     () => combinedSessions.filter((session) => session.id !== selectedSessionId),
