@@ -78,6 +78,7 @@ export function TeamManagementPage() {
   const [coachForm, setCoachForm] = useState(initialCoachForm)
   const [selectedTeamId, setSelectedTeamId] = useState('')
   const [staffToAddId, setStaffToAddId] = useState('')
+  const [staffSearch, setStaffSearch] = useState('')
   const [teamPage, setTeamPage] = useState(1)
   const [staffPage, setStaffPage] = useState(1)
   const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
@@ -222,12 +223,33 @@ export function TeamManagementPage() {
                 return false
               }
 
-              const assignedTeamIds = staffAssignedTeamIds.get(String(member.id)) ?? []
-              return assignedTeamIds.length === 0
+              return true
             })
             .sort((left, right) => getStaffDisplayName(left).localeCompare(getStaffDisplayName(right)))
         : [],
-    [selectedTeam, selectedTeamStaffEmails, staffAssignedTeamIds, users],
+    [selectedTeam, selectedTeamStaffEmails, users],
+  )
+  const filteredAvailableStaffForSelectedTeam = useMemo(
+    () => {
+      const searchTerm = String(staffSearch ?? '').trim().toLowerCase()
+
+      if (!searchTerm) {
+        return availableStaffForSelectedTeam
+      }
+
+      return availableStaffForSelectedTeam.filter((member) => {
+        const searchableText = [
+          getStaffDisplayName(member),
+          member.email,
+          getRoleLabel(member),
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        return searchableText.includes(searchTerm)
+      })
+    },
+    [availableStaffForSelectedTeam, staffSearch],
   )
   const paginatedTeams = useMemo(
     () => getPaginatedItems(teamAssignments, teamPage, TEAM_PAGE_SIZE),
@@ -864,8 +886,20 @@ export function TeamManagementPage() {
                 <div className="mt-5 rounded-[20px] border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">Add existing staff</p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    Staff already assigned to another team are hidden here to prevent cross-team access.
+                    Search club staff, then add the selected person to this team.
                   </p>
+                  <div className="mt-3 grid gap-3">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Search staff</span>
+                      <input
+                        type="search"
+                        value={staffSearch}
+                        onChange={(event) => setStaffSearch(event.target.value)}
+                        placeholder="Search by name, email, or role"
+                        className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      />
+                    </label>
+                  </div>
                   <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                     <select
                       value={staffToAddId}
@@ -873,7 +907,7 @@ export function TeamManagementPage() {
                       className="min-h-11 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                     >
                       <option value="">Select staff member</option>
-                      {availableStaffForSelectedTeam.map((member) => (
+                      {filteredAvailableStaffForSelectedTeam.map((member) => (
                         <option key={member.id} value={member.id}>
                           {getStaffDisplayName(member)} | {member.email} | {getRoleLabel(member)}
                         </option>
