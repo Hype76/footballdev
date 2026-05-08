@@ -1,6 +1,30 @@
+import { formatUkDate } from './date-format.js'
+
 function normalizeText(value, fallback = '') {
   const normalizedValue = String(value ?? '').trim()
   return normalizedValue || fallback
+}
+
+export function splitPlayerName(playerName = '') {
+  const normalizedName = normalizeText(playerName)
+
+  if (!normalizedName) {
+    return {
+      playerName: '',
+      playerFirstName: '',
+      playerLastName: '',
+    }
+  }
+
+  const nameParts = normalizedName.split(/\s+/).filter(Boolean)
+  const playerFirstName = nameParts[0] || normalizedName
+  const playerLastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : playerFirstName
+
+  return {
+    playerName: normalizedName,
+    playerFirstName,
+    playerLastName,
+  }
 }
 
 function formatSessionLabel(session) {
@@ -16,12 +40,23 @@ function formatSessionLabel(session) {
     return normalizedValue
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(parsedDate)
+  return formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
+}
+
+function formatTemplateDateValue(value) {
+  const normalizedValue = normalizeText(value)
+
+  if (!normalizedValue) {
+    return ''
+  }
+
+  const parsedDate = new Date(normalizedValue)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return normalizedValue
+  }
+
+  return formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
 }
 
 function formatCurrentSessionPhrase(session) {
@@ -50,7 +85,9 @@ export const EMAIL_TEMPLATE_AUDIENCES = {
 export const EMAIL_TEMPLATE_FIELDS = [
   { key: 'recipientName', label: 'Recipient name' },
   { key: 'parentName', label: 'Parent name' },
-  { key: 'playerName', label: 'Player name' },
+  { key: 'playerName', label: 'Player full name' },
+  { key: 'playerFirstName', label: 'Player first name' },
+  { key: 'playerLastName', label: 'Player last name' },
   { key: 'coachName', label: 'Coach name' },
   { key: 'clubName', label: 'Club name' },
   { key: 'teamName', label: 'Team name' },
@@ -66,15 +103,15 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
     key: 'decline',
     label: 'No Place Offered',
     sectionAvailability: ['Trial'],
-    subject: 'Player Trial Feedback for {playerName}',
+    subject: 'Player Trial Feedback for {playerFirstName}',
     body: [
       'Dear {parentName},',
       '',
-      'Thank you so much for bringing {playerName} along to {session}. We really enjoyed having them involved.',
+      'Thank you so much for bringing {playerFirstName} along to {session}. We really enjoyed having them involved.',
       '',
-      'Unfortunately, on this occasion we will not be offering {playerName} a place in the squad. We had a very strong group trialling, which made it a tough decision.',
+      'Unfortunately, on this occasion we will not be offering {playerFirstName} a place in the squad. We had a very strong group trialling, which made it a tough decision.',
       '',
-      'We want to say how much we appreciated {playerName} and their effort throughout, and we wish them all the very best for the upcoming season and their continued football journey.',
+      'We want to say how much we appreciated {playerFirstName} and their effort throughout, and we wish them all the very best for the upcoming season and their continued football journey.',
       '',
       'Thanks again for your time and support.',
       'Kind regards,',
@@ -86,15 +123,15 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
     key: 'progress',
     label: 'Invite Back',
     sectionAvailability: ['Trial'],
-    subject: 'Follow-up Trial Invitation for {playerName}',
+    subject: 'Follow-up Trial Invitation for {playerFirstName}',
     body: [
       'Dear {parentName},',
       '',
-      'Thank you for attending {session} with {playerName}. It was great to see them in action.',
+      'Thank you for attending {session} with {playerFirstName}. It was great to see them in action.',
       '',
       'We saw some really positive things and would love to invite them back for another session so we can take a further look.',
       '',
-      'We would also like to invite {playerName} to take part in a friendly match with us on {inviteDate}. This will give us a chance to see them in a match environment.',
+      'We would also like to invite {playerFirstName} to take part in a friendly match with us on {inviteDate}. This will give us a chance to see them in a match environment.',
       '',
       'Please let us know if they are available to attend both the session and the match.',
       '',
@@ -107,14 +144,14 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
     key: 'offer',
     label: 'Offer Place',
     sectionAvailability: ['Trial'],
-    subject: 'Squad Offer for {playerName}',
+    subject: 'Squad Offer for {playerFirstName}',
     body: [
       'Dear {parentName},',
       '',
       'Thank you for attending {session}.',
-      'We were really impressed with {playerName} and are delighted to offer them a place in our squad for the upcoming season.',
+      'We were really impressed with {playerFirstName} and are delighted to offer them a place in our squad for the upcoming season.',
       '',
-      'We would also like to invite {playerName} to join us for a friendly match on {inviteDate}. This will be a great opportunity for them to meet the team and get involved.',
+      'We would also like to invite {playerFirstName} to join us for a friendly match on {inviteDate}. This will be a great opportunity for them to meet the team and get involved.',
       '',
       'Please let us know if you would like to accept the place, and we will send over full details for next steps, training, and the season ahead.',
       '',
@@ -127,11 +164,11 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
     key: 'assessment',
     label: 'Send Assessment',
     sectionAvailability: ['Squad'],
-    subject: 'Player Feedback for {playerName}',
+    subject: 'Player Feedback for {playerFirstName}',
     body: [
       'Dear {parentName},',
       '',
-      'Please find the latest feedback report for {playerName}.',
+      'Please find the latest feedback report for {playerFirstName}.',
       '',
       '{summary}',
       '',
@@ -151,9 +188,9 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
     key: 'decline',
     label: 'No Place Offered',
     sectionAvailability: ['Trial'],
-    subject: 'Player Trial Feedback for {playerName}',
+    subject: 'Player Trial Feedback for {playerFirstName}',
     body: [
-      'Dear {playerName},',
+      'Dear {playerFirstName},',
       '',
       'Thank you so much for coming along to {session}. We really enjoyed having you involved.',
       '',
@@ -171,9 +208,9 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
     key: 'progress',
     label: 'Invite Back',
     sectionAvailability: ['Trial'],
-    subject: 'Follow-up Trial Invitation for {playerName}',
+    subject: 'Follow-up Trial Invitation for {playerFirstName}',
     body: [
-      'Dear {playerName},',
+      'Dear {playerFirstName},',
       '',
       'Thank you for attending {session}. It was great to see you in action.',
       '',
@@ -192,9 +229,9 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
     key: 'offer',
     label: 'Offer Place',
     sectionAvailability: ['Trial'],
-    subject: 'Squad Offer for {playerName}',
+    subject: 'Squad Offer for {playerFirstName}',
     body: [
-      'Dear {playerName},',
+      'Dear {playerFirstName},',
       '',
       'Thank you for attending {session}.',
       'We were really impressed with you and are delighted to offer you a place in our squad for the upcoming season.',
@@ -212,9 +249,9 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
     key: 'assessment',
     label: 'Send Assessment',
     sectionAvailability: ['Squad'],
-    subject: 'Player Feedback for {playerName}',
+    subject: 'Player Feedback for {playerFirstName}',
     body: [
-      'Dear {playerName},',
+      'Dear {playerFirstName},',
       '',
       'Please find your latest feedback report.',
       '',
@@ -336,12 +373,23 @@ export function renderParentEmailTemplate(template, fields = {}) {
     }
   }
 
+  const playerNameFields = splitPlayerName(fields.playerName)
+  const templateFields = {
+    ...playerNameFields,
+    ...fields,
+    playerName: normalizeText(fields.playerName || playerNameFields.playerName),
+    playerFirstName: normalizeText(fields.playerFirstName || playerNameFields.playerFirstName),
+    playerLastName: normalizeText(fields.playerLastName || playerNameFields.playerLastName),
+    session: formatTemplateDateValue(fields.session),
+    inviteDate: formatTemplateDateValue(fields.inviteDate),
+  }
+
   return {
     key: template.key,
     audience: normalizeEmailTemplateAudience(template.audience),
     label: template.label || getParentEmailTemplateLabel(template.key),
-    subject: renderTemplateText(template.subject, fields),
-    body: renderTemplateText(template.body, fields),
+    subject: renderTemplateText(template.subject, templateFields),
+    body: renderTemplateText(template.body, templateFields),
   }
 }
 
