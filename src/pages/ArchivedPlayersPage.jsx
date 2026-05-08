@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { canCreateEvaluation, useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
+  deletePlayerRecord,
   getPlayers,
   readViewCache,
   readViewCacheValue,
@@ -38,6 +40,9 @@ export function ArchivedPlayersPage() {
   const [playerPage, setPlayerPage] = useState(1)
   const [isLoading, setIsLoading] = useState(() => players.length === 0)
   const [isRestoringId, setIsRestoringId] = useState('')
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
@@ -104,6 +109,19 @@ export function ArchivedPlayersPage() {
     [filteredPlayers, playerPage],
   )
 
+  const selectedPlayers = useMemo(() => {
+    const selectedIds = new Set(selectedPlayerIds)
+    return players.filter((player) => selectedIds.has(player.id))
+  }, [players, selectedPlayerIds])
+
+  const deleteTargetPlayers = useMemo(() => {
+    if (!deleteTarget) {
+      return []
+    }
+
+    return deleteTarget.mode === 'all' ? players : selectedPlayers
+  }, [deleteTarget, players, selectedPlayers])
+
   if (!canCreateEvaluation(user)) {
     return <Navigate to="/" replace />
   }
@@ -118,12 +136,77 @@ export function ArchivedPlayersPage() {
       const nextPlayers = players.filter((currentPlayer) => currentPlayer.id !== player.id)
       setPlayers(nextPlayers)
       writeViewCache(cacheKey, { players: nextPlayers })
+      setSelectedPlayerIds((currentIds) => currentIds.filter((playerId) => playerId !== player.id))
       setMessage(`${player.playerName} was restored to active players.`)
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not restore this player.')
     } finally {
       setIsRestoringId('')
+    }
+  }
+
+  const handleTogglePlayer = (playerId) => {
+    setSelectedPlayerIds((currentIds) =>
+      currentIds.includes(playerId)
+        ? currentIds.filter((currentId) => currentId !== playerId)
+        : [...currentIds, playerId],
+    )
+  }
+
+  const openDeleteModal = (mode) => {
+    if (mode === 'selected' && selectedPlayerIds.length === 0) {
+      return
+    }
+
+    if (mode === 'all' && players.length === 0) {
+      return
+    }
+
+    setDeleteTarget({ mode })
+    setErrorMessage('')
+    setMessage('')
+  }
+
+  const confirmDeleteArchivedPlayers = async (password) => {
+    const playersToDelete = deleteTargetPlayers
+
+    if (playersToDelete.length === 0) {
+      setDeleteTarget(null)
+      return
+    }
+
+    setIsDeleting(true)
+    setErrorMessage('')
+    setMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user.email, password)
+      await Promise.all(
+        playersToDelete.map((player) =>
+          deletePlayerRecord({
+            user,
+            playerId: player.id,
+          }),
+        ),
+      )
+
+      const deletedIds = new Set(playersToDelete.map((player) => player.id))
+      const nextPlayers = players.filter((player) => !deletedIds.has(player.id))
+      setPlayers(nextPlayers)
+      setSelectedPlayerIds((currentIds) => currentIds.filter((playerId) => !deletedIds.has(playerId)))
+      writeViewCache(cacheKey, { players: nextPlayers })
+      setMessage(
+        playersToDelete.length === 1
+          ? `${playersToDelete[0].playerName} was deleted from archived players.`
+          : `${playersToDelete.length} players were deleted from archived players.`,
+      )
+      setDeleteTarget(null)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not delete archived players.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -146,6 +229,32 @@ export function ArchivedPlayersPage() {
         title="Archive"
         description="Archived players are hidden from active player lists, but remain retrievable here."
       >
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium text-[var(--text-muted)]">
+            {selectedPlayerIds.length > 0
+              ? `${selectedPlayerIds.length} selected`
+              : `${players.length} archived player${players.length === 1 ? '' : 's'}`}
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              disabled={selectedPlayerIds.length === 0 || isDeleting}
+              onClick={() => openDeleteModal('selected')}
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Delete selected
+            </button>
+            <button
+              type="button"
+              disabled={players.length === 0 || isDeleting}
+              onClick={() => openDeleteModal('all')}
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Clear all
+            </button>
+          </div>
+        </div>
+
         <label className="block">
           <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Search archived players</span>
           <input
@@ -172,7 +281,16 @@ export function ArchivedPlayersPage() {
           <div className="mt-5 grid gap-3">
             {paginatedPlayers.items.map((player) => (
               <div key={player.id} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <div className="grid gap-4 lg:grid-cols-5 lg:items-start">
+                <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
+                  <label className="flex items-start pt-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedPlayerIds.includes(player.id)}
+                      onChange={() => handleTogglePlayer(player.id)}
+                      className="h-5 w-5 rounded border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                      aria-label={`Select ${player.playerName}`}
+                    />
+                  </label>
                   <div className="md:col-span-2">
                     <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'} | {player.section || 'No section entered'}</p>
@@ -210,6 +328,23 @@ export function ArchivedPlayersPage() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        isBusy={isDeleting}
+        title={deleteTarget?.mode === 'all' ? 'Clear Archived Players' : 'Delete Archived Players'}
+        message={
+          deleteTarget?.mode === 'all'
+            ? 'This permanently deletes every player currently in archived players.'
+            : 'This permanently deletes the selected archived players.'
+        }
+        items={deleteTargetPlayers.map((player) => player.playerName)}
+        itemsTitle="This will delete:"
+        confirmLabel={deleteTarget?.mode === 'all' ? 'Clear All' : 'Delete Selected'}
+        requirePassword
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={(password) => void confirmDeleteArchivedPlayers(password)}
+      />
     </div>
   )
 }
