@@ -122,8 +122,7 @@ export function Topbar({ title, onMenuClick }) {
             ) : null}
             <InstallAppButton
               wrapperClassName="col-span-2 lg:hidden"
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--button-primary)] px-3 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
-              helpClassName="col-span-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-xs font-semibold leading-5 text-[var(--text-primary)] sm:max-w-56"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--button-primary)] px-3 py-3 text-sm font-semibold text-[var(--button-primary-text)]"
             />
             <Link
               to="/user-settings"
