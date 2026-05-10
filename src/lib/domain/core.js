@@ -6140,6 +6140,16 @@ export async function getPlatformStats(user) {
         recentEvaluations: evaluations.filter(isRecent).length,
         recentCommunications: sharedExports.filter(isRecent).length,
       },
+      platformAdmins: platformAdmins.map((member) => ({
+        id: member.id,
+        email: String(member.email ?? '').trim(),
+        name: String(member.name ?? member.username ?? '').trim(),
+        role: String(member.role ?? '').trim(),
+        roleLabel: String(member.role_label ?? '').trim() || 'Super Admin',
+        roleRank: Number(member.role_rank ?? 100),
+        status: String(member.status ?? 'active').trim() || 'active',
+        suspendedAt: member.suspended_at ?? '',
+      })),
       clubs: clubs.map((club) => {
         const clubUsers = users.filter((member) => member.club_id === club.id)
         const clubTeams = teams.filter((team) => team.club_id === club.id)

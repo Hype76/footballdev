@@ -75,6 +75,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(() => feedbackItems.length === 0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isSavingClub, setIsSavingClub] = useState(false)
+  const [isSavingPlatformAdmin, setIsSavingPlatformAdmin] = useState(false)
   const [updatingClubId, setUpdatingClubId] = useState('')
   const [updatingTeamId, setUpdatingTeamId] = useState('')
   const [updatingUserId, setUpdatingUserId] = useState('')
@@ -85,6 +86,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     name: '',
     contactEmail: '',
     contactPhone: '',
+  })
+  const [platformAdminForm, setPlatformAdminForm] = useState({
+    name: '',
+    email: '',
+    password: '',
   })
 
   useEffect(() => {
@@ -274,6 +280,51 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     }))
     setErrorMessage('')
     setSuccessMessage('')
+  }
+
+  const handlePlatformAdminChange = (fieldName, value) => {
+    setPlatformAdminForm((current) => ({
+      ...current,
+      [fieldName]: value,
+    }))
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const handleCreatePlatformAdmin = async (event) => {
+    event.preventDefault()
+    setIsSavingPlatformAdmin(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const response = await fetch('/.netlify/functions/manage-platform-admin-staff', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(platformAdminForm),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Platform admin staff could not be saved.')
+      }
+
+      setPlatformAdminForm({
+        name: '',
+        email: '',
+        password: '',
+      })
+      setSuccessMessage('Platform admin staff user saved.')
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Platform admin staff could not be saved.')
+    } finally {
+      setIsSavingPlatformAdmin(false)
+    }
   }
 
   const handleCreateClub = async (event) => {
@@ -533,6 +584,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   ]
   const suspendedClubs = (stats?.clubs ?? []).filter((club) => club.status === 'suspended').length
   const compedClubs = (stats?.clubs ?? []).filter((club) => club.isPlanComped).length
+  const platformAdmins = stats?.platformAdmins ?? []
   const clubManagementStats = [
     {
       label: 'Club workspaces',
@@ -668,6 +720,94 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <SectionCard
+              title="Platform admin staff"
+              description="Create owner level staff accounts for trusted platform operators."
+            >
+              <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+                <form className="grid gap-4" onSubmit={handleCreatePlatformAdmin}>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Name</span>
+                    <input
+                      type="text"
+                      value={platformAdminForm.name}
+                      onChange={(event) => handlePlatformAdminChange('name', event.target.value)}
+                      placeholder="Staff member name"
+                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email</span>
+                    <input
+                      type="email"
+                      value={platformAdminForm.email}
+                      onChange={(event) => handlePlatformAdminChange('email', event.target.value)}
+                      required
+                      placeholder="admin@example.com"
+                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Temporary password</span>
+                    <input
+                      type="password"
+                      value={platformAdminForm.password}
+                      onChange={(event) => handlePlatformAdminChange('password', event.target.value)}
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={isSavingPlatformAdmin}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSavingPlatformAdmin ? 'Saving...' : 'Add Platform Admin'}
+                  </button>
+                  <p className="text-sm leading-6 text-[var(--text-muted)]">
+                    This creates or promotes the account to platform admin access on this environment.
+                  </p>
+                </form>
+
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Current platform admins</p>
+                  <div className="mt-3 space-y-2">
+                    {platformAdmins.length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+                        No platform admins found.
+                      </p>
+                    ) : (
+                      platformAdmins.map((admin) => (
+                        <div key={admin.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-semibold text-[var(--text-primary)]">
+                                {admin.name || 'No name entered'}
+                              </p>
+                              <p className="mt-1 break-words text-sm text-[var(--text-muted)]">{admin.email}</p>
+                            </div>
+                            <span
+                              className={[
+                                'inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]',
+                                admin.status === 'suspended'
+                                  ? 'bg-red-500/15 text-red-300'
+                                  : 'bg-[var(--button-primary)] text-[var(--button-primary-text)]',
+                              ].join(' ')}
+                            >
+                              {admin.status === 'suspended' ? 'Suspended' : 'Active'}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+
             <SectionCard
               title="Plan mix"
               description="How active club workspaces are currently distributed."
