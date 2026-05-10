@@ -2,9 +2,12 @@ import { StatusPill } from '../ui/StatusPill.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function PlatformAdminStaffSection({
+  currentUserId,
+  deletingAdminId,
   form,
   isSaving,
   onChange,
+  onDelete,
   onSubmit,
   platformAdmins,
 }) {
@@ -69,7 +72,10 @@ export function PlatformAdminStaffSection({
                 No platform admins found.
               </p>
             ) : (
-              platformAdmins.map((admin) => (
+              platformAdmins.map((admin) => {
+                const isCurrentUser = String(admin.id) === String(currentUserId)
+
+                return (
                 <div key={admin.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
@@ -78,10 +84,22 @@ export function PlatformAdminStaffSection({
                       </p>
                       <p className="mt-1 break-words text-sm text-[var(--text-muted)]">{admin.email}</p>
                     </div>
-                    <StatusPill status={admin.status} />
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                      <StatusPill status={admin.status} />
+                      <button
+                        type="button"
+                        disabled={isCurrentUser || deletingAdminId === admin.id}
+                        title={isCurrentUser ? 'You cannot delete your own platform admin account.' : 'Delete platform admin'}
+                        onClick={() => onDelete(admin)}
+                        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-xs font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {deletingAdminId === admin.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>

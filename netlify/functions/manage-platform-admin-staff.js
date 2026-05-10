@@ -188,13 +188,94 @@ async function createOrPromotePlatformAdmin(event, adminUser) {
   }
 }
 
+async function deletePlatformAdmin(event, adminUser) {
+  const body = JSON.parse(event.body || '{}')
+  const targetUserId = String(body.targetUserId ?? '').trim()
+
+  if (!targetUserId) {
+    throw new Error('Platform admin ID is required.')
+  }
+
+  if (targetUserId === adminUser.id) {
+    throw new Error('You cannot delete your own platform admin account.')
+  }
+
+  const { data: targetUser, error: targetUserError } = await supabaseAdmin
+    .from('users')
+    .select('id, email, name, role')
+    .eq('id', targetUserId)
+    .eq('role', 'super_admin')
+    .maybeSingle()
+
+  if (targetUserError) {
+    throw targetUserError
+  }
+
+  if (!targetUser?.id) {
+    throw new Error('Platform admin user was not found.')
+  }
+
+  const platformDelete = await supabaseAdmin
+    .from('platform_admins')
+    .delete()
+    .eq('id', targetUser.id)
+
+  if (platformDelete.error && platformDelete.error.code !== '42P01') {
+    throw platformDelete.error
+  }
+
+  const userDelete = await supabaseAdmin
+    .from('users')
+    .delete()
+    .eq('id', targetUser.id)
+    .eq('role', 'super_admin')
+
+  if (userDelete.error) {
+    throw userDelete.error
+  }
+
+  const authDelete = await supabaseAdmin.auth.admin.deleteUser(targetUser.id)
+
+  if (authDelete.error) {
+    throw authDelete.error
+  }
+
+  await supabaseAdmin.from('audit_logs').insert({
+    actor_id: adminUser.id,
+    actor_email: adminUser.email,
+    actor_role: adminUser.role,
+    actor_role_rank: 100,
+    action: 'platform_admin_deleted',
+    entity_type: 'user',
+    entity_id: targetUser.id,
+    metadata: {
+      email: targetUser.email,
+      name: targetUser.name,
+      role: 'super_admin',
+    },
+  })
+
+  return {
+    id: targetUser.id,
+    email: targetUser.email,
+    name: targetUser.name,
+  }
+}
+
 export async function handler(event) {
-  if (event.httpMethod !== 'POST') {
+  if (!['POST', 'DELETE'].includes(event.httpMethod)) {
     return json(405, { success: false, message: 'Method not allowed' })
   }
 
   try {
     const adminUser = await getAuthenticatedSuperAdmin(event)
+
+    if (event.httpMethod === 'DELETE') {
+      const deletedPlatformAdmin = await deletePlatformAdmin(event, adminUser)
+
+      return json(200, { success: true, platformAdmin: deletedPlatformAdmin })
+    }
+
     const platformAdmin = await createOrPromotePlatformAdmin(event, adminUser)
 
     return json(200, { success: true, platformAdmin })

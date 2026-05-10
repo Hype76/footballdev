@@ -64,6 +64,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [feedbackPage, setFeedbackPage] = useState(1)
   const [clubPage, setClubPage] = useState(1)
   const [feedbackDeleteTarget, setFeedbackDeleteTarget] = useState(null)
+  const [platformAdminDeleteTarget, setPlatformAdminDeleteTarget] = useState(null)
   const [clubDeleteTarget, setClubDeleteTarget] = useState(null)
   const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
   const [accountActionTarget, setAccountActionTarget] = useState(null)
@@ -72,6 +73,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [isSavingClub, setIsSavingClub] = useState(false)
   const [isSavingPlatformAdmin, setIsSavingPlatformAdmin] = useState(false)
+  const [deletingPlatformAdminId, setDeletingPlatformAdminId] = useState('')
   const [updatingClubId, setUpdatingClubId] = useState('')
   const [updatingTeamId, setUpdatingTeamId] = useState('')
   const [updatingUserId, setUpdatingUserId] = useState('')
@@ -320,6 +322,51 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       setErrorMessage(error.message || 'Platform admin staff could not be saved.')
     } finally {
       setIsSavingPlatformAdmin(false)
+    }
+  }
+
+  const handleDeletePlatformAdmin = (platformAdmin) => {
+    setPlatformAdminDeleteTarget(platformAdmin)
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const confirmDeletePlatformAdmin = async (password) => {
+    if (!platformAdminDeleteTarget?.id) {
+      return
+    }
+
+    setDeletingPlatformAdminId(platformAdminDeleteTarget.id)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await verifyCurrentUserPassword(user.email, password)
+
+      const response = await fetch('/.netlify/functions/manage-platform-admin-staff', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          targetUserId: platformAdminDeleteTarget.id,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Platform admin staff user could not be deleted.')
+      }
+
+      setSuccessMessage('Platform admin staff user deleted.')
+      refreshStats()
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Platform admin staff user could not be deleted.')
+    } finally {
+      setDeletingPlatformAdminId('')
+      setPlatformAdminDeleteTarget(null)
     }
   }
 
@@ -578,9 +625,12 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <PlatformAdminStaffSection
+              currentUserId={user?.id}
+              deletingAdminId={deletingPlatformAdminId}
               form={platformAdminForm}
               isSaving={isSavingPlatformAdmin}
               onChange={handlePlatformAdminChange}
+              onDelete={handleDeletePlatformAdmin}
               onSubmit={handleCreatePlatformAdmin}
               platformAdmins={platformAdmins}
             />
@@ -669,6 +719,22 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           visibleClubs={visibleClubs}
         />
       ) : null}
+
+      <ConfirmModal
+        isOpen={Boolean(platformAdminDeleteTarget)}
+        isBusy={Boolean(deletingPlatformAdminId)}
+        title="Delete platform admin"
+        message="This removes platform admin access and deletes the linked sign-in account for this environment."
+        items={[
+          `Name: ${platformAdminDeleteTarget?.name || 'No name entered'}`,
+          `Email: ${platformAdminDeleteTarget?.email || 'No email entered'}`,
+          'Platform admin profile and sign-in access will be removed.',
+        ]}
+        confirmLabel="Delete Admin"
+        onCancel={() => setPlatformAdminDeleteTarget(null)}
+        requirePassword
+        onConfirm={(password) => void confirmDeletePlatformAdmin(password)}
+      />
 
       <ConfirmModal
         isOpen={Boolean(feedbackDeleteTarget)}
