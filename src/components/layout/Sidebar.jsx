@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { primaryNavigation } from '../../app/navigation.js'
 import {
@@ -266,6 +266,13 @@ export function Sidebar({ isOpen, onClose }) {
             >
               How to use
             </NavLink>
+            <Link
+              to="/information#release-notes"
+              onClick={onClose}
+              className="mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold text-[var(--text-muted)] transition hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]"
+            >
+              Release notes
+            </Link>
           </div>
           {!isSuperAdmin(user) && canAccessPlatformFeedback ? (
             <div className="mb-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">

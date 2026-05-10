@@ -503,6 +503,7 @@ export function AuthProvider({ children }) {
 
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      setClubOptions(result.user.clubOptions ?? [])
       setTeamOptions([])
       setHasPlatformAdminAccess(true)
       setUser(result.user)

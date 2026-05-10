@@ -364,6 +364,7 @@ export async function selectUserClub(authUser, clubId) {
   const data = await applyActiveMembership(authUser, selectedMembership)
   return normalizeUserProfile({
     ...data,
+    clubOptions: memberships,
     clubs: {
       name: selectedMembership.clubName,
       logo_url: selectedMembership.clubLogoUrl,

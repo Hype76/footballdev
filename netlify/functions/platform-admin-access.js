@@ -22,6 +22,52 @@ function getDisplayName(authUser, profile = null) {
   ).trim()
 }
 
+function normalizeClubMembershipRow(row) {
+  const club = Array.isArray(row?.clubs) ? row.clubs[0] : row?.clubs
+
+  return {
+    id: row?.id,
+    authUserId: row?.auth_user_id ?? '',
+    email: normalizeEmail(row?.email),
+    username: String(row?.username ?? '').trim(),
+    name: String(row?.name ?? '').trim(),
+    role: String(row?.role ?? '').trim(),
+    roleLabel: String(row?.role_label ?? '').trim(),
+    roleRank: Number(row?.role_rank ?? 0),
+    clubId: row?.club_id ?? '',
+    clubName: String(club?.name ?? '').trim(),
+    clubLogoUrl: String(club?.logo_url ?? '').trim(),
+    clubContactEmail: String(club?.contact_email ?? '').trim(),
+    clubContactPhone: String(club?.contact_phone ?? '').trim(),
+    clubStatus: String(club?.status ?? 'active').trim() || 'active',
+    clubSuspendedAt: club?.suspended_at ?? '',
+    planKey: String(club?.plan_key ?? 'small_club').trim() || 'small_club',
+    planStatus: String(club?.plan_status ?? 'active').trim() || 'active',
+    isPlanComped: Boolean(club?.is_plan_comped ?? false),
+    requireApproval: Boolean(club?.require_approval ?? true),
+  }
+}
+
+async function getUserClubMemberships(authUser) {
+  const email = normalizeEmail(authUser?.email)
+
+  if (!authUser?.id && !email) {
+    return []
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('user_club_memberships')
+    .select('*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped)')
+    .or(`auth_user_id.eq.${authUser.id},email.eq.${email}`)
+    .order('created_at', { ascending: true })
+
+  if (error && error.code !== '42P01') {
+    throw error
+  }
+
+  return (data ?? []).map(normalizeClubMembershipRow)
+}
+
 async function getAuthenticatedUser(event) {
   const token = getBearerToken(event)
 
@@ -92,6 +138,7 @@ async function getPlatformAdmin(authUser) {
 async function switchToPlatformAdmin(authUser, platformAdmin) {
   const name = platformAdmin.name || getDisplayName(authUser)
   const email = platformAdmin.email || normalizeEmail(authUser.email)
+  const clubOptions = await getUserClubMemberships(authUser)
 
   const { data, error } = await supabaseAdmin
     .from('users')
@@ -132,6 +179,7 @@ async function switchToPlatformAdmin(authUser, platformAdmin) {
     suspendedAt: data.suspended_at || '',
     clubId: '',
     clubName: 'Platform',
+    clubOptions,
   }
 }
 
