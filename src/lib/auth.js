@@ -316,6 +316,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [clubOptions, setClubOptions] = useState([])
   const [teamOptions, setTeamOptions] = useState([])
+  const [hasPlatformAdminAccess, setHasPlatformAdminAccess] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [authError, setAuthError] = useState('')
@@ -428,6 +429,36 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const getAccessToken = async () => {
+    const { data: sessionData } = await supabase.auth.getSession()
+    return sessionData?.session?.access_token || ''
+  }
+
+  const refreshPlatformAdminAccess = async () => {
+    const accessToken = await getAccessToken()
+
+    if (!accessToken) {
+      setHasPlatformAdminAccess(false)
+      return false
+    }
+
+    try {
+      const response = await fetch('/.netlify/functions/platform-admin-access', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      const result = await response.json().catch(() => ({}))
+      const nextHasAccess = Boolean(response.ok && result.success !== false && result.hasPlatformAdminAccess)
+      setHasPlatformAdminAccess(nextHasAccess)
+      return nextHasAccess
+    } catch (error) {
+      console.error(error)
+      setHasPlatformAdminAccess(false)
+      return false
+    }
+  }
+
   useEffect(() => {
     let isMounted = true
 
@@ -451,6 +482,7 @@ export function AuthProvider({ children }) {
       setUser(null)
       setClubOptions([])
       setTeamOptions([])
+      setHasPlatformAdminAccess(false)
       setIsProfileLoading(false)
       setAuthError('')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
@@ -492,6 +524,7 @@ export function AuthProvider({ children }) {
         if (profile?.requiresClubSelection) {
           setClubOptions(profile.clubOptions ?? [])
           setUser(null)
+          void refreshPlatformAdminAccess()
           setIsProfileLoading(false)
           setAuthError('')
           return
@@ -513,6 +546,7 @@ export function AuthProvider({ children }) {
         setUser((currentUser) =>
           areUsersEquivalent(currentUser, profileWithDemoPreview) ? currentUser : profileWithDemoPreview,
         )
+        void refreshPlatformAdminAccess()
         setIsProfileLoading(false)
         setAuthError('')
       } catch (error) {
@@ -678,6 +712,44 @@ export function AuthProvider({ children }) {
     })
   }
 
+  const selectPlatformAdmin = async () => {
+    const accessToken = await getAccessToken()
+
+    if (!accessToken) {
+      throw new Error('Login again before opening platform admin.')
+    }
+
+    setAuthError('')
+    setIsProfileLoading(true)
+
+    try {
+      const response = await fetch('/.netlify/functions/platform-admin-access', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false || !result.user) {
+        throw new Error(result.message || 'Platform admin access could not be opened.')
+      }
+
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      setClubOptions([])
+      setTeamOptions([])
+      setHasPlatformAdminAccess(true)
+      setUser(result.user)
+    } catch (error) {
+      console.error(error)
+      setAuthError(error.message || 'Platform admin access could not be opened.')
+      throw error
+    } finally {
+      setIsProfileLoading(false)
+    }
+  }
+
   const setDemoRolePreview = (roleKey) => {
     const nextRoleKey = String(roleKey ?? '')
 
@@ -761,6 +833,7 @@ export function AuthProvider({ children }) {
           setSession(signInData.session)
           setAuthUser(signInData.user)
           setUser(profile)
+          void refreshPlatformAdminAccess()
           if (profile?.clubId) {
             window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
           }
@@ -807,6 +880,7 @@ export function AuthProvider({ children }) {
       setAuthUser(data.user)
       const profileWithBilling = await claimStripeCheckoutForProfile(data.session, profile)
       setUser(profileWithBilling)
+      void refreshPlatformAdminAccess()
       if (profileWithBilling?.clubId) {
         window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profileWithBilling.clubId)
       }
@@ -900,6 +974,7 @@ export function AuthProvider({ children }) {
     user,
     clubOptions,
     teamOptions,
+    hasPlatformAdminAccess,
     isLoading,
     isProfileLoading,
     authError,
@@ -907,6 +982,7 @@ export function AuthProvider({ children }) {
     signUpWithClub,
     selectClub,
     selectTeam,
+    selectPlatformAdmin,
     refreshTeamSelection,
     resetPassword,
     signOut,

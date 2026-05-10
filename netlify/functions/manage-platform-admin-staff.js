@@ -150,6 +150,17 @@ async function createOrPromotePlatformAdmin(event, adminUser) {
     throw profileError
   }
 
+  await supabaseAdmin.from('platform_admins').upsert(
+    {
+      id: authUser.id,
+      email,
+      name,
+      status: 'active',
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' },
+  )
+
   await supabaseAdmin.from('audit_logs').insert({
     actor_id: adminUser.id,
     actor_email: adminUser.email,
