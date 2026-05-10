@@ -191,19 +191,19 @@ export function Layout() {
   const needsTeamSelection = clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
 
   return (
-    <WalkthroughProvider>
-      <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
-        <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
-          <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+    <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-          <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-72">
-            <Topbar
-              title={activeTitle}
-              onMenuClick={() => setIsSidebarOpen(true)}
-            />
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-72">
+          <Topbar
+            title={activeTitle}
+            onMenuClick={() => setIsSidebarOpen(true)}
+          />
 
-            <main className="flex-1 px-0 py-2 sm:px-4 sm:py-5 md:px-5 md:py-6 xl:px-8">
-              <div className="mx-auto w-full max-w-7xl">
+          <main className="flex-1 px-0 py-2 sm:px-4 sm:py-5 md:px-5 md:py-6 xl:px-8">
+            <div className="mx-auto w-full max-w-7xl">
+              <WalkthroughProvider>
                 <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:border sm:p-5 md:p-6">
                   {needsClubSelection ? (
                     <WorkspaceSelection
@@ -237,12 +237,12 @@ export function Layout() {
                     <Outlet />
                   )}
                 </div>
-              </div>
-            </main>
-          </div>
+              </WalkthroughProvider>
+            </div>
+          </main>
         </div>
       </div>
-    </WalkthroughProvider>
+    </div>
   )
 }
 
