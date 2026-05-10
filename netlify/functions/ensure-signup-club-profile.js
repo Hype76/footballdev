@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './_supabase.js'
-import { json } from './_stripe-billing.js'
+import { arePaymentsDisabled, json } from './_stripe-billing.js'
 import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
 
 const USER_PROFILE_SELECT = [
@@ -28,6 +28,7 @@ const USER_PROFILE_SELECT = [
 const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
 const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
 const FREE_PLAN_KEY = 'individual'
+const TEST_SIGNUP_PLAN_KEY = 'small_club'
 const TEAM_MANAGER_ROLE = {
   role: 'head_manager',
   roleLabel: 'Team Admin',
@@ -567,15 +568,16 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
   const email = normalizeEmail(authUser.email)
   const clubName = getSignupClubName(authUser, requestedClubName)
   const displayName = getDisplayName(authUser)
+  const testSignupWithoutPayment = arePaymentsDisabled()
   const testerAccessCode = await redeemTesterAccessCode(authUser, requestedAccessCode)
-  const checkoutRecord = testerAccessCode ? null : await getLatestCheckoutRecord(authUser)
-  const planKey = testerAccessCode?.plan_key || checkoutRecord?.plan_key || FREE_PLAN_KEY
+  const checkoutRecord = testerAccessCode || testSignupWithoutPayment ? null : await getLatestCheckoutRecord(authUser)
+  const planKey = testerAccessCode?.plan_key || (testSignupWithoutPayment ? TEST_SIGNUP_PLAN_KEY : checkoutRecord?.plan_key) || FREE_PLAN_KEY
   const planStatus = checkoutRecord?.plan_status || 'active'
   const signupRole = getSignupRole(planKey)
   const club = await insertClubWithUniqueName(clubName, {
     plan_key: planKey,
     plan_status: planStatus,
-    is_plan_comped: Boolean(testerAccessCode),
+    is_plan_comped: Boolean(testerAccessCode || testSignupWithoutPayment),
     stripe_customer_id: checkoutRecord?.stripe_customer_id || null,
     stripe_subscription_id: checkoutRecord?.stripe_subscription_id || null,
     stripe_price_id: checkoutRecord?.stripe_price_id || null,
@@ -658,6 +660,7 @@ async function repairExistingSignupWorkspace(authUser, existingProfile, body) {
   let club = await getClub(existingProfile.club_id)
   const checkoutRecord = await getLatestCheckoutRecord(authUser, club?.id)
   let profile = existingProfile
+  const testSignupWithoutPayment = arePaymentsDisabled()
 
   if (checkoutRecord?.id) {
     const previousPlanKey = club?.plan_key
@@ -689,7 +692,46 @@ async function repairExistingSignupWorkspace(authUser, existingProfile, body) {
       checkoutRecord?.id ||
       club?.is_plan_comped,
   )
-  const shouldRepairAsFree = club?.plan_key === 'small_club' && !hasBillingLink && hasPublicSignupClubMetadata(authUser)
+  const shouldRepairAsTestComped = testSignupWithoutPayment && !hasBillingLink && hasPublicSignupClubMetadata(authUser)
+  const shouldRepairAsFree = !shouldRepairAsTestComped && club?.plan_key === 'small_club' && !hasBillingLink && hasPublicSignupClubMetadata(authUser)
+  if (shouldRepairAsTestComped) {
+    const { data: repairedClub, error: clubError } = await supabaseAdmin
+      .from('clubs')
+      .update({
+        plan_key: TEST_SIGNUP_PLAN_KEY,
+        plan_status: 'active',
+        is_plan_comped: true,
+        plan_updated_at: new Date().toISOString(),
+      })
+      .eq('id', club.id)
+      .select(CLUB_SELECT)
+      .single()
+
+    if (clubError) {
+      throw clubError
+    }
+
+    club = repairedClub
+
+    const clubAdminRole = getClubAdminRole()
+    const { data: repairedProfile, error: profileError } = await supabaseAdmin
+      .from('users')
+      .update({
+        role: clubAdminRole.role,
+        role_label: clubAdminRole.roleLabel,
+        role_rank: clubAdminRole.roleRank,
+      })
+      .eq('id', existingProfile.id)
+      .select(USER_PROFILE_SELECT)
+      .single()
+
+    if (profileError) {
+      throw profileError
+    }
+
+    profile = repairedProfile
+  }
+
   if (shouldRepairAsFree) {
     const { data: repairedClub, error: clubError } = await supabaseAdmin
       .from('clubs')

@@ -261,13 +261,25 @@ export function LoginPage() {
     }
 
     if (plan.name === 'Large Club') {
+      if (paymentsDisabled) {
+        setMode('signup')
+        setLocalMessage('Create a test club account. Payments are disabled on this test site.')
+        window.setTimeout(() => {
+          signupBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 0)
+        return
+      }
+
       setDemoPlan(plan)
       return
     }
 
     if (paymentsDisabled) {
-      setDemoPlan(plan)
-      setLocalMessage('Payments are disabled on this test site. Use Request Demo or a tester access code.')
+      setMode('signup')
+      setLocalMessage('Create a test club account. Payments are disabled on this test site.')
+      window.setTimeout(() => {
+        signupBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 0)
       return
     }
 
@@ -750,7 +762,7 @@ export function LoginPage() {
 
           {paymentsDisabled ? (
             <div className="mt-4 rounded-lg border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-5 py-4 text-sm font-bold text-[#d8ff2f]">
-              Payments are disabled on this test site.
+              Payments are disabled on this test site. New sign-ups create test club accounts without checkout.
             </div>
           ) : null}
 
@@ -824,9 +836,9 @@ export function LoginPage() {
                         isSubmitting ? 'cursor-not-allowed opacity-60' : '',
                       ].join(' ')}
                     >
-                      {plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' || paymentsDisabled ? 'Request Demo' : 'Choose Plan'}
+                      {paymentsDisabled ? 'Create Test Club' : plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' ? 'Request Demo' : 'Choose Plan'}
                     </button>
-                    {plan.name !== 'Individual' ? (
+                    {plan.name !== 'Individual' && !paymentsDisabled ? (
                       <button
                         type="button"
                         onClick={() => setDemoPlan(plan)}
