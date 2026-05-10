@@ -1355,6 +1355,37 @@ export async function getSessionStaffNotes({ user, sessionId, limit = 50 } = {})
   return attachStaffVoiceNoteUrls((data ?? []).map(normalizePlayerStaffNoteRow))
 }
 
+export async function deletePlayerStaffNote({ noteId } = {}) {
+  const normalizedNoteId = String(noteId ?? '').trim()
+
+  if (!normalizedNoteId) {
+    throw new Error('Voice note ID is required.')
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+
+  if (!accessToken) {
+    throw new Error('Login again before deleting this voice note.')
+  }
+
+  const response = await fetch('/.netlify/functions/delete-staff-voice-note', {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ noteId: normalizedNoteId }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Voice note could not be deleted.')
+  }
+
+  return result
+}
+
 export async function updatePlayer({ user, playerId, player }) {
   await blockDemoMutation(user)
 

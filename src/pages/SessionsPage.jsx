@@ -46,6 +46,7 @@ import {
   createPlayerStaffNote,
   deleteAssessmentSession,
   deleteAssessmentSessionGame,
+  deletePlayerStaffNote,
   getEvaluations,
   getAssessmentSessionGames,
   getAssessmentSessionPlayers,
@@ -102,12 +103,14 @@ export function SessionsPage() {
   const [completeSessionTarget, setCompleteSessionTarget] = useState(null)
   const [deleteSessionTarget, setDeleteSessionTarget] = useState(null)
   const [deleteGameTarget, setDeleteGameTarget] = useState(null)
+  const [voiceNoteDeleteTarget, setVoiceNoteDeleteTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0 && teams.length === 0)
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
   const [isSessionGamesLoading, setIsSessionGamesLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [recordingTarget, setRecordingTarget] = useState(null)
   const [isSavingVoiceNote, setIsSavingVoiceNote] = useState(false)
+  const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
@@ -944,6 +947,28 @@ export function SessionsPage() {
     }
   }
 
+  const confirmDeleteVoiceNote = async () => {
+    if (!voiceNoteDeleteTarget?.id) {
+      return
+    }
+
+    setDeletingVoiceNoteId(voiceNoteDeleteTarget.id)
+    setErrorMessage('')
+
+    try {
+      await deletePlayerStaffNote({ noteId: voiceNoteDeleteTarget.id })
+      setSessionVoiceNotes((currentNotes) => currentNotes.filter((note) => note.id !== voiceNoteDeleteTarget.id))
+      showToast({ title: 'Voice note deleted', message: 'The voice note has been removed.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Voice note could not be deleted.')
+      showToast({ title: 'Voice note not deleted', message: error.message || 'Voice note could not be deleted.', tone: 'error' })
+    } finally {
+      setDeletingVoiceNoteId('')
+      setVoiceNoteDeleteTarget(null)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -1037,6 +1062,7 @@ export function SessionsPage() {
         isLoading={isSessionPlayersLoading}
         isSaving={isSaving}
         isSavingVoiceNote={isSavingVoiceNote}
+        deletingVoiceNoteId={deletingVoiceNoteId}
         onAssessAll={handleAssessAll}
         onAssessPlayer={(player) =>
           navigate(buildSessionAssessmentUrl({
@@ -1048,6 +1074,7 @@ export function SessionsPage() {
           }))
         }
         onClearSessionPlayers={handleClearSessionPlayers}
+        onDeleteVoiceNote={setVoiceNoteDeleteTarget}
         onPageChange={setSessionPlayerPage}
         onStartVoiceNote={handleStartVoiceNote}
         onStopVoiceNote={handleStopVoiceNote}
@@ -1060,6 +1087,20 @@ export function SessionsPage() {
         selectedSessionLocked={selectedSessionLocked}
         sessionPlayers={sessionPlayers}
         sessionVoiceNotes={sessionVoiceNotes}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(voiceNoteDeleteTarget)}
+        isBusy={Boolean(deletingVoiceNoteId)}
+        title="Delete voice note"
+        message="This removes the voice note and its audio file from this workspace."
+        items={[
+          `Voice note: ${voiceNoteDeleteTarget?.note || 'Selected voice note'}`,
+          `Created by: ${voiceNoteDeleteTarget?.userName || voiceNoteDeleteTarget?.userEmail || 'Staff'}`,
+        ]}
+        confirmLabel="Delete Voice Note"
+        onCancel={() => setVoiceNoteDeleteTarget(null)}
+        onConfirm={() => void confirmDeleteVoiceNote()}
       />
 
       <ConfirmModal

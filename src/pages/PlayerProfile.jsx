@@ -7,6 +7,7 @@ import { PlayerOverview } from '../components/players/PlayerOverview.jsx'
 import { PlayerProfileActions } from '../components/players/PlayerProfileActions.jsx'
 import { PlayerProfileModals } from '../components/players/PlayerProfileModals.jsx'
 import { PlayerStaffActivity } from '../components/players/PlayerStaffActivity.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
@@ -63,6 +64,7 @@ import {
   createCommunicationLog,
   createPlayerStaffNote,
   createEvaluation,
+  deletePlayerStaffNote,
   deleteEvaluation,
   getEvaluations,
   getPlayerCommunicationLogs,
@@ -110,6 +112,7 @@ export function PlayerProfile() {
   const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
   const [isSavingPlayer, setIsSavingPlayer] = useState(false)
   const [isSavingNote, setIsSavingNote] = useState(false)
+  const [deletingStaffNoteId, setDeletingStaffNoteId] = useState('')
   const [isPromotingId, setIsPromotingId] = useState('')
   const [isReassigningId, setIsReassigningId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
@@ -135,6 +138,7 @@ export function PlayerProfile() {
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState(null)
   const [noPlaceArchiveTarget, setNoPlaceArchiveTarget] = useState(null)
   const [evaluationDeleteTarget, setEvaluationDeleteTarget] = useState(null)
+  const [staffNoteDeleteTarget, setStaffNoteDeleteTarget] = useState(null)
   const [emailConfirmTarget, setEmailConfirmTarget] = useState(null)
   const [reassignConfirmTarget, setReassignConfirmTarget] = useState(null)
   const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
@@ -544,6 +548,28 @@ export function PlayerProfile() {
       setErrorMessage(error.message || 'Could not save staff note.')
     } finally {
       setIsSavingNote(false)
+    }
+  }
+
+  const confirmDeleteStaffNote = async () => {
+    if (!staffNoteDeleteTarget?.id) {
+      return
+    }
+
+    setDeletingStaffNoteId(staffNoteDeleteTarget.id)
+    setErrorMessage('')
+
+    try {
+      await deletePlayerStaffNote({ noteId: staffNoteDeleteTarget.id })
+      setStaffNotes((currentNotes) => currentNotes.filter((note) => note.id !== staffNoteDeleteTarget.id))
+      showToast({ title: 'Voice note deleted', message: 'The voice note has been removed.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Voice note could not be deleted.')
+      showToast({ title: 'Voice note not deleted', message: error.message || 'Voice note could not be deleted.', tone: 'error' })
+    } finally {
+      setDeletingStaffNoteId('')
+      setStaffNoteDeleteTarget(null)
     }
   }
 
@@ -1013,12 +1039,28 @@ export function PlayerProfile() {
 
       <PlayerStaffActivity
         activityLogs={activityLogs}
+        deletingNoteId={deletingStaffNoteId}
         isSavingNote={isSavingNote}
         noteDraft={noteDraft}
+        onDeleteNote={setStaffNoteDeleteTarget}
         onNoteChange={setNoteDraft}
         onSaveNote={() => void handleSaveStaffNote()}
         primaryPlayer={primaryPlayer}
         staffNotes={staffNotes}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(staffNoteDeleteTarget)}
+        isBusy={Boolean(deletingStaffNoteId)}
+        title="Delete voice note"
+        message="This removes the voice note and its audio file from this player profile."
+        items={[
+          `Voice note: ${staffNoteDeleteTarget?.note || 'Selected voice note'}`,
+          `Created by: ${staffNoteDeleteTarget?.userName || staffNoteDeleteTarget?.userEmail || 'Staff'}`,
+        ]}
+        confirmLabel="Delete Voice Note"
+        onCancel={() => setStaffNoteDeleteTarget(null)}
+        onConfirm={() => void confirmDeleteStaffNote()}
       />
 
       <PlayerEvaluationsHistory

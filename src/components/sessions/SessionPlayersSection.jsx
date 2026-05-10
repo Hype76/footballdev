@@ -12,6 +12,7 @@ export function SessionPlayersSection({
   onAssessAll,
   onAssessPlayer,
   onClearSessionPlayers,
+  onDeleteVoiceNote,
   onPageChange,
   onStartVoiceNote,
   onStopVoiceNote,
@@ -24,6 +25,7 @@ export function SessionPlayersSection({
   selectedSessionLocked,
   sessionPlayers,
   sessionVoiceNotes,
+  deletingVoiceNoteId,
 }) {
   return (
     <SectionCard
@@ -89,7 +91,12 @@ export function SessionPlayersSection({
             </div>
           </div>
 
-          <SessionVoiceNotes notes={sessionVoiceNotes} />
+          <SessionVoiceNotes
+            deletingVoiceNoteId={deletingVoiceNoteId}
+            notes={sessionVoiceNotes}
+            onDeleteVoiceNote={onDeleteVoiceNote}
+            selectedSessionLocked={selectedSessionLocked}
+          />
 
           {paginatedPlayers.items.map((player) => (
             <SessionPlayerCard
@@ -152,7 +159,7 @@ function TeamVoiceNoteButton({
   )
 }
 
-function SessionVoiceNotes({ notes }) {
+function SessionVoiceNotes({ deletingVoiceNoteId, notes, onDeleteVoiceNote, selectedSessionLocked }) {
   if (notes.length === 0) {
     return null
   }
@@ -162,7 +169,17 @@ function SessionVoiceNotes({ notes }) {
       <p className="text-sm font-semibold text-[var(--text-primary)]">Team voice notes</p>
       {notes.map((note) => (
         <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-          <p className="text-sm font-semibold text-[var(--text-primary)]">{note.note}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{note.note}</p>
+            <button
+              type="button"
+              disabled={selectedSessionLocked || deletingVoiceNoteId === note.id}
+              onClick={() => onDeleteVoiceNote(note)}
+              className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-xs font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deletingVoiceNoteId === note.id ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
           {note.audioUrl ? (
             <audio controls src={note.audioUrl} className="mt-3 w-full">
               Voice note audio

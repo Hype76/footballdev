@@ -2,6 +2,7 @@ export {
   archivePlayer,
   createCommunicationLog,
   createPlayerStaffNote,
+  deletePlayerStaffNote,
   createPlayer,
   deleteArchivedPlayers,
   deletePlayer,
