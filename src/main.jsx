@@ -22,10 +22,25 @@ registerSW({
   },
 })
 
+function TestSiteBanner() {
+  const isTestSite = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
+
+  if (!isTestSite) {
+    return null
+  }
+
+  return (
+    <div className="sticky top-0 z-[1000] border-b-2 border-[#7f1d1d] bg-[#dc2626] px-4 py-2 text-center text-sm font-black uppercase tracking-[0.22em] text-white shadow-lg shadow-black/25">
+      Test Site Only. Not Live.
+    </div>
+  )
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
       <ToastProvider>
+        <TestSiteBanner />
         <OfflineDraftSync />
         <GlobalInstallAppButton />
         <RouterProvider router={router} />
