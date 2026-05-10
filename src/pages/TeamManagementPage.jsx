@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
+import { Pagination } from '../components/ui/Pagination.jsx'
+import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { useToast } from '../components/ui/Toast.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import {
   canAssignRole,
   canManageTeamSettings,
@@ -629,37 +630,43 @@ export function TeamManagementPage() {
       <SectionCard
         title="Create team"
         description={
-          canCreateMoreTeams && canCreateMoreStaff
-            ? 'Teams become selectable in assessments once created here. You can add staff access from this page as well.'
-            : [!canCreateMoreTeams ? teamLimitMessage : '', !canCreateMoreStaff ? staffLimitMessage : '']
-                .filter(Boolean)
-                .join(' ')
+          canCreateMoreTeams
+            ? 'Teams become selectable in assessments once created here.'
+            : teamLimitMessage
         }
       >
-        <div className="grid gap-5 2xl:grid-cols-2">
-          <form className="space-y-3" onSubmit={handleCreateTeam}>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
-              <input
-                type="text"
-                value={newTeamName}
-                onChange={(event) => setNewTeamName(event.target.value)}
-                placeholder="U12 Blue"
-                required
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={isSaving || !canCreateMoreTeams}
-              title={canCreateMoreTeams ? undefined : teamLimitMessage}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              Add Team
-            </button>
-          </form>
+        <form className="max-w-xl space-y-3" onSubmit={handleCreateTeam}>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
+            <input
+              type="text"
+              value={newTeamName}
+              onChange={(event) => setNewTeamName(event.target.value)}
+              placeholder="U12 Blue"
+              required
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={isSaving || !canCreateMoreTeams}
+            title={canCreateMoreTeams ? undefined : teamLimitMessage}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            Add Team
+          </button>
+        </form>
+      </SectionCard>
 
-          <form className="space-y-3" onSubmit={handleCreateCoach}>
+      <SectionCard
+        title="Create staff login"
+        description={
+          canCreateMoreStaff
+            ? 'Create a staff login, choose the role, and give that login access to a team.'
+            : staffLimitMessage
+        }
+      >
+        <form className="space-y-3" onSubmit={handleCreateCoach}>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Staff email</span>
@@ -756,7 +763,6 @@ export function TeamManagementPage() {
               Add Staff Access
             </button>
           </form>
-        </div>
       </SectionCard>
 
       <SectionCard

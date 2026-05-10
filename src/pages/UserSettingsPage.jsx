@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { useToast } from '../components/ui/Toast.jsx'
-import { useWalkthrough } from '../components/walkthrough/WalkthroughProvider.jsx'
+import { useToast } from '../components/ui/toast-context.js'
+import { useWalkthrough } from '../components/walkthrough/walkthrough-context.js'
 import { getRoleLabel, isDemoAccount, useAuth } from '../lib/auth.js'
 import {
   requestLoginEmailChange,

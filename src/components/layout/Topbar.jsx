@@ -15,6 +15,13 @@ export function Topbar({ title, onMenuClick }) {
   const logoUrl = user?.clubLogoUrl || fallbackLogo
   const userLabel = user?.email || authUser?.email || user?.name || 'Loading user'
   const teamLabel = user?.activeTeamName ? `Team: ${user.activeTeamName}` : clubLabel
+  const workspaceContext = user?.role === 'super_admin'
+    ? 'Viewing platform admin tools'
+    : user?.activeTeamName
+      ? `Viewing team: ${user.activeTeamName}`
+      : canUseClubAdminView
+        ? 'Viewing club admin tools'
+        : 'Choose a team to continue'
 
   const handleSignOut = async () => {
     try {
@@ -82,6 +89,7 @@ export function Topbar({ title, onMenuClick }) {
             <h2 className="mt-1 truncate text-lg font-semibold tracking-tight text-[var(--text-primary)] sm:text-2xl">
               {title}
             </h2>
+            <p className="mt-1 truncate text-xs font-medium text-[var(--text-muted)]">{workspaceContext}</p>
           </div>
         </div>
 
@@ -128,7 +136,7 @@ export function Topbar({ title, onMenuClick }) {
                   {canUseClubAdminView ? <option value="">Club admin view</option> : <option value="">Select team</option>}
                   {teamOptions.map((team) => (
                     <option key={team.id} value={team.id}>
-                      {team.name}
+                      Team: {team.name}
                     </option>
                   ))}
                 </select>

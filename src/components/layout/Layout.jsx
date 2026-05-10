@@ -67,8 +67,12 @@ export function Layout() {
       return
     }
 
-    setThemeMode(normalizeThemeMode(user.themeMode || getStoredThemeMode()))
-    setThemeAccent(normalizeThemeAccent(user.themeAccent || getStoredThemeAccent()))
+    const timeoutId = window.setTimeout(() => {
+      setThemeMode(normalizeThemeMode(user.themeMode || getStoredThemeMode()))
+      setThemeAccent(normalizeThemeAccent(user.themeAccent || getStoredThemeAccent()))
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [user?.id, user?.themeAccent, user?.themeMode])
 
   useEffect(() => {
@@ -183,6 +187,9 @@ export function Layout() {
     }
   }
 
+  const needsClubSelection = clubOptions.length > 1
+  const needsTeamSelection = clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
+
   return (
     <WalkthroughProvider>
       <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
@@ -198,95 +205,81 @@ export function Layout() {
             <main className="flex-1 px-0 py-2 sm:px-4 sm:py-5 md:px-5 md:py-6 xl:px-8">
               <div className="mx-auto w-full max-w-7xl">
                 <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:border sm:p-5 md:p-6">
-                  <Outlet />
+                  {needsClubSelection ? (
+                    <WorkspaceSelection
+                      eyebrow="Choose Club"
+                      title="Which club do you want to open?"
+                      description="This email is linked to more than one club. Pick the club workspace you want to use for this session."
+                      error={clubSelectionError || authError}
+                      isLoading={isProfileLoading}
+                      options={clubOptions.map((option) => ({
+                        id: option.clubId,
+                        label: option.clubName || 'Unnamed club',
+                        meta: option.roleLabel || option.role || 'Club user',
+                      }))}
+                      onSelect={handleClubSelect}
+                    />
+                  ) : needsTeamSelection ? (
+                    <WorkspaceSelection
+                      eyebrow="Choose Team"
+                      title="Which team do you want to work with?"
+                      description="Your account is linked to more than one team. Pick the team workspace you want to use for player work in this session."
+                      error={clubSelectionError || authError}
+                      isLoading={isProfileLoading}
+                      options={teamOptions.map((option) => ({
+                        id: option.id,
+                        label: option.name || 'Unnamed team',
+                        meta: 'Team workspace',
+                      }))}
+                      onSelect={handleTeamSelect}
+                    />
+                  ) : (
+                    <Outlet />
+                  )}
                 </div>
               </div>
             </main>
           </div>
         </div>
-
-        {clubOptions.length > 1 ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
-          <div className="w-full max-w-xl rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Club</p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Which club do you want to open?</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-              This email is linked to more than one club. Pick the club workspace you want to use for this session.
-            </p>
-
-            <div className="mt-5 space-y-3">
-              {clubOptions.map((option) => (
-                <button
-                  key={option.clubId}
-                  type="button"
-                  onClick={() => handleClubSelect(option.clubId)}
-                  disabled={isProfileLoading}
-                  className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
-                      {option.clubName || 'Unnamed club'}
-                    </span>
-                    <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                      {option.roleLabel || option.role || 'Club user'}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold text-[var(--text-secondary)]">
-                    {isProfileLoading ? 'Opening...' : 'Open'}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {clubSelectionError || authError ? (
-              <div className="mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
-                {clubSelectionError || authError}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        ) : null}
-
-        {clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user) ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
-          <div className="w-full max-w-xl rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Team</p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Which team do you want to work with?</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-              Your account is linked to more than one team. Pick the team workspace you want to use for player work in this session.
-            </p>
-
-            <div className="mt-5 space-y-3">
-              {teamOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => handleTeamSelect(option.id)}
-                  disabled={isProfileLoading}
-                  className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
-                      {option.name || 'Unnamed team'}
-                    </span>
-                    <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                      Team workspace
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold text-[var(--text-secondary)]">Open</span>
-                </button>
-              ))}
-            </div>
-
-            {clubSelectionError || authError ? (
-              <div className="mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
-                {clubSelectionError || authError}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        ) : null}
       </div>
     </WalkthroughProvider>
+  )
+}
+
+function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, options, title }) {
+  return (
+    <div className="mx-auto max-w-3xl space-y-5 py-4 sm:py-8">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 sm:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">{eyebrow}</p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{description}</p>
+      </div>
+
+      <div className="space-y-3">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onSelect(option.id)}
+            disabled={isLoading}
+            className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">{option.label}</span>
+              <span className="mt-1 block text-xs text-[var(--text-muted)]">{option.meta}</span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold text-[var(--text-secondary)]">
+              {isLoading ? 'Opening...' : 'Open'}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {error ? (
+        <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+          {error}
+        </div>
+      ) : null}
+    </div>
   )
 }

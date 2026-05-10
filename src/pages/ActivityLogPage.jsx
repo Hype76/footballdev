@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
+import { Pagination } from '../components/ui/Pagination.jsx'
+import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewActivityLog, isSuperAdmin, useAuth } from '../lib/auth.js'

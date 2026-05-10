@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { Component, Suspense, lazy } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
@@ -188,11 +189,15 @@ function getDefaultWorkspacePath(user) {
     return '/teams'
   }
 
+  if (canCreateEvaluation(user)) {
+    return user.activeTeamId ? '/sessions' : '/add-player'
+  }
+
   if (canManageUsers(user)) {
     return '/user-access'
   }
 
-  return '/add-player'
+  return '/information'
 }
 
 function RedirectToWorkspaceHome({ user }) {

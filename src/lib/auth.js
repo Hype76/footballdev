@@ -632,6 +632,8 @@ export function AuthProvider({ children }) {
       isMounted = false
       subscription.unsubscribe()
     }
+  // Authentication bootstrap must run once. Functions it calls are scoped to this provider instance.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const signInWithPassword = async ({ email, password }) => {

@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { getPaginatedItems, Pagination } from '../components/ui/Pagination.jsx'
+import { Pagination } from '../components/ui/Pagination.jsx'
+import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { useToast } from '../components/ui/Toast.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,

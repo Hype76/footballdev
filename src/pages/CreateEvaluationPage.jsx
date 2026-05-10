@@ -6,7 +6,7 @@ import { EvaluationFieldInput } from '../components/evaluations/EvaluationFieldI
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
-import { useToast } from '../components/ui/Toast.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
@@ -254,7 +254,7 @@ export function CreateEvaluationPage() {
     setLastUsedSession(nextSessionValue)
     setOfflineDraftId(restoredOfflineDraftId || createLocalId())
     hasInitializedRef.current = true
-  }, [draftStorageKey, editingEvaluationId, searchParamsKey, user, userScopeKey])
+  }, [draftStorageKey, editingEvaluationId, searchParams, searchParamsKey, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -331,7 +331,7 @@ export function CreateEvaluationPage() {
     return () => {
       isMounted = false
     }
-  }, [isPlatformOwner, searchParamsKey, teamsCacheKey, user, userScopeKey])
+  }, [isPlatformOwner, searchParams, searchParamsKey, teamsCacheKey, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -396,7 +396,7 @@ export function CreateEvaluationPage() {
     return () => {
       isMounted = false
     }
-  }, [isPlatformOwner, searchParamsKey, user, userScopeKey])
+  }, [isPlatformOwner, searchParams, searchParamsKey, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true

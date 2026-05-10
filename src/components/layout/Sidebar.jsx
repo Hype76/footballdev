@@ -144,9 +144,16 @@ export function Sidebar({ isOpen, onClose }) {
                 key={item.path}
                 type="button"
                 title={item.disabledMessage}
-                className="block min-h-11 w-full cursor-not-allowed rounded-lg px-4 py-3 text-left text-sm font-medium text-[var(--text-muted)] opacity-55"
+                className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-left opacity-65"
               >
-                {item.label}
+                <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M7 11V8a5 5 0 0 1 10 0v3" />
+                  <rect x="5" y="11" width="14" height="10" rx="2" />
+                </svg>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-[var(--text-muted)]">{item.label}</span>
+                  <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{item.disabledMessage}</span>
+                </span>
               </button>
             ) : (
               <NavLink

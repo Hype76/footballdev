@@ -11,8 +11,11 @@ export function ArchivePlayerModal({
 
   useEffect(() => {
     if (!isOpen) {
-      setReason('')
+      const timeoutId = window.setTimeout(() => setReason(''), 0)
+      return () => window.clearTimeout(timeoutId)
     }
+
+    return undefined
   }, [isOpen])
 
   if (!isOpen) {
