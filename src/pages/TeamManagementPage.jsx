@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { CreateStaffLoginSection } from '../components/teams/CreateStaffLoginSection.jsx'
+import { CreateTeamSection } from '../components/teams/CreateTeamSection.jsx'
+import { TeamStaffAllocationsSection } from '../components/teams/TeamStaffAllocationsSection.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/toast-context.js'
+import {
+  getStaffDisplayName,
+  initialCoachForm,
+  normalizeStaffEmail,
+  PARTIAL_TEAM_DATA_MESSAGE,
+  STAFF_PAGE_SIZE,
+  TEAM_PAGE_SIZE,
+} from '../hooks/teams/teamManagementUtils.js'
 import {
   canAssignRole,
   canManageTeamSettings,
@@ -31,28 +40,6 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
-
-const initialCoachForm = {
-  email: '',
-  password: '',
-  teamId: '',
-  roleKey: 'coach',
-  customRoleLabel: '',
-}
-
-const TEAM_PAGE_SIZE = 8
-const STAFF_PAGE_SIZE = 8
-const PARTIAL_TEAM_DATA_MESSAGE =
-  'Some team or staff records could not be refreshed. Missing items will appear once the data is entered or the connection settles.'
-
-function getStaffDisplayName(member) {
-  return String(member?.name || member?.username || member?.email || 'Unnamed staff').trim()
-}
-
-function normalizeStaffEmail(memberOrEmail) {
-  const email = typeof memberOrEmail === 'string' ? memberOrEmail : memberOrEmail?.email
-  return String(email ?? '').trim().toLowerCase()
-}
 
 export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
@@ -627,323 +614,60 @@ export function TeamManagementPage() {
         />
       ) : null}
 
-      <SectionCard
-        title="Create team"
-        description={
-          canCreateMoreTeams
-            ? 'Teams become selectable in assessments once created here.'
-            : teamLimitMessage
+      <CreateTeamSection
+        canCreateMoreTeams={canCreateMoreTeams}
+        isSaving={isSaving}
+        newTeamName={newTeamName}
+        onCreateTeam={handleCreateTeam}
+        onTeamNameChange={setNewTeamName}
+        teamLimitMessage={teamLimitMessage}
+      />
+
+      <CreateStaffLoginSection
+        assignableRoles={assignableRoles}
+        canCreateMoreStaff={canCreateMoreStaff}
+        coachForm={coachForm}
+        isCoachPasswordVisible={isCoachPasswordVisible}
+        isSaving={isSaving}
+        onCoachFormChange={handleCoachFormChange}
+        onCreateCoach={handleCreateCoach}
+        onTogglePasswordVisibility={() => setIsCoachPasswordVisible((current) => !current)}
+        staffLimitMessage={staffLimitMessage}
+        teams={teams}
+      />
+
+      <TeamStaffAllocationsSection
+        availableStaff={filteredAvailableStaffForSelectedTeam}
+        isLoading={isLoading}
+        isSaving={isSaving}
+        onAddExistingStaff={handleAddExistingStaffToTeam}
+        onDeleteTeam={handleDeleteTeam}
+        onRemoveStaff={handleRemoveStaffFromSelectedTeam}
+        onSaveTeamName={handleTeamNameSave}
+        onSelectedTeamChange={setSelectedTeamId}
+        onStaffPageChange={setStaffPage}
+        onStaffSearchChange={setStaffSearch}
+        onStaffToAddChange={setStaffToAddId}
+        onTeamNameDraftChange={(teamId, value) =>
+          setTeamNameDrafts((current) => ({
+            ...current,
+            [teamId]: value,
+          }))
         }
-      >
-        <form className="max-w-xl space-y-3" onSubmit={handleCreateTeam}>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
-            <input
-              type="text"
-              value={newTeamName}
-              onChange={(event) => setNewTeamName(event.target.value)}
-              placeholder="U12 Blue"
-              required
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={isSaving || !canCreateMoreTeams}
-            title={canCreateMoreTeams ? undefined : teamLimitMessage}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-          >
-            Add Team
-          </button>
-        </form>
-      </SectionCard>
-
-      <SectionCard
-        title="Create staff login"
-        description={
-          canCreateMoreStaff
-            ? 'Create a staff login, choose the role, and give that login access to a team.'
-            : staffLimitMessage
-        }
-      >
-        <form className="space-y-3" onSubmit={handleCreateCoach}>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Staff email</span>
-                <input
-                  type="email"
-                  name="email"
-                  value={coachForm.email}
-                  onChange={handleCoachFormChange}
-                  required
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
-                <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
-                  <input
-                    type={isCoachPasswordVisible ? 'text' : 'password'}
-                    name="password"
-                    value={coachForm.password}
-                    onChange={handleCoachFormChange}
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    className="min-h-11 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsCoachPasswordVisible((current) => !current)}
-                    className="min-h-11 rounded-r-2xl px-4 py-3 text-sm font-semibold text-[var(--text-secondary)]"
-                  >
-                    {isCoachPasswordVisible ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Role</span>
-                <select
-                  name="roleKey"
-                  value={coachForm.roleKey}
-                  onChange={handleCoachFormChange}
-                  required
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  {assignableRoles.map((role) => (
-                    <option key={role.roleKey} value={role.roleKey}>
-                      {role.roleLabel}
-                    </option>
-                  ))}
-                  <option value="__custom__">Other</option>
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team access</span>
-                <select
-                  name="teamId"
-                  value={coachForm.teamId}
-                  onChange={handleCoachFormChange}
-                  required
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  <option value="">Select team access</option>
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {coachForm.roleKey === '__custom__' ? (
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Custom role</span>
-                <input
-                  type="text"
-                  name="customRoleLabel"
-                  value={coachForm.customRoleLabel}
-                  onChange={handleCoachFormChange}
-                  required
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                />
-              </label>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={isSaving || assignableRoles.length === 0 || !canCreateMoreStaff}
-              title={canCreateMoreStaff ? undefined : staffLimitMessage}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              Add Staff Access
-            </button>
-          </form>
-      </SectionCard>
-
-      <SectionCard
-        title="Team staff allocations"
-        description="Select one club team, then manage the staff currently allocated to that team."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading teams...
-          </div>
-        ) : teamAssignments.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No teams created yet.
-          </div>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-[minmax(220px,360px)_minmax(0,1fr)]">
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Club teams</p>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">Choose a team to manage its staff access.</p>
-              <div className="mt-4 space-y-2">
-                {paginatedTeams.items.map((team) => (
-                  <button
-                    key={team.id}
-                    type="button"
-                    onClick={() => setSelectedTeamId(team.id)}
-                    className={[
-                      'w-full rounded-lg border px-4 py-3 text-left transition',
-                      selectedTeam?.id === team.id
-                        ? 'border-[var(--accent)] bg-[var(--panel-soft)]'
-                        : 'border-[var(--border-color)] bg-[var(--panel-bg)] hover:bg-[var(--panel-soft)]',
-                    ].join(' ')}
-                  >
-                    <span className="block text-sm font-semibold text-[var(--text-primary)]">{team.name}</span>
-                    <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      {team.staffIds.length} staff allocated
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <Pagination
-                currentPage={teamPage}
-                onPageChange={setTeamPage}
-                pageSize={TEAM_PAGE_SIZE}
-                totalItems={teamAssignments.length}
-              />
-            </div>
-
-            {selectedTeam ? (
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team name</span>
-                        <input
-                          type="text"
-                          value={teamNameDrafts[selectedTeam.id] ?? selectedTeam.name}
-                          onChange={(event) =>
-                            setTeamNameDrafts((current) => ({
-                              ...current,
-                              [selectedTeam.id]: event.target.value,
-                            }))
-                          }
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        disabled={
-                          isSaving ||
-                          String(teamNameDrafts[selectedTeam.id] ?? selectedTeam.name).trim() === selectedTeam.name
-                        }
-                        onClick={() => void handleTeamNameSave(selectedTeam.id)}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
-                      >
-                        Save Name
-                      </button>
-                    </div>
-                    <p className="mt-2 text-sm text-[var(--text-muted)]">
-                      {selectedTeamStaff.length} staff allocated to this team.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => void handleDeleteTeam(selectedTeam.id)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Delete Team
-                  </button>
-                </div>
-
-                <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Add existing staff</p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    Search club staff, then add the selected person to this team.
-                  </p>
-                  <div className="mt-3 grid gap-3">
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Search staff</span>
-                      <input
-                        type="search"
-                        value={staffSearch}
-                        onChange={(event) => setStaffSearch(event.target.value)}
-                        placeholder="Search by name, email, or role"
-                        className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                      />
-                    </label>
-                  </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                    <select
-                      value={staffToAddId}
-                      onChange={(event) => setStaffToAddId(event.target.value)}
-                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                    >
-                      <option value="">Select staff member</option>
-                      {filteredAvailableStaffForSelectedTeam.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {getStaffDisplayName(member)} | {member.email} | {getRoleLabel(member)}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={isSaving || !staffToAddId}
-                      onClick={() => void handleAddExistingStaffToTeam()}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Add To Team
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Allocated staff</p>
-                  {selectedTeamStaff.length === 0 ? (
-                    <div className="mt-3 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                      No staff are allocated to this team yet.
-                    </div>
-                  ) : (
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      {paginatedSelectedTeamStaff.items.map((member) => (
-                        <div
-                          key={member.id}
-                          className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4"
-                        >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="break-words text-sm font-semibold text-[var(--text-primary)]">
-                                {getStaffDisplayName(member)}
-                              </p>
-                              <p className="mt-1 break-words text-sm text-[var(--text-muted)]">{member.email}</p>
-                              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                                {getRoleLabel(member)}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              disabled={isSaving}
-                              onClick={() => void handleRemoveStaffFromSelectedTeam(member.id)}
-                              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <Pagination
-                    currentPage={staffPage}
-                    onPageChange={setStaffPage}
-                    pageSize={STAFF_PAGE_SIZE}
-                    totalItems={selectedTeamStaff.length}
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
-        )}
-      </SectionCard>
+        onTeamPageChange={setTeamPage}
+        paginatedSelectedTeamStaff={paginatedSelectedTeamStaff}
+        paginatedTeams={paginatedTeams}
+        selectedTeam={selectedTeam}
+        selectedTeamStaff={selectedTeamStaff}
+        staffPage={staffPage}
+        staffPageSize={STAFF_PAGE_SIZE}
+        staffSearch={staffSearch}
+        staffToAddId={staffToAddId}
+        teamAssignments={teamAssignments}
+        teamNameDrafts={teamNameDrafts}
+        teamPage={teamPage}
+        teamPageSize={TEAM_PAGE_SIZE}
+      />
 
       <ConfirmModal
         isOpen={Boolean(teamDeleteTarget)}

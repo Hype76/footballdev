@@ -3,12 +3,14 @@ export {
   deletePlatformClub,
   deletePlatformTeam,
   deletePlatformUser,
-  getClubSettings,
   getPlatformStats,
-  importClubLogoFromUrl,
-  updateClubSettings,
   updatePlatformClubPlan,
   updatePlatformClubStatus,
   updatePlatformUserStatus,
-  uploadClubLogo,
 } from './core.js'
+export {
+  getClubSettings,
+  importClubLogoFromUrl,
+  updateClubSettings,
+  uploadClubLogo,
+} from './club-settings-actions.js'

@@ -6,7 +6,7 @@ import { getRoleLabel, isClubAdmin, useAuth } from '../../lib/auth.js'
 import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
 
 export function Topbar({ title, onMenuClick }) {
-  const { authUser, demoRoleKey, hasPlatformAdminAccess, selectPlatformAdmin, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
+  const { authUser, clubOptions, demoRoleKey, hasPlatformAdminAccess, selectClub, selectPlatformAdmin, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
   const roleLabel = user ? getRoleLabel(user) : 'Loading access'
@@ -41,6 +41,18 @@ export function Topbar({ title, onMenuClick }) {
       try {
         setIsSwitchingTeam(true)
         await selectPlatformAdmin()
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setIsSwitchingTeam(false)
+      }
+      return
+    }
+
+    if (teamId.startsWith('__club__:')) {
+      try {
+        setIsSwitchingTeam(true)
+        await selectClub(teamId.replace('__club__:', ''))
       } catch (error) {
         console.error(error)
       } finally {
@@ -121,7 +133,7 @@ export function Topbar({ title, onMenuClick }) {
                 </select>
               </label>
             ) : null}
-            {hasPlatformAdminAccess || (teamOptions?.length > 0 && (canUseClubAdminView || teamOptions.length > 1)) ? (
+            {hasPlatformAdminAccess || clubOptions?.length > 0 || (teamOptions?.length > 0 && (canUseClubAdminView || teamOptions.length > 1)) ? (
               <label className="col-span-2 grid gap-1 sm:min-w-44">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                   Workspace view
@@ -133,6 +145,13 @@ export function Topbar({ title, onMenuClick }) {
                   className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
+                  {user?.role === 'super_admin'
+                    ? clubOptions.map((club) => (
+                        <option key={club.clubId} value={`__club__:${club.clubId}`}>
+                          Club: {club.clubName || 'Unnamed club'}
+                        </option>
+                      ))
+                    : null}
                   {canUseClubAdminView ? <option value="">Club admin view</option> : <option value="">Select team</option>}
                   {teamOptions.map((team) => (
                     <option key={team.id} value={team.id}>

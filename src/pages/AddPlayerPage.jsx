@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { AddPlayerFormSection } from '../components/players/AddPlayerFormSection.jsx'
+import { RecentlyAddedPlayersSection } from '../components/players/RecentlyAddedPlayersSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useAuth } from '../lib/auth.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import {
-  EVALUATION_SECTIONS,
-  PLAYER_CONTACT_TYPES,
+  RECENT_PLAYER_PAGE_SIZE,
+  createInitialPlayerForm,
+  ensureContactsForType,
+  getContactGroups,
+} from '../hooks/players/addPlayerUtils.js'
+import {
   createPlayer,
   getAvailableTeamsForUser,
   getPlayers,
@@ -19,76 +22,6 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-
-function createInitialPlayerForm() {
-  return {
-    playerName: '',
-    section: 'Trial',
-    team: '',
-    positions: [],
-    positionDraft: '',
-    contactType: PLAYER_CONTACT_TYPES.parent,
-    parentContacts: [{ name: '', email: '' }],
-  }
-}
-
-const RECENT_PLAYER_PAGE_SIZE = 8
-const CONTACT_TYPE_OPTIONS = [
-  {
-    value: PLAYER_CONTACT_TYPES.self,
-    label: 'Self',
-    description: 'Send player emails to the player directly.',
-  },
-  {
-    value: PLAYER_CONTACT_TYPES.parent,
-    label: 'Parent/Guardian',
-    description: 'Send parent emails to parent or guardian contacts.',
-  },
-  {
-    value: PLAYER_CONTACT_TYPES.both,
-    label: 'Both',
-    description: 'Send player emails to the player and parent emails to parents or guardians.',
-  },
-]
-
-function contactTypeAllowsSelf(contactType) {
-  return contactType === PLAYER_CONTACT_TYPES.self || contactType === PLAYER_CONTACT_TYPES.both
-}
-
-function contactTypeAllowsParents(contactType) {
-  return contactType === PLAYER_CONTACT_TYPES.parent || contactType === PLAYER_CONTACT_TYPES.both
-}
-
-function ensureContactsForType(contacts, contactType, playerName = '') {
-  const normalizedContactType = normalizePlayerContactType(contactType)
-  const nextContacts = Array.isArray(contacts)
-    ? contacts
-        .map((contact) => ({
-          name: String(contact?.name ?? '').trim(),
-          email: String(contact?.email ?? '').trim(),
-          type: String(contact?.type ?? '').trim().toLowerCase() === PLAYER_CONTACT_TYPES.self
-            ? PLAYER_CONTACT_TYPES.self
-            : PLAYER_CONTACT_TYPES.parent,
-        }))
-    : []
-  const filteredContacts = nextContacts.filter((contact) => {
-    if (contact.type === PLAYER_CONTACT_TYPES.self) {
-      return contactTypeAllowsSelf(normalizedContactType)
-    }
-
-    return contactTypeAllowsParents(normalizedContactType)
-  })
-
-  if (contactTypeAllowsSelf(normalizedContactType) && !filteredContacts.some((contact) => contact.type === PLAYER_CONTACT_TYPES.self)) {
-    filteredContacts.unshift({ name: playerName, email: '', type: PLAYER_CONTACT_TYPES.self })
-  }
-
-  if (contactTypeAllowsParents(normalizedContactType) && !filteredContacts.some((contact) => contact.type === PLAYER_CONTACT_TYPES.parent)) {
-    filteredContacts.push({ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent })
-  }
-
-  return filteredContacts.length > 0 ? filteredContacts : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
-}
 
 export function AddPlayerPage() {
   const { user } = useAuth()
@@ -325,34 +258,7 @@ export function AddPlayerPage() {
   const canAddMorePlayers = isWithinPlanLimit(user, 'players', players.length)
   const playerLimitMessage = createLimitUpgradeMessage(user, 'players', 'Players')
   const normalizedContactType = normalizePlayerContactType(playerForm.contactType)
-  const contactGroups = [
-    ...(contactTypeAllowsSelf(normalizedContactType)
-      ? [
-          {
-            type: PLAYER_CONTACT_TYPES.self,
-            title: 'Player Contact',
-            description: 'Used for direct player emails.',
-            addLabel: 'Add Player Contact',
-            removeLabel: 'Remove Player Contact',
-            nameLabel: 'Player Name',
-            emailLabel: 'Player Email',
-          },
-        ]
-      : []),
-    ...(contactTypeAllowsParents(normalizedContactType)
-      ? [
-          {
-            type: PLAYER_CONTACT_TYPES.parent,
-            title: 'Parent/Guardian Contacts',
-            description: 'Used for parent or guardian emails.',
-            addLabel: 'Add Parent',
-            removeLabel: 'Remove Parent',
-            nameLabel: 'Name',
-            emailLabel: 'Email',
-          },
-        ]
-      : []),
-  ]
+  const contactGroups = getContactGroups(normalizedContactType)
   const preparedContacts = ensureContactsForType(playerForm.parentContacts, normalizedContactType, playerForm.playerName)
 
   return (
@@ -376,240 +282,32 @@ export function AddPlayerPage() {
         </div>
       ) : null}
 
-      <SectionCard
-        title="Player details"
-        description={canAddMorePlayers ? 'Add the player once, then start assessments from the player profile.' : playerLimitMessage}
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading player setup...
-          </div>
-        ) : availableTeams.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No teams are available yet. Create a team first, then add players into Trial or Squad.
-          </div>
-        ) : (
-          <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleAddPlayer}>
-            <label className="block xl:col-span-2">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
-              <input
-                type="text"
-                name="playerName"
-                value={playerForm.playerName}
-                onChange={handlePlayerFormChange}
-                required
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
+      <AddPlayerFormSection
+        availableTeams={availableTeams}
+        canAddMorePlayers={canAddMorePlayers}
+        contactGroups={contactGroups}
+        isAddingPlayer={isAddingPlayer}
+        isLoading={isLoading}
+        normalizedContactType={normalizedContactType}
+        onAddParentContact={handleAddParentContact}
+        onAddPlayer={handleAddPlayer}
+        onAddPosition={handleAddPosition}
+        onChange={handlePlayerFormChange}
+        onParentContactChange={handleParentContactChange}
+        onRemoveParentContact={handleRemoveParentContact}
+        onRemovePosition={handleRemovePosition}
+        playerForm={playerForm}
+        playerLimitMessage={playerLimitMessage}
+        preparedContacts={preparedContacts}
+      />
 
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
-              <select
-                name="section"
-                value={playerForm.section}
-                onChange={handlePlayerFormChange}
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              >
-                {EVALUATION_SECTIONS.map((section) => (
-                  <option key={section} value={section}>
-                    {section}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
-              <select
-                name="team"
-                value={playerForm.team}
-                onChange={handlePlayerFormChange}
-                required
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              >
-                <option value="">Select team</option>
-                {availableTeams.map((team) => (
-                  <option key={team.id} value={team.name}>
-                    {team.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="flex items-end">
-              <button
-                type="submit"
-                disabled={isAddingPlayer || !canAddMorePlayers}
-                title={canAddMorePlayers ? undefined : playerLimitMessage}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isAddingPlayer ? 'Adding...' : 'Add Player'}
-              </button>
-            </div>
-
-            <div className="md:col-span-2 xl:col-span-4">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Primary Contact Type</span>
-              <div className="grid gap-3 md:grid-cols-3">
-                {CONTACT_TYPE_OPTIONS.map((option) => (
-                  <label
-                    key={option.value}
-                    className={`flex min-h-11 items-start gap-3 rounded-lg border px-4 py-3 text-sm transition ${
-                      normalizedContactType === option.value
-                        ? 'border-[var(--accent)] bg-[var(--panel-soft)] text-[var(--text-primary)]'
-                        : 'border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-muted)]'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="contactType"
-                      value={option.value}
-                      checked={normalizedContactType === option.value}
-                      onChange={handlePlayerFormChange}
-                      className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                    />
-                    <span>
-                      <span className="block font-semibold text-[var(--text-primary)]">{option.label}</span>
-                      <span className="mt-1 block text-xs leading-5">{option.description}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {contactGroups.map((group) => {
-              const contacts = preparedContacts.filter((contact) => contact.type === group.type)
-
-              return (
-                <div key={group.type} className="md:col-span-2 xl:col-span-2">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div>
-                      <span className="block text-sm font-semibold text-[var(--text-primary)]">{group.title}</span>
-                      <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{group.description}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleAddParentContact(group.type)}
-                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                    >
-                      {group.addLabel}
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    {contacts.map((contact, index) => (
-                      <div key={`${group.type}-${index}`} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <label className="block">
-                            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                              {group.nameLabel}
-                            </span>
-                            <input
-                              type="text"
-                              value={contact.name}
-                              onChange={(event) => handleParentContactChange(group.type, index, 'name', event.target.value)}
-                              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                              {group.emailLabel}
-                            </span>
-                            <input
-                              type="email"
-                              value={contact.email}
-                              onChange={(event) => handleParentContactChange(group.type, index, 'email', event.target.value)}
-                              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                            />
-                          </label>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveParentContact(group.type, index)}
-                          className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                        >
-                          {group.removeLabel}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-
-            <div className="md:col-span-2 xl:col-span-4">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  type="text"
-                  name="positionDraft"
-                  value={playerForm.positionDraft}
-                  onChange={handlePlayerFormChange}
-                  placeholder="Add position, for example Striker"
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddPosition}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
-                >
-                  Add Position
-                </button>
-              </div>
-              {playerForm.positions.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {playerForm.positions.map((position) => (
-                    <button
-                      key={position}
-                      type="button"
-                      onClick={() => handleRemovePosition(position)}
-                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                    >
-                      {position} remove
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Add one or more positions for this player.</p>
-              )}
-            </div>
-
-          </form>
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Recently added"
-        description="Open a player profile to edit details or start an assessment."
-      >
-        {recentPlayers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No player records yet.
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {paginatedRecentPlayers.items.map((player) => (
-              <Link
-                key={player.id}
-                to={`/player/${encodeURIComponent(player.playerName)}`}
-                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 transition hover:bg-[var(--panel-soft)]"
-              >
-                <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
-                <p className="mt-2 text-sm text-[var(--text-muted)]">{player.section} | {player.team || 'No team'}</p>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">
-                  {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
-                </p>
-              </Link>
-            ))}
-            <div className="sm:col-span-2 xl:col-span-4">
-              <Pagination
-                currentPage={recentPlayerPage}
-                onPageChange={setRecentPlayerPage}
-                pageSize={RECENT_PLAYER_PAGE_SIZE}
-                totalItems={recentPlayers.length}
-              />
-            </div>
-          </div>
-        )}
-      </SectionCard>
+      <RecentlyAddedPlayersSection
+        onPageChange={setRecentPlayerPage}
+        pageSize={RECENT_PLAYER_PAGE_SIZE}
+        paginatedRecentPlayers={paginatedRecentPlayers}
+        recentPlayerPage={recentPlayerPage}
+        recentPlayers={recentPlayers}
+      />
     </div>
   )
 }

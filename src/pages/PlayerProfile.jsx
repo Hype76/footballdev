@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
+import { useNavigate, useParams } from 'react-router-dom'
+import { PlayerDetailsSection } from '../components/players/PlayerDetailsSection.jsx'
+import { PlayerEvaluationsHistory } from '../components/players/PlayerEvaluationsHistory.jsx'
+import { PlayerMergeAssessments } from '../components/players/PlayerMergeAssessments.jsx'
+import { PlayerOverview } from '../components/players/PlayerOverview.jsx'
+import { PlayerProfileActions } from '../components/players/PlayerProfileActions.jsx'
+import { PlayerProfileModals } from '../components/players/PlayerProfileModals.jsx'
+import { PlayerStaffActivity } from '../components/players/PlayerStaffActivity.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { canDeletePlayer, canEditEvaluation, canShareEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { canDeletePlayer, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   getEmailTemplateKey,
-  isInviteEmailTemplate,
   normalizeEmailTemplateAudience,
-  renderParentEmailTemplate,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
 import { isDemoUser } from '../lib/demo.js'
-import { formatUkDate, formatUkDateTime } from '../lib/date-format.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   getSavedEvaluationExportLabels,
@@ -25,12 +26,34 @@ import {
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
 import {
-  buildEvaluationSummary,
   buildFieldMovement,
+  buildMergeDetailFields,
+  buildMergePreviewResponses,
+  buildMergedEvaluationPayload,
+  buildPlayerProfileCachePayload,
+  buildPlayerProfileParentEmailPayload,
+  buildReassignedEvaluationPayload,
   buildRatingTrend,
+  calculateMergedAverage,
+  clearEvaluationIdFromSourceMap,
+  addParentContactDraft,
+  addPlayerPositionDraft,
   createPlayerDraft,
-  formatTrendDate,
   getEditableParentContacts,
+  getNextEvaluationParentContactIndexes,
+  getMergeFieldLabels,
+  getRemainingMergeCoreSourceId,
+  getProfileContactDetails,
+  getProfilePlayers,
+  getReassignPlayerOptions,
+  keepOnlySelectedSourceIds,
+  PROFILE_EVALUATION_PAGE_SIZE,
+  removeEvaluationIdFromSelection,
+  removeParentContactDraft,
+  removePlayerPositionDraft,
+  startEditingPlayerDraft,
+  updateParentContactDraft,
+  updatePlayerDraftValue,
 } from '../hooks/players/playerProfileUtils.js'
 import { sortResponseItemsByValueType } from '../hooks/evaluations/evaluationFormUtils.js'
 import {
@@ -47,8 +70,6 @@ import {
   getParentEmailTemplates,
   getContactTemplateAudiences,
   getPlayers,
-  formatParentContactEmails,
-  formatParentContactNames,
   normalizeParentContacts,
   normalizePlayerContactType,
   clearViewCaches,
@@ -60,96 +81,6 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-
-function isNumericScore(value) {
-  if (value === null || value === undefined || value === '') {
-    return false
-  }
-
-  return !Number.isNaN(Number(value))
-}
-
-function calculateMergedAverage(formResponses) {
-  const numericValues = Object.values(formResponses ?? {})
-    .filter(isNumericScore)
-    .map(Number)
-
-  if (numericValues.length === 0) {
-    return null
-  }
-
-  return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
-}
-
-function getDraftParentContacts(player) {
-  const contacts = Array.isArray(player?.parentContacts) ? player.parentContacts : []
-  const draftContacts = contacts.map((contact) => ({
-    name: String(contact?.name ?? contact?.parentName ?? ''),
-    email: String(contact?.email ?? contact?.parentEmail ?? ''),
-    type: PLAYER_CONTACT_TYPES.parent,
-  }))
-
-  if (draftContacts.length > 0) {
-    return draftContacts
-  }
-
-  const fallbackName = String(player?.parentName ?? '')
-  const fallbackEmail = String(player?.parentEmail ?? '')
-
-  return fallbackName || fallbackEmail
-    ? [{ name: fallbackName, email: fallbackEmail, type: PLAYER_CONTACT_TYPES.parent }]
-    : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
-}
-
-function getContactEmailAddresses(contact) {
-  return String(contact?.email ?? '')
-    .split(/[;,]/)
-    .map((email) => email.trim())
-    .filter(Boolean)
-}
-
-function getContactRecipientName(contact, fallbackName) {
-  return String(contact?.name ?? '').trim() || String(fallbackName ?? '').trim() || 'Parent/Guardian'
-}
-
-function buildCommentsFromMergedResponses(formResponses) {
-  const findResponse = (labels) => {
-    const matchingEntry = Object.entries(formResponses ?? {}).find(([label]) =>
-      labels.some((item) => label.toLowerCase().includes(item)),
-    )
-
-    return matchingEntry ? String(matchingEntry[1] ?? '').trim() : ''
-  }
-
-  return {
-    strengths: findResponse(['strength']),
-    improvements: findResponse(['improvement', 'weakness']),
-    overall: findResponse(['overall', 'comment']),
-  }
-}
-
-const PROFILE_EVALUATION_PAGE_SIZE = 5
-
-function formatActivityDate(value) {
-  const parsedDate = new Date(value)
-  return Number.isNaN(parsedDate.getTime()) ? 'No date entered' : formatUkDateTime(parsedDate.toISOString(), 'No date entered')
-}
-
-function getActivityLabel(log) {
-  const labels = {
-    scored_pdf_downloaded: 'Report with scores downloaded',
-    pdf_without_scores_downloaded: 'Report without scores downloaded',
-    email_template_pdf_downloaded: 'Email template report downloaded',
-    parent_email_sent: 'Parent email sent',
-    staff_note_added: 'Staff note added',
-    voice_note_added: 'Voice note added',
-    invite_back_selected: 'Invite back selected',
-    no_place_offered_selected: 'No place offered selected',
-    offer_place_selected: 'Offer place selected',
-  }
-
-  return labels[log?.action] || String(log?.action ?? 'Activity').replaceAll('_', ' ')
-}
 
 export function PlayerProfile() {
   const { id } = useParams()
@@ -364,35 +295,21 @@ export function PlayerProfile() {
       ? scoredEvaluations.reduce((sum, evaluation) => sum + evaluation.averageScore, 0) / scoredEvaluations.length
       : null
 
-  const profilePlayers = useMemo(() => {
-    if (players.length <= 1) {
-      return players
-    }
-
-    const squadPlayer = players.find((player) => String(player.section ?? '').toLowerCase() === 'squad')
-    return [squadPlayer ?? players[0]]
-  }, [players])
+  const profilePlayers = useMemo(() => getProfilePlayers(players), [players])
   const lastSection = profilePlayers[0]?.section || evaluations[0]?.section || 'Trial'
   const lastTeam = profilePlayers[0]?.team || evaluations[0]?.team || ''
   const primaryPlayer = profilePlayers[0]
-  const profileParentName = primaryPlayer?.parentName || evaluations.find((evaluation) => evaluation.parentName)?.parentName || ''
-  const profileParentEmail = primaryPlayer?.parentEmail || evaluations.find((evaluation) => evaluation.parentEmail)?.parentEmail || ''
-  const profileContactType = normalizePlayerContactType(
-    primaryPlayer?.contactType || evaluations.find((evaluation) => evaluation.contactType)?.contactType,
+  const {
+    profileContactType,
+    profileParentContacts,
+    profileParentEmail,
+    profileParentName,
+  } = useMemo(
+    () => getProfileContactDetails({ primaryPlayer, evaluations }),
+    [evaluations, primaryPlayer],
   )
-  const profileParentContacts = normalizeParentContacts(primaryPlayer?.parentContacts, {
-    parentName: profileParentName,
-    parentEmail: profileParentEmail,
-    contactType: profileContactType,
-  })
   const reassignPlayerOptions = useMemo(
-    () =>
-      allPlayers
-        .filter((player) => {
-          const playerName = String(player.playerName ?? '').trim()
-          return player.id && playerName && playerName.toLowerCase() !== routePlayerName.toLowerCase()
-        })
-        .sort((left, right) => left.playerName.localeCompare(right.playerName)),
+    () => getReassignPlayerOptions(allPlayers, routePlayerName),
     [allPlayers, routePlayerName],
   )
   const canMergeEvaluations = Boolean(user?.clubId) && Number(user?.roleRank ?? 0) >= 50 && evaluations.length > 1
@@ -402,12 +319,7 @@ export function PlayerProfile() {
     [evaluations, mergeSelectedIds],
   )
   const mergeFieldLabels = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          mergeSelectedEvaluations.flatMap((evaluation) => Object.keys(evaluation.formResponses ?? {})),
-        ),
-      ).sort((left, right) => left.localeCompare(right)),
+    () => getMergeFieldLabels(mergeSelectedEvaluations),
     [mergeSelectedEvaluations],
   )
   const mergeCoreSource = mergeSelectedEvaluations.find((evaluation) => evaluation.id === mergeCoreSourceId) ?? mergeSelectedEvaluations[0]
@@ -415,73 +327,17 @@ export function PlayerProfile() {
     mergeSelectedEvaluations.find((evaluation) => evaluation.id === sourceId) ?? mergeCoreSource ?? mergeSelectedEvaluations[0]
   const getMergeDetailSource = (fieldName) => getMergeSourceById(mergeDetailSources[fieldName] || mergeCoreSource?.id)
   const mergeDetailFields = useMemo(
-    () => [
-      {
-        key: 'player',
-        label: 'Player, team, and section',
-        preview: (evaluation) =>
-          `${evaluation?.playerName || routePlayerName} | ${evaluation?.team || 'No team entered'} | ${evaluation?.section || 'Trial'}`,
-      },
-      {
-        key: 'parents',
-        label: 'Contact details',
-        preview: (evaluation) =>
-          formatParentContactNames(evaluation?.parentContacts, evaluation?.parentName) ||
-          formatParentContactEmails(evaluation?.parentContacts, evaluation?.parentEmail) ||
-          'No contact details entered',
-      },
-      {
-        key: 'session',
-        label: 'Session',
-        preview: (evaluation) => evaluation?.session || 'No session entered',
-      },
-      {
-        key: 'date',
-        label: 'Date',
-        preview: (evaluation) => evaluation?.date || 'No date entered',
-      },
-      {
-        key: 'coach',
-        label: 'Coach shown on report',
-        preview: (evaluation) => evaluation?.coach || 'No coach entered',
-      },
-      {
-        key: 'comments',
-        label: 'Comments',
-        preview: (evaluation) => {
-          const comments = evaluation?.comments ?? {}
-          return [comments.strengths, comments.improvements, comments.overall]
-            .map((value) => String(value ?? '').trim())
-            .filter(Boolean)
-            .join(' | ') || 'No comments entered'
-        },
-      },
-      {
-        key: 'status',
-        label: 'Status',
-        preview: (evaluation) => evaluation?.status || 'Submitted',
-      },
-    ],
+    () => buildMergeDetailFields(routePlayerName),
     [routePlayerName],
   )
   const mergePreviewResponses = useMemo(
-    () =>
-      Object.fromEntries(
-        mergeFieldLabels.map((label) => {
-          const sourceId =
-            mergeFieldSources[label] ||
-            mergeSelectedEvaluations.find((evaluation) =>
-              Object.prototype.hasOwnProperty.call(evaluation.formResponses ?? {}, label),
-            )?.id ||
-            mergeCoreSource?.id ||
-            mergeSelectedEvaluations[0]?.id
-          const sourceEvaluation =
-            mergeSelectedEvaluations.find((evaluation) => evaluation.id === sourceId) ?? mergeSelectedEvaluations[0]
-
-          return [label, sourceEvaluation?.formResponses?.[label] ?? '']
-        }),
-      ),
-    [mergeCoreSource?.id, mergeFieldLabels, mergeFieldSources, mergeSelectedEvaluations],
+    () => buildMergePreviewResponses({
+      mergeCoreSource,
+      mergeFieldLabels,
+      mergeFieldSources,
+      mergeSelectedEvaluations,
+    }),
+    [mergeCoreSource, mergeFieldLabels, mergeFieldSources, mergeSelectedEvaluations],
   )
   const mergePreviewAverage = useMemo(
     () => calculateMergedAverage(mergePreviewResponses),
@@ -537,89 +393,20 @@ export function PlayerProfile() {
     getSelectedEvaluationResponses(getExportResponseItems(evaluation), selectedExportLabels)
 
   const buildParentEmailPayload = (evaluation) => {
-    const selectedContacts = getSelectedEvaluationParentContacts(evaluation)
-    const selectedKey = selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
-    const inviteDate = getSelectedInviteDate(evaluation)
-    const responses = getSelectedExportResponseItems(evaluation)
-    const payloads = getContactTemplateAudiences(getEvaluationContactType(evaluation))
-      .flatMap((audience) => {
-        const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
-        const contacts = selectedContacts.filter((contact) => contact.type === contactType)
-
-        if (contacts.length === 0) {
-          return []
-        }
-
-        const selectedTemplate = getSelectedEmailTemplate(evaluation, audience)
-
-        if (!selectedTemplate) {
-          throw new Error(`Create a ${audience} email template before sending an email.`)
-        }
-
-        return contacts.flatMap((contact) =>
-          getContactEmailAddresses(contact).map((recipientEmail) => {
-            const recipientName = getContactRecipientName(
-              contact,
-              contactType === PLAYER_CONTACT_TYPES.self ? routePlayerName : evaluation.parentName || profileParentName,
-            )
-            const emailTemplate = renderParentEmailTemplate(selectedTemplate, {
-              recipientName,
-              parentName: recipientName,
-              playerName: routePlayerName,
-              coachName: evaluation.coach,
-              clubName: user?.clubName,
-              teamName: evaluation.team,
-              session: evaluation.session,
-              inviteDate,
-              summary: '',
-              templateKey: selectedTemplate.key,
-            })
-
-            return {
-              audience,
-              recipientEmails: recipientEmail,
-              recipientNames: recipientName,
-              templateName: selectedTemplate.label,
-              payload: {
-                parentEmail: recipientEmail,
-                parentName: recipientName,
-                senderEmail: user?.email,
-                displayName: user?.displayName || user?.username || user?.name,
-                team: user?.emailTeamName || evaluation.team,
-                club: user?.emailClubName || user?.clubName,
-                section: evaluation.section,
-                session: evaluation.session,
-                planKey: user?.planKey,
-                logoUrl: user?.clubLogoUrl || null,
-                replyToEmail: user?.replyToEmail || user?.clubContactEmail,
-                clubContactEmail: user?.clubContactEmail,
-                playerName: routePlayerName,
-                summary: '',
-                responses,
-                subject: emailTemplate.subject,
-                emailBody: emailTemplate.body,
-                evaluationId: evaluation.id,
-              },
-            }
-          }),
-        )
-      })
-      .filter(Boolean)
-
-    if (payloads.length === 0) {
-      throw new Error('Add an email contact before sending.')
-    }
-
-    return {
+    return buildPlayerProfileParentEmailPayload({
       evaluation,
-      inviteDate,
-      recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
-      recipientNames: payloads.map((item) => item.recipientNames).join(', '),
-      responses,
-      templateKey: selectedKey,
-      templateName: payloads.map((item) => item.templateName).join(', '),
-      payloads,
-    }
+      getContactTemplateAudiences,
+      getEmailTemplateKey,
+      getEvaluationContactType,
+      getSelectedEmailTemplate,
+      getSelectedEvaluationParentContacts,
+      getSelectedExportResponseItems,
+      getSelectedInviteDate,
+      profileParentName,
+      routePlayerName,
+      selectedEmailTemplates,
+      user,
+    })
   }
 
   const handleToggleExportField = (label, responseItems) => {
@@ -659,13 +446,7 @@ export function PlayerProfile() {
 
   const handlePlayerDraftChange = (playerId, fieldName, value) => {
     setErrorMessage('')
-    setPlayerDrafts((current) => ({
-      ...current,
-      [playerId]: {
-        ...current[playerId],
-        [fieldName]: fieldName === 'playerName' ? String(value ?? '') : value,
-      },
-    }))
+    setPlayerDrafts((current) => updatePlayerDraftValue(current, playerId, fieldName, value))
   }
 
   const handleSendParentEmail = (evaluation) => {
@@ -768,101 +549,31 @@ export function PlayerProfile() {
 
   const handleStartEditingPlayer = (player) => {
     setErrorMessage('')
-    setPlayerDrafts((current) => ({
-      ...current,
-      [player.id]: createPlayerDraft(current[player.id] ?? player),
-    }))
+    setPlayerDrafts((current) => startEditingPlayerDraft(current, player))
     setEditingPlayerId(player.id)
   }
 
   const handleParentContactDraftChange = (playerId, index, fieldName, value) => {
     setErrorMessage('')
-    setPlayerDrafts((current) => {
-      const draft = current[playerId] ?? {}
-      const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
-        ? draft.parentContacts
-        : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
-      const nextContacts = contacts.length > 0 ? contacts : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
-      const updatedContacts = nextContacts.map((contact, contactIndex) =>
-        contactIndex === index
-          ? {
-              ...contact,
-              type: PLAYER_CONTACT_TYPES.parent,
-              [fieldName]: value,
-            }
-          : { ...contact, type: PLAYER_CONTACT_TYPES.parent },
-      )
-
-      return {
-        ...current,
-        [playerId]: {
-          ...draft,
-          parentName: updatedContacts[0]?.name ?? '',
-          parentEmail: updatedContacts[0]?.email ?? '',
-          parentContacts: updatedContacts,
-        },
-      }
-    })
+    setPlayerDrafts((current) => updateParentContactDraft(current, playerId, index, fieldName, value))
   }
 
   const handleAddParentContact = (playerId) => {
     setErrorMessage('')
-    setPlayerDrafts((current) => {
-      const draft = current[playerId] ?? {}
-      const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
-        ? draft.parentContacts
-        : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
-
-      return {
-        ...current,
-        [playerId]: {
-          ...draft,
-          parentContacts: [
-            ...contacts.map((contact) => ({ ...contact, type: PLAYER_CONTACT_TYPES.parent })),
-            { name: '', email: '', type: PLAYER_CONTACT_TYPES.parent },
-          ],
-        },
-      }
-    })
+    setPlayerDrafts((current) => addParentContactDraft(current, playerId))
   }
 
   const handleRemoveParentContact = (playerId, index) => {
     setErrorMessage('')
-    setPlayerDrafts((current) => {
-      const draft = current[playerId] ?? {}
-      const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
-        ? draft.parentContacts
-        : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
-      const nextContacts = contacts.filter((_, contactIndex) => contactIndex !== index)
-      const fallbackContacts = nextContacts.length > 0 ? nextContacts : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
-
-      return {
-        ...current,
-        [playerId]: {
-          ...draft,
-          parentName: fallbackContacts[0]?.name ?? '',
-          parentEmail: fallbackContacts[0]?.email ?? '',
-          parentContacts: fallbackContacts.map((contact) => ({ ...contact, type: PLAYER_CONTACT_TYPES.parent })),
-        },
-      }
-    })
+    setPlayerDrafts((current) => removeParentContactDraft(current, playerId, index))
   }
 
   const handleToggleEvaluationParentContact = (evaluationId, index, contacts) => {
     setSelectedParentContacts((current) => {
       const currentIndexes = current[evaluationId] ?? contacts.map((_, contactIndex) => contactIndex)
-
-      if (currentIndexes.includes(index)) {
-        const nextIndexes = currentIndexes.filter((item) => item !== index)
-        return {
-          ...current,
-          [evaluationId]: nextIndexes.length > 0 ? nextIndexes : [index],
-        }
-      }
-
       return {
         ...current,
-        [evaluationId]: [...currentIndexes, index].sort((left, right) => left - right),
+        [evaluationId]: getNextEvaluationParentContactIndexes({ contacts, currentIndexes, index }),
       }
     })
   }
@@ -906,19 +617,7 @@ export function PlayerProfile() {
       })
       const updatedEvaluation = await updateEvaluation(
         evaluation.id,
-        {
-          ...evaluation,
-          playerId: targetPlayer.id,
-          playerName: targetPlayer.playerName,
-          section: targetPlayer.section || evaluation.section,
-          team: targetPlayer.team || evaluation.team,
-          parentName: targetParentContacts[0]?.name ?? targetPlayer.parentName ?? '',
-          parentEmail: targetParentContacts[0]?.email ?? targetPlayer.parentEmail ?? '',
-          parentContacts: targetParentContacts,
-          updatedBy: user?.id,
-          updatedByName: String(user?.username || user?.name || user?.email || '').trim(),
-          updatedByEmail: String(user?.email || '').trim().toLowerCase(),
-        },
+        buildReassignedEvaluationPayload({ evaluation, targetPlayer, targetParentContacts, user }),
         user?.clubId,
       )
       const nextEvaluations = evaluations.filter((item) => item.id !== updatedEvaluation.id)
@@ -930,11 +629,7 @@ export function PlayerProfile() {
         return nextTargets
       })
       clearViewCaches()
-      writeViewCache(cacheKey, {
-        evaluations: nextEvaluations,
-        players,
-        allPlayers,
-      })
+      writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not move this report to the selected player.')
@@ -960,14 +655,10 @@ export function PlayerProfile() {
 
       setMergeCoreSourceId((currentSourceId) => (nextIds.includes(currentSourceId) ? currentSourceId : nextIds[0]))
       setMergeFieldSources((currentSources) =>
-        Object.fromEntries(
-          Object.entries(currentSources).filter(([, sourceId]) => nextIds.includes(sourceId)),
-        ),
+        keepOnlySelectedSourceIds(currentSources, nextIds),
       )
       setMergeDetailSources((currentSources) =>
-        Object.fromEntries(
-          Object.entries(currentSources).filter(([, sourceId]) => nextIds.includes(sourceId)),
-        ),
+        keepOnlySelectedSourceIds(currentSources, nextIds),
       )
 
       return nextIds
@@ -1016,54 +707,18 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      const mergedResponses = mergePreviewResponses
-      const mergedScores = Object.fromEntries(
-        Object.entries(mergedResponses)
-          .filter(([, value]) => isNumericScore(value))
-          .map(([label, value]) => [label, Number(value)]),
+      const mergedEvaluation = await createEvaluation(
+        buildMergedEvaluationPayload({
+          getMergeDetailSource,
+          mergeCoreSource,
+          mergePreviewAverage,
+          mergePreviewResponses,
+          mergeSelectedEvaluations,
+          primaryPlayer,
+          routePlayerName,
+          user,
+        }),
       )
-      const playerSource = getMergeDetailSource('player')
-      const parentSource = getMergeDetailSource('parents')
-      const sessionSource = getMergeDetailSource('session')
-      const dateSource = getMergeDetailSource('date')
-      const coachSource = getMergeDetailSource('coach')
-      const commentsSource = getMergeDetailSource('comments')
-      const statusSource = getMergeDetailSource('status')
-      const parentContacts = normalizeParentContacts(parentSource?.parentContacts, {
-        parentName: parentSource?.parentName,
-        parentEmail: parentSource?.parentEmail,
-      })
-      const mergedComments = commentsSource?.comments ?? buildCommentsFromMergedResponses(mergedResponses)
-      const mergedEvaluation = await createEvaluation({
-        playerId: playerSource?.playerId || primaryPlayer?.id || mergeCoreSource.playerId,
-        playerName: playerSource?.playerName || routePlayerName,
-        teamId: playerSource?.teamId || primaryPlayer?.teamId || mergeCoreSource.teamId,
-        team: playerSource?.team || primaryPlayer?.team || mergeCoreSource.team,
-        section: playerSource?.section || primaryPlayer?.section || mergeCoreSource.section,
-        clubId: user.clubId,
-        coachId: user.id,
-        coach: String(coachSource?.coach || user.username || user.name || user.email || '').trim(),
-        createdByName: String(user.username || user.name || user.email || '').trim(),
-        createdByEmail: String(user.email || '').trim().toLowerCase(),
-        updatedBy: user.id,
-        updatedByName: String(user.username || user.name || user.email || '').trim(),
-        updatedByEmail: String(user.email || '').trim().toLowerCase(),
-        parentName: parentContacts[0]?.name ?? mergeCoreSource.parentName ?? '',
-        parentEmail: parentContacts[0]?.email ?? mergeCoreSource.parentEmail ?? '',
-        parentContacts,
-        session: sessionSource?.session || `Merged assessment from ${mergeSelectedEvaluations.length} reports`,
-        date: dateSource?.date || formatUkDate(new Date().toISOString().slice(0, 10)),
-        scores: mergedScores,
-        averageScore: mergePreviewAverage,
-        comments: mergedComments,
-        formResponses: mergedResponses,
-        decision: mergeCoreSource.decision,
-        status: statusSource?.status || mergeCoreSource.status || 'Submitted',
-        rejectionReason: statusSource?.rejectionReason || '',
-        reviewedBy: statusSource?.reviewedBy || null,
-        reviewedAt: statusSource?.reviewedAt || null,
-        createdAt: new Date().toISOString(),
-      })
       const nextEvaluations = [mergedEvaluation, ...evaluations]
 
       setEvaluations(nextEvaluations)
@@ -1072,11 +727,7 @@ export function PlayerProfile() {
       setMergeDetailSources({})
       setMergeFieldSources({})
       clearViewCaches()
-      writeViewCache(cacheKey, {
-        evaluations: nextEvaluations,
-        players,
-        allPlayers,
-      })
+      writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not create the merged assessment.')
@@ -1108,20 +759,16 @@ export function PlayerProfile() {
       const nextEvaluations = evaluations.filter((item) => item.id !== evaluationDeleteTarget.id)
 
       setEvaluations(nextEvaluations)
-      setMergeSelectedIds((currentIds) => currentIds.filter((id) => id !== evaluationDeleteTarget.id))
-      setMergeCoreSourceId((currentSourceId) => (currentSourceId === evaluationDeleteTarget.id ? '' : currentSourceId))
+      setMergeSelectedIds((currentIds) => removeEvaluationIdFromSelection(currentIds, evaluationDeleteTarget.id))
+      setMergeCoreSourceId((currentSourceId) => getRemainingMergeCoreSourceId(currentSourceId, evaluationDeleteTarget.id))
       setMergeFieldSources((currentSources) =>
-        Object.fromEntries(Object.entries(currentSources).filter(([, sourceId]) => sourceId !== evaluationDeleteTarget.id)),
+        clearEvaluationIdFromSourceMap(currentSources, evaluationDeleteTarget.id),
       )
       setMergeDetailSources((currentSources) =>
-        Object.fromEntries(Object.entries(currentSources).filter(([, sourceId]) => sourceId !== evaluationDeleteTarget.id)),
+        clearEvaluationIdFromSourceMap(currentSources, evaluationDeleteTarget.id),
       )
       clearViewCaches()
-      writeViewCache(cacheKey, {
-        evaluations: nextEvaluations,
-        players,
-        allPlayers,
-      })
+      writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not delete this assessment.')
@@ -1140,25 +787,12 @@ export function PlayerProfile() {
     }
 
     setErrorMessage('')
-    setPlayerDrafts((current) => ({
-      ...current,
-      [playerId]: {
-        ...current[playerId],
-        positions: [...new Set([...(current[playerId]?.positions ?? []), nextPosition])],
-        positionDraft: '',
-      },
-    }))
+    setPlayerDrafts((current) => addPlayerPositionDraft(current, playerId, nextPosition))
   }
 
   const handleRemovePlayerPosition = (playerId, positionToRemove) => {
     setErrorMessage('')
-    setPlayerDrafts((current) => ({
-      ...current,
-      [playerId]: {
-        ...current[playerId],
-        positions: (current[playerId]?.positions ?? []).filter((position) => position !== positionToRemove),
-      },
-    }))
+    setPlayerDrafts((current) => removePlayerPositionDraft(current, playerId, positionToRemove))
   }
 
   const handleSavePlayer = async (playerId) => {
@@ -1319,976 +953,152 @@ export function PlayerProfile() {
         />
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Player name</p>
-          <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{routePlayerName}</p>
-        </div>
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Total evaluations</p>
-          <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{evaluations.length}</p>
-        </div>
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Average score</p>
-          <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">
-            {overallAverage !== null ? overallAverage.toFixed(1) : '-'}
-          </p>
-        </div>
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Latest section</p>
-          <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{lastSection}</p>
-        </div>
-      </div>
+      <PlayerOverview
+        evaluationCount={evaluations.length}
+        fieldMovement={fieldMovement}
+        lastSection={lastSection}
+        overallAverage={overallAverage}
+        playerName={routePlayerName}
+        ratingTrend={ratingTrend}
+        ratingTrendMax={ratingTrendMax}
+      />
 
-      <SectionCard
-        title="Rating trend"
-        description="Shows how the player's assessment scores are moving over time."
-      >
-        {ratingTrend.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No scored evaluations yet.
-          </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {ratingTrend.map((evaluation) => {
-                const scorePercent = Math.max(0, Math.min(100, (Number(evaluation.averageScore) / ratingTrendMax) * 100))
+      <PlayerDetailsSection
+        editingPlayerId={editingPlayerId}
+        isPromotingId={isPromotingId}
+        isSavingPlayer={isSavingPlayer}
+        onAddParentContact={handleAddParentContact}
+        onAddPlayerPosition={handleAddPlayerPosition}
+        onCancelEditing={() => setEditingPlayerId('')}
+        onParentContactDraftChange={handleParentContactDraftChange}
+        onPlayerDraftChange={handlePlayerDraftChange}
+        onPromotePlayer={(playerId) => void handlePromotePlayer(playerId)}
+        onRemoveParentContact={handleRemoveParentContact}
+        onRemovePlayerPosition={handleRemovePlayerPosition}
+        onSavePlayer={(playerId) => void handleSavePlayer(playerId)}
+        onStartEditingPlayer={handleStartEditingPlayer}
+        playerDrafts={playerDrafts}
+        profilePlayers={profilePlayers}
+      />
 
-                return (
-                  <div key={evaluation.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{formatTrendDate(evaluation)}</p>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{evaluation.averageScore.toFixed(1)}</p>
-                    </div>
-                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-[var(--panel-soft)]">
-                      <div
-                        className="h-full rounded-full bg-[var(--button-primary)]"
-                        style={{ width: `${scorePercent}%` }}
-                      />
-                    </div>
-                    <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-                      {evaluation.section || 'Trial'}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-
-            {fieldMovement.length > 0 ? (
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Field movement</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {fieldMovement.map((item) => (
-                    <div key={item.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{item.label}</p>
-                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
-                        {item.firstValue} to {item.latestValue}
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        {item.change > 0 ? '+' : ''}{item.change.toFixed(1)} change
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Player details"
-        description="Edit section, team, and parent contact details here."
-      >
-        {profilePlayers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
-            No saved player details yet. This profile was created from assessment history.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {profilePlayers.map((player) => {
-              const draft = playerDrafts[player.id] ?? player
-              const isEditing = editingPlayerId === player.id
-
-              return (
-                <div key={player.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                  {isEditing ? (
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
-                        <input
-                          value={draft.playerName}
-                          onChange={(event) => handlePlayerDraftChange(player.id, 'playerName', event.target.value)}
-                          onKeyDown={(event) => event.stopPropagation()}
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
-                        <select
-                          value={draft.section}
-                          onChange={(event) => handlePlayerDraftChange(player.id, 'section', event.target.value)}
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        >
-                          {EVALUATION_SECTIONS.map((section) => (
-                            <option key={section} value={section}>
-                              {section}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
-                        <input
-                          value={draft.team}
-                          onChange={(event) => handlePlayerDraftChange(player.id, 'team', event.target.value)}
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                      </label>
-                      <div className="md:col-span-2 xl:col-span-3">
-                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <span className="block text-sm font-semibold text-[var(--text-primary)]">Contacts</span>
-                            <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
-                              Add parent or guardian contacts used for player communication.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleAddParentContact(player.id)}
-                            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
-                          >
-                            Add Another Contact
-                          </button>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {getDraftParentContacts(draft).map((contact, index) => (
-                            <div key={index} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-                              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                                Contact {index + 1}
-                              </p>
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <label className="block">
-                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Name</span>
-                                  <input
-                                    value={contact.name}
-                                    onChange={(event) => handleParentContactDraftChange(player.id, index, 'name', event.target.value)}
-                                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                                  />
-                                </label>
-                                <label className="block">
-                                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Email</span>
-                                  <input
-                                    type="email"
-                                    value={contact.email}
-                                    onChange={(event) => handleParentContactDraftChange(player.id, index, 'email', event.target.value)}
-                                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                                  />
-                                </label>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveParentContact(player.id, index)}
-                                className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
-                              >
-                                Remove Contact
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="md:col-span-2 xl:col-span-3">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Positions</span>
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                          <input
-                            value={draft.positionDraft ?? ''}
-                            onChange={(event) => handlePlayerDraftChange(player.id, 'positionDraft', event.target.value)}
-                            placeholder="Add position"
-                            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleAddPlayerPosition(player.id)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                          >
-                            Add Position
-                          </button>
-                        </div>
-                        {(draft.positions ?? []).length > 0 ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {draft.positions.map((position) => (
-                              <button
-                                key={position}
-                                type="button"
-                                onClick={() => handleRemovePlayerPosition(player.id, position)}
-                                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                              >
-                                {position} remove
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">No positions entered.</p>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                        <button
-                          type="button"
-                          disabled={isSavingPlayer}
-                          onClick={() => void handleSavePlayer(player.id)}
-                          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isSavingPlayer}
-                          onClick={() => setEditingPlayerId('')}
-                          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                      <div className="grid flex-1 gap-3 md:grid-cols-2 2xl:grid-cols-5">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Section</p>
-                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.section}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Team</p>
-                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.team || 'No team entered'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Contacts</p>
-                          <div className="mt-2 space-y-1">
-                            {normalizeParentContacts(player.parentContacts, {
-                              parentName: player.parentName,
-                              parentEmail: player.parentEmail,
-                            }).length > 0 ? (
-                              normalizeParentContacts(player.parentContacts, {
-                                parentName: player.parentName,
-                                parentEmail: player.parentEmail,
-                              }).map((contact, index) => (
-                                <p key={index} className="break-words text-sm font-semibold text-[var(--text-primary)]">
-                                  {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}{contact.email ? ` | ${contact.email}` : ''}
-                                </p>
-                              ))
-                            ) : (
-                              <p className="text-sm font-semibold text-[var(--text-primary)]">No contact details entered</p>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Positions</p>
-                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
-                            {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Status</p>
-                          <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
-                            {player.status === 'promoted' ? 'Promoted' : 'Active'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        {player.section !== 'Squad' ? (
-                          <button
-                            type="button"
-                            disabled={isPromotingId === player.id}
-                            onClick={() => void handlePromotePlayer(player.id)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isPromotingId === player.id ? 'Promoting...' : 'Promote to Squad'}
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditingPlayer(player)}
-                          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                        >
-                          Edit Details
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </SectionCard>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <Link
-          to={`/create?player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(lastTeam)}&section=${encodeURIComponent(lastSection)}`}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
-        >
-          Add New Evaluation
-        </Link>
-        {canDeletePlayer(user) ? (
-          <button
-            type="button"
-            disabled={isDeleting}
-            onClick={handleDeletePlayer}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isDeleting ? 'Deleting...' : 'Delete This Player'}
-          </button>
-        ) : null}
-      </div>
+      <PlayerProfileActions
+        isDeleting={isDeleting}
+        lastSection={lastSection}
+        lastTeam={lastTeam}
+        onDeletePlayer={handleDeletePlayer}
+        playerName={routePlayerName}
+        user={user}
+      />
 
       {canMergeEvaluations ? (
-        <SectionCard
-          title="Merge assessments"
-          description="Managers can create one combined assessment from selected reports. Original reports stay in history."
-        >
-          <div className="space-y-5">
-            <div className="grid gap-3 md:grid-cols-2">
-              {evaluations.map((evaluation) => (
-                <label
-                  key={evaluation.id}
-                  className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={mergeSelectedIds.includes(evaluation.id)}
-                    onChange={(event) => handleToggleMergeEvaluation(evaluation.id, event.target.checked)}
-                    className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-semibold">{evaluation.date || 'No date entered'}</span>
-                    <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">
-                      {evaluation.session || 'No session entered'} | {evaluation.section || 'Trial'} | Score {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : 'No score'}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            {mergeSelectedEvaluations.length >= 2 ? (
-              <div className="space-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Main details source</span>
-                  <select
-                    value={mergeCoreSource?.id || ''}
-                    onChange={(event) => setMergeCoreSourceId(event.target.value)}
-                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                  >
-                    {mergeSelectedEvaluations.map((evaluation) => (
-                      <option key={evaluation.id} value={evaluation.id}>
-                        {evaluation.date || 'No date entered'} | {evaluation.session || 'No session entered'} | {evaluation.section || 'Trial'}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                    This is the default source. You can override each merged detail below.
-                  </p>
-                </label>
-
-                <div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Choose report detail sources</p>
-                  <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                    Pick which assessment supplies non-score details such as parents, session, date, comments, and status.
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {mergeDetailFields.map((field) => {
-                      const selectedSource = getMergeDetailSource(field.key)
-
-                      return (
-                        <label key={field.key} className="block rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{field.label}</span>
-                          <select
-                            value={mergeDetailSources[field.key] || mergeCoreSource?.id || ''}
-                            onChange={(event) => handleMergeDetailSourceChange(field.key, event.target.value)}
-                            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                          >
-                            {mergeSelectedEvaluations.map((evaluation) => (
-                              <option key={evaluation.id} value={evaluation.id}>
-                                {evaluation.date || 'No date entered'} | {evaluation.session || 'No session entered'}
-                              </option>
-                            ))}
-                          </select>
-                          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">
-                            {field.preview(selectedSource)}
-                          </p>
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Choose field sources</p>
-                  <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                    Pick which assessment should supply each score or text field.
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {mergeFieldLabels.map((label) => (
-                      <label key={label} className="block rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{label}</span>
-                        <select
-                          value={
-                            mergeFieldSources[label] ||
-                            mergeSelectedEvaluations.find((evaluation) =>
-                              Object.prototype.hasOwnProperty.call(evaluation.formResponses ?? {}, label),
-                            )?.id ||
-                            mergeCoreSource?.id ||
-                            mergeSelectedEvaluations[0]?.id ||
-                            ''
-                          }
-                          onChange={(event) => handleMergeFieldSourceChange(label, event.target.value)}
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        >
-                          {mergeSelectedEvaluations
-                            .filter((evaluation) => Object.prototype.hasOwnProperty.call(evaluation.formResponses ?? {}, label))
-                            .map((evaluation) => (
-                              <option key={evaluation.id} value={evaluation.id}>
-                                {evaluation.date || 'No date entered'} | {String(evaluation.formResponses?.[label] ?? 'No value')}
-                              </option>
-                            ))}
-                        </select>
-                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">
-                          {String(mergePreviewResponses[label] ?? 'No value')}
-                        </p>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">Merged score preview</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">
-                      {mergePreviewAverage !== null ? mergePreviewAverage.toFixed(1) : 'No numeric scores selected'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isMergingEvaluations}
-                    onClick={() => void handleCreateMergedEvaluation()}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isMergingEvaluations ? 'Saving...' : 'Save Merged Assessment'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                Select at least two assessments to build a merged report.
-              </div>
-            )}
-          </div>
-        </SectionCard>
+        <PlayerMergeAssessments
+          evaluations={evaluations}
+          isMergingEvaluations={isMergingEvaluations}
+          mergeCoreSource={mergeCoreSource}
+          mergeDetailFields={mergeDetailFields}
+          mergeDetailSources={mergeDetailSources}
+          mergeFieldLabels={mergeFieldLabels}
+          mergeFieldSources={mergeFieldSources}
+          mergePreviewAverage={mergePreviewAverage}
+          mergePreviewResponses={mergePreviewResponses}
+          mergeSelectedEvaluations={mergeSelectedEvaluations}
+          mergeSelectedIds={mergeSelectedIds}
+          onCreateMergedEvaluation={() => void handleCreateMergedEvaluation()}
+          onMergeDetailSourceChange={handleMergeDetailSourceChange}
+          onMergeFieldSourceChange={handleMergeFieldSourceChange}
+          onMergeSelectionChange={handleToggleMergeEvaluation}
+          onMergeSourceChange={setMergeCoreSourceId}
+        />
       ) : null}
 
-      <SectionCard
-        title="Staff notes and activity"
-        description="Internal notes and staff actions stay inside the club workspace. They are not added to parent emails."
-      >
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Add internal note</span>
-              <textarea
-                value={noteDraft}
-                onChange={(event) => setNoteDraft(event.target.value)}
-                rows={4}
-                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                placeholder="Add a staff-only note for this player"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => void handleSaveStaffNote()}
-              disabled={isSavingNote || !noteDraft.trim() || !primaryPlayer?.id}
-              className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSavingNote ? 'Saving...' : 'Save Note'}
-            </button>
-
-            <div className="mt-4 space-y-3">
-              {staffNotes.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-                  No staff notes yet.
-                </div>
-              ) : (
-                staffNotes.map((note) => (
-                  <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{note.note}</p>
-                    {note.audioUrl ? (
-                      <audio controls src={note.audioUrl} className="mt-3 w-full">
-                        Voice note audio
-                      </audio>
-                    ) : null}
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      {note.userName || note.userEmail || 'Staff'} | {formatActivityDate(note.createdAt)}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">Player activity</p>
-            <div className="mt-3 space-y-3">
-              {activityLogs.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-                  No player activity logged yet.
-                </div>
-              ) : (
-                activityLogs.slice(0, 10).map((log) => (
-                  <div key={log.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{getActivityLabel(log)}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">
-                      {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
-                    </p>
-                    {log.recipientEmail ? (
-                      <p className="mt-1 break-words text-xs text-[var(--text-muted)]">Recipient: {log.recipientEmail}</p>
-                    ) : null}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Past evaluations"
-        description="History is scoped by club and role, with sharing actions available on each evaluation."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center text-sm font-medium text-[var(--text-muted)]">
-            Loading player history...
-          </div>
-        ) : evaluations.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-6 py-10 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Player History</p>
-            <p className="mt-3 text-xl font-semibold text-[var(--text-primary)]">No history for this player yet</p>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-              Once evaluations are saved for this player, the full review trail will appear here.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {paginatedEvaluations.items.map((evaluation) => {
-              const responseItems = getExportResponseItems(evaluation)
-              const selectedResponseItems = getSelectedEvaluationResponses(responseItems, selectedExportLabels)
-              const summary = buildEvaluationSummary(evaluation)
-              const canShare = canShareEvaluation(user, evaluation)
-              const evaluationParentContacts = getEvaluationParentContacts(evaluation)
-              const selectedTemplateKey = getSelectedEmailTemplateKey(evaluation)
-              const availableEmailTemplates = getAvailableEmailTemplates(evaluation)
-              const shouldShowInviteDate = isInviteEmailTemplate(selectedTemplateKey)
-              const hasSavedExportSelection = Array.isArray(selectedExportLabels)
-
-              return (
-                <div
-                  key={evaluation.id}
-                  className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5"
-                >
-                  <div>
-                    <div>
-                      <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
-                      {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--text-primary)]">Move report to another player</p>
-                        <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                          Use this if a report was saved against the wrong player.
-                        </p>
-                      </div>
-                      {canDeleteEvaluations ? (
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteEvaluation(evaluation)}
-                          disabled={isDeletingEvaluationId === evaluation.id}
-                          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isDeletingEvaluationId === evaluation.id ? 'Deleting...' : 'Delete Assessment'}
-                        </button>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                      Deleting an old assessment removes it from this player history and average score calculations.
-                    </p>
-                    <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Correct player</span>
-                        <select
-                          value={selectedReassignTargets[evaluation.id] || ''}
-                          onChange={(event) => handleReassignTargetChange(evaluation.id, event.target.value)}
-                          disabled={reassignPlayerOptions.length === 0}
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <option value="">
-                            {reassignPlayerOptions.length === 0 ? 'No other players available' : 'Select player'}
-                          </option>
-                          {reassignPlayerOptions.map((player) => (
-                            <option key={player.id} value={player.id}>
-                              {player.playerName} | {player.section || 'Trial'} | {player.team || 'No team'}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => void handleReassignEvaluation(evaluation)}
-                        disabled={!selectedReassignTargets[evaluation.id] || isReassigningId === evaluation.id}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
-                      >
-                        {isReassigningId === evaluation.id ? 'Moving...' : 'Move Report'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto_auto] xl:items-end">
-                    {availableEmailTemplates.length > 0 ? (
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
-                        <select
-                          value={selectedTemplateKey}
-                          onChange={(event) =>
-                            setSelectedEmailTemplates((currentTemplates) => ({
-                              ...currentTemplates,
-                              [evaluation.id]: event.target.value,
-                            }))
-                          }
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        >
-                          {availableEmailTemplates.map((template) => (
-                            <option key={template.key} value={template.key}>
-                              {template.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
-                        Create a club email template before sending emails.
-                      </div>
-                    )}
-                    {shouldShowInviteDate ? (
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Invite date</span>
-                        <input
-                          type="date"
-                          value={getSelectedInviteDate(evaluation)}
-                          onChange={(event) =>
-                            setSelectedInviteDates((currentDates) => ({
-                              ...currentDates,
-                              [evaluation.id]: event.target.value,
-                            }))
-                          }
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                      </label>
-                    ) : (
-                      <div className="hidden xl:block" />
-                    )}
-                    <div>
-                      <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email recipients</span>
-                      {evaluationParentContacts.length > 0 ? (
-                        <div className="space-y-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
-                          {evaluationParentContacts.map((contact, index) => {
-                            const selectedIndexes =
-                              selectedParentContacts[evaluation.id] ?? evaluationParentContacts.map((_, contactIndex) => contactIndex)
-
-                            return (
-                              <label key={`${contact.email || contact.name}-${index}`} className="flex items-start gap-2 text-sm text-[var(--text-primary)]">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedIndexes.includes(index)}
-                                  onChange={() => handleToggleEvaluationParentContact(evaluation.id, index, evaluationParentContacts)}
-                                  className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                                />
-                                <span className="min-w-0">
-                                  <span className="block font-semibold">{contact.name || 'Parent/Guardian'}</span>
-                                  <span className="block break-words text-xs text-[var(--text-muted)]">{contact.email || 'No email entered'}</span>
-                                </span>
-                              </label>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
-                          No parent contacts entered.
-                        </div>
-                      )}
-                    </div>
-                    <div className="xl:col-span-6">
-                      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
-                            <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                              Choose what goes into the parent email. This choice is saved in this browser for {routePlayerName}.
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleSetAllExportFields(responseItems)}
-                              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                            >
-                              Select All
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleClearExportFields}
-                              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </div>
-
-                        {responseItems.length > 0 ? (
-                          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                            {responseItems.map((item) => {
-                              const isSelected = hasSavedExportSelection
-                                ? selectedExportLabels.includes(item.label)
-                                : true
-
-                              return (
-                                <label
-                                  key={item.label}
-                                  className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => handleToggleExportField(item.label, responseItems)}
-                                    className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                                  />
-                                  <span className="min-w-0">
-                                    <span className="block font-semibold">{item.label}</span>
-                                    <span className="line-clamp-2 block break-words text-xs leading-5 text-[var(--text-muted)]">
-                                      {String(item.value ?? '').trim() || 'No data entered'}
-                                    </span>
-                                  </span>
-                                </label>
-                              )
-                            })}
-                          </div>
-                        ) : (
-                          <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-                            No evaluation responses were entered for this assessment.
-                          </p>
-                        )}
-
-                        <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
-                          {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
-                        </p>
-                      </div>
-                    </div>
-                    {!isDemoAccount ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleSendParentEmail(evaluation)}
-                        disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
-                        title="Email parents"
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
-                      </button>
-                    ) : null}
-                    {canEditEvaluation(user, evaluation) ? (
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/assess-player?evaluationId=${encodeURIComponent(evaluation.id)}&player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(evaluation.team || '')}&section=${encodeURIComponent(evaluation.section || 'Trial')}&session=${encodeURIComponent(evaluation.session || '')}`)}
-                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Edit Assessment
-                      </button>
-                    ) : null}
-                  </div>
-
-                  {selectedTemplateKey === 'decline' && canDeletePlayer(user) ? (
-                    <div className="mt-4 rounded-lg border border-red-500/30 bg-red-950/20 p-4">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-[var(--text-primary)]">No place offered</p>
-                          <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                            If this player is no longer needed, you can remove them from the system after preparing the parent email.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={isDeleting}
-                          onClick={handleDeletePlayer}
-                          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isDeleting ? 'Removing...' : 'Remove From System'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {evaluationParentContacts.length > 0 ? (
-                    <div className="mt-5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Parent details</p>
-                      <div className="mt-3 space-y-1">
-                        {evaluationParentContacts.map((contact, index) => (
-                          <p key={index} className="break-words text-sm leading-6 text-[var(--text-muted)]">
-                            {contact.name || 'Parent/Guardian'}{contact.email ? ` | ${contact.email}` : ''}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="mt-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Summary</p>
-                    <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{summary}</p>
-                  </div>
-
-                  <div className="mt-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Responses</p>
-                    <div className="mt-3 space-y-2">
-                      {responseItems.length > 0 ? (
-                        responseItems.map((item) => (
-                          <div key={item.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{item.label}</p>
-                            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{String(item.value)}</p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm leading-6 text-[var(--text-muted)]">No responses provided.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-            <Pagination
-              currentPage={evaluationPage}
-              onPageChange={setEvaluationPage}
-              pageSize={PROFILE_EVALUATION_PAGE_SIZE}
-              totalItems={evaluations.length}
-            />
-          </div>
-        )}
-      </SectionCard>
-
-      <ConfirmModal
-        isOpen={Boolean(evaluationDeleteTarget)}
-        isBusy={Boolean(isDeletingEvaluationId)}
-        title="Delete assessment"
-        message="This removes the assessment from the player history and average score calculations."
-        items={[
-          `Player: ${evaluationDeleteTarget?.playerName || routePlayerName}`,
-          `Date: ${evaluationDeleteTarget?.date || 'No date entered'}`,
-          `Session: ${evaluationDeleteTarget?.session || 'No session entered'}`,
-          `Team: ${evaluationDeleteTarget?.team || 'No team entered'}`,
-        ]}
-        confirmLabel="Delete Assessment"
-        onCancel={() => setEvaluationDeleteTarget(null)}
-        requirePassword
-        onConfirm={(password) => void confirmDeleteEvaluation(password)}
+      <PlayerStaffActivity
+        activityLogs={activityLogs}
+        isSavingNote={isSavingNote}
+        noteDraft={noteDraft}
+        onNoteChange={setNoteDraft}
+        onSaveNote={() => void handleSaveStaffNote()}
+        primaryPlayer={primaryPlayer}
+        staffNotes={staffNotes}
       />
 
-      <ConfirmModal
-        isOpen={Boolean(reassignConfirmTarget)}
-        isBusy={Boolean(isReassigningId)}
-        title="Move assessment"
-        message="Use this when a report was saved against the wrong player."
-        itemsTitle="This will change:"
-        items={[
-          `From player: ${routePlayerName}`,
-          `To player: ${reassignConfirmTarget?.targetPlayer?.playerName || 'Selected player'}`,
-          `Assessment date: ${reassignConfirmTarget?.evaluation?.date || 'No date entered'}`,
-        ]}
-        confirmLabel="Move Assessment"
-        onCancel={() => setReassignConfirmTarget(null)}
-        onConfirm={() => void confirmReassignEvaluation()}
+      <PlayerEvaluationsHistory
+        availablePlayers={reassignPlayerOptions}
+        canDeleteEvaluations={canDeleteEvaluations}
+        emailSendingId={emailSendingId}
+        evaluations={evaluations}
+        getAvailableEmailTemplates={getAvailableEmailTemplates}
+        getEvaluationParentContacts={getEvaluationParentContacts}
+        getExportResponseItems={getExportResponseItems}
+        getSelectedEmailTemplateKey={getSelectedEmailTemplateKey}
+        getSelectedInviteDate={getSelectedInviteDate}
+        isDeleting={isDeleting}
+        isDeletingEvaluationId={isDeletingEvaluationId}
+        isDemoAccount={isDemoAccount}
+        isLoading={isLoading}
+        isReassigningId={isReassigningId}
+        onClearExportFields={handleClearExportFields}
+        onDeleteEvaluation={(evaluation) => void handleDeleteEvaluation(evaluation)}
+        onEditEvaluation={(evaluation) =>
+          navigate(
+            `/assess-player?evaluationId=${encodeURIComponent(evaluation.id)}&player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(evaluation.team || '')}&section=${encodeURIComponent(evaluation.section || 'Trial')}&session=${encodeURIComponent(evaluation.session || '')}`,
+          )
+        }
+        onInviteDateChange={(evaluationId, value) =>
+          setSelectedInviteDates((currentDates) => ({
+            ...currentDates,
+            [evaluationId]: value,
+          }))
+        }
+        onPageChange={setEvaluationPage}
+        onReassignEvaluation={(evaluation) => void handleReassignEvaluation(evaluation)}
+        onReassignTargetChange={handleReassignTargetChange}
+        onRemovePlayer={handleDeletePlayer}
+        onSelectAllExportFields={handleSetAllExportFields}
+        onSelectedEmailTemplateChange={(evaluationId, value) =>
+          setSelectedEmailTemplates((currentTemplates) => ({
+            ...currentTemplates,
+            [evaluationId]: value,
+          }))
+        }
+        onSendParentEmail={(evaluation) => void handleSendParentEmail(evaluation)}
+        onToggleEvaluationParentContact={handleToggleEvaluationParentContact}
+        onToggleExportField={handleToggleExportField}
+        page={evaluationPage}
+        paginatedEvaluations={paginatedEvaluations}
+        playerName={routePlayerName}
+        selectedExportLabels={selectedExportLabels}
+        selectedParentContacts={selectedParentContacts}
+        selectedReassignTargets={selectedReassignTargets}
+        user={user}
       />
-
-      <ConfirmModal
-        isOpen={isMergeConfirmOpen}
-        isBusy={isMergingEvaluations}
-        title="Create merged assessment"
-        message="This creates a new merged assessment. Source reports stay in history."
-        itemsTitle="This will create:"
-        items={[
-          `Player: ${routePlayerName}`,
-          `${mergeSelectedEvaluations.length} selected assessments merged into one new assessment`,
-          'Original assessments will stay unchanged',
-        ]}
-        confirmLabel="Create Merged Assessment"
-        onCancel={() => setIsMergeConfirmOpen(false)}
-        onConfirm={() => void confirmCreateMergedEvaluation()}
-      />
-
-      <ConfirmModal
-        isOpen={Boolean(playerDeleteTarget)}
-        isBusy={isDeleting}
-        title="Delete player"
-        message="This moves the player into archived players. Their saved assessments stay available for record keeping."
-        items={[
-          `Player: ${playerDeleteTarget?.playerName || routePlayerName}`,
-          `${playerDeleteTarget?.playerCount ?? players.length} player record entries moved to archive`,
-          `${playerDeleteTarget?.evaluationCount ?? evaluations.length} saved assessments kept in history`,
-        ]}
-        itemsTitle="This will archive:"
-        confirmLabel="Archive Player"
-        onCancel={() => setPlayerDeleteTarget(null)}
-        requireReason
-        reasonLabel="Archive reason"
-        reasonPlaceholder="Explain why this player is being archived."
-        requirePassword
-        onConfirm={(password, reason) => void confirmDeletePlayer(password, reason)}
-      />
-
-      <ConfirmModal
-        isOpen={Boolean(emailConfirmTarget)}
-        isBusy={Boolean(emailConfirmTarget?.evaluation && emailSendingId === emailConfirmTarget.evaluation.id)}
-        title="Email parents"
-        message="Check the email details before sending."
-        itemsTitle="This will send:"
-        items={[
-          `Player: ${routePlayerName}`,
-          `Recipients: ${emailConfirmTarget?.recipientEmails || 'No recipients selected'}`,
-          `Template: ${emailConfirmTarget?.templateName || 'Email template'}`,
-          `Subject: ${emailConfirmTarget?.payloads?.[0]?.payload?.subject || 'Player Feedback Report'}`,
-          `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
-          `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
-          `Attachment: Yes`,
-          `Evaluation fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
-          emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
-        ]}
-        confirmLabel="Send Now"
-        onCancel={() => setEmailConfirmTarget(null)}
-        onConfirm={() => void confirmSendParentEmail()}
-      />
-
-      <ConfirmModal
-        isOpen={Boolean(noPlaceArchiveTarget)}
-        isBusy={isDeleting}
-        title="Archive player?"
-        message="The No Place Offered email has been sent. Do you want to move this player to archived players now?"
-        items={[
-          `Player: ${noPlaceArchiveTarget?.playerName || routePlayerName}`,
-          `${noPlaceArchiveTarget?.playerCount ?? players.length} player record entries moved to archive`,
-          `${noPlaceArchiveTarget?.evaluationCount ?? evaluations.length} saved assessments kept in history`,
-        ]}
-        itemsTitle="If you continue:"
-        confirmLabel="Archive Player"
-        onCancel={() => setNoPlaceArchiveTarget(null)}
-        requireReason
-        reasonLabel="Archive reason"
-        reasonPlaceholder="Explain why this player is being archived."
-        onConfirm={(password, reason) => void confirmArchiveAfterNoPlaceEmail(password, reason)}
+      <PlayerProfileModals
+        emailConfirmTarget={emailConfirmTarget}
+        emailSendingId={emailSendingId}
+        evaluationDeleteTarget={evaluationDeleteTarget}
+        evaluations={evaluations}
+        isDeleting={isDeleting}
+        isDeletingEvaluationId={isDeletingEvaluationId}
+        isMergeConfirmOpen={isMergeConfirmOpen}
+        isMergingEvaluations={isMergingEvaluations}
+        isReassigningId={isReassigningId}
+        mergeSelectedEvaluations={mergeSelectedEvaluations}
+        noPlaceArchiveTarget={noPlaceArchiveTarget}
+        onArchiveAfterNoPlaceEmail={(password, reason) => void confirmArchiveAfterNoPlaceEmail(password, reason)}
+        onCancelArchiveAfterNoPlaceEmail={() => setNoPlaceArchiveTarget(null)}
+        onCancelDeleteEvaluation={() => setEvaluationDeleteTarget(null)}
+        onCancelDeletePlayer={() => setPlayerDeleteTarget(null)}
+        onCancelEmail={() => setEmailConfirmTarget(null)}
+        onCancelMerge={() => setIsMergeConfirmOpen(false)}
+        onCancelReassign={() => setReassignConfirmTarget(null)}
+        onConfirmDeleteEvaluation={(password) => void confirmDeleteEvaluation(password)}
+        onConfirmDeletePlayer={(password, reason) => void confirmDeletePlayer(password, reason)}
+        onConfirmEmail={() => void confirmSendParentEmail()}
+        onConfirmMerge={() => void confirmCreateMergedEvaluation()}
+        onConfirmReassign={() => void confirmReassignEvaluation()}
+        playerDeleteTarget={playerDeleteTarget}
+        players={players}
+        reassignConfirmTarget={reassignConfirmTarget}
+        routePlayerName={routePlayerName}
       />
 
     </div>

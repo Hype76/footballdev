@@ -4,4 +4,4 @@ export {
   readViewCacheValue,
   withRequestTimeout,
   writeViewCache,
-} from './domain/core.js'
+} from './domain/cache-store.js'

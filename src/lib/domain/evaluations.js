@@ -1,7 +1,9 @@
 export {
+  getEvaluations,
+} from './core.js'
+export {
   createEvaluation,
   deleteEvaluation,
-  getEvaluations,
   updateEvaluation,
   updateEvaluationStatus,
-} from './core.js'
+} from './evaluation-actions.js'

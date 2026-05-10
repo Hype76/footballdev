@@ -1,13 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { AddFieldSection } from '../components/form-builder/AddFieldSection.jsx'
+import { CurrentFieldsSection } from '../components/form-builder/CurrentFieldsSection.jsx'
+import { DefaultFormSection } from '../components/form-builder/DefaultFormSection.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canManageFormFields, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import {
+  createDraftFromField,
+  createDraftMap,
+  createScoreOptions,
+  FIELD_PAGE_SIZE,
+  getFieldTypeLabel,
+  getOptionsForType,
+  initialFieldForm,
+  isScoreType,
+} from '../hooks/form-builder/formBuilderUtils.js'
 import {
   addFormField,
   deleteFormField,
@@ -19,69 +30,6 @@ import {
   updateFormField,
   writeViewCache,
 } from '../lib/supabase.js'
-
-const FIELD_TYPE_OPTIONS = [
-  { value: 'score_1_5', label: 'Score 1 to 5' },
-  { value: 'score_1_10', label: 'Score 1 to 10' },
-  { value: 'text', label: 'Text' },
-  { value: 'textarea', label: 'Textarea' },
-  { value: 'select', label: 'Select' },
-]
-
-const initialFieldForm = {
-  label: '',
-  type: 'score_1_5',
-  required: false,
-  options: '1, 2, 3, 4, 5',
-}
-
-const FIELD_PAGE_SIZE = 8
-
-function normalizeOptions(optionsText) {
-  return optionsText
-    .split(',')
-    .map((option) => option.trim())
-    .filter(Boolean)
-}
-
-function isScoreType(type) {
-  return type === 'score_1_5' || type === 'score_1_10'
-}
-
-function createScoreOptions(type) {
-  const maxValue = type === 'score_1_10' ? 10 : 5
-  return Array.from({ length: maxValue }, (_, index) => String(index + 1))
-}
-
-function getOptionsForType(type, optionsText) {
-  if (isScoreType(type)) {
-    return createScoreOptions(type)
-  }
-
-  if (type === 'select') {
-    return normalizeOptions(optionsText)
-  }
-
-  return []
-}
-
-function getFieldTypeLabel(type) {
-  return FIELD_TYPE_OPTIONS.find((option) => option.value === type)?.label || type
-}
-
-function createDraftFromField(field) {
-  return {
-    label: field.label,
-    type: field.type,
-    required: field.required,
-    options: field.options.join(', '),
-    isEnabled: field.isEnabled,
-  }
-}
-
-function createDraftMap(fields) {
-  return Object.fromEntries(fields.map((field) => [field.id, createDraftFromField(field)]))
-}
 
 export function FormBuilderPage() {
   const { user } = useAuth()
@@ -437,322 +385,40 @@ export function FormBuilderPage() {
       {errorMessage ? <NoticeBanner title="Form builder action failed" message={errorMessage} /> : null}
       {successMessage ? <NoticeBanner title="Form builder updated" message={successMessage} tone="info" /> : null}
 
-      <SectionCard
-        title="Default form"
-        description="Every club starts from this template. These fields become your editable default form once loaded."
-      >
-        <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            {defaultTemplateFields.map((field) => (
-              <div key={field.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">{field.label}</p>
-                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[var(--text-secondary)]">{getFieldTypeLabel(field.type)}</p>
-              </div>
-            ))}
-          </div>
+      <DefaultFormSection
+        defaultTemplateFields={defaultTemplateFields}
+        fieldsCount={fields.length}
+        isSaving={isSaving}
+        onRefreshFields={() => void refreshFields()}
+      />
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-[var(--text-muted)]">
-              {fields.length === 0
-                ? 'No fields are configured for this club yet. Load the default form to start.'
-                : 'Default fields are already available below and can be enabled, disabled, and reordered.'}
-            </p>
-            <button
-              type="button"
-              onClick={() => void refreshFields()}
-              disabled={isSaving}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              {isSaving ? 'Loading...' : 'Load default form'}
-            </button>
-          </div>
-        </div>
-      </SectionCard>
+      <AddFieldSection
+        canUseCustomFields={canUseCustomFields}
+        fieldForm={fieldForm}
+        isSaving={isSaving}
+        onAddField={handleAddField}
+        onFormChange={handleFormChange}
+      />
 
-      <SectionCard
-        title="Add field"
-        description={
-          canUseCustomFields
-            ? 'Create fast-scoring dropdowns, text fields, or custom select fields for your club form.'
-            : createFeatureUpgradeMessage('customFormFields')
-        }
-      >
-        <form className="grid gap-4 md:grid-cols-2" onSubmit={handleAddField}>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Label</span>
-            <input
-              type="text"
-              name="label"
-              value={fieldForm.label}
-              onChange={handleFormChange}
-              required
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Type</span>
-            <select
-              name="type"
-              value={fieldForm.type}
-              onChange={handleFormChange}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            >
-              {FIELD_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {fieldForm.type === 'select' ? (
-            <label className="block md:col-span-2">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Options</span>
-              <input
-                type="text"
-                name="options"
-                value={fieldForm.options}
-                onChange={handleFormChange}
-                placeholder="Option A, Option B, Option C"
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-          ) : null}
-
-          {isScoreType(fieldForm.type) ? (
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 md:col-span-2">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Score options</p>
-              <p className="mt-2 text-sm text-[var(--text-muted)]">{createScoreOptions(fieldForm.type).join(', ')}</p>
-            </div>
-          ) : null}
-
-          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
-            <input
-              type="checkbox"
-              name="required"
-              checked={fieldForm.required}
-              onChange={handleFormChange}
-              className="h-4 w-4 rounded border-[var(--border-color)] bg-[var(--panel-bg)]"
-            />
-            <span>Required field</span>
-          </label>
-
-          <div className="md:col-span-2">
-            <button
-              type="submit"
-              disabled={isSaving || !canUseCustomFields}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              {isSaving ? 'Saving...' : 'Add field'}
-            </button>
-          </div>
-        </form>
-      </SectionCard>
-
-      <SectionCard
-        title="Current fields"
-        description="Switch between default fields and custom fields so the form setup stays clear."
-      >
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => {
-              setFieldGroup('default')
-              setFieldPage(1)
-            }}
-            className={[
-              'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
-              fieldGroup === 'default'
-                ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-            ].join(' ')}
-          >
-            Default Fields ({defaultFields.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFieldGroup('custom')
-              setFieldPage(1)
-            }}
-            className={[
-              'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
-              fieldGroup === 'custom'
-                ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-            ].join(' ')}
-          >
-            Custom Fields ({customFields.length})
-          </button>
-        </div>
-
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading fields...
-          </div>
-        ) : fields.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No fields found for this club.
-          </div>
-        ) : visibleFields.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            {fieldGroup === 'default'
-              ? 'No default fields are configured yet. Load the default form to start.'
-              : 'No custom fields have been added yet.'}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {paginatedFields.items.map((field) => {
-              const draft = fieldDrafts[field.id] ?? createDraftFromField(field)
-              const fieldIndex = fields.findIndex((item) => item.id === field.id)
-
-              return (
-                <div
-                  key={field.id}
-                  className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
-                >
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {field.isDefault ? (
-                        <>
-                          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Label</p>
-                            <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{field.label}</p>
-                          </div>
-                          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Type</p>
-                            <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{getFieldTypeLabel(field.type)}</p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <label className="block">
-                            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Label</span>
-                            <input
-                              type="text"
-                              value={draft.label}
-                              onChange={(event) => handleDraftChange(field.id, 'label', event.target.value)}
-                              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Type</span>
-                            <select
-                              value={draft.type}
-                              onChange={(event) => handleDraftChange(field.id, 'type', event.target.value)}
-                              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                            >
-                              {FIELD_TYPE_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-                          {draft.type === 'select' ? (
-                            <label className="block md:col-span-2">
-                              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Options</span>
-                              <input
-                                type="text"
-                                value={draft.options}
-                                onChange={(event) => handleDraftChange(field.id, 'options', event.target.value)}
-                                placeholder="Option A, Option B, Option C"
-                                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                              />
-                            </label>
-                          ) : null}
-
-                          {isScoreType(draft.type) ? (
-                            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 md:col-span-2">
-                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Score options</p>
-                              <p className="mt-2 text-sm text-[var(--text-muted)]">{createScoreOptions(draft.type).join(', ')}</p>
-                            </div>
-                          ) : null}
-
-                          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
-                            <input
-                              type="checkbox"
-                              checked={draft.required}
-                              onChange={(event) => handleDraftChange(field.id, 'required', event.target.checked)}
-                              className="h-4 w-4 rounded border-[var(--border-color)] bg-[var(--panel-bg)]"
-                            />
-                            <span>Required field</span>
-                          </label>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:flex-col">
-                      <button
-                        type="button"
-                        disabled={isSaving || fieldIndex === 0}
-                        onClick={() => handleMoveField(field.id, -1)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Move up
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isSaving || fieldIndex === fields.length - 1}
-                        onClick={() => handleMoveField(field.id, 1)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Move down
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isSaving}
-                        onClick={() => handleToggleEnabled(field)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {draft.isEnabled ? 'Disable' : 'Enable'}
-                      </button>
-                      {field.isDefault ? (
-                        <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-muted)]">
-                          Default field
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            disabled={isSaving}
-                            onClick={() => handleSaveField(field)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isSaving}
-                            onClick={() => handleDeleteField(field.id)}
-                            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                    <span>{field.isDefault ? 'Default' : 'Custom'}</span>
-                    <span>{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
-                    <span>{draft.required ? 'Required' : 'Optional'}</span>
-                  </div>
-                </div>
-              )
-            })}
-            <Pagination
-              currentPage={fieldPage}
-              onPageChange={setFieldPage}
-              pageSize={FIELD_PAGE_SIZE}
-              totalItems={visibleFields.length}
-            />
-          </div>
-        )}
-      </SectionCard>
+      <CurrentFieldsSection
+        customFields={customFields}
+        defaultFields={defaultFields}
+        fieldDrafts={fieldDrafts}
+        fieldGroup={fieldGroup}
+        fieldPage={fieldPage}
+        fields={fields}
+        isLoading={isLoading}
+        isSaving={isSaving}
+        onDeleteField={handleDeleteField}
+        onDraftChange={handleDraftChange}
+        onMoveField={handleMoveField}
+        onPageChange={setFieldPage}
+        onSaveField={handleSaveField}
+        onSetFieldGroup={setFieldGroup}
+        onToggleEnabled={handleToggleEnabled}
+        paginatedFields={paginatedFields}
+        visibleFields={visibleFields}
+      />
 
       <ConfirmModal
         isOpen={Boolean(fieldDeleteTarget)}

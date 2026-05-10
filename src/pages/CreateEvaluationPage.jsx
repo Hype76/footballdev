@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import { BlankPrintForm } from '../components/evaluations/BlankPrintForm.jsx'
-import { EvaluationFieldInput } from '../components/evaluations/EvaluationFieldInput.jsx'
+import { ConfiguredFieldsSection } from '../components/evaluations/ConfiguredFieldsSection.jsx'
+import { EvaluationAvailabilityState } from '../components/evaluations/EvaluationAvailabilityState.jsx'
+import { EvaluationPlayerDetailsSection } from '../components/evaluations/EvaluationPlayerDetailsSection.jsx'
+import { PreviousAssessmentsSection } from '../components/evaluations/PreviousAssessmentsSection.jsx'
+import { SubmitExportSection } from '../components/evaluations/SubmitExportSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { canCreateEvaluation, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   isInviteEmailTemplate,
   normalizeEmailTemplateAudience,
-  renderParentEmailTemplate,
 } from '../lib/email-templates.js'
-import { sendParentEmail } from '../lib/email-builder.js'
 import { isDemoUser } from '../lib/demo.js'
-import { formatUkDate } from '../lib/date-format.js'
 import {
   createFeatureUpgradeMessage,
   createLimitUpgradeMessage,
@@ -32,18 +32,31 @@ import { removeDraft, saveDraft } from '../lib/offline-drafts.js'
 import {
   buildComments,
   buildFormResponses,
+  buildParentEmailJobs,
   buildScores,
+  createEvaluationPayload,
+  createOfflineEvaluationDraft,
+  createLocalId,
   createEmptyResponseValues,
   createInitialFormData,
+  createPostAssessmentFormData,
   createResponseItems,
   formatSessionForDisplay,
-  formatSessionForInput,
   getAverageScore,
+  getContactCopy,
+  getCurrentMonthEvaluationCount,
+  getMatchedPlayerFieldUpdate,
+  getNextExportLabels,
+  getNextSelectedContactIndexes,
+  getPostAssessmentNavigation,
+  getSelectedContactIndexes,
   getDraftStorageKey,
+  isNetworkError,
+  mapEvaluationResponsesToFieldValues,
   normalizePlayerName,
   normalizeSessionValue,
-  parseAssessmentQueue,
   parseStoredDraft,
+  writeSessionAssessmentProgress,
 } from '../hooks/evaluations/evaluationFormUtils.js'
 import {
   EVALUATION_SECTIONS,
@@ -67,100 +80,6 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-
-function createLocalId() {
-  return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-function isNetworkError(error) {
-  const message = String(error?.message ?? '').toLowerCase()
-  return !navigator.onLine || message.includes('failed to fetch') || message.includes('network')
-}
-
-function mapEvaluationResponsesToFieldValues(fields, formResponses = {}) {
-  return Object.fromEntries(
-    fields.map((field) => [field.id, formResponses[field.label] ?? '']),
-  )
-}
-
-function normalizeAssessmentLabel(value) {
-  return String(value ?? '').trim().toLowerCase()
-}
-
-function getContactEmailAddresses(contact) {
-  return String(contact?.email ?? '')
-    .split(/[;,]/)
-    .map((email) => email.trim())
-    .filter(Boolean)
-}
-
-function getContactRecipientName(contact, fallbackName) {
-  return String(contact?.name ?? '').trim() || String(fallbackName ?? '').trim() || 'Parent/Guardian'
-}
-
-function isEnteredAssessmentValue(value) {
-  if (Array.isArray(value)) {
-    return value.length > 0
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.keys(value).length > 0
-  }
-
-  return String(value ?? '').trim() !== ''
-}
-
-function formatAssessmentValue(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item ?? '').trim()).filter(Boolean).join(', ')
-  }
-
-  if (value && typeof value === 'object') {
-    return JSON.stringify(value, null, 2)
-  }
-
-  return String(value ?? '').trim() || 'No data entered'
-}
-
-function buildPreviousAssessmentItems(evaluation) {
-  const items = []
-  const usedLabels = new Set()
-
-  const addItem = (label, value) => {
-    const cleanLabel = String(label ?? '').trim()
-
-    if (!cleanLabel) {
-      return
-    }
-
-    const normalizedLabel = normalizeAssessmentLabel(cleanLabel)
-
-    if (usedLabels.has(normalizedLabel)) {
-      return
-    }
-
-    usedLabels.add(normalizedLabel)
-    items.push({
-      label: cleanLabel,
-      value: isEnteredAssessmentValue(value) ? formatAssessmentValue(value) : 'No data entered',
-    })
-  }
-
-  Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
-    addItem(label, value)
-  })
-
-  Object.entries(evaluation.scores ?? {}).forEach(([label, value]) => {
-    addItem(label, value)
-  })
-
-  const comments = evaluation.comments && typeof evaluation.comments === 'object' ? evaluation.comments : {}
-  addItem('Strengths', comments.strengths)
-  addItem('Improvements', comments.improvements)
-  addItem('Overall Comments', comments.overall)
-
-  return items
-}
 
 export function CreateEvaluationPage() {
   const { user } = useAuth()
@@ -694,24 +613,7 @@ export function CreateEvaluationPage() {
   const normalizedContactType = normalizePlayerContactType(formData.contactType)
   const contactAudiences = getContactTemplateAudiences(normalizedContactType)
   const contactAudience = normalizedContactType === PLAYER_CONTACT_TYPES.self ? EMAIL_TEMPLATE_AUDIENCES.player : EMAIL_TEMPLATE_AUDIENCES.parent
-  const contactNoun =
-    normalizedContactType === PLAYER_CONTACT_TYPES.self
-      ? 'player'
-      : normalizedContactType === PLAYER_CONTACT_TYPES.both
-        ? 'parent and player'
-        : 'parent'
-  const contactNounPlural =
-    normalizedContactType === PLAYER_CONTACT_TYPES.self
-      ? 'player'
-      : normalizedContactType === PLAYER_CONTACT_TYPES.both
-        ? 'parents and player'
-        : 'parents'
-  const contactLabel =
-    normalizedContactType === PLAYER_CONTACT_TYPES.self
-      ? 'Player'
-      : normalizedContactType === PLAYER_CONTACT_TYPES.both
-        ? 'Contact'
-        : 'Parent'
+  const { contactLabel, contactNoun, contactNounPlural } = getContactCopy(normalizedContactType)
   const selectedResponseItems = useMemo(
     () => getSelectedEvaluationResponses(responseItems, selectedExportLabels),
     [responseItems, selectedExportLabels],
@@ -776,46 +678,23 @@ export function CreateEvaluationPage() {
   }, [formData.playerName, user?.clubId])
 
   const buildEvaluationPayload = useCallback((id = offlineDraftId) => {
-    const normalizedPlayerName = normalizePlayerName(formData.playerName)
-    const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
-    const matchingPlayer = savedPlayers.find(
-      (player) =>
-        player.playerName === normalizedPlayerName &&
-        (!formData.team || player.team === String(formData.team).trim()),
-    )
     const assessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
 
-    return {
-      ...(editingEvaluation || {}),
-      id: editingEvaluation?.id || id,
-      playerName: normalizedPlayerName,
-      playerId: matchingPlayer?.id || '',
-      team: String(formData.team).trim(),
-      teamId: matchingTeam?.id || '',
-      section: formData.section,
+    return createEvaluationPayload({
       assessmentSessionId,
-      clubId: user?.clubId,
-      coachId: user?.id,
-      coach: String(user?.name || formData.coachName).trim(),
-      createdByName: String(user?.username || user?.name || formData.coachName || user?.email || '').trim(),
-      createdByEmail: String(user?.email || '').trim().toLowerCase(),
-      updatedBy: user?.id,
-      updatedByName: String(user?.username || user?.name || formData.coachName || user?.email || '').trim(),
-      updatedByEmail: String(user?.email || '').trim().toLowerCase(),
-      parentName: parentContacts[0]?.name ?? '',
-      parentEmail: parentContacts[0]?.email ?? '',
-      parentContacts,
-      contactType: normalizedContactType,
-      session: formData.session,
-      date: formatUkDate(new Date().toISOString().slice(0, 10)),
-      scores,
-      averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
+      availableTeams,
+      averageScore,
       comments,
+      editingEvaluation,
+      formData,
       formResponses,
-      decision: editingEvaluation?.decision || '',
-      status: editingEvaluation?.status || 'Submitted',
-      createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
-    }
+      id,
+      normalizedContactType,
+      parentContacts,
+      savedPlayers,
+      scores,
+      user,
+    })
   }, [
     averageScore,
     availableTeams,
@@ -885,17 +764,6 @@ export function CreateEvaluationPage() {
     user,
   ])
 
-  const findSavedPlayer = (playerName, team = formData.team) => {
-    const normalizedPlayerName = normalizePlayerName(playerName)
-    const normalizedTeam = String(team ?? '').trim()
-    const sameNamePlayers = savedPlayers.filter((player) => normalizePlayerName(player.playerName) === normalizedPlayerName)
-
-    return (
-      sameNamePlayers.find((player) => !normalizedTeam || player.team === normalizedTeam) ||
-      sameNamePlayers[0]
-    )
-  }
-
   const handleFieldChange = (event) => {
     const { name, value } = event.target
     setIsSaved(false)
@@ -912,44 +780,17 @@ export function CreateEvaluationPage() {
       return
     }
 
-    if (name === 'playerName') {
-      const matchingPlayer = findSavedPlayer(value)
-      const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
-        parentName: matchingPlayer?.parentName,
-        parentEmail: matchingPlayer?.parentEmail,
+    if (name === 'playerName' || name === 'team') {
+      const { matchingParentContacts, nextFormData } = getMatchedPlayerFieldUpdate({
+        fieldName: name,
+        formData,
+        normalizeParentContacts,
+        normalizePlayerContactType,
+        savedPlayers,
+        value,
       })
-
-      setFormData((current) => ({
-        ...current,
-        playerName: value,
-        parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
-        parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
-        parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
-        contactType: matchingPlayer ? normalizePlayerContactType(matchingPlayer.contactType) : current.contactType,
-        team: matchingPlayer?.team || current.team,
-        section: matchingPlayer?.section || current.section,
-      }))
-      setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
-      return
-    }
-
-    if (name === 'team') {
-      const matchingPlayer = findSavedPlayer(formData.playerName, value)
-      const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
-        parentName: matchingPlayer?.parentName,
-        parentEmail: matchingPlayer?.parentEmail,
-      })
-
-      setFormData((current) => ({
-        ...current,
-        team: value,
-        parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : current.parentName,
-        parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : current.parentEmail,
-        parentContacts: matchingPlayer ? matchingParentContacts : current.parentContacts,
-        contactType: matchingPlayer ? normalizePlayerContactType(matchingPlayer.contactType) : current.contactType,
-        section: matchingPlayer?.section || current.section,
-      }))
-      setSelectedParentContactIndexes(matchingParentContacts.length > 0 ? matchingParentContacts.map((_, index) => index) : [0])
+      setFormData(nextFormData)
+      setSelectedParentContactIndexes(getSelectedContactIndexes(matchingParentContacts))
       return
     }
 
@@ -969,14 +810,7 @@ export function CreateEvaluationPage() {
   }
 
   const handleToggleParentContact = (index) => {
-    setSelectedParentContactIndexes((current) => {
-      if (current.includes(index)) {
-        const nextIndexes = current.filter((item) => item !== index)
-        return nextIndexes.length > 0 ? nextIndexes : [index]
-      }
-
-      return [...current, index].sort((left, right) => left - right)
-    })
+    setSelectedParentContactIndexes((current) => getNextSelectedContactIndexes(current, index))
   }
 
   const saveExportSelection = (labels) => {
@@ -991,13 +825,7 @@ export function CreateEvaluationPage() {
   }
 
   const handleToggleExportField = (label) => {
-    const allLabels = responseItems.map((item) => item.label)
-    const currentLabels = Array.isArray(selectedExportLabels) ? selectedExportLabels : allLabels
-    const nextLabels = currentLabels.includes(label)
-      ? currentLabels.filter((item) => item !== label)
-      : [...currentLabels, label]
-
-    saveExportSelection(nextLabels)
+    saveExportSelection(getNextExportLabels({ label, responseItems, selectedExportLabels }))
   }
 
   const handleSetAllExportFields = () => {
@@ -1032,12 +860,7 @@ export function CreateEvaluationPage() {
 
       if (!editingEvaluation?.id && user?.clubId) {
         const allEvaluations = await getEvaluations({ user })
-        const currentMonth = new Date().toISOString().slice(0, 7)
-        const monthlyEvaluationCount = allEvaluations.filter((item) => {
-          const createdValue = item.createdAt || item.created_at || item.date
-          const parsedDate = new Date(createdValue)
-          return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 7) === currentMonth
-        }).length
+        const monthlyEvaluationCount = getCurrentMonthEvaluationCount(allEvaluations)
 
         if (!isWithinPlanLimit(user, 'monthlyEvaluations', monthlyEvaluationCount)) {
           throw new Error(createLimitUpgradeMessage(user, 'monthlyEvaluations', 'Monthly assessments'))
@@ -1045,16 +868,7 @@ export function CreateEvaluationPage() {
       }
 
       if (!navigator.onLine) {
-        saveDraft({
-          id: offlineDraftId,
-          operation: editingEvaluation ? 'update' : 'create',
-          evaluationId: editingEvaluation?.id || null,
-          clubId: user.clubId,
-          data: evaluation,
-          createdAt: new Date().toISOString(),
-          readyToSync: true,
-          synced: false,
-        })
+        saveDraft(createOfflineEvaluationDraft({ data: evaluation, editingEvaluation, id: offlineDraftId, user }))
         setOfflineStatusMessage('Saved offline - this assessment will sync when the connection returns.')
         showToast({ title: 'Saved offline', message: 'This assessment will sync when you are back online.' })
         setIsSaved(true)
@@ -1082,71 +896,21 @@ export function CreateEvaluationPage() {
           }
 
           setIsSendingParentEmail(true)
-          const emailJobs = contactAudiences
-            .flatMap((audience) => {
-              const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
-              const contacts = selectedParentContacts.filter((contact) => contact.type === contactType)
-
-              if (contacts.length === 0) {
-                return []
-              }
-
-              const template = emailTemplates.find(
-                (item) =>
-                  normalizeEmailTemplateAudience(item.audience) === audience &&
-                  item.key === selectedEmailTemplateKey &&
-                  item.isEnabled !== false,
-              )
-
-              if (!template) {
-                throw new Error(`Create a ${audience} email template before sending an email.`)
-              }
-
-              return contacts.flatMap((contact) =>
-                getContactEmailAddresses(contact).map((recipientEmail) => {
-                  const recipientName = getContactRecipientName(
-                    contact,
-                    contactType === PLAYER_CONTACT_TYPES.self ? formData.playerName : formData.parentName,
-                  )
-                  const renderedTemplate = renderParentEmailTemplate(template, {
-                    recipientName,
-                    parentName: recipientName,
-                    playerName: normalizedPlayerName,
-                    coachName: formData.coachName,
-                    clubName: user?.clubName,
-                    teamName: formData.team,
-                    session: formData.session,
-                    inviteDate,
-                    summary: '',
-                  })
-
-                  return {
-                    recipientEmail,
-                    job: sendParentEmail({
-                      parentEmail: recipientEmail,
-                      parentName: recipientName,
-                      senderEmail: user?.email,
-                      displayName: user?.displayName || user?.display_name || user?.username || user?.name,
-                      teamName: user?.team_name || user?.emailTeamName || formData.team,
-                      clubName: user?.club_name || user?.emailClubName || user?.clubName,
-                      section: formData.section,
-                      session: formData.session,
-                      planKey: user?.planKey,
-                      logoUrl: user?.clubLogoUrl || null,
-                      replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
-                      clubContactEmail: user?.clubContactEmail,
-                      playerName: normalizedPlayerName,
-                      summary: '',
-                      responses: selectedResponseItems,
-                      subject: renderedTemplate.subject,
-                      emailBody: renderedTemplate.body,
-                      evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
-                    }),
-                  }
-                }),
-              )
-            })
-            .filter(Boolean)
+          const emailJobs = buildParentEmailJobs({
+            contactAudiences,
+            emailTemplates,
+            evaluation: {
+              id: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+            },
+            formData,
+            inviteDate,
+            normalizedPlayerName,
+            playerContactTypes: PLAYER_CONTACT_TYPES,
+            selectedEmailTemplateKey,
+            selectedParentContacts,
+            selectedResponseItems,
+            user,
+          })
 
           if (emailJobs.length === 0) {
             throw new Error(`Add a ${contactNoun} email before sending.`)
@@ -1170,82 +934,45 @@ export function CreateEvaluationPage() {
 
       const assessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
 
-      if (user?.clubId && assessmentSessionId) {
-        const progressKey = `session-assessment-progress:${user.clubId}:${assessmentSessionId}`
-
-        try {
-          const storedProgress = localStorage.getItem(progressKey)
-          const parsedProgress = storedProgress ? JSON.parse(storedProgress) : []
-          const completedPlayers = Array.isArray(parsedProgress) ? parsedProgress : []
-          localStorage.setItem(
-            progressKey,
-            JSON.stringify([...new Set([...completedPlayers, normalizePlayerName(normalizedPlayerName).toLowerCase()])]),
-          )
-        } catch (error) {
-          console.error(error)
-        }
-      }
-
-      const queryPlayerName = String(searchParams.get('player') ?? '').trim()
-      const queryTeam = String(searchParams.get('team') ?? '').trim()
-      const querySession = normalizeSessionValue(searchParams.get('session'))
-      const querySection = String(searchParams.get('section') ?? '').trim()
-      const nextSessionValue = querySession || lastUsedSession
-      const nextTeamValue =
-        queryTeam && availableTeams.some((team) => team.name === queryTeam)
-          ? queryTeam
-          : String(formData.team ?? '').trim()
+      writeSessionAssessmentProgress({
+        assessmentSessionId,
+        playerName: normalizedPlayerName,
+        user,
+      })
 
       if (draftStorageKey) {
         sessionStorage.removeItem(draftStorageKey)
       }
 
-      const assessmentQueue = parseAssessmentQueue(searchParams.get('queue'))
-      const currentQueueIndex = assessmentQueue.findIndex(
-        (playerName) => normalizePlayerName(playerName) === normalizedPlayerName,
-      )
-      const nextQueuedPlayer =
-        currentQueueIndex >= 0
-          ? assessmentQueue.slice(currentQueueIndex + 1).find(Boolean)
-          : assessmentQueue.find((playerName) => normalizePlayerName(playerName) !== normalizedPlayerName)
+      const postAssessmentNavigation = getPostAssessmentNavigation({
+        assessmentSessionId,
+        availableTeams,
+        editingEvaluation,
+        formData,
+        lastUsedSession,
+        normalizedPlayerName,
+        searchParams,
+      })
 
-      if (!editingEvaluation && nextQueuedPlayer) {
-        const nextSearchParams = new URLSearchParams(searchParams)
-        nextSearchParams.set('player', nextQueuedPlayer)
-        nextSearchParams.set('team', nextTeamValue)
-        nextSearchParams.set('session', nextSessionValue)
-        nextSearchParams.set('section', EVALUATION_SECTIONS.includes(querySection) ? querySection : formData.section)
-        navigate(`/assess-player?${nextSearchParams.toString()}`)
+      if (postAssessmentNavigation.url) {
+        navigate(postAssessmentNavigation.url)
         return
-      }
-
-      if (!editingEvaluation && assessmentQueue.length > 0) {
-        const completedSessionId = assessmentSessionId
-        const completedCount = Number(searchParams.get('queueTotal') ?? assessmentQueue.length) || assessmentQueue.length
-
-        if (completedSessionId) {
-          const completedSearchParams = new URLSearchParams()
-          completedSearchParams.set('completedSessionId', completedSessionId)
-          completedSearchParams.set('completedCount', String(completedCount))
-          navigate(`/sessions?${completedSearchParams.toString()}`)
-          return
-        }
       }
 
       setLastSavedPlayerName(normalizedPlayerName)
       setSelectedParentContactIndexes([0])
       if (!editingEvaluation) {
         setFormData(
-          createInitialFormData(user, {
-            playerName: queryPlayerName,
-            team: nextTeamValue,
-            session: nextSessionValue,
-            section: EVALUATION_SECTIONS.includes(querySection) ? querySection : formData.section,
+          createPostAssessmentFormData({
+            currentSection: formData.section,
+            evaluationSections: EVALUATION_SECTIONS,
+            postAssessmentNavigation,
+            user,
           }),
         )
         setResponseValues(createEmptyResponseValues(dynamicFields))
       }
-      setLastUsedSession(nextSessionValue)
+      setLastUsedSession(postAssessmentNavigation.nextSessionValue)
       setIsSaved(true)
       setOfflineStatusMessage('')
     } catch (error) {
@@ -1254,16 +981,12 @@ export function CreateEvaluationPage() {
 
       if (isNetworkError(error)) {
         try {
-          saveDraft({
-            id: offlineDraftId,
-            operation: editingEvaluation ? 'update' : 'create',
-            evaluationId: editingEvaluation?.id || null,
-            clubId: user.clubId,
+          saveDraft(createOfflineEvaluationDraft({
             data: buildEvaluationPayload(offlineDraftId),
-            createdAt: new Date().toISOString(),
-            readyToSync: true,
-            synced: false,
-          })
+            editingEvaluation,
+            id: offlineDraftId,
+            user,
+          }))
           setOfflineStatusMessage('Saved offline - this assessment will sync when the connection returns.')
           showToast({ title: 'Saved offline', message: 'This assessment will sync when you are back online.' })
           return
@@ -1323,453 +1046,74 @@ export function CreateEvaluationPage() {
 
         {dataRefreshNotice ? <NoticeBanner title="Using available club data" message={dataRefreshNotice} tone="info" /> : null}
 
-        {!canCreateEvaluation(user) ? (
-          <SectionCard
-            title="Platform account"
-            description="Super admins oversee the platform. Assessments must be created from a club user account."
-          >
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm leading-6 text-[var(--text-muted)]">
-              Use this account to manage clubs, users, and the wider workspace. Switch into a club-linked account to
-              assess players.
-            </div>
-          </SectionCard>
-        ) : isLoadingFields ? (
-          <SectionCard title="Form" description="Loading the configured evaluation fields for this club.">
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-              Loading form fields...
-            </div>
-          </SectionCard>
-        ) : isLoadingTeams ? (
-          <SectionCard title="Teams" description="Loading the available teams for this account.">
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-              Loading teams...
-            </div>
-          </SectionCard>
-        ) : teamsLoadErrorMessage ? (
-          <SectionCard title="Teams unavailable" description="The team list could not be loaded for this account just now.">
-            <div className="space-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
-              <p>{teamsLoadErrorMessage}</p>
-              {canManageUsers(user) ? (
-                <div>
-                  <Link
-                    to="/teams"
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                  >
-                    Open Team Management
-                  </Link>
-                </div>
-              ) : null}
-            </div>
-          </SectionCard>
-        ) : availableTeams.length === 0 ? (
-          <SectionCard
-            title="No teams available"
-            description="Assessments now use real club teams so staff can be routed and filtered correctly."
-          >
-            <div className="space-y-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
-              <p>{noTeamsMessage}</p>
-              {canManageUsers(user) ? (
-                <div>
-                  <Link
-                    to="/teams"
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
-                  >
-                    Open Team Management
-                  </Link>
-                </div>
-              ) : null}
-            </div>
-          </SectionCard>
-        ) : (
-          <>
+        <EvaluationAvailabilityState
+          availableTeams={availableTeams}
+          isLoadingFields={isLoadingFields}
+          isLoadingTeams={isLoadingTeams}
+          noTeamsMessage={noTeamsMessage}
+          teamsLoadErrorMessage={teamsLoadErrorMessage}
+          user={user}
+        >
             <form ref={formRef} className="space-y-5 sm:space-y-6 no-print" onSubmit={handleSubmit}>
-              <SectionCard
-                title="Player details"
-                description="Core details stay consistent while the club-configured evaluation fields adapt below."
-              >
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
-                    <input
-                      type="text"
-                      name="playerName"
-                      value={formData.playerName}
-                      onChange={handleFieldChange}
-                      required
-                      list="saved-player-list"
-                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                    />
-                    <datalist id="saved-player-list">
-                      {savedPlayers.map((player) => (
-                        <option key={player.id} value={player.playerName} />
-                      ))}
-                    </datalist>
-                  </label>
+              <EvaluationPlayerDetailsSection
+                availableTeams={availableTeams}
+                contactLabel={contactLabel}
+                contactNoun={contactNoun}
+                contactNounPlural={contactNounPlural}
+                formData={formData}
+                onFieldChange={handleFieldChange}
+                onToggleParentContact={handleToggleParentContact}
+                parentContacts={parentContacts}
+                readableSession={readableSession}
+                savedPlayers={savedPlayers}
+                selectedParentContactIndexes={selectedParentContactIndexes}
+                user={user}
+              />
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
-                    <select
-                      name="team"
-                      value={formData.team}
-                      onChange={handleFieldChange}
-                      required
-                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                    >
-                      <option value="">Select team</option>
-                      {availableTeams.map((team) => (
-                        <option key={team.id} value={team.name}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                      {canManageUsers(user)
-                        ? 'Managers and admins can assess against any club team.'
-                        : 'You can only assess players for teams assigned to your account.'}
-                    </p>
-                  </label>
+              <PreviousAssessmentsSection
+                isOpen={showPreviousAssessments}
+                onToggle={() => setShowPreviousAssessments((current) => !current)}
+                previousEvaluations={previousEvaluations}
+              />
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach</span>
-                    <input
-                      type="text"
-                      name="coachName"
-                      value={formData.coachName}
-                      readOnly
-                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-                    />
-                  </label>
+              <ConfiguredFieldsSection
+                enabledFields={enabledFields}
+                isFallbackFields={isFallbackFields}
+                onResponseChange={handleResponseChange}
+                responseValues={responseValues}
+              />
 
-                  <div className="md:col-span-2">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{contactLabel} Email Recipients</span>
-                    {parentContacts.length > 0 ? (
-                    <div className="grid gap-3 md:grid-cols-2">
-                        {parentContacts.map((contact, index) => (
-                          <label
-                            key={`${contact.email || contact.name}-${index}`}
-                            className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedParentContactIndexes.includes(index)}
-                              onChange={() => handleToggleParentContact(index)}
-                              className="h-4 w-4 accent-[var(--accent)]"
-                            />
-                            <span className="min-w-0">
-                              <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}</span>
-                              <span className="block break-words text-xs text-[var(--text-muted)]">{contact.email || 'No email entered'}</span>
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <label className="block">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                            {contactLabel} Name
-                          </span>
-                          <input
-                            type="text"
-                            name="parentName"
-                            value={formData.parentName}
-                            onChange={handleFieldChange}
-                            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                            {contactLabel} Email
-                          </span>
-                          <input
-                            type="email"
-                            name="parentEmail"
-                            value={formData.parentEmail}
-                            onChange={handleFieldChange}
-                            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                          />
-                        </label>
-                      </div>
-                    )}
-                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                      Selected {contactNounPlural} are used for {contactNoun} email templates.
-                    </p>
-                  </div>
-
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session</span>
-                    <input
-                      type="date"
-                      name="session"
-                      value={formatSessionForInput(formData.session)}
-                      onChange={handleFieldChange}
-                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                    />
-                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Current session: {readableSession}</p>
-                  </label>
-
-                </div>
-              </SectionCard>
-
-              {previousEvaluations.length > 0 ? (
-                <SectionCard
-                  title="Previous assessments"
-                  description="Use this while assessing an existing player. These notes are for reference only and are not added to the new assessment."
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm leading-6 text-[var(--text-muted)]">
-                      {previousEvaluations.length} previous assessment{previousEvaluations.length === 1 ? '' : 's'} found for this player.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowPreviousAssessments((current) => !current)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                    >
-                      {showPreviousAssessments ? 'Hide Previous Assessments' : 'View Previous Assessments'}
-                    </button>
-                  </div>
-                  {showPreviousAssessments ? (
-                    <div className="mt-4 grid gap-3">
-                      {previousEvaluations.map((evaluation) => {
-                        const previousAssessmentItems = buildPreviousAssessmentItems(evaluation)
-
-                        return (
-                          <div key={evaluation.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <p className="font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
-                              <p className="text-sm font-semibold text-[var(--text-secondary)]">
-                                Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
-                              </p>
-                            </div>
-                            <div className="mt-2 grid gap-1 text-sm text-[var(--text-muted)] sm:grid-cols-2">
-                              <p>Session: {evaluation.session || 'No session entered'}</p>
-                              <p>Section: {evaluation.section || 'No section entered'}</p>
-                              <p>Team: {evaluation.team || 'No team entered'}</p>
-                              <p>Coach: {evaluation.coach || 'No coach entered'}</p>
-                            </div>
-                            <div className="mt-3 grid gap-2 md:grid-cols-2">
-                              {previousAssessmentItems.length > 0 ? (
-                                previousAssessmentItems.map((item) => (
-                                  <div key={item.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{item.label}</p>
-                                    <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-muted)]">{item.value}</p>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-muted)] md:col-span-2">
-                                  No assessment details were entered.
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : null}
-                </SectionCard>
-              ) : null}
-
-              <SectionCard
-                title="Configured fields"
-                description={
-                  isFallbackFields
-                    ? 'No club-specific form fields were found, so the default assessment fields were loaded.'
-                    : 'These enabled fields come from the club form builder and are saved as form responses.'
-                }
-              >
-                {enabledFields.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                    No evaluation fields are enabled for this club. Enable fields in the form builder first.
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {enabledFields.map((field) => (
-                      <label key={field.id} className={field.type === 'textarea' ? 'block md:col-span-2' : 'block'}>
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
-                          {field.label}
-                          {field.required ? ' *' : ''}
-                        </span>
-                        <EvaluationFieldInput field={field} value={responseValues[field.id] ?? ''} onChange={handleResponseChange} />
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
-
-              <SectionCard
-                title="Submit and export"
-                description="Choose whether to save only or send the assessment email after saving."
-              >
-                <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
-                  Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
-                </div>
-
-                <div className="mb-4 flex flex-wrap gap-3">
-                  {[
-                    { key: 'scored', label: 'Save Only' },
-                    ...(isDemoAccount ? [] : [{ key: 'email', label: 'Save and Email' }]),
-                  ].map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => setPreviewMode(option.key)}
-                      className={[
-                        'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
-                        previewMode === option.key
-                          ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                          : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-                      ].join(' ')}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-
-                {previewMode === 'email' ? (
-                  <div className="mb-4 grid gap-4 md:grid-cols-2">
-                    {availableEmailTemplates.length > 0 ? (
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
-                        <select
-                          value={selectedEmailTemplateKey}
-                          onChange={(event) => setEmailTemplateKey(event.target.value)}
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        >
-                          {availableEmailTemplates.map((template) => (
-                            <option key={template.key} value={template.key}>
-                              {template.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : (
-                      <NoticeBanner
-                        title="Create an email template first"
-                        message={
-                          isLoadingEmailTemplates
-                            ? `Loading ${contactNoun} email templates...`
-                            : `Ask a manager to save a club ${contactNoun} email template before sending emails.`
-                        }
-                        tone="info"
-                      />
-                    )}
-
-                    {shouldShowInviteDate ? (
-                      <label className="block">
-                        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
-                          Invite date
-                        </span>
-                        <input
-                          type="date"
-                          value={inviteDate}
-                          onChange={(event) => setInviteDate(normalizeSessionValue(event.target.value))}
-                          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                        />
-                        <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                          This is only used in invite email templates. The Session field above remains the saved current session date.
-                        </p>
-                      </label>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
-                      <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-                        Choose what goes into the {contactNoun} email. This choice is saved in this browser for this player.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSetAllExportFields}
-                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                      >
-                        Select All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleClearExportFields}
-                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-
-                  {responseItems.length > 0 ? (
-                    <div className="mt-4 grid gap-2 md:grid-cols-2">
-                      {responseItems.map((item) => {
-                        const isSelected = hasSavedExportSelection ? selectedExportLabels.includes(item.label) : true
-
-                        return (
-                          <label
-                            key={item.label}
-                            className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleToggleExportField(item.label)}
-                              className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                            />
-                            <span className="min-w-0">
-                              <span className="block font-semibold">{item.label}</span>
-                              <span className="block break-words text-xs leading-5 text-[var(--text-muted)]">
-                                {String(item.value ?? '').trim() || 'No data entered'}
-                              </span>
-                            </span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-                      No evaluation responses have been entered yet.
-                    </p>
-                  )}
-
-                  <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
-                    {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  <button
-                    type="button"
-                    onClick={handleSubmitClick}
-                    disabled={isSubmitting || !canSubmitEvaluation}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                  >
-                    {isSubmitting
-                      ? (isSendingParentEmail ? 'Emailing Parents...' : 'Saving...')
-                      : previewMode === 'email'
-                        ? 'Save & Email Parents'
-                        : 'Submit Evaluation'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsPrintingBlankView(true)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
-                  >
-                    Print Blank Form
-                  </button>
-                  {isSaved && lastSavedPlayerName ? (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
-                    >
-                      Save & Go to Player
-                    </button>
-                  ) : null}
-                </div>
-              </SectionCard>
+              <SubmitExportSection
+                availableEmailTemplates={availableEmailTemplates}
+                averageScore={averageScore}
+                canSubmitEvaluation={canSubmitEvaluation}
+                contactNoun={contactNoun}
+                hasSavedExportSelection={hasSavedExportSelection}
+                inviteDate={inviteDate}
+                isDemoAccount={isDemoAccount}
+                isLoadingEmailTemplates={isLoadingEmailTemplates}
+                isSaved={isSaved}
+                isSendingParentEmail={isSendingParentEmail}
+                isSubmitting={isSubmitting}
+                lastSavedPlayerName={lastSavedPlayerName}
+                onClearExportFields={handleClearExportFields}
+                onEmailTemplateChange={setEmailTemplateKey}
+                onGoToPlayer={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
+                onInviteDateChange={setInviteDate}
+                onPreviewModeChange={setPreviewMode}
+                onPrintBlankForm={() => setIsPrintingBlankView(true)}
+                onSelectAllExportFields={handleSetAllExportFields}
+                onSubmitClick={handleSubmitClick}
+                onToggleExportField={handleToggleExportField}
+                previewMode={previewMode}
+                responseItems={responseItems}
+                selectedEmailTemplateKey={selectedEmailTemplateKey}
+                selectedExportLabels={selectedExportLabels}
+                selectedResponseItems={selectedResponseItems}
+                shouldShowInviteDate={shouldShowInviteDate}
+              />
             </form>
-
-          </>
-        )}
+        </EvaluationAvailabilityState>
       </div>
     </div>
   )

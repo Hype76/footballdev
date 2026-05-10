@@ -1,12 +1,41 @@
 import { createContext, createElement, useContext, useEffect, useRef, useState } from 'react'
 import { DEMO_ROLE_STORAGE_KEY, getDemoRole, isDemoUser } from './demo.js'
-import { isPlanAccessActive } from './plans.js'
 import { supabase } from './supabase-client.js'
+import {
+  areUsersEquivalent,
+  claimStripeCheckoutForProfile,
+  getPasswordResetRedirectUrl,
+} from './auth-session-utils.js'
+import {
+  isClubAdmin,
+  isSuperAdmin,
+} from './auth-permissions.js'
+
+export {
+  canAssignRole,
+  canCreateEvaluation,
+  canDeletePlayer,
+  canEditEvaluation,
+  canManageClubSettings,
+  canManageFormFields,
+  canManageParentEmailTemplates,
+  canManageTeamSettings,
+  canManageUsers,
+  canShareEvaluation,
+  canViewActivityLog,
+  canViewBilling,
+  canViewEvaluation,
+  canViewPlatformFeedback,
+  getRoleLabel,
+  isClubAdmin,
+  isDemoAccount,
+  isSuperAdmin,
+  isTesterAccessExpired,
+} from './auth-permissions.js'
 
 const AuthContext = createContext(null)
 let authDataModulePromise = null
 let teamDataModulePromise = null
-const PRODUCTION_APP_ORIGIN = 'https://playerfeedback.online'
 const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
 const SELECTED_TEAM_STORAGE_KEY = 'selected-team-id'
 
@@ -24,279 +53,6 @@ function loadTeamDataModule() {
   }
 
   return teamDataModulePromise
-}
-
-function normalizeName(value) {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-}
-
-function getPasswordResetRedirectUrl() {
-  const configuredOrigin = String(import.meta.env.VITE_APP_URL ?? import.meta.env.VITE_PUBLIC_APP_URL ?? '').trim()
-  const currentOrigin = window.location.origin
-  const resolvedOrigin = configuredOrigin || (window.location.hostname === 'localhost' ? PRODUCTION_APP_ORIGIN : currentOrigin)
-
-  return `${resolvedOrigin.replace(/\/$/, '')}/reset-password`
-}
-
-async function claimStripeCheckoutForProfile(session, profile) {
-  if (!session?.access_token || !profile?.clubId) {
-    return profile
-  }
-
-  try {
-    const response = await fetch('/.netlify/functions/claim-stripe-checkout', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ clubId: profile.clubId }),
-    })
-    const result = await response.json().catch(() => ({}))
-
-    if (!response.ok || result.success === false || !result.claimed || !result.club) {
-      return profile
-    }
-
-    return {
-      ...profile,
-      planKey: String(result.club.planKey ?? profile.planKey ?? 'small_club').trim(),
-      planStatus: String(result.club.planStatus ?? profile.planStatus ?? 'active').trim(),
-      isPlanComped: Boolean(result.club.isPlanComped ?? profile.isPlanComped ?? false),
-      role: result.user?.role ?? profile.role,
-      roleLabel: result.user?.roleLabel ?? profile.roleLabel,
-      roleRank: Number(result.user?.roleRank ?? profile.roleRank ?? 0),
-    }
-  } catch (error) {
-    console.error(error)
-    return profile
-  }
-}
-
-function areUsersEquivalent(leftUser, rightUser) {
-  if (!leftUser || !rightUser) {
-    return false
-  }
-
-  return (
-    String(leftUser.id ?? '') === String(rightUser.id ?? '') &&
-    String(leftUser.email ?? '') === String(rightUser.email ?? '') &&
-    String(leftUser.username ?? '') === String(rightUser.username ?? '') &&
-    String(leftUser.name ?? '') === String(rightUser.name ?? '') &&
-    String(leftUser.displayName ?? '') === String(rightUser.displayName ?? '') &&
-    String(leftUser.emailTeamName ?? '') === String(rightUser.emailTeamName ?? '') &&
-    String(leftUser.emailClubName ?? '') === String(rightUser.emailClubName ?? '') &&
-    String(leftUser.replyToEmail ?? '') === String(rightUser.replyToEmail ?? '') &&
-    String(leftUser.role ?? '') === String(rightUser.role ?? '') &&
-    String(leftUser.roleLabel ?? '') === String(rightUser.roleLabel ?? '') &&
-    Number(leftUser.roleRank ?? 0) === Number(rightUser.roleRank ?? 0) &&
-    String(leftUser.accountStatus ?? '') === String(rightUser.accountStatus ?? '') &&
-    String(leftUser.accountSuspendedAt ?? '') === String(rightUser.accountSuspendedAt ?? '') &&
-    String(leftUser.clubId ?? '') === String(rightUser.clubId ?? '') &&
-    String(leftUser.clubName ?? '') === String(rightUser.clubName ?? '') &&
-    String(leftUser.team ?? '') === String(rightUser.team ?? '') &&
-    String(leftUser.clubLogoUrl ?? '') === String(rightUser.clubLogoUrl ?? '') &&
-    String(leftUser.clubContactEmail ?? '') === String(rightUser.clubContactEmail ?? '') &&
-    String(leftUser.clubContactPhone ?? '') === String(rightUser.clubContactPhone ?? '') &&
-    String(leftUser.clubStatus ?? '') === String(rightUser.clubStatus ?? '') &&
-    String(leftUser.clubSuspendedAt ?? '') === String(rightUser.clubSuspendedAt ?? '') &&
-    String(leftUser.planKey ?? '') === String(rightUser.planKey ?? '') &&
-    String(leftUser.planStatus ?? '') === String(rightUser.planStatus ?? '') &&
-    Boolean(leftUser.isPlanComped) === Boolean(rightUser.isPlanComped) &&
-    String(leftUser.stripeCustomerId ?? '') === String(rightUser.stripeCustomerId ?? '') &&
-    String(leftUser.stripeSubscriptionId ?? '') === String(rightUser.stripeSubscriptionId ?? '') &&
-    String(leftUser.stripePriceId ?? '') === String(rightUser.stripePriceId ?? '') &&
-    String(leftUser.currentPeriodEnd ?? '') === String(rightUser.currentPeriodEnd ?? '') &&
-    String(leftUser.planUpdatedAt ?? '') === String(rightUser.planUpdatedAt ?? '') &&
-    String(leftUser.testerAccessCodeId ?? '') === String(rightUser.testerAccessCodeId ?? '') &&
-    String(leftUser.testerAccessCode ?? '') === String(rightUser.testerAccessCode ?? '') &&
-    String(leftUser.testerAccessEmail ?? '') === String(rightUser.testerAccessEmail ?? '') &&
-    String(leftUser.testerAccessRedeemedAt ?? '') === String(rightUser.testerAccessRedeemedAt ?? '') &&
-    String(leftUser.testerAccessExpiresAt ?? '') === String(rightUser.testerAccessExpiresAt ?? '') &&
-    Boolean(leftUser.testerAccessExpired) === Boolean(rightUser.testerAccessExpired) &&
-    Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
-    String(leftUser.themeMode ?? '') === String(rightUser.themeMode ?? '') &&
-    String(leftUser.themeAccent ?? '') === String(rightUser.themeAccent ?? '') &&
-    String(leftUser.activeTeamId ?? '') === String(rightUser.activeTeamId ?? '') &&
-    String(leftUser.activeTeamName ?? '') === String(rightUser.activeTeamName ?? '')
-  )
-}
-
-export function getRoleLabel(user) {
-  if (!user) {
-    return 'Unknown'
-  }
-
-  if (user.role === 'admin') {
-    return 'Club Admin'
-  }
-
-  if (user.role === 'head_manager') {
-    return 'Team Admin'
-  }
-
-  return user.roleLabel || user.role || 'Unknown'
-}
-
-export function isSuperAdmin(user) {
-  return user?.role === 'super_admin'
-}
-
-export function isDemoAccount(user) {
-  return Boolean(user?.isDemoAccount) || isDemoUser(user)
-}
-
-export function canViewPlatformFeedback(user) {
-  return Boolean(user) && !isDemoAccount(user)
-}
-
-export function isClubAdmin(user) {
-  return user?.role === 'admin'
-}
-
-export function canManageUsers(user) {
-  if (!user) {
-    return false
-  }
-
-  if (!isSuperAdmin(user) && !isPlanAccessActive(user)) {
-    return false
-  }
-
-  if (user.planKey === 'individual' && !user.isPlanComped) {
-    return isSuperAdmin(user)
-  }
-
-  return isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50
-}
-
-export function canViewActivityLog(user) {
-  return Boolean(user) && (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50)
-}
-
-export function canManageTeamSettings(user) {
-  return isClubAdmin(user) && isPlanAccessActive(user)
-}
-
-export function canAssignRole(user, targetRole) {
-  if (!user || !targetRole) {
-    return false
-  }
-
-  if (isSuperAdmin(user)) {
-    return targetRole.roleKey !== 'super_admin'
-  }
-
-  const currentRank = Number(user.roleRank ?? 0)
-  const targetRank = Number(targetRole.roleRank ?? targetRole.rank ?? 0)
-
-  return currentRank >= 50 && targetRank <= currentRank
-}
-
-export function canManageFormFields(user) {
-  return !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user?.activeTeamId)) && Number(user?.roleRank ?? 0) >= 50
-}
-
-export function canManageParentEmailTemplates(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user?.activeTeamId)) && Number(user?.roleRank ?? 0) >= 50
-}
-
-export function canManageClubSettings(user) {
-  return isClubAdmin(user) && isPlanAccessActive(user)
-}
-
-export function canViewBilling(user) {
-  if (!user) {
-    return false
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return true
-  }
-
-  if (isDemoAccount(user)) {
-    return true
-  }
-
-  if (!user.clubId) {
-    return false
-  }
-
-  if (isSuperAdmin(user)) {
-    return true
-  }
-
-  if (user.planKey === 'individual') {
-    return true
-  }
-
-  if (user.planKey === 'single_team') {
-    return user.role === 'head_manager' || Number(user.roleRank ?? 0) >= 70
-  }
-
-  return isClubAdmin(user)
-}
-
-export function isTesterAccessExpired(user) {
-  return Boolean(user?.testerAccessExpired)
-}
-
-export function canDeletePlayer(user) {
-  return Boolean(user?.clubId) && Number(user?.roleRank ?? 0) >= 20
-}
-
-export function canShareEvaluation(user, evaluation) {
-  if (!user || !evaluation) {
-    return false
-  }
-
-  return canViewEvaluation(user, evaluation)
-}
-
-export function canCreateEvaluation(user) {
-  if (!user) {
-    return false
-  }
-
-  return Boolean(user.clubId) && !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user.activeTeamId)) && isPlanAccessActive(user)
-}
-
-export function canEditEvaluation(user, evaluation) {
-  if (!user || !evaluation) {
-    return false
-  }
-
-  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
-    return true
-  }
-
-  const evaluationCoachId = evaluation.coachId || evaluation.coach_id || ''
-  if (evaluationCoachId) {
-    return String(evaluationCoachId) === String(user.id)
-  }
-
-  const evaluationCoach = evaluation.coach || evaluation.coachName || ''
-  return normalizeName(evaluationCoach) === normalizeName(user.name)
-}
-
-export function canViewEvaluation(user, evaluation) {
-  if (!user || !evaluation) {
-    return false
-  }
-
-  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
-    return true
-  }
-
-  const evaluationClubId = evaluation.clubId || evaluation.club_id || ''
-
-  if (evaluationClubId && user.clubId) {
-    return canEditEvaluation(user, evaluation) && String(evaluationClubId) === String(user.clubId)
-  }
-
-  return canEditEvaluation(user, evaluation)
 }
 
 export async function verifyCurrentUserPassword(email, password) {
@@ -551,7 +307,7 @@ export function AuthProvider({ children }) {
           return
         }
 
-        setClubOptions([])
+        setClubOptions(profile.clubOptions ?? [])
         setUser((currentUser) =>
           areUsersEquivalent(currentUser, profileWithDemoPreview) ? currentUser : profileWithDemoPreview,
         )
@@ -748,7 +504,6 @@ export function AuthProvider({ children }) {
 
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
-      setClubOptions([])
       setTeamOptions([])
       setHasPlatformAdminAccess(true)
       setUser(result.user)

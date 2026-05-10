@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { ActiveUsersSection } from '../components/user-access/ActiveUsersSection.jsx'
+import { AllocateRoleSection } from '../components/user-access/AllocateRoleSection.jsx'
+import { PendingAllocationsSection } from '../components/user-access/PendingAllocationsSection.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
+import { initialUserAccessFormState, INVITE_PAGE_SIZE, MEMBER_PAGE_SIZE } from '../hooks/user-access/userAccessUtils.js'
 import {
   canRemoveClubUser,
   canUpdateClubUserName,
@@ -23,16 +25,6 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-
-const initialFormState = {
-  email: '',
-  password: '',
-  roleKey: '',
-  customRoleLabel: '',
-}
-
-const MEMBER_PAGE_SIZE = 8
-const INVITE_PAGE_SIZE = 8
 
 export function UserAccessPage() {
   const { user } = useAuth()
@@ -53,7 +45,7 @@ export function UserAccessPage() {
     const cachedInvites = readViewCacheValue(cacheKey, 'pendingInvites', [])
     return Array.isArray(cachedInvites) ? cachedInvites : []
   })
-  const [formState, setFormState] = useState(initialFormState)
+  const [formState, setFormState] = useState(initialUserAccessFormState)
   const [isLoading, setIsLoading] = useState(() => roles.length === 0 && members.length === 0 && pendingInvites.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
@@ -399,227 +391,44 @@ export function UserAccessPage() {
         />
       ) : null}
 
-      <SectionCard
-        title="Allocate role"
-        description={
-          canAddMoreUsers
-            ? 'Admins and managers can allocate roles at their level or below. Custom roles are saved to this club.'
-            : staffLimitMessage
-        }
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading roles...
-          </div>
-        ) : assignableRoles.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No role data entered yet, or role data could not be loaded.
-          </div>
-        ) : (
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email</span>
-              <input
-                type="email"
-                name="email"
-                value={formState.email}
-                onChange={handleChange}
-                required
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
+      <AllocateRoleSection
+        assignableRoles={assignableRoles}
+        canAddMoreUsers={canAddMoreUsers}
+        formState={formState}
+        isLoading={isLoading}
+        isPasswordVisible={isPasswordVisible}
+        isSaving={isSaving}
+        onChange={handleChange}
+        onPasswordVisibilityToggle={() => setIsPasswordVisible((current) => !current)}
+        onSubmit={handleSubmit}
+        staffLimitMessage={staffLimitMessage}
+      />
 
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
-              <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
-                <input
-                  type={isPasswordVisible ? 'text' : 'password'}
-                  name="password"
-                  value={formState.password}
-                  onChange={handleChange}
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                  className="min-h-11 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setIsPasswordVisible((current) => !current)}
-                  className="min-h-11 rounded-r-2xl px-4 py-3 text-sm font-semibold text-[var(--text-secondary)]"
-                >
-                  {isPasswordVisible ? 'Hide' : 'Show'}
-                </button>
-              </div>
-            </label>
+      <ActiveUsersSection
+        isLoading={isLoading}
+        isSaving={isSaving}
+        memberPage={memberPage}
+        members={members}
+        nameDrafts={nameDrafts}
+        onMemberPageChange={setMemberPage}
+        onNameDraftChange={handleNameDraftChange}
+        onRemoveMember={handleRemoveMember}
+        onUpdateMemberName={handleUpdateMemberName}
+        pageSize={MEMBER_PAGE_SIZE}
+        paginatedMembers={paginatedMembers}
+        user={user}
+      />
 
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Role</span>
-              <select
-                name="roleKey"
-                value={formState.roleKey}
-                onChange={handleChange}
-                required
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              >
-                {assignableRoles.map((role) => (
-                  <option key={role.roleKey} value={role.roleKey}>
-                    {role.roleLabel}
-                  </option>
-                ))}
-                <option value="__custom__">Other</option>
-              </select>
-            </label>
-
-            {formState.roleKey === '__custom__' ? (
-              <label className="block md:col-span-2">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Custom role</span>
-                <input
-                  type="text"
-                  name="customRoleLabel"
-                  value={formState.customRoleLabel}
-                  onChange={handleChange}
-                  required={formState.roleKey === '__custom__'}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                />
-                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                  Custom roles are saved at the support level and can be reused later.
-                </p>
-              </label>
-            ) : null}
-
-            <div className="md:col-span-2">
-              <button
-                type="submit"
-                disabled={isSaving || !canAddMoreUsers}
-                title={canAddMoreUsers ? undefined : staffLimitMessage}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                {isSaving ? 'Saving...' : 'Allocate user'}
-              </button>
-            </div>
-          </form>
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Active users"
-        description="Existing users are listed here only where your role and team access allows."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading active users...
-          </div>
-        ) : members.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No active users found for this club.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {paginatedMembers.items.map((member) => (
-              <div
-                key={member.id}
-                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{member.email}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{member.name || 'No display name yet'}</p>
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      {getRoleLabel(member)}
-                    </div>
-                    {canRemoveClubUser(user, member) ? (
-                      <button
-                        type="button"
-                        disabled={isSaving}
-                        onClick={() => handleRemoveMember(member)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                {canUpdateClubUserName(user, member) ? (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                        Display name
-                      </span>
-                      <input
-                        type="text"
-                        value={nameDrafts[member.id] ?? ''}
-                        onChange={(event) => handleNameDraftChange(member.id, event.target.value)}
-                        className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={isSaving || String(nameDrafts[member.id] ?? '').trim() === String(member.name ?? '').trim()}
-                      onClick={() => handleUpdateMemberName(member)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Save name
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-            <Pagination
-              currentPage={memberPage}
-              onPageChange={setMemberPage}
-              pageSize={MEMBER_PAGE_SIZE}
-              totalItems={members.length}
-            />
-          </div>
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Pending allocations"
-        description="Invited or pre-assigned emails will receive the saved role when they sign in."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading pending allocations...
-          </div>
-        ) : pendingInvites.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No pending allocations.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {paginatedInvites.items.map((invite) => (
-              <div
-                key={invite.id}
-                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{invite.email}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{invite.roleLabel}</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => handleDeleteInvite(invite)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-            <Pagination
-              currentPage={invitePage}
-              onPageChange={setInvitePage}
-              pageSize={INVITE_PAGE_SIZE}
-              totalItems={pendingInvites.length}
-            />
-          </div>
-        )}
-      </SectionCard>
+      <PendingAllocationsSection
+        invitePage={invitePage}
+        isLoading={isLoading}
+        isSaving={isSaving}
+        onDeleteInvite={handleDeleteInvite}
+        onInvitePageChange={setInvitePage}
+        pageSize={INVITE_PAGE_SIZE}
+        paginatedInvites={paginatedInvites}
+        pendingInvites={pendingInvites}
+      />
 
       <ConfirmModal
         isOpen={Boolean(memberRemoveTarget)}

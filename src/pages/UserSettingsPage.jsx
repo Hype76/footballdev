@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
+import { AccountProfileSection } from '../components/user-settings/AccountProfileSection.jsx'
+import { DisplaySettingsSection } from '../components/user-settings/DisplaySettingsSection.jsx'
+import { LoginEmailSection } from '../components/user-settings/LoginEmailSection.jsx'
+import { PasswordSettingsSection } from '../components/user-settings/PasswordSettingsSection.jsx'
+import { WalkthroughSettingsSection } from '../components/user-settings/WalkthroughSettingsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useWalkthrough } from '../components/walkthrough/walkthrough-context.js'
-import { getRoleLabel, isDemoAccount, useAuth } from '../lib/auth.js'
+import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
+import { isDemoAccount, useAuth } from '../lib/auth.js'
 import {
   requestLoginEmailChange,
   updateOwnThemeSettings,
@@ -16,17 +21,8 @@ import {
   getStoredThemeAccent,
   getStoredThemeMode,
   saveThemePreferences,
-  themeAccentOptions,
-  themeModeOptions,
 } from '../lib/theme.js'
 import { resetWalkthrough } from '../lib/walkthrough.js'
-
-function createInitialPasswordState() {
-  return {
-    password: '',
-    confirmPassword: '',
-  }
-}
 
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
@@ -298,300 +294,65 @@ export function UserSettingsPage() {
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[0.8fr_1fr]">
-        <SectionCard
-          title="Account profile"
-          description="This is how your name appears inside assessments and the workspace."
-        >
-          <form className="space-y-4" onSubmit={handleProfileSubmit}>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Username</span>
-              <input
-                type="text"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                required
-                autoComplete="nickname"
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Parent email identity</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-                Emails will be sent from feedback@playerfeedback.online. Parent replies will go to your reply-to email.
-              </p>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Display Name</span>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    required
-                    autoComplete="name"
-                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team Name</span>
-                  <input
-                    type="text"
-                    value={emailTeamName}
-                    onChange={(event) => setEmailTeamName(event.target.value)}
-                    required
-                    placeholder="U12"
-                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Club Name</span>
-                  <input
-                    type="text"
-                    value={emailClubName}
-                    onChange={(event) => {
-                      if (canEditEmailClubName) {
-                        setEmailClubName(event.target.value)
-                      }
-                    }}
-                    required
-                    disabled={!canEditEmailClubName}
-                    placeholder="Cambourne FC"
-                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                  />
-                  {!canEditEmailClubName ? (
-                    <span className="mt-2 block text-xs leading-5 text-[var(--text-muted)]">
-                      Only the top role for this plan can change the club name used in sender details.
-                    </span>
-                  ) : null}
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Reply-to Email</span>
-                  <input
-                    type="email"
-                    value={replyToEmail}
-                    onChange={(event) => setReplyToEmail(event.target.value)}
-                    required
-                    autoComplete="email"
-                    placeholder="coach@club.com"
-                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Sender preview</p>
-                <p className="mt-2 break-words text-sm font-medium text-[var(--text-primary)]">
-                  {senderPreview} &lt;feedback@playerfeedback.online&gt;
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Email</p>
-                <p className="mt-2 break-words text-sm font-medium text-[var(--text-primary)]">
-                  {user?.email || authUser?.email || 'No email found'}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Role</p>
-                <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">{getRoleLabel(user)}</p>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Workspace</p>
-              <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">
-                {user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'No club assigned'}
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSavingProfile || isDemoSettings}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              {isSavingProfile ? 'Saving...' : 'Save account'}
-            </button>
-          </form>
-        </SectionCard>
+        <AccountProfileSection
+          authUser={authUser}
+          canEditEmailClubName={canEditEmailClubName}
+          displayName={displayName}
+          emailClubName={emailClubName}
+          emailTeamName={emailTeamName}
+          isDemoSettings={isDemoSettings}
+          isSavingProfile={isSavingProfile}
+          onDisplayNameChange={setDisplayName}
+          onEmailClubNameChange={setEmailClubName}
+          onEmailTeamNameChange={setEmailTeamName}
+          onReplyToEmailChange={setReplyToEmail}
+          onSubmit={handleProfileSubmit}
+          onUsernameChange={setUsername}
+          replyToEmail={replyToEmail}
+          senderPreview={senderPreview}
+          user={user}
+          username={username}
+        />
 
         <div className="space-y-5">
-          <SectionCard
-            title="Display"
-            description="Choose the theme and accent colour for your workspace."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Theme</span>
-                <select
-                  value={themeMode}
-                  onChange={(event) => handleThemeModeChange(event.target.value)}
-                  disabled={!canUseThemes}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  {themeModeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          <DisplaySettingsSection
+            canUseThemes={canUseThemes}
+            onThemeAccentChange={handleThemeAccentChange}
+            onThemeModeChange={handleThemeModeChange}
+            themeAccent={themeAccent}
+            themeMode={themeMode}
+          />
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Accent colour</span>
-                <select
-                  value={themeAccent}
-                  onChange={(event) => handleThemeAccentChange(event.target.value)}
-                  disabled={!canUseThemes}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  {themeAccentOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {!canUseThemes ? (
-              <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">{createFeatureUpgradeMessage('themes')}</p>
-            ) : null}
-          </SectionCard>
+          <WalkthroughSettingsSection
+            disabled={Boolean(walkthrough?.disabled)}
+            onDisabledChange={handleWalkthroughDisabledChange}
+            onRestart={handleRestartWalkthrough}
+          />
 
-          <SectionCard
-            title="Walkthrough"
-            description="Control guided page walkthroughs for this account."
-          >
-            <div className="space-y-4">
-              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
-                <input
-                  type="checkbox"
-                  checked={Boolean(walkthrough?.disabled)}
-                  onChange={handleWalkthroughDisabledChange}
-                  className="h-4 w-4 rounded border-[var(--border-color)]"
-                />
-                <span>Disable walkthroughs</span>
-              </label>
-              <button
-                type="button"
-                onClick={handleRestartWalkthrough}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
-              >
-                Restart walkthrough
-              </button>
-              <p className="text-xs leading-5 text-[var(--text-muted)]">
-                Walkthroughs only show information that matches your current role, plan, and page access.
-              </p>
-            </div>
-          </SectionCard>
+          <LoginEmailSection
+            email={email}
+            isDemoSettings={isDemoSettings}
+            isSavingEmail={isSavingEmail}
+            onEmailChange={setEmail}
+            onSubmit={handleEmailSubmit}
+          />
 
-          <SectionCard
-            title="Login email"
-            description="Change the email address used for signing in."
-          >
-            <form className="space-y-4" onSubmit={handleEmailSubmit}>
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">New login email</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  disabled={isDemoSettings}
-                  required
-                  autoComplete="email"
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={isSavingEmail || isDemoSettings}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSavingEmail ? 'Requesting...' : 'Update login email'}
-              </button>
-            </form>
-          </SectionCard>
-
-          <SectionCard
-            title="Password"
-            description="Change your password while signed in, or send yourself a reset email."
-          >
-          <form className="space-y-4" onSubmit={handlePasswordSubmit}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">New password</span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={passwordData.password}
-                  onChange={(event) =>
-                    setPasswordData((current) => ({
-                      ...current,
-                      password: event.target.value,
-                    }))
-                  }
-                  disabled={isDemoSettings}
-                  minLength={8}
-                  autoComplete="new-password"
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Confirm password</span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={passwordData.confirmPassword}
-                  onChange={(event) =>
-                    setPasswordData((current) => ({
-                      ...current,
-                      confirmPassword: event.target.value,
-                    }))
-                  }
-                  disabled={isDemoSettings}
-                  minLength={8}
-                  autoComplete="new-password"
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </label>
-            </div>
-
-            <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
-              <input
-                type="checkbox"
-                checked={showPassword}
-                onChange={(event) => setShowPassword(event.target.checked)}
-                disabled={isDemoSettings}
-                className="h-4 w-4 rounded border-[var(--border-color)]"
-              />
-              <span>Show password</span>
-            </label>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <button
-                type="submit"
-                disabled={isSavingPassword || isDemoSettings || !passwordData.password || !passwordData.confirmPassword}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSavingPassword ? 'Updating...' : 'Update password'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void handleResetPassword()}
-                disabled={isSendingReset || isDemoSettings}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSendingReset ? 'Sending...' : 'Send reset email'}
-              </button>
-            </div>
-          </form>
-          </SectionCard>
+          <PasswordSettingsSection
+            isDemoSettings={isDemoSettings}
+            isSavingPassword={isSavingPassword}
+            isSendingReset={isSendingReset}
+            onPasswordDataChange={(fieldName, value) =>
+              setPasswordData((current) => ({
+                ...current,
+                [fieldName]: value,
+              }))
+            }
+            onResetPassword={() => void handleResetPassword()}
+            onShowPasswordChange={setShowPassword}
+            onSubmit={handlePasswordSubmit}
+            passwordData={passwordData}
+            showPassword={showPassword}
+          />
         </div>
       </div>
     </div>

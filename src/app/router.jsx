@@ -204,6 +204,64 @@ function RedirectToWorkspaceHome({ user }) {
   return <Navigate to={getDefaultWorkspacePath(user)} replace />
 }
 
+function useWorkspaceRouteGate({
+  redirectSuperAdmin = true,
+  blockExpiredTester = true,
+  requireActivePlan = false,
+  showPlanAccessState = false,
+} = {}) {
+  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return { element: <LoadingScreen />, user: null }
+  }
+
+  if (!session?.user) {
+    return { element: <Navigate to="/login" replace />, user: null }
+  }
+
+  if (!user && isProfileLoading) {
+    return { element: <RouteContentSkeleton />, user: null }
+  }
+
+  if (!user) {
+    return {
+      element: (
+        <RouteGateState
+          title="Account details unavailable"
+          message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
+        />
+      ),
+      user: null,
+    }
+  }
+
+  if (redirectSuperAdmin && isSuperAdmin(user)) {
+    return { element: <Navigate to="/platform-admin" replace />, user }
+  }
+
+  if (isAccountSuspended(user)) {
+    return { element: <AccountSuspendedState />, user }
+  }
+
+  if (isClubSuspended(user)) {
+    return { element: <ClubSuspendedState />, user }
+  }
+
+  if (blockExpiredTester && isTesterAccessExpired(user)) {
+    return { element: <TesterAccessExpiredState />, user }
+  }
+
+  if (requireActivePlan && !isPlanAccessActive(user)) {
+    return {
+      element: showPlanAccessState ? <PlanAccessRequiredState /> : <RedirectToWorkspaceHome user={user} />,
+      user,
+    }
+  }
+
+  return { element: null, user }
+}
+
 function RouteErrorFallback({ error }) {
   const isChunkError = isDynamicImportError(error)
   const title = isChunkError ? 'App update needed' : 'This page could not load'
@@ -326,90 +384,23 @@ function RequireUser() {
 }
 
 function RequireClubWorkspace() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element } = useWorkspaceRouteGate({
+    requireActivePlan: true,
+    showPlanAccessState: true,
+  })
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return <TesterAccessExpiredState />
-  }
-
-  if (!isPlanAccessActive(user)) {
-    return <PlanAccessRequiredState />
+  if (element) {
+    return element
   }
 
   return <Outlet />
 }
 
 function RequirePlayerWorkflowAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate()
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return <TesterAccessExpiredState />
+  if (element) {
+    return element
   }
 
   if (!canCreateEvaluation(user)) {
@@ -434,43 +425,10 @@ function PublicOnly() {
 }
 
 function RequireFormBuilderAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate()
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return <TesterAccessExpiredState />
+  if (element) {
+    return element
   }
 
   if (!canManageFormFields(user)) {
@@ -485,43 +443,10 @@ function RequireFormBuilderAccess() {
 }
 
 function RequireParentEmailTemplatesAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate()
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return <TesterAccessExpiredState />
+  if (element) {
+    return element
   }
 
   if (!canManageParentEmailTemplates(user)) {
@@ -536,43 +461,10 @@ function RequireParentEmailTemplatesAccess() {
 }
 
 function RequireClubSettingsAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate()
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return <TesterAccessExpiredState />
+  if (element) {
+    return element
   }
 
   if (!canManageClubSettings(user)) {
@@ -583,39 +475,12 @@ function RequireClubSettingsAccess() {
 }
 
 function RequireBillingAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate({
+    blockExpiredTester: false,
+  })
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
+  if (element) {
+    return element
   }
 
   if (!canViewBilling(user)) {
@@ -626,43 +491,10 @@ function RequireBillingAccess() {
 }
 
 function RequireUserAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate()
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return <TesterAccessExpiredState />
+  if (element) {
+    return element
   }
 
   if (!canManageUsers(user)) {
@@ -673,43 +505,10 @@ function RequireUserAccess() {
 }
 
 function RequireTeamSettingsAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate()
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return <TesterAccessExpiredState />
+  if (element) {
+    return element
   }
 
   if (!canManageTeamSettings(user)) {
@@ -720,39 +519,12 @@ function RequireTeamSettingsAccess() {
 }
 
 function RequireActivityLogAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+  })
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
-  }
-
-  if (isAccountSuspended(user)) {
-    return <AccountSuspendedState />
-  }
-
-  if (isClubSuspended(user)) {
-    return <ClubSuspendedState />
-  }
-
-  if (isTesterAccessExpired(user)) {
-    return <TesterAccessExpiredState />
+  if (element) {
+    return element
   }
 
   if (!canViewActivityLog(user)) {
@@ -767,27 +539,13 @@ function RequireActivityLogAccess() {
 }
 
 function RequirePlatformAdminAccess() {
-  const { authError, isLoading, isProfileLoading, session, user } = useAuth()
+  const { element, user } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+    blockExpiredTester: false,
+  })
 
-  if (isLoading && !session?.user) {
-    return <LoadingScreen />
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
+  if (element) {
+    return element
   }
 
   if (!isSuperAdmin(user)) {

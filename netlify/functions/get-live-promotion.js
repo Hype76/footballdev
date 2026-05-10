@@ -4,7 +4,7 @@ import { json } from './_stripe-billing.js'
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('Billing is not configured')
+    return null
   }
 
   return new Stripe(process.env.STRIPE_SECRET_KEY, {
@@ -47,6 +47,11 @@ export async function handler(event) {
 
   try {
     const stripe = getStripe()
+
+    if (!stripe) {
+      return json(200, { success: true, promotion: null })
+    }
+
     const promotionCodes = await stripe.promotionCodes.list({ limit: 100 })
     const livePromotionCode = promotionCodes.data.find((promotionCode) =>
       promotionCode.active &&

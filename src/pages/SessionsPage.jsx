@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
-import { MicIcon } from '../components/icons/MicIcon.jsx'
+import { CoachOptionsSection } from '../components/sessions/CoachOptionsSection.jsx'
+import { CreateSessionSection } from '../components/sessions/CreateSessionSection.jsx'
+import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.jsx'
+import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
+import { TournamentResultsSection } from '../components/sessions/TournamentResultsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
@@ -12,23 +16,28 @@ import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/
 import {
   AVAILABLE_PLAYER_PAGE_SIZE,
   SESSION_PLAYER_PAGE_SIZE,
+  buildSessionAssessmentUrl,
   buildHistoricalSessionPlayers,
   buildHistoricalSessionsFromEvaluations,
+  buildSessionCachePayload,
+  createSessionFromHistoricalTarget,
   createInitialGameForm,
   createInitialSessionForm,
-  formatSessionDate,
-  formatSessionType,
   getAssessmentCountForSession,
   getCompletedPlayerNamesFromEvaluations,
+  getFilteredSessionPlayers,
+  getNextSelectedPlayerIds,
+  getOpenSessionSearchParams,
+  getRecorderOptions,
   getSessionProgressKey,
-  normalizeProgressName,
-  normalizeTeamName,
+  getSessionsWithUpdatedSession,
+  getUnassessedPlayerQueue,
   readCompletedPlayerNames,
   readStoredSessionWorkspace,
+  updateSessionFormValue,
   writeStoredSessionWorkspace,
 } from '../lib/session-page-utils.js'
 import {
-  EVALUATION_SECTIONS,
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
@@ -405,26 +414,12 @@ export function SessionsPage() {
   }, [selectedPlayerIds, selectedSessionId, workspaceStorageKey])
 
   const filteredPlayers = useMemo(
-    () => {
-      const normalizedActiveTeam = normalizeTeamName(activePlayerTeam)
-      const sectionPlayers = players.filter((player) => player.section === activePlayerSection)
-      const teamMatchedPlayers = sectionPlayers.filter((player) => {
-        const playerTeamId = String(player.teamId ?? '').trim()
-        const playerTeam = normalizeTeamName(player.team)
-
-        if (activePlayerTeamId && playerTeamId) {
-          return String(activePlayerTeamId) === playerTeamId
-        }
-
-        if (!normalizedActiveTeam || !playerTeam) {
-          return true
-        }
-
-        return playerTeam === normalizedActiveTeam
-      })
-
-      return teamMatchedPlayers.length > 0 ? teamMatchedPlayers : sectionPlayers
-    },
+    () => getFilteredSessionPlayers({
+      activePlayerSection,
+      activePlayerTeam,
+      activePlayerTeamId,
+      players,
+    }),
     [activePlayerSection, activePlayerTeam, activePlayerTeamId, players],
   )
   const paginatedFilteredPlayers = useMemo(
@@ -456,46 +451,22 @@ export function SessionsPage() {
   }
 
   const writeSessionCache = (nextState = {}) => {
-    writeViewCache(cacheKey, {
-      sessions,
-      players,
-      teams,
-      evaluations,
-      ...nextState,
-    })
+    writeViewCache(cacheKey, buildSessionCachePayload({ evaluations, nextState, players, sessions, teams }))
   }
 
   const handleSessionFormChange = (event) => {
     const { name, value } = event.target
     setErrorMessage('')
 
-    if (name === 'teamId') {
-      setAvailablePlayerPage(1)
-      const matchingTeam = teams.find((team) => team.id === value)
-      setSessionForm((current) => ({
-        ...current,
-        teamId: value,
-        team: matchingTeam?.name || '',
-      }))
-      return
-    }
-
-    if (name === 'section') {
+    if (name === 'teamId' || name === 'section') {
       setAvailablePlayerPage(1)
     }
 
-    if (name === 'sessionType') {
-      setSessionForm((current) => ({
-        ...current,
-        sessionType: value,
-        opponent: value === 'match' ? current.opponent : '',
-      }))
-      return
-    }
-
-    setSessionForm((current) => ({
-      ...current,
-      [name]: value,
+    setSessionForm((current) => updateSessionFormValue({
+      currentForm: current,
+      name,
+      teams,
+      value,
     }))
   }
 
@@ -631,9 +602,7 @@ export function SessionsPage() {
   }
 
   const handlePlayerSelection = (playerId, checked) => {
-    setSelectedPlayerIds((current) =>
-      checked ? [...new Set([...current, playerId])] : current.filter((id) => id !== playerId),
-    )
+    setSelectedPlayerIds((current) => getNextSelectedPlayerIds(current, playerId, checked))
   }
 
   const handleOpenSession = (sessionId) => {
@@ -646,11 +615,7 @@ export function SessionsPage() {
     setErrorMessage('')
     setSelectedSessionId(nextSessionId)
     setSelectedPlayerIds([])
-    const nextSearchParams = new URLSearchParams(searchParams)
-    nextSearchParams.set('sessionId', nextSessionId)
-    nextSearchParams.delete('completedSessionId')
-    nextSearchParams.delete('completedCount')
-    setSearchParams(nextSearchParams, { replace: true })
+    setSearchParams(getOpenSessionSearchParams(searchParams, nextSessionId), { replace: true })
   }
 
   const handleCompleteSession = async () => {
@@ -679,26 +644,12 @@ export function SessionsPage() {
       let sessionToCompleteId = selectedSessionId
 
       if (completeSessionTarget.isHistorical) {
-        const matchingTeam = teams.find(
-          (team) =>
-            String(team.id ?? '') === String(completeSessionTarget.teamId ?? '') ||
-            String(team.name ?? '').trim().toLowerCase() === String(completeSessionTarget.team ?? '').trim().toLowerCase(),
-        )
-
-        if (!matchingTeam?.id) {
-          throw new Error('Create the team before completing this historical session.')
-        }
-
         const createdSession = await createAssessmentSession({
           user,
-          session: {
-            teamId: matchingTeam.id,
-            team: matchingTeam.name,
-            opponent: completeSessionTarget.opponent || '',
-            sessionType: completeSessionTarget.sessionType || 'training',
-            sessionDate: completeSessionTarget.sessionDate,
-            section: completeSessionTarget.section || 'Trial',
-          },
+          session: createSessionFromHistoricalTarget({
+            historicalSession: completeSessionTarget,
+            teams,
+          }),
         })
         sessionToCompleteId = createdSession.id
         setSelectedSessionId(createdSession.id)
@@ -708,10 +659,7 @@ export function SessionsPage() {
         user,
         sessionId: sessionToCompleteId,
       })
-      const nextSessions = [
-        completedSession,
-        ...sessions.filter((session) => session.id !== completedSession.id),
-      ]
+      const nextSessions = getSessionsWithUpdatedSession(sessions, completedSession)
       setSessions(nextSessions)
       writeSessionCache({
         sessions: nextSessions,
@@ -882,31 +830,8 @@ export function SessionsPage() {
     }
   }
 
-  const buildAssessmentUrl = (playerName, queue = []) => {
-    const params = new URLSearchParams()
-    params.set('player', playerName)
-    params.set('team', selectedSession?.team || sessionForm.team)
-    params.set('session', selectedSession?.sessionDate || sessionForm.sessionDate)
-    params.set('section', sessionPlayers.find((player) => player.playerName === playerName)?.section || sessionForm.section)
-
-    if (selectedSessionId) {
-      params.set('sessionId', selectedSessionId)
-    }
-
-    if (queue.length > 0) {
-      params.set('queue', JSON.stringify(queue))
-      params.set('queueTotal', String(queue.length))
-    }
-
-    return `/assess-player?${params.toString()}`
-  }
-
   const handleAssessAll = () => {
-    const completedSet = new Set(completedPlayerNames)
-    const queue = sessionPlayers
-      .map((player) => player.playerName)
-      .filter(Boolean)
-      .filter((playerName) => !completedSet.has(normalizeProgressName(playerName)))
+    const queue = getUnassessedPlayerQueue({ completedPlayerNames, sessionPlayers })
 
     if (queue.length === 0) {
       setErrorMessage(
@@ -922,16 +847,14 @@ export function SessionsPage() {
       return
     }
 
-    navigate(buildAssessmentUrl(queue[0], queue))
-  }
-
-  const getRecorderOptions = () => {
-    if (!globalThis.MediaRecorder) {
-      return undefined
-    }
-
-    const supportedType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find((type) => globalThis.MediaRecorder.isTypeSupported(type))
-    return supportedType ? { mimeType: supportedType } : undefined
+    navigate(buildSessionAssessmentUrl({
+      playerName: queue[0],
+      queue,
+      selectedSession,
+      selectedSessionId,
+      sessionForm,
+      sessionPlayers,
+    }))
   }
 
   const handleStartVoiceNote = async (target) => {
@@ -1051,583 +974,93 @@ export function SessionsPage() {
         </div>
       ) : null}
 
-      <SectionCard
-        title="Open existing sessions"
-        description="Reopen any saved session to continue notes, add players, or carry on assessments."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading saved sessions...
-          </div>
-        ) : combinedSessions.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No saved sessions yet. Create a session below and it will appear here.
-          </div>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
-            <div className="rounded-lg border border-[var(--accent)] bg-[var(--panel-soft)] px-4 py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-                      {selectedSession?.title || selectedSession?.team || 'Current session'}
-                    </p>
-                    <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-contrast)]">
-                      {selectedSessionCompleted ? 'Completed' : 'Open'}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                    {formatSessionType(selectedSession?.sessionType)} | {formatSessionDate(selectedSession?.sessionDate)}
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">{selectedSession?.team || 'No team entered'}</p>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  {canCompleteSessions && selectedSession && !selectedSessionCompleted ? (
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => void handleCompleteSession()}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Complete Session
-                    </button>
-                  ) : null}
-                  {canDeleteSessions && selectedSession ? (
-                    <button
-                      type="button"
-                      disabled={isSaving || Boolean(deleteSessionDisabledReason)}
-                      title={deleteSessionDisabledReason}
-                      onClick={() => handleDeleteSession()}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600/20 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Delete Session
-                    </button>
-                  ) : null}
-                  <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
-                    Current Session
-                  </span>
-                </div>
-              </div>
-            </div>
+      <OpenSessionsSection
+        canCompleteSessions={canCompleteSessions}
+        canDeleteSessions={canDeleteSessions}
+        combinedSessions={combinedSessions}
+        deleteSessionDisabledReason={deleteSessionDisabledReason}
+        isLoading={isLoading}
+        isSaving={isSaving}
+        onCompleteSession={handleCompleteSession}
+        onDeleteSession={handleDeleteSession}
+        onOpenSession={handleOpenSession}
+        previousSessions={previousSessions}
+        selectedSession={selectedSession}
+        selectedSessionCompleted={selectedSessionCompleted}
+      />
 
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Previous sessions</span>
-              <select
-                value=""
-                onChange={(event) => handleOpenSession(event.target.value)}
-                disabled={previousSessions.length === 0}
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="">
-                  {previousSessions.length === 0 ? 'No previous sessions yet' : 'Choose previous session'}
-                </option>
-                {previousSessions.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {formatSessionType(session.sessionType)} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        )}
-      </SectionCard>
+      <TournamentResultsSection
+        form={gameForm}
+        games={sessionGames}
+        isLoading={isSessionGamesLoading}
+        isSaving={isSaving}
+        isSessionLocked={selectedSessionLocked}
+        onChange={handleGameFormChange}
+        onDeleteGame={handleDeleteTournamentGame}
+        onSubmit={handleAddTournamentGame}
+        selectedSession={selectedSession}
+      />
 
-      {selectedSession?.sessionType === 'tournament' ? (
-        <SectionCard
-          title="Tournament results"
-          description="Add each game result for this tournament session. A team can play multiple games in one tournament."
-        >
-          <div className="space-y-5">
-            <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={handleAddTournamentGame}>
-              <label className="block xl:col-span-2">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Opponent</span>
-                <input
-                  type="text"
-                  name="opponent"
-                  value={gameForm.opponent}
-                  onChange={handleGameFormChange}
-                  required
-                  placeholder="Opponent team"
-                  disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </label>
+      <CreateSessionSection
+        form={sessionForm}
+        isLoading={isLoading}
+        isSaving={isSaving}
+        onChange={handleSessionFormChange}
+        onSubmit={handleCreateSession}
+        teams={teams}
+      />
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{selectedSession.team || 'Our team'} score</span>
-                <input
-                  type="number"
-                  name="teamScore"
-                  value={gameForm.teamScore}
-                  onChange={handleGameFormChange}
-                  required
-                  min="0"
-                  disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </label>
+      <CoachOptionsSection
+        activePlayerSection={activePlayerSection}
+        activePlayerTeam={activePlayerTeam}
+        canDeleteSessions={canDeleteSessions}
+        combinedSessions={combinedSessions}
+        filteredPlayers={filteredPlayers}
+        isSaving={isSaving}
+        onImportPlayers={handleImportPlayers}
+        onOpenSession={handleOpenSession}
+        onPlayerPageChange={setAvailablePlayerPage}
+        onPlayerSelection={handlePlayerSelection}
+        onSectionChange={handleSessionFormChange}
+        paginatedPlayers={paginatedFilteredPlayers}
+        playerPage={availablePlayerPage}
+        selectedPlayerIds={selectedPlayerIds}
+        selectedSessionAssessmentCount={selectedSessionAssessmentCount}
+        selectedSessionId={selectedSessionId}
+        selectedSessionLocked={selectedSessionLocked}
+        sessions={sessions}
+      />
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Opponent score</span>
-                <input
-                  type="number"
-                  name="opponentScore"
-                  value={gameForm.opponentScore}
-                  onChange={handleGameFormChange}
-                  required
-                  min="0"
-                  disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Game date</span>
-                <input
-                  type="date"
-                  name="gameDate"
-                  value={gameForm.gameDate}
-                  onChange={handleGameFormChange}
-                  disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </label>
-
-              <label className="block md:col-span-2 xl:col-span-4">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Notes</span>
-                <input
-                  type="text"
-                  name="notes"
-                  value={gameForm.notes}
-                  onChange={handleGameFormChange}
-                  placeholder="Optional game note"
-                  disabled={selectedSessionLocked}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </label>
-
-              <div className="flex items-end">
-                <button
-                  type="submit"
-                  disabled={isSaving || selectedSessionLocked}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? 'Saving...' : 'Add Result'}
-                </button>
-              </div>
-            </form>
-
-            {isSessionGamesLoading ? (
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-                Loading tournament results...
-              </div>
-            ) : sessionGames.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                No tournament game results have been added yet.
-              </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {sessionGames.map((game) => (
-                  <div key={game.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[var(--text-primary)]">
-                          {selectedSession.team || 'Team'} {game.teamScore} - {game.opponentScore} {game.opponent}
-                        </p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                          {game.gameDate ? formatSessionDate(game.gameDate) : formatSessionDate(selectedSession.sessionDate)}
-                        </p>
-                        {game.notes ? <p className="mt-2 text-sm text-[var(--text-muted)]">{game.notes}</p> : null}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isSaving || selectedSessionLocked}
-                        onClick={() => void handleDeleteTournamentGame(game.id)}
-                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-red-500/40 bg-red-600/20 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </SectionCard>
-      ) : null}
-
-      <SectionCard
-        title="Create session"
-        description="Use a date only. Times are not required for assessments."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading session setup...
-          </div>
-        ) : teams.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No teams are available yet. Create a team first, then sessions can be planned.
-          </div>
-        ) : (
-          <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={handleCreateSession}>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
-              <select
-                name="teamId"
-                value={sessionForm.teamId}
-                onChange={handleSessionFormChange}
-                required
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              >
-                <option value="">Select team</option>
-                {teams.map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session Type</span>
-              <select
-                name="sessionType"
-                value={sessionForm.sessionType}
-                onChange={handleSessionFormChange}
-                required
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              >
-                <option value="">Select session type</option>
-                <option value="training">Training</option>
-                <option value="match">Match</option>
-                <option value="tournament">Tournament</option>
-              </select>
-            </label>
-
-            {sessionForm.sessionType === 'match' ? (
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Opponent</span>
-                <input
-                  type="text"
-                  name="opponent"
-                  value={sessionForm.opponent}
-                  onChange={handleSessionFormChange}
-                  placeholder="Opposition team"
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                />
-              </label>
-            ) : null}
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Date</span>
-              <input
-                type="date"
-                name="sessionDate"
-                value={sessionForm.sessionDate}
-                onChange={handleSessionFormChange}
-                required
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player list</span>
-              <select
-                name="section"
-                value={sessionForm.section}
-                onChange={handleSessionFormChange}
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              >
-                {EVALUATION_SECTIONS.map((section) => (
-                  <option key={section} value={section}>
-                    {section}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="flex items-end">
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSaving ? 'Saving...' : 'Create Session'}
-              </button>
-            </div>
-          </form>
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Coach options"
-        description="Select any saved session and add more players to its list when needed."
-      >
-        {sessions.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No sessions created yet.
-          </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Active session</span>
-                <select
-                  value={selectedSessionId}
-                  onChange={(event) => handleOpenSession(event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  {combinedSessions.map((session) => (
-                    <option key={session.id} value={session.id}>
-                      {formatSessionType(session.sessionType)} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player list</span>
-                <select
-                  name="section"
-                  value={activePlayerSection}
-                  onChange={handleSessionFormChange}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  {EVALUATION_SECTIONS.map((section) => (
-                    <option key={section} value={section}>
-                      {section}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-              Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
-              {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
-                <span className="mt-2 block text-xs text-[var(--text-secondary)]">
-                  This session has {selectedSessionAssessmentCount} assessments, so it cannot be deleted.
-                </span>
-              ) : null}
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {paginatedFilteredPlayers.items.map((player) => (
-                <label
-                  key={player.id}
-                  className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedPlayerIds.includes(player.id)}
-                    onChange={(event) => handlePlayerSelection(player.id, event.target.checked)}
-                    className="h-4 w-4"
-                  />
-                  <span>{player.playerName} | {player.team || 'No team'}</span>
-                </label>
-              ))}
-            </div>
-            <Pagination
-              currentPage={availablePlayerPage}
-              onPageChange={setAvailablePlayerPage}
-              pageSize={AVAILABLE_PLAYER_PAGE_SIZE}
-              totalItems={filteredPlayers.length}
-            />
-
-            {filteredPlayers.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                No {String(activePlayerSection || 'selected').toLowerCase()} players are available for {activePlayerTeam || 'this team'}.
-              </div>
-            ) : null}
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <button
-                type="button"
-                disabled={isSaving || filteredPlayers.length === 0 || selectedSessionLocked}
-                onClick={() => void handleImportPlayers('all')}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Add All {activePlayerSection} Players
-              </button>
-              <button
-                type="button"
-                disabled={isSaving || selectedPlayerIds.length === 0 || selectedSessionLocked}
-                onClick={() => void handleImportPlayers('selected')}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Add Selected Players
-              </button>
-            </div>
-          </div>
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Session players"
-        description="Coaches can record quick notes during the game or training, then start every assessment in sequence."
-      >
-        {!selectedSessionId ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            Select a session to manage players.
-          </div>
-        ) : isSessionPlayersLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading session players...
-          </div>
-        ) : sessionPlayers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No players have been added to this session yet.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {selectedSessionCompleted ? (
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-                {canCompleteSessions
-                  ? 'This session has been completed. Managers can still correct notes or assessments if needed.'
-                  : 'This session has been completed. Notes and assessments are kept for review, but the session is no longer editable.'}
-              </div>
-            ) : null}
-
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-[var(--text-primary)]">
-                  {selectedSession?.title || selectedSession?.team || 'Session'}
-                </p>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">
-                  {formatSessionType(selectedSession?.sessionType)} | {formatSessionDate(selectedSession?.sessionDate)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() =>
-                    recordingTarget?.type === 'session'
-                      ? handleStopVoiceNote()
-                      : void handleStartVoiceNote({ type: 'session', sessionId: selectedSessionId })
-                  }
-                  disabled={selectedSessionLocked || isSavingVoiceNote || !selectedSessionId}
-                  aria-label={recordingTarget?.type === 'session' ? 'Stop team voice note recording' : isSavingVoiceNote ? 'Saving team voice note' : 'Record team voice note'}
-                  title={recordingTarget?.type === 'session' ? 'Stop recording' : isSavingVoiceNote ? 'Saving voice note' : 'Team voice note'}
-                  className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                    recordingTarget?.type === 'session'
-                      ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
-                      : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
-                  }`}
-                >
-                  <MicIcon />
-                  <span className="sr-only">
-                    {recordingTarget?.type === 'session' ? 'Stop Recording' : isSavingVoiceNote ? 'Saving Voice Note...' : 'Team Voice Note'}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAssessAll}
-                  disabled={selectedSessionLocked}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {completedPlayerNames.length > 0 ? 'Continue Assessments' : 'Assess All'}
-                </button>
-                <button
-                  type="button"
-                  disabled={isSaving || selectedSessionLocked}
-                  onClick={() => void handleClearSessionPlayers()}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Clear Session
-                </button>
-              </div>
-            </div>
-
-            {sessionVoiceNotes.length > 0 ? (
-              <div className="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Team voice notes</p>
-                {sessionVoiceNotes.map((note) => (
-                  <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{note.note}</p>
-                    {note.audioUrl ? (
-                      <audio controls src={note.audioUrl} className="mt-3 w-full">
-                        Voice note audio
-                      </audio>
-                    ) : null}
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      {note.userName || note.userEmail || 'Staff'} | {formatSessionDate(note.createdAt)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {paginatedSessionPlayers.items.map((player) => (
-              <div key={player.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{player.section} | {player.team || 'No team'}</p>
-                    {completedPlayerNames.includes(normalizeProgressName(player.playerName)) ? (
-                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
-                        Assessment completed
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
-                          ? handleStopVoiceNote()
-                          : void handleStartVoiceNote({
-                              type: 'player',
-                              playerId: player.playerId,
-                              playerName: player.playerName,
-                              sessionId: selectedSessionId,
-                            })
-                      }
-                      disabled={selectedSessionLocked || isSavingVoiceNote || !player.playerId}
-                      aria-label={
-                        recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
-                          ? `Stop voice note recording for ${player.playerName}`
-                          : `Record voice note for ${player.playerName}`
-                      }
-                      title={
-                        recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
-                          ? 'Stop recording'
-                          : 'Voice note'
-                      }
-                      className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                        recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
-                          ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
-                          : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
-                      }`}
-                    >
-                      <MicIcon />
-                      <span className="sr-only">
-                        {recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
-                          ? 'Stop Recording'
-                          : 'Voice Note'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={selectedSessionLocked}
-                      onClick={() => navigate(buildAssessmentUrl(player.playerName))}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Assess Player
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-            ))}
-            <Pagination
-              currentPage={sessionPlayerPage}
-              onPageChange={setSessionPlayerPage}
-              pageSize={SESSION_PLAYER_PAGE_SIZE}
-              totalItems={sessionPlayers.length}
-            />
-          </div>
-        )}
-      </SectionCard>
+      <SessionPlayersSection
+        canCompleteSessions={canCompleteSessions}
+        completedPlayerNames={completedPlayerNames}
+        isLoading={isSessionPlayersLoading}
+        isSaving={isSaving}
+        isSavingVoiceNote={isSavingVoiceNote}
+        onAssessAll={handleAssessAll}
+        onAssessPlayer={(player) =>
+          navigate(buildSessionAssessmentUrl({
+            playerName: player.playerName,
+            selectedSession,
+            selectedSessionId,
+            sessionForm,
+            sessionPlayers,
+          }))
+        }
+        onClearSessionPlayers={handleClearSessionPlayers}
+        onPageChange={setSessionPlayerPage}
+        onStartVoiceNote={handleStartVoiceNote}
+        onStopVoiceNote={handleStopVoiceNote}
+        paginatedPlayers={paginatedSessionPlayers}
+        page={sessionPlayerPage}
+        recordingTarget={recordingTarget}
+        selectedSession={selectedSession}
+        selectedSessionCompleted={selectedSessionCompleted}
+        selectedSessionId={selectedSessionId}
+        selectedSessionLocked={selectedSessionLocked}
+        sessionPlayers={sessionPlayers}
+        sessionVoiceNotes={sessionVoiceNotes}
+      />
 
       <ConfirmModal
         isOpen={Boolean(clearSessionTarget)}

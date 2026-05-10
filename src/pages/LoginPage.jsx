@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import fallbackLogo from '../assets/player-feedback-logo.png'
-import InstallAppButton from '../components/pwa/InstallAppButton.jsx'
+import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
+import { DemoRequestModal } from '../components/login/DemoRequestModal.jsx'
+import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import { LoginHeroContent } from '../components/login/LoginHeroContent.jsx'
+import { LoginMarketingAndPricing } from '../components/login/LoginMarketingAndPricing.jsx'
 import { useAuth } from '../lib/auth.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 
@@ -33,106 +37,6 @@ function getFriendlyAuthErrorMessage(error, mode) {
   }
 
   return rawMessage || 'Authentication failed.'
-}
-
-const pricingPlans = [
-  {
-    name: 'Individual',
-    price: 'Free',
-    priceLabel: 'No card needed',
-    description: 'For one coach testing the basics before moving feedback online.',
-    features: ['1 team', '1 login', '5 players', '10 evaluations per month', 'Basic form only', 'No email sending'],
-  },
-  {
-    name: 'Single Team',
-    price: 9.99,
-    description: 'For teams ready to send structured feedback to parents.',
-    features: ['2 weeks trial included', 'Cancel anytime', '1 team', '3 logins', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'Custom form fields', 'Basic logo branding'],
-  },
-  {
-    name: 'Small Club',
-    price: 24.99,
-    description: 'For growing clubs needing staff access and oversight.',
-    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Single Team', 'Up to 10 teams', 'Unlimited logins', 'Custom branding and themes', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
-  },
-  {
-    name: 'Large Club',
-    price: 'Contact us',
-    description: 'For larger clubs that need more teams, rollout help, or custom support.',
-    features: ['Custom setup', 'More than 10 teams', 'Unlimited logins', 'Custom branding and themes', 'Custom rollout support', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
-  },
-]
-
-function formatPrice(plan, billingCycle) {
-  if (typeof plan.price !== 'number') {
-    return plan.price
-  }
-
-  const price = billingCycle === 'annual' ? plan.price * 10 : plan.price
-  return `\u00a3${price.toFixed(2)}`
-}
-
-function formatPriceLabel(plan, billingCycle) {
-  if (plan.priceLabel) {
-    return plan.priceLabel
-  }
-
-  if (plan.price === 'Contact us') {
-    return ''
-  }
-
-  if (typeof plan.price !== 'number') {
-    return 'No card needed'
-  }
-
-  return billingCycle === 'annual' ? 'per year' : 'per month'
-}
-
-function formatPromotionDiscount(promotion) {
-  if (!promotion) {
-    return ''
-  }
-
-  if (promotion.percentOff) {
-    return `${promotion.percentOff}% off`
-  }
-
-  if (promotion.amountOff) {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: promotion.currency || 'GBP',
-    }).format(Number(promotion.amountOff) / 100)
-  }
-
-  return ''
-}
-
-function formatPromotionDuration(promotion) {
-  if (!promotion) {
-    return ''
-  }
-
-  if (promotion.duration === 'forever') {
-    return 'forever'
-  }
-
-  if (promotion.duration === 'repeating') {
-    const months = Number(promotion.durationInMonths ?? 0)
-    return months === 1 ? 'for 1 month' : `for ${months || 1} months`
-  }
-
-  return 'once'
-}
-
-function getPromotionSummary(promotion) {
-  const discount = formatPromotionDiscount(promotion)
-  const duration = formatPromotionDuration(promotion)
-
-  if (!discount) {
-    return ''
-  }
-
-  return [discount, duration, promotion?.firstTimeOnly ? 'first purchase only' : ''].filter(Boolean).join(' | ')
 }
 
 export function LoginPage() {
@@ -418,521 +322,54 @@ export function LoginPage() {
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
-        <header className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-4 backdrop-blur sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d8ff2f]/30 bg-black/50 shadow-lg shadow-[#d8ff2f]/10 sm:h-24 sm:w-24">
-              <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-contain p-1" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-lg font-black tracking-tight sm:text-xl">Player Feedback</p>
-              <p className="truncate text-xs text-slate-400 sm:text-sm">Club operations and player feedback software</p>
-            </div>
-          </div>
-          <div className="hidden items-center gap-2 rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-2 text-xs font-semibold text-[#d8ff2f] sm:flex">
-            Built for football clubs
-          </div>
-          <InstallAppButton
-            wrapperClassName="lg:hidden"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f] px-4 py-3 text-sm font-black text-black"
-          />
-        </header>
+        <LoginHeader logo={fallbackLogo} />
 
         <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[1.08fr_0.92fr] lg:py-10">
-          <section className="order-2 lg:order-1">
-            <div className="inline-flex rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">
-              Football club operations
-            </div>
+          <LoginHeroContent />
 
-            <h1 className="mt-6 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl xl:text-6xl">
-              Player feedback and club management software for grassroots football.
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-              Assess players, manage trials, organise sessions, and send professional feedback to parents from one simple club workspace.
-            </p>
-
-            <div className="mt-7 max-w-2xl space-y-4 text-2xl font-black leading-tight tracking-tight sm:text-3xl">
-              <span className="flex items-start gap-4">
-                <span className="shrink-0 text-[#d8ff2f]">{"\u2713"}</span>
-                <span>Run trials with clear notes and decisions.</span>
-              </span>
-              <span className="flex items-start gap-4">
-                <span className="shrink-0 text-[#d8ff2f]">{"\u2713"}</span>
-                <span>Keep trial and squad records organised.</span>
-              </span>
-              <span className="flex items-start gap-4">
-                <span className="shrink-0 text-[#d8ff2f]">{"\u2713"}</span>
-                <span>Give parents feedback they can understand.</span>
-              </span>
-            </div>
-
-            <div className="mt-8 grid max-w-3xl gap-3 sm:grid-cols-3">
-              {[
-                ['Trials', 'Build trial lists, record coach ratings, and keep decisions in one place.'],
-                ['Players', 'Store player history, parent contacts, positions, and squad status clearly.'],
-                ['Parents', 'Create clean reports and email templates without rewriting notes every time.'],
-              ].map(([title, copy]) => (
-                <div key={title} className="rounded-lg border border-white/10 bg-white/[0.05] p-4 backdrop-blur">
-                  <p className="text-sm font-bold text-white">{title}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
-              <div className="rounded-lg border border-white/10 bg-white/[0.05] p-5">
-                <p className="text-3xl font-black">Role based</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Coaches, managers, and club admins only see the teams and tools they need.
-                </p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-white/[0.05] p-5">
-                <p className="text-3xl font-black">Club branded</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Use your club logo inside the app and on parent-facing feedback.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section ref={signupBoxRef} className="order-1 lg:order-2">
-            <div className="mx-auto w-full max-w-md rounded-lg border border-white/10 bg-[#0b130d]/90 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-6">
-              <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border border-[#d8ff2f]/30 bg-black/50 shadow-xl shadow-[#d8ff2f]/10 sm:h-32 sm:w-32">
-                <img src={fallbackLogo} alt="Player Feedback" className="h-full w-full object-contain p-2" />
-              </div>
-              <div className="rounded-lg border border-[#d8ff2f]/15 bg-[#111d12] p-5">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#d8ff2f]">
-                  {mode === 'signup' ? 'Create account' : 'Secure login'}
-                </p>
-                <h2 className="mt-3 text-2xl font-black tracking-tight text-white">
-                  {mode === 'signup' ? 'Start or join a club' : 'Open your workspace'}
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  {mode === 'signup'
-                    ? 'Create a club admin account, or sign up with an email already allocated by your club.'
-                    : 'Use the email and password linked to your club access.'}
-                </p>
-              </div>
-
-              <div className="mt-5 grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1">
-                <button
-                  type="button"
-                  onClick={() => handleModeChange('login')}
-                  className={[
-                    'min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition',
-                    mode === 'login' ? 'bg-[#d8ff2f] text-black' : 'text-slate-300 hover:text-white',
-                  ].join(' ')}
-                >
-                  Login
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleModeChange('signup')}
-                  className={[
-                    'min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition',
-                    mode === 'signup' ? 'bg-[#d8ff2f] text-black' : 'text-slate-300 hover:text-white',
-                  ].join(' ')}
-                >
-                  Sign Up
-                </button>
-              </div>
-
-              <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-                {mode === 'signup' ? (
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-bold text-slate-200">Club Name</span>
-                    <input
-                      type="text"
-                      name="clubName"
-                      value={formData.clubName}
-                      onChange={handleChange}
-                      required
-                      placeholder="Your club or team name"
-                      className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
-                    />
-                  </label>
-                ) : null}
-
-                {mode === 'signup' ? (
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-bold text-slate-200">Tester access code</span>
-                    <input
-                      type="text"
-                      name="accessCode"
-                      value={formData.accessCode}
-                      onChange={handleChange}
-                      placeholder="Optional code from Player Feedback"
-                      className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm uppercase text-white outline-none transition placeholder:normal-case placeholder:text-slate-500 focus:border-[#d8ff2f]"
-                    />
-                    <span className="mt-2 block text-xs leading-5 text-slate-400">
-                      Use this only if you have been given temporary tester access.
-                    </span>
-                  </label>
-                ) : null}
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-slate-200">Email</span>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    autoComplete="email"
-                    placeholder="you@club.com"
-                    className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-slate-200">Password</span>
-                  <div className="flex rounded-lg border border-white/10 bg-[#101b12] focus-within:border-[#d8ff2f]">
-                    <input
-                      type={isPasswordVisible ? 'text' : 'password'}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      required
-                      autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                      placeholder="Enter password"
-                      className="min-h-12 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setIsPasswordVisible((current) => !current)}
-                      className="min-h-12 rounded-r-2xl px-4 py-3 text-sm font-bold text-[#d8ff2f]"
-                    >
-                      {isPasswordVisible ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                </label>
-
-                {localError || authError ? (
-                  <div className="rounded-lg border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-semibold text-[#ffc2cf]">
-                    {localError || authError}
-                  </div>
-                ) : null}
-
-                {localMessage ? (
-                  <div className="rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
-                    {localMessage}
-                  </div>
-                ) : null}
-
-                <div className="space-y-3 pt-2">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
-                  </button>
-                  {mode === 'login' ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={handleDemoLogin}
-                        className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f]/10 px-5 py-3 text-sm font-black text-[#d8ff2f] transition hover:bg-[#d8ff2f]/15 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Open Demo Account
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={handlePasswordReset}
-                        className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Forgot password
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </form>
-            </div>
-          </section>
+          <LoginAuthPanel
+            authError={authError}
+            formData={formData}
+            isPasswordVisible={isPasswordVisible}
+            isSubmitting={isSubmitting}
+            localError={localError}
+            localMessage={localMessage}
+            logo={fallbackLogo}
+            mode={mode}
+            onChange={handleChange}
+            onDemoLogin={handleDemoLogin}
+            onModeChange={handleModeChange}
+            onPasswordReset={handlePasswordReset}
+            onSubmit={handleSubmit}
+            onTogglePasswordVisibility={() => setIsPasswordVisible((current) => !current)}
+            signupBoxRef={signupBoxRef}
+          />
         </div>
 
-        <section className="space-y-5 pb-8">
-          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Why it exists</p>
-            <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Better feedback for players. Less admin for coaches.</h2>
-            <p className="mt-4 max-w-4xl text-base leading-8 text-slate-300">
-              Grassroots clubs work hard to give players a fair chance, but trial notes, parent messages, emails, and paper forms can quickly become messy. Player Feedback helps clubs keep development records organised, communicate properly with parents, and save coaches time after every session.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">What you can do</p>
-            <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Built to support the daily work of running football teams.</h2>
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {[
-                ['Create player assessments', 'Score technical, tactical, physical, and attitude areas using your own club form.'],
-                ['Send parent reports', 'Turn coach notes into professional parent-ready feedback, with or without scores.'],
-                ['Manage trialists and squad players', 'Keep trial players separate from squad players while retaining full history.'],
-                ['Organise sessions', 'Create training, match, and tournament sessions, then assess players from the session list.'],
-                ['Manage teams and staff', 'Assign coaches to teams and keep access controlled by role.'],
-                ['Use it on mobile', 'Coaches can open it on phones, tablets, and desktops, with installable app support.'],
-              ].map(([title, copy]) => (
-                <div key={title} className="rounded-lg border border-white/10 bg-[#0b130d]/80 p-5">
-                  <p className="text-lg font-black text-white">{title}</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-400">{copy}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Real club workflows</p>
-              <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Built around how football clubs actually work.</h2>
-              <div className="mt-6 space-y-4">
-                {[
-                  ['Trial nights', 'Add trialists, collect coach ratings, choose invite back, no place offered, or offer place, then send the right parent message.'],
-                  ['Training sessions', 'Build a session list, add players during the session, and complete assessments when coaches are ready.'],
-                  ['Squad reviews', 'Review previous assessments, track progress over time, and keep private staff notes away from parent emails.'],
-                  ['Tournaments', 'Record multiple games in a tournament and keep player feedback linked to the correct session.'],
-                ].map(([title, copy]) => (
-                  <div key={title} className="rounded-lg border border-white/10 bg-[#0b130d]/80 p-4">
-                    <p className="font-black text-white">{title}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Simple and trusted</p>
-              <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Clear for coaches. Useful for parents.</h2>
-              <div className="mt-6 space-y-4">
-                {[
-                  ['Club accounts', 'Each club has its own workspace, teams, staff roles, player records, and settings.'],
-                  ['Professional output', 'Reports and emails use clean wording, club branding, and selected assessment fields.'],
-                  ['No more lost notes', 'Player history, actions, and activity logs stay connected to the right club and team.'],
-                  ['Easy onboarding', 'Start small with one team, then add more staff, teams, and custom forms when needed.'],
-                ].map(([title, copy]) => (
-                  <div key={title} className="rounded-lg border border-white/10 bg-[#0b130d]/80 p-4">
-                    <p className="font-black text-white">{title}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Pricing</p>
-              <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Simple plans for growing clubs</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                Start small, then move to a paid plan when your club needs more structure. Annual billing for paid plans is charged at 10 months.
-              </p>
-            </div>
-            <div className="grid w-full max-w-xs grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1">
-              {[
-                ['monthly', 'Monthly'],
-                ['annual', 'Annual'],
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setBillingCycle(key)}
-                  className={[
-                    'min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition',
-                    billingCycle === key ? 'bg-[#d8ff2f] text-black' : 'text-slate-300 hover:text-white',
-                  ].join(' ')}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {localError ? (
-            <div className="mt-4 rounded-lg border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-semibold text-[#ffc2cf]">
-              {localError}
-            </div>
-          ) : null}
-
-          {localMessage ? (
-            <div className="mt-4 rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
-              {localMessage}
-            </div>
-          ) : null}
-
-          {paymentsDisabled ? (
-            <div className="mt-4 rounded-lg border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-5 py-4 text-sm font-bold text-[#d8ff2f]">
-              Payments are disabled on this test site. New sign-ups create test club accounts without checkout.
-            </div>
-          ) : null}
-
-          {livePromotion && !paymentsDisabled ? (
-            <div className="mt-4 rounded-lg border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-5 py-4 text-sm font-bold text-[#d8ff2f]">
-              Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
-            </div>
-          ) : null}
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {pricingPlans.map((plan) => {
-              const priceLabel = formatPriceLabel(plan, billingCycle)
-              const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
-
-              return (
-                <div
-                  key={plan.name}
-                  className="relative flex flex-col rounded-lg border border-white/10 bg-[#0b130d]/90 p-5 shadow-xl shadow-black/20 backdrop-blur"
-                >
-                  {plan.name === 'Small Club' ? (
-                    <span className="absolute right-5 top-5 whitespace-nowrap rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
-                      Popular
-                    </span>
-                  ) : null}
-                  {showPromotion ? (
-                    <div className="mb-4 rounded-lg border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-[#d8ff2f]">
-                      {getPromotionSummary(livePromotion)}
-                    </div>
-                  ) : null}
-                  <div className="min-h-[132px] pr-16">
-                    <p className="text-lg font-black text-white">{plan.name}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{plan.description}</p>
-                  </div>
-                  <div className="min-h-[88px]">
-                    <span
-                      className={[
-                        'whitespace-nowrap font-black text-white',
-                        plan.price === 'Contact us' ? 'text-[2rem] leading-none 2xl:text-4xl' : 'text-4xl',
-                      ].join(' ')}
-                    >
-                      {formatPrice(plan, billingCycle)}
-                    </span>
-                    {priceLabel ? <span className="ml-2 text-sm font-semibold text-slate-400">{priceLabel}</span> : null}
-                    {typeof plan.price === 'number' && billingCycle === 'annual' ? (
-                      <p className="mt-2 text-xs font-semibold text-[#d8ff2f]">2 months free compared with monthly</p>
-                    ) : null}
-                    {showPromotion ? (
-                      <p className="mt-2 text-xs font-semibold text-[#d8ff2f]">
-                        Code {livePromotion.code} auto-applied at checkout
-                      </p>
-                    ) : null}
-                  </div>
-                  <ul className="mt-6 grow space-y-3">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex gap-3 text-sm leading-6 text-slate-300">
-                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#d8ff2f]" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-6 grid gap-3">
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => handleChoosePlan(plan)}
-                      className={[
-                        'inline-flex min-h-12 items-center justify-center rounded-lg px-5 py-3 text-sm font-black transition',
-                        plan.name === 'Small Club'
-                          ? 'bg-[#d8ff2f] text-black hover:opacity-90'
-                          : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]',
-                        isSubmitting ? 'cursor-not-allowed opacity-60' : '',
-                      ].join(' ')}
-                    >
-                      {paymentsDisabled ? 'Create Test Club' : plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' ? 'Request Demo' : 'Choose Plan'}
-                    </button>
-                    {plan.name !== 'Individual' && !paymentsDisabled ? (
-                      <button
-                        type="button"
-                        onClick={() => setDemoPlan(plan)}
-                        className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.08]"
-                      >
-                        Request Demo
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
+        <LoginMarketingAndPricing
+          billingCycle={billingCycle}
+          isSubmitting={isSubmitting}
+          livePromotion={livePromotion}
+          localError={localError}
+          localMessage={localMessage}
+          onBillingCycleChange={setBillingCycle}
+          onChoosePlan={handleChoosePlan}
+          onRequestDemo={setDemoPlan}
+          paymentsDisabled={paymentsDisabled}
+        />
       </div>
 
-      {demoPlan ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 px-4 py-6">
-          <div className="w-full max-w-xl rounded-lg border border-white/10 bg-[#0b130d] p-5 shadow-2xl shadow-black/50 sm:p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Request Demo</p>
-            <h2 className="mt-3 text-2xl font-black tracking-tight text-white">{demoPlan.name}</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-300">
-              Send your details and we will contact you to arrange the demo.
-            </p>
-
-            <form className="mt-5 grid gap-4" onSubmit={handleDemoSubmit}>
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-200">Name *</span>
-                <input
-                  type="text"
-                  name="name"
-                  value={demoFormData.name}
-                  onChange={handleDemoChange}
-                  required
-                  className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-200">Email *</span>
-                <input
-                  type="email"
-                  name="email"
-                  value={demoFormData.email}
-                  onChange={handleDemoChange}
-                  required
-                  className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-200">Phone Number</span>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={demoFormData.phone}
-                  onChange={handleDemoChange}
-                  className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-slate-200">Club/Team Name *</span>
-                <input
-                  type="text"
-                  name="clubTeamName"
-                  value={demoFormData.clubTeamName}
-                  onChange={handleDemoChange}
-                  required
-                  className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
-                />
-              </label>
-
-              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => {
-                    setDemoPlan(null)
-                    setDemoFormData(initialDemoFormData)
-                  }}
-                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSubmitting ? 'Sending...' : 'Request Demo'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      <DemoRequestModal
+        demoFormData={demoFormData}
+        demoPlan={demoPlan}
+        isSubmitting={isSubmitting}
+        onCancel={() => {
+          setDemoPlan(null)
+          setDemoFormData(initialDemoFormData)
+        }}
+        onChange={handleDemoChange}
+        onSubmit={handleDemoSubmit}
+      />
     </main>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatches } from 'react-router-dom'
-import { isClubAdmin, useAuth } from '../../lib/auth.js'
+import { isClubAdmin, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import { createAuditLog } from '../../lib/supabase.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
@@ -187,7 +187,7 @@ export function Layout() {
     }
   }
 
-  const needsClubSelection = clubOptions.length > 1
+  const needsClubSelection = !isSuperAdmin(user) && clubOptions.length > 1
   const needsTeamSelection = clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
 
   return (

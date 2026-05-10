@@ -5,4 +5,4 @@ export {
   normalizeParentContacts,
   normalizePlayerContactType,
   PLAYER_CONTACT_TYPES,
-} from './domain/core.js'
+} from './domain/contact-utils.js'

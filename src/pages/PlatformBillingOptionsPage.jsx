@@ -1,77 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BillingHeroAndStats } from '../components/platform-billing/BillingHeroAndStats.jsx'
+import { CreateCouponSection } from '../components/platform-billing/CreateCouponSection.jsx'
+import { CreateTesterCodeSection } from '../components/platform-billing/CreateTesterCodeSection.jsx'
+import { ExistingCouponsSection } from '../components/platform-billing/ExistingCouponsSection.jsx'
+import { TesterAccessCodesSection } from '../components/platform-billing/TesterAccessCodesSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth } from '../lib/auth.js'
-import { formatUkDate } from '../lib/date-format.js'
-
-const defaultCouponForm = {
-  name: '',
-  code: '',
-  percentOff: '',
-  amountOff: '',
-  duration: 'once',
-  durationInMonths: '3',
-  expiresAt: '',
-  firstTimeOnly: false,
-}
-
-const defaultTesterCodeForm = {
-  label: '',
-  code: '',
-  planKey: 'single_team',
-  expiresInDays: '30',
-  maxUses: '1',
-  assignedEmail: '',
-}
-
-const testerPlanOptions = [
-  { key: 'individual', label: 'Individual' },
-  { key: 'single_team', label: 'Single Team' },
-  { key: 'small_club', label: 'Small Club' },
-  { key: 'large_club', label: 'Large Club' },
-]
-
-function formatDate(value) {
-  if (!value) {
-    return 'No date'
-  }
-
-  const parsedDate = new Date(value)
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return 'No date'
-  }
-
-  return formatUkDate(parsedDate.toISOString().slice(0, 10), 'No date')
-}
-
-function formatDiscount(coupon) {
-  if (coupon.percentOff) {
-    return `${coupon.percentOff}% off`
-  }
-
-  if (coupon.amountOff) {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: coupon.currency || 'GBP',
-    }).format(Number(coupon.amountOff) / 100)
-  }
-
-  return 'No discount'
-}
-
-function formatExpiry(coupon) {
-  if (coupon.expiresAt) {
-    return `Ends ${formatDate(coupon.expiresAt)}`
-  }
-
-  if (coupon.redeemBy) {
-    return `Ends ${formatDate(coupon.redeemBy)}`
-  }
-
-  return 'No end date'
-}
+import {
+  defaultCouponForm,
+  defaultTesterCodeForm,
+} from '../lib/platform-billing-utils.js'
 
 export function PlatformBillingOptionsPage() {
   const { session, user } = useAuth()
@@ -87,6 +26,7 @@ export function PlatformBillingOptionsPage() {
   const [updatingTesterCodeId, setUpdatingTesterCodeId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [currentTime] = useState(() => Date.now())
 
   const sortedCoupons = useMemo(
     () => [...coupons].sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || ''))),
@@ -100,7 +40,7 @@ export function PlatformBillingOptionsPage() {
   const liveCouponCount = sortedCoupons.filter((coupon) => coupon.liveOnWebsite).length
   const activeCouponCount = sortedCoupons.filter((coupon) => coupon.active).length
   const activeTesterCodeCount = sortedTesterCodes.filter((code) => {
-    const hasExpired = code.expiresAt && new Date(code.expiresAt).getTime() <= Date.now()
+    const hasExpired = code.expiresAt && new Date(code.expiresAt).getTime() <= currentTime
     return code.isActive && !hasExpired
   }).length
   const testerRedemptionCount = sortedTesterCodes.reduce((total, code) => total + Number(code.redeemedCount ?? 0), 0)
@@ -429,336 +369,37 @@ export function PlatformBillingOptionsPage() {
         </div>
       ) : null}
 
-      <section className="relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
-        <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
-        <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--accent)]">Billing control centre</p>
-            <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
-              Manage public promotions, tester access, and checkout discounts.
-            </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)] sm:text-base">
-              Keep paid plans clean while giving testers temporary access without asking for a payment card.
-            </p>
-          </div>
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                {isLoading ? 'Refreshing billing data' : 'Billing data loaded'}
-              </p>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-              Stripe coupons and tester access codes are managed from this page.
-            </p>
-          </div>
-        </div>
-      </section>
+      <BillingHeroAndStats billingStats={billingStats} isLoading={isLoading} />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {billingStats.map((item) => (
-          <div
-            key={item.label}
-            className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
-          >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
-            <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
-            <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
-          </div>
-        ))}
-      </div>
+      <CreateCouponSection
+        couponForm={couponForm}
+        isSaving={isSaving}
+        onCouponChange={handleCouponChange}
+        onCreateCoupon={handleCreateCoupon}
+      />
 
-      <SectionCard
-        title="Create discount coupon"
-        description="Create a billing discount and promotion code that can be used during checkout."
-      >
-        <form onSubmit={handleCreateCoupon} className="grid gap-4 xl:grid-cols-4">
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coupon name</span>
-            <input
-              required
-              value={couponForm.name}
-              onChange={(event) => handleCouponChange('name', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Promotion code</span>
-            <input
-              required
-              value={couponForm.code}
-              onChange={(event) => handleCouponChange('code', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm uppercase text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Percent off</span>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={couponForm.percentOff}
-              onChange={(event) => handleCouponChange('percentOff', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Fixed amount off</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={couponForm.amountOff}
-              onChange={(event) => handleCouponChange('amountOff', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Duration</span>
-            <select
-              value={couponForm.duration}
-              onChange={(event) => handleCouponChange('duration', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            >
-              <option value="once">Once</option>
-              <option value="repeating">Repeating</option>
-              <option value="forever">Forever</option>
-            </select>
-          </label>
-          {couponForm.duration === 'repeating' ? (
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Months</span>
-              <input
-                type="number"
-                min="1"
-                value={couponForm.durationInMonths}
-                onChange={(event) => handleCouponChange('durationInMonths', event.target.value)}
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-          ) : null}
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">End date</span>
-            <input
-              type="date"
-              value={couponForm.expiresAt}
-              onChange={(event) => handleCouponChange('expiresAt', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-            <span className="mt-2 block text-xs text-[var(--text-muted)]">
-              Optional. This stops new redemptions after the selected date.
-            </span>
-          </label>
-          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 xl:self-end">
-            <input
-              type="checkbox"
-              checked={couponForm.firstTimeOnly}
-              onChange={(event) => handleCouponChange('firstTimeOnly', event.target.checked)}
-              className="h-4 w-4 accent-[var(--accent)]"
-            />
-            <span className="text-sm font-semibold text-[var(--text-primary)]">First purchase only</span>
-          </label>
-          <div className="xl:col-span-4">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              {isSaving ? 'Creating...' : 'Create Coupon'}
-            </button>
-          </div>
-        </form>
-      </SectionCard>
+      <CreateTesterCodeSection
+        isSavingTesterCode={isSavingTesterCode}
+        onCreateTesterCode={handleCreateTesterCode}
+        onTesterCodeChange={handleTesterCodeChange}
+        testerCodeForm={testerCodeForm}
+      />
 
-      <SectionCard
-        title="Create tester access code"
-        description="Give selected testers temporary plan access without asking for a payment card."
-      >
-        <form onSubmit={handleCreateTesterCode} className="grid gap-4 xl:grid-cols-4">
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Label</span>
-            <input
-              value={testerCodeForm.label}
-              onChange={(event) => handleTesterCodeChange('label', event.target.value)}
-              placeholder="Cambourne tester"
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Access code</span>
-            <input
-              required
-              value={testerCodeForm.code}
-              onChange={(event) => handleTesterCodeChange('code', event.target.value)}
-              placeholder="TESTER-30"
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm uppercase text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Plan level</span>
-            <select
-              value={testerCodeForm.planKey}
-              onChange={(event) => handleTesterCodeChange('planKey', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            >
-              {testerPlanOptions.map((plan) => (
-                <option key={plan.key} value={plan.key}>
-                  {plan.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Runs for days</span>
-            <input
-              required
-              type="number"
-              min="1"
-              value={testerCodeForm.expiresInDays}
-              onChange={(event) => handleTesterCodeChange('expiresInDays', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Max uses</span>
-            <input
-              required
-              type="number"
-              min="1"
-              value={testerCodeForm.maxUses}
-              onChange={(event) => handleTesterCodeChange('maxUses', event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <label className="block xl:col-span-2">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Assigned email</span>
-            <input
-              type="email"
-              value={testerCodeForm.assignedEmail}
-              onChange={(event) => handleTesterCodeChange('assignedEmail', event.target.value)}
-              placeholder="Optional. Leave blank for any email."
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-          <div className="xl:col-span-4">
-            <button
-              type="submit"
-              disabled={isSavingTesterCode}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              {isSavingTesterCode ? 'Creating...' : 'Create Tester Code'}
-            </button>
-          </div>
-        </form>
-      </SectionCard>
+      <TesterAccessCodesSection
+        currentTime={currentTime}
+        onToggleTesterCode={(code) => void handleToggleTesterCode(code)}
+        sortedTesterCodes={sortedTesterCodes}
+        updatingTesterCodeId={updatingTesterCodeId}
+      />
 
-      <SectionCard
-        title="Tester access codes"
-        description="These codes grant temporary access. Expired tester accounts keep their data but must choose a paid plan to continue."
-      >
-        {sortedTesterCodes.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
-            No tester access codes have been created yet.
-          </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {sortedTesterCodes.map((code) => {
-              const planLabel = testerPlanOptions.find((plan) => plan.key === code.planKey)?.label || code.planKey
-              const hasExpired = code.expiresAt && new Date(code.expiresAt).getTime() <= Date.now()
-
-              return (
-                <div key={code.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-[var(--text-primary)]">{code.label || code.code}</p>
-                      <p className="mt-1 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{code.code}</p>
-                    </div>
-                    <span className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      {hasExpired ? 'Expired' : code.isActive ? 'Active' : 'Disabled'}
-                    </span>
-                  </div>
-                  <div className="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
-                    <p><span className="font-semibold text-[var(--text-primary)]">Plan:</span> {planLabel}</p>
-                    <p><span className="font-semibold text-[var(--text-primary)]">Email:</span> {code.assignedEmail || 'Any email'}</p>
-                    <p><span className="font-semibold text-[var(--text-primary)]">Uses:</span> {code.redeemedCount} of {code.maxUses}</p>
-                    <p><span className="font-semibold text-[var(--text-primary)]">Expires:</span> {formatDate(code.expiresAt)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={updatingTesterCodeId === code.id}
-                    onClick={() => void handleToggleTesterCode(code)}
-                    className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {updatingTesterCodeId === code.id ? 'Saving...' : code.isActive ? 'Disable Code' : 'Enable Code'}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Existing coupons"
-        description="Use these promotion codes when applying discounts during checkout."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
-            Loading coupons...
-          </div>
-        ) : sortedCoupons.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
-            No coupons have been created yet.
-          </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {sortedCoupons.map((coupon) => (
-              <div key={coupon.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-[var(--text-primary)]">{coupon.name || coupon.id}</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{formatDiscount(coupon)}</p>
-                  </div>
-                  <span className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                    {coupon.liveOnWebsite ? 'Live' : coupon.active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <p className="mt-4 text-sm font-semibold text-[var(--text-primary)]">{coupon.code || 'No code'}</p>
-                <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                  {coupon.duration}{coupon.durationInMonths ? ` | ${coupon.durationInMonths} months` : ''} | {formatDate(coupon.createdAt)}
-                </p>
-                <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                  {formatExpiry(coupon)}
-                </p>
-                {coupon.firstTimeOnly ? (
-                  <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                    First purchase only
-                  </p>
-                ) : null}
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    disabled={!coupon.promotionCodeId || livePromotionId === coupon.promotionCodeId}
-                    onClick={() => void handleSetLivePromotion(coupon)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {livePromotionId === coupon.promotionCodeId ? 'Saving...' : coupon.liveOnWebsite ? 'Hide From Website' : 'Show Live'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={deletingCouponId === coupon.id}
-                    onClick={() => void handleDeleteCoupon(coupon)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#7f1d1d] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[#fecaca] transition hover:bg-[#3f151a] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {deletingCouponId === coupon.id ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </SectionCard>
+      <ExistingCouponsSection
+        deletingCouponId={deletingCouponId}
+        isLoading={isLoading}
+        livePromotionId={livePromotionId}
+        onDeleteCoupon={(coupon) => void handleDeleteCoupon(coupon)}
+        onSetLivePromotion={(coupon) => void handleSetLivePromotion(coupon)}
+        sortedCoupons={sortedCoupons}
+      />
     </div>
   )
 }

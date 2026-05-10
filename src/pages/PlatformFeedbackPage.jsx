@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { CreatePlatformFeedbackSection } from '../components/platform-feedback/CreatePlatformFeedbackSection.jsx'
+import { PlatformFeedbackBoardSection } from '../components/platform-feedback/PlatformFeedbackBoardSection.jsx'
+import { PlatformFeedbackHero } from '../components/platform-feedback/PlatformFeedbackHero.jsx'
+import { PlatformFeedbackStats } from '../components/platform-feedback/PlatformFeedbackStats.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewPlatformFeedback, isSuperAdmin, useAuth } from '../lib/auth.js'
-import { formatUkDate } from '../lib/date-format.js'
+import { FEEDBACK_PAGE_SIZE, PLATFORM_FEEDBACK_CACHE_KEY, getFeedbackStats } from '../lib/platform-feedback-utils.js'
 import {
   createPlatformFeedback,
   getPlatformFeedback,
@@ -17,27 +19,10 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
-const cacheKey = 'platform-feedback-page'
-const FEEDBACK_PAGE_SIZE = 10
-
-function formatDate(value) {
-  if (!value) {
-    return 'No date'
-  }
-
-  const parsedDate = new Date(value)
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return 'No date'
-  }
-
-  return formatUkDate(parsedDate.toISOString().slice(0, 10), 'No date')
-}
-
 export function PlatformFeedbackPage() {
   const { isLoading: isAuthLoading, isProfileLoading, session, user } = useAuth()
   const [feedbackItems, setFeedbackItems] = useState(() => {
-    const cachedItems = readViewCacheValue(cacheKey, 'feedbackItems', [])
+    const cachedItems = readViewCacheValue(PLATFORM_FEEDBACK_CACHE_KEY, 'feedbackItems', [])
     return Array.isArray(cachedItems) ? cachedItems : []
   })
   const [message, setMessage] = useState('')
@@ -51,7 +36,7 @@ export function PlatformFeedbackPage() {
   const loadFeedback = async () => {
     const nextItems = await withRequestTimeout(() => getPlatformFeedback(user), 'Could not load platform feedback.')
     setFeedbackItems(nextItems)
-    writeViewCache(cacheKey, {
+    writeViewCache(PLATFORM_FEEDBACK_CACHE_KEY, {
       feedbackItems: nextItems,
     })
   }
@@ -75,7 +60,7 @@ export function PlatformFeedbackPage() {
         }
 
         setFeedbackItems(nextItems)
-        writeViewCache(cacheKey, {
+        writeViewCache(PLATFORM_FEEDBACK_CACHE_KEY, {
           feedbackItems: nextItems,
         })
       } catch (error) {
@@ -148,28 +133,7 @@ export function PlatformFeedbackPage() {
   }
 
   const paginatedFeedback = getPaginatedItems(feedbackItems, feedbackPage, FEEDBACK_PAGE_SIZE)
-  const feedbackStats = [
-    {
-      label: 'Feedback items',
-      value: feedbackItems.length,
-      caption: 'Ideas submitted',
-    },
-    {
-      label: 'Open',
-      value: feedbackItems.filter((item) => item.status === 'open').length,
-      caption: 'Needs review',
-    },
-    {
-      label: 'Planned',
-      value: feedbackItems.filter((item) => item.status === 'planned').length,
-      caption: 'Roadmap candidates',
-    },
-    {
-      label: 'Votes',
-      value: feedbackItems.reduce((total, item) => total + Number(item.voteCount ?? 0), 0),
-      caption: 'Total votes',
-    },
-  ]
+  const feedbackStats = getFeedbackStats(feedbackItems)
 
   if ((isAuthLoading && !session?.user) || (!user && isProfileLoading)) {
     return (
@@ -199,136 +163,32 @@ export function PlatformFeedbackPage() {
 
       {errorMessage ? <NoticeBanner title="Feedback action failed" message={errorMessage} /> : null}
 
-      <section className="relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
-        <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
-        <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--accent)]">Product feedback</p>
-            <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
-              Share ideas, vote on priorities, and read platform admin responses.
-            </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)] sm:text-base">
-              Feedback stays visible so clubs can see what has been requested, planned, and completed.
-            </p>
-          </div>
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                {isLoading ? 'Refreshing feedback' : 'Feedback board loaded'}
-              </p>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-              One practical idea per item keeps voting clean and useful.
-            </p>
-          </div>
-        </div>
-      </section>
+      <PlatformFeedbackHero isLoading={isLoading} />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {feedbackStats.map((item) => (
-          <div
-            key={item.label}
-            className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
-          >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
-            <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
-            <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
-          </div>
-        ))}
-      </div>
+      <PlatformFeedbackStats feedbackStats={feedbackStats} />
 
       {isSuperAdmin(user) ? null : (
-        <SectionCard title="Create feedback" description="Keep it short and practical. One idea per feedback item works best.">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Feedback</span>
-              <textarea
-                required
-                rows="5"
-                value={message}
-                onChange={(event) => {
-                  setMessage(event.target.value)
-                  setErrorMessage('')
-                  setSuccessMessage('')
-                }}
-                className="min-h-36 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              {isSaving ? 'Submitting...' : 'Submit Feedback'}
-            </button>
-          </form>
-        </SectionCard>
+        <CreatePlatformFeedbackSection
+          isSaving={isSaving}
+          message={message}
+          onMessageChange={(nextMessage) => {
+            setMessage(nextMessage)
+            setErrorMessage('')
+            setSuccessMessage('')
+          }}
+          onSubmit={handleSubmit}
+        />
       )}
 
-      <SectionCard title="Feedback board" description="Vote for feedback you agree with so platform admins can prioritise it.">
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
-            Loading feedback...
-          </div>
-        ) : feedbackItems.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
-            No feedback has been submitted yet.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {paginatedFeedback.items.map((item) => (
-              <div key={item.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{item.message}</p>
-                    <p className="mt-3 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      {item.clubName} | {formatDate(item.createdAt)} | {item.status}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleVote(item)}
-                    disabled={activeVoteId === item.id}
-                    className={[
-                      'inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
-                      item.hasVoted
-                        ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                        : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-                    ].join(' ')}
-                  >
-                    {item.hasVoted ? 'Voted' : 'Vote'} ({item.voteCount})
-                  </button>
-                </div>
-                {item.comments?.length ? (
-                  <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      Platform comments
-                    </p>
-                    <div className="mt-3 space-y-3">
-                      {item.comments.map((comment) => (
-                        <div key={comment.id} className="rounded-lg bg-[var(--panel-alt)] px-4 py-3">
-                          <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{comment.message}</p>
-                          <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                            Platform admin | {formatDate(comment.createdAt)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-            <Pagination
-              currentPage={feedbackPage}
-              onPageChange={setFeedbackPage}
-              pageSize={FEEDBACK_PAGE_SIZE}
-              totalItems={feedbackItems.length}
-            />
-          </div>
-        )}
-      </SectionCard>
+      <PlatformFeedbackBoardSection
+        activeVoteId={activeVoteId}
+        feedbackItems={feedbackItems}
+        feedbackPage={feedbackPage}
+        isLoading={isLoading}
+        onPageChange={setFeedbackPage}
+        onVote={handleVote}
+        paginatedFeedback={paginatedFeedback}
+      />
     </div>
   )
 }

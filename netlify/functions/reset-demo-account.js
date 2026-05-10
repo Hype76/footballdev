@@ -1,11 +1,12 @@
 import process from 'node:process'
-import { supabaseAdmin } from './_supabase.js'
 
 const DEMO_EMAIL = 'demo@playerfeedback.online'
 const DEMO_PASSWORD = 'Demo12345!'
 const DEMO_CLUB_NAME = 'Player Feedback Demo Club'
 const DEMO_USER_NAME = 'Demo User'
 const DEMO_CLUB_CONTACT_EMAIL = 'demo.club@playerfeedback.test'
+
+let supabaseAdmin = null
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -624,6 +625,8 @@ export async function handler(event) {
     if (missingEnvVars.length > 0) {
       return failureResponse(500, `Missing required environment variables: ${missingEnvVars.join(', ')}`)
     }
+
+    ;({ supabaseAdmin } = await import('./_supabase.js'))
 
     const authUser = await ensureDemoAuthUser()
     const clubId = await ensureDemoClub()

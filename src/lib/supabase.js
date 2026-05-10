@@ -48,7 +48,7 @@ export {
   getDefaultClubParentEmailTemplates,
   getParentEmailTemplates,
   upsertParentEmailTemplate,
-} from './domain/core.js'
+} from './domain/parent-email-templates.js'
 
 export {
   createClubRole,

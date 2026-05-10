@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { ArchivePlayerModal } from '../components/players/ArchivePlayerModal.jsx'
+import { PlayersListSection } from '../components/players/PlayersListSection.jsx'
+import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
 import { canCreateEvaluation, useAuth } from '../lib/auth.js'
-import { formatUkDate } from '../lib/date-format.js'
+import { PLAYER_PAGE_SIZE, getAverageScore, getPlayerKey } from '../hooks/players/playersPageUtils.js'
 import {
-  EVALUATION_SECTIONS,
   archivePlayer,
   createCommunicationLog,
   getEvaluations,
@@ -20,33 +19,6 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-
-function getPlayerKey(playerName) {
-  return String(playerName ?? '').trim().toLowerCase()
-}
-
-function getAverageScore(evaluations) {
-  const scoredEvaluations = evaluations.filter((evaluation) => evaluation.averageScore !== null)
-
-  if (scoredEvaluations.length === 0) {
-    return null
-  }
-
-  return scoredEvaluations.reduce((sum, evaluation) => sum + evaluation.averageScore, 0) / scoredEvaluations.length
-}
-
-function formatDate(value) {
-  const normalizedValue = String(value ?? '').trim()
-
-  if (!normalizedValue) {
-    return 'No date entered'
-  }
-
-  const parsedDate = new Date(normalizedValue)
-  return Number.isNaN(parsedDate.getTime()) ? normalizedValue : formatUkDate(parsedDate.toISOString().slice(0, 10), normalizedValue)
-}
-
-const PLAYER_PAGE_SIZE = 12
 
 export function PlayersPage() {
   const { user } = useAuth()
@@ -378,173 +350,34 @@ export function PlayersPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Link
-          to="/players?section=Trial"
-          aria-label="View trial players"
-          className="block cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Trial Players</p>
-          <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{trialPlayerCount}</p>
-        </Link>
-        <Link
-          to="/players?section=Squad"
-          aria-label="View squad players"
-          className="block cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Squad Players</p>
-          <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{squadPlayerCount}</p>
-        </Link>
-        <Link
-          to="/players?view=evaluated"
-          aria-label="View players with completed evaluations"
-          className="block cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Evaluations</p>
-          <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{totalEvaluations}</p>
-          <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{evaluatedPlayerCount} players</p>
-        </Link>
-      </div>
+      <PlayerStatsCards
+        evaluatedPlayerCount={evaluatedPlayerCount}
+        squadPlayerCount={squadPlayerCount}
+        totalEvaluations={totalEvaluations}
+        trialPlayerCount={trialPlayerCount}
+      />
 
-      <SectionCard
-        title="All players"
-        description="Use filters to find a player quickly, then open their profile for full history and rating trends."
-      >
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <label className="block md:col-span-2">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Search</span>
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) => {
-                setSearchTerm(event.target.value)
-                setPlayerPage(1)
-              }}
-              placeholder="Search player or team"
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
-            <select
-              value={urlSection}
-              onChange={(event) => updateListFilter({ section: event.target.value })}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            >
-              <option value="All">All</option>
-              {EVALUATION_SECTIONS.map((section) => (
-                <option key={section} value={section}>
-                  {section}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {isLoading ? (
-          <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            Loading players...
-          </div>
-        ) : filteredPlayers.length === 0 ? (
-          <div className="mt-5 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            {viewFilter === 'evaluated'
-              ? 'No players with completed evaluations found.'
-              : viewFilter === 'scored'
-                ? 'No players with scored evaluations found.'
-                : 'No players found.'}
-          </div>
-        ) : (
-          <div className="mt-5 grid gap-3">
-            {paginatedPlayers.items.map((player) => {
-              const isSquadPlayer = String(player.section ?? '').toLowerCase() === 'squad'
-              const completedActions = playerDecisionActions.get(String(player.playerId ?? '').trim()) ?? new Set()
-              const availableActions = [
-                ['invite_back_selected', 'Invite Back'],
-                ['no_place_offered_selected', 'No Place Offered'],
-                ['offer_place_selected', 'Offer Place'],
-              ].filter(([action]) => !completedActions.has(action))
-
-              return (
-              <div
-                key={getPlayerKey(player.playerName)}
-                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
-              >
-                <button
-                  type="button"
-                  onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
-                  className="w-full text-left"
-                >
-                  <div className="grid gap-4 lg:grid-cols-6 lg:items-center">
-                    <div className="md:col-span-2">
-                      <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'}</p>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Section</p>
-                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{player.section}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Last Score</p>
-                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
-                        {player.latestScore !== null ? player.latestScore.toFixed(1) : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Average</p>
-                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
-                        {player.averageScore !== null ? player.averageScore.toFixed(1) : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Last Seen</p>
-                      <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatDate(player.latestDate)}</p>
-                    </div>
-                  </div>
-                </button>
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  {!isSquadPlayer ? availableActions.map(([action, label]) => (
-                    <button
-                      key={action}
-                      type="button"
-                      disabled={actionLoadingKey === `${player.playerId}:${action}`}
-                      onClick={(event) => void handlePlayerAction(event, player, action)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {actionLoadingKey === `${player.playerId}:${action}` ? 'Saving...' : label}
-                    </button>
-                  )) : null}
-                  <button
-                    type="button"
-                    disabled={actionLoadingKey === `${player.playerId}:archive`}
-                    onClick={(event) => handleArchivePlayer(event, player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {actionLoadingKey === `${player.playerId}:archive` ? 'Archiving...' : 'Archive'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
-                  >
-                    Open Profile
-                  </button>
-                </div>
-              </div>
-              )
-            })}
-            <Pagination
-              currentPage={playerPage}
-              onPageChange={setPlayerPage}
-              pageSize={PLAYER_PAGE_SIZE}
-              totalItems={filteredPlayers.length}
-            />
-          </div>
-        )}
-      </SectionCard>
+      <PlayersListSection
+        actionLoadingKey={actionLoadingKey}
+        filteredPlayers={filteredPlayers}
+        isLoading={isLoading}
+        onArchivePlayer={handleArchivePlayer}
+        onFilterChange={updateListFilter}
+        onOpenPlayer={(player) => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
+        onPageChange={setPlayerPage}
+        onPlayerAction={handlePlayerAction}
+        onSearchChange={(nextSearchTerm) => {
+          setSearchTerm(nextSearchTerm)
+          setPlayerPage(1)
+        }}
+        pageSize={PLAYER_PAGE_SIZE}
+        paginatedPlayers={paginatedPlayers}
+        playerDecisionActions={playerDecisionActions}
+        playerPage={playerPage}
+        searchTerm={searchTerm}
+        urlSection={urlSection}
+        viewFilter={viewFilter}
+      />
 
       <ArchivePlayerModal
         isOpen={Boolean(archiveTarget)}

@@ -1,5 +1,105 @@
 import { getClubSettings } from '../../lib/supabase.js'
 import { formatUkDate } from '../../lib/date-format.js'
+import {
+  EMAIL_TEMPLATE_AUDIENCES,
+  normalizeEmailTemplateAudience,
+  renderParentEmailTemplate,
+} from '../../lib/email-templates.js'
+import { sendParentEmail } from '../../lib/email-builder.js'
+
+export function createLocalId() {
+  return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+export function isNetworkError(error) {
+  const message = String(error?.message ?? '').toLowerCase()
+  return !navigator.onLine || message.includes('failed to fetch') || message.includes('network')
+}
+
+export function mapEvaluationResponsesToFieldValues(fields, formResponses = {}) {
+  return Object.fromEntries(
+    fields.map((field) => [field.id, formResponses[field.label] ?? '']),
+  )
+}
+
+function normalizeAssessmentLabel(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+export function getContactEmailAddresses(contact) {
+  return String(contact?.email ?? '')
+    .split(/[;,]/)
+    .map((email) => email.trim())
+    .filter(Boolean)
+}
+
+export function getContactRecipientName(contact, fallbackName) {
+  return String(contact?.name ?? '').trim() || String(fallbackName ?? '').trim() || 'Parent/Guardian'
+}
+
+function isEnteredAssessmentValue(value) {
+  if (Array.isArray(value)) {
+    return value.length > 0
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.keys(value).length > 0
+  }
+
+  return String(value ?? '').trim() !== ''
+}
+
+function formatAssessmentValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item ?? '').trim()).filter(Boolean).join(', ')
+  }
+
+  if (value && typeof value === 'object') {
+    return JSON.stringify(value, null, 2)
+  }
+
+  return String(value ?? '').trim() || 'No data entered'
+}
+
+export function buildPreviousAssessmentItems(evaluation) {
+  const items = []
+  const usedLabels = new Set()
+
+  const addItem = (label, value) => {
+    const cleanLabel = String(label ?? '').trim()
+
+    if (!cleanLabel) {
+      return
+    }
+
+    const normalizedLabel = normalizeAssessmentLabel(cleanLabel)
+
+    if (usedLabels.has(normalizedLabel)) {
+      return
+    }
+
+    usedLabels.add(normalizedLabel)
+    items.push({
+      label: cleanLabel,
+      value: isEnteredAssessmentValue(value) ? formatAssessmentValue(value) : 'No data entered',
+    })
+  }
+
+  Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
+    addItem(label, value)
+  })
+
+  Object.entries(evaluation.scores ?? {}).forEach(([label, value]) => {
+    addItem(label, value)
+  })
+
+  const comments = evaluation.comments && typeof evaluation.comments === 'object' ? evaluation.comments : {}
+  addItem('Strengths', comments.strengths)
+  addItem('Improvements', comments.improvements)
+  addItem('Overall Comments', comments.overall)
+
+  return items
+}
 
 export function createInitialFormData(user, defaults = {}) {
   return {
@@ -224,4 +324,395 @@ export function buildPreviewSummary({ comments, formResponses }) {
   }
 
   return comments?.overall || comments?.strengths || comments?.improvements || 'No written summary provided.'
+}
+
+export function findSavedPlayerForEvaluation(savedPlayers, playerName, team = '') {
+  const normalizedPlayerName = normalizePlayerName(playerName)
+  const normalizedTeam = String(team ?? '').trim()
+  const sameNamePlayers = savedPlayers.filter((player) => normalizePlayerName(player.playerName) === normalizedPlayerName)
+
+  return (
+    sameNamePlayers.find((player) => !normalizedTeam || player.team === normalizedTeam) ||
+    sameNamePlayers[0]
+  )
+}
+
+export function createEvaluationPayload({
+  assessmentSessionId,
+  availableTeams,
+  averageScore,
+  comments,
+  editingEvaluation,
+  formData,
+  formResponses,
+  id,
+  normalizedContactType,
+  parentContacts,
+  savedPlayers,
+  scores,
+  user,
+}) {
+  const normalizedPlayerName = normalizePlayerName(formData.playerName)
+  const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
+  const matchingPlayer = findSavedPlayerForEvaluation(savedPlayers, normalizedPlayerName, formData.team)
+
+  return {
+    ...(editingEvaluation || {}),
+    id: editingEvaluation?.id || id,
+    playerName: normalizedPlayerName,
+    playerId: matchingPlayer?.id || '',
+    team: String(formData.team).trim(),
+    teamId: matchingTeam?.id || '',
+    section: formData.section,
+    assessmentSessionId,
+    clubId: user?.clubId,
+    coachId: user?.id,
+    coach: String(user?.name || formData.coachName).trim(),
+    createdByName: String(user?.username || user?.name || formData.coachName || user?.email || '').trim(),
+    createdByEmail: String(user?.email || '').trim().toLowerCase(),
+    updatedBy: user?.id,
+    updatedByName: String(user?.username || user?.name || formData.coachName || user?.email || '').trim(),
+    updatedByEmail: String(user?.email || '').trim().toLowerCase(),
+    parentName: parentContacts[0]?.name ?? '',
+    parentEmail: parentContacts[0]?.email ?? '',
+    parentContacts,
+    contactType: normalizedContactType,
+    session: formData.session,
+    date: formatUkDate(new Date().toISOString().slice(0, 10)),
+    scores,
+    averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
+    comments,
+    formResponses,
+    decision: editingEvaluation?.decision || '',
+    status: editingEvaluation?.status || 'Submitted',
+    createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
+  }
+}
+
+export function getContactCopy(normalizedContactType) {
+  if (normalizedContactType === 'self') {
+    return {
+      contactLabel: 'Player',
+      contactNoun: 'player',
+      contactNounPlural: 'player',
+    }
+  }
+
+  if (normalizedContactType === 'both') {
+    return {
+      contactLabel: 'Contact',
+      contactNoun: 'parent and player',
+      contactNounPlural: 'parents and player',
+    }
+  }
+
+  return {
+    contactLabel: 'Parent',
+    contactNoun: 'parent',
+    contactNounPlural: 'parents',
+  }
+}
+
+export function getSelectedContactIndexes(contacts) {
+  return contacts.length > 0 ? contacts.map((_, index) => index) : [0]
+}
+
+export function getNextSelectedContactIndexes(currentIndexes, index) {
+  if (currentIndexes.includes(index)) {
+    const nextIndexes = currentIndexes.filter((item) => item !== index)
+    return nextIndexes.length > 0 ? nextIndexes : [index]
+  }
+
+  return [...currentIndexes, index].sort((left, right) => left - right)
+}
+
+export function getNextExportLabels({ label, responseItems, selectedExportLabels }) {
+  const allLabels = responseItems.map((item) => item.label)
+  const currentLabels = Array.isArray(selectedExportLabels) ? selectedExportLabels : allLabels
+
+  return currentLabels.includes(label)
+    ? currentLabels.filter((item) => item !== label)
+    : [...currentLabels, label]
+}
+
+export function applyMatchedPlayerToFormData({
+  currentFormData,
+  fieldName,
+  matchingParentContacts,
+  matchingPlayer,
+  normalizePlayerContactType,
+  value,
+}) {
+  if (fieldName === 'playerName') {
+    return {
+      ...currentFormData,
+      playerName: value,
+      parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : currentFormData.parentName,
+      parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : currentFormData.parentEmail,
+      parentContacts: matchingPlayer ? matchingParentContacts : currentFormData.parentContacts,
+      contactType: matchingPlayer ? normalizePlayerContactType(matchingPlayer.contactType) : currentFormData.contactType,
+      team: matchingPlayer?.team || currentFormData.team,
+      section: matchingPlayer?.section || currentFormData.section,
+    }
+  }
+
+  if (fieldName === 'team') {
+    return {
+      ...currentFormData,
+      team: value,
+      parentName: matchingPlayer ? matchingParentContacts[0]?.name || '' : currentFormData.parentName,
+      parentEmail: matchingPlayer ? matchingParentContacts[0]?.email || '' : currentFormData.parentEmail,
+      parentContacts: matchingPlayer ? matchingParentContacts : currentFormData.parentContacts,
+      contactType: matchingPlayer ? normalizePlayerContactType(matchingPlayer.contactType) : currentFormData.contactType,
+      section: matchingPlayer?.section || currentFormData.section,
+    }
+  }
+
+  return {
+    ...currentFormData,
+    [fieldName]: value,
+  }
+}
+
+export function getMatchedPlayerFieldUpdate({
+  fieldName,
+  formData,
+  normalizeParentContacts,
+  normalizePlayerContactType,
+  savedPlayers,
+  value,
+}) {
+  const matchingPlayer = fieldName === 'playerName'
+    ? findSavedPlayerForEvaluation(savedPlayers, value, formData.team)
+    : findSavedPlayerForEvaluation(savedPlayers, formData.playerName, value)
+  const matchingParentContacts = normalizeParentContacts(matchingPlayer?.parentContacts, {
+    parentName: matchingPlayer?.parentName,
+    parentEmail: matchingPlayer?.parentEmail,
+  })
+
+  return {
+    matchingParentContacts,
+    nextFormData: (currentFormData) => applyMatchedPlayerToFormData({
+      currentFormData,
+      fieldName,
+      matchingParentContacts,
+      matchingPlayer,
+      normalizePlayerContactType,
+      value,
+    }),
+  }
+}
+
+export function getCurrentMonthEvaluationCount(evaluations) {
+  const currentMonth = new Date().toISOString().slice(0, 7)
+
+  return evaluations.filter((item) => {
+    const createdValue = item.createdAt || item.created_at || item.date
+    const parsedDate = new Date(createdValue)
+    return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 7) === currentMonth
+  }).length
+}
+
+export function writeSessionAssessmentProgress({ assessmentSessionId, playerName, user }) {
+  if (!user?.clubId || !assessmentSessionId) {
+    return
+  }
+
+  const progressKey = `session-assessment-progress:${user.clubId}:${assessmentSessionId}`
+
+  try {
+    const storedProgress = localStorage.getItem(progressKey)
+    const parsedProgress = storedProgress ? JSON.parse(storedProgress) : []
+    const completedPlayers = Array.isArray(parsedProgress) ? parsedProgress : []
+    localStorage.setItem(
+      progressKey,
+      JSON.stringify([...new Set([...completedPlayers, normalizePlayerName(playerName).toLowerCase()])]),
+    )
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+export function buildParentEmailJobs({
+  contactAudiences,
+  emailTemplates,
+  evaluation,
+  formData,
+  inviteDate,
+  normalizedPlayerName,
+  playerContactTypes,
+  selectedEmailTemplateKey,
+  selectedParentContacts,
+  selectedResponseItems,
+  user,
+}) {
+  return contactAudiences
+    .flatMap((audience) => {
+      const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? playerContactTypes.self : playerContactTypes.parent
+      const contacts = selectedParentContacts.filter((contact) => contact.type === contactType)
+
+      if (contacts.length === 0) {
+        return []
+      }
+
+      const template = emailTemplates.find(
+        (item) =>
+          normalizeEmailTemplateAudience(item.audience) === audience &&
+          item.key === selectedEmailTemplateKey &&
+          item.isEnabled !== false,
+      )
+
+      if (!template) {
+        throw new Error(`Create a ${audience} email template before sending an email.`)
+      }
+
+      return contacts.flatMap((contact) =>
+        getContactEmailAddresses(contact).map((recipientEmail) => {
+          const recipientName = getContactRecipientName(
+            contact,
+            contactType === playerContactTypes.self ? formData.playerName : formData.parentName,
+          )
+          const renderedTemplate = renderParentEmailTemplate(template, {
+            recipientName,
+            parentName: recipientName,
+            playerName: normalizedPlayerName,
+            coachName: formData.coachName,
+            clubName: user?.clubName,
+            teamName: formData.team,
+            session: formData.session,
+            inviteDate,
+            summary: '',
+          })
+
+          return {
+            recipientEmail,
+            job: sendParentEmail({
+              parentEmail: recipientEmail,
+              parentName: recipientName,
+              senderEmail: user?.email,
+              displayName: user?.displayName || user?.display_name || user?.username || user?.name,
+              teamName: user?.team_name || user?.emailTeamName || formData.team,
+              clubName: user?.club_name || user?.emailClubName || user?.clubName,
+              section: formData.section,
+              session: formData.session,
+              planKey: user?.planKey,
+              logoUrl: user?.clubLogoUrl || null,
+              replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
+              clubContactEmail: user?.clubContactEmail,
+              playerName: normalizedPlayerName,
+              summary: '',
+              responses: selectedResponseItems,
+              subject: renderedTemplate.subject,
+              emailBody: renderedTemplate.body,
+              evaluationId: evaluation.id,
+            }),
+          }
+        }),
+      )
+    })
+    .filter(Boolean)
+}
+
+export function createOfflineEvaluationDraft({
+  data,
+  editingEvaluation,
+  id,
+  user,
+  readyToSync = true,
+}) {
+  return {
+    id,
+    operation: editingEvaluation ? 'update' : 'create',
+    evaluationId: editingEvaluation?.id || null,
+    clubId: user.clubId,
+    data,
+    createdAt: new Date().toISOString(),
+    readyToSync,
+    synced: false,
+  }
+}
+
+export function createPostAssessmentFormData({
+  currentSection,
+  evaluationSections,
+  postAssessmentNavigation,
+  user,
+}) {
+  return createInitialFormData(user, {
+    playerName: postAssessmentNavigation.queryPlayerName,
+    team: postAssessmentNavigation.nextTeamValue,
+    session: postAssessmentNavigation.nextSessionValue,
+    section: evaluationSections.includes(postAssessmentNavigation.querySection)
+      ? postAssessmentNavigation.querySection
+      : currentSection,
+  })
+}
+
+export function getPostAssessmentNavigation({
+  assessmentSessionId,
+  availableTeams,
+  editingEvaluation,
+  formData,
+  lastUsedSession,
+  normalizedPlayerName,
+  searchParams,
+}) {
+  const queryPlayerName = String(searchParams.get('player') ?? '').trim()
+  const queryTeam = String(searchParams.get('team') ?? '').trim()
+  const querySession = normalizeSessionValue(searchParams.get('session'))
+  const querySection = String(searchParams.get('section') ?? '').trim()
+  const nextSessionValue = querySession || lastUsedSession
+  const nextTeamValue =
+    queryTeam && availableTeams.some((team) => team.name === queryTeam)
+      ? queryTeam
+      : String(formData.team ?? '').trim()
+  const assessmentQueue = parseAssessmentQueue(searchParams.get('queue'))
+  const currentQueueIndex = assessmentQueue.findIndex(
+    (playerName) => normalizePlayerName(playerName) === normalizedPlayerName,
+  )
+  const nextQueuedPlayer =
+    currentQueueIndex >= 0
+      ? assessmentQueue.slice(currentQueueIndex + 1).find(Boolean)
+      : assessmentQueue.find((playerName) => normalizePlayerName(playerName) !== normalizedPlayerName)
+
+  if (!editingEvaluation && nextQueuedPlayer) {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.set('player', nextQueuedPlayer)
+    nextSearchParams.set('team', nextTeamValue)
+    nextSearchParams.set('session', nextSessionValue)
+    nextSearchParams.set('section', querySection || formData.section)
+
+    return {
+      type: 'next-player',
+      url: `/assess-player?${nextSearchParams.toString()}`,
+      nextSessionValue,
+      nextTeamValue,
+      queryPlayerName,
+      querySection,
+    }
+  }
+
+  if (!editingEvaluation && assessmentQueue.length > 0 && assessmentSessionId) {
+    const completedCount = Number(searchParams.get('queueTotal') ?? assessmentQueue.length) || assessmentQueue.length
+    const completedSearchParams = new URLSearchParams()
+    completedSearchParams.set('completedSessionId', assessmentSessionId)
+    completedSearchParams.set('completedCount', String(completedCount))
+
+    return {
+      type: 'session-complete',
+      url: `/sessions?${completedSearchParams.toString()}`,
+      nextSessionValue,
+      nextTeamValue,
+      queryPlayerName,
+      querySection,
+    }
+  }
+
+  return {
+    type: 'reset-form',
+    nextSessionValue,
+    nextTeamValue,
+    queryPlayerName,
+    querySection,
+  }
 }

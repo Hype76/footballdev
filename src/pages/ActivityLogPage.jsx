@@ -1,46 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pagination } from '../components/ui/Pagination.jsx'
+import { BackupJournalSection } from '../components/activity/BackupJournalSection.jsx'
+import { RecentActivitySection } from '../components/activity/RecentActivitySection.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewActivityLog, isSuperAdmin, useAuth } from '../lib/auth.js'
-import { formatUkDateTime } from '../lib/date-format.js'
+import { BACKUP_PAGE_SIZE, LOG_PAGE_SIZE, formatActivityAction } from '../lib/activity-log-utils.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import { getAuditLogs, getRecordBackups, withRequestTimeout } from '../lib/supabase.js'
-
-function formatDateTime(value) {
-  if (!value) {
-    return 'No date recorded'
-  }
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return 'No date recorded'
-  }
-
-  return formatUkDateTime(date.toISOString(), 'No date recorded')
-}
-
-function formatAction(value) {
-  return String(value ?? '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function formatMetadata(metadata) {
-  if (!metadata || typeof metadata !== 'object') {
-    return ''
-  }
-
-  return Object.entries(metadata)
-    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
-    .map(([key, value]) => `${formatAction(key)}: ${String(value)}`)
-    .join(' | ')
-}
-
-const LOG_PAGE_SIZE = 15
-const BACKUP_PAGE_SIZE = 10
 
 export function ActivityLogPage() {
   const { user } = useAuth()
@@ -129,7 +95,7 @@ export function ActivityLogPage() {
   const actionOptions = useMemo(
     () =>
       Array.from(new Set(logs.map((log) => log.action).filter(Boolean))).sort((left, right) =>
-        formatAction(left).localeCompare(formatAction(right)),
+        formatActivityAction(left).localeCompare(formatActivityAction(right)),
       ),
     [logs],
   )
@@ -196,141 +162,35 @@ export function ActivityLogPage() {
         </div>
       ) : null}
 
-      <SectionCard
-        title="Recent activity"
-        description="Managers and above can see activity for users at their role level or below. Platform admins can see platform-wide activity."
-      >
-        {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-            Loading activity...
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No activity has been recorded yet.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">User</span>
-                <select
-                  value={selectedActorId}
-                  onChange={(event) => {
-                    setSelectedActorId(event.target.value)
-                    setLogPage(1)
-                  }}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  <option value="">All allowed users</option>
-                  {actorOptions.map((actor) => (
-                    <option key={actor.id} value={actor.id}>
-                      {actor.label}{actor.email ? ` | ${actor.email}` : ''}{actor.roleLabel ? ` | ${actor.roleLabel}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Event</span>
-                <select
-                  value={selectedAction}
-                  onChange={(event) => {
-                    setSelectedAction(event.target.value)
-                    setLogPage(1)
-                  }}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-                >
-                  <option value="">All events</option>
-                  {actionOptions.map((action) => (
-                    <option key={action} value={action}>
-                      {formatAction(action)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {filteredLogs.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-                No activity matches these filters.
-              </div>
-            ) : null}
-
-            {paginatedLogs.items.map((log) => (
-              <article
-                key={log.id}
-                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
-              >
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{formatAction(log.action)}</p>
-                    <p className="mt-1 break-words text-sm text-[var(--text-muted)]">
-                      {log.actorName || log.actorEmail || 'Unknown user'}
-                      {log.actorEmail && log.actorName ? ` | ${log.actorEmail}` : ''}
-                      {log.actorRoleLabel ? ` | ${log.actorRoleLabel}` : ''}
-                    </p>
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                      {log.entityType || 'record'}
-                    </p>
-                    {formatMetadata(log.metadata) ? (
-                      <p className="mt-2 break-words text-sm text-[var(--text-muted)]">{formatMetadata(log.metadata)}</p>
-                    ) : null}
-                  </div>
-                  <p className="shrink-0 text-sm font-medium text-[var(--text-muted)]">{formatDateTime(log.createdAt)}</p>
-                </div>
-              </article>
-            ))}
-            <Pagination
-              currentPage={logPage}
-              onPageChange={setLogPage}
-              pageSize={LOG_PAGE_SIZE}
-              totalItems={filteredLogs.length}
-            />
-          </div>
-        )}
-      </SectionCard>
+      <RecentActivitySection
+        actionOptions={actionOptions}
+        actorOptions={actorOptions}
+        filteredLogs={filteredLogs}
+        isLoading={isLoading}
+        logPage={logPage}
+        logs={logs}
+        onActionChange={(nextAction) => {
+          setSelectedAction(nextAction)
+          setLogPage(1)
+        }}
+        onActorChange={(nextActorId) => {
+          setSelectedActorId(nextActorId)
+          setLogPage(1)
+        }}
+        onPageChange={setLogPage}
+        paginatedLogs={paginatedLogs}
+        selectedAction={selectedAction}
+        selectedActorId={selectedActorId}
+      />
 
       {canViewSystemLogs ? (
-        <SectionCard
-          title="Backup journal"
-          description="Core record changes are copied automatically so platform admins have a fallback trail."
-        >
-          {isLoading ? (
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
-              Loading backups...
-            </div>
-          ) : backups.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-              No backup entries have been recorded yet.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {paginatedBackups.items.map((backup) => (
-                <article
-                  key={backup.id}
-                  className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
-                >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">
-                        {formatAction(backup.operation)} {formatAction(backup.tableName)}
-                      </p>
-                      <p className="mt-1 break-words text-sm text-[var(--text-muted)]">
-                        Record: {backup.recordId || 'No record ID'}
-                      </p>
-                    </div>
-                    <p className="shrink-0 text-sm font-medium text-[var(--text-muted)]">{formatDateTime(backup.createdAt)}</p>
-                  </div>
-                </article>
-              ))}
-              <Pagination
-                currentPage={backupPage}
-                onPageChange={setBackupPage}
-                pageSize={BACKUP_PAGE_SIZE}
-                totalItems={backups.length}
-              />
-            </div>
-          )}
-        </SectionCard>
+        <BackupJournalSection
+          backupPage={backupPage}
+          backups={backups}
+          isLoading={isLoading}
+          onPageChange={setBackupPage}
+          paginatedBackups={paginatedBackups}
+        />
       ) : null}
     </div>
   )
