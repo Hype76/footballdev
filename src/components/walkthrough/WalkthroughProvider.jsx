@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
+import { getRoleNextAction } from '../../lib/role-quick-links.js'
 import {
   WALKTHROUGH_EVENT,
   getWalkthroughForPath,
@@ -28,6 +29,7 @@ function getRoleStep(user) {
 
 function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }) {
   const steps = activeWalkthrough?.steps ?? []
+  const nextAction = getRoleNextAction(user)
 
   return (
     <section className="mb-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5">
@@ -38,6 +40,14 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{getRoleStep(user)}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
+          {nextAction ? (
+            <Link
+              to={nextAction.path}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)]"
+            >
+              {nextAction.label}
+            </Link>
+          ) : null}
           <button
             type="button"
             onClick={onComplete}
