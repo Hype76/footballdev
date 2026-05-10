@@ -6,6 +6,7 @@ export function createEmailDedupeKey(payload) {
     .update(JSON.stringify({
       from: payload.from,
       to: payload.to,
+      cc: payload.cc,
       reply_to: payload.reply_to,
       subject: payload.subject,
       html: payload.html,
@@ -19,6 +20,7 @@ export function createEmailIdempotencyKey({ payload, idempotencySeed }) {
       seed: idempotencySeed || null,
       from: payload.from,
       to: payload.to,
+      cc: payload.cc,
       subject: payload.subject,
       html: payload.html,
     }))

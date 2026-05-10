@@ -54,6 +54,10 @@ function isValidEmail(value) {
   return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(String(value ?? '').trim())
 }
 
+function normaliseEmail(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
 function normaliseRecipients(value) {
   if (Array.isArray(value)) {
     return value.map((email) => String(email ?? '').trim()).filter(Boolean)
@@ -65,6 +69,17 @@ function normaliseRecipients(value) {
     .filter(Boolean)
 }
 
+function getSenderCopyEmails(senderEmail, recipients) {
+  const normalisedRecipients = new Set(recipients.map(normaliseEmail))
+  const senderCopyEmail = normaliseEmail(senderEmail)
+
+  if (!senderCopyEmail || !isValidEmail(senderCopyEmail) || normalisedRecipients.has(senderCopyEmail)) {
+    return []
+  }
+
+  return [senderCopyEmail]
+}
+
 function buildEmailHtml(html) {
   return String(html ?? '').trim() || '<p>No content</p>'
 }
@@ -73,6 +88,7 @@ function buildEmailPayload({
   fromName,
   recipients,
   safeReplyTo,
+  senderCopyEmails,
   subject,
   emailHtml,
   attachments,
@@ -83,6 +99,10 @@ function buildEmailPayload({
     reply_to: safeReplyTo || undefined,
     subject: String(subject ?? '').trim() || 'Player Feedback',
     html: emailHtml,
+  }
+
+  if (senderCopyEmails.length > 0) {
+    emailPayload.cc = senderCopyEmails
   }
 
   if (attachments.length > 0) {
@@ -208,6 +228,7 @@ export async function handler(event) {
     const safeClubName = cleanHeaderPart(clubName, 'Club')
     const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
     const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
+    const senderCopyEmails = getSenderCopyEmails(senderEmail, recipients)
     const emailHtml = buildEmailHtml(html)
 
     if (emailHtml.length > 200000) {
@@ -220,6 +241,7 @@ export async function handler(event) {
       fromName,
       recipients,
       safeReplyTo,
+      senderCopyEmails,
       subject: emailSubject,
       emailHtml,
       attachments,
@@ -274,6 +296,7 @@ export async function handler(event) {
       entityType: 'email',
       metadata: {
         to: recipients,
+        cc: senderCopyEmails,
         subject: emailSubject,
         hasAttachment: Boolean(sentPayload.attachments?.length),
         playerName: String(playerName ?? '').trim(),

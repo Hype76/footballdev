@@ -431,7 +431,6 @@ export function AuthProvider({ children }) {
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       const profileWithTeam = await applyTeamSelection(profile)
       setUser(applyDemoRolePreview(profileWithTeam))
-      setClubOptions([])
       setAuthError('')
     } catch (error) {
       console.error(error)

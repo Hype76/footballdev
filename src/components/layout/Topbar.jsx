@@ -15,6 +15,10 @@ export function Topbar({ title, onMenuClick }) {
   const logoUrl = user?.clubLogoUrl || fallbackLogo
   const userLabel = user?.email || authUser?.email || user?.name || 'Loading user'
   const teamLabel = user?.activeTeamName ? `Team: ${user.activeTeamName}` : clubLabel
+  const isPlatformAdminView = user?.role === 'super_admin'
+  const shouldShowClubAdminOption = !isPlatformAdminView && canUseClubAdminView
+  const shouldShowTeamPlaceholder = !isPlatformAdminView && !canUseClubAdminView && teamOptions?.length > 0
+  const shouldShowWorkspaceSelector = hasPlatformAdminAccess || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptions?.length > 0
   const workspaceContext = user?.role === 'super_admin'
     ? 'Viewing platform admin tools'
     : user?.activeTeamName
@@ -133,7 +137,7 @@ export function Topbar({ title, onMenuClick }) {
                 </select>
               </label>
             ) : null}
-            {hasPlatformAdminAccess || clubOptions?.length > 0 || (teamOptions?.length > 0 && (canUseClubAdminView || teamOptions.length > 1)) ? (
+            {shouldShowWorkspaceSelector ? (
               <label className="col-span-2 grid gap-1 sm:min-w-44">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                   Workspace view
@@ -145,14 +149,15 @@ export function Topbar({ title, onMenuClick }) {
                   className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
-                  {user?.role === 'super_admin'
+                  {isPlatformAdminView
                     ? clubOptions.map((club) => (
                         <option key={club.clubId} value={`__club__:${club.clubId}`}>
                           Club: {club.clubName || 'Unnamed club'}
                         </option>
                       ))
                     : null}
-                  {canUseClubAdminView ? <option value="">Club admin view</option> : <option value="">Select team</option>}
+                  {shouldShowClubAdminOption ? <option value="">Club admin view</option> : null}
+                  {shouldShowTeamPlaceholder ? <option value="">Select team</option> : null}
                   {teamOptions.map((team) => (
                     <option key={team.id} value={team.id}>
                       Team: {team.name}
