@@ -223,11 +223,13 @@ export async function handler(event) {
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY)
+    const normalizedSenderEmail = normaliseEmail(senderEmail)
+    const senderReplyTo = isValidEmail(normalizedSenderEmail) ? normalizedSenderEmail : ''
     const safeDisplayName = cleanHeaderPart(displayName, 'Coach')
     const safeTeamName = cleanHeaderPart(teamName, 'Team')
     const safeClubName = cleanHeaderPart(clubName, 'Club')
     const fromName = `${safeDisplayName} (${safeTeamName} - ${safeClubName})`
-    const safeReplyTo = cleanHeaderPart(replyToEmail || clubContactEmail || clubEmail, '')
+    const safeReplyTo = cleanHeaderPart(senderReplyTo || replyToEmail || clubContactEmail || clubEmail, '')
     const senderCopyEmails = getSenderCopyEmails(senderEmail, recipients)
     const emailHtml = buildEmailHtml(html)
 
