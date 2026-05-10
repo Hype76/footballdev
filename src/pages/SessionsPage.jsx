@@ -55,6 +55,17 @@ function createInitialGameForm() {
 const SESSION_PLAYER_PAGE_SIZE = 8
 const AVAILABLE_PLAYER_PAGE_SIZE = 10
 
+function MicIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <path d="M12 19v3" />
+      <path d="M8 22h8" />
+    </svg>
+  )
+}
+
 function formatSessionType(value) {
   const normalizedValue = String(value ?? '').trim()
 
@@ -1810,9 +1821,18 @@ export function SessionsPage() {
                       : void handleStartVoiceNote({ type: 'session', sessionId: selectedSessionId })
                   }
                   disabled={selectedSessionLocked || isSavingVoiceNote || !selectedSessionId}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label={recordingTarget?.type === 'session' ? 'Stop team voice note recording' : isSavingVoiceNote ? 'Saving team voice note' : 'Record team voice note'}
+                  title={recordingTarget?.type === 'session' ? 'Stop recording' : isSavingVoiceNote ? 'Saving voice note' : 'Team voice note'}
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    recordingTarget?.type === 'session'
+                      ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
+                      : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+                  }`}
                 >
-                  {recordingTarget?.type === 'session' ? 'Stop Recording' : isSavingVoiceNote ? 'Saving Voice Note...' : 'Team Voice Note'}
+                  <MicIcon />
+                  <span className="sr-only">
+                    {recordingTarget?.type === 'session' ? 'Stop Recording' : isSavingVoiceNote ? 'Saving Voice Note...' : 'Team Voice Note'}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -1878,11 +1898,28 @@ export function SessionsPage() {
                             })
                       }
                       disabled={selectedSessionLocked || isSavingVoiceNote || !player.playerId}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label={
+                        recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
+                          ? `Stop voice note recording for ${player.playerName}`
+                          : `Record voice note for ${player.playerName}`
+                      }
+                      title={
+                        recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
+                          ? 'Stop recording'
+                          : 'Voice note'
+                      }
+                      className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                        recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
+                          ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
+                          : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+                      }`}
                     >
-                      {recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
-                        ? 'Stop Recording'
-                        : 'Voice Note'}
+                      <MicIcon />
+                      <span className="sr-only">
+                        {recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
+                          ? 'Stop Recording'
+                          : 'Voice Note'}
+                      </span>
                     </button>
                     <button
                       type="button"
