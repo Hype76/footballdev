@@ -113,6 +113,101 @@ const commonPlayerPlans = [
   PLAN_KEYS.largeClub,
 ]
 
+const platformAdminSteps = [
+  {
+    title: 'Check platform status',
+    body: 'Start with Platform Admin to review account totals, feedback, and any clubs needing attention.',
+  },
+  {
+    title: 'Manage clubs separately',
+    body: 'Use Club and Team Management for club setup. Keep platform work separate from normal club player workflows.',
+  },
+  {
+    title: 'Review billing tools',
+    body: 'Use Billing Options for Stripe promotion codes, live public promotions, and plan controls.',
+  },
+]
+
+const clubAdminSteps = [
+  {
+    title: 'Create teams first',
+    body: 'Use Teams to create club teams before coaches start adding players or sessions.',
+  },
+  {
+    title: 'Create staff logins',
+    body: 'Create staff access after teams exist, then allocate each staff member to the correct team.',
+  },
+  {
+    title: 'Switch into team view',
+    body: 'Use Workspace view to move from club admin tools into a team when you need player, session, or assessment tools.',
+  },
+]
+
+const teamAdminSteps = [
+  {
+    title: 'Check team access',
+    body: 'Use User Access to confirm staff roles and keep permissions clear for this team.',
+  },
+  {
+    title: 'Prepare the assessment form',
+    body: 'Use Form Builder and Email Templates when your plan includes them, then coaches can use the same workflow.',
+  },
+  {
+    title: 'Run sessions',
+    body: 'Use Sessions as the main working area for training, match, and tournament assessment queues.',
+  },
+]
+
+const managerSteps = [
+  {
+    title: 'Prepare player records',
+    body: 'Use Players and Add Player to keep parent contacts, positions, sections, and squad status accurate.',
+  },
+  {
+    title: 'Run assessment sessions',
+    body: 'Use Sessions to add players to a workflow, collect notes, and complete assessments.',
+  },
+  {
+    title: 'Send parent feedback',
+    body: 'Use player profiles and assessment previews to send the right parent message when your plan includes email.',
+  },
+]
+
+const coachSteps = [
+  {
+    title: 'Open your team',
+    body: 'Confirm the active team in Workspace view before adding players or completing assessments.',
+  },
+  {
+    title: 'Use sessions first',
+    body: 'Sessions keep the list of players and notes together, which makes assessment work clearer.',
+  },
+  {
+    title: 'Review player history',
+    body: 'Open Players to check previous assessments and staff notes before adding new feedback.',
+  },
+]
+
+function getRoleOnboardingSteps(user) {
+  if (isSuperAdmin(user)) {
+    return platformAdminSteps
+  }
+
+  if (user?.role === 'admin' && !user?.activeTeamId) {
+    return clubAdminSteps
+  }
+
+  if (user?.role === 'head_manager') {
+    return teamAdminSteps
+  }
+
+  if (user?.role === 'manager') {
+    return managerSteps
+  }
+
+  return coachSteps
+}
+
 export const WALKTHROUGHS = {
   '/sessions': {
     key: 'sessions',
@@ -308,5 +403,8 @@ export function getWalkthroughForPath(pathname, user) {
     return null
   }
 
-  return walkthrough
+  return {
+    ...walkthrough,
+    steps: getRoleOnboardingSteps(user),
+  }
 }

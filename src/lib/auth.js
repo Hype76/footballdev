@@ -5,16 +5,25 @@ import { supabase } from './supabase-client.js'
 
 const AuthContext = createContext(null)
 let authDataModulePromise = null
+let teamDataModulePromise = null
 const PRODUCTION_APP_ORIGIN = 'https://playerfeedback.online'
 const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
 const SELECTED_TEAM_STORAGE_KEY = 'selected-team-id'
 
 function loadAuthDataModule() {
   if (!authDataModulePromise) {
-    authDataModulePromise = import('./supabase.js')
+    authDataModulePromise = import('./domain/auth-helpers.js')
   }
 
   return authDataModulePromise
+}
+
+function loadTeamDataModule() {
+  if (!teamDataModulePromise) {
+    teamDataModulePromise = import('./domain/teams.js')
+  }
+
+  return teamDataModulePromise
 }
 
 function normalizeName(value) {
@@ -340,7 +349,7 @@ export function AuthProvider({ children }) {
       return profile
     }
 
-    const { getAssignedTeamsForUser } = await loadAuthDataModule()
+    const { getAssignedTeamsForUser } = await loadTeamDataModule()
     const assignedTeams = await getAssignedTeamsForUser(profile)
 
     if (isClubAdmin(profile)) {

@@ -12,6 +12,7 @@ import {
   useAuth,
 } from '../lib/auth.js'
 import { getPlanLimit, getPlanName, hasPlanFeature } from '../lib/plans.js'
+import { getRoleQuickLinks } from '../lib/role-quick-links.js'
 
 const roleGuides = [
   {
@@ -187,6 +188,35 @@ function RoleCard({ guide }) {
   )
 }
 
+function QuickLinks({ links }) {
+  if (!links.length) {
+    return (
+      <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+        No quick links are available for this role yet.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      {links.map((link) => (
+        <Link
+          key={link.path}
+          to={link.path}
+          className={[
+            'inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold transition',
+            link.primary
+              ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)] hover:opacity-90'
+              : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+          ].join(' ')}
+        >
+          {link.label}
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 function formatLimit(value) {
   return value === null || value === undefined ? 'Unlimited' : String(value)
 }
@@ -201,6 +231,7 @@ export function InformationPage() {
   const canUseTemplates = canManageParentEmailTemplates(user)
   const canUseStaffManagement = canManageUsers(user)
   const canAccessPlatformFeedback = canViewPlatformFeedback(user)
+  const quickLinks = getRoleQuickLinks(user)
   const visibleRoleGuides = isSuperAdmin(user)
     ? roleGuides
     : roleGuides.filter((guide) => guide.rank <= currentRank)
@@ -240,17 +271,7 @@ export function InformationPage() {
         </SectionCard>
 
         <SectionCard title="Quick links" description="Common platform destinations.">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link to="/platform-admin" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90">
-              Open Platform Admin
-            </Link>
-            <Link to="/platform-billing-options" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
-              Open Billing Options
-            </Link>
-            <Link to="/platform-feedback" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
-              Open Platform Feedback
-            </Link>
-          </div>
+          <QuickLinks links={quickLinks} />
         </SectionCard>
       </div>
     )
@@ -363,24 +384,7 @@ export function InformationPage() {
       </SectionCard>
 
       <SectionCard title="Quick links" description="Common places to go next.">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <Link to="/players" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90">
-            Open Players
-          </Link>
-          <Link to="/sessions" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
-            Open Sessions
-          </Link>
-          {canUseBilling ? (
-            <Link to="/billing" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
-              Open Billing
-            </Link>
-          ) : null}
-          {canAccessPlatformFeedback ? (
-            <Link to="/platform-feedback" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]">
-              Open Platform Feedback
-            </Link>
-          ) : null}
-        </div>
+        <QuickLinks links={quickLinks} />
       </SectionCard>
     </div>
   )
