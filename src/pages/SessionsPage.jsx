@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
+import { MicIcon } from '../components/icons/MicIcon.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
@@ -55,17 +56,6 @@ function createInitialGameForm() {
 
 const SESSION_PLAYER_PAGE_SIZE = 8
 const AVAILABLE_PLAYER_PAGE_SIZE = 10
-
-function MicIcon({ className = 'h-5 w-5' }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <path d="M12 19v3" />
-      <path d="M8 22h8" />
-    </svg>
-  )
-}
 
 function formatSessionType(value) {
   const normalizedValue = String(value ?? '').trim()

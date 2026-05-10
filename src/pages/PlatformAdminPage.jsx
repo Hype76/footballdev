@@ -6,8 +6,14 @@ import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
-import { formatUkDateTime } from '../lib/date-format.js'
 import { PLAN_OPTIONS, getPlanName } from '../lib/plans.js'
+import {
+  formatPlatformDate,
+  getClubManagementStats,
+  getFeedbackStats,
+  getPlanBreakdown,
+  getPlatformDashboardStats,
+} from '../lib/platform-admin-stats.js'
 import {
   createPlatformClub,
   deletePlatformFeedback,
@@ -28,20 +34,6 @@ const cacheKey = 'platform-admin-dashboard'
 const feedbackCacheKey = 'platform-admin-feedback'
 const PLATFORM_FEEDBACK_PAGE_SIZE = 6
 const CLUB_PAGE_SIZE = 6
-
-function formatDate(value) {
-  if (!value) {
-    return 'No activity yet'
-  }
-
-  const parsedDate = new Date(value)
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return 'No activity yet'
-  }
-
-  return formatUkDateTime(parsedDate.toISOString(), 'No activity yet')
-}
 
 const PAGE_META = {
   dashboard: {
@@ -528,108 +520,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const platformTotals = stats?.totals ?? {}
-  const planBreakdown = (stats?.clubs ?? []).reduce((items, club) => {
-    const planName = getPlanName(club.planKey)
-    items[planName] = (items[planName] ?? 0) + 1
-    return items
-  }, {})
-  const dashboardStats = [
-    {
-      label: 'Clubs',
-      value: platformTotals.clubs ?? 0,
-      caption: 'Live club workspaces',
-      detail: `${Object.keys(planBreakdown).length} plan types active`,
-    },
-    {
-      label: 'Adult users',
-      value: platformTotals.users ?? 0,
-      caption: 'Signed in staff accounts',
-      detail: `${platformTotals.clubUsers ?? 0} linked to clubs`,
-    },
-    {
-      label: 'Teams',
-      value: platformTotals.teams ?? 0,
-      caption: 'Operational team spaces',
-      detail: 'Across all clubs',
-    },
-    {
-      label: 'Active players',
-      value: platformTotals.players ?? 0,
-      caption: 'Visible player records',
-      detail: `${platformTotals.archivedPlayers ?? 0} archived`,
-    },
-    {
-      label: 'Assessments',
-      value: platformTotals.evaluations ?? 0,
-      caption: 'Saved player reports',
-      detail: `${platformTotals.recentEvaluations ?? 0} in the last 7 days`,
-    },
-    {
-      label: 'Shared exports',
-      value: platformTotals.communications ?? 0,
-      caption: 'Emails and shares',
-      detail: `${platformTotals.recentCommunications ?? 0} in the last 7 days`,
-    },
-    {
-      label: 'Audit events',
-      value: platformTotals.auditEvents ?? 0,
-      caption: 'Tracked admin actions',
-      detail: 'Accountability trail',
-    },
-    {
-      label: 'Platform admins',
-      value: platformTotals.platformAdmins ?? 0,
-      caption: 'Owner level access',
-      detail: 'Restricted admin users',
-    },
-  ]
-  const suspendedClubs = (stats?.clubs ?? []).filter((club) => club.status === 'suspended').length
-  const compedClubs = (stats?.clubs ?? []).filter((club) => club.isPlanComped).length
+  const planBreakdown = getPlanBreakdown(stats?.clubs ?? [])
+  const dashboardStats = getPlatformDashboardStats(stats)
   const platformAdmins = stats?.platformAdmins ?? []
-  const clubManagementStats = [
-    {
-      label: 'Club workspaces',
-      value: platformTotals.clubs ?? 0,
-      caption: `${suspendedClubs} suspended`,
-    },
-    {
-      label: 'Adult users',
-      value: platformTotals.users ?? 0,
-      caption: `${platformTotals.clubUsers ?? 0} linked to clubs`,
-    },
-    {
-      label: 'Teams',
-      value: platformTotals.teams ?? 0,
-      caption: 'Created across clubs',
-    },
-    {
-      label: 'Free access',
-      value: compedClubs,
-      caption: 'Platform controlled overrides',
-    },
-  ]
-  const feedbackStats = [
-    {
-      label: 'Feedback items',
-      value: feedbackItems.length,
-      caption: 'Submitted ideas',
-    },
-    {
-      label: 'Open items',
-      value: feedbackItems.filter((item) => item.status === 'open').length,
-      caption: 'Needs review',
-    },
-    {
-      label: 'Planned',
-      value: feedbackItems.filter((item) => item.status === 'planned').length,
-      caption: 'Roadmap candidates',
-    },
-    {
-      label: 'Votes',
-      value: feedbackItems.reduce((total, item) => total + Number(item.voteCount ?? 0), 0),
-      caption: 'Total user votes',
-    },
-  ]
+  const clubManagementStats = getClubManagementStats(stats)
+  const feedbackStats = getFeedbackStats(feedbackItems)
 
   if (!isSuperAdmin(user)) {
     return (
@@ -687,7 +582,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                   </p>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-                  Last refresh: {formatUkDateTime(new Date().toISOString(), 'No activity yet')}
+                  Last refresh: {formatPlatformDate(new Date().toISOString())}
                 </p>
                 <button
                   type="button"
@@ -1047,7 +942,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                           <div key={comment.id} className="rounded-lg bg-[var(--panel-alt)] px-4 py-3">
                             <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{comment.message}</p>
                             <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                              Platform admin | {formatDate(comment.createdAt)}
+                              Platform admin | {formatPlatformDate(comment.createdAt)}
                             </p>
                           </div>
                         ))}
@@ -1156,7 +1051,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                       {club.contactPhone ? ` | ${club.contactPhone}` : ''}
                     </p>
                     <p className="mt-2 text-sm text-[var(--text-muted)]">
-                      Latest activity: {formatDate(club.latestActivityAt)}
+                      Latest activity: {formatPlatformDate(club.latestActivityAt)}
                     </p>
                     <div className="mt-4 grid gap-3 md:grid-cols-3">
                       <label className="block">
@@ -1203,7 +1098,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
                       Current plan: {getPlanName(club)}{club.isPlanComped ? ' | Free access enabled' : ''}
                     </p>
                     {club.suspendedAt ? (
-                      <p className="mt-2 text-sm text-[var(--text-muted)]">Suspended: {formatDate(club.suspendedAt)}</p>
+                      <p className="mt-2 text-sm text-[var(--text-muted)]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>
                     ) : null}
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                       <button
