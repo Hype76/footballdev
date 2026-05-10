@@ -15,93 +15,6 @@ import { getPlanLimit, getPlanName, hasPlanFeature } from '../lib/plans.js'
 import { formatLimit, planGuides, platformAdminGuide, roleGuides } from '../lib/information-guides.js'
 import { getRoleQuickLinks } from '../lib/role-quick-links.js'
 
-const testSiteReleaseNotes = [
-  {
-    title: 'Staging site and test safety',
-    items: [
-      'Created the staging workflow on the test branch so changes can be reviewed before live release.',
-      'Added the red test-site banner across the top of the staging site.',
-      'Disabled payment checkout on the test environment while keeping live payments separate.',
-      'Allowed test club and team setup without checkout so testers can create workspaces quickly.',
-    ],
-  },
-  {
-    title: 'Platform administration',
-    items: [
-      'Added platform admin access from the workspace switcher.',
-      'Added platform admin staff creation for trusted platform operators.',
-      'Added club and team management tools for platform admins.',
-      'Improved platform billing tools for tester access codes, promotions, and coupon management.',
-    ],
-  },
-  {
-    title: 'Workspace and role switching',
-    items: [
-      'Added switching between platform admin, club admin, and team views from one account.',
-      'Added support for club admins to work inside team views without needing separate email accounts.',
-      'Improved linked club and team handling so workspace options stay available when switching views.',
-      'Added clearer role-specific next actions for setup and onboarding.',
-    ],
-  },
-  {
-    title: 'Testing and onboarding',
-    items: [
-      'Added guided walkthrough tips for key pages.',
-      'Moved walkthrough tips into the page layout so the header and page content stay aligned.',
-      'Added role-specific quick links and setup guidance.',
-      'Added user settings controls for restarting or hiding walkthroughs.',
-    ],
-  },
-  {
-    title: 'Player and coach workflow',
-    items: [
-      'Added staff voice notes and changed voice note actions to mic icons.',
-      'Refined player, session, and assessment page layouts for clearer daily use.',
-      'Improved archive, activity, and form-builder workflows during the UX pass.',
-      'Kept player work tied to the active team view where the user has team access.',
-    ],
-  },
-  {
-    title: 'Email and reporting',
-    items: [
-      'Added parent email template controls behind the correct plan and role access.',
-      'Improved parent email sending from assessment and player profile workflows.',
-      'Added sender copies on outgoing parent emails where the sender email is valid.',
-      'Kept email sending disabled for demo accounts.',
-    ],
-  },
-  {
-    title: 'Code and maintainability',
-    items: [
-      'Split large page logic into smaller utility modules.',
-      'Extracted platform admin statistics helpers.',
-      'Extracted session page utilities.',
-      'Cleaned up staging UX structure after the deeper review pass.',
-    ],
-  },
-]
-
-function ReleaseNotesSection() {
-  return (
-    <SectionCard
-      title="Test site release notes"
-      description="Summary of the staging work completed so far before live release."
-    >
-      <div id="release-notes" className="grid gap-4 xl:grid-cols-2">
-        {testSiteReleaseNotes.map((release) => (
-          <InfoCard key={release.title} title={release.title}>
-            <ul className="space-y-2">
-              {release.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </InfoCard>
-        ))}
-      </div>
-    </SectionCard>
-  )
-}
-
 export function InformationPage() {
   const { user } = useAuth()
   const currentPlanName = getPlanName(user)
@@ -154,8 +67,6 @@ export function InformationPage() {
         <SectionCard title="Quick links" description="Common platform destinations.">
           <QuickLinks links={quickLinks} />
         </SectionCard>
-
-        <ReleaseNotesSection />
       </div>
     )
   }
@@ -269,8 +180,6 @@ export function InformationPage() {
       <SectionCard title="Quick links" description="Common places to go next.">
         <QuickLinks links={quickLinks} />
       </SectionCard>
-
-      <ReleaseNotesSection />
     </div>
   )
 }
