@@ -789,6 +789,12 @@ export async function handler(event) {
     const authUser = await getAuthenticatedUser(event)
     const body = JSON.parse(event.body || '{}')
     const existingProfile = await getUserProfile(authUser.id)
+    const forceNewTestClub = arePaymentsDisabled() && Boolean(body.forceNewClub) && Boolean(String(body.clubName ?? '').trim())
+
+    if (forceNewTestClub) {
+      const result = await createSignupWorkspace(authUser, body.clubName, body.accessCode)
+      return json(200, { success: true, ...result })
+    }
 
     if (existingProfile?.club_id) {
       const result = await repairExistingSignupWorkspace(authUser, existingProfile, body)

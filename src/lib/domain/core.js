@@ -1648,7 +1648,7 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
   return applyActiveMembership(authUser, selectedMembership)
 }
 
-async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '' }) {
+async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '', forceNewClub = false }) {
   await blockDemoMutation(authUser)
 
   const { data: sessionData } = await supabase.auth.getSession()
@@ -1667,6 +1667,7 @@ async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCod
     body: JSON.stringify({
       clubName: String(clubName ?? '').trim(),
       accessCode: String(accessCode ?? '').trim(),
+      forceNewClub: Boolean(forceNewClub),
     }),
   })
   const result = await response.json().catch(() => ({}))
@@ -1849,13 +1850,17 @@ export async function fetchUserProfile(authUser, options = {}) {
   })
 }
 
-export async function createClubAndManagerProfile({ authUser, clubName, accessCode = '' }) {
+export async function createClubAndManagerProfile({ authUser, clubName, accessCode = '', forceNewClub = false }) {
   await blockDemoMutation(authUser)
 
   try {
-    return await ensureSignupClubProfileWithServer({ authUser, clubName, accessCode })
+    return await ensureSignupClubProfileWithServer({ authUser, clubName, accessCode, forceNewClub })
   } catch (serverError) {
     console.error(serverError)
+    if (forceNewClub) {
+      throw serverError
+    }
+
     if (String(accessCode ?? '').trim()) {
       throw serverError
     }

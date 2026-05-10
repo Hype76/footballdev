@@ -656,6 +656,8 @@ export function AuthProvider({ children }) {
 
   const signUpWithClub = async ({ email, password, clubName, accessCode = '' }) => {
     setAuthError('')
+    const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
+    const normalizedClubName = String(clubName ?? '').trim()
 
     const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/login`
     const { data, error } = await supabase.auth.signUp({
@@ -684,6 +686,49 @@ export function AuthProvider({ children }) {
     }
 
     if (!data.session) {
+      if (testSignupWithoutPayment && normalizedClubName) {
+        try {
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          })
+
+          if (signInError) {
+            throw signInError
+          }
+
+          if (!signInData?.session || !signInData?.user) {
+            throw new Error('Login session was not created.')
+          }
+
+          const { createClubAndManagerProfile } = await loadAuthDataModule()
+          const profile = await createClubAndManagerProfile({
+            authUser: signInData.user,
+            clubName: normalizedClubName,
+            accessCode,
+            forceNewClub: true,
+          })
+
+          setSession(signInData.session)
+          setAuthUser(signInData.user)
+          setUser(profile)
+          if (profile?.clubId) {
+            window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
+          }
+          setClubOptions([])
+          setTeamOptions([])
+          setIsProfileLoading(false)
+          setAuthError('')
+
+          return {
+            needsEmailVerification: false,
+            user: profile,
+          }
+        } catch (signInError) {
+          console.error(signInError)
+        }
+      }
+
       setSession(null)
       setAuthUser(null)
       setUser(null)
@@ -700,11 +745,12 @@ export function AuthProvider({ children }) {
 
     try {
       const { createClubAndManagerProfile, fetchUserProfile } = await loadAuthDataModule()
-      const profile = String(clubName ?? '').trim()
+      const profile = normalizedClubName
         ? await createClubAndManagerProfile({
           authUser: data.user,
-          clubName,
+          clubName: normalizedClubName,
           accessCode,
+          forceNewClub: testSignupWithoutPayment,
         })
         : await fetchUserProfile(data.user)
 
