@@ -187,11 +187,11 @@ export function canAssignRole(user, targetRole) {
 }
 
 export function canManageFormFields(user) {
-  return !isSuperAdmin(user) && !isClubAdmin(user) && Number(user?.roleRank ?? 0) >= 50
+  return !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user?.activeTeamId)) && Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canManageParentEmailTemplates(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && Number(user?.roleRank ?? 0) >= 50
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user?.activeTeamId)) && Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canManageClubSettings(user) {
@@ -251,7 +251,7 @@ export function canCreateEvaluation(user) {
     return false
   }
 
-  return Boolean(user.clubId) && !isSuperAdmin(user) && !isClubAdmin(user) && isPlanAccessActive(user)
+  return Boolean(user.clubId) && !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user.activeTeamId)) && isPlanAccessActive(user)
 }
 
 export function canEditEvaluation(user, evaluation) {
@@ -334,13 +334,35 @@ export function AuthProvider({ children }) {
   }, [demoRoleKey])
 
   const applyTeamSelection = async (profile) => {
-    if (!profile || isSuperAdmin(profile) || isClubAdmin(profile)) {
+    if (!profile || isSuperAdmin(profile)) {
       setTeamOptions([])
       return profile
     }
 
     const { getAssignedTeamsForUser } = await loadAuthDataModule()
     const assignedTeams = await getAssignedTeamsForUser(profile)
+
+    if (isClubAdmin(profile)) {
+      setTeamOptions(assignedTeams)
+
+      const selectedTeamId = window.sessionStorage.getItem(SELECTED_TEAM_STORAGE_KEY) || ''
+      const selectedTeam = assignedTeams.find((team) => String(team.id) === selectedTeamId)
+
+      if (!selectedTeam) {
+        window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+        return {
+          ...profile,
+          activeTeamId: '',
+          activeTeamName: '',
+        }
+      }
+
+      return {
+        ...profile,
+        activeTeamId: selectedTeam.id,
+        activeTeamName: selectedTeam.name,
+      }
+    }
 
     if (assignedTeams.length <= 1) {
       const onlyTeam = assignedTeams[0]
@@ -620,6 +642,22 @@ export function AuthProvider({ children }) {
   }
 
   const selectTeam = async (teamId) => {
+    if (!teamId && isClubAdmin(userRef.current)) {
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      setUser((current) => {
+        if (!current) {
+          return current
+        }
+
+        return {
+          ...current,
+          activeTeamId: '',
+          activeTeamName: '',
+        }
+      })
+      return
+    }
+
     const selectedTeam = teamOptions.find((team) => String(team.id) === String(teamId))
 
     if (!selectedTeam) {
@@ -652,6 +690,17 @@ export function AuthProvider({ children }) {
     setDemoRoleKeyState(nextRoleKey)
     demoRoleKeyRef.current = nextRoleKey
     setUser((currentUser) => applyDemoRolePreview(currentUser, nextRoleKey))
+  }
+
+  const refreshTeamSelection = async () => {
+    const currentUser = userRef.current
+
+    if (!currentUser) {
+      return
+    }
+
+    const profileWithTeam = await applyTeamSelection(currentUser)
+    setUser(applyDemoRolePreview(profileWithTeam))
   }
 
   const signUpWithClub = async ({ email, password, clubName, accessCode = '' }) => {
@@ -858,6 +907,7 @@ export function AuthProvider({ children }) {
     signUpWithClub,
     selectClub,
     selectTeam,
+    refreshTeamSelection,
     resetPassword,
     signOut,
     updateCurrentClubDetails,

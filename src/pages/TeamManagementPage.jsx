@@ -54,7 +54,7 @@ function normalizeStaffEmail(memberOrEmail) {
 }
 
 export function TeamManagementPage() {
-  const { user } = useAuth()
+  const { refreshTeamSelection, user } = useAuth()
   const { showToast } = useToast()
   const cacheKey = user?.clubId ? `team-management:${user.clubId}` : ''
   const [teams, setTeams] = useState(() => {
@@ -307,6 +307,7 @@ export function TeamManagementPage() {
         teamId: '',
       }))
       setSelectedTeamId(createdTeam.id)
+      await refreshTeamSelection?.()
       setMessage('Team created.')
       showToast({ title: 'Team created', message: `${createdTeam.name} has been added.` })
     } catch (error) {

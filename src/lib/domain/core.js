@@ -1941,6 +1941,9 @@ export async function createClubAndManagerProfile({ authUser, clubName, accessCo
 
     if (staffError) {
       console.error(staffError)
+    } else {
+      invalidateMemoryCacheByPrefix('assigned-teams:')
+      invalidateMemoryCacheByPrefix('team-assignments:')
     }
   }
 
@@ -2895,6 +2898,24 @@ export async function createTeam({ user, name }) {
 
   invalidateMemoryCacheByPrefix(`teams:${user.clubId}`)
   invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+
+  if (data?.id && user?.id) {
+    const { error: staffError } = await supabase.from('team_staff').upsert(
+      {
+        team_id: data.id,
+        user_id: user.id,
+      },
+      {
+        onConflict: 'team_id,user_id',
+      },
+    )
+
+    if (staffError) {
+      console.error(staffError)
+    }
+  }
 
   return normalizeTeamRow(data)
 }

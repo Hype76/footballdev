@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatches } from 'react-router-dom'
-import { useAuth } from '../../lib/auth.js'
+import { isClubAdmin, useAuth } from '../../lib/auth.js'
 import { createAuditLog } from '../../lib/supabase.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
@@ -247,7 +247,7 @@ export function Layout() {
         </div>
         ) : null}
 
-        {clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId ? (
+        {clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user) ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
           <div className="w-full max-w-xl rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-black/40 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Choose Team</p>
