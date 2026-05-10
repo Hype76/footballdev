@@ -18,12 +18,14 @@ import {
   EMAIL_TEMPLATE_AUDIENCES,
   getDefaultEmailTemplates,
   normalizeEmailTemplateAudience,
+  normalizePlayerNameTemplateField,
   validateParentEmailTemplateContent,
 } from '../email-templates.js'
 export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from '../supabase-client.js'
 const VIEW_CACHE_PREFIX = 'view-cache:'
 const MEMORY_CACHE_TTL_MS = 30 * 1000
 const DEMO_MUTATION_ERROR_MESSAGE = 'Demo accounts cannot save changes.'
+const STAFF_VOICE_NOTES_BUCKET = 'staff-voice-notes'
 export const PLAYER_CONTACT_TYPES = {
   parent: 'parent',
   self: 'self',
@@ -940,10 +942,15 @@ function normalizePlayerStaffNoteRow(row) {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
     playerId: row.player_id ?? row.playerId ?? '',
+    sessionId: row.session_id ?? row.sessionId ?? '',
     userId: row.user_id ?? row.userId ?? '',
     userName: String(row.user_name ?? row.userName ?? '').trim(),
     userEmail: String(row.user_email ?? row.userEmail ?? '').trim(),
     note: String(row.note ?? '').trim(),
+    audioPath: String(row.audio_path ?? row.audioPath ?? '').trim(),
+    audioMimeType: String(row.audio_mime_type ?? row.audioMimeType ?? '').trim(),
+    audioDurationSeconds: row.audio_duration_seconds ?? row.audioDurationSeconds ?? null,
+    audioUrl: String(row.audioUrl ?? row.audio_url ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }
 }
@@ -3516,8 +3523,8 @@ function normalizeParentEmailTemplateRow(row) {
     key: String(row.template_key ?? row.key ?? '').trim(),
     audience: normalizeEmailTemplateAudience(row.audience),
     label: String(row.label ?? '').trim(),
-    subject: String(row.subject ?? '').trim(),
-    body: String(row.body ?? '').trim(),
+    subject: normalizePlayerNameTemplateField(row.subject).trim(),
+    body: normalizePlayerNameTemplateField(row.body).trim(),
     isEnabled: Boolean(row.is_enabled ?? row.isEnabled ?? true),
     sectionAvailability: sectionAvailability.length > 0 ? sectionAvailability : [...EVALUATION_SECTIONS],
     orderIndex: Number(row.order_index ?? row.orderIndex ?? 0),
@@ -3530,8 +3537,8 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
   const templateKey = String(template?.key ?? template?.templateKey ?? '').trim().toLowerCase()
   const audience = normalizeEmailTemplateAudience(template?.audience)
   const label = String(template?.label ?? '').trim()
-  const subject = String(template?.subject ?? '').trim()
-  const body = String(template?.body ?? '').trim()
+  const subject = normalizePlayerNameTemplateField(template?.subject).trim()
+  const body = normalizePlayerNameTemplateField(template?.body).trim()
   const sectionAvailability = Array.isArray(template?.sectionAvailability)
     ? template.sectionAvailability
         .map((section) => String(section ?? '').trim())
@@ -4233,24 +4240,106 @@ export async function getPlayerDecisionLogs({ user, limit = 1000 } = {}) {
   return (data ?? []).map(normalizeCommunicationLogRow)
 }
 
-export async function createPlayerStaffNote({ user, playerId, note }) {
+function getAudioFileExtension(mimeType) {
+  const normalizedType = String(mimeType ?? '').toLowerCase()
+
+  if (normalizedType.includes('mp4')) {
+    return 'mp4'
+  }
+
+  if (normalizedType.includes('mpeg')) {
+    return 'mp3'
+  }
+
+  if (normalizedType.includes('wav')) {
+    return 'wav'
+  }
+
+  if (normalizedType.includes('ogg')) {
+    return 'ogg'
+  }
+
+  return 'webm'
+}
+
+async function uploadStaffVoiceNote({ user, playerId = '', sessionId = '', audioBlob }) {
+  if (!audioBlob) {
+    return { audioPath: '', audioMimeType: '' }
+  }
+
+  const audioMimeType = String(audioBlob.type || 'audio/webm').trim() || 'audio/webm'
+  const targetId = String(playerId || sessionId || 'team-note').replace(/[^a-zA-Z0-9-]/g, '')
+  const randomId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const audioPath = `${user.clubId}/${targetId}/${randomId}.${getAudioFileExtension(audioMimeType)}`
+
+  const { error } = await supabase.storage.from(STAFF_VOICE_NOTES_BUCKET).upload(audioPath, audioBlob, {
+    cacheControl: '3600',
+    contentType: audioMimeType,
+    upsert: false,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return { audioPath, audioMimeType }
+}
+
+async function attachStaffVoiceNoteUrls(notes) {
+  return Promise.all(
+    notes.map(async (note) => {
+      if (!note.audioPath) {
+        return note
+      }
+
+      const { data, error } = await supabase.storage
+        .from(STAFF_VOICE_NOTES_BUCKET)
+        .createSignedUrl(note.audioPath, 60 * 60)
+
+      if (error) {
+        console.error(error)
+        return note
+      }
+
+      return {
+        ...note,
+        audioUrl: data?.signedUrl || '',
+      }
+    }),
+  )
+}
+
+export async function createPlayerStaffNote({ user, playerId, sessionId = '', note, audioBlob = null, audioDurationSeconds = null }) {
   await blockDemoMutation(user)
 
   const normalizedNote = String(note ?? '').trim()
+  const hasAudio = Boolean(audioBlob)
 
-  if (!user?.clubId || !user?.id || !playerId || !normalizedNote) {
+  if (!user?.clubId || !user?.id || (!playerId && !sessionId) || (!normalizedNote && !hasAudio)) {
     throw new Error('Add a note before saving.')
   }
+
+  const audioUpload = await uploadStaffVoiceNote({
+    user,
+    playerId,
+    sessionId,
+    audioBlob,
+  })
 
   const { data, error } = await supabase
     .from('player_staff_notes')
     .insert({
       club_id: user.clubId,
-      player_id: playerId,
+      player_id: playerId || null,
+      session_id: sessionId || null,
       user_id: user.id,
       user_name: getEntryUserName(user),
       user_email: getEntryUserEmail(user),
-      note: normalizedNote,
+      note: normalizedNote || 'Voice note',
+      audio_path: audioUpload.audioPath,
+      audio_mime_type: audioUpload.audioMimeType,
+      audio_duration_seconds: Number.isFinite(Number(audioDurationSeconds)) ? Number(audioDurationSeconds) : null,
     })
     .select('*')
     .single()
@@ -4262,12 +4351,17 @@ export async function createPlayerStaffNote({ user, playerId, note }) {
 
   await createCommunicationLog({
     user,
-    playerId,
-    channel: 'staff_note',
-    action: 'staff_note_added',
+    playerId: playerId || null,
+    channel: hasAudio ? 'voice_note' : 'staff_note',
+    action: hasAudio ? 'voice_note_added' : 'staff_note_added',
+    metadata: {
+      sessionId: sessionId || '',
+      hasAudio,
+    },
   })
 
-  return normalizePlayerStaffNoteRow(data)
+  const [noteWithAudioUrl] = await attachStaffVoiceNoteUrls([normalizePlayerStaffNoteRow(data)])
+  return noteWithAudioUrl
 }
 
 export async function getPlayerStaffNotes({ user, playerId, limit = 50 } = {}) {
@@ -4288,7 +4382,29 @@ export async function getPlayerStaffNotes({ user, playerId, limit = 50 } = {}) {
     throw error
   }
 
-  return (data ?? []).map(normalizePlayerStaffNoteRow)
+  return attachStaffVoiceNoteUrls((data ?? []).map(normalizePlayerStaffNoteRow))
+}
+
+export async function getSessionStaffNotes({ user, sessionId, limit = 50 } = {}) {
+  if (!user?.clubId || !sessionId) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('player_staff_notes')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .eq('session_id', sessionId)
+    .is('player_id', null)
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return attachStaffVoiceNoteUrls((data ?? []).map(normalizePlayerStaffNoteRow))
 }
 
 export async function updatePlayer({ user, playerId, player }) {

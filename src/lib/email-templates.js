@@ -98,6 +98,10 @@ export const EMAIL_TEMPLATE_FIELDS = [
 
 const EMAIL_TEMPLATE_FIELD_KEYS = new Set(EMAIL_TEMPLATE_FIELDS.map((field) => field.key))
 
+export function normalizePlayerNameTemplateField(value) {
+  return String(value ?? '').replace(/\{playerName\}/g, '{playerFirstName}')
+}
+
 export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'decline',
@@ -406,6 +410,7 @@ export function buildParentEmailTemplate({
 } = {}) {
   const resolvedParentName = normalizeText(parentName, 'Parent/Guardian')
   const resolvedPlayerName = normalizeText(playerName, 'the player')
+  const resolvedPlayerFirstName = normalizeText(splitPlayerName(resolvedPlayerName).playerFirstName, resolvedPlayerName)
   const resolvedCoachName = normalizeText(coachName, 'Coaching Team')
   const resolvedClubName = normalizeText(clubName || teamName, 'Club Team')
   const resolvedTeamName = normalizeText(teamName || clubName, resolvedClubName)
@@ -417,11 +422,11 @@ export function buildParentEmailTemplate({
   let bodyLines = []
 
   if (resolvedTemplateKey === 'assessment') {
-    subject = `Player Feedback for ${resolvedPlayerName}`
+    subject = `Player Feedback for ${resolvedPlayerFirstName}`
     bodyLines = [
       greeting,
       '',
-      `Please find the latest feedback report for ${resolvedPlayerName}.`,
+      `Please find the latest feedback report for ${resolvedPlayerFirstName}.`,
       '',
       'The assessment details are included below and attached as a PDF for your records.',
       '',
@@ -432,15 +437,15 @@ export function buildParentEmailTemplate({
       resolvedTeamName,
     ]
   } else if (resolvedTemplateKey === 'decline') {
-    subject = `Player Trial Feedback for ${resolvedPlayerName}`
+    subject = `Player Trial Feedback for ${resolvedPlayerFirstName}`
     bodyLines = [
       greeting,
       '',
-      `Thank you so much for bringing ${resolvedPlayerName} along to ${currentSessionPhrase}. We really enjoyed having them involved.`,
+      `Thank you so much for bringing ${resolvedPlayerFirstName} along to ${currentSessionPhrase}. We really enjoyed having them involved.`,
       '',
-      `Unfortunately, on this occasion we will not be offering ${resolvedPlayerName} a place in the squad. We had a very strong group trialling, which made it a tough decision.`,
+      `Unfortunately, on this occasion we will not be offering ${resolvedPlayerFirstName} a place in the squad. We had a very strong group trialling, which made it a tough decision.`,
       '',
-      `We want to say how much we appreciated ${resolvedPlayerName}'s effort and attitude throughout, and we wish them all the very best for the upcoming season and their continued football journey.`,
+      `We want to say how much we appreciated ${resolvedPlayerFirstName}'s effort and attitude throughout, and we wish them all the very best for the upcoming season and their continued football journey.`,
       '',
       'Thanks again for your time and support.',
       'Kind regards,',
@@ -448,35 +453,35 @@ export function buildParentEmailTemplate({
       resolvedTeamName,
     ]
   } else if (resolvedTemplateKey === 'offer') {
-    subject = `Squad Offer for ${resolvedPlayerName}`
+    subject = `Squad Offer for ${resolvedPlayerFirstName}`
     bodyLines = [
       greeting,
       '',
       `Thank you for attending ${currentSessionPhrase}.`,
-      `We were really impressed with ${resolvedPlayerName} and are delighted to offer them a place in our JPL squad for the upcoming season.`,
+      `We were really impressed with ${resolvedPlayerFirstName} and are delighted to offer them a place in our JPL squad for the upcoming season.`,
       '',
-      `We would also like to invite ${resolvedPlayerName} to join us for a friendly match on ${inviteSessionLabel}. This will be a great opportunity for them to meet the team and get involved.`,
+      `We would also like to invite ${resolvedPlayerFirstName} to join us for a friendly match on ${inviteSessionLabel}. This will be a great opportunity for them to meet the team and get involved.`,
       '',
       `We feel they will be a great addition to the squad and are excited to support their development.`,
       '',
       "Please let us know if you would like to accept the place, and we will send over full details for next steps, training, and the season ahead.",
       '',
-      `We are really looking forward to hopefully welcoming ${resolvedPlayerName} to the team.`,
+      `We are really looking forward to hopefully welcoming ${resolvedPlayerFirstName} to the team.`,
       '',
       'Kind regards,',
       resolvedCoachName,
       resolvedTeamName,
     ]
   } else {
-    subject = `Follow-up Trial Invitation for ${resolvedPlayerName}`
+    subject = `Follow-up Trial Invitation for ${resolvedPlayerFirstName}`
     bodyLines = [
       greeting,
       '',
-      `Thank you for attending ${currentSessionPhrase} with ${resolvedPlayerName}. It was great to see them in action.`,
+      `Thank you for attending ${currentSessionPhrase} with ${resolvedPlayerFirstName}. It was great to see them in action.`,
       '',
       'We saw some really positive things and would love to invite them back for another session so we can take a further look. We feel there is definitely potential there and would like to see a bit more.',
       '',
-      `We would also like to invite ${resolvedPlayerName} to take part in a friendly match with us on ${inviteSessionLabel}. This will give us a chance to see them in a match environment.`,
+      `We would also like to invite ${resolvedPlayerFirstName} to take part in a friendly match with us on ${inviteSessionLabel}. This will give us a chance to see them in a match environment.`,
       '',
       'Please let us know if they are available to attend both the session and the match. We would be delighted to see them again.',
       '',

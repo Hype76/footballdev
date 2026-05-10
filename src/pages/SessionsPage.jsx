@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -15,6 +15,7 @@ import {
   completeAssessmentSession,
   createAssessmentSession,
   createAssessmentSessionGame,
+  createPlayerStaffNote,
   deleteAssessmentSession,
   deleteAssessmentSessionGame,
   getEvaluations,
@@ -22,6 +23,7 @@ import {
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
+  getSessionStaffNotes,
   getPlayers,
   readViewCache,
   readViewCacheValue,
@@ -382,6 +384,7 @@ export function SessionsPage() {
   })
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionGames, setSessionGames] = useState([])
+  const [sessionVoiceNotes, setSessionVoiceNotes] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
   const [gameForm, setGameForm] = useState(createInitialGameForm)
   const [selectedSessionId, setSelectedSessionId] = useState(() => String(storedSessionWorkspace.selectedSessionId ?? ''))
@@ -398,7 +401,12 @@ export function SessionsPage() {
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
   const [isSessionGamesLoading, setIsSessionGamesLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [recordingTarget, setRecordingTarget] = useState(null)
+  const [isSavingVoiceNote, setIsSavingVoiceNote] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const mediaRecorderRef = useRef(null)
+  const recordingChunksRef = useRef([])
+  const recordingStartedAtRef = useRef(0)
   const userScopeKey = user
     ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}:${user.activeTeamName || ''}`
     : ''
@@ -650,6 +658,42 @@ export function SessionsPage() {
       isMounted = false
     }
   }, [combinedSessions, isLoading, selectedSessionId, user])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadSessionVoiceNotes = async () => {
+      const activeSession = combinedSessions.find((session) => session.id === selectedSessionId)
+
+      if (!selectedSessionId || activeSession?.isHistorical) {
+        setSessionVoiceNotes([])
+        return
+      }
+
+      try {
+        const nextSessionVoiceNotes = await withRequestTimeout(
+          () => getSessionStaffNotes({ user, sessionId: selectedSessionId }),
+          'Could not load voice notes.',
+        )
+
+        if (isMounted) {
+          setSessionVoiceNotes(nextSessionVoiceNotes)
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setSessionVoiceNotes([])
+        }
+      }
+    }
+
+    void loadSessionVoiceNotes()
+
+    return () => {
+      isMounted = false
+    }
+  }, [combinedSessions, selectedSessionId, user])
 
   useEffect(() => {
     if (!workspaceStorageKey) {
@@ -1185,6 +1229,102 @@ export function SessionsPage() {
     navigate(buildAssessmentUrl(queue[0], queue))
   }
 
+  const getRecorderOptions = () => {
+    if (!globalThis.MediaRecorder) {
+      return undefined
+    }
+
+    const supportedType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find((type) => globalThis.MediaRecorder.isTypeSupported(type))
+    return supportedType ? { mimeType: supportedType } : undefined
+  }
+
+  const handleStartVoiceNote = async (target) => {
+    if (!globalThis.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+      setErrorMessage('Voice recording is not supported in this browser.')
+      showToast({ title: 'Voice note not started', message: 'Voice recording is not supported in this browser.', tone: 'error' })
+      return
+    }
+
+    if (selectedSessionLocked) {
+      setErrorMessage('This session has been completed and can no longer be edited.')
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new globalThis.MediaRecorder(stream, getRecorderOptions())
+      recordingChunksRef.current = []
+      recordingStartedAtRef.current = Date.now()
+      setRecordingTarget(target)
+
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) {
+          recordingChunksRef.current.push(event.data)
+        }
+      }
+
+      recorder.onstop = async () => {
+        const chunks = recordingChunksRef.current
+        const durationSeconds = Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+        stream.getTracks().forEach((track) => track.stop())
+        mediaRecorderRef.current = null
+        recordingChunksRef.current = []
+
+        if (chunks.length === 0) {
+          setRecordingTarget(null)
+          setErrorMessage('No audio was captured. Try recording again.')
+          return
+        }
+
+        const audioBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+        setIsSavingVoiceNote(true)
+
+        try {
+          const savedNote = await createPlayerStaffNote({
+            user,
+            playerId: target.playerId || '',
+            sessionId: target.sessionId || selectedSessionId,
+            note: target.playerName
+              ? `Voice note for ${target.playerName}`
+              : `Team voice note for ${selectedSession?.title || selectedSession?.team || 'session'}`,
+            audioBlob,
+            audioDurationSeconds: durationSeconds,
+          })
+
+          if (!target.playerId) {
+            setSessionVoiceNotes((currentNotes) => [savedNote, ...currentNotes])
+          }
+
+          showToast({
+            title: 'Voice note saved',
+            message: target.playerName ? `Saved for ${target.playerName}.` : 'Saved for this session.',
+          })
+        } catch (error) {
+          console.error(error)
+          setErrorMessage(error.message || 'Could not save the voice note.')
+          showToast({ title: 'Voice note not saved', message: error.message || 'Could not save the voice note.', tone: 'error' })
+        } finally {
+          setIsSavingVoiceNote(false)
+          setRecordingTarget(null)
+        }
+      }
+
+      mediaRecorderRef.current = recorder
+      recorder.start()
+    } catch (error) {
+      console.error(error)
+      setRecordingTarget(null)
+      setErrorMessage('Microphone access was not allowed.')
+      showToast({ title: 'Voice note not started', message: 'Microphone access was not allowed.', tone: 'error' })
+    }
+  }
+
+  const handleStopVoiceNote = () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop()
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -1664,6 +1804,18 @@ export function SessionsPage() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
+                  onClick={() =>
+                    recordingTarget?.type === 'session'
+                      ? handleStopVoiceNote()
+                      : void handleStartVoiceNote({ type: 'session', sessionId: selectedSessionId })
+                  }
+                  disabled={selectedSessionLocked || isSavingVoiceNote || !selectedSessionId}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {recordingTarget?.type === 'session' ? 'Stop Recording' : isSavingVoiceNote ? 'Saving Voice Note...' : 'Team Voice Note'}
+                </button>
+                <button
+                  type="button"
                   onClick={handleAssessAll}
                   disabled={selectedSessionLocked}
                   className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1681,6 +1833,25 @@ export function SessionsPage() {
               </div>
             </div>
 
+            {sessionVoiceNotes.length > 0 ? (
+              <div className="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Team voice notes</p>
+                {sessionVoiceNotes.map((note) => (
+                  <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{note.note}</p>
+                    {note.audioUrl ? (
+                      <audio controls src={note.audioUrl} className="mt-3 w-full">
+                        Voice note audio
+                      </audio>
+                    ) : null}
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                      {note.userName || note.userEmail || 'Staff'} | {formatSessionDate(note.createdAt)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {paginatedSessionPlayers.items.map((player) => (
               <div key={player.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1693,14 +1864,35 @@ export function SessionsPage() {
                       </p>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    disabled={selectedSessionLocked}
-                    onClick={() => navigate(buildAssessmentUrl(player.playerName))}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Assess Player
-                  </button>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
+                          ? handleStopVoiceNote()
+                          : void handleStartVoiceNote({
+                              type: 'player',
+                              playerId: player.playerId,
+                              playerName: player.playerName,
+                              sessionId: selectedSessionId,
+                            })
+                      }
+                      disabled={selectedSessionLocked || isSavingVoiceNote || !player.playerId}
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {recordingTarget?.type === 'player' && recordingTarget?.playerId === player.playerId
+                        ? 'Stop Recording'
+                        : 'Voice Note'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={selectedSessionLocked}
+                      onClick={() => navigate(buildAssessmentUrl(player.playerName))}
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Assess Player
+                    </button>
+                  </div>
                 </div>
 
               </div>

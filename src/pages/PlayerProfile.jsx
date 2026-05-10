@@ -141,6 +141,7 @@ function getActivityLabel(log) {
     email_template_pdf_downloaded: 'Email template report downloaded',
     parent_email_sent: 'Parent email sent',
     staff_note_added: 'Staff note added',
+    voice_note_added: 'Voice note added',
     invite_back_selected: 'Invite back selected',
     no_place_offered_selected: 'No place offered selected',
     offer_place_selected: 'Offer place selected',
@@ -1817,6 +1818,11 @@ export function PlayerProfile() {
                 staffNotes.map((note) => (
                   <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
                     <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{note.note}</p>
+                    {note.audioUrl ? (
+                      <audio controls src={note.audioUrl} className="mt-3 w-full">
+                        Voice note audio
+                      </audio>
+                    ) : null}
                     <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                       {note.userName || note.userEmail || 'Staff'} | {formatActivityDate(note.createdAt)}
                     </p>

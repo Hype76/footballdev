@@ -9,6 +9,7 @@ export {
   getPlayerCommunicationLogs,
   getPlayerDecisionLogs,
   getPlayerStaffNotes,
+  getSessionStaffNotes,
   getPlayers,
   promotePlayerToSquad,
   restorePlayer,
