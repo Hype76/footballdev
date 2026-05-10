@@ -137,6 +137,7 @@ function getPromotionSummary(promotion) {
 
 export function LoginPage() {
   const { authError, resetPassword, signInWithPassword, signUpWithClub } = useAuth()
+  const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const signupBoxRef = useRef(null)
   const submitLockRef = useRef(false)
   const [mode, setMode] = useState('login')
@@ -261,6 +262,12 @@ export function LoginPage() {
 
     if (plan.name === 'Large Club') {
       setDemoPlan(plan)
+      return
+    }
+
+    if (paymentsDisabled) {
+      setDemoPlan(plan)
+      setLocalMessage('Payments are disabled on this test site. Use Request Demo or a tester access code.')
       return
     }
 
@@ -741,7 +748,13 @@ export function LoginPage() {
             </div>
           ) : null}
 
-          {livePromotion ? (
+          {paymentsDisabled ? (
+            <div className="mt-4 rounded-lg border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-5 py-4 text-sm font-bold text-[#d8ff2f]">
+              Payments are disabled on this test site.
+            </div>
+          ) : null}
+
+          {livePromotion && !paymentsDisabled ? (
             <div className="mt-4 rounded-lg border border-[#d8ff2f]/25 bg-[#d8ff2f]/10 px-5 py-4 text-sm font-bold text-[#d8ff2f]">
               Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
             </div>
@@ -750,7 +763,7 @@ export function LoginPage() {
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {pricingPlans.map((plan) => {
               const priceLabel = formatPriceLabel(plan, billingCycle)
-              const showPromotion = livePromotion && typeof plan.price === 'number'
+              const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
 
               return (
                 <div
@@ -811,7 +824,7 @@ export function LoginPage() {
                         isSubmitting ? 'cursor-not-allowed opacity-60' : '',
                       ].join(' ')}
                     >
-                      {plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' ? 'Contact Us' : 'Choose Plan'}
+                      {plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' || paymentsDisabled ? 'Request Demo' : 'Choose Plan'}
                     </button>
                     {plan.name !== 'Individual' ? (
                       <button

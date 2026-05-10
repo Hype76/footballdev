@@ -1,6 +1,6 @@
 import process from 'node:process'
 import Stripe from 'stripe'
-import { json } from './_stripe-billing.js'
+import { arePaymentsDisabled, json } from './_stripe-billing.js'
 
 function getPriceId(planName, billingCycle) {
   const prices = {
@@ -84,6 +84,10 @@ async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed' })
+  }
+
+  if (arePaymentsDisabled()) {
+    return json(403, { success: false, message: 'Payments are disabled in this test environment' })
   }
 
   if (!process.env.STRIPE_SECRET_KEY) {

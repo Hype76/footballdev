@@ -1,7 +1,7 @@
 import process from 'node:process'
 import Stripe from 'stripe'
 import { supabaseAdmin } from './_supabase.js'
-import { json } from './_stripe-billing.js'
+import { arePaymentsDisabled, json } from './_stripe-billing.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -254,6 +254,10 @@ export async function handler(event) {
     if (event.httpMethod === 'GET') {
       const coupons = await listCoupons(stripe)
       return json(200, { success: true, coupons })
+    }
+
+    if (arePaymentsDisabled()) {
+      return json(403, { success: false, message: 'Payments are disabled in this test environment' })
     }
 
     if (event.httpMethod === 'POST') {

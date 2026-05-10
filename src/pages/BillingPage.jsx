@@ -52,6 +52,7 @@ function getBillingStatusLabel(status) {
 
 export function BillingPage() {
   const { session, user } = useAuth()
+  const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const [billing, setBilling] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCheckoutLoading, setIsCheckoutLoading] = useState('')
@@ -121,6 +122,12 @@ export function BillingPage() {
     setIsCheckoutLoading(planName)
     setErrorMessage('')
 
+    if (paymentsDisabled) {
+      setErrorMessage('Payments are disabled on this test site.')
+      setIsCheckoutLoading('')
+      return
+    }
+
     try {
       const response = await fetch('/.netlify/functions/create-checkout-session', {
         method: 'POST',
@@ -169,7 +176,7 @@ export function BillingPage() {
       {testerAccessExpired ? (
         <NoticeBanner
           title="Tester access has ended"
-          message="Your club data is still safe. Choose a paid plan below to continue using the workspace."
+          message={paymentsDisabled ? 'Your club data is still safe. Use tester access codes on staging because payment checkout is disabled here.' : 'Your club data is still safe. Choose a paid plan below to continue using the workspace.'}
         />
       ) : null}
 
@@ -205,7 +212,7 @@ export function BillingPage() {
         )}
       </SectionCard>
 
-      {testerAccessExpired ? (
+      {testerAccessExpired && !paymentsDisabled ? (
         <SectionCard
           title="Choose a paid plan"
           description="Start paid access for this club so the workspace can be used again."

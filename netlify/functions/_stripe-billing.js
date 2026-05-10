@@ -76,6 +76,10 @@ export function getSubscriptionPeriodEnd(subscription) {
   return periodEnd ? new Date(periodEnd * 1000).toISOString() : null
 }
 
+export function arePaymentsDisabled() {
+  return String(process.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
+}
+
 export function json(statusCode, body) {
   return {
     statusCode,
