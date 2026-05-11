@@ -5,7 +5,7 @@ import { ClubProfileSettingsSection } from '../components/club-settings/ClubProf
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { canManageClubSettings, useAuth } from '../lib/auth.js'
+import { canManageClubLogo, canManageClubSettings, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   createInitialClubSettingsFormData,
@@ -125,6 +125,7 @@ export function ClubSettingsPage() {
   }
 
   const canUseBasicBranding = hasPlanFeature(user, 'basicBranding')
+  const canChangeClubLogo = canManageClubLogo(user) && canUseBasicBranding
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target
@@ -142,6 +143,13 @@ export function ClubSettingsPage() {
     setUploadSuccessMessage('')
     setErrorTitle('')
     setErrorMessage('')
+
+    if (!canManageClubLogo(user)) {
+      setSelectedLogoFile(null)
+      setErrorTitle('Logo upload problem')
+      setErrorMessage('Only club admins can change the club logo.')
+      return
+    }
 
     if (!canUseBasicBranding) {
       setSelectedLogoFile(null)
@@ -207,6 +215,12 @@ export function ClubSettingsPage() {
     if (!user?.clubId) {
       setErrorTitle('Logo upload problem')
       setErrorMessage('Club not found for this account.')
+      return
+    }
+
+    if (!canManageClubLogo(user)) {
+      setErrorTitle('Logo upload problem')
+      setErrorMessage('Only club admins can change the club logo.')
       return
     }
 
@@ -293,6 +307,7 @@ export function ClubSettingsPage() {
       ) : null}
 
       <ClubProfileSettingsSection
+        canChangeClubLogo={canChangeClubLogo}
         canUseBasicBranding={canUseBasicBranding}
         formData={formData}
         isLoading={isLoading}

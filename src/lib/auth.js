@@ -16,6 +16,7 @@ export {
   canCreateEvaluation,
   canDeletePlayer,
   canEditEvaluation,
+  canManageClubLogo,
   canManageClubSettings,
   canManageFormFields,
   canManageParentEmailTemplates,

@@ -90,8 +90,12 @@ export function canManageClubSettings(user) {
   return isClubAdmin(user) && isPlanAccessActive(user)
 }
 
+export function canManageClubLogo(user) {
+  return canManageClubSettings(user)
+}
+
 export function canSendBulkClubEmail(user) {
-  return Boolean(user?.clubId) && isClubAdmin(user)
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && user.role === 'head_manager' && isPlanAccessActive(user)
 }
 
 export function isTesterAccessExpired(user) {

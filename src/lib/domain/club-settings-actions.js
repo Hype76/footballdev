@@ -51,6 +51,10 @@ export async function updateClubSettings({ clubId, data, user = null }) {
   const logoChanged = nextLogoUrl !== currentLogoUrl
 
   if (logoChanged) {
+    if (user?.role !== 'admin') {
+      throw new Error('Only club admins can change the club logo.')
+    }
+
     await assertClubFeature({
       user,
       clubId,
@@ -142,6 +146,10 @@ export async function uploadClubLogo({ clubId, file, user = null }) {
     throw new Error('Club ID is required.')
   }
 
+  if (user?.role !== 'admin') {
+    throw new Error('Only club admins can change the club logo.')
+  }
+
   await assertClubFeature({
     user,
     clubId,
@@ -170,6 +178,10 @@ export async function importClubLogoFromUrl({ clubId, logoUrl, user = null }) {
 
   if (!clubId) {
     throw new Error('Club ID is required.')
+  }
+
+  if (user?.role !== 'admin') {
+    throw new Error('Only club admins can change the club logo.')
   }
 
   await assertClubFeature({
