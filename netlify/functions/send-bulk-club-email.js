@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { randomUUID } from 'node:crypto'
 import { Resend } from 'resend'
 import {
   createEmailDedupeKey,
@@ -269,7 +270,7 @@ export async function handler(event) {
     })
     const idempotencyKey = createEmailIdempotencyKey({
       payload: emailPayload,
-      idempotencySeed: `${profile.id}:${Date.now()}`,
+      idempotencySeed: `${profile.id}:${randomUUID()}`,
     })
     const pendingLogResult = await createPendingEmailLog({
       recipients: selectedRecipients,

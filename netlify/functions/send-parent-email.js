@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { randomUUID } from 'node:crypto'
 import { Resend } from 'resend'
 import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 import {
@@ -194,7 +195,6 @@ export async function handler(event) {
       subject,
       html,
       logoUrl,
-      idempotencyKey,
       evaluationId,
       playerName,
       parentName,
@@ -254,9 +254,9 @@ export async function handler(event) {
       payload: emailPayload,
       recipients,
     })
-    const finalIdempotencyKey = idempotencyKey || createEmailIdempotencyKey({
+    const finalIdempotencyKey = createEmailIdempotencyKey({
       payload: emailPayload,
-      idempotencySeed: `${evaluationId || 'parent-email'}:${Date.now()}`,
+      idempotencySeed: `${evaluationId || 'parent-email'}:${randomUUID()}`,
     })
     const storedPayload = {
       resendPayload: emailPayload,
