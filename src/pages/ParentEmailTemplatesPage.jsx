@@ -7,11 +7,10 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { canManageParentEmailTemplates, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
-import { EMAIL_TEMPLATE_AUDIENCES, validateParentEmailTemplateContent } from '../lib/email-templates.js'
+import { EMAIL_TEMPLATE_AUDIENCES, EMAIL_TEMPLATE_SECTIONS, validateParentEmailTemplateContent } from '../lib/email-templates.js'
 import { deleteParentEmailTemplate } from '../lib/domain/parent-email-templates.js'
 import { createCustomParentEmailTemplate, mergeParentEmailTemplates } from '../lib/parent-template-page-utils.js'
 import {
-  EVALUATION_SECTIONS,
   getDefaultClubParentEmailTemplates,
   getParentEmailTemplates,
   upsertParentEmailTemplate,
@@ -24,6 +23,7 @@ export function ParentEmailTemplatesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [savingKey, setSavingKey] = useState('')
   const [deletingKey, setDeletingKey] = useState('')
+  const [focusTemplateKey, setFocusTemplateKey] = useState('')
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.planKey}` : ''
@@ -94,8 +94,8 @@ export function ParentEmailTemplatesPage() {
         }
 
         const currentSections = Array.isArray(template.sectionAvailability)
-          ? template.sectionAvailability.filter((item) => EVALUATION_SECTIONS.includes(item))
-          : [...EVALUATION_SECTIONS]
+          ? template.sectionAvailability.filter((item) => EMAIL_TEMPLATE_SECTIONS.includes(item))
+          : [...EMAIL_TEMPLATE_SECTIONS]
         const nextSections = checked
           ? [...new Set([...currentSections, section])]
           : currentSections.filter((item) => item !== section)
@@ -123,12 +123,14 @@ export function ParentEmailTemplatesPage() {
   const addCustomTemplate = () => {
     setMessage('')
     setErrorMessage('')
+    const newTemplate = createCustomParentEmailTemplate({
+      audience,
+      existingTemplates: templates,
+    })
+    setFocusTemplateKey(newTemplate.key)
     setTemplates((current) => [
       ...current,
-      createCustomParentEmailTemplate({
-        audience,
-        existingTemplates: current,
-      }),
+      newTemplate,
     ])
   }
 
@@ -221,10 +223,12 @@ export function ParentEmailTemplatesPage() {
       <TemplateEditorSection
         audience={audience}
         deletingKey={deletingKey}
+        focusTemplateKey={focusTemplateKey}
         isLoading={isLoading}
         onAddCustomTemplate={addCustomTemplate}
         onDeleteTemplate={deleteTemplate}
         onFieldInsert={insertField}
+        onTemplateFocused={() => setFocusTemplateKey('')}
         onResetTemplate={resetTemplate}
         onSaveTemplate={saveTemplate}
         onSectionToggle={toggleTemplateSection}

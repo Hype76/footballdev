@@ -1,10 +1,11 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { EMAIL_TEMPLATE_FIELDS, EMAIL_TEMPLATE_SECTIONS } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function TemplateEditorSection({
   audience,
   deletingKey,
+  focusTemplateKey,
   isLoading,
   onAddCustomTemplate,
   onDeleteTemplate,
@@ -12,11 +13,30 @@ export function TemplateEditorSection({
   onResetTemplate,
   onSaveTemplate,
   onSectionToggle,
+  onTemplateFocused,
   onTemplateChange,
   savingKey,
   templates,
 }) {
   const bodyRefs = useRef(new Map())
+  const cardRefs = useRef(new Map())
+  const nameInputRefs = useRef(new Map())
+
+  useEffect(() => {
+    if (!focusTemplateKey) {
+      return
+    }
+
+    window.requestAnimationFrame(() => {
+      const card = cardRefs.current.get(focusTemplateKey)
+      const nameInput = nameInputRefs.current.get(focusTemplateKey)
+
+      card?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      nameInput?.focus()
+      nameInput?.select()
+      onTemplateFocused()
+    })
+  }, [focusTemplateKey, onTemplateFocused])
 
   const setBodyRef = (templateKey, node) => {
     if (node) {
@@ -25,6 +45,24 @@ export function TemplateEditorSection({
     }
 
     bodyRefs.current.delete(templateKey)
+  }
+
+  const setCardRef = (templateKey, node) => {
+    if (node) {
+      cardRefs.current.set(templateKey, node)
+      return
+    }
+
+    cardRefs.current.delete(templateKey)
+  }
+
+  const setNameInputRef = (templateKey, node) => {
+    if (node) {
+      nameInputRefs.current.set(templateKey, node)
+      return
+    }
+
+    nameInputRefs.current.delete(templateKey)
   }
 
   const insertFieldAtCursor = (template, fieldKey) => {
@@ -71,18 +109,18 @@ export function TemplateEditorSection({
       </div>
 
       {templates.map((template) => (
-        <SectionCard
-          key={template.key}
-          title={template.label}
-          description={
-            template.id
-              ? `This saved club template is available when sending ${audience} emails.`
-              : template.isCustom
-                ? `Save this custom template before it can be used for ${audience} emails.`
-                : `Save this default before it can be used for ${audience} emails.`
-          }
-        >
-          <div className="space-y-4">
+        <div key={template.key} ref={(node) => setCardRef(template.key, node)} className="scroll-mt-24">
+          <SectionCard
+            title={template.label}
+            description={
+              template.id
+                ? `This saved club template is available when sending ${audience} emails.`
+                : template.isCustom
+                  ? `Save this custom template before it can be used for ${audience} emails.`
+                  : `Save this default before it can be used for ${audience} emails.`
+            }
+          >
+            <div className="space-y-4">
             <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
               <input
                 type="checkbox"
@@ -97,6 +135,7 @@ export function TemplateEditorSection({
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Template name</span>
                 <input
+                  ref={(node) => setNameInputRef(template.key, node)}
                   type="text"
                   value={template.label}
                   onChange={(event) => onTemplateChange(template.key, 'label', event.target.value)}
@@ -195,9 +234,20 @@ export function TemplateEditorSection({
                 </button>
               ) : null}
             </div>
-          </div>
-        </SectionCard>
+            </div>
+          </SectionCard>
+        </div>
       ))}
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onAddCustomTemplate}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+        >
+          Add Custom Template
+        </button>
+      </div>
     </div>
   )
 }
