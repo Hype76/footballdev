@@ -133,13 +133,29 @@ export function normalizeDateOnly(value) {
 }
 
 export function getDisplayName(profile) {
-  const username = String(profile?.username ?? '').trim()
+  const username = String(
+    profile?.username ??
+      profile?.displayName ??
+      profile?.display_name ??
+      profile?.user_metadata?.username ??
+      profile?.user_metadata?.display_name ??
+      profile?.raw_user_meta_data?.username ??
+      profile?.raw_user_meta_data?.display_name ??
+      '',
+  ).trim()
 
   if (username) {
     return username
   }
 
-  const explicitName = String(profile?.name ?? '').trim()
+  const explicitName = String(
+    profile?.name ??
+      profile?.user_metadata?.name ??
+      profile?.user_metadata?.full_name ??
+      profile?.raw_user_meta_data?.name ??
+      profile?.raw_user_meta_data?.full_name ??
+      '',
+  ).trim()
 
   if (explicitName) {
     return explicitName

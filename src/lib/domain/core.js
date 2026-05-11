@@ -63,7 +63,6 @@ import {
   getEntryUserEmail,
   getEntryUserId,
   getEntryUserName,
-  normalizeWords,
 } from './core-normalizers.js'
 import {
   normalizeEvaluationRow,
@@ -600,7 +599,7 @@ export async function updateOwnUserSettings({
 
   await blockDemoMutation(authUser)
 
-  const normalizedUsername = normalizeWords(username)
+  const normalizedUsername = String(username ?? '').trim()
   const normalizedDisplayName = String(displayName ?? '').trim()
   const normalizedTeamName = String(teamName ?? '').trim()
   const normalizedClubName = String(clubName ?? '').trim()

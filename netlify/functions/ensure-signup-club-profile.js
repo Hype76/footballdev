@@ -67,7 +67,17 @@ function normalizeAccessCode(value) {
 }
 
 function getDisplayName(authUser) {
-  const metadataName = String(authUser?.user_metadata?.name ?? authUser?.user_metadata?.full_name ?? '').trim()
+  const metadataName = String(
+    authUser?.user_metadata?.username ??
+      authUser?.user_metadata?.display_name ??
+      authUser?.user_metadata?.name ??
+      authUser?.user_metadata?.full_name ??
+      authUser?.raw_user_meta_data?.username ??
+      authUser?.raw_user_meta_data?.display_name ??
+      authUser?.raw_user_meta_data?.name ??
+      authUser?.raw_user_meta_data?.full_name ??
+      '',
+  ).trim()
 
   if (metadataName) {
     return metadataName

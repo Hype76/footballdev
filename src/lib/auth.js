@@ -545,16 +545,21 @@ export function AuthProvider({ children }) {
   const signUpWithClub = async ({ email, password, clubName, accessCode = '' }) => {
     setAuthError('')
     const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
+    const normalizedEmail = String(email ?? '').trim()
     const normalizedClubName = String(clubName ?? '').trim()
+    const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
 
     const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/login`
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         emailRedirectTo,
         data: {
-          club_name: String(clubName ?? '').trim(),
+          username: signupDisplayName,
+          name: signupDisplayName,
+          display_name: signupDisplayName,
+          club_name: normalizedClubName,
           tester_access_code: String(accessCode ?? '').trim().toUpperCase(),
         },
       },
@@ -577,7 +582,7 @@ export function AuthProvider({ children }) {
       if (testSignupWithoutPayment && normalizedClubName) {
         try {
           const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email,
+            email: normalizedEmail,
             password,
           })
 
