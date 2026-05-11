@@ -182,6 +182,7 @@ export function BillingPage() {
 
       <SectionCard
         title="Current plan"
+        tourId="current-plan-section"
         description="Your club access is controlled by the tier shown here."
       >
         {isLoading ? (
@@ -235,6 +236,7 @@ export function BillingPage() {
 
       <SectionCard
         title="Invoices"
+        tourId="invoices-section"
         description="Invoices appear here once billing has created them for this subscription."
       >
         {isLoading ? (

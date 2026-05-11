@@ -14,6 +14,7 @@ export function PendingAllocationsSection({
   return (
     <SectionCard
       title="Pending allocations"
+      tourId="pending-allocations-section"
       description="Invited or pre-assigned emails will receive the saved role when they sign in."
     >
       {isLoading ? (

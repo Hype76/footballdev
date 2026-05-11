@@ -10,6 +10,7 @@ export function DefaultFormSection({
   return (
     <SectionCard
       title="Default form"
+      tourId="default-form-section"
       description="Every club starts from this template. These fields become your editable default form once loaded."
     >
       <div className="space-y-4">

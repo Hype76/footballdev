@@ -250,6 +250,7 @@ export function BulkEmailPage() {
       <form className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)]" onSubmit={handleSubmit}>
         <SectionCard
           title="Message"
+          tourId="bulk-email-message-section"
           description={`Reply address: ${user?.email || 'Your account email'}`}
         >
           <div className="space-y-4">
@@ -322,6 +323,7 @@ export function BulkEmailPage() {
 
         <SectionCard
           title="Recipients"
+          tourId="bulk-email-recipients-section"
           description={`${selectedCount} of ${contactOptions.length} ${audience === 'parent' ? 'parent' : 'player'} contacts selected.`}
           actions={
             <button

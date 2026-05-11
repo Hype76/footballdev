@@ -108,8 +108,13 @@ export function TemplateEditorSection({
         </button>
       </div>
 
-      {templates.map((template) => (
-        <div key={template.key} ref={(node) => setCardRef(template.key, node)} className="scroll-mt-24">
+      {templates.map((template, templateIndex) => (
+        <div
+          key={template.key}
+          ref={(node) => setCardRef(template.key, node)}
+          className="scroll-mt-24"
+          data-tour-id={templateIndex === 0 ? 'email-template-editor-section' : undefined}
+        >
           <SectionCard
             title={template.label}
             description={

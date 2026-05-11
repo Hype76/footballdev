@@ -171,56 +171,115 @@ export const WALKTHROUGHS = {
       {
         target: 'create-team-section',
         title: 'Create teams',
-        body: 'Create the club teams that players, sessions, and assessments will use.',
+        body: 'Create the teams that players, sessions, and assessments will sit inside. Club profile and logo settings are handled in Club Settings.',
       },
       {
         target: 'create-staff-section',
-        title: 'Create staff access',
-        body: 'Create staff logins, choose their role, and allocate them to a team.',
+        title: 'Create team staff',
+        body: 'Create staff logins for people who need team access, then choose the role they should hold.',
       },
       {
         target: 'team-staff-section',
         title: 'Control team access',
-        body: 'Select a team, rename it if needed, and manage which staff can work inside it.',
+        body: 'Select a team, rename it if needed, and manage which staff can work inside that team.',
       },
     ],
   },
   '/user-access': {
     key: 'user-access',
-    action: { label: 'Open Teams', path: '/teams' },
+    action: { label: 'Allocate Role', target: 'allocate-role-section' },
     plans: [PLAN_KEYS.singleTeam, PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
     minimumRank: 50,
     steps: [
       {
         target: 'page-header',
-        title: 'Role control',
-        body: 'Staff access controls who can manage sessions, players, forms, logs, billing, and team administration.',
+        title: 'Club user access',
+        body: 'This Club area controls club-level accounts and roles. Team allocation remains on the Teams page.',
+      },
+      {
+        target: 'allocate-role-section',
+        title: 'Allocate role',
+        body: 'Add a user email, set an initial password, and choose the highest club role this person should hold.',
+      },
+      {
+        target: 'active-users-section',
+        title: 'Review active users',
+        body: 'Check who already has access, update display names where allowed, and remove users when they should no longer work in this club.',
+      },
+      {
+        target: 'pending-allocations-section',
+        title: 'Pending access',
+        body: 'Pending allocations show emails that will receive their role when the person signs in.',
       },
     ],
   },
   '/form-builder': {
     key: 'form-builder',
-    action: { label: 'Configure Fields', target: 'page-header' },
+    action: { label: 'Configure Fields', target: 'current-fields-section' },
     plans: [PLAN_KEYS.singleTeam, PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
     minimumRank: 50,
     steps: [
       {
         target: 'page-header',
-        title: 'Configure assessments',
-        body: 'Default fields can be enabled or disabled. Custom fields let clubs shape the form around their own coaching model.',
+        title: 'Assessment fields',
+        body: 'This Club area controls the assessment fields used across the club. Team admins use the fields that club admins make available.',
+      },
+      {
+        target: 'default-form-section',
+        title: 'Default form',
+        body: 'Load the starting assessment form if the club does not have fields yet.',
+      },
+      {
+        target: 'current-fields-section',
+        title: 'Current fields',
+        body: 'Enable, disable, reorder, and edit the fields coaches will see during evaluations.',
+      },
+      {
+        target: 'add-field-section',
+        title: 'Custom fields',
+        body: 'Add club-specific fields when the default form does not match the coaching model.',
       },
     ],
   },
   '/parent-email-templates': {
     key: 'parent-email-templates',
-    action: { label: 'Edit Templates', target: 'page-header' },
+    action: { label: 'Edit Templates', target: 'email-template-editor-section' },
     plans: [PLAN_KEYS.singleTeam, PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
     minimumRank: 50,
     steps: [
       {
         target: 'page-header',
-        title: 'Manage parent messaging',
-        body: 'Templates save staff time and keep parent communication consistent. Coaches can use these templates when sending parent feedback.',
+        title: 'Email templates',
+        body: 'This Club area controls the saved email templates available to staff when sending parent or player messages.',
+      },
+      {
+        target: 'email-template-editor-section',
+        title: 'Template editor',
+        body: 'Edit default templates, create custom templates, set where each template is available, and use fields to personalise the message.',
+      },
+    ],
+  },
+  '/bulk-email': {
+    key: 'bulk-email',
+    action: { label: 'Write Email', target: 'bulk-email-message-section' },
+    plans: [PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
+    roles: ['admin'],
+    minimumRank: 70,
+    steps: [
+      {
+        target: 'page-header',
+        title: 'Bulk email',
+        body: 'This Club area sends one club-wide email to selected parent or player contacts. Recipients are hidden from each other.',
+      },
+      {
+        target: 'bulk-email-message-section',
+        title: 'Message',
+        body: 'Choose parents or players, write the subject and message, and confirm the reply address before sending.',
+      },
+      {
+        target: 'bulk-email-recipients-section',
+        title: 'Recipients',
+        body: 'Review the contacts before sending so the email only goes to the right people.',
       },
     ],
   },
@@ -233,7 +292,7 @@ export const WALKTHROUGHS = {
       {
         target: 'page-header',
         title: 'Review staff activity',
-        body: 'Use filters to see relevant activity by user and event type. Team staff only see activity for their active team.',
+        body: 'This Club area shows staff activity by user and event type. Team staff only see activity for their active team.',
       },
     ],
   },
@@ -252,13 +311,23 @@ export const WALKTHROUGHS = {
   },
   '/billing': {
     key: 'billing',
-    action: { label: 'View Plan Details', target: 'page-header' },
+    action: { label: 'View Plan Details', target: 'current-plan-section' },
     minimumRank: 0,
     steps: [
       {
         target: 'page-header',
         title: 'Plan and payment details',
-        body: 'Use this page to review plan status, billing dates, and payment actions for the account.',
+        body: 'This Club area shows the plan, billing status, renewal details, and invoices for the club account.',
+      },
+      {
+        target: 'current-plan-section',
+        title: 'Current plan',
+        body: 'Check the active tier and status before changing access or investigating billing issues.',
+      },
+      {
+        target: 'invoices-section',
+        title: 'Invoices',
+        body: 'View or download invoices once billing has created them for this subscription.',
       },
     ],
   },
@@ -301,19 +370,24 @@ export const WALKTHROUGHS = {
   },
   '/club-settings': {
     key: 'club-settings',
-    action: { label: 'Club Logo', target: 'club-profile-settings' },
+    action: { label: 'Club Profile', target: 'club-profile-settings' },
     roles: ['admin'],
     minimumRank: 70,
     steps: [
       {
         target: 'page-header',
         title: 'Club Settings',
-        body: 'Club admins control the shared club profile that appears across the workspace and parent previews.',
+        body: 'This Club area controls shared club details. Personal settings stay in My Settings and team setup stays in Teams.',
       },
       {
         target: 'club-profile-settings',
         title: 'Club profile',
-        body: 'Set the club logo, club name, contact email, and contact phone from here.',
+        body: 'Set the club name, contact details, and club logo. The club logo is used across all teams in this club.',
+      },
+      {
+        target: 'sidebar-club-section',
+        title: 'Club section',
+        body: 'Use this sidebar section for club-wide tools: settings, user access, assessment fields, email templates, bulk email, activity log, and billing.',
       },
     ],
   },

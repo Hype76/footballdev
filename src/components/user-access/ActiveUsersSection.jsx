@@ -20,6 +20,7 @@ export function ActiveUsersSection({
   return (
     <SectionCard
       title="Active users"
+      tourId="active-users-section"
       description="Existing users are listed here only where your role and team access allows."
     >
       {isLoading ? (

@@ -31,6 +31,7 @@ export function CurrentFieldsSection({
   return (
     <SectionCard
       title="Current fields"
+      tourId="current-fields-section"
       description="Switch between default fields and custom fields so the form setup stays clear."
     >
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">

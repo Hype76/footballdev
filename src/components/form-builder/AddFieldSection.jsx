@@ -16,6 +16,7 @@ export function AddFieldSection({
   return (
     <SectionCard
       title="Add field"
+      tourId="add-field-section"
       description={
         canUseCustomFields
           ? 'Create fast-scoring dropdowns, text fields, or custom select fields for your club form.'

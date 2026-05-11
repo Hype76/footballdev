@@ -15,6 +15,7 @@ export function AllocateRoleSection({
   return (
     <SectionCard
       title="Allocate role"
+      tourId="allocate-role-section"
       description={
         canAddMoreUsers
           ? 'Admins and managers can allocate roles at their level or below. Custom roles are saved to this club.'

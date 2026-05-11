@@ -16,7 +16,7 @@ function getRoleStep(user) {
   }
 
   if (user?.role === 'admin' && !user?.activeTeamId) {
-    return 'Create teams, add staff logins, then allocate staff to teams.'
+    return 'Use the Club section for club-wide settings, then use Teams for team setup and team access.'
   }
 
   if (Number(user?.roleRank ?? 0) >= 50) {

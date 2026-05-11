@@ -189,7 +189,10 @@ export function Sidebar({ isOpen, onClose }) {
         </nav>
 
         {clubNavigationItems.length > 0 ? (
-          <div className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+          <div
+            className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3"
+            data-tour-id="sidebar-club-section"
+          >
             <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
               Club
             </p>
