@@ -12,7 +12,6 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: [
         'favicon.ico',
-        'favicon.svg',
         'apple-touch-icon.png',
         'browserconfig.xml',
         'og-image.png',
