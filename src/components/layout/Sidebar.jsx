@@ -7,7 +7,6 @@ import {
   canManageParentEmailTemplates,
   canManageTeamSettings,
   canManageUsers,
-  canSendBulkClubEmail,
   canViewPlatformFeedback,
   canViewActivityLog,
   canViewBilling,
@@ -61,7 +60,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (item.path === '/bulk-email') {
-      return canSendBulkClubEmail(user)
+      return Boolean(user?.clubId) && user.role === 'head_manager'
     }
 
     if (item.path === '/billing') {
