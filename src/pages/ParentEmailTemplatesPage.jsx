@@ -5,6 +5,7 @@ import { TemplateAudienceTabs } from '../components/parent-email-templates/Templ
 import { TemplateEditorSection } from '../components/parent-email-templates/TemplateEditorSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { canManageParentEmailTemplates, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import { EMAIL_TEMPLATE_AUDIENCES, EMAIL_TEMPLATE_SECTIONS, validateParentEmailTemplateContent } from '../lib/email-templates.js'
@@ -18,6 +19,7 @@ import {
 
 export function ParentEmailTemplatesPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const [audience, setAudience] = useState(EMAIL_TEMPLATE_AUDIENCES.parent)
   const [templates, setTemplates] = useState(() => mergeParentEmailTemplates([], EMAIL_TEMPLATE_AUDIENCES.parent))
   const [isLoading, setIsLoading] = useState(true)
@@ -167,6 +169,7 @@ export function ParentEmailTemplatesPage() {
       const savedTemplate = await upsertParentEmailTemplate({ user, template })
       setTemplates((current) => current.map((item) => (item.key === savedTemplate.key ? savedTemplate : item)))
       setMessage(`${savedTemplate.label} saved for the club.`)
+      showToast({ title: 'Template saved', message: `${savedTemplate.label} is available for this club.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save this template.')
@@ -197,6 +200,7 @@ export function ParentEmailTemplatesPage() {
 
       setTemplates((current) => current.filter((item) => item.key !== template.key))
       setMessage(`${template.label} deleted.`)
+      showToast({ title: 'Template deleted', message: `${template.label} has been removed.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not delete this template.')

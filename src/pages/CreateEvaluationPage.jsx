@@ -975,6 +975,10 @@ export function CreateEvaluationPage() {
       setLastUsedSession(postAssessmentNavigation.nextSessionValue)
       setIsSaved(true)
       setOfflineStatusMessage('')
+      showToast({
+        title: editingEvaluation ? 'Assessment updated' : 'Assessment saved',
+        message: `${normalizedPlayerName} assessment has been saved.`,
+      })
     } catch (error) {
       console.error('Evaluation submit failed', error)
       setIsSaved(false)

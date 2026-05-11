@@ -619,6 +619,7 @@ export function PlayerProfile() {
       setStaffNotes((current) => [nextNote, ...current])
       setActivityLogs(nextActivity)
       setNoteDraft('')
+      showToast({ title: 'Note saved', message: 'The staff note has been saved.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save staff note.')
@@ -732,6 +733,7 @@ export function PlayerProfile() {
       })
       clearViewCaches()
       writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
+      showToast({ title: 'Assessment moved', message: 'The report has been moved to the selected player.' })
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not move this report to the selected player.')
@@ -830,6 +832,7 @@ export function PlayerProfile() {
       setMergeFieldSources({})
       clearViewCaches()
       writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
+      showToast({ title: 'Merged assessment saved', message: 'The selected assessments have been merged.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not create the merged assessment.')
@@ -871,6 +874,7 @@ export function PlayerProfile() {
       )
       clearViewCaches()
       writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
+      showToast({ title: 'Assessment deleted', message: 'The assessment has been removed.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not delete this assessment.')
@@ -929,6 +933,7 @@ export function PlayerProfile() {
       if (savedPlayer.playerName !== routePlayerName) {
         navigate(`/player/${encodeURIComponent(savedPlayer.playerName)}`)
       }
+      showToast({ title: 'Player saved', message: `${savedPlayer.playerName} details have been updated.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save player details.')
@@ -950,6 +955,7 @@ export function PlayerProfile() {
         evaluations,
         players: nextPlayers,
       })
+      showToast({ title: 'Player promoted', message: `${promotedPlayer.playerName} has been moved to Squad.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not promote this player to Squad.')

@@ -7,6 +7,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { canManageFormFields, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
@@ -33,6 +34,7 @@ import {
 
 export function FormBuilderPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const defaultTemplateFields = getDefaultFormFields()
   const cacheKey = user?.clubId ? `form-builder:${user.clubId}` : ''
   const cachedBuilderState = readViewCache(cacheKey)
@@ -121,6 +123,7 @@ export function FormBuilderPage() {
       const nextFields = await getConfiguredFormFields({ user })
       syncFields(nextFields)
       setSuccessMessage(nextFields.length > 0 ? 'Form fields loaded successfully.' : 'Default form is ready to be configured.')
+      showToast({ title: 'Fields refreshed', message: 'Assessment fields are up to date.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not load the form fields for this club.')
@@ -223,6 +226,7 @@ export function FormBuilderPage() {
       syncFields(nextFields)
       setFieldForm(initialFieldForm)
       setSuccessMessage('Field added successfully.')
+      showToast({ title: 'Field added', message: `${createdField.label} has been saved.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not add this field.')
@@ -263,6 +267,7 @@ export function FormBuilderPage() {
       await reorderFormFields(nextFields, user)
       syncFields(nextFields)
       setSuccessMessage('Field deleted successfully.')
+      showToast({ title: 'Field deleted', message: `${fieldDeleteTarget.label} has been removed.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not delete this field.')
@@ -297,6 +302,7 @@ export function FormBuilderPage() {
       await reorderFormFields(normalizedFields, user)
       syncFields(normalizedFields)
       setSuccessMessage('Field order updated.')
+      showToast({ title: 'Field order saved', message: 'Assessment field order has been updated.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not reorder the fields.')
@@ -325,6 +331,7 @@ export function FormBuilderPage() {
       const nextFields = fields.map((item) => (item.id === field.id ? updatedField : item))
       syncFields(nextFields)
       setSuccessMessage(nextEnabled ? 'Field enabled.' : 'Field disabled.')
+      showToast({ title: 'Field saved', message: `${updatedField.label} has been ${nextEnabled ? 'enabled' : 'disabled'}.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not update this field.')
@@ -366,6 +373,7 @@ export function FormBuilderPage() {
       const nextFields = fields.map((item) => (item.id === field.id ? updatedField : item))
       syncFields(nextFields)
       setSuccessMessage('Field saved successfully.')
+      showToast({ title: 'Field saved', message: `${updatedField.label} has been updated.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save this field.')

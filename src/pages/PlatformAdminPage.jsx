@@ -9,6 +9,7 @@ import { PlatformHeroSection, PlatformStatGrid } from '../components/platform/Pl
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   formatPlatformDate,
@@ -51,6 +52,7 @@ const PAGE_META = {
 
 export function PlatformAdminPage({ section = 'dashboard' }) {
   const { session, user } = useAuth()
+  const { showToast } = useToast()
   const pageMeta = PAGE_META[section] || PAGE_META.dashboard
   const showDashboard = section === 'dashboard'
   const showClubManagement = section === 'clubs'
@@ -232,6 +234,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         data: draft,
       })
       setSuccessMessage('Feedback updated.')
+      showToast({ title: 'Feedback saved', message: 'Platform feedback status has been updated.' })
       refreshStats()
     } catch (error) {
       console.error(error)
@@ -316,6 +319,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         password: '',
       })
       setSuccessMessage('Platform admin staff user saved.')
+      showToast({ title: 'Platform admin saved', message: 'Platform admin staff access has been saved.' })
       refreshStats()
     } catch (error) {
       console.error(error)
@@ -389,6 +393,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         contactPhone: '',
       })
       setSuccessMessage('Club created.')
+      showToast({ title: 'Club saved', message: 'The club has been created.' })
       refreshStats()
     } catch (error) {
       console.error(error)
@@ -411,6 +416,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         status: nextStatus,
       })
       setSuccessMessage(nextStatus === 'suspended' ? 'Club suspended.' : 'Club reactivated.')
+      showToast({ title: 'Club saved', message: nextStatus === 'suspended' ? 'Club has been suspended.' : 'Club has been reactivated.' })
       refreshStats()
     } catch (error) {
       console.error(error)
@@ -446,6 +452,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       }
 
       setSuccessMessage(result.message || 'Club plan updated.')
+      showToast({ title: 'Club plan saved', message: result.message || 'Club plan settings have been updated.' })
       refreshStats()
     } catch (error) {
       console.error(error)

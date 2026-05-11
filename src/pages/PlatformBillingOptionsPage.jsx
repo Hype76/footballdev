@@ -6,6 +6,7 @@ import { ExistingCouponsSection } from '../components/platform-billing/ExistingC
 import { TesterAccessCodesSection } from '../components/platform-billing/TesterAccessCodesSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   defaultCouponForm,
@@ -14,6 +15,7 @@ import {
 
 export function PlatformBillingOptionsPage() {
   const { session, user } = useAuth()
+  const { showToast } = useToast()
   const [coupons, setCoupons] = useState([])
   const [testerCodes, setTesterCodes] = useState([])
   const [couponForm, setCouponForm] = useState(defaultCouponForm)
@@ -171,6 +173,7 @@ export function PlatformBillingOptionsPage() {
       setTesterCodes(Array.isArray(result.codes) ? result.codes : [])
       setTesterCodeForm(defaultTesterCodeForm)
       setSuccessMessage('Tester access code created.')
+      showToast({ title: 'Tester code saved', message: 'Tester access code has been created.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Tester access code could not be created.')
@@ -208,6 +211,7 @@ export function PlatformBillingOptionsPage() {
 
       setTesterCodes(Array.isArray(result.codes) ? result.codes : [])
       setSuccessMessage(!code.isActive ? 'Tester access code enabled.' : 'Tester access code disabled.')
+      showToast({ title: 'Tester code saved', message: !code.isActive ? 'Tester access code has been enabled.' : 'Tester access code has been disabled.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Tester access code could not be updated.')
@@ -245,6 +249,7 @@ export function PlatformBillingOptionsPage() {
       setCoupons(Array.isArray(result.coupons) ? result.coupons : [])
       setCouponForm(defaultCouponForm)
       setSuccessMessage('Coupon created.')
+      showToast({ title: 'Coupon saved', message: 'Coupon has been created.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Coupon could not be created.')
@@ -290,6 +295,7 @@ export function PlatformBillingOptionsPage() {
 
       setCoupons(Array.isArray(result.coupons) ? result.coupons : [])
       setSuccessMessage('Coupon deleted.')
+      showToast({ title: 'Coupon deleted', message: 'Coupon has been removed.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Coupon could not be deleted.')
@@ -328,6 +334,7 @@ export function PlatformBillingOptionsPage() {
 
       setCoupons(Array.isArray(result.coupons) ? result.coupons : [])
       setSuccessMessage(shouldShowLive ? 'Promotion is live on the website.' : 'Promotion is no longer live on the website.')
+      showToast({ title: 'Promotion saved', message: shouldShowLive ? 'Promotion is live on the website.' : 'Promotion is no longer live on the website.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Live promotion could not be updated.')

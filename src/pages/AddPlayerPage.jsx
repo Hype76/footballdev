@@ -4,6 +4,7 @@ import { RecentlyAddedPlayersSection } from '../components/players/RecentlyAdded
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import {
@@ -25,6 +26,7 @@ import {
 
 export function AddPlayerPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
   const cacheKey = user ? `add-player:${user.id}:${user.clubId || 'platform'}` : ''
   const [playerForm, setPlayerForm] = useState(createInitialPlayerForm)
@@ -239,6 +241,7 @@ export function AddPlayerPage() {
         team: playerForm.team,
       })
       setMessage('Player added.')
+      showToast({ title: 'Player saved', message: `${createdPlayer.playerName} has been added.` })
     } catch (error) {
       console.error(error)
       const message = String(error.message ?? '')

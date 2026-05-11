@@ -7,6 +7,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import { initialUserAccessFormState, INVITE_PAGE_SIZE, MEMBER_PAGE_SIZE } from '../hooks/user-access/userAccessUtils.js'
@@ -28,6 +29,7 @@ import {
 
 export function UserAccessPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const accessScope =
     user?.role === 'admin' || user?.role === 'super_admin'
       ? 'club'
@@ -252,6 +254,7 @@ export function UserAccessPage() {
         customRoleLabel: '',
       })
       setMessage('User account created. They can log in with the initial password.')
+      showToast({ title: 'User saved', message: 'The user account has been created.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not update user access.')
@@ -278,6 +281,7 @@ export function UserAccessPage() {
       await deleteClubInvite(inviteDeleteTarget.id)
       await refreshAccessData()
       setMessage('Pending access removed.')
+      showToast({ title: 'Pending access removed', message: 'The saved allocation has been removed.' })
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not remove the pending allocation.')
@@ -313,6 +317,7 @@ export function UserAccessPage() {
       })
       await refreshAccessData()
       setMessage('User removed from this club.')
+      showToast({ title: 'User access removed', message: 'The user has been removed from this club.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not remove this user.')
@@ -362,6 +367,7 @@ export function UserAccessPage() {
       }))
       await refreshAccessData()
       setMessage('User name updated.')
+      showToast({ title: 'User saved', message: `${updatedMember.name || 'User'} has been updated.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not update this user name.')

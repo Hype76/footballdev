@@ -7,6 +7,7 @@ import { PlatformFeedbackStats } from '../components/platform-feedback/PlatformF
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { canViewPlatformFeedback, isSuperAdmin, useAuth } from '../lib/auth.js'
 import { FEEDBACK_PAGE_SIZE, PLATFORM_FEEDBACK_CACHE_KEY, getFeedbackStats } from '../lib/platform-feedback-utils.js'
 import {
@@ -21,6 +22,7 @@ import {
 
 export function PlatformFeedbackPage() {
   const { isLoading: isAuthLoading, isProfileLoading, session, user } = useAuth()
+  const { showToast } = useToast()
   const [feedbackItems, setFeedbackItems] = useState(() => {
     const cachedItems = readViewCacheValue(PLATFORM_FEEDBACK_CACHE_KEY, 'feedbackItems', [])
     return Array.isArray(cachedItems) ? cachedItems : []
@@ -97,6 +99,7 @@ export function PlatformFeedbackPage() {
       setMessage('')
       await loadFeedback()
       setSuccessMessage('Feedback submitted.')
+      showToast({ title: 'Feedback saved', message: 'Your platform feedback has been submitted.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Feedback could not be submitted.')
@@ -124,6 +127,7 @@ export function PlatformFeedbackPage() {
       }
 
       await loadFeedback()
+      showToast({ title: 'Vote saved', message: item.hasVoted ? 'Your vote has been removed.' : 'Your vote has been added.' })
     } catch (error) {
       console.error(error)
       setErrorMessage('Vote could not be saved.')

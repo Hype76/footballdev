@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { ArchivePlayerModal } from '../components/players/ArchivePlayerModal.jsx'
 import { PlayersListSection } from '../components/players/PlayersListSection.jsx'
 import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
@@ -22,6 +23,7 @@ import {
 
 export function PlayersPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const viewFilter = searchParams.get('view') || 'all'
@@ -274,6 +276,7 @@ export function PlayersPage() {
         },
       })
       setMessage('Player action saved.')
+      showToast({ title: 'Player action saved', message: `${player.playerName} action has been saved.` })
       if (playerId) {
         setDecisionLogs((current) => [
           {
@@ -326,6 +329,7 @@ export function PlayersPage() {
       })
       setPlayers((current) => current.filter((player) => player.id !== archiveTarget.playerId))
       setMessage(`${archiveTarget.playerName} was moved to archived players.`)
+      showToast({ title: 'Player archived', message: `${archiveTarget.playerName} was moved to archived players.` })
       setArchiveTarget(null)
     } catch (error) {
       console.error(error)

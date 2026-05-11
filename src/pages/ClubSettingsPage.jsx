@@ -4,6 +4,7 @@ import fallbackLogo from '../assets/player-feedback-logo.png'
 import { ClubProfileSettingsSection } from '../components/club-settings/ClubProfileSettingsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { useToast } from '../components/ui/toast-context.js'
 import { canManageClubSettings, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
@@ -24,6 +25,7 @@ import {
 
 export function ClubSettingsPage() {
   const { updateCurrentClubDetails, user } = useAuth()
+  const { showToast } = useToast()
   const cacheKey = user?.clubId ? `club-settings:${user.clubId}` : ''
   const [formData, setFormData] = useState(() =>
     readViewCacheValue(cacheKey, 'formData', getFallbackClubSettingsFormData(user) || createInitialClubSettingsFormData()),
@@ -190,6 +192,7 @@ export function ClubSettingsPage() {
       })
       updateCurrentClubDetails(updatedClub)
       setIsSaved(true)
+      showToast({ title: 'Club settings saved', message: 'Club details have been updated.' })
     } catch (error) {
       console.error(error)
       setIsSaved(false)
@@ -249,6 +252,7 @@ export function ClubSettingsPage() {
       updateCurrentClubDetails(updatedClub)
       setSelectedLogoFile(null)
       setUploadSuccessMessage('Logo uploaded successfully')
+      showToast({ title: 'Logo saved', message: 'The club logo has been updated.' })
     } catch (error) {
       console.error(error)
       setErrorTitle('Logo upload problem')
