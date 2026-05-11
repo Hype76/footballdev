@@ -93,6 +93,7 @@ export {
   getPlayerStaffNotes,
   getSessionStaffNotes,
   getPlayers,
+  movePlayerToTrial,
   promotePlayerToSquad,
   restorePlayer,
   updatePlayer,

@@ -1466,6 +1466,69 @@ export async function promotePlayerToSquad({ user, playerId }) {
   return normalizePlayerRow(promotedRow)
 }
 
+export async function movePlayerToTrial({ user, playerId }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId || user.role === 'super_admin') {
+    throw new Error('A club user is required to move players.')
+  }
+
+  const { data: currentPlayerRow, error: currentPlayerError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (currentPlayerError) {
+    console.error(currentPlayerError)
+    throw currentPlayerError
+  }
+
+  const currentPlayer = normalizePlayerRow(currentPlayerRow)
+
+  if (currentPlayer.section === 'Trial') {
+    return currentPlayer
+  }
+
+  const { data: movedRow, error: moveError } = await supabase
+    .from('players')
+    .update({
+      section: 'Trial',
+      status: 'active',
+      promoted_at: null,
+      promoted_by: null,
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+    })
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (moveError) {
+    console.error(moveError)
+    throw moveError
+  }
+
+  invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'player_moved_to_trial',
+    entityType: 'player',
+    entityId: movedRow.id,
+    metadata: {
+      playerName: movedRow.player_name,
+      fromSection: currentPlayer.section,
+      toSection: 'Trial',
+      team: movedRow.team,
+    },
+  })
+
+  return normalizePlayerRow(movedRow)
+}
+
 export async function deletePlayerRecord({ user, playerId }) {
   await blockDemoMutation(user)
 

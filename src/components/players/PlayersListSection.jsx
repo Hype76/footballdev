@@ -1,5 +1,5 @@
 import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
-import { PLAYER_DECISION_ACTIONS, formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageUtils.js'
+import { formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageUtils.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
@@ -9,13 +9,12 @@ export function PlayersListSection({
   isLoading,
   onArchivePlayer,
   onFilterChange,
+  onMovePlayerToTrial,
   onOpenPlayer,
   onPageChange,
-  onPlayerAction,
   onSearchChange,
   pageSize,
   paginatedPlayers,
-  playerDecisionActions,
   playerPage,
   searchTerm,
   urlSection,
@@ -72,14 +71,23 @@ export function PlayersListSection({
         <div className="mt-5 grid gap-3">
           {paginatedPlayers.items.map((player) => {
             const isSquadPlayer = String(player.section ?? '').toLowerCase() === 'squad'
-            const completedActions = playerDecisionActions.get(String(player.playerId ?? '').trim()) ?? new Set()
-            const availableActions = PLAYER_DECISION_ACTIONS.filter(([action]) => !completedActions.has(action))
+            const sectionBadgeClass = isSquadPlayer
+              ? 'border-sky-400/60 bg-sky-400/15 text-sky-100'
+              : 'border-yellow-300/70 bg-yellow-300/15 text-yellow-100'
+            const cardClass = isSquadPlayer
+              ? 'border-sky-400/50 bg-sky-950/20'
+              : 'border-yellow-300/50 bg-yellow-950/20'
+            const stripeClass = isSquadPlayer ? 'bg-sky-400' : 'bg-yellow-300'
 
             return (
               <div
                 key={getPlayerKey(player.playerName)}
-                className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
+                className={[
+                  'relative overflow-hidden rounded-lg border p-4',
+                  cardClass,
+                ].join(' ')}
               >
+                <div className={['absolute inset-y-0 left-0 w-1.5', stripeClass].join(' ')} />
                 <button
                   type="button"
                   onClick={() => onOpenPlayer(player)}
@@ -87,7 +95,12 @@ export function PlayersListSection({
                 >
                   <div className="grid gap-4 lg:grid-cols-6 lg:items-center">
                     <div className="md:col-span-2">
-                      <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
+                        <span className={['rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em]', sectionBadgeClass].join(' ')}>
+                          {isSquadPlayer ? 'Squad player' : 'Trial player'}
+                        </span>
+                      </div>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'}</p>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">
                         {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
@@ -116,17 +129,16 @@ export function PlayersListSection({
                   </div>
                 </button>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  {!isSquadPlayer ? availableActions.map(([action, label]) => (
+                  {isSquadPlayer ? (
                     <button
-                      key={action}
                       type="button"
-                      disabled={actionLoadingKey === `${player.playerId}:${action}`}
-                      onClick={(event) => void onPlayerAction(event, player, action)}
+                      disabled={actionLoadingKey === `${player.playerId}:move-to-trial`}
+                      onClick={(event) => void onMovePlayerToTrial(event, player)}
                       className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {actionLoadingKey === `${player.playerId}:${action}` ? 'Saving...' : label}
+                      {actionLoadingKey === `${player.playerId}:move-to-trial` ? 'Moving...' : 'Move to Trial'}
                     </button>
-                  )) : null}
+                  ) : null}
                   <button
                     type="button"
                     disabled={actionLoadingKey === `${player.playerId}:archive`}

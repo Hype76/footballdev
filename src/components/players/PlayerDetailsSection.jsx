@@ -16,6 +16,7 @@ export function PlayerDetailsSection({
   onAddParentContact,
   onAddPlayerPosition,
   onCancelEditing,
+  onMovePlayerToTrial,
   onParentContactDraftChange,
   onPlayerDraftChange,
   onPromotePlayer,
@@ -72,6 +73,7 @@ export function PlayerDetailsSection({
                     directEmailTemplates={getDirectEmailTemplateOptions(player)}
                     selectedDirectEmailTemplateKey={getSelectedDirectEmailTemplateOption(player)?.optionKey || ''}
                     isPromoting={isPromotingId === player.id}
+                    onMovePlayerToTrial={() => onMovePlayerToTrial(player.id)}
                     onPromotePlayer={() => onPromotePlayer(player.id)}
                     onRefreshEmailTemplates={onRefreshEmailTemplates}
                     onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
@@ -247,6 +249,7 @@ function PlayerDetailsSummary({
   directEmailSendingId,
   directEmailTemplates,
   isPromoting,
+  onMovePlayerToTrial,
   onPromotePlayer,
   onRefreshEmailTemplates,
   onSelectedDirectEmailTemplateChange,
@@ -314,7 +317,16 @@ function PlayerDetailsSummary({
           >
             {directEmailSendingId === directEmailId ? 'Sending...' : 'Send Email'}
           </button>
-          {player.section !== 'Squad' ? (
+          {player.section === 'Squad' ? (
+            <button
+              type="button"
+              disabled={isPromoting}
+              onClick={onMovePlayerToTrial}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+            >
+              {isPromoting ? 'Moving...' : 'Move to Trial'}
+            </button>
+          ) : (
             <button
               type="button"
               disabled={isPromoting}
@@ -323,7 +335,7 @@ function PlayerDetailsSummary({
             >
               {isPromoting ? 'Promoting...' : 'Promote to Squad'}
             </button>
-          ) : null}
+          )}
           <button
             type="button"
             onClick={onStartEditingPlayer}

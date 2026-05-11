@@ -11,10 +11,9 @@ import { canCreateEvaluation, useAuth } from '../lib/auth.js'
 import { PLAYER_PAGE_SIZE, getAverageScore, getPlayerKey } from '../hooks/players/playersPageUtils.js'
 import {
   archivePlayer,
-  createCommunicationLog,
   getEvaluations,
-  getPlayerDecisionLogs,
   getPlayers,
+  movePlayerToTrial,
   readViewCache,
   readViewCacheValue,
   withRequestTimeout,
@@ -37,16 +36,12 @@ export function PlayersPage() {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
-  const [decisionLogs, setDecisionLogs] = useState(() => {
-    const cachedDecisionLogs = readViewCacheValue(cacheKey, 'decisionLogs', [])
-    return Array.isArray(cachedDecisionLogs) ? cachedDecisionLogs : []
-  })
   const [searchTerm, setSearchTerm] = useState('')
   const [playerPage, setPlayerPage] = useState(1)
   const [actionLoadingKey, setActionLoadingKey] = useState('')
   const [archiveTarget, setArchiveTarget] = useState(null)
   const [message, setMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0 && decisionLogs.length === 0)
+  const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
 
@@ -58,10 +53,9 @@ export function PlayersPage() {
       setErrorMessage('')
 
       try {
-        const [playersResult, evaluationsResult, decisionLogsResult] = await Promise.allSettled([
+        const [playersResult, evaluationsResult] = await Promise.allSettled([
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load player history.'),
-          withRequestTimeout(() => getPlayerDecisionLogs({ user }), 'Could not load player actions.'),
         ])
 
         if (!isMounted) {
@@ -71,9 +65,6 @@ export function PlayersPage() {
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : cachedValue?.players || []
         const nextEvaluations =
           evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : cachedValue?.evaluations || []
-        const nextDecisionLogs =
-          decisionLogsResult.status === 'fulfilled' ? decisionLogsResult.value : cachedValue?.decisionLogs || []
-
         if (playersResult.status === 'rejected') {
           console.error(playersResult.reason)
         }
@@ -82,20 +73,14 @@ export function PlayersPage() {
           console.error(evaluationsResult.reason)
         }
 
-        if (decisionLogsResult.status === 'rejected') {
-          console.error(decisionLogsResult.reason)
-        }
-
         setPlayers(nextPlayers)
         setEvaluations(nextEvaluations)
-        setDecisionLogs(nextDecisionLogs)
         writeViewCache(cacheKey, {
           players: nextPlayers,
           evaluations: nextEvaluations,
-          decisionLogs: nextDecisionLogs,
         })
 
-        if (playersResult.status === 'rejected' || evaluationsResult.status === 'rejected' || decisionLogsResult.status === 'rejected') {
+        if (playersResult.status === 'rejected' || evaluationsResult.status === 'rejected') {
           setErrorMessage('Some player data could not be refreshed. Existing data is still available where possible.')
         }
       } finally {
@@ -113,26 +98,6 @@ export function PlayersPage() {
       isMounted = false
     }
   }, [cacheKey, user, userScopeKey])
-
-  const playerDecisionActions = useMemo(() => {
-    const actionsByPlayerId = new Map()
-
-    decisionLogs.forEach((log) => {
-      const playerId = String(log.playerId ?? '').trim()
-
-      if (!playerId) {
-        return
-      }
-
-      if (!actionsByPlayerId.has(playerId)) {
-        actionsByPlayerId.set(playerId, new Set())
-      }
-
-      actionsByPlayerId.get(playerId).add(log.action)
-    })
-
-    return actionsByPlayerId
-  }, [decisionLogs])
 
   const playerRows = useMemo(() => {
     const playersByName = new Map()
@@ -250,52 +215,35 @@ export function PlayersPage() {
     return <Navigate to="/" replace />
   }
 
-  const handlePlayerAction = async (event, player, action) => {
+  const handleMovePlayerToTrial = async (event, player) => {
     event.stopPropagation()
     const playerId = player.playerId || players.find((savedPlayer) => getPlayerKey(savedPlayer.playerName) === getPlayerKey(player.playerName))?.id
 
     if (!playerId) {
-      setErrorMessage('Open the player profile first so this action can be saved against the right player.')
+      setErrorMessage('Open the player profile first so this player can be moved.')
       return
     }
 
-    setActionLoadingKey(`${playerId}:${action}`)
+    setActionLoadingKey(`${playerId}:move-to-trial`)
     setErrorMessage('')
     setMessage('')
 
     try {
-      await createCommunicationLog({
+      const movedPlayer = await movePlayerToTrial({
         user,
         playerId,
-        channel: 'player_decision',
-        action,
-        metadata: {
-          playerName: player.playerName,
-          team: player.team,
-          section: player.section,
-        },
       })
-      setMessage('Player action saved.')
-      showToast({ title: 'Player action saved', message: `${player.playerName} action has been saved.` })
-      if (playerId) {
-        setDecisionLogs((current) => [
-          {
-            id: `${playerId}:${action}:${Date.now()}`,
-            playerId,
-            action,
-            channel: 'player_decision',
-            metadata: {
-              playerName: player.playerName,
-              team: player.team,
-              section: player.section,
-            },
-          },
-          ...current,
-        ])
-      }
+      const nextPlayers = players.map((savedPlayer) => (savedPlayer.id === playerId ? movedPlayer : savedPlayer))
+      setPlayers(nextPlayers)
+      writeViewCache(cacheKey, {
+        players: nextPlayers,
+        evaluations,
+      })
+      setMessage(`${movedPlayer.playerName} was moved to Trial players.`)
+      showToast({ title: 'Player moved', message: `${movedPlayer.playerName} was moved to Trial players.` })
     } catch (error) {
       console.error(error)
-      setErrorMessage('Could not save this player action.')
+      setErrorMessage(error.message || 'Could not move this player to Trial.')
     } finally {
       setActionLoadingKey('')
     }
@@ -367,16 +315,15 @@ export function PlayersPage() {
         isLoading={isLoading}
         onArchivePlayer={handleArchivePlayer}
         onFilterChange={updateListFilter}
+        onMovePlayerToTrial={handleMovePlayerToTrial}
         onOpenPlayer={(player) => navigate(`/player/${encodeURIComponent(player.playerName)}`)}
         onPageChange={setPlayerPage}
-        onPlayerAction={handlePlayerAction}
         onSearchChange={(nextSearchTerm) => {
           setSearchTerm(nextSearchTerm)
           setPlayerPage(1)
         }}
         pageSize={PLAYER_PAGE_SIZE}
         paginatedPlayers={paginatedPlayers}
-        playerDecisionActions={playerDecisionActions}
         playerPage={playerPage}
         searchTerm={searchTerm}
         urlSection={urlSection}

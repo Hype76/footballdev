@@ -77,6 +77,7 @@ import {
   normalizeParentContacts,
   normalizePlayerContactType,
   clearViewCaches,
+  movePlayerToTrial,
   promotePlayerToSquad,
   readViewCache,
   readViewCacheValue,
@@ -972,6 +973,28 @@ export function PlayerProfile() {
     })
   }
 
+  const handleMovePlayerToTrial = async (playerId) => {
+    setIsPromotingId(playerId)
+    setErrorMessage('')
+
+    try {
+      const movedPlayer = await movePlayerToTrial({ user, playerId })
+      const nextPlayers = players.map((player) => (player.id === playerId ? movedPlayer : player))
+      setPlayers(nextPlayers)
+      setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, createPlayerDraft(player)])))
+      writeViewCache(cacheKey, {
+        evaluations,
+        players: nextPlayers,
+      })
+      showToast({ title: 'Player moved', message: `${movedPlayer.playerName} has been moved to Trial players.` })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not move this player to Trial.')
+    } finally {
+      setIsPromotingId('')
+    }
+  }
+
   const confirmDeletePlayer = async (password, reason) => {
     if (!playerDeleteTarget) {
       return
@@ -1081,6 +1104,7 @@ export function PlayerProfile() {
         onAddParentContact={handleAddParentContact}
         onAddPlayerPosition={handleAddPlayerPosition}
         onCancelEditing={() => setEditingPlayerId('')}
+        onMovePlayerToTrial={(playerId) => void handleMovePlayerToTrial(playerId)}
         onParentContactDraftChange={handleParentContactDraftChange}
         onPlayerDraftChange={handlePlayerDraftChange}
         onPromotePlayer={(playerId) => void handlePromotePlayer(playerId)}
