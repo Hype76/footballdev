@@ -3,6 +3,7 @@ export function normalizeTeamRow(row) {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
     name: String(row.name ?? '').trim(),
+    logoUrl: String(row.logo_url ?? row.logoUrl ?? '').trim(),
     requireApproval: Boolean(row.require_approval ?? row.requireApproval ?? true),
     createdBy: row.created_by ?? row.createdBy ?? '',
     createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),

@@ -120,6 +120,7 @@ export function AuthProvider({ children }) {
           ...profile,
           activeTeamId: '',
           activeTeamName: '',
+          activeTeamLogoUrl: '',
         }
       }
 
@@ -127,6 +128,7 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
+        activeTeamLogoUrl: selectedTeam.logoUrl || '',
       }
     }
 
@@ -140,6 +142,7 @@ export function AuthProvider({ children }) {
           ...profile,
           activeTeamId: '',
           activeTeamName: '',
+          activeTeamLogoUrl: '',
         }
       }
 
@@ -148,6 +151,7 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: onlyTeam.id,
         activeTeamName: onlyTeam.name,
+        activeTeamLogoUrl: onlyTeam.logoUrl || '',
       }
     }
 
@@ -160,6 +164,7 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: '',
         activeTeamName: '',
+        activeTeamLogoUrl: '',
       }
     }
 
@@ -168,6 +173,7 @@ export function AuthProvider({ children }) {
       ...profile,
       activeTeamId: selectedTeam.id,
       activeTeamName: selectedTeam.name,
+      activeTeamLogoUrl: selectedTeam.logoUrl || '',
     }
   }
 
@@ -453,6 +459,7 @@ export function AuthProvider({ children }) {
           ...current,
           activeTeamId: '',
           activeTeamName: '',
+          activeTeamLogoUrl: '',
         }
       })
       return
@@ -474,6 +481,7 @@ export function AuthProvider({ children }) {
         ...current,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
+        activeTeamLogoUrl: selectedTeam.logoUrl || '',
       }
     })
   }

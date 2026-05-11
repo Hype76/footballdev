@@ -12,7 +12,7 @@ export function Topbar({ title, onMenuClick }) {
   const roleLabel = user ? getRoleLabel(user) : 'Loading access'
   const canUseClubAdminView = isClubAdmin(user)
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
-  const logoUrl = user?.clubLogoUrl || fallbackLogo
+  const logoUrl = user?.activeTeamLogoUrl || user?.clubLogoUrl || fallbackLogo
   const userLabel = user?.email || authUser?.email || user?.name || 'Loading user'
   const teamLabel = user?.activeTeamName ? `Team: ${user.activeTeamName}` : clubLabel
   const isPlatformAdminView = user?.role === 'super_admin'

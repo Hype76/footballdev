@@ -11,6 +11,7 @@ export function LoginEmailSection({
     <SectionCard
       title="Login email"
       description="Change the email address used for signing in."
+      tourId="login-email-settings"
     >
       <form className="space-y-4" onSubmit={onSubmit}>
         <label className="block">

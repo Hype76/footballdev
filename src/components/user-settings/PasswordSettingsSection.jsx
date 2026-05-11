@@ -15,6 +15,7 @@ export function PasswordSettingsSection({
     <SectionCard
       title="Password"
       description="Change your password while signed in, or send yourself a reset email."
+      tourId="password-settings"
     >
       <form className="space-y-4" onSubmit={onSubmit}>
         <div className="grid gap-4 md:grid-cols-2">

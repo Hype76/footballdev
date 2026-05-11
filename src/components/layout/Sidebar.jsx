@@ -21,7 +21,7 @@ function getSidebarTourId(path) {
 
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
-  const logoUrl = user?.clubLogoUrl || fallbackLogo
+  const logoUrl = user?.activeTeamLogoUrl || user?.clubLogoUrl || fallbackLogo
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(user)
   const navigationItems = primaryNavigation.filter((item) => {

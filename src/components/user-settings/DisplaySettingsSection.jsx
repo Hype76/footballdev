@@ -13,6 +13,7 @@ export function DisplaySettingsSection({
     <SectionCard
       title="Display"
       description="Choose the theme and accent colour for your workspace."
+      tourId="display-settings"
     >
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block">

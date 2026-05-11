@@ -1,4 +1,6 @@
 import { getRoleLabel } from '../../lib/auth.js'
+import { createFeatureUpgradeMessage } from '../../lib/plans.js'
+import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
@@ -8,10 +10,14 @@ function getStaffDisplayName(member) {
 
 export function TeamStaffAllocationsSection({
   availableStaff,
+  canUseBasicBranding,
   isLoading,
   isSaving,
+  isUploadingTeamLogo,
   onAddExistingStaff,
   onDeleteTeam,
+  onTeamLogoFileChange,
+  onTeamLogoUpload,
   onRemoveStaff,
   onSaveTeamName,
   onSelectedTeamChange,
@@ -23,6 +29,7 @@ export function TeamStaffAllocationsSection({
   paginatedSelectedTeamStaff,
   paginatedTeams,
   selectedTeam,
+  selectedTeamLogoFile,
   selectedTeamStaff,
   staffPage,
   staffPageSize,
@@ -61,9 +68,13 @@ export function TeamStaffAllocationsSection({
           {selectedTeam ? (
             <SelectedTeamPanel
               availableStaff={availableStaff}
+              canUseBasicBranding={canUseBasicBranding}
               isSaving={isSaving}
+              isUploadingTeamLogo={isUploadingTeamLogo}
               onAddExistingStaff={onAddExistingStaff}
               onDeleteTeam={onDeleteTeam}
+              onTeamLogoFileChange={onTeamLogoFileChange}
+              onTeamLogoUpload={onTeamLogoUpload}
               onRemoveStaff={onRemoveStaff}
               onSaveTeamName={onSaveTeamName}
               onStaffPageChange={onStaffPageChange}
@@ -72,6 +83,7 @@ export function TeamStaffAllocationsSection({
               onTeamNameDraftChange={onTeamNameDraftChange}
               paginatedSelectedTeamStaff={paginatedSelectedTeamStaff}
               selectedTeam={selectedTeam}
+              selectedTeamLogoFile={selectedTeamLogoFile}
               selectedTeamStaff={selectedTeamStaff}
               staffPage={staffPage}
               staffPageSize={staffPageSize}
@@ -131,9 +143,13 @@ function TeamList({
 
 function SelectedTeamPanel({
   availableStaff,
+  canUseBasicBranding,
   isSaving,
+  isUploadingTeamLogo,
   onAddExistingStaff,
   onDeleteTeam,
+  onTeamLogoFileChange,
+  onTeamLogoUpload,
   onRemoveStaff,
   onSaveTeamName,
   onStaffPageChange,
@@ -142,6 +158,7 @@ function SelectedTeamPanel({
   onTeamNameDraftChange,
   paginatedSelectedTeamStaff,
   selectedTeam,
+  selectedTeamLogoFile,
   selectedTeamStaff,
   staffPage,
   staffPageSize,
@@ -187,6 +204,42 @@ function SelectedTeamPanel({
         >
           Delete Team
         </button>
+      </div>
+
+      <div
+        data-tour-id="team-logo-settings"
+        className="mt-5 grid gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 md:grid-cols-[160px_minmax(0,1fr)]"
+      >
+        <div className="flex min-h-36 items-center justify-center overflow-hidden rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
+          <img src={selectedTeam.logoUrl || fallbackLogo} alt={`${selectedTeam.name} logo`} className="max-h-28 w-auto object-contain" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Team logo</p>
+          <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+            Team admins can set the logo shown for this team in team-specific views and previews.
+          </p>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Upload team logo</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={onTeamLogoFileChange}
+              disabled={!canUseBasicBranding}
+              className="block min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--panel-soft)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[var(--text-primary)]"
+            />
+          </label>
+          <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+            {canUseBasicBranding ? 'PNG, JPG, or SVG. Maximum file size 2MB.' : createFeatureUpgradeMessage('basicBranding')}
+          </p>
+          <button
+            type="button"
+            onClick={() => void onTeamLogoUpload()}
+            disabled={isUploadingTeamLogo || !selectedTeamLogoFile || !canUseBasicBranding}
+            className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            {isUploadingTeamLogo ? 'Uploading...' : 'Upload Team Logo'}
+          </button>
+        </div>
       </div>
 
       <AddExistingStaffPanel

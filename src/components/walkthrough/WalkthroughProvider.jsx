@@ -30,6 +30,21 @@ function getRoleStep(user) {
 function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }) {
   const steps = activeWalkthrough?.steps ?? []
   const nextAction = getRoleNextAction(user)
+  const focusStepTarget = (target) => {
+    const targetElement = document.querySelector(`[data-tour-id="${target}"]`)
+
+    if (!(targetElement instanceof HTMLElement)) {
+      return
+    }
+
+    targetElement.setAttribute('tabindex', '-1')
+    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    targetElement.focus({ preventScroll: true })
+    targetElement.classList.add('outline', 'outline-2', 'outline-offset-4', 'outline-[var(--accent)]')
+    window.setTimeout(() => {
+      targetElement.classList.remove('outline', 'outline-2', 'outline-offset-4', 'outline-[var(--accent)]')
+    }, 1600)
+  }
 
   return (
     <section className="mb-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5">
@@ -66,11 +81,16 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {steps.map((step, index) => (
-          <div key={`${activeWalkthrough.key}-${step.title}`} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <button
+            key={`${activeWalkthrough.key}-${step.title}`}
+            type="button"
+            onClick={() => focusStepTarget(step.target)}
+            className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-left transition hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:border-[var(--accent)] focus:outline-none"
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Step {index + 1}</p>
             <h3 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{step.title}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{step.body}</p>
-          </div>
+          </button>
         ))}
       </div>
     </section>

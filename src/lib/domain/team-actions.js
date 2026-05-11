@@ -1,5 +1,12 @@
 import { supabase } from '../supabase-client.js'
-import { createLimitUpgradeMessage, getPlanLimit } from '../plans.js'
+import {
+  CLUB_LOGOS_BUCKET,
+  MAX_LOGO_FILE_SIZE_BYTES,
+} from '../supabase-client.js'
+import {
+  createLimitUpgradeMessage,
+  getPlanLimit,
+} from '../plans.js'
 import { getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { createAuditLog } from './audit.js'
 import { blockDemoMutation } from './demo-guards.js'
@@ -12,6 +19,7 @@ import {
   normalizeTeamStaffRow,
 } from './team-normalizers.js'
 import { assertClubFeature } from './plan-gates.js'
+import { appendLogoCacheBuster } from './club-logo-utils.js'
 export async function getTeams(user) {
   if (!user?.clubId && user?.role !== 'super_admin') {
     return []
@@ -74,6 +82,15 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
     payload.require_approval = Boolean(data.requireApproval)
   }
 
+  if (data.logoUrl !== undefined) {
+    await assertClubFeature({
+      user,
+      clubId: currentTeam.club_id,
+      featureName: 'basicBranding',
+    })
+    payload.logo_url = String(data.logoUrl ?? '').trim()
+  }
+
   if (user?.id) {
     payload.updated_by = getEntryUserId(user)
     Object.assign(payload, getEntryIdentity(user, 'updated_by'))
@@ -110,6 +127,53 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
   }
 
   return normalizeTeamRow(updatedTeam)
+}
+
+export async function uploadTeamLogo({ clubId, teamId, file, user = null }) {
+  await blockDemoMutation(user)
+
+  if (!clubId || !teamId) {
+    throw new Error('Team details are required.')
+  }
+
+  await assertClubFeature({
+    user,
+    clubId,
+    featureName: 'basicBranding',
+  })
+
+  if (!(file instanceof File)) {
+    throw new Error('A logo file is required.')
+  }
+
+  if (!String(file.type ?? '').toLowerCase().startsWith('image/')) {
+    throw new Error('Logo must be an image file.')
+  }
+
+  if (file.size > MAX_LOGO_FILE_SIZE_BYTES) {
+    throw new Error('Logo must be 2MB or smaller.')
+  }
+
+  const objectPath = `${clubId}/teams/${teamId}/logo.png`
+  const { error: uploadError } = await supabase.storage.from(CLUB_LOGOS_BUCKET).upload(objectPath, file, {
+    cacheControl: '3600',
+    contentType: file.type || 'image/png',
+    upsert: true,
+  })
+
+  if (uploadError) {
+    console.error(uploadError)
+    throw uploadError
+  }
+
+  const { data } = supabase.storage.from(CLUB_LOGOS_BUCKET).getPublicUrl(objectPath)
+  const publicUrl = String(data?.publicUrl ?? '').trim()
+
+  if (!publicUrl) {
+    throw new Error('Could not generate logo URL.')
+  }
+
+  return appendLogoCacheBuster(publicUrl)
 }
 
 export async function getAvailableTeamsForUser(user) {

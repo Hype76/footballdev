@@ -18,6 +18,7 @@ export function ClubProfileSettingsSection({
     <SectionCard
       title="Club profile"
       description="These details are used in the topbar and parent-facing preview."
+      tourId="club-profile-settings"
     >
       {isLoading ? (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
