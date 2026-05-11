@@ -4,8 +4,10 @@ import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function TemplateEditorSection({
   audience,
+  deletingKey,
   isLoading,
   onAddCustomTemplate,
+  onDeleteTemplate,
   onFieldInsert,
   onResetTemplate,
   onSaveTemplate,
@@ -146,6 +148,16 @@ export function TemplateEditorSection({
                   className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
                 >
                   Use Default
+                </button>
+              ) : null}
+              {template.isCustom ? (
+                <button
+                  type="button"
+                  onClick={() => void onDeleteTemplate(template)}
+                  disabled={deletingKey === template.key}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                >
+                  {deletingKey === template.key ? 'Deleting...' : 'Delete Template'}
                 </button>
               ) : null}
             </div>

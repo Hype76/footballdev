@@ -8,6 +8,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { canManageParentEmailTemplates, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import { EMAIL_TEMPLATE_AUDIENCES, validateParentEmailTemplateContent } from '../lib/email-templates.js'
+import { deleteParentEmailTemplate } from '../lib/domain/parent-email-templates.js'
 import { createCustomParentEmailTemplate, mergeParentEmailTemplates } from '../lib/parent-template-page-utils.js'
 import {
   EVALUATION_SECTIONS,
@@ -22,6 +23,7 @@ export function ParentEmailTemplatesPage() {
   const [templates, setTemplates] = useState(() => mergeParentEmailTemplates([], EMAIL_TEMPLATE_AUDIENCES.parent))
   const [isLoading, setIsLoading] = useState(true)
   const [savingKey, setSavingKey] = useState('')
+  const [deletingKey, setDeletingKey] = useState('')
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.planKey}` : ''
@@ -161,6 +163,36 @@ export function ParentEmailTemplatesPage() {
     }
   }
 
+  const deleteTemplate = async (template) => {
+    setMessage('')
+    setErrorMessage('')
+
+    if (!template?.isCustom) {
+      setErrorMessage('Default templates cannot be deleted.')
+      return
+    }
+
+    if (template.id && !window.confirm(`Delete ${template.label}? This cannot be undone.`)) {
+      return
+    }
+
+    setDeletingKey(template.key)
+
+    try {
+      if (template.id) {
+        await deleteParentEmailTemplate({ user, template })
+      }
+
+      setTemplates((current) => current.filter((item) => item.key !== template.key))
+      setMessage(`${template.label} deleted.`)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not delete this template.')
+    } finally {
+      setDeletingKey('')
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -178,8 +210,10 @@ export function ParentEmailTemplatesPage() {
 
       <TemplateEditorSection
         audience={audience}
+        deletingKey={deletingKey}
         isLoading={isLoading}
         onAddCustomTemplate={addCustomTemplate}
+        onDeleteTemplate={deleteTemplate}
         onFieldInsert={insertField}
         onResetTemplate={resetTemplate}
         onSaveTemplate={saveTemplate}

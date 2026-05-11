@@ -193,6 +193,12 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
   }
 }
 
+function isDefaultParentEmailTemplateKey(templateKey, audience) {
+  const normalizedTemplateKey = String(templateKey ?? '').trim().toLowerCase()
+
+  return getDefaultEmailTemplates(audience).some((template) => template.key === normalizedTemplateKey)
+}
+
 export function getDefaultClubParentEmailTemplates(audience = EMAIL_TEMPLATE_AUDIENCES.parent) {
   return getDefaultEmailTemplates(audience)
 }
@@ -266,4 +272,50 @@ export async function upsertParentEmailTemplate({ user, template }) {
   }
 
   return normalizeParentEmailTemplateRow(data)
+}
+
+export async function deleteParentEmailTemplate({ user, template }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  if (Number(user.roleRank ?? 0) < 50 || user.role === 'super_admin') {
+    throw new Error('Only managers and above can manage parent email templates.')
+  }
+
+  const templateKey = String(template?.key ?? template?.templateKey ?? '').trim().toLowerCase()
+  const audience = normalizeEmailTemplateAudience(template?.audience)
+
+  if (!templateKey) {
+    throw new Error('Template key is required.')
+  }
+
+  if (isDefaultParentEmailTemplateKey(templateKey, audience)) {
+    throw new Error('Default templates cannot be deleted.')
+  }
+
+  await assertClubFeature({
+    user,
+    clubId: user.clubId,
+    featureName: 'parentEmail',
+  })
+
+  const { error } = await supabase
+    .from('parent_email_templates')
+    .delete()
+    .eq('club_id', user.clubId)
+    .eq('audience', audience)
+    .eq('template_key', templateKey)
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return {
+    audience,
+    key: templateKey,
+  }
 }
