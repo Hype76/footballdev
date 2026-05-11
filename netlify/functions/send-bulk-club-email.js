@@ -281,6 +281,10 @@ export async function handler(event) {
 
     emailLogRecord = pendingLogResult.record
 
+    if (pendingLogResult.blocked) {
+      return failureResponse(429, 'This email has already been sent 3 times in 5 minutes. Wait before sending again.')
+    }
+
     const resend = new Resend(process.env.RESEND_API_KEY)
     const response = await resend.emails.send(emailPayload)
 

@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto'
 import { supabaseAdmin } from './_supabase.js'
 
+const DUPLICATE_SEND_LIMIT = 3
+const DUPLICATE_SEND_WINDOW_MS = 5 * 60 * 1000
+
 function getPayloadReplyTo(payload) {
   return payload.replyTo ?? payload.reply_to
 }
@@ -72,6 +75,26 @@ export async function createPendingEmailLog({
   dedupeKey,
   idempotencyKey,
 }) {
+  if (dedupeKey) {
+    const duplicateWindowStart = new Date(Date.now() - DUPLICATE_SEND_WINDOW_MS).toISOString()
+    const { count, error: duplicateCountError } = await supabaseAdmin
+      .from('email_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('dedupe_key', dedupeKey)
+      .in('status', ['pending', 'sent'])
+      .gte('created_at', duplicateWindowStart)
+
+    if (duplicateCountError) {
+      console.error('Email duplicate count failed', duplicateCountError)
+    } else if (Number(count ?? 0) >= DUPLICATE_SEND_LIMIT) {
+      return {
+        record: null,
+        blocked: true,
+        retryAfterSeconds: Math.ceil(DUPLICATE_SEND_WINDOW_MS / 1000),
+      }
+    }
+  }
+
   const { data: existingRecord, error: selectError } = await supabaseAdmin
     .from('email_logs')
     .select('id, status, attempts, payload')

@@ -272,6 +272,10 @@ export async function handler(event) {
 
     emailLogRecord = pendingLogResult.record
 
+    if (pendingLogResult.blocked) {
+      return failureResponse(429, 'This email has already been sent 3 times in 5 minutes. Wait before sending again.')
+    }
+
     if (pendingLogResult.skipped) {
       return successResponse({ duplicate: true })
     }
