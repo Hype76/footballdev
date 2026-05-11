@@ -16,6 +16,21 @@ export const primaryNavigation = [
     path: '/teams',
   },
   {
+    label: 'Archived Players',
+    path: '/archived-players',
+  },
+]
+
+export const clubNavigation = [
+  {
+    label: 'Club Settings',
+    path: '/club-settings',
+  },
+  {
+    label: 'User Access',
+    path: '/user-access',
+  },
+  {
     label: 'Assessment Fields',
     path: '/form-builder',
   },
@@ -28,16 +43,8 @@ export const primaryNavigation = [
     path: '/bulk-email',
   },
   {
-    label: 'User Access',
-    path: '/user-access',
-  },
-  {
     label: 'Activity Log',
     path: '/activity-log',
-  },
-  {
-    label: 'Archived Players',
-    path: '/archived-players',
   },
   {
     label: 'Billing',

@@ -79,11 +79,11 @@ export function canAssignRole(user, targetRole) {
 }
 
 export function canManageFormFields(user) {
-  return !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user?.activeTeamId)) && Number(user?.roleRank ?? 0) >= 50
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canManageParentEmailTemplates(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user?.activeTeamId)) && Number(user?.roleRank ?? 0) >= 50
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canManageClubSettings(user) {
@@ -95,7 +95,7 @@ export function canManageClubLogo(user) {
 }
 
 export function canSendBulkClubEmail(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && user.role === 'head_manager' && isPlanAccessActive(user)
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && isClubAdmin(user) && isPlanAccessActive(user)
 }
 
 export function isTesterAccessExpired(user) {

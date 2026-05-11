@@ -1,12 +1,14 @@
 import { NavLink } from 'react-router-dom'
 import fallbackLogo from '../../assets/player-feedback-logo.png'
-import { primaryNavigation } from '../../app/navigation.js'
+import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
+  canManageClubSettings,
   canManageFormFields,
   canManageParentEmailTemplates,
   canManageTeamSettings,
   canManageUsers,
+  canSendBulkClubEmail,
   canViewPlatformFeedback,
   canViewActivityLog,
   canViewBilling,
@@ -24,7 +26,7 @@ export function Sidebar({ isOpen, onClose }) {
   const logoUrl = user?.clubLogoUrl || fallbackLogo
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(user)
-  const navigationItems = primaryNavigation.filter((item) => {
+  const getVisibleNavigationItems = (items) => items.filter((item) => {
     if (isSuperAdmin(user)) {
       return item.path === '/activity-log'
     }
@@ -60,7 +62,11 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (item.path === '/bulk-email') {
-      return Boolean(user?.clubId) && user.role === 'head_manager'
+      return canSendBulkClubEmail(user)
+    }
+
+    if (item.path === '/club-settings') {
+      return canManageClubSettings(user)
     }
 
     if (item.path === '/billing') {
@@ -95,6 +101,8 @@ export function Sidebar({ isOpen, onClose }) {
 
     return item
   })
+  const navigationItems = getVisibleNavigationItems(primaryNavigation)
+  const clubNavigationItems = canManageClubSettings(user) ? getVisibleNavigationItems(clubNavigation) : []
 
   const handleSignOut = async () => {
     try {
@@ -179,6 +187,50 @@ export function Sidebar({ isOpen, onClose }) {
             ),
           )}
         </nav>
+
+        {clubNavigationItems.length > 0 ? (
+          <div className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+            <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+              Club
+            </p>
+            {clubNavigationItems.map((item) =>
+              item.disabled ? (
+                <button
+                  key={item.path}
+                  type="button"
+                  title={item.disabledMessage}
+                  className="mt-2 flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-left opacity-65"
+                >
+                  <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M7 11V8a5 5 0 0 1 10 0v3" />
+                    <rect x="5" y="11" width="14" height="10" rx="2" />
+                  </svg>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[var(--text-muted)]">{item.label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{item.disabledMessage}</span>
+                  </span>
+                </button>
+              ) : (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  data-tour-id={getSidebarTourId(item.path)}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    [
+                      'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
+                      isActive
+                        ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                        : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
+                    ].join(' ')
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ),
+            )}
+          </div>
+        ) : null}
 
         {isSuperAdmin(user) ? (
           <div className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
