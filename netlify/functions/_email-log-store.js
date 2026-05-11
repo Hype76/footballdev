@@ -1,13 +1,33 @@
 import { createHash } from 'node:crypto'
 import { supabaseAdmin } from './_supabase.js'
 
+function getPayloadReplyTo(payload) {
+  return payload.replyTo ?? payload.reply_to
+}
+
+function normalizeResendPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return {}
+  }
+
+  if (!payload.reply_to || payload.replyTo) {
+    return payload
+  }
+
+  const { reply_to, ...rest } = payload
+  return {
+    ...rest,
+    replyTo: reply_to,
+  }
+}
+
 export function createEmailDedupeKey(payload) {
   return createHash('sha256')
     .update(JSON.stringify({
       from: payload.from,
       to: payload.to,
       cc: payload.cc,
-      reply_to: payload.reply_to,
+      replyTo: getPayloadReplyTo(payload),
       subject: payload.subject,
       html: payload.html,
     }))
@@ -21,6 +41,7 @@ export function createEmailIdempotencyKey({ payload, idempotencySeed }) {
       from: payload.from,
       to: payload.to,
       cc: payload.cc,
+      replyTo: getPayloadReplyTo(payload),
       subject: payload.subject,
       html: payload.html,
     }))
@@ -39,7 +60,7 @@ function getNextRetryDate(attempts) {
 }
 
 export function getStoredResendPayload(emailLog) {
-  return emailLog?.payload?.resendPayload || emailLog?.payload || {}
+  return normalizeResendPayload(emailLog?.payload?.resendPayload || emailLog?.payload || {})
 }
 
 export async function createPendingEmailLog({

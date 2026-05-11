@@ -96,7 +96,7 @@ function buildEmailPayload({
   const emailPayload = {
     from: `${fromName} <feedback@playerfeedback.online>`,
     to: recipients,
-    reply_to: safeReplyTo || undefined,
+    replyTo: safeReplyTo || undefined,
     subject: String(subject ?? '').trim() || 'Player Feedback',
     html: emailHtml,
   }
