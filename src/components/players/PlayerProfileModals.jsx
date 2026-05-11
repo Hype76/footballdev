@@ -31,7 +31,7 @@ export function PlayerProfileModals({
   reassignConfirmTarget,
   routePlayerName,
 }) {
-  const canAttachPdf = Boolean(emailConfirmTarget && !emailConfirmTarget.evaluation?.isDirectEmail)
+  const canAttachPdf = Boolean(emailConfirmTarget)
 
   return (
     <>

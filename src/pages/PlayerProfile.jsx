@@ -576,7 +576,7 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      const attachPdf = !evaluation.isDirectEmail && isPdfAttachmentApproved
+      const attachPdf = isPdfAttachmentApproved
       await Promise.all(payloads.map((item) => sendParentEmail({ ...item.payload, attachPdf })))
       showToast({ title: 'Email sent successfully' })
 
