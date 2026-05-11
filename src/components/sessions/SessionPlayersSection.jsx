@@ -1,4 +1,5 @@
 import { MicIcon } from '../icons/MicIcon.jsx'
+import { formatRetentionDate, getRetentionCountdownLabel } from '../../lib/retention.js'
 import { SESSION_PLAYER_PAGE_SIZE, formatSessionDate, formatSessionType, normalizeProgressName } from '../../lib/session-page-utils.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
@@ -186,6 +187,9 @@ function SessionVoiceNotes({ deletingVoiceNoteId, notes, onDeleteVoiceNote, sele
               Voice note audio
             </audio>
           ) : null}
+          <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]">
+            Deletes {formatRetentionDate(note.audioExpiresAt)} | {getRetentionCountdownLabel(note.audioExpiresAt)}
+          </p>
           <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
             {note.userName || note.userEmail || 'Staff'} | {formatSessionDate(note.createdAt)}
           </p>

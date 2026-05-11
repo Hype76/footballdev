@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PlayerDetailsSection } from '../components/players/PlayerDetailsSection.jsx'
 import { PlayerEvaluationsHistory } from '../components/players/PlayerEvaluationsHistory.jsx'
@@ -59,6 +59,7 @@ import {
   updatePlayerDraftValue,
 } from '../hooks/players/playerProfileUtils.js'
 import { sortResponseItemsByValueType } from '../hooks/evaluations/evaluationFormUtils.js'
+import { getRecorderOptions } from '../lib/session-page-utils.js'
 import {
   EVALUATION_SECTIONS,
   PLAYER_CONTACT_TYPES,
@@ -115,6 +116,8 @@ export function PlayerProfile() {
   const [isLoading, setIsLoading] = useState(() => evaluations.length === 0)
   const [isSavingPlayer, setIsSavingPlayer] = useState(false)
   const [isSavingNote, setIsSavingNote] = useState(false)
+  const [isSavingVoiceNote, setIsSavingVoiceNote] = useState(false)
+  const [isRecordingVoiceNote, setIsRecordingVoiceNote] = useState(false)
   const [deletingStaffNoteId, setDeletingStaffNoteId] = useState('')
   const [isPromotingId, setIsPromotingId] = useState('')
   const [isReassigningId, setIsReassigningId] = useState('')
@@ -142,6 +145,9 @@ export function PlayerProfile() {
   const [noPlaceArchiveTarget, setNoPlaceArchiveTarget] = useState(null)
   const [evaluationDeleteTarget, setEvaluationDeleteTarget] = useState(null)
   const [staffNoteDeleteTarget, setStaffNoteDeleteTarget] = useState(null)
+  const mediaRecorderRef = useRef(null)
+  const recordingChunksRef = useRef([])
+  const recordingStartedAtRef = useRef(0)
   const [emailConfirmTarget, setEmailConfirmTarget] = useState(null)
   const [reassignConfirmTarget, setReassignConfirmTarget] = useState(null)
   const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
@@ -626,6 +632,87 @@ export function PlayerProfile() {
       setErrorMessage(error.message || 'Could not save staff note.')
     } finally {
       setIsSavingNote(false)
+    }
+  }
+
+  const handleStartProfileVoiceNote = async () => {
+    if (!primaryPlayer?.id) {
+      setErrorMessage('Player details are not available yet.')
+      return
+    }
+
+    if (!globalThis.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+      setErrorMessage('Voice recording is not supported in this browser.')
+      showToast({ title: 'Voice note not started', message: 'Voice recording is not supported in this browser.', tone: 'error' })
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new globalThis.MediaRecorder(stream, getRecorderOptions())
+      recordingChunksRef.current = []
+      recordingStartedAtRef.current = Date.now()
+      setIsRecordingVoiceNote(true)
+      setErrorMessage('')
+
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) {
+          recordingChunksRef.current.push(event.data)
+        }
+      }
+
+      recorder.onstop = async () => {
+        const chunks = recordingChunksRef.current
+        const durationSeconds = Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+        stream.getTracks().forEach((track) => track.stop())
+        mediaRecorderRef.current = null
+        recordingChunksRef.current = []
+
+        if (chunks.length === 0) {
+          setIsRecordingVoiceNote(false)
+          setErrorMessage('No audio was captured. Try recording again.')
+          return
+        }
+
+        const audioBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+        setIsSavingVoiceNote(true)
+
+        try {
+          const nextNote = await createPlayerStaffNote({
+            user,
+            playerId: primaryPlayer.id,
+            note: noteDraft.trim() || `Voice note for ${primaryPlayer.playerName || routePlayerName}`,
+            audioBlob,
+            audioDurationSeconds: durationSeconds,
+          })
+          const nextActivity = await getPlayerCommunicationLogs({ user, playerId: primaryPlayer.id })
+          setStaffNotes((current) => [nextNote, ...current])
+          setActivityLogs(nextActivity)
+          setNoteDraft('')
+          showToast({ title: 'Voice note saved', message: 'Saved to this player profile.' })
+        } catch (error) {
+          console.error(error)
+          setErrorMessage(error.message || 'Could not save the voice note.')
+          showToast({ title: 'Voice note not saved', message: error.message || 'Could not save the voice note.', tone: 'error' })
+        } finally {
+          setIsRecordingVoiceNote(false)
+          setIsSavingVoiceNote(false)
+        }
+      }
+
+      mediaRecorderRef.current = recorder
+      recorder.start()
+    } catch (error) {
+      console.error(error)
+      setIsRecordingVoiceNote(false)
+      setErrorMessage('Microphone access was not allowed.')
+      showToast({ title: 'Voice note not started', message: 'Microphone access was not allowed.', tone: 'error' })
+    }
+  }
+
+  const handleStopProfileVoiceNote = () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop()
     }
   }
 
@@ -1157,11 +1244,15 @@ export function PlayerProfile() {
       <PlayerStaffActivity
         activityLogs={activityLogs}
         deletingNoteId={deletingStaffNoteId}
+        isRecordingVoiceNote={isRecordingVoiceNote}
         isSavingNote={isSavingNote}
+        isSavingVoiceNote={isSavingVoiceNote}
         noteDraft={noteDraft}
         onDeleteNote={setStaffNoteDeleteTarget}
         onNoteChange={setNoteDraft}
         onSaveNote={() => void handleSaveStaffNote()}
+        onStartVoiceNote={() => void handleStartProfileVoiceNote()}
+        onStopVoiceNote={handleStopProfileVoiceNote}
         primaryPlayer={primaryPlayer}
         staffNotes={staffNotes}
       />

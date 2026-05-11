@@ -8,6 +8,29 @@ import {
   getEntryUserId,
   normalizeWords,
 } from './core-normalizers.js'
+import { ARCHIVED_PLAYER_RETENTION_MONTHS, addMonths } from '../retention.js'
+
+function getArchivedDeleteAt(row) {
+  const explicitDate = row.archived_delete_at ?? row.archivedDeleteAt ?? ''
+
+  if (explicitDate) {
+    return explicitDate
+  }
+
+  const archivedAt = row.archived_at ?? row.archivedAt ?? ''
+
+  if (!archivedAt) {
+    return ''
+  }
+
+  const archivedDate = new Date(archivedAt)
+
+  if (Number.isNaN(archivedDate.getTime())) {
+    return ''
+  }
+
+  return addMonths(archivedDate, ARCHIVED_PLAYER_RETENTION_MONTHS).toISOString()
+}
 
 export function normalizePlayerRow(row) {
   const positions = Array.isArray(row.positions)
@@ -34,6 +57,7 @@ export function normalizePlayerRow(row) {
     status: String(row.status ?? 'active').trim() || 'active',
     archivedReason: String(row.archived_reason ?? row.archivedReason ?? '').trim(),
     archivedAt: row.archived_at ?? row.archivedAt ?? '',
+    archivedDeleteAt: getArchivedDeleteAt(row),
     archivedBy: row.archived_by ?? row.archivedBy ?? '',
     archivedPreviousStatus: String(row.archived_previous_status ?? row.archivedPreviousStatus ?? '').trim(),
     promotedAt: row.promoted_at ?? row.promotedAt ?? '',

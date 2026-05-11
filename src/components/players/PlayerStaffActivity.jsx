@@ -1,14 +1,20 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { formatActivityDate, getActivityLabel } from '../../hooks/players/playerProfileUtils.js'
+import { formatRetentionDate, getRetentionCountdownLabel } from '../../lib/retention.js'
+import { MicIcon } from '../icons/MicIcon.jsx'
 
 export function PlayerStaffActivity({
   activityLogs,
   deletingNoteId,
+  isRecordingVoiceNote,
   isSavingNote,
+  isSavingVoiceNote,
   noteDraft,
   onDeleteNote,
   onNoteChange,
   onSaveNote,
+  onStartVoiceNote,
+  onStopVoiceNote,
   primaryPlayer,
   staffNotes,
 }) {
@@ -29,14 +35,31 @@ export function PlayerStaffActivity({
               placeholder="Add a staff-only note for this player"
             />
           </label>
-          <button
-            type="button"
-            onClick={onSaveNote}
-            disabled={isSavingNote || !noteDraft.trim() || !primaryPlayer?.id}
-            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSavingNote ? 'Saving...' : 'Save Note'}
-          </button>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={onSaveNote}
+              disabled={isSavingNote || isSavingVoiceNote || !noteDraft.trim() || !primaryPlayer?.id}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSavingNote ? 'Saving...' : 'Save Note'}
+            </button>
+            <button
+              type="button"
+              onClick={isRecordingVoiceNote ? onStopVoiceNote : onStartVoiceNote}
+              disabled={isSavingNote || isSavingVoiceNote || !primaryPlayer?.id}
+              aria-label={isRecordingVoiceNote ? 'Stop player voice note recording' : 'Record player voice note'}
+              title={isRecordingVoiceNote ? 'Stop recording' : 'Voice note'}
+              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                isRecordingVoiceNote
+                  ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
+                  : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+              }`}
+            >
+              <MicIcon />
+              {isRecordingVoiceNote ? 'Stop Recording' : isSavingVoiceNote ? 'Saving Voice Note...' : 'Voice Note'}
+            </button>
+          </div>
 
           <div className="mt-4 space-y-3">
             {staffNotes.length === 0 ? (
@@ -63,6 +86,11 @@ export function PlayerStaffActivity({
                     <audio controls src={note.audioUrl} className="mt-3 w-full">
                       Voice note audio
                     </audio>
+                  ) : null}
+                  {note.audioPath || note.audioUrl ? (
+                    <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]">
+                      Deletes {formatRetentionDate(note.audioExpiresAt)} | {getRetentionCountdownLabel(note.audioExpiresAt)}
+                    </p>
                   ) : null}
                   <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                     {note.userName || note.userEmail || 'Staff'} | {formatActivityDate(note.createdAt)}

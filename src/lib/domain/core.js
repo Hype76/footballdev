@@ -71,6 +71,12 @@ import {
   mapPlayerToRow,
   normalizePlayerRow,
 } from './player-normalizers.js'
+import {
+  ARCHIVED_PLAYER_RETENTION_MONTHS,
+  VOICE_NOTE_RETENTION_DAYS,
+  addDays,
+  addMonths,
+} from '../retention.js'
 export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from '../supabase-client.js'
 export {
   formatParentContactEmails,
@@ -942,6 +948,7 @@ export async function createPlayer({ user, player }) {
     ...mapPlayerToRow(player, user),
     status: player.status || 'active',
     archived_at: null,
+    archived_delete_at: null,
     archived_by: null,
     archived_reason: null,
     created_by: getEntryUserId(user),
@@ -1025,13 +1032,15 @@ export async function archivePlayer({ user, playerId, reason }) {
   const previousStatus = currentPlayer.status === 'archived'
     ? currentPlayer.archivedPreviousStatus || 'active'
     : currentPlayer.status || 'active'
+  const archivedAt = new Date()
 
   const { data, error } = await supabase
     .from('players')
     .update({
       status: 'archived',
       archived_reason: normalizedReason,
-      archived_at: new Date().toISOString(),
+      archived_at: archivedAt.toISOString(),
+      archived_delete_at: addMonths(archivedAt, ARCHIVED_PLAYER_RETENTION_MONTHS).toISOString(),
       archived_by: user.id,
       archived_previous_status: previousStatus,
       updated_by: getEntryUserId(user),
@@ -1108,6 +1117,7 @@ export async function restorePlayer({ user, playerId }) {
       status: restoredStatus,
       archived_reason: null,
       archived_at: null,
+      archived_delete_at: null,
       archived_by: null,
       archived_previous_status: null,
       updated_by: getEntryUserId(user),
@@ -1239,6 +1249,7 @@ export async function createPlayerStaffNote({ user, playerId, sessionId = '', no
     sessionId,
     audioBlob,
   })
+  const audioExpiresAt = hasAudio ? addDays(new Date(), VOICE_NOTE_RETENTION_DAYS).toISOString() : null
 
   const { data, error } = await supabase
     .from('player_staff_notes')
@@ -1253,6 +1264,7 @@ export async function createPlayerStaffNote({ user, playerId, sessionId = '', no
       audio_path: audioUpload.audioPath,
       audio_mime_type: audioUpload.audioMimeType,
       audio_duration_seconds: Number.isFinite(Number(audioDurationSeconds)) ? Number(audioDurationSeconds) : null,
+      audio_expires_at: audioExpiresAt,
     })
     .select('*')
     .single()

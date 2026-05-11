@@ -28,6 +28,7 @@ export function normalizePlayerStaffNoteRow(row) {
     audioPath: String(row.audio_path ?? row.audioPath ?? '').trim(),
     audioMimeType: String(row.audio_mime_type ?? row.audioMimeType ?? '').trim(),
     audioDurationSeconds: row.audio_duration_seconds ?? row.audioDurationSeconds ?? null,
+    audioExpiresAt: row.audio_expires_at ?? row.audioExpiresAt ?? '',
     audioUrl: String(row.audioUrl ?? row.audio_url ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
   }

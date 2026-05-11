@@ -1,4 +1,5 @@
 import { ARCHIVED_PLAYER_PAGE_SIZE, formatPlayerDate } from '../../hooks/players/playersPageUtils.js'
+import { formatRetentionDate, getRetentionCountdownLabel } from '../../lib/retention.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
@@ -21,7 +22,7 @@ export function ArchivedPlayersSection({
   return (
     <SectionCard
       title="Archive"
-      description="Archived players are hidden from active player lists, but remain retrievable here."
+      description="Archived players are hidden from active player lists and are scheduled for deletion after 3 months."
     >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-medium text-[var(--text-muted)]">
@@ -72,7 +73,7 @@ export function ArchivedPlayersSection({
         <div className="mt-5 grid gap-3">
           {paginatedPlayers.items.map((player) => (
             <div key={player.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
+              <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
                 <label className="flex items-start pt-1">
                   <input
                     type="checkbox"
@@ -94,6 +95,11 @@ export function ArchivedPlayersSection({
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Archived</p>
                   <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatPlayerDate(player.archivedAt)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Delete Date</p>
+                  <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatRetentionDate(player.archivedDeleteAt)}</p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">{getRetentionCountdownLabel(player.archivedDeleteAt)}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Reason</p>

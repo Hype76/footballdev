@@ -43,6 +43,7 @@ const BulkEmailPage = lazyRoute(() => import('../pages/BulkEmailPage.jsx'), 'Bul
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
+const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
 const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
 const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
@@ -56,6 +57,7 @@ const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPa
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
+const TermsPage = lazyRoute(() => import('../pages/TermsPage.jsx'), 'TermsPage')
 const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
 const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx'), 'UserSettingsPage')
 
@@ -572,6 +574,22 @@ function RequirePlatformAdminAccess() {
 }
 
 export const router = createBrowserRouter([
+  {
+    path: '/gdpr',
+    element: (
+      <PageSuspense>
+        <GdprPage />
+      </PageSuspense>
+    ),
+  },
+  {
+    path: '/terms',
+    element: (
+      <PageSuspense>
+        <TermsPage />
+      </PageSuspense>
+    ),
+  },
   {
     element: <PublicOnly />,
     children: [
