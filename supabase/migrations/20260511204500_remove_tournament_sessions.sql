@@ -1,7 +1,3 @@
-delete from public.assessment_session_games;
-
-drop table if exists public.assessment_session_games;
-
 update public.assessment_sessions
 set
   session_type = 'match',

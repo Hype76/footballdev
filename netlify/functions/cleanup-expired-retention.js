@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { STAFF_VOICE_NOTES_BUCKET } from '../../src/lib/domain/core-constants.js'
 import { supabaseAdmin } from './_supabase.js'
 import { json } from './_stripe-billing.js'
@@ -167,6 +168,14 @@ async function deleteExpiredArchivedPlayers(nowIso) {
 
 export async function handler() {
   try {
+    if (String(process.env.RETENTION_CLEANUP_ENABLED ?? '').trim().toLowerCase() !== 'true') {
+      return json(200, {
+        success: true,
+        skipped: true,
+        message: 'Retention cleanup is disabled.',
+      })
+    }
+
     const nowIso = new Date().toISOString()
     const [voiceNotesDeleted, archivedPlayersDeleted] = await Promise.all([
       deleteExpiredVoiceNotes(nowIso),
