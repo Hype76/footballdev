@@ -46,7 +46,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (item.path === '/teams') {
-      return canManageUsers(user) || canManageTeamSettings(user)
+      return canManageTeamSettings(user)
     }
 
     if (item.path === '/activity-log') {
