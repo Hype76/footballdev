@@ -132,14 +132,24 @@ export function ParentEmailTemplatesPage() {
     ])
   }
 
-  const insertField = (templateKey, fieldKey) => {
+  const insertField = (templateKey, fieldKey, selection = null) => {
     setTemplates((current) =>
       current.map((template) =>
         template.key === templateKey
-          ? {
-              ...template,
-              body: `${String(template.body ?? '').trimEnd()}\n{${fieldKey}}`,
-            }
+          ? (() => {
+              const body = String(template.body ?? '')
+              const insertText = `{${fieldKey}}`
+              const start = Number(selection?.start)
+              const end = Number(selection?.end)
+              const hasSelectionRange = Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end >= start
+              const safeStart = hasSelectionRange ? Math.min(start, body.length) : body.length
+              const safeEnd = hasSelectionRange ? Math.min(end, body.length) : body.length
+
+              return {
+                ...template,
+                body: `${body.slice(0, safeStart)}${insertText}${body.slice(safeEnd)}`,
+              }
+            })()
           : template,
       ),
     )

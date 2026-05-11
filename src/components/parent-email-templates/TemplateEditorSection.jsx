@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { EMAIL_TEMPLATE_FIELDS } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
@@ -16,6 +17,38 @@ export function TemplateEditorSection({
   savingKey,
   templates,
 }) {
+  const bodyRefs = useRef(new Map())
+
+  const setBodyRef = (templateKey, node) => {
+    if (node) {
+      bodyRefs.current.set(templateKey, node)
+      return
+    }
+
+    bodyRefs.current.delete(templateKey)
+  }
+
+  const insertFieldAtCursor = (template, fieldKey) => {
+    const textarea = bodyRefs.current.get(template.key)
+    const body = String(template.body ?? '')
+    const start = typeof textarea?.selectionStart === 'number' ? textarea.selectionStart : body.length
+    const end = typeof textarea?.selectionEnd === 'number' ? textarea.selectionEnd : start
+    const nextPosition = start + fieldKey.length + 2
+
+    onFieldInsert(template.key, fieldKey, { start, end })
+
+    window.requestAnimationFrame(() => {
+      const updatedTextarea = bodyRefs.current.get(template.key)
+
+      if (!updatedTextarea) {
+        return
+      }
+
+      updatedTextarea.focus()
+      updatedTextarea.setSelectionRange(nextPosition, nextPosition)
+    })
+  }
+
   if (isLoading) {
     return (
       <SectionCard title="Templates" description="Loading club templates.">
@@ -112,6 +145,7 @@ export function TemplateEditorSection({
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Body</span>
               <textarea
+                ref={(node) => setBodyRef(template.key, node)}
                 value={template.body}
                 onChange={(event) => onTemplateChange(template.key, 'body', event.target.value)}
                 rows={12}
@@ -124,7 +158,8 @@ export function TemplateEditorSection({
                 <button
                   key={field.key}
                   type="button"
-                  onClick={() => onFieldInsert(template.key, field.key)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => insertFieldAtCursor(template, field.key)}
                   className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
                 >
                   {`Add {${field.key}}`}
