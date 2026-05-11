@@ -173,6 +173,7 @@ export function ParentEmailTemplatesPage() {
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save this template.')
+      showToast({ title: 'Template not saved', message: error.message || 'Could not save this template.', tone: 'error' })
     } finally {
       setSavingKey('')
     }
