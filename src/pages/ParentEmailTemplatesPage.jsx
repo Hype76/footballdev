@@ -8,7 +8,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { canManageParentEmailTemplates, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import { EMAIL_TEMPLATE_AUDIENCES, validateParentEmailTemplateContent } from '../lib/email-templates.js'
-import { mergeParentEmailTemplates } from '../lib/parent-template-page-utils.js'
+import { createCustomParentEmailTemplate, mergeParentEmailTemplates } from '../lib/parent-template-page-utils.js'
 import {
   EVALUATION_SECTIONS,
   getDefaultClubParentEmailTemplates,
@@ -118,6 +118,18 @@ export function ParentEmailTemplatesPage() {
     setErrorMessage('')
   }
 
+  const addCustomTemplate = () => {
+    setMessage('')
+    setErrorMessage('')
+    setTemplates((current) => [
+      ...current,
+      createCustomParentEmailTemplate({
+        audience,
+        existingTemplates: current,
+      }),
+    ])
+  }
+
   const insertField = (templateKey, fieldKey) => {
     setTemplates((current) =>
       current.map((template) =>
@@ -167,6 +179,7 @@ export function ParentEmailTemplatesPage() {
       <TemplateEditorSection
         audience={audience}
         isLoading={isLoading}
+        onAddCustomTemplate={addCustomTemplate}
         onFieldInsert={insertField}
         onResetTemplate={resetTemplate}
         onSaveTemplate={saveTemplate}

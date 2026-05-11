@@ -156,6 +156,10 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
     throw new Error('Template key is required.')
   }
 
+  if (!/^[a-z0-9][a-z0-9_-]{1,60}$/.test(templateKey)) {
+    throw new Error('Template key can only use lowercase letters, numbers, dashes, and underscores.')
+  }
+
   if (!label) {
     throw new Error('Template name is required.')
   }
