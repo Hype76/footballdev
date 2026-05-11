@@ -24,6 +24,10 @@ export const primaryNavigation = [
     path: '/parent-email-templates',
   },
   {
+    label: 'Bulk Email',
+    path: '/bulk-email',
+  },
+  {
     label: 'User Access',
     path: '/user-access',
   },

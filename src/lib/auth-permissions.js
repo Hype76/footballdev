@@ -90,6 +90,10 @@ export function canManageClubSettings(user) {
   return isClubAdmin(user) && isPlanAccessActive(user)
 }
 
+export function canSendBulkClubEmail(user) {
+  return Boolean(user?.clubId) && isClubAdmin(user)
+}
+
 export function isTesterAccessExpired(user) {
   return Boolean(user?.testerAccessExpired)
 }

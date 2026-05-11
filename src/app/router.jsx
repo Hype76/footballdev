@@ -9,6 +9,7 @@ import {
   canManageParentEmailTemplates,
   canManageTeamSettings,
   canManageUsers,
+  canSendBulkClubEmail,
   canViewActivityLog,
   canViewBilling,
   isSuperAdmin,
@@ -38,6 +39,7 @@ const AddPlayerPage = lazyRoute(() => import('../pages/AddPlayerPage.jsx'), 'Add
 const ActivityLogPage = lazyRoute(() => import('../pages/ActivityLogPage.jsx'), 'ActivityLogPage')
 const ArchivedPlayersPage = lazyRoute(() => import('../pages/ArchivedPlayersPage.jsx'), 'ArchivedPlayersPage')
 const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'BillingPage')
+const BulkEmailPage = lazyRoute(() => import('../pages/BulkEmailPage.jsx'), 'BulkEmailPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
@@ -474,6 +476,20 @@ function RequireClubSettingsAccess() {
   return <Outlet />
 }
 
+function RequireBulkEmailAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canSendBulkClubEmail(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function RequireBillingAccess() {
   const { element, user } = useWorkspaceRouteGate({
     blockExpiredTester: false,
@@ -840,6 +856,22 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Email Templates',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireBulkEmailAccess />,
+            children: [
+              {
+                path: 'bulk-email',
+                element: (
+                  <PageSuspense>
+                    <BulkEmailPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Bulk Email',
                 },
               },
             ],

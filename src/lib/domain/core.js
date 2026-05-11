@@ -601,7 +601,7 @@ export async function updateOwnUserSettings({
   await blockDemoMutation(authUser)
 
   const normalizedUsername = normalizeWords(username)
-  const normalizedDisplayName = normalizeWords(displayName)
+  const normalizedDisplayName = String(displayName ?? '').trim()
   const normalizedTeamName = String(teamName ?? '').trim()
   const normalizedClubName = String(clubName ?? '').trim()
   const normalizedReplyToEmail = String(replyToEmail ?? '').trim().toLowerCase()
