@@ -12,6 +12,7 @@ export function CreateSessionSection({
   return (
     <SectionCard
       title="Create session"
+      tourId="create-session-section"
       description="Use a date only. Times are not required for assessments."
     >
       {isLoading ? (

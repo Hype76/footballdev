@@ -116,33 +116,35 @@ const commonPlayerPlans = [
 export const WALKTHROUGHS = {
   '/sessions': {
     key: 'sessions',
+    action: { label: 'Create Session', target: 'create-session-section' },
     plans: commonPlayerPlans,
     minimumRank: 10,
     steps: [
       {
-        target: 'sidebar-sessions',
-        title: 'Sessions',
-        body: 'Use Sessions to set up training, matches, and tournaments for the team you are currently viewing.',
+        target: 'create-session-section',
+        title: 'Create sessions',
+        body: 'Set up training, match, and tournament sessions for the team you are currently viewing.',
       },
       {
-        target: 'page-header',
-        title: 'Run the session workflow',
-        body: 'This page is where staff reopen existing sessions, add players, complete session work, and continue assessments later.',
+        target: 'open-sessions-section',
+        title: 'Open saved sessions',
+        body: 'Reopen existing sessions to continue notes, add players, or carry on assessments later.',
+      },
+      {
+        target: 'session-players-section',
+        title: 'Session players',
+        body: 'Use the selected session panel to add players, record voice notes, and start assessment work.',
       },
     ],
   },
   '/players': {
     key: 'players',
+    action: { label: 'Add Player', path: '/add-player' },
     plans: commonPlayerPlans,
     minimumRank: 10,
     steps: [
       {
-        target: 'sidebar-players',
-        title: 'Players',
-        body: 'The Players page gives staff the active player list for their team view.',
-      },
-      {
-        target: 'page-header',
+        target: 'players-list-section',
         title: 'Player history',
         body: 'Open a player profile to review assessments, parent details, notes, actions, and long-term development history.',
       },
@@ -150,16 +152,12 @@ export const WALKTHROUGHS = {
   },
   '/add-player': {
     key: 'add-player',
+    action: { label: 'Player Details', target: 'add-player-form-section' },
     plans: commonPlayerPlans,
     minimumRank: 10,
     steps: [
       {
-        target: 'sidebar-add-player',
-        title: 'Add Player',
-        body: 'Add players here before placing them into sessions or starting assessments.',
-      },
-      {
-        target: 'page-header',
+        target: 'add-player-form-section',
         title: 'Create the player record',
         body: 'Record the player section, team, positions, and parent or guardian contacts. Parent contacts are used later for email and PDF options.',
       },
@@ -167,35 +165,32 @@ export const WALKTHROUGHS = {
   },
   '/teams': {
     key: 'teams',
+    action: { label: 'Create Team', target: 'create-team-section' },
     minimumRank: 50,
     steps: [
       {
-        target: 'sidebar-teams',
-        title: 'Teams',
-        body: 'Teams is where club admins create teams and team admins manage the team they are responsible for.',
+        target: 'create-team-section',
+        title: 'Create teams',
+        body: 'Create the club teams that players, sessions, and assessments will use.',
       },
       {
-        target: 'page-header',
+        target: 'create-staff-section',
+        title: 'Create staff access',
+        body: 'Create staff logins, choose their role, and allocate them to a team.',
+      },
+      {
+        target: 'team-staff-section',
         title: 'Control team access',
-        body: 'Create teams, create staff accounts, and decide which staff can work inside each team.',
-      },
-      {
-        target: 'team-logo-settings',
-        title: 'Team logo',
-        body: 'Use the selected team panel to upload the logo for that team.',
+        body: 'Select a team, rename it if needed, and manage which staff can work inside it.',
       },
     ],
   },
   '/user-access': {
     key: 'user-access',
+    action: { label: 'Open Teams', path: '/teams' },
     plans: [PLAN_KEYS.singleTeam, PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
     minimumRank: 50,
     steps: [
-      {
-        target: 'sidebar-user-access',
-        title: 'User Access',
-        body: 'Use this page to allocate staff roles at your role level or below.',
-      },
       {
         target: 'page-header',
         title: 'Role control',
@@ -205,14 +200,10 @@ export const WALKTHROUGHS = {
   },
   '/form-builder': {
     key: 'form-builder',
+    action: { label: 'Configure Fields', target: 'page-header' },
     plans: [PLAN_KEYS.singleTeam, PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
     minimumRank: 50,
     steps: [
-      {
-        target: 'sidebar-form-builder',
-        title: 'Assessment Fields',
-        body: 'Assessment Fields controls the fields your coaches use when scoring players.',
-      },
       {
         target: 'page-header',
         title: 'Configure assessments',
@@ -222,14 +213,10 @@ export const WALKTHROUGHS = {
   },
   '/parent-email-templates': {
     key: 'parent-email-templates',
+    action: { label: 'Edit Templates', target: 'page-header' },
     plans: [PLAN_KEYS.singleTeam, PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
     minimumRank: 50,
     steps: [
-      {
-        target: 'sidebar-parent-email-templates',
-        title: 'Email Templates',
-        body: 'Use Email Templates to prepare reusable parent messages for offers, invite backs, and no place offered outcomes.',
-      },
       {
         target: 'page-header',
         title: 'Manage parent messaging',
@@ -239,14 +226,10 @@ export const WALKTHROUGHS = {
   },
   '/activity-log': {
     key: 'activity-log',
+    action: { label: 'Review Activity', target: 'page-header' },
     plans: [PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
     minimumRank: 50,
     steps: [
-      {
-        target: 'sidebar-activity-log',
-        title: 'Activity Log',
-        body: 'Activity Log shows accountability for the team or club areas your role is allowed to see.',
-      },
       {
         target: 'page-header',
         title: 'Review staff activity',
@@ -256,14 +239,10 @@ export const WALKTHROUGHS = {
   },
   '/archived-players': {
     key: 'archived-players',
+    action: { label: 'Find Archived Players', target: 'page-header' },
     plans: commonPlayerPlans,
     minimumRank: 10,
     steps: [
-      {
-        target: 'sidebar-archived-players',
-        title: 'Archived Players',
-        body: 'Archived Players keeps removed players out of active lists while preserving their details and assessment history.',
-      },
       {
         target: 'page-header',
         title: 'Restore when needed',
@@ -273,13 +252,9 @@ export const WALKTHROUGHS = {
   },
   '/billing': {
     key: 'billing',
+    action: { label: 'View Plan Details', target: 'page-header' },
     minimumRank: 0,
     steps: [
-      {
-        target: 'sidebar-billing',
-        title: 'Billing',
-        body: 'Billing is only available to the top billing role for the current plan.',
-      },
       {
         target: 'page-header',
         title: 'Plan and payment details',
@@ -289,6 +264,7 @@ export const WALKTHROUGHS = {
   },
   '/user-settings': {
     key: 'user-settings',
+    action: { label: 'Account Profile', target: 'account-profile-settings' },
     minimumRank: 0,
     steps: [
       {
@@ -325,6 +301,7 @@ export const WALKTHROUGHS = {
   },
   '/club-settings': {
     key: 'club-settings',
+    action: { label: 'Club Logo', target: 'club-profile-settings' },
     roles: ['admin'],
     minimumRank: 70,
     steps: [
@@ -342,13 +319,9 @@ export const WALKTHROUGHS = {
   },
   '/platform-admin': {
     key: 'platform-admin',
+    action: { label: 'Platform Overview', target: 'page-header' },
     platform: true,
     steps: [
-      {
-        target: 'sidebar-platform-admin',
-        title: 'Platform Admin',
-        body: 'Platform Admin is separate from club work and is used for account oversight.',
-      },
       {
         target: 'page-header',
         title: 'Platform oversight',

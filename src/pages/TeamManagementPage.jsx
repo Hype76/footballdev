@@ -34,14 +34,12 @@ import {
   readViewCacheValue,
   getTeamStaffAssignments,
   getTeams,
-  MAX_LOGO_FILE_SIZE_BYTES,
   replaceTeamStaffAssignments,
   updateTeamSettings,
-  uploadTeamLogo,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-import { createFeatureUpgradeMessage, createLimitUpgradeMessage, hasPlanFeature, isWithinPlanLimit } from '../lib/plans.js'
+import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 
 export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
@@ -72,9 +70,7 @@ export function TeamManagementPage() {
   const [teamPage, setTeamPage] = useState(1)
   const [staffPage, setStaffPage] = useState(1)
   const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
-  const [selectedTeamLogoFile, setSelectedTeamLogoFile] = useState(null)
   const [isCoachPasswordVisible, setIsCoachPasswordVisible] = useState(false)
-  const [isUploadingTeamLogo, setIsUploadingTeamLogo] = useState(false)
   const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0 && roles.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -237,7 +233,6 @@ export function TeamManagementPage() {
   )
   const canCreateMoreTeams = isWithinPlanLimit(user, 'teams', teams.length)
   const canCreateMoreStaff = isWithinPlanLimit(user, 'staffLogins', users.length)
-  const canUseBasicBranding = hasPlanFeature(user, 'basicBranding')
   const teamLimitMessage = createLimitUpgradeMessage(user, 'teams', 'Teams')
   const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
 
@@ -251,7 +246,6 @@ export function TeamManagementPage() {
 
   useEffect(() => {
     setStaffPage(1)
-    setSelectedTeamLogoFile(null)
   }, [selectedTeamId])
 
   const writeTeamCache = (nextState = {}) => {
@@ -599,88 +593,6 @@ export function TeamManagementPage() {
     }
   }
 
-  const handleTeamLogoFileChange = (event) => {
-    const nextFile = event.target.files?.[0] ?? null
-    setMessage('')
-    setErrorMessage('')
-
-    if (!canUseBasicBranding) {
-      setSelectedTeamLogoFile(null)
-      setErrorMessage(createFeatureUpgradeMessage('basicBranding'))
-      return
-    }
-
-    if (!nextFile) {
-      setSelectedTeamLogoFile(null)
-      return
-    }
-
-    if (!String(nextFile.type ?? '').toLowerCase().startsWith('image/')) {
-      setSelectedTeamLogoFile(null)
-      setErrorMessage('Please select an image file.')
-      return
-    }
-
-    if (nextFile.size > MAX_LOGO_FILE_SIZE_BYTES) {
-      setSelectedTeamLogoFile(null)
-      setErrorMessage('Logo must be 2MB or smaller.')
-      return
-    }
-
-    setSelectedTeamLogoFile(nextFile)
-  }
-
-  const handleTeamLogoUpload = async () => {
-    if (!selectedTeam) {
-      setErrorMessage('Choose a team before uploading a logo.')
-      return
-    }
-
-    if (!selectedTeamLogoFile) {
-      setErrorMessage('Select a logo file before uploading.')
-      return
-    }
-
-    setIsUploadingTeamLogo(true)
-    setMessage('')
-    setErrorMessage('')
-
-    try {
-      const logoUrl = await uploadTeamLogo({
-        clubId: selectedTeam.clubId || user.clubId,
-        teamId: selectedTeam.id,
-        file: selectedTeamLogoFile,
-        user,
-      })
-
-      const updatedTeam = await updateTeamSettings({
-        teamId: selectedTeam.id,
-        user,
-        data: {
-          logoUrl,
-        },
-      })
-
-      setTeams((current) => {
-        const nextTeams = current.map((team) => (team.id === updatedTeam.id ? updatedTeam : team))
-        writeTeamCache({
-          teams: nextTeams,
-        })
-        return nextTeams
-      })
-      setSelectedTeamLogoFile(null)
-      await refreshTeamSelection?.()
-      setMessage('Team logo uploaded.')
-      showToast({ title: 'Team logo uploaded', message: `${updatedTeam.name} logo has been updated.` })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Logo upload failed.')
-      showToast({ title: 'Logo not uploaded', message: error.message || 'Logo upload failed.', tone: 'error' })
-    } finally {
-      setIsUploadingTeamLogo(false)
-    }
-  }
-
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -726,14 +638,10 @@ export function TeamManagementPage() {
 
       <TeamStaffAllocationsSection
         availableStaff={filteredAvailableStaffForSelectedTeam}
-        canUseBasicBranding={canUseBasicBranding}
         isLoading={isLoading}
         isSaving={isSaving}
-        isUploadingTeamLogo={isUploadingTeamLogo}
         onAddExistingStaff={handleAddExistingStaffToTeam}
         onDeleteTeam={handleDeleteTeam}
-        onTeamLogoFileChange={handleTeamLogoFileChange}
-        onTeamLogoUpload={handleTeamLogoUpload}
         onRemoveStaff={handleRemoveStaffFromSelectedTeam}
         onSaveTeamName={handleTeamNameSave}
         onSelectedTeamChange={setSelectedTeamId}
@@ -750,7 +658,6 @@ export function TeamManagementPage() {
         paginatedSelectedTeamStaff={paginatedSelectedTeamStaff}
         paginatedTeams={paginatedTeams}
         selectedTeam={selectedTeam}
-        selectedTeamLogoFile={selectedTeamLogoFile}
         selectedTeamStaff={selectedTeamStaff}
         staffPage={staffPage}
         staffPageSize={STAFF_PAGE_SIZE}

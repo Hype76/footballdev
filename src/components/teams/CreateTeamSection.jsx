@@ -11,6 +11,7 @@ export function CreateTeamSection({
   return (
     <SectionCard
       title="Create team"
+      tourId="create-team-section"
       description={
         canCreateMoreTeams
           ? 'Teams become selectable in assessments once created here.'

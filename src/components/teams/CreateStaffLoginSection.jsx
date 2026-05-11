@@ -15,6 +15,7 @@ export function CreateStaffLoginSection({
   return (
     <SectionCard
       title="Create staff login"
+      tourId="create-staff-section"
       description={
         canCreateMoreStaff
           ? 'Create a staff login, choose the role, and give that login access to a team.'

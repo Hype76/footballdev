@@ -18,6 +18,7 @@ export function OpenSessionsSection({
   return (
     <SectionCard
       title="Open existing sessions"
+      tourId="open-sessions-section"
       description="Reopen any saved session to continue notes, add players, or carry on assessments."
     >
       {isLoading ? (

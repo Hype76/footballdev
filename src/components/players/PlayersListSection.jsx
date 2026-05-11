@@ -24,6 +24,7 @@ export function PlayersListSection({
   return (
     <SectionCard
       title="All players"
+      tourId="players-list-section"
       description="Use filters to find a player quickly, then open their profile for full history and rating trends."
     >
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

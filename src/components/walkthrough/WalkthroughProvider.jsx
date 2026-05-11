@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
-import { getRoleNextAction } from '../../lib/role-quick-links.js'
 import {
   WALKTHROUGH_EVENT,
   getWalkthroughForPath,
@@ -29,7 +28,7 @@ function getRoleStep(user) {
 
 function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }) {
   const steps = activeWalkthrough?.steps ?? []
-  const nextAction = getRoleNextAction(user)
+  const nextAction = activeWalkthrough?.action ?? null
   const focusStepTarget = (target) => {
     const targetElement = document.querySelector(`[data-tour-id="${target}"]`)
 
@@ -56,12 +55,22 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           {nextAction ? (
-            <Link
-              to={nextAction.path}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)]"
-            >
-              {nextAction.label}
-            </Link>
+            nextAction.path ? (
+              <Link
+                to={nextAction.path}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)]"
+              >
+                {nextAction.label}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => focusStepTarget(nextAction.target)}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)]"
+              >
+                {nextAction.label}
+              </button>
+            )
           ) : null}
           <button
             type="button"

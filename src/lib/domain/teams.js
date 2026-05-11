@@ -7,5 +7,4 @@ export {
   getTeamStaffAssignments,
   replaceTeamStaffAssignments,
   updateTeamSettings,
-  uploadTeamLogo,
 } from './core.js'

@@ -23,6 +23,7 @@ export function AddPlayerFormSection({
   return (
     <SectionCard
       title="Player details"
+      tourId="add-player-form-section"
       description={canAddMorePlayers ? 'Add the player once, then start assessments from the player profile.' : playerLimitMessage}
     >
       {isLoading ? (

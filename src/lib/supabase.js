@@ -77,7 +77,6 @@ export {
   getTeamStaffAssignments,
   replaceTeamStaffAssignments,
   updateTeamSettings,
-  uploadTeamLogo,
 } from './domain/teams.js'
 
 export {

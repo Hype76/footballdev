@@ -30,6 +30,7 @@ export function SessionPlayersSection({
   return (
     <SectionCard
       title="Session players"
+      tourId="session-players-section"
       description="Coaches can record quick notes during the game or training, then start every assessment in sequence."
     >
       {!selectedSessionId ? (
