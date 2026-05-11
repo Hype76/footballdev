@@ -46,7 +46,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (item.path === '/teams') {
-      return canManageTeamSettings(user)
+      return canManageUsers(user) || canManageTeamSettings(user)
     }
 
     if (item.path === '/activity-log') {
@@ -102,7 +102,8 @@ export function Sidebar({ isOpen, onClose }) {
     return item
   })
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
-  const clubNavigationItems = canManageClubSettings(user) ? getVisibleNavigationItems(clubNavigation) : []
+  const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
+  const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
 
   const handleSignOut = async () => {
     try {
@@ -194,7 +195,7 @@ export function Sidebar({ isOpen, onClose }) {
             data-tour-id="sidebar-club-section"
           >
             <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-              Club
+              {clubNavigationLabel}
             </p>
             {clubNavigationItems.map((item) =>
               item.disabled ? (
