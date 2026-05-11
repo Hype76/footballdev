@@ -40,7 +40,7 @@ export function LoginMarketingAndPricing({
         <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Why it exists</p>
         <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Better feedback for players. Less admin for coaches.</h2>
         <p className="mt-4 max-w-4xl text-base leading-8 text-slate-300">
-          Grassroots clubs work hard to give players a fair chance, but trial notes, parent messages, emails, and paper forms can quickly become messy. Player Feedback helps clubs keep development records organised, communicate properly with parents, and save coaches time after every session.
+          Grassroots clubs work hard to give players a fair chance. Trial notes, parent messages, emails, and paper forms can quickly become messy. Player Feedback helps clubs keep development records organised, communicate properly with parents, and save coaches time after every session.
         </p>
       </div>
 
