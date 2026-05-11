@@ -377,13 +377,13 @@ export function FormBuilderPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
-        eyebrow="Form Builder"
+        eyebrow="Assessment Fields"
         title="Configure evaluation fields"
         description="Default fields can be enabled or disabled. Custom fields can also be edited, reordered, or removed."
       />
 
-      {errorMessage ? <NoticeBanner title="Form builder action failed" message={errorMessage} /> : null}
-      {successMessage ? <NoticeBanner title="Form builder updated" message={successMessage} tone="info" /> : null}
+      {errorMessage ? <NoticeBanner title="Assessment fields action failed" message={errorMessage} /> : null}
+      {successMessage ? <NoticeBanner title="Assessment fields updated" message={successMessage} tone="info" /> : null}
 
       <DefaultFormSection
         defaultTemplateFields={defaultTemplateFields}

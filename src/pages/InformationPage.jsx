@@ -103,7 +103,7 @@ export function InformationPage() {
             Club Admins create teams. Managers and Team Admins allocate staff based on the club plan and role limits.
           </InfoCard>
           <InfoCard title="2. Configure assessment fields">
-            Use Form Builder to control the fields coaches complete. This is available from Single Team upward.
+            Use Assessment Fields to control the fields coaches complete. This is available from Single Team upward.
           </InfoCard>
           <InfoCard title="3. Add players">
             Add players with their team, section, positions, and parent contacts. Archived players do not count as active players until restored.

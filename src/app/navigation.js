@@ -16,7 +16,7 @@ export const primaryNavigation = [
     path: '/teams',
   },
   {
-    label: 'Form Builder',
+    label: 'Assessment Fields',
     path: '/form-builder',
   },
   {

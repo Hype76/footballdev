@@ -580,40 +580,6 @@ export async function createClubAndManagerProfile({ authUser, clubName, accessCo
 
   await syncMembershipFromUserRow(userProfile, authUser)
 
-  const { data: team, error: teamError } = await supabase
-    .from('teams')
-    .insert({
-      club_id: club.id,
-      name: String(clubName ?? '').trim() || club.name || 'My Team',
-      created_by: authUser.id,
-      ...getEntryIdentity(userProfile),
-      updated_by: authUser.id,
-      ...getEntryIdentity(userProfile, 'updated_by'),
-    })
-    .select('id')
-    .single()
-
-  if (teamError) {
-    console.error(teamError)
-  } else if (team?.id) {
-    const { error: staffError } = await supabase.from('team_staff').upsert(
-      {
-        team_id: team.id,
-        user_id: authUser.id,
-      },
-      {
-        onConflict: 'team_id,user_id',
-      },
-    )
-
-    if (staffError) {
-      console.error(staffError)
-    } else {
-      invalidateMemoryCacheByPrefix('assigned-teams:')
-      invalidateMemoryCacheByPrefix('team-assignments:')
-    }
-  }
-
   return normalizeUserProfile({
     ...userProfile,
     clubs: club,

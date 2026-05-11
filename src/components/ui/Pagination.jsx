@@ -8,6 +8,17 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
   const safePage = Math.min(Math.max(1, Number(currentPage) || 1), totalPages)
   const startItem = (safePage - 1) * pageSize + 1
   const endItem = Math.min(safePage * pageSize, totalItems)
+  const handlePageChange = (nextPage) => {
+    onPageChange(nextPage)
+
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  }
 
   return (
     <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
@@ -17,7 +28,7 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:flex">
         <button
           type="button"
-          onClick={() => onPageChange(safePage - 1)}
+          onClick={() => handlePageChange(safePage - 1)}
           disabled={safePage <= 1}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
@@ -28,7 +39,7 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
         </span>
         <button
           type="button"
-          onClick={() => onPageChange(safePage + 1)}
+          onClick={() => handlePageChange(safePage + 1)}
           disabled={safePage >= totalPages}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >

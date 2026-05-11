@@ -458,66 +458,6 @@ async function applyMembership(authUser, membership) {
   }
 }
 
-async function ensureTeamForProfile({ authUser, club, profile, teamName }) {
-  if (!club?.id || !profile?.id) {
-    return null
-  }
-
-  const { data: existingTeams, error: teamsError } = await supabaseAdmin
-    .from('teams')
-    .select('*')
-    .eq('club_id', club.id)
-    .order('created_at', { ascending: true })
-
-  if (teamsError) {
-    throw teamsError
-  }
-
-  let team = existingTeams?.[0] ?? null
-
-  if (!team) {
-    const resolvedTeamName = String(teamName ?? club.name ?? 'My Team').trim() || 'My Team'
-    const { data: insertedTeam, error: teamError } = await supabaseAdmin
-      .from('teams')
-      .insert({
-        club_id: club.id,
-        name: resolvedTeamName,
-        created_by: profile.id,
-        created_by_name: profile.name || profile.username || '',
-        created_by_email: normalizeEmail(profile.email || authUser.email),
-        updated_by: profile.id,
-        updated_by_name: profile.name || profile.username || '',
-        updated_by_email: normalizeEmail(profile.email || authUser.email),
-      })
-      .select('*')
-      .single()
-
-    if (teamError) {
-      throw teamError
-    }
-
-    team = insertedTeam
-  }
-
-  const { error: staffError } = await supabaseAdmin
-    .from('team_staff')
-    .upsert(
-      {
-        team_id: team.id,
-        user_id: profile.id,
-      },
-      {
-        onConflict: 'team_id,user_id',
-      },
-    )
-
-  if (staffError) {
-    throw staffError
-  }
-
-  return team
-}
-
 async function applyInvite(authUser, invite) {
   const displayName = getDisplayName(authUser)
   const email = normalizeEmail(authUser.email || invite.email)
@@ -651,12 +591,10 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
     throw membershipError
   }
 
-  await ensureTeamForProfile({ authUser, club, profile, teamName: clubName })
-
   return { profile, club }
 }
 
-async function repairExistingSignupWorkspace(authUser, existingProfile, body) {
+async function repairExistingSignupWorkspace(authUser, existingProfile) {
   let club = await getClub(existingProfile.club_id)
   const checkoutRecord = await getLatestCheckoutRecord(authUser, club?.id)
   let profile = existingProfile
@@ -768,15 +706,6 @@ async function repairExistingSignupWorkspace(authUser, existingProfile, body) {
     profile = repairedProfile
   }
 
-  if (club?.plan_key === FREE_PLAN_KEY || club?.plan_key === 'single_team') {
-    await ensureTeamForProfile({
-      authUser,
-      club,
-      profile,
-      teamName: getSignupClubName(authUser, body.clubName),
-    })
-  }
-
   return { profile, club }
 }
 
@@ -797,7 +726,7 @@ export async function handler(event) {
     }
 
     if (existingProfile?.club_id) {
-      const result = await repairExistingSignupWorkspace(authUser, existingProfile, body)
+      const result = await repairExistingSignupWorkspace(authUser, existingProfile)
       return json(200, { success: true, ...result })
     }
 

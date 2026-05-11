@@ -13,12 +13,12 @@ export function ConfiguredFieldsSection({
       description={
         isFallbackFields
           ? 'No club-specific form fields were found, so the default assessment fields were loaded.'
-          : 'These enabled fields come from the club form builder and are saved as form responses.'
+          : 'These enabled fields come from Assessment Fields and are saved as form responses.'
       }
     >
       {enabledFields.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-          No evaluation fields are enabled for this club. Enable fields in the form builder first.
+          No evaluation fields are enabled for this club. Enable fields in Assessment Fields first.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

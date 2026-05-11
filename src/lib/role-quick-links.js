@@ -45,7 +45,7 @@ export function getRoleQuickLinks(user) {
   }
 
   if (canManageFormFields(user) && hasPlanFeature(user, 'customFormFields')) {
-    links.push({ label: 'Form Builder', path: '/form-builder' })
+    links.push({ label: 'Assessment Fields', path: '/form-builder' })
   }
 
   if (canManageParentEmailTemplates(user) && hasPlanFeature(user, 'parentEmail')) {

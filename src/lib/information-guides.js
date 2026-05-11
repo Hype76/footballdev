@@ -18,7 +18,7 @@ export const roleGuides = [
     summary: 'Runs team level operations and can manage key settings for assigned football staff.',
     capabilities: [
       'Manage assigned team workflows, sessions, and assessments.',
-      'Use Form Builder when the plan includes custom form fields.',
+      'Use Assessment Fields when the plan includes custom form fields.',
       'Manage parent email templates when parent email is included.',
       'View billing on Individual accounts and where club access allows it.',
     ],

@@ -150,7 +150,7 @@ const teamAdminSteps = [
   },
   {
     title: 'Prepare the assessment form',
-    body: 'Use Form Builder and Email Templates when your plan includes them, then coaches can use the same workflow.',
+    body: 'Use Assessment Fields and Email Templates when your plan includes them, then coaches can use the same workflow.',
   },
   {
     title: 'Run sessions',
@@ -301,8 +301,8 @@ export const WALKTHROUGHS = {
     steps: [
       {
         target: 'sidebar-form-builder',
-        title: 'Form Builder',
-        body: 'Form Builder controls the assessment fields your coaches use when scoring players.',
+        title: 'Assessment Fields',
+        body: 'Assessment Fields controls the fields your coaches use when scoring players.',
       },
       {
         target: 'page-header',
