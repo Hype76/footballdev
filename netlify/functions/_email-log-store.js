@@ -38,6 +38,29 @@ export function createEmailDedupeKey(payload) {
     .digest('hex')
 }
 
+export function createEmailRecipientDedupeKey({ payload, recipient }) {
+  return createHash('sha256')
+    .update(JSON.stringify({
+      recipient: String(recipient ?? '').trim().toLowerCase(),
+      from: payload.from,
+      cc: payload.cc,
+      replyTo: getPayloadReplyTo(payload),
+      subject: payload.subject,
+      html: payload.html,
+    }))
+    .digest('hex')
+}
+
+export function createEmailRecipientDedupeKeys({ payload, recipients }) {
+  return Array.from(
+    new Set(
+      (Array.isArray(recipients) ? recipients : [])
+        .map((recipient) => createEmailRecipientDedupeKey({ payload, recipient }))
+        .filter(Boolean),
+    ),
+  )
+}
+
 export function createEmailIdempotencyKey({ payload, idempotencySeed }) {
   return createHash('sha256')
     .update(JSON.stringify({
@@ -73,24 +96,37 @@ export async function createPendingEmailLog({
   subject,
   payload,
   dedupeKey,
+  recipientDedupeKeys = [],
   idempotencyKey,
 }) {
-  if (dedupeKey) {
+  const normalizedRecipientDedupeKeys = Array.from(
+    new Set((Array.isArray(recipientDedupeKeys) ? recipientDedupeKeys : []).map((key) => String(key ?? '').trim()).filter(Boolean)),
+  )
+
+  if (normalizedRecipientDedupeKeys.length > 0) {
     const duplicateWindowStart = new Date(Date.now() - DUPLICATE_SEND_WINDOW_MS).toISOString()
-    const { count, error: duplicateCountError } = await supabaseAdmin
-      .from('email_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('dedupe_key', dedupeKey)
-      .in('status', ['pending', 'sent'])
+    const { data: recentEvents, error: duplicateCountError } = await supabaseAdmin
+      .from('email_send_events')
+      .select('dedupe_key')
+      .in('dedupe_key', normalizedRecipientDedupeKeys)
       .gte('created_at', duplicateWindowStart)
 
     if (duplicateCountError) {
       console.error('Email duplicate count failed', duplicateCountError)
-    } else if (Number(count ?? 0) >= DUPLICATE_SEND_LIMIT) {
-      return {
-        record: null,
-        blocked: true,
-        retryAfterSeconds: Math.ceil(DUPLICATE_SEND_WINDOW_MS / 1000),
+    } else {
+      const sendCounts = new Map()
+
+      ;(recentEvents ?? []).forEach((event) => {
+        const key = String(event.dedupe_key ?? '').trim()
+        sendCounts.set(key, (sendCounts.get(key) ?? 0) + 1)
+      })
+
+      if (normalizedRecipientDedupeKeys.some((key) => (sendCounts.get(key) ?? 0) >= DUPLICATE_SEND_LIMIT)) {
+        return {
+          record: null,
+          blocked: true,
+          retryAfterSeconds: Math.ceil(DUPLICATE_SEND_WINDOW_MS / 1000),
+        }
       }
     }
   }
@@ -170,7 +206,7 @@ export async function createPendingEmailLog({
   return { record: data, skipped: false }
 }
 
-export async function markEmailLogSent(record, response) {
+export async function markEmailLogSent(record, response, { recipientDedupeKeys = [] } = {}) {
   if (!record?.id) {
     return
   }
@@ -190,6 +226,23 @@ export async function markEmailLogSent(record, response) {
   if (error) {
     console.error('Email log sent update failed', error)
     return
+  }
+
+  const eventRows = Array.from(
+    new Set((Array.isArray(recipientDedupeKeys) ? recipientDedupeKeys : []).map((key) => String(key ?? '').trim()).filter(Boolean)),
+  ).map((dedupeKey) => ({
+    email_log_id: record.id,
+    dedupe_key: dedupeKey,
+  }))
+
+  if (eventRows.length > 0) {
+    const { error: eventError } = await supabaseAdmin
+      .from('email_send_events')
+      .insert(eventRows)
+
+    if (eventError) {
+      console.error('Email send event logging failed', eventError)
+    }
   }
 
   void response

@@ -4,6 +4,7 @@ import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
+  createEmailRecipientDedupeKeys,
   createPendingEmailLog,
   createServerAuditLog,
   markEmailLogFailed,
@@ -249,9 +250,13 @@ export async function handler(event) {
       attachments,
     })
     const dedupeKey = createEmailDedupeKey(emailPayload)
+    const recipientDedupeKeys = createEmailRecipientDedupeKeys({
+      payload: emailPayload,
+      recipients,
+    })
     const finalIdempotencyKey = idempotencyKey || createEmailIdempotencyKey({
       payload: emailPayload,
-      idempotencySeed: evaluationId,
+      idempotencySeed: `${evaluationId || 'parent-email'}:${Date.now()}`,
     })
     const storedPayload = {
       resendPayload: emailPayload,
@@ -267,6 +272,7 @@ export async function handler(event) {
       subject: emailSubject,
       payload: storedPayload,
       dedupeKey,
+      recipientDedupeKeys,
       idempotencyKey: finalIdempotencyKey,
     })
 
@@ -295,7 +301,7 @@ export async function handler(event) {
       response = await resend.emails.send(sentPayload)
     }
 
-    await markEmailLogSent(emailLogRecord, response)
+    await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
     await createEmailAuditLog({
       user: null,
       action: 'email_sent',

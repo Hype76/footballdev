@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
+  createEmailRecipientDedupeKeys,
   createPendingEmailLog,
   createServerAuditLog,
   markEmailLogFailed,
@@ -262,6 +263,10 @@ export async function handler(event) {
       html: emailHtml,
     }
     const dedupeKey = createEmailDedupeKey(emailPayload)
+    const recipientDedupeKeys = createEmailRecipientDedupeKeys({
+      payload: emailPayload,
+      recipients: selectedRecipients,
+    })
     const idempotencyKey = createEmailIdempotencyKey({
       payload: emailPayload,
       idempotencySeed: `${profile.id}:${Date.now()}`,
@@ -276,6 +281,7 @@ export async function handler(event) {
         audience,
       },
       dedupeKey,
+      recipientDedupeKeys,
       idempotencyKey,
     })
 
@@ -288,7 +294,7 @@ export async function handler(event) {
     const resend = new Resend(process.env.RESEND_API_KEY)
     const response = await resend.emails.send(emailPayload)
 
-    await markEmailLogSent(emailLogRecord, response)
+    await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
     await createServerAuditLog({
       action: 'bulk_email_sent',
       entityType: 'email',
