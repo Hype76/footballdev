@@ -193,7 +193,6 @@ async function clearDemoClubData(clubId) {
   const sessionIds = (sessions || []).map((session) => session.id)
 
   if (sessionIds.length > 0) {
-    await supabaseAdmin.from('assessment_session_games').delete().in('session_id', sessionIds)
     await supabaseAdmin.from('assessment_session_players').delete().in('session_id', sessionIds)
   }
 
@@ -522,14 +521,6 @@ async function seedSessions(clubId, teams, players, actorId) {
       session_type: 'match',
       status: 'open',
     },
-    {
-      team: u12,
-      opponent: 'Spring Cup',
-      session_date: '2026-05-04',
-      title: 'U12 Demo Spring Cup',
-      session_type: 'tournament',
-      status: 'open',
-    },
   ]
 
   const sessions = await throwOnError(
@@ -578,38 +569,6 @@ async function seedSessions(clubId, teams, players, actorId) {
     await throwOnError(
       await supabaseAdmin.from('assessment_session_players').insert(sessionPlayers),
       'Could not seed demo session players',
-    )
-  }
-
-  const tournamentSession = sessions.find((session) => session.session_type === 'tournament')
-
-  if (tournamentSession) {
-    await throwOnError(
-      await supabaseAdmin.from('assessment_session_games').insert([
-        {
-          session_id: tournamentSession.id,
-          club_id: clubId,
-          opponent: 'Rovers',
-          team_score: 2,
-          opponent_score: 1,
-          notes: 'High tempo opening game.',
-          created_by: actorId,
-          created_by_name: DEMO_USER_NAME,
-          created_by_email: DEMO_EMAIL,
-        },
-        {
-          session_id: tournamentSession.id,
-          club_id: clubId,
-          opponent: 'United',
-          team_score: 1,
-          opponent_score: 1,
-          notes: 'Good recovery after conceding first.',
-          created_by: actorId,
-          created_by_name: DEMO_USER_NAME,
-          created_by_email: DEMO_EMAIL,
-        },
-      ]),
-      'Could not seed demo tournament games',
     )
   }
 }

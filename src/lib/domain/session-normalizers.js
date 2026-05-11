@@ -54,24 +54,3 @@ export function normalizeAssessmentSessionPlayerRow(row) {
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
   }
 }
-
-export function normalizeAssessmentSessionGameRow(row) {
-  return {
-    id: row.id,
-    sessionId: row.session_id ?? row.sessionId ?? '',
-    clubId: row.club_id ?? row.clubId ?? '',
-    opponent: String(row.opponent ?? '').trim(),
-    teamScore: row.team_score ?? row.teamScore ?? '',
-    opponentScore: row.opponent_score ?? row.opponentScore ?? '',
-    gameDate: String(row.game_date ?? row.gameDate ?? '').trim(),
-    notes: String(row.notes ?? '').trim(),
-    createdBy: row.created_by ?? row.createdBy ?? '',
-    createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
-    createdByEmail: String(row.created_by_email ?? row.createdByEmail ?? '').trim(),
-    updatedBy: row.updated_by ?? row.updatedBy ?? '',
-    updatedByName: String(row.updated_by_name ?? row.updatedByName ?? '').trim(),
-    updatedByEmail: String(row.updated_by_email ?? row.updatedByEmail ?? '').trim(),
-    createdAt: row.created_at ?? row.createdAt ?? '',
-    updatedAt: row.updated_at ?? row.updatedAt ?? '',
-  }
-}

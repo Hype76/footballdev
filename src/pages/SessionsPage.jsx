@@ -5,12 +5,9 @@ import { CoachOptionsSection } from '../components/sessions/CoachOptionsSection.
 import { CreateSessionSection } from '../components/sessions/CreateSessionSection.jsx'
 import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.jsx'
 import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
-import { TournamentResultsSection } from '../components/sessions/TournamentResultsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { Pagination } from '../components/ui/Pagination.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
@@ -21,7 +18,6 @@ import {
   buildHistoricalSessionsFromEvaluations,
   buildSessionCachePayload,
   createSessionFromHistoricalTarget,
-  createInitialGameForm,
   createInitialSessionForm,
   getAssessmentCountForSession,
   getCompletedPlayerNamesFromEvaluations,
@@ -42,13 +38,10 @@ import {
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
   createAssessmentSession,
-  createAssessmentSessionGame,
   createPlayerStaffNote,
   deleteAssessmentSession,
-  deleteAssessmentSessionGame,
   deletePlayerStaffNote,
   getEvaluations,
-  getAssessmentSessionGames,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
@@ -89,10 +82,8 @@ export function SessionsPage() {
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
   const [sessionPlayers, setSessionPlayers] = useState([])
-  const [sessionGames, setSessionGames] = useState([])
   const [sessionVoiceNotes, setSessionVoiceNotes] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
-  const [gameForm, setGameForm] = useState(createInitialGameForm)
   const [selectedSessionId, setSelectedSessionId] = useState(() => String(storedSessionWorkspace.selectedSessionId ?? ''))
   const [selectedPlayerIds, setSelectedPlayerIds] = useState(() =>
     Array.isArray(storedSessionWorkspace.selectedPlayerIds) ? storedSessionWorkspace.selectedPlayerIds : [],
@@ -102,11 +93,9 @@ export function SessionsPage() {
   const [clearSessionTarget, setClearSessionTarget] = useState(null)
   const [completeSessionTarget, setCompleteSessionTarget] = useState(null)
   const [deleteSessionTarget, setDeleteSessionTarget] = useState(null)
-  const [deleteGameTarget, setDeleteGameTarget] = useState(null)
   const [voiceNoteDeleteTarget, setVoiceNoteDeleteTarget] = useState(null)
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0 && teams.length === 0)
   const [isSessionPlayersLoading, setIsSessionPlayersLoading] = useState(false)
-  const [isSessionGamesLoading, setIsSessionGamesLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [recordingTarget, setRecordingTarget] = useState(null)
   const [isSavingVoiceNote, setIsSavingVoiceNote] = useState(false)
@@ -319,57 +308,6 @@ export function SessionsPage() {
   useEffect(() => {
     let isMounted = true
 
-    const loadSessionGames = async () => {
-      const activeSession = combinedSessions.find((session) => session.id === selectedSessionId)
-
-      if (!selectedSessionId || activeSession?.sessionType !== 'tournament' || activeSession?.isHistorical) {
-        setSessionGames([])
-        return
-      }
-
-      if (!activeSession) {
-        if (!isLoading) {
-          setSessionGames([])
-        }
-        return
-      }
-
-      setIsSessionGamesLoading(true)
-
-      try {
-        const nextSessionGames = await withRequestTimeout(
-          () => getAssessmentSessionGames({ user, sessionId: selectedSessionId }),
-          'Could not load tournament results.',
-        )
-
-        if (!isMounted) {
-          return
-        }
-
-        setSessionGames(nextSessionGames)
-      } catch (error) {
-        console.error(error)
-
-        if (isMounted) {
-          setErrorMessage('Tournament results could not be loaded right now.')
-        }
-      } finally {
-        if (isMounted) {
-          setIsSessionGamesLoading(false)
-        }
-      }
-    }
-
-    void loadSessionGames()
-
-    return () => {
-      isMounted = false
-    }
-  }, [combinedSessions, isLoading, selectedSessionId, user])
-
-  useEffect(() => {
-    let isMounted = true
-
     const loadSessionVoiceNotes = async () => {
       const activeSession = combinedSessions.find((session) => session.id === selectedSessionId)
 
@@ -473,15 +411,6 @@ export function SessionsPage() {
     }))
   }
 
-  const handleGameFormChange = (event) => {
-    const { name, value } = event.target
-    setErrorMessage('')
-    setGameForm((current) => ({
-      ...current,
-      [name]: value,
-    }))
-  }
-
   const handleCreateSession = async (event) => {
     event.preventDefault()
     setIsSaving(true)
@@ -525,80 +454,6 @@ export function SessionsPage() {
       console.error(error)
       setErrorMessage(error.message || 'Could not create session.')
       showToast({ title: 'Session not created', message: error.message || 'Could not create session.', tone: 'error' })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleAddTournamentGame = async (event) => {
-    event.preventDefault()
-
-    if (!selectedSessionId || selectedSession?.sessionType !== 'tournament') {
-      setErrorMessage('Select a tournament session before adding results.')
-      return
-    }
-
-    if (selectedSessionLocked) {
-      setErrorMessage('This session is completed and locked.')
-      return
-    }
-
-    setIsSaving(true)
-    setErrorMessage('')
-
-    try {
-      const createdGame = await createAssessmentSessionGame({
-        user,
-        sessionId: selectedSessionId,
-        game: gameForm,
-      })
-      const nextGames = [...sessionGames, createdGame]
-      setSessionGames(nextGames)
-      setGameForm(createInitialGameForm())
-      showToast({ title: 'Tournament result added', message: `${createdGame.opponent} result saved.` })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Could not save tournament result.')
-      showToast({ title: 'Result not saved', message: error.message || 'Could not save tournament result.', tone: 'error' })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleDeleteTournamentGame = async (gameId) => {
-    if (selectedSessionLocked) {
-      setErrorMessage('This session is completed and locked.')
-      return
-    }
-
-    const matchingGame = sessionGames.find((game) => game.id === gameId)
-
-    if (!matchingGame) {
-      setErrorMessage('Choose a tournament result to delete.')
-      return
-    }
-
-    setDeleteGameTarget(matchingGame)
-  }
-
-  const confirmDeleteTournamentGame = async (password) => {
-    if (!deleteGameTarget) {
-      return
-    }
-
-    setIsSaving(true)
-    setErrorMessage('')
-
-    try {
-      await verifyCurrentUserPassword(user?.email, password)
-      await deleteAssessmentSessionGame({ user, gameId: deleteGameTarget.id })
-      setSessionGames((current) => current.filter((game) => game.id !== deleteGameTarget.id))
-      setDeleteGameTarget(null)
-      showToast({ title: 'Tournament result removed', message: 'The game result has been deleted.' })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Could not delete tournament result.')
-      showToast({ title: 'Result not deleted', message: error.message || 'Could not delete tournament result.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
@@ -698,7 +553,6 @@ export function SessionsPage() {
       session: selectedSession,
       assessmentCount: selectedSessionAssessmentCount,
       playerCount: sessionPlayers.length,
-      gameCount: sessionGames.length,
     })
   }
 
@@ -719,7 +573,6 @@ export function SessionsPage() {
       const nextSessions = sessions.filter((session) => session.id !== deleteSessionTarget.session.id)
       setSessions(nextSessions)
       setSessionPlayers([])
-      setSessionGames([])
       setSelectedPlayerIds([])
       setDeleteSessionTarget(null)
       setSelectedSessionId(nextSessions[0]?.id || '')
@@ -1014,18 +867,6 @@ export function SessionsPage() {
         selectedSessionCompleted={selectedSessionCompleted}
       />
 
-      <TournamentResultsSection
-        form={gameForm}
-        games={sessionGames}
-        isLoading={isSessionGamesLoading}
-        isSaving={isSaving}
-        isSessionLocked={selectedSessionLocked}
-        onChange={handleGameFormChange}
-        onDeleteGame={handleDeleteTournamentGame}
-        onSubmit={handleAddTournamentGame}
-        selectedSession={selectedSession}
-      />
-
       <CreateSessionSection
         form={sessionForm}
         isLoading={isLoading}
@@ -1119,29 +960,13 @@ export function SessionsPage() {
       />
 
       <ConfirmModal
-        isOpen={Boolean(deleteGameTarget)}
-        isBusy={isSaving}
-        title="Delete tournament result"
-        message="This removes the saved score result from this tournament session."
-        items={[
-          `Opponent: ${deleteGameTarget?.opponent || 'Selected opponent'}`,
-          `Score: ${deleteGameTarget ? `${selectedSession?.team || 'Team'} ${deleteGameTarget.teamScore} - ${deleteGameTarget.opponentScore}` : 'Selected result'}`,
-        ]}
-        confirmLabel="Delete Result"
-        onCancel={() => setDeleteGameTarget(null)}
-        requirePassword
-        onConfirm={(password) => void confirmDeleteTournamentGame(password)}
-      />
-
-      <ConfirmModal
         isOpen={Boolean(deleteSessionTarget)}
         isBusy={isSaving}
         title="Delete session"
-        message="This removes the session, the player list, and any tournament results. Sessions with assessments cannot be deleted."
+        message="This removes the session and the player list. Sessions with assessments cannot be deleted."
         items={[
           `Session: ${deleteSessionTarget?.session?.title || deleteSessionTarget?.session?.team || 'Selected session'}`,
           `Players in session: ${deleteSessionTarget?.playerCount ?? 0}`,
-          `Tournament results: ${deleteSessionTarget?.gameCount ?? 0}`,
           `Assessments linked: ${deleteSessionTarget?.assessmentCount ?? 0}`,
         ]}
         confirmLabel="Delete Session"

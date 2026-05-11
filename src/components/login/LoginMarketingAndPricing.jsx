@@ -4,7 +4,7 @@ const capabilityCards = [
   ['Create player assessments', 'Score technical, tactical, physical, and attitude areas using your own club form.'],
   ['Send parent reports', 'Turn coach notes into professional parent-ready feedback, with or without scores.'],
   ['Manage trialists and squad players', 'Keep trial players separate from squad players while retaining full history.'],
-  ['Organise sessions', 'Create training, match, and tournament sessions, then assess players from the session list.'],
+  ['Organise sessions', 'Create training and match sessions, then assess players from the session list.'],
   ['Manage teams and staff', 'Assign coaches to teams and keep access controlled by role.'],
   ['Use it on mobile', 'Coaches can open it on phones, tablets, and desktops, with installable app support.'],
 ]
@@ -13,7 +13,7 @@ const workflowCards = [
   ['Trial nights', 'Add trialists, collect coach ratings, choose invite back, no place offered, or offer place, then send the right parent message.'],
   ['Training sessions', 'Build a session list, add players during the session, and complete assessments when coaches are ready.'],
   ['Squad reviews', 'Review previous assessments, track progress over time, and keep private staff notes away from parent emails.'],
-  ['Tournaments', 'Record multiple games in a tournament and keep player feedback linked to the correct session.'],
+  ['Match days', 'Keep match feedback linked to the correct session and player history.'],
 ]
 
 const trustCards = [

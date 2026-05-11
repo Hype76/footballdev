@@ -123,7 +123,7 @@ export const WALKTHROUGHS = {
       {
         target: 'create-session-section',
         title: 'Create sessions',
-        body: 'Set up training, match, and tournament sessions for the team you are currently viewing.',
+        body: 'Set up training and match sessions for the team you are currently viewing.',
       },
       {
         target: 'open-sessions-section',

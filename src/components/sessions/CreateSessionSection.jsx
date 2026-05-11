@@ -55,7 +55,6 @@ export function CreateSessionSection({
               <option value="">Select session type</option>
               <option value="training">Training</option>
               <option value="match">Match</option>
-              <option value="tournament">Tournament</option>
             </select>
           </label>
 

@@ -14,25 +14,11 @@ export function createInitialSessionForm() {
   }
 }
 
-export function createInitialGameForm() {
-  return {
-    opponent: '',
-    teamScore: '',
-    opponentScore: '',
-    gameDate: '',
-    notes: '',
-  }
-}
-
 export function formatSessionType(value) {
   const normalizedValue = String(value ?? '').trim()
 
   if (normalizedValue === 'match') {
     return 'Match'
-  }
-
-  if (normalizedValue === 'tournament') {
-    return 'Tournament'
   }
 
   return 'Training'
