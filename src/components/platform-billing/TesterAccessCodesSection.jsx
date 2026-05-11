@@ -10,7 +10,7 @@ export function TesterAccessCodesSection({
   return (
     <SectionCard
       title="Tester access codes"
-      description="These codes grant temporary access. Expired tester accounts keep their data but must choose a paid plan to continue."
+      description="These codes grant temporary access. Expired tester accounts keep their data and must choose a paid plan to continue."
     >
       {sortedTesterCodes.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">

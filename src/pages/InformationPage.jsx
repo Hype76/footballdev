@@ -56,7 +56,7 @@ export function InformationPage() {
               When a club upgrades from Individual or Single Team, the billing payer is promoted to Club Admin so they can manage the larger workspace.
             </InfoCard>
             <InfoCard title="Tier drops">
-              If a club drops to a lower tier and exceeds limits, they keep existing data but cannot add or restore records that would exceed the new limit.
+              If a club drops to a lower tier and exceeds limits, they keep existing data. New records and restored records must stay within the new limit.
             </InfoCard>
             <InfoCard title="Comped plans">
               Comped plans pause billing collection where a Stripe subscription exists, while the club keeps the selected plan access.
@@ -83,7 +83,7 @@ export function InformationPage() {
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4">
           <p className="text-sm font-semibold text-[var(--text-primary)]">Demo workspace</p>
           <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-            Demo users can explore the workspace and billing page, but destructive actions and account setting changes are blocked.
+            Demo users can explore the workspace and billing page. Destructive actions and account setting changes are blocked.
           </p>
         </div>
       ) : null}

@@ -26,7 +26,7 @@ const SCORE_HELP = [
   },
   {
     label: 'Needs Improvement',
-    description: 'The player shows some awareness of expectations but is not consistently meeting them.',
+    description: 'The player shows some awareness of expectations and is not consistently meeting them.',
   },
   {
     label: 'On Target',

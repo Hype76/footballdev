@@ -127,7 +127,7 @@ function TesterAccessExpiredState() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Billing</p>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Tester access has ended</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
-          Your temporary tester access has expired. Your club data is still safe, but a paid plan is needed to continue using the workspace.
+          Your temporary tester access has expired. Your club data is still safe. A paid plan is needed to continue using the workspace.
         </p>
         <a
           href="/billing"

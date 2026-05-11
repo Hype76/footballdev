@@ -52,7 +52,7 @@ export function SessionPlayersSection({
             <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
               {canCompleteSessions
                 ? 'This session has been completed. Managers can still correct notes or assessments if needed.'
-                : 'This session has been completed. Notes and assessments are kept for review, but the session is no longer editable.'}
+                : 'This session has been completed. Notes and assessments are kept for review. The session is no longer editable.'}
             </div>
           ) : null}
 

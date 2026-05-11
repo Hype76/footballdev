@@ -67,7 +67,7 @@ export const planGuides = [
     summary: 'Free team admin account for a single team workspace.',
     details: [
       'One team, one staff login, five active players, and ten assessments per month.',
-      'Assessment preview is available, but parent email sending is an upgrade feature.',
+      'Assessment preview is available. Parent email sending is an upgrade feature.',
       'Billing is visible so the account can upgrade from the sidebar.',
     ],
   },
@@ -118,7 +118,7 @@ export const platformAdminGuide = [
   },
   {
     title: 'Demo account',
-    body: 'Demo data is reset and protected from destructive changes. Demo users can see billing for upgrade context, but cannot save restricted settings.',
+    body: 'Demo data is reset and protected from destructive changes. Demo users can see billing for upgrade context. Restricted settings remain locked.',
   },
 ]
 

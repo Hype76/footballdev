@@ -948,7 +948,7 @@ export function SessionsPage() {
         isOpen={Boolean(clearSessionTarget)}
         isBusy={isSaving}
         title="Clear session players"
-        message="This keeps the session itself, but removes all players from the session list."
+        message="This keeps the session itself and removes all players from the session list."
         items={[
           `Session: ${clearSessionTarget?.session?.title || clearSessionTarget?.session?.team || 'Selected session'}`,
           `${clearSessionTarget?.playerCount ?? sessionPlayers.length} players from this session list`,
