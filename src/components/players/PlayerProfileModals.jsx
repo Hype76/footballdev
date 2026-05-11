@@ -103,7 +103,7 @@ export function PlayerProfileModals({
       <ConfirmModal
         isOpen={Boolean(emailConfirmTarget)}
         isBusy={Boolean(emailConfirmTarget?.evaluation && emailSendingId === emailConfirmTarget.evaluation.id)}
-        title="Email parents"
+        title={emailConfirmTarget?.evaluation?.isDirectEmail ? 'Send email' : 'Email parents'}
         message="Check the email details before sending."
         itemsTitle="This will send:"
         items={[
@@ -113,7 +113,7 @@ export function PlayerProfileModals({
           `Subject: ${emailConfirmTarget?.payloads?.[0]?.payload?.subject || 'Player Feedback Report'}`,
           `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
-          `Attachment: Yes`,
+          `Attachment: ${emailConfirmTarget?.evaluation?.isDirectEmail ? 'No' : 'Yes'}`,
           `Evaluation fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}

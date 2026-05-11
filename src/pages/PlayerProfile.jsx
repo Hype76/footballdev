@@ -14,6 +14,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canDeletePlayer, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
+  DIRECT_EMAIL_TEMPLATE_SECTION,
   EMAIL_TEMPLATE_AUDIENCES,
   getEmailTemplateKey,
   normalizeEmailTemplateAudience,
@@ -32,6 +33,7 @@ import {
   buildMergePreviewResponses,
   buildMergedEvaluationPayload,
   buildPlayerProfileCachePayload,
+  buildPlayerDirectEmailPayload,
   buildPlayerProfileParentEmailPayload,
   buildReassignedEvaluationPayload,
   buildRatingTrend,
@@ -364,6 +366,33 @@ export function PlayerProfile() {
 
       return sectionAvailability.includes(evaluation.section || lastSection)
     })
+  const getDirectEmailTemplateOptions = (player) => {
+    const contactType = normalizePlayerContactType(player?.contactType || profileContactType)
+    const audiences = getContactTemplateAudiences(contactType)
+
+    return activeEmailTemplates
+      .filter((template) => {
+        if (!audiences.includes(normalizeEmailTemplateAudience(template.audience))) {
+          return false
+        }
+
+        const sectionAvailability = Array.isArray(template.sectionAvailability)
+          ? template.sectionAvailability
+          : [DIRECT_EMAIL_TEMPLATE_SECTION]
+
+        return sectionAvailability.includes(DIRECT_EMAIL_TEMPLATE_SECTION)
+      })
+      .map((template) => ({
+        ...template,
+        optionKey: `${normalizeEmailTemplateAudience(template.audience)}:${template.key}`,
+      }))
+  }
+  const getSelectedDirectEmailTemplateOption = (player) => {
+    const options = getDirectEmailTemplateOptions(player)
+    const selectedKey = selectedEmailTemplates[`direct:${player.id}`] || options[0]?.optionKey || ''
+
+    return options.find((template) => template.optionKey === selectedKey) ?? options[0] ?? null
+  }
   const getSelectedEmailTemplate = (evaluation, audience = getEmailPreviewAudience(evaluation)) => {
     const availableTemplates = getAvailableEmailTemplates(evaluation, audience)
     const selectedKey = selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
@@ -409,6 +438,24 @@ export function PlayerProfile() {
       profileParentName,
       routePlayerName,
       selectedEmailTemplates,
+      user,
+    })
+  }
+
+  const buildDirectEmailPayload = (player) => {
+    const selectedTemplate = getSelectedDirectEmailTemplateOption(player)
+    const contacts = normalizeParentContacts(player.parentContacts, {
+      parentName: player.parentName,
+      parentEmail: player.parentEmail,
+      contactType: normalizePlayerContactType(player.contactType || profileContactType),
+    })
+
+    return buildPlayerDirectEmailPayload({
+      audience: normalizeEmailTemplateAudience(selectedTemplate?.audience),
+      contacts,
+      player,
+      routePlayerName,
+      selectedTemplate,
       user,
     })
   }
@@ -480,6 +527,33 @@ export function PlayerProfile() {
     }
   }
 
+  const handleSendDirectEmail = (player) => {
+    if (emailSendingId) {
+      return
+    }
+
+    setErrorMessage('')
+
+    try {
+      if (!hasPlanFeature(user, 'parentEmail')) {
+        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+        return
+      }
+
+      const emailDetails = buildDirectEmailPayload(player)
+
+      if (!emailDetails.recipientEmails) {
+        setErrorMessage('Add an email contact before sending.')
+        return
+      }
+
+      setEmailConfirmTarget(emailDetails)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not prepare this email.')
+    }
+  }
+
   const confirmSendParentEmail = async () => {
     if (!emailConfirmTarget?.evaluation || emailSendingId) {
       return
@@ -497,7 +571,7 @@ export function PlayerProfile() {
       await createCommunicationLog({
         user,
         playerId,
-        evaluationId: evaluation.id,
+        evaluationId: evaluation.isDirectEmail ? null : evaluation.id,
         channel: 'email',
         action: 'parent_email_sent',
         recipientEmail: recipientEmails,
@@ -508,7 +582,7 @@ export function PlayerProfile() {
         setActivityLogs(nextActivity)
       }
 
-      if (emailConfirmTarget.templateKey === 'decline' && canDeletePlayer(user) && players.length > 0) {
+      if (!evaluation.isDirectEmail && emailConfirmTarget.templateKey === 'decline' && canDeletePlayer(user) && players.length > 0) {
         setNoPlaceArchiveTarget({
           playerName: routePlayerName,
           playerCount: players.length,
@@ -990,7 +1064,10 @@ export function PlayerProfile() {
       />
 
       <PlayerDetailsSection
+        directEmailSendingId={emailSendingId}
         editingPlayerId={editingPlayerId}
+        getDirectEmailTemplateOptions={getDirectEmailTemplateOptions}
+        getSelectedDirectEmailTemplateOption={getSelectedDirectEmailTemplateOption}
         isPromotingId={isPromotingId}
         isSavingPlayer={isSavingPlayer}
         onAddParentContact={handleAddParentContact}
@@ -1002,6 +1079,13 @@ export function PlayerProfile() {
         onRemoveParentContact={handleRemoveParentContact}
         onRemovePlayerPosition={handleRemovePlayerPosition}
         onSavePlayer={(playerId) => void handleSavePlayer(playerId)}
+        onSelectedDirectEmailTemplateChange={(playerId, value) =>
+          setSelectedEmailTemplates((currentTemplates) => ({
+            ...currentTemplates,
+            [`direct:${playerId}`]: value,
+          }))
+        }
+        onSendDirectEmail={(player) => void handleSendDirectEmail(player)}
         onStartEditingPlayer={handleStartEditingPlayer}
         playerDrafts={playerDrafts}
         profilePlayers={profilePlayers}

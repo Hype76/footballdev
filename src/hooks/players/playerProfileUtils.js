@@ -9,6 +9,7 @@ import {
 import { formatUkDate, formatUkDateTime } from '../../lib/date-format.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
+  DIRECT_EMAIL_TEMPLATE_SECTION,
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
 
@@ -607,6 +608,95 @@ export function buildPlayerProfileParentEmailPayload({
     responses,
     templateKey: selectedKey,
     templateName: payloads.map((item) => item.templateName).join(', '),
+    payloads,
+  }
+}
+
+export function buildPlayerDirectEmailPayload({
+  audience,
+  contacts,
+  player,
+  routePlayerName,
+  selectedTemplate,
+  user,
+}) {
+  if (!selectedTemplate) {
+    throw new Error('Choose an email template before sending.')
+  }
+
+  const playerName = String(player?.playerName || routePlayerName || '').trim()
+  const teamName = String(player?.team || user?.activeTeamName || '').trim()
+  const section = String(player?.section || '').trim() || DIRECT_EMAIL_TEMPLATE_SECTION
+  const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
+  const selectedContacts = contacts.filter((contact) => contact.type === contactType)
+  const payloads = selectedContacts
+    .flatMap((contact) =>
+      getContactEmailAddresses(contact).map((recipientEmail) => {
+        const recipientName = getContactRecipientName(
+          contact,
+          contactType === PLAYER_CONTACT_TYPES.self ? playerName : player?.parentName,
+        )
+        const emailTemplate = renderParentEmailTemplate(selectedTemplate, {
+          recipientName,
+          parentName: recipientName,
+          playerName,
+          coachName: user?.displayName || user?.username || user?.name || user?.email,
+          clubName: user?.clubName,
+          teamName,
+          session: '',
+          inviteDate: '',
+          summary: '',
+          templateKey: selectedTemplate.key,
+        })
+
+        return {
+          audience,
+          recipientEmails: recipientEmail,
+          recipientNames: recipientName,
+          templateName: selectedTemplate.label,
+          payload: {
+            parentEmail: recipientEmail,
+            parentName: recipientName,
+            senderEmail: user?.email,
+            displayName: user?.displayName || user?.username || user?.name,
+            team: user?.emailTeamName || teamName,
+            club: user?.emailClubName || user?.clubName,
+            section,
+            session: '',
+            planKey: user?.planKey,
+            logoUrl: user?.clubLogoUrl || null,
+            replyToEmail: user?.replyToEmail || user?.clubContactEmail,
+            clubContactEmail: user?.clubContactEmail,
+            playerName,
+            summary: '',
+            responses: [],
+            subject: emailTemplate.subject,
+            emailBody: emailTemplate.body,
+            evaluationId: null,
+          },
+        }
+      }),
+    )
+    .filter(Boolean)
+
+  if (payloads.length === 0) {
+    throw new Error('Add an email contact before sending.')
+  }
+
+  return {
+    evaluation: {
+      id: `direct:${player?.id || playerName}`,
+      isDirectEmail: true,
+      playerId: player?.id || '',
+      section,
+      team: teamName,
+    },
+    inviteDate: '',
+    recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
+    recipientNames: payloads.map((item) => item.recipientNames).join(', '),
+    responses: [],
+    templateKey: selectedTemplate.key,
+    templateName: selectedTemplate.label,
     payloads,
   }
 }

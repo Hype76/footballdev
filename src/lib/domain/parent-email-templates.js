@@ -1,7 +1,4 @@
-import {
-  EVALUATION_SECTIONS,
-  supabase,
-} from '../supabase-client.js'
+import { supabase } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
 import {
   createFeatureUpgradeMessage,
@@ -9,6 +6,7 @@ import {
 } from '../plans.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
+  EMAIL_TEMPLATE_SECTIONS,
   getDefaultEmailTemplates,
   normalizeEmailTemplateAudience,
   normalizePlayerNameTemplateField,
@@ -121,7 +119,7 @@ function normalizeParentEmailTemplateRow(row) {
   const sectionAvailability = Array.isArray(rawSectionAvailability)
     ? rawSectionAvailability
         .map((section) => String(section ?? '').trim())
-        .filter((section) => EVALUATION_SECTIONS.includes(section))
+        .filter((section) => EMAIL_TEMPLATE_SECTIONS.includes(section))
     : []
 
   return {
@@ -133,7 +131,7 @@ function normalizeParentEmailTemplateRow(row) {
     subject: normalizePlayerNameTemplateField(row.subject).trim(),
     body: normalizePlayerNameTemplateField(row.body).trim(),
     isEnabled: Boolean(row.is_enabled ?? row.isEnabled ?? true),
-    sectionAvailability: sectionAvailability.length > 0 ? sectionAvailability : [...EVALUATION_SECTIONS],
+    sectionAvailability: sectionAvailability.length > 0 ? sectionAvailability : [...EMAIL_TEMPLATE_SECTIONS],
     orderIndex: Number(row.order_index ?? row.orderIndex ?? 0),
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
     createdAt: row.created_at ?? row.createdAt ?? '',
@@ -149,8 +147,8 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
   const sectionAvailability = Array.isArray(template?.sectionAvailability)
     ? template.sectionAvailability
         .map((section) => String(section ?? '').trim())
-        .filter((section) => EVALUATION_SECTIONS.includes(section))
-    : [...EVALUATION_SECTIONS]
+        .filter((section) => EMAIL_TEMPLATE_SECTIONS.includes(section))
+    : [...EMAIL_TEMPLATE_SECTIONS]
 
   if (!templateKey) {
     throw new Error('Template key is required.')

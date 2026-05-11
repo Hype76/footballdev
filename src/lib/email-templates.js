@@ -82,6 +82,9 @@ export const EMAIL_TEMPLATE_AUDIENCES = {
   player: 'player',
 }
 
+export const DIRECT_EMAIL_TEMPLATE_SECTION = 'Direct Email'
+export const EMAIL_TEMPLATE_SECTIONS = ['Trial', 'Squad', DIRECT_EMAIL_TEMPLATE_SECTION]
+
 export const EMAIL_TEMPLATE_FIELDS = [
   { key: 'recipientName', label: 'Recipient name' },
   { key: 'parentName', label: 'Parent name' },
@@ -106,7 +109,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'decline',
     label: 'No Place Offered',
-    sectionAvailability: ['Trial'],
+    sectionAvailability: ['Trial', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Player Trial Feedback for {playerFirstName}',
     body: [
       'Dear {parentName},',
@@ -126,7 +129,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'progress',
     label: 'Invite Back',
-    sectionAvailability: ['Trial'],
+    sectionAvailability: ['Trial', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Follow-up Trial Invitation for {playerFirstName}',
     body: [
       'Dear {parentName},',
@@ -147,7 +150,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'offer',
     label: 'Offer Place',
-    sectionAvailability: ['Trial'],
+    sectionAvailability: ['Trial', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Squad Offer for {playerFirstName}',
     body: [
       'Dear {parentName},',
@@ -167,7 +170,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   {
     key: 'assessment',
     label: 'Send Assessment',
-    sectionAvailability: ['Squad'],
+    sectionAvailability: ['Squad', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Player Feedback for {playerFirstName}',
     body: [
       'Dear {parentName},',
@@ -191,7 +194,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   {
     key: 'decline',
     label: 'No Place Offered',
-    sectionAvailability: ['Trial'],
+    sectionAvailability: ['Trial', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Player Trial Feedback for {playerFirstName}',
     body: [
       'Dear {playerFirstName},',
@@ -211,7 +214,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   {
     key: 'progress',
     label: 'Invite Back',
-    sectionAvailability: ['Trial'],
+    sectionAvailability: ['Trial', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Follow-up Trial Invitation for {playerFirstName}',
     body: [
       'Dear {playerFirstName},',
@@ -232,7 +235,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   {
     key: 'offer',
     label: 'Offer Place',
-    sectionAvailability: ['Trial'],
+    sectionAvailability: ['Trial', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Squad Offer for {playerFirstName}',
     body: [
       'Dear {playerFirstName},',
@@ -252,7 +255,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   {
     key: 'assessment',
     label: 'Send Assessment',
-    sectionAvailability: ['Squad'],
+    sectionAvailability: ['Squad', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Player Feedback for {playerFirstName}',
     body: [
       'Dear {playerFirstName},',

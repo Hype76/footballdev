@@ -1,4 +1,5 @@
 import { getDefaultClubParentEmailTemplates } from './supabase.js'
+import { EMAIL_TEMPLATE_SECTIONS } from './email-templates.js'
 
 export function mergeParentEmailTemplates(savedTemplates, audience) {
   const defaultTemplates = getDefaultClubParentEmailTemplates(audience)
@@ -45,7 +46,7 @@ export function createCustomParentEmailTemplate({ audience, existingTemplates = 
     body: '',
     isEnabled: true,
     isCustom: true,
-    sectionAvailability: ['Trial', 'Squad'],
+    sectionAvailability: [...EMAIL_TEMPLATE_SECTIONS],
     orderIndex: index + 10,
   }
 }

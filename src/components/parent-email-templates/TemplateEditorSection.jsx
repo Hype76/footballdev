@@ -1,6 +1,5 @@
 import { useRef } from 'react'
-import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
-import { EMAIL_TEMPLATE_FIELDS } from '../../lib/email-templates.js'
+import { EMAIL_TEMPLATE_FIELDS, EMAIL_TEMPLATE_SECTIONS } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function TemplateEditorSection({
@@ -109,10 +108,10 @@ export function TemplateEditorSection({
             <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
               <p className="text-sm font-semibold text-[var(--text-primary)]">Available for sections</p>
               <div className="mt-3 flex flex-wrap gap-3">
-                {EVALUATION_SECTIONS.map((section) => {
+                {EMAIL_TEMPLATE_SECTIONS.map((section) => {
                   const selectedSections = Array.isArray(template.sectionAvailability)
                     ? template.sectionAvailability
-                    : [...EVALUATION_SECTIONS]
+                    : [...EMAIL_TEMPLATE_SECTIONS]
 
                   return (
                     <label

@@ -7,7 +7,10 @@ import { getDraftParentContacts } from '../../hooks/players/playerProfileUtils.j
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function PlayerDetailsSection({
+  directEmailSendingId,
   editingPlayerId,
+  getDirectEmailTemplateOptions,
+  getSelectedDirectEmailTemplateOption,
   isPromotingId,
   isSavingPlayer,
   onAddParentContact,
@@ -19,6 +22,8 @@ export function PlayerDetailsSection({
   onRemoveParentContact,
   onRemovePlayerPosition,
   onSavePlayer,
+  onSelectedDirectEmailTemplateChange,
+  onSendDirectEmail,
   onStartEditingPlayer,
   playerDrafts,
   profilePlayers,
@@ -62,8 +67,13 @@ export function PlayerDetailsSection({
                 ) : (
                   <PlayerDetailsSummary
                     contacts={contacts}
+                    directEmailSendingId={directEmailSendingId}
+                    directEmailTemplates={getDirectEmailTemplateOptions(player)}
+                    selectedDirectEmailTemplateKey={getSelectedDirectEmailTemplateOption(player)?.optionKey || ''}
                     isPromoting={isPromotingId === player.id}
                     onPromotePlayer={() => onPromotePlayer(player.id)}
+                    onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
+                    onSendDirectEmail={() => onSendDirectEmail(player)}
                     onStartEditingPlayer={() => onStartEditingPlayer(player)}
                     player={player}
                   />
@@ -232,13 +242,20 @@ function PlayerDetailsEditor({
 
 function PlayerDetailsSummary({
   contacts,
+  directEmailSendingId,
+  directEmailTemplates,
   isPromoting,
   onPromotePlayer,
+  onSelectedDirectEmailTemplateChange,
+  onSendDirectEmail,
   onStartEditingPlayer,
   player,
+  selectedDirectEmailTemplateKey,
 }) {
+  const directEmailId = `direct:${player.id}`
+
   return (
-    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <div className="space-y-4">
       <div className="grid flex-1 gap-3 md:grid-cols-2 2xl:grid-cols-5">
         <PlayerDetailItem label="Section" value={player.section} />
         <PlayerDetailItem label="Team" value={player.team || 'No team entered'} />
@@ -262,24 +279,55 @@ function PlayerDetailsSummary({
         />
         <PlayerDetailItem label="Status" value={player.status === 'promoted' ? 'Promoted' : 'Active'} />
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        {player.section !== 'Squad' ? (
+
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto_auto_auto] lg:items-end">
+          {directEmailTemplates.length > 0 ? (
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
+              <select
+                value={selectedDirectEmailTemplateKey}
+                onChange={(event) => onSelectedDirectEmailTemplateChange(event.target.value)}
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              >
+                {directEmailTemplates.map((template) => (
+                  <option key={template.optionKey} value={template.optionKey}>
+                    {template.audience === 'player' ? 'Player' : 'Parent'}: {template.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
+              Enable a template for Direct Email before sending.
+            </div>
+          )}
           <button
             type="button"
-            disabled={isPromoting}
-            onClick={onPromotePlayer}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={onSendDirectEmail}
+            disabled={directEmailSendingId === directEmailId || directEmailTemplates.length === 0}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
           >
-            {isPromoting ? 'Promoting...' : 'Promote to Squad'}
+            {directEmailSendingId === directEmailId ? 'Sending...' : 'Send Email'}
           </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={onStartEditingPlayer}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-        >
-          Edit Details
-        </button>
+          {player.section !== 'Squad' ? (
+            <button
+              type="button"
+              disabled={isPromoting}
+              onClick={onPromotePlayer}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+            >
+              {isPromoting ? 'Promoting...' : 'Promote to Squad'}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onStartEditingPlayer}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] lg:w-auto"
+          >
+            Edit Details
+          </button>
+        </div>
       </div>
     </div>
   )
