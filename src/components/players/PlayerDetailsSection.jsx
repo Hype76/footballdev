@@ -21,6 +21,7 @@ export function PlayerDetailsSection({
   onPromotePlayer,
   onRemoveParentContact,
   onRemovePlayerPosition,
+  onRefreshEmailTemplates,
   onSavePlayer,
   onSelectedDirectEmailTemplateChange,
   onSendDirectEmail,
@@ -72,6 +73,7 @@ export function PlayerDetailsSection({
                     selectedDirectEmailTemplateKey={getSelectedDirectEmailTemplateOption(player)?.optionKey || ''}
                     isPromoting={isPromotingId === player.id}
                     onPromotePlayer={() => onPromotePlayer(player.id)}
+                    onRefreshEmailTemplates={onRefreshEmailTemplates}
                     onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
                     onSendDirectEmail={() => onSendDirectEmail(player)}
                     onStartEditingPlayer={() => onStartEditingPlayer(player)}
@@ -246,6 +248,7 @@ function PlayerDetailsSummary({
   directEmailTemplates,
   isPromoting,
   onPromotePlayer,
+  onRefreshEmailTemplates,
   onSelectedDirectEmailTemplateChange,
   onSendDirectEmail,
   onStartEditingPlayer,
@@ -288,6 +291,7 @@ function PlayerDetailsSummary({
               <select
                 value={selectedDirectEmailTemplateKey}
                 onChange={(event) => onSelectedDirectEmailTemplateChange(event.target.value)}
+                onFocus={onRefreshEmailTemplates}
                 className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
               >
                 {directEmailTemplates.map((template) => (

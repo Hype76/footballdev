@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PlayerDetailsSection } from '../components/players/PlayerDetailsSection.jsx'
 import { PlayerEvaluationsHistory } from '../components/players/PlayerEvaluationsHistory.jsx'
@@ -254,36 +254,38 @@ export function PlayerProfile() {
     }
   }, [cacheKey, routePlayerName, user, userScopeKey])
 
+  const loadEmailTemplates = useCallback(async () => {
+    if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+      setEmailTemplates([])
+      return
+    }
+
+    try {
+      const nextTemplates = await getParentEmailTemplates({ user, audience: 'all' })
+      setEmailTemplates(nextTemplates)
+    } catch (error) {
+      console.error(error)
+      setEmailTemplates([])
+    }
+  }, [user])
+
   useEffect(() => {
     let isMounted = true
 
-    const loadEmailTemplates = async () => {
-      if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
-        setEmailTemplates([])
+    const loadMountedEmailTemplates = async () => {
+      if (!isMounted) {
         return
       }
 
-      try {
-        const nextTemplates = await getParentEmailTemplates({ user, audience: 'all' })
-
-        if (isMounted) {
-          setEmailTemplates(nextTemplates)
-        }
-      } catch (error) {
-        console.error(error)
-
-        if (isMounted) {
-          setEmailTemplates([])
-        }
-      }
+      await loadEmailTemplates()
     }
 
-    void loadEmailTemplates()
+    void loadMountedEmailTemplates()
 
     return () => {
       isMounted = false
     }
-  }, [user, userScopeKey])
+  }, [loadEmailTemplates, userScopeKey])
 
   const scoredEvaluations = useMemo(
     () => evaluations.filter((evaluation) => evaluation.averageScore !== null),
@@ -1079,6 +1081,7 @@ export function PlayerProfile() {
         onRemoveParentContact={handleRemoveParentContact}
         onRemovePlayerPosition={handleRemovePlayerPosition}
         onSavePlayer={(playerId) => void handleSavePlayer(playerId)}
+        onRefreshEmailTemplates={() => void loadEmailTemplates()}
         onSelectedDirectEmailTemplateChange={(playerId, value) =>
           setSelectedEmailTemplates((currentTemplates) => ({
             ...currentTemplates,

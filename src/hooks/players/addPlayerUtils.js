@@ -17,8 +17,8 @@ export const RECENT_PLAYER_PAGE_SIZE = 8
 export const CONTACT_TYPE_OPTIONS = [
   {
     value: PLAYER_CONTACT_TYPES.self,
-    label: 'Self',
-    description: 'Send player emails to the player directly.',
+    label: 'Player',
+    description: 'Send player emails directly to the player.',
   },
   {
     value: PLAYER_CONTACT_TYPES.parent,
@@ -27,7 +27,7 @@ export const CONTACT_TYPE_OPTIONS = [
   },
   {
     value: PLAYER_CONTACT_TYPES.both,
-    label: 'Both',
+    label: 'Player and Parents',
     description: 'Send player emails to the player and parent emails to parents or guardians.',
   },
 ]
