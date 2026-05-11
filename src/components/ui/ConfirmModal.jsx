@@ -1,7 +1,9 @@
 import { useState } from 'react'
 
 export function ConfirmModal({
+  children,
   confirmLabel = 'Confirm',
+  confirmDisabled = false,
   isBusy = false,
   isOpen,
   items = [],
@@ -59,6 +61,7 @@ export function ConfirmModal({
             </ul>
           </div>
         ) : null}
+        {children ? <div className="mt-4">{children}</div> : null}
         {requireReason ? (
           <label className="mt-4 block">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{reasonLabel}</span>
@@ -106,7 +109,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={isBusy || (requirePassword && !password.trim()) || (requireReason && !reason.trim())}
+            disabled={isBusy || confirmDisabled || (requirePassword && !password.trim()) || (requireReason && !reason.trim())}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isBusy ? 'Working...' : confirmLabel}

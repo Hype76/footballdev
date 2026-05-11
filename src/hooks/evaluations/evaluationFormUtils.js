@@ -534,6 +534,7 @@ export function writeSessionAssessmentProgress({ assessmentSessionId, playerName
 }
 
 export function buildParentEmailJobs({
+  attachPdf = false,
   contactAudiences,
   emailTemplates,
   evaluation,
@@ -605,6 +606,7 @@ export function buildParentEmailJobs({
               subject: renderedTemplate.subject,
               emailBody: renderedTemplate.body,
               evaluationId: evaluation.id,
+              attachPdf,
             }),
           }
         }),

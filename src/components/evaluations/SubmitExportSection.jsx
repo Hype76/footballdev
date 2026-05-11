@@ -11,6 +11,7 @@ export function SubmitExportSection({
   inviteDate,
   isDemoAccount,
   isLoadingEmailTemplates,
+  isPdfAttachmentApproved,
   isSaved,
   isSendingParentEmail,
   isSubmitting,
@@ -19,6 +20,7 @@ export function SubmitExportSection({
   onEmailTemplateChange,
   onGoToPlayer,
   onInviteDateChange,
+  onPdfAttachmentApprovedChange,
   onPreviewModeChange,
   onPrintBlankForm,
   onSelectAllExportFields,
@@ -106,6 +108,21 @@ export function SubmitExportSection({
               </p>
             </label>
           ) : null}
+
+          <label className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+            <input
+              type="checkbox"
+              checked={Boolean(isPdfAttachmentApproved)}
+              onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-[var(--text-primary)]">Attach assessment PDF</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+                Include the selected assessment details as a PDF attachment.
+              </span>
+            </span>
+          </label>
         </div>
       ) : null}
 

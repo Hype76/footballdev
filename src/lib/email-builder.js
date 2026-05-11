@@ -274,6 +274,7 @@ export async function sendParentEmail(data) {
       parentName: data.parentName,
       senderEmail: data.senderEmail,
       planKey: data.planKey,
+      attachPdf: data.attachPdf,
       idempotencyKey: data.idempotencyKey,
       evaluationId: data.evaluationId,
     }),

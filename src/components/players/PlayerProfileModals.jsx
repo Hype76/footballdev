@@ -9,6 +9,7 @@ export function PlayerProfileModals({
   isDeletingEvaluationId,
   isMergeConfirmOpen,
   isMergingEvaluations,
+  isPdfAttachmentApproved,
   isReassigningId,
   mergeSelectedEvaluations,
   noPlaceArchiveTarget,
@@ -24,11 +25,14 @@ export function PlayerProfileModals({
   onConfirmEmail,
   onConfirmMerge,
   onConfirmReassign,
+  onPdfAttachmentApprovedChange,
   playerDeleteTarget,
   players,
   reassignConfirmTarget,
   routePlayerName,
 }) {
+  const canAttachPdf = Boolean(emailConfirmTarget && !emailConfirmTarget.evaluation?.isDirectEmail)
+
   return (
     <>
       <ConfirmModal
@@ -113,14 +117,31 @@ export function PlayerProfileModals({
           `Subject: ${emailConfirmTarget?.payloads?.[0]?.payload?.subject || 'Player Feedback Report'}`,
           `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
-          `Attachment: ${emailConfirmTarget?.evaluation?.isDirectEmail ? 'No' : 'Yes'}`,
+          `Attachment: ${canAttachPdf && isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`,
           `Evaluation fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}
         confirmLabel="Send Now"
         onCancel={onCancelEmail}
         onConfirm={onConfirmEmail}
-      />
+      >
+        {canAttachPdf ? (
+          <label className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <input
+              type="checkbox"
+              checked={Boolean(isPdfAttachmentApproved)}
+              onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-[var(--text-primary)]">Attach assessment PDF</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+                Include the selected assessment details as a PDF attachment.
+              </span>
+            </span>
+          </label>
+        ) : null}
+      </ConfirmModal>
 
       <ConfirmModal
         isOpen={Boolean(noPlaceArchiveTarget)}

@@ -199,6 +199,7 @@ export async function handler(event) {
       playerName,
       parentName,
       senderEmail,
+      attachPdf,
     } = body
 
     if (String(senderEmail ?? '').trim().toLowerCase() === DEMO_EMAIL) {
@@ -238,7 +239,8 @@ export async function handler(event) {
       return failureResponse(400, 'Email content is too large')
     }
 
-    const attachments = await buildPdfAttachment(emailHtml)
+    const shouldAttachPdf = attachPdf === true
+    const attachments = shouldAttachPdf ? await buildPdfAttachment(emailHtml) : []
     emailSubject = String(subject ?? '').trim() || 'Player Feedback'
     const emailPayload = buildEmailPayload({
       fromName,

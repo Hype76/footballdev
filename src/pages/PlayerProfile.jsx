@@ -149,6 +149,7 @@ export function PlayerProfile() {
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
   const [emailConfirmTarget, setEmailConfirmTarget] = useState(null)
+  const [isPdfAttachmentApproved, setIsPdfAttachmentApproved] = useState(false)
   const [reassignConfirmTarget, setReassignConfirmTarget] = useState(null)
   const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -529,6 +530,7 @@ export function PlayerProfile() {
         return
       }
 
+      setIsPdfAttachmentApproved(false)
       setEmailConfirmTarget(emailDetails)
     } catch (error) {
       console.error(error)
@@ -556,6 +558,7 @@ export function PlayerProfile() {
         return
       }
 
+      setIsPdfAttachmentApproved(false)
       setEmailConfirmTarget(emailDetails)
     } catch (error) {
       console.error(error)
@@ -573,7 +576,8 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      await Promise.all(payloads.map((item) => sendParentEmail(item.payload)))
+      const attachPdf = !evaluation.isDirectEmail && isPdfAttachmentApproved
+      await Promise.all(payloads.map((item) => sendParentEmail({ ...item.payload, attachPdf })))
       showToast({ title: 'Email sent successfully' })
 
       const playerId = evaluation.playerId || primaryPlayer?.id
@@ -604,6 +608,7 @@ export function PlayerProfile() {
     } finally {
       setEmailSendingId('')
       setEmailConfirmTarget(null)
+      setIsPdfAttachmentApproved(false)
     }
   }
 
@@ -1330,6 +1335,7 @@ export function PlayerProfile() {
         isDeletingEvaluationId={isDeletingEvaluationId}
         isMergeConfirmOpen={isMergeConfirmOpen}
         isMergingEvaluations={isMergingEvaluations}
+        isPdfAttachmentApproved={isPdfAttachmentApproved}
         isReassigningId={isReassigningId}
         mergeSelectedEvaluations={mergeSelectedEvaluations}
         noPlaceArchiveTarget={noPlaceArchiveTarget}
@@ -1337,7 +1343,10 @@ export function PlayerProfile() {
         onCancelArchiveAfterNoPlaceEmail={() => setNoPlaceArchiveTarget(null)}
         onCancelDeleteEvaluation={() => setEvaluationDeleteTarget(null)}
         onCancelDeletePlayer={() => setPlayerDeleteTarget(null)}
-        onCancelEmail={() => setEmailConfirmTarget(null)}
+        onCancelEmail={() => {
+          setEmailConfirmTarget(null)
+          setIsPdfAttachmentApproved(false)
+        }}
         onCancelMerge={() => setIsMergeConfirmOpen(false)}
         onCancelReassign={() => setReassignConfirmTarget(null)}
         onConfirmDeleteEvaluation={(password) => void confirmDeleteEvaluation(password)}
@@ -1345,6 +1354,7 @@ export function PlayerProfile() {
         onConfirmEmail={() => void confirmSendParentEmail()}
         onConfirmMerge={() => void confirmCreateMergedEvaluation()}
         onConfirmReassign={() => void confirmReassignEvaluation()}
+        onPdfAttachmentApprovedChange={setIsPdfAttachmentApproved}
         playerDeleteTarget={playerDeleteTarget}
         players={players}
         reassignConfirmTarget={reassignConfirmTarget}

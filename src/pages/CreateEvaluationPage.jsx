@@ -116,6 +116,7 @@ export function CreateEvaluationPage() {
   const [lastSavedPlayerName, setLastSavedPlayerName] = useState('')
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
+  const [isPdfAttachmentApproved, setIsPdfAttachmentApproved] = useState(false)
   const [showPreviousAssessments, setShowPreviousAssessments] = useState(false)
   const [emailTemplateKey, setEmailTemplateKey] = useState('')
   const [emailTemplates, setEmailTemplates] = useState([])
@@ -897,6 +898,7 @@ export function CreateEvaluationPage() {
 
           setIsSendingParentEmail(true)
           const emailJobs = buildParentEmailJobs({
+            attachPdf: isPdfAttachmentApproved,
             contactAudiences,
             emailTemplates,
             evaluation: {
@@ -1096,6 +1098,7 @@ export function CreateEvaluationPage() {
                 inviteDate={inviteDate}
                 isDemoAccount={isDemoAccount}
                 isLoadingEmailTemplates={isLoadingEmailTemplates}
+                isPdfAttachmentApproved={isPdfAttachmentApproved}
                 isSaved={isSaved}
                 isSendingParentEmail={isSendingParentEmail}
                 isSubmitting={isSubmitting}
@@ -1104,6 +1107,7 @@ export function CreateEvaluationPage() {
                 onEmailTemplateChange={setEmailTemplateKey}
                 onGoToPlayer={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
                 onInviteDateChange={setInviteDate}
+                onPdfAttachmentApprovedChange={setIsPdfAttachmentApproved}
                 onPreviewModeChange={setPreviewMode}
                 onPrintBlankForm={() => setIsPrintingBlankView(true)}
                 onSelectAllExportFields={handleSetAllExportFields}
