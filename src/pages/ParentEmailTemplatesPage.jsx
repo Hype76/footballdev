@@ -28,7 +28,7 @@ export function ParentEmailTemplatesPage() {
   const [focusTemplateKey, setFocusTemplateKey] = useState('')
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.planKey}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.planKey}:${user.activeTeamId || ''}` : ''
 
   useEffect(() => {
     let isMounted = true
@@ -168,8 +168,8 @@ export function ParentEmailTemplatesPage() {
       validateParentEmailTemplateContent(template)
       const savedTemplate = await upsertParentEmailTemplate({ user, template })
       setTemplates((current) => current.map((item) => (item.key === savedTemplate.key ? savedTemplate : item)))
-      setMessage(`${savedTemplate.label} saved for the club.`)
-      showToast({ title: 'Template saved', message: `${savedTemplate.label} is available for this club.` })
+      setMessage(`${savedTemplate.label} saved for this team.`)
+      showToast({ title: 'Template saved', message: `${savedTemplate.label} is available for this team.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save this template.')
@@ -214,7 +214,7 @@ export function ParentEmailTemplatesPage() {
       <PageHeader
         eyebrow="Settings"
         title="Email templates"
-        description="Create the club templates used when sending parent or player emails."
+        description="Create the templates used when sending parent or player emails. Saved templates stay with the team that created them."
       />
 
       {errorMessage ? <NoticeBanner title="Template action failed" message={errorMessage} /> : null}

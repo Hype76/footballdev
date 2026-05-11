@@ -15,7 +15,6 @@ import {
 
 const DEMO_MUTATION_ERROR_MESSAGE = 'Demo accounts cannot save changes.'
 const CLUB_PLAN_SELECT = 'id, plan_key, plan_status, is_plan_comped, tester_access_expires_at'
-
 function getEntryUserName(user) {
   return String(user?.username ?? user?.name ?? user?.email ?? '').trim()
 }
@@ -125,6 +124,7 @@ function normalizeParentEmailTemplateRow(row) {
   return {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
+    teamId: row.team_id ?? row.teamId ?? '',
     key: String(row.template_key ?? row.key ?? '').trim(),
     audience: normalizeEmailTemplateAudience(row.audience),
     label: String(row.label ?? '').trim(),
@@ -138,9 +138,16 @@ function normalizeParentEmailTemplateRow(row) {
   }
 }
 
+function isDefaultParentEmailTemplateKey(templateKey, audience) {
+  const normalizedTemplateKey = String(templateKey ?? '').trim().toLowerCase()
+
+  return getDefaultEmailTemplates(audience).some((template) => template.key === normalizedTemplateKey)
+}
+
 function normalizeParentEmailTemplatePayload({ user, template }) {
   const templateKey = String(template?.key ?? template?.templateKey ?? '').trim().toLowerCase()
   const audience = normalizeEmailTemplateAudience(template?.audience)
+  const activeTeamId = String(user?.activeTeamId ?? '').trim()
   const label = String(template?.label ?? '').trim()
   const subject = normalizePlayerNameTemplateField(template?.subject).trim()
   const body = normalizePlayerNameTemplateField(template?.body).trim()
@@ -176,8 +183,13 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
 
   validateParentEmailTemplateContent({ subject, body })
 
+  if (!activeTeamId) {
+    throw new Error('Select a team before saving an email template.')
+  }
+
   return {
     club_id: user.clubId,
+    team_id: activeTeamId,
     template_key: templateKey,
     audience,
     label,
@@ -191,12 +203,6 @@ function normalizeParentEmailTemplatePayload({ user, template }) {
   }
 }
 
-function isDefaultParentEmailTemplateKey(templateKey, audience) {
-  const normalizedTemplateKey = String(templateKey ?? '').trim().toLowerCase()
-
-  return getDefaultEmailTemplates(audience).some((template) => template.key === normalizedTemplateKey)
-}
-
 export function getDefaultClubParentEmailTemplates(audience = EMAIL_TEMPLATE_AUDIENCES.parent) {
   return getDefaultEmailTemplates(audience)
 }
@@ -207,6 +213,7 @@ export async function getParentEmailTemplates({ user, includeDisabled = false, a
   }
 
   const normalizedAudience = String(audience ?? '').trim().toLowerCase()
+  const activeTeamId = String(user.activeTeamId ?? '').trim()
 
   let query = supabase
     .from('parent_email_templates')
@@ -230,7 +237,9 @@ export async function getParentEmailTemplates({ user, includeDisabled = false, a
     throw error
   }
 
-  return (data ?? []).map(normalizeParentEmailTemplateRow)
+  return (data ?? [])
+    .map(normalizeParentEmailTemplateRow)
+    .filter((template) => Boolean(activeTeamId) && String(template.teamId) === activeTeamId)
 }
 
 export async function upsertParentEmailTemplate({ user, template }) {
@@ -259,7 +268,7 @@ export async function upsertParentEmailTemplate({ user, template }) {
   const { data, error } = await supabase
     .from('parent_email_templates')
     .upsert(payload, {
-      onConflict: 'club_id,audience,template_key',
+      onConflict: 'club_id,team_id,audience,template_key',
     })
     .select('*')
     .single()
@@ -294,6 +303,12 @@ export async function deleteParentEmailTemplate({ user, template }) {
     throw new Error('Default templates cannot be deleted.')
   }
 
+  const activeTeamId = String(user.activeTeamId ?? '').trim()
+
+  if (!activeTeamId) {
+    throw new Error('Select a team before deleting a custom email template.')
+  }
+
   await assertClubFeature({
     user,
     clubId: user.clubId,
@@ -304,6 +319,7 @@ export async function deleteParentEmailTemplate({ user, template }) {
     .from('parent_email_templates')
     .delete()
     .eq('club_id', user.clubId)
+    .eq('team_id', activeTeamId)
     .eq('audience', audience)
     .eq('template_key', templateKey)
 
