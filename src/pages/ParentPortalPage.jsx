@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useAuth } from '../lib/auth.js'
@@ -5,7 +6,11 @@ import { useAuth } from '../lib/auth.js'
 export function ParentPortalPage() {
   const { user } = useAuth()
   const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-  const selectedLink = links.find((link) => link.id === user?.selectedParentLinkId) ?? links[0]
+  const [selectedLinkId, setSelectedLinkId] = useState('')
+  const selectedLink = links.find((link) => link.id === selectedLinkId)
+    ?? links.find((link) => link.id === user?.selectedParentLinkId)
+    ?? links[0]
+  const otherLinks = links.filter((link) => link.id !== selectedLink?.id)
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -30,14 +35,19 @@ export function ParentPortalPage() {
         )}
       </SectionCard>
 
-      {links.length > 1 ? (
-        <SectionCard title="Other child links" description="If this email is linked to more than one child or team, those links appear here.">
+      {otherLinks.length > 0 ? (
+        <SectionCard title="Other child links" description="If this email is linked to more than one child or team, select a child to view their details.">
           <div className="space-y-2">
-            {links.map((link) => (
-              <div key={link.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+            {otherLinks.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => setSelectedLinkId(link.id)}
+                className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] hover:bg-[var(--panel-soft)]"
+              >
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{link.playerName}</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">{link.teamName || 'No team'} | {link.clubName || 'No club'}</p>
-              </div>
+              </button>
             ))}
           </div>
         </SectionCard>
