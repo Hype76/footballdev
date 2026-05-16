@@ -830,57 +830,26 @@ export function AuthProvider({ children }) {
     setAuthError('')
     const normalizedEmail = String(email ?? '').trim()
     const normalizedInviteToken = String(inviteToken ?? '').trim()
-    const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
-    const invitePath = normalizedInviteToken
-      ? `/parent-login?parentInvite=${encodeURIComponent(normalizedInviteToken)}&confirmed=1`
-      : '/parent-login'
-    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}${invitePath}`
-
-    const { data, error } = await supabase.auth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        emailRedirectTo,
-        data: {
-          username: signupDisplayName,
-          name: signupDisplayName,
-          display_name: signupDisplayName,
-          account_type: 'parent',
-        },
-      },
+    const response = await fetch('/.netlify/functions/create-parent-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        password,
+        inviteToken: normalizedInviteToken,
+      }),
     })
+    const result = await response.json().catch(() => ({}))
 
-    if (error) {
+    if (!response.ok || result.success === false) {
+      const error = new Error(result.message || 'Parent account could not be created.')
       console.error(error)
-      setAuthError(error.message || 'Sign up failed.')
+      setAuthError(error.message)
       throw error
     }
 
-    if (!data.user) {
-      const signupError = new Error('Account creation did not return a user.')
-      console.error(signupError)
-      setAuthError(signupError.message)
-      throw signupError
-    }
-
-    if (!data.session) {
-      setSession(null)
-      setAuthUser(null)
-      setUser(null)
-      setClubOptions([])
-      setTeamOptions([])
-      setAccessModeOptions([])
-      setIsProfileLoading(false)
-      setAuthError('')
-
-      return {
-        needsEmailVerification: true,
-        email: data.user.email || email,
-      }
-    }
-
-    setSession(data.session)
-    setAuthUser(data.user)
+    setSession(null)
+    setAuthUser(null)
     setUser(null)
     setClubOptions([])
     setTeamOptions([])
@@ -889,8 +858,8 @@ export function AuthProvider({ children }) {
     setAuthError('')
 
     return {
-      needsEmailVerification: false,
-      user: data.user,
+      needsEmailVerification: true,
+      email: result.email || normalizedEmail,
     }
   }
 
