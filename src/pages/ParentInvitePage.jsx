@@ -119,8 +119,18 @@ export function ParentInvitePage() {
         shouldAcceptSignedInSession ||
         isLoading ||
         !session?.user ||
+        isInviteLoading ||
+        !invite ||
         signOutAttemptedRef.current
       ) {
+        return
+      }
+
+      const sessionEmail = String(session.user.email ?? '').trim().toLowerCase()
+      const inviteEmail = String(invite.email ?? '').trim().toLowerCase()
+
+      if (sessionEmail && inviteEmail && sessionEmail === inviteEmail) {
+        window.location.assign(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&confirmed=1`)
         return
       }
 
@@ -147,7 +157,7 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [isLoading, session?.user, shouldAcceptSignedInSession, signOut])
+  }, [invite, isInviteLoading, isLoading, session?.user, shouldAcceptSignedInSession, signOut, token])
 
   useEffect(() => {
     let isMounted = true
