@@ -1062,6 +1062,7 @@ export function CreateEvaluationPage() {
         confirmLabel="Continue"
         cancelLabel="Configure Email Templates"
         onCancel={() => navigate('/parent-email-templates')}
+        onClose={() => setIsDefaultTemplateConfirmOpen(false)}
         onConfirm={handleContinueWithDefaultTemplate}
       />
 

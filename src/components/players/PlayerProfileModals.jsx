@@ -130,6 +130,7 @@ export function PlayerProfileModals({
         ]}
         confirmLabel={isDefaultTemplateEmail ? 'Continue' : 'Send Now'}
         cancelLabel={isDefaultTemplateEmail ? 'Configure Email Templates' : 'Cancel'}
+        onClose={onCancelEmail}
         onCancel={() => {
           if (isDefaultTemplateEmail) {
             navigate('/parent-email-templates')

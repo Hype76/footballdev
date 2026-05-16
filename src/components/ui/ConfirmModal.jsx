@@ -11,6 +11,7 @@ export function ConfirmModal({
   itemsTitle = 'This will delete:',
   message,
   onCancel,
+  onClose,
   onConfirm,
   reasonLabel = 'Reason',
   reasonPlaceholder = '',
@@ -31,6 +32,12 @@ export function ConfirmModal({
   const handleCancel = () => {
     resetFields()
     onCancel()
+  }
+
+  const handleClose = () => {
+    const closeAction = onClose || onCancel
+    resetFields()
+    closeAction()
   }
 
   const handleConfirm = () => {
@@ -56,9 +63,23 @@ export function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 py-6">
-      <div className="w-full max-w-lg rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl sm:p-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-lg rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl sm:p-6"
+      >
+        <button
+          type="button"
+          onClick={handleClose}
+          disabled={isBusy}
+          title={isBusy ? 'Please wait while this action finishes.' : 'Close this window'}
+          aria-label="Close this window"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          X
+        </button>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Please confirm</p>
-        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h2>
+        <h2 className="mt-3 pr-12 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h2>
         {message ? <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{message}</p> : null}
         {items.length > 0 ? (
           <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">

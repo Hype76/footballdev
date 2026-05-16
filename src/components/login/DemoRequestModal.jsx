@@ -12,9 +12,23 @@ export function DemoRequestModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 px-4 py-6">
-      <div className="w-full max-w-xl rounded-lg border border-white/10 bg-[#0b130d] p-5 shadow-2xl shadow-black/50 sm:p-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-xl rounded-lg border border-white/10 bg-[#0b130d] p-5 shadow-2xl shadow-black/50 sm:p-6"
+      >
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          title={isSubmitting ? 'Please wait while your demo request is sent.' : 'Close this window'}
+          aria-label="Close this window"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          X
+        </button>
         <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Request Demo</p>
-        <h2 className="mt-3 text-2xl font-black tracking-tight text-white">{demoPlan.name}</h2>
+        <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-white">{demoPlan.name}</h2>
         <p className="mt-3 text-sm leading-6 text-slate-300">
           Send your details and we will contact you to arrange the demo.
         </p>
