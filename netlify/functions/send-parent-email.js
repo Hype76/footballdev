@@ -14,7 +14,8 @@ import {
 import { supabaseAdmin } from './_supabase.js'
 import {
   assertPlanFeature,
-  getAuthenticatedPlanProfile,
+  getAuthenticatedRequestUser,
+  getClubPlanProfile,
 } from './_plan-gate.js'
 
 void supabaseAdmin
@@ -187,7 +188,8 @@ export async function handler(event) {
     }
 
     const body = JSON.parse(event.body || '{}')
-    const planProfile = await getAuthenticatedPlanProfile(event, { clubId: body.clubId, userId: body.userId })
+    const requestUser = await getAuthenticatedRequestUser(event)
+    const planProfile = await getClubPlanProfile(body.clubId)
     assertPlanFeature(planProfile, 'parentEmail')
 
     const {
@@ -211,11 +213,11 @@ export async function handler(event) {
 
     const normalizedSenderEmail = normaliseEmail(senderEmail)
 
-    if (normalizedSenderEmail && normalizedSenderEmail !== planProfile.email && normalizedSenderEmail !== planProfile.authEmail) {
+    if (normalizedSenderEmail && normalizedSenderEmail !== requestUser.email) {
       return failureResponse(403, 'Email can only be sent from your logged-in account.')
     }
 
-    if (planProfile.authEmail === DEMO_EMAIL || planProfile.email === DEMO_EMAIL) {
+    if (requestUser.email === DEMO_EMAIL) {
       return failureResponse(403, 'Email sending is disabled for the demo account')
     }
 
@@ -286,8 +288,8 @@ export async function handler(event) {
       playerName: String(playerName ?? '').trim(),
       parentName: String(parentName ?? '').trim(),
       clubId: planProfile.clubId,
-      actorId: planProfile.id,
-      actorEmail: planProfile.email,
+      actorId: String(body.userId ?? requestUser.id ?? '').trim(),
+      actorEmail: requestUser.email,
       requiredFeature: 'parentEmail',
     }
     const pendingLogResult = await createPendingEmailLog({
@@ -334,8 +336,8 @@ export async function handler(event) {
         cc: senderCopyEmails,
         subject: emailSubject,
         clubId: planProfile.clubId,
-        actorId: planProfile.id,
-        actorEmail: planProfile.email,
+        actorId: String(body.userId ?? requestUser.id ?? '').trim(),
+        actorEmail: requestUser.email,
         hasAttachment: Boolean(sentPayload.attachments?.length),
         playerName: String(playerName ?? '').trim(),
         teamName: safeTeamName,

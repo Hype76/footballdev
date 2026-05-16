@@ -1,7 +1,8 @@
 import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
 import {
   assertPlanFeature,
-  getAuthenticatedPlanProfile,
+  getAuthenticatedRequestUser,
+  getClubPlanProfile,
 } from './_plan-gate.js'
 
 export async function handler(event) {
@@ -11,7 +12,8 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event.body || '{}')
-    const planProfile = await getAuthenticatedPlanProfile(event, { clubId: body.clubId, userId: body.userId })
+    await getAuthenticatedRequestUser(event)
+    const planProfile = await getClubPlanProfile(body.clubId)
     assertPlanFeature(planProfile, 'pdfExport')
     const html = String(body.html ?? '').trim()
     const filename = String(body.filename ?? 'player-feedback.pdf')

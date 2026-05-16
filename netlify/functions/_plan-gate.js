@@ -114,6 +114,25 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
   return planProfile
 }
 
+export async function getAuthenticatedRequestUser(event) {
+  const token = getBearerToken(event)
+
+  if (!token) {
+    throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
+  }
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token)
+
+  if (authError || !authData?.user) {
+    throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
+  }
+
+  return {
+    id: String(authData.user.id ?? '').trim(),
+    email: normalizeEmail(authData.user.email),
+  }
+}
+
 export async function getClubPlanProfile(clubId) {
   const normalizedClubId = String(clubId ?? '').trim()
 
