@@ -12,7 +12,7 @@ export function PlayerProfileActions({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
       <Link
-        to={`/create?player=${encodeURIComponent(playerName)}&team=${encodeURIComponent(lastTeam)}&section=${encodeURIComponent(lastSection)}`}
+        to={`/assess-player/new?player=${encodeURIComponent(playerName)}&team=${encodeURIComponent(lastTeam)}&section=${encodeURIComponent(lastSection)}`}
         className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
       >
         Add New Evaluation

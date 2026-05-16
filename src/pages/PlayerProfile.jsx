@@ -1295,7 +1295,7 @@ export function PlayerProfile() {
         onDeleteEvaluation={(evaluation) => void handleDeleteEvaluation(evaluation)}
         onEditEvaluation={(evaluation) =>
           navigate(
-            `/assess-player?evaluationId=${encodeURIComponent(evaluation.id)}&player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(evaluation.team || '')}&section=${encodeURIComponent(evaluation.section || 'Trial')}&session=${encodeURIComponent(evaluation.session || '')}`,
+            `/assess-player/new?evaluationId=${encodeURIComponent(evaluation.id)}&player=${encodeURIComponent(routePlayerName)}&team=${encodeURIComponent(evaluation.team || '')}&section=${encodeURIComponent(evaluation.section || 'Trial')}&session=${encodeURIComponent(evaluation.session || '')}`,
           )
         }
         onInviteDateChange={(evaluationId, value) =>

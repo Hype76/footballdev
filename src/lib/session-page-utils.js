@@ -402,7 +402,7 @@ export function buildSessionAssessmentUrl({
     params.set('queueTotal', String(queue.length))
   }
 
-  return `/assess-player?${params.toString()}`
+  return `/assess-player/new?${params.toString()}`
 }
 
 export function getUnassessedPlayerQueue({ completedPlayerNames, sessionPlayers }) {

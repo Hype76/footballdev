@@ -39,9 +39,9 @@ export function getRoleQuickLinks(user) {
 
   if (canCreateEvaluation(user)) {
     links.push(
-      { label: 'Open Sessions', path: '/sessions', primary: links.length === 0 },
-      { label: 'Open Players', path: '/players' },
-      { label: 'Add Player', path: '/add-player' },
+      { label: 'Sessions', path: '/sessions', primary: links.length === 0 },
+      { label: 'Players', path: '/players' },
+      { label: 'Assessments', path: '/assess-player' },
     )
   }
 

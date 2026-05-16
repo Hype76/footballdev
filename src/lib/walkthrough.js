@@ -114,7 +114,7 @@ const commonPlayerPlans = [
 ]
 
 export const WALKTHROUGHS = {
-  '/sessions': {
+  '/sessions/start': {
     key: 'sessions',
     action: { label: 'Create Session', target: 'create-session-section' },
     plans: commonPlayerPlans,
@@ -137,7 +137,7 @@ export const WALKTHROUGHS = {
       },
     ],
   },
-  '/players': {
+  '/players/current': {
     key: 'players',
     action: { label: 'Add Player', path: '/add-player' },
     plans: commonPlayerPlans,
