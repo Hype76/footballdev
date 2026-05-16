@@ -12,6 +12,10 @@ import {
   markEmailLogSent,
 } from './_email-log-store.js'
 import { supabaseAdmin } from './_supabase.js'
+import {
+  assertPlanFeature,
+  getAuthenticatedPlanProfile,
+} from './_plan-gate.js'
 
 void supabaseAdmin
 
@@ -183,6 +187,8 @@ export async function handler(event) {
     }
 
     const body = JSON.parse(event.body || '{}')
+    const planProfile = await getAuthenticatedPlanProfile(event)
+    assertPlanFeature(planProfile, 'parentEmail')
 
     const {
       parentEmail,
@@ -203,7 +209,13 @@ export async function handler(event) {
       attachPdf,
     } = body
 
-    if (String(senderEmail ?? '').trim().toLowerCase() === DEMO_EMAIL) {
+    const normalizedSenderEmail = normaliseEmail(senderEmail)
+
+    if (normalizedSenderEmail && normalizedSenderEmail !== planProfile.email && normalizedSenderEmail !== planProfile.authEmail) {
+      return failureResponse(403, 'Email can only be sent from your logged-in account.')
+    }
+
+    if (planProfile.authEmail === DEMO_EMAIL || planProfile.email === DEMO_EMAIL) {
       return failureResponse(403, 'Email sending is disabled for the demo account')
     }
 
@@ -226,7 +238,6 @@ export async function handler(event) {
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY)
-    const normalizedSenderEmail = normaliseEmail(senderEmail)
     const senderReplyTo = isValidEmail(normalizedSenderEmail) ? normalizedSenderEmail : ''
     const safeDisplayName = cleanHeaderPart(displayName, 'Coach')
     const safeTeamName = cleanHeaderPart(teamName, 'Team')
@@ -241,6 +252,10 @@ export async function handler(event) {
     }
 
     const shouldAttachPdf = attachPdf === true
+    if (shouldAttachPdf) {
+      assertPlanFeature(planProfile, 'pdfExport')
+    }
+
     const attachmentHtml = buildEmailHtml(pdfHtml || emailHtml)
     const attachments = shouldAttachPdf ? await buildPdfAttachment(attachmentHtml) : []
     emailSubject = String(subject ?? '').trim() || 'Player Feedback'
@@ -270,6 +285,10 @@ export async function handler(event) {
       logoUrl: String(logoUrl ?? '').trim(),
       playerName: String(playerName ?? '').trim(),
       parentName: String(parentName ?? '').trim(),
+      clubId: planProfile.clubId,
+      actorId: planProfile.id,
+      actorEmail: planProfile.email,
+      requiredFeature: 'parentEmail',
     }
     const pendingLogResult = await createPendingEmailLog({
       recipients,
@@ -314,6 +333,9 @@ export async function handler(event) {
         to: recipients,
         cc: senderCopyEmails,
         subject: emailSubject,
+        clubId: planProfile.clubId,
+        actorId: planProfile.id,
+        actorEmail: planProfile.email,
         hasAttachment: Boolean(sentPayload.attachments?.length),
         playerName: String(playerName ?? '').trim(),
         teamName: safeTeamName,
@@ -340,6 +362,6 @@ export async function handler(event) {
       },
     })
 
-    return failureResponse(500, 'Email failed - will retry automatically')
+    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Email failed - will retry automatically')
   }
 }

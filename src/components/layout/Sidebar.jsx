@@ -8,7 +8,6 @@ import {
   canManageParentEmailTemplates,
   canManageTeamSettings,
   canManageUsers,
-  canSendBulkClubEmail,
   canViewPlatformFeedback,
   canViewActivityLog,
   canViewBilling,
@@ -59,10 +58,6 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/parent-email-templates') {
       return canManageParentEmailTemplates(user)
-    }
-
-    if (item.path === '/bulk-email') {
-      return canSendBulkClubEmail(user)
     }
 
     if (item.path === '/club-settings') {

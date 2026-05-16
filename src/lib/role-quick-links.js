@@ -4,7 +4,6 @@ import {
   canManageParentEmailTemplates,
   canManageTeamSettings,
   canManageUsers,
-  canSendBulkClubEmail,
   canViewActivityLog,
   canViewBilling,
   canViewPlatformFeedback,
@@ -51,10 +50,6 @@ export function getRoleQuickLinks(user) {
 
   if (canManageParentEmailTemplates(user) && hasPlanFeature(user, 'parentEmail')) {
     links.push({ label: 'Email Templates', path: '/parent-email-templates' })
-  }
-
-  if (canSendBulkClubEmail(user)) {
-    links.push({ label: 'Bulk Email', path: '/bulk-email' })
   }
 
   if (canViewActivityLog(user) && hasPlanFeature(user, 'auditLogs')) {

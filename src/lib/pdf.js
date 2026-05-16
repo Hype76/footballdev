@@ -1,6 +1,7 @@
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import { buildEmailHtml } from './email-builder.js'
 import { formatUkDate } from './date-format.js'
+import { supabase } from './supabase-client.js'
 
 const LOGO_TIMEOUT_MS = 2500
 
@@ -301,11 +302,16 @@ export async function exportEvaluationPdf({ filename, previewProps, mode = 'scor
   try {
     await waitForPaint()
     await waitForImages(container)
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData?.session?.access_token || ''
 
     const response = await withTimeout(
       fetch('/.netlify/functions/render-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           filename,
           html: container.innerHTML,

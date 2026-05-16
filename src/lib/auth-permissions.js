@@ -94,10 +94,6 @@ export function canManageClubLogo(user) {
   return canManageClubSettings(user)
 }
 
-export function canSendBulkClubEmail(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && isClubAdmin(user) && isPlanAccessActive(user)
-}
-
 export function isTesterAccessExpired(user) {
   return Boolean(user?.testerAccessExpired)
 }

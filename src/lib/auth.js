@@ -22,7 +22,6 @@ export {
   canManageParentEmailTemplates,
   canManageTeamSettings,
   canManageUsers,
-  canSendBulkClubEmail,
   canShareEvaluation,
   canViewActivityLog,
   canViewBilling,

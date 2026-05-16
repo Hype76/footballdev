@@ -43,10 +43,6 @@ export const clubNavigation = [
     path: '/parent-email-templates',
   },
   {
-    label: 'Bulk Email',
-    path: '/bulk-email',
-  },
-  {
     label: 'Activity Log',
     path: '/activity-log',
   },

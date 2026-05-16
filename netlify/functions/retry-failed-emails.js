@@ -9,6 +9,10 @@ import {
   markEmailLogSent,
   unlockEmailLogForRetry,
 } from './_email-log-store.js'
+import {
+  assertPlanFeature,
+  getClubPlanProfile,
+} from './_plan-gate.js'
 
 void supabaseAdmin
 
@@ -66,6 +70,14 @@ export async function handler(event) {
     summary.retried += 1
 
     try {
+      const requiredFeature = String(lockedEmailLog.payload?.requiredFeature ?? '').trim()
+      const clubId = String(lockedEmailLog.payload?.clubId ?? '').trim()
+
+      if (requiredFeature && clubId) {
+        const planProfile = await getClubPlanProfile(clubId)
+        assertPlanFeature(planProfile, requiredFeature)
+      }
+
       const resendPayload = getStoredResendPayload(lockedEmailLog)
       const response = await resend.emails.send(resendPayload)
       await markEmailLogSent(lockedEmailLog, response)

@@ -259,30 +259,6 @@ export const WALKTHROUGHS = {
       },
     ],
   },
-  '/bulk-email': {
-    key: 'bulk-email',
-    action: { label: 'Write Email', target: 'bulk-email-message-section' },
-    plans: [PLAN_KEYS.smallClub, PLAN_KEYS.largeClub],
-    roles: ['admin'],
-    minimumRank: 70,
-    steps: [
-      {
-        target: 'page-header',
-        title: 'Bulk email',
-        body: 'This Club area sends one club-wide email to selected parent or player contacts. Recipients are hidden from each other.',
-      },
-      {
-        target: 'bulk-email-message-section',
-        title: 'Message',
-        body: 'Choose parents or players, write the subject and message, and confirm the reply address before sending.',
-      },
-      {
-        target: 'bulk-email-recipients-section',
-        title: 'Recipients',
-        body: 'Review the contacts before sending so the email only goes to the right people.',
-      },
-    ],
-  },
   '/activity-log': {
     key: 'activity-log',
     action: { label: 'Review Activity', target: 'page-header' },
@@ -387,7 +363,7 @@ export const WALKTHROUGHS = {
       {
         target: 'sidebar-club-section',
         title: 'Club section',
-        body: 'Use this sidebar section for club-wide tools: settings, user access, assessment fields, email templates, bulk email, activity log, and billing.',
+        body: 'Use this sidebar section for club-wide tools: settings, user access, assessment fields, email templates, activity log, and billing.',
       },
     ],
   },

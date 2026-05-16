@@ -1,4 +1,8 @@
 import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
+import {
+  assertPlanFeature,
+  getAuthenticatedPlanProfile,
+} from './_plan-gate.js'
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
@@ -6,6 +10,9 @@ export async function handler(event) {
   }
 
   try {
+    const planProfile = await getAuthenticatedPlanProfile(event)
+    assertPlanFeature(planProfile, 'pdfExport')
+
     const body = JSON.parse(event.body || '{}')
     const html = String(body.html ?? '').trim()
     const filename = String(body.filename ?? 'player-feedback.pdf')
@@ -35,9 +42,9 @@ export async function handler(event) {
     console.error(error)
 
     return {
-      statusCode: 500,
+      statusCode: error.statusCode || 500,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ error: error.statusCode ? error.message : 'PDF export failed.' }),
     }
   }
 }
