@@ -20,7 +20,7 @@ import {
   mergeEmailTemplatesWithDefaults,
   normalizeEmailTemplateAudience,
 } from '../lib/email-templates.js'
-import { sendParentEmail } from '../lib/email-builder.js'
+import { sendParentEmail, sendParentPortalInvite } from '../lib/email-builder.js'
 import { isDemoUser } from '../lib/demo.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
@@ -80,6 +80,7 @@ import {
   normalizeParentContacts,
   normalizePlayerContactType,
   clearViewCaches,
+  createParentPortalInvites,
   movePlayerToTrial,
   promotePlayerToSquad,
   readViewCache,
@@ -89,6 +90,19 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+
+function getPlayerPortalContacts(player) {
+  const contacts = Array.isArray(player?.parentContacts) && player.parentContacts.length > 0
+    ? player.parentContacts
+    : [{ name: player?.parentName || '', email: player?.parentEmail || '' }]
+
+  return contacts
+    .map((contact) => ({
+      name: String(contact?.name ?? '').trim(),
+      email: String(contact?.email ?? '').trim().toLowerCase(),
+    }))
+    .filter((contact) => contact.email)
+}
 
 export function PlayerProfile() {
   const { id } = useParams()
@@ -148,6 +162,8 @@ export function PlayerProfile() {
   const [noPlaceArchiveTarget, setNoPlaceArchiveTarget] = useState(null)
   const [evaluationDeleteTarget, setEvaluationDeleteTarget] = useState(null)
   const [staffNoteDeleteTarget, setStaffNoteDeleteTarget] = useState(null)
+  const [promoteConfirmTarget, setPromoteConfirmTarget] = useState(null)
+  const [sendParentPortalLinkOnPromote, setSendParentPortalLinkOnPromote] = useState(true)
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
@@ -1129,7 +1145,57 @@ export function PlayerProfile() {
     }
   }
 
-  const handlePromotePlayer = async (playerId) => {
+  const handlePromotePlayer = (playerId) => {
+    const targetPlayer = players.find((player) => String(player.id) === String(playerId))
+
+    if (!targetPlayer) {
+      setErrorMessage('Player details could not be found.')
+      return
+    }
+
+    setPromoteConfirmTarget(targetPlayer)
+    setSendParentPortalLinkOnPromote(getPlayerPortalContacts(targetPlayer).length > 0)
+  }
+
+  const sendParentPortalInvitesForPlayer = async (player) => {
+    const contacts = getPlayerPortalContacts(player)
+
+    if (contacts.length === 0) {
+      return []
+    }
+
+    const invites = await createParentPortalInvites({
+      user,
+      player,
+      contacts,
+    })
+
+    await Promise.all(
+      invites.map((invite) =>
+        sendParentPortalInvite({
+          clubId: invite.clubId,
+          inviteLinkId: invite.id,
+          parentEmail: invite.email,
+          senderEmail: user.email,
+          displayName: user.displayName || user.username || user.name,
+          teamName: invite.teamName,
+          clubName: invite.clubName || user.clubName,
+          playerName: invite.playerName,
+          subject: `Parent portal invite for ${invite.playerName}`,
+          inviteUrl: invite.inviteUrl,
+        }),
+      ),
+    )
+
+    return invites
+  }
+
+  const confirmPromotePlayer = async () => {
+    if (!promoteConfirmTarget?.id) {
+      return
+    }
+
+    const playerId = promoteConfirmTarget.id
     setIsPromotingId(playerId)
     setErrorMessage('')
 
@@ -1142,12 +1208,34 @@ export function PlayerProfile() {
         evaluations,
         players: nextPlayers,
       })
-      showToast({ title: 'Player promoted', message: `${promotedPlayer.playerName} has been moved to Squad.` })
+
+      let inviteCount = 0
+      let inviteError = null
+      if (sendParentPortalLinkOnPromote) {
+        try {
+          const invites = await sendParentPortalInvitesForPlayer(promotedPlayer)
+          inviteCount = invites.length
+        } catch (error) {
+          console.error(error)
+          inviteError = error
+          setErrorMessage(error.message || 'Player was promoted, but the parent portal invite could not be sent.')
+        }
+      }
+
+      showToast({
+        title: 'Player promoted',
+        message: inviteError
+          ? `${promotedPlayer.playerName} has been moved to Squad, but the parent invite could not be sent.`
+          : sendParentPortalLinkOnPromote
+            ? `${promotedPlayer.playerName} has been moved to Squad. ${inviteCount} parent invite${inviteCount === 1 ? '' : 's'} sent.`
+            : `${promotedPlayer.playerName} has been moved to Squad.`,
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not promote this player to Squad.')
     } finally {
       setIsPromotingId('')
+      setPromoteConfirmTarget(null)
     }
   }
 
@@ -1265,8 +1353,8 @@ export function PlayerProfile() {
 
       {errorMessage ? (
         <NoticeBanner
-          title="Player history is unavailable right now"
-          message="We could not refresh this player's saved assessments. If no history has been entered yet, this page will remain empty."
+          title="Player action not completed"
+          message={errorMessage}
         />
       ) : null}
 
@@ -1355,6 +1443,38 @@ export function PlayerProfile() {
         primaryPlayer={primaryPlayer}
         staffNotes={staffNotes}
       />
+
+      <ConfirmModal
+        isOpen={Boolean(promoteConfirmTarget)}
+        isBusy={Boolean(isPromotingId)}
+        title="Move player to Squad"
+        message="This moves the player from Trial to Squad and updates their player record."
+        items={[
+          `Player: ${promoteConfirmTarget?.playerName || 'Selected player'}`,
+          `Team: ${promoteConfirmTarget?.team || 'No team entered'}`,
+        ]}
+        confirmLabel="Move to Squad"
+        onCancel={() => setPromoteConfirmTarget(null)}
+        onConfirm={() => void confirmPromotePlayer()}
+      >
+        <label className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]">
+          <input
+            type="checkbox"
+            checked={sendParentPortalLinkOnPromote}
+            disabled={getPlayerPortalContacts(promoteConfirmTarget).length === 0}
+            onChange={(event) => setSendParentPortalLinkOnPromote(event.target.checked)}
+            className="mt-1 h-4 w-4 accent-[var(--accent)] disabled:cursor-not-allowed"
+          />
+          <span>
+            <span className="block font-semibold">Send Parent link to Parent Portal</span>
+            <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">
+              {getPlayerPortalContacts(promoteConfirmTarget).length > 0
+                ? 'Parent contacts saved on this player will receive the portal invite.'
+                : 'Add a parent email before sending a parent portal link.'}
+            </span>
+          </span>
+        </label>
+      </ConfirmModal>
 
       <ConfirmModal
         isOpen={Boolean(staffNoteDeleteTarget)}

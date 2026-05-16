@@ -205,20 +205,20 @@ export function ParentLinkingPage() {
       <PageHeader
         eyebrow="Parent Portal"
         title="Parent Linking"
-        description="Invite parents for players in your team. Existing parent links for this team are skipped automatically."
+        description="Invite parents for squad players in your team. Trial players are not available for parent portal links."
       />
 
       {errorMessage ? <NoticeBanner title="Parent linking not completed" message={errorMessage} /> : null}
 
       <SectionCard
         title="Send parent invites"
-        description="Choose one player and select parents, or invite every parent email in your current team."
+        description="Choose one squad player and select parents, or invite every squad parent email in your current team."
         actions={
           <button
             type="button"
             onClick={handleInviteAll}
             disabled={isLoading || isSending || players.length === 0}
-            title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'No players are available for this team.' : undefined}
+            title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'No squad players are available for this team.' : undefined}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {isSending ? 'Sending...' : 'Send Invite To All'}
@@ -228,6 +228,10 @@ export function ParentLinkingPage() {
         {isLoading ? (
           <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
             Loading parent linking...
+          </p>
+        ) : players.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+            No squad players are available for parent portal links yet.
           </p>
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">

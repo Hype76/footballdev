@@ -104,7 +104,7 @@ async function getInviteLink(linkId) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, email, status, link_type, players:player_id (player_name), teams:team_id (name), clubs:club_id (name, contact_email)')
+    .select('id, club_id, team_id, player_id, email, status, link_type, players:player_id (player_name, section), teams:team_id (name), clubs:club_id (name, contact_email)')
     .eq('id', normalizedLinkId)
     .maybeSingle()
 
@@ -114,6 +114,10 @@ async function getInviteLink(linkId) {
 
   if (data.status === 'revoked') {
     throw Object.assign(new Error('This parent portal invite is no longer available.'), { statusCode: 403 })
+  }
+
+  if (String(data.players?.section ?? '').trim().toLowerCase() !== 'squad') {
+    throw Object.assign(new Error('Parent portal invites can only be sent for squad players.'), { statusCode: 403 })
   }
 
   return data
