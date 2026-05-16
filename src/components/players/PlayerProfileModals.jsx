@@ -129,7 +129,7 @@ export function PlayerProfileModals({
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}
         confirmLabel={isDefaultTemplateEmail ? 'Continue' : 'Send Now'}
-        cancelLabel={isDefaultTemplateEmail ? 'Templates' : 'Cancel'}
+        cancelLabel={isDefaultTemplateEmail ? 'Configure Email Templates' : 'Cancel'}
         onCancel={() => {
           if (isDefaultTemplateEmail) {
             navigate('/parent-email-templates')

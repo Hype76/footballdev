@@ -1060,7 +1060,7 @@ export function CreateEvaluationPage() {
           `Recipient type: ${contactNounPlural}`,
         ]}
         confirmLabel="Continue"
-        cancelLabel="Templates"
+        cancelLabel="Configure Email Templates"
         onCancel={() => navigate('/parent-email-templates')}
         onConfirm={handleContinueWithDefaultTemplate}
       />
