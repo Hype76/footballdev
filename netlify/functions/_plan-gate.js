@@ -64,23 +64,60 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
   const authEmail = normalizeEmail(authUser.email)
   const normalizedClubId = String(clubId ?? '').trim()
   const normalizedUserId = String(userId ?? '').trim()
-  let profileQuery = supabaseAdmin
-    .from('users')
-    .select('id, auth_user_id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at)')
-    .limit(1)
+  const loadUserProfile = async () => {
+    let profileQuery = supabaseAdmin
+      .from('users')
+      .select('id, auth_user_id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at)')
+      .limit(1)
 
-  if (normalizedUserId) {
-    profileQuery = profileQuery.eq('id', normalizedUserId)
-  } else {
-    profileQuery = profileQuery.or(`auth_user_id.eq.${authUser.id},email.eq.${authEmail}`)
+    if (normalizedUserId) {
+      profileQuery = profileQuery.eq('id', normalizedUserId)
+    } else {
+      profileQuery = profileQuery.or(`auth_user_id.eq.${authUser.id},email.eq.${authEmail}`)
+    }
+
+    if (normalizedClubId) {
+      profileQuery = profileQuery.eq('club_id', normalizedClubId)
+    }
+
+    return profileQuery
   }
 
-  if (normalizedClubId) {
-    profileQuery = profileQuery.eq('club_id', normalizedClubId)
+  const loadMembershipProfile = async () => {
+    if (normalizedUserId) {
+      return { data: [], error: null }
+    }
+
+    let membershipQuery = supabaseAdmin
+      .from('user_club_memberships')
+      .select('auth_user_id, email, username, name, role, role_label, role_rank, club_id, clubs:club_id (name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at)')
+      .limit(1)
+      .or(`auth_user_id.eq.${authUser.id},email.eq.${authEmail}`)
+
+    if (normalizedClubId) {
+      membershipQuery = membershipQuery.eq('club_id', normalizedClubId)
+    }
+
+    return membershipQuery
   }
 
-  const { data: profiles, error: profileError } = await profileQuery
-  const profile = profiles?.[0] ?? null
+  const { data: userProfiles, error: userProfileError } = await loadUserProfile()
+  let profileError = userProfileError
+  let profile = userProfiles?.[0] ?? null
+
+  if (!profile && !userProfileError) {
+    const { data: membershipProfiles, error: membershipProfileError } = await loadMembershipProfile()
+    profileError = membershipProfileError
+    const membershipProfile = membershipProfiles?.[0] ?? null
+
+    if (membershipProfile) {
+      profile = {
+        ...membershipProfile,
+        id: membershipProfile.auth_user_id,
+        status: 'active',
+      }
+    }
+  }
 
   if (profileError || !profile) {
     throw Object.assign(new Error('Your account could not be matched to this club. Sign out and back in, then try again.'), { statusCode: 403 })
