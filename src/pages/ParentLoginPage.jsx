@@ -95,6 +95,7 @@ export function ParentLoginPage() {
       await signInWithPassword({
         email: email.trim(),
         password,
+        preferredAccessMode: 'parent',
       })
 
       if (parentInviteToken) {

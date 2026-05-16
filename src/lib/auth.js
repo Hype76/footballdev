@@ -510,8 +510,19 @@ export function AuthProvider({ children }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const signInWithPassword = async ({ email, password }) => {
+  const signInWithPassword = async ({ email, password, preferredAccessMode = '' }) => {
     setAuthError('')
+    const nextPreferredAccessMode = String(preferredAccessMode ?? '').trim()
+
+    if (nextPreferredAccessMode) {
+      if (!['team', 'parent', 'platform_admin'].includes(nextPreferredAccessMode)) {
+        throw new Error('Choose parent, team, or platform admin access to continue.')
+      }
+
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextPreferredAccessMode)
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
