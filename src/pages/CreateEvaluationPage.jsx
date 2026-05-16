@@ -28,6 +28,7 @@ import {
 import {
   getSavedEvaluationExportLabels,
   getSelectedEvaluationResponses,
+  reorderEvaluationExportLabels,
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
 import { removeDraft, saveDraft } from '../lib/offline-drafts.js'
@@ -895,6 +896,17 @@ export function CreateEvaluationPage() {
     saveExportSelection(getNextExportLabels({ label, responseItems, selectedExportLabels }))
   }
 
+  const handleReorderExportField = (sourceLabel, targetLabel, currentResponseItems) => {
+    saveExportSelection(
+      reorderEvaluationExportLabels({
+        sourceLabel,
+        targetLabel,
+        responseItems: currentResponseItems,
+        selectedLabels: selectedExportLabels,
+      }),
+    )
+  }
+
   const handleSetAllExportFields = () => {
     saveExportSelection(responseItems.map((item) => item.label))
   }
@@ -1208,6 +1220,7 @@ export function CreateEvaluationPage() {
                 onPdfAttachmentApprovedChange={setIsPdfAttachmentApproved}
                 onPreviewModeChange={setPreviewMode}
                 onPrintBlankForm={() => setIsPrintingBlankView(true)}
+                onReorderExportField={handleReorderExportField}
                 onSelectAllExportFields={handleSetAllExportFields}
                 onSubmitClick={handleSubmitClick}
                 onToggleExportField={handleToggleExportField}

@@ -1,6 +1,7 @@
 import { canDeletePlayer, canEditEvaluation } from '../../lib/auth.js'
 import { hasPlanFeature } from '../../lib/plans.js'
 import { buildEvaluationSummary } from '../../hooks/players/playerProfileUtils.js'
+import { EvaluationExportFieldsSelector } from '../evaluations/EvaluationExportFieldsSelector.jsx'
 
 export function EvaluationHistoryCard({
   availableEmailTemplates,
@@ -22,6 +23,7 @@ export function EvaluationHistoryCard({
   onReassignEvaluation,
   onReassignTargetChange,
   onRemovePlayer,
+  onReorderExportField,
   onSelectAllExportFields,
   onSelectedEmailTemplateChange,
   onSendParentEmail,
@@ -176,6 +178,7 @@ export function EvaluationHistoryCard({
         <EvaluationExportFields
           hasSavedExportSelection={hasSavedExportSelection}
           onClearExportFields={onClearExportFields}
+          onReorderExportField={onReorderExportField}
           onSelectAllExportFields={onSelectAllExportFields}
           onToggleExportField={onToggleExportField}
           playerName={playerName}
@@ -319,6 +322,7 @@ function EvaluationRecipients({
 function EvaluationExportFields({
   hasSavedExportSelection,
   onClearExportFields,
+  onReorderExportField,
   onSelectAllExportFields,
   onToggleExportField,
   playerName,
@@ -355,36 +359,17 @@ function EvaluationExportFields({
         </div>
 
         {responseItems.length > 0 ? (
-          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {responseItems.map((item) => {
-              const isSelected = hasSavedExportSelection
-                ? selectedExportLabels.includes(item.label)
-                : true
-
-              return (
-                <label
-                  key={item.label}
-                  className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => onToggleExportField(item.label, responseItems)}
-                    className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-semibold">{item.label}</span>
-                    <span className="line-clamp-2 block break-words text-xs leading-5 text-[var(--text-muted)]">
-                      {String(item.value ?? '').trim() || 'No data entered'}
-                    </span>
-                  </span>
-                </label>
-              )
-            })}
-          </div>
+          <EvaluationExportFieldsSelector
+            gridClassName="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3"
+            hasSavedExportSelection={hasSavedExportSelection}
+            onReorderExportField={onReorderExportField}
+            onToggleExportField={onToggleExportField}
+            responseItems={responseItems}
+            selectedExportLabels={selectedExportLabels}
+          />
         ) : (
           <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            No assessment responses were entered for this assessment.
+            No assessment responses above zero were entered for this assessment.
           </p>
         )}
 

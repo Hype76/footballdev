@@ -26,6 +26,7 @@ import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   getSavedEvaluationExportLabels,
   getSelectedEvaluationResponses,
+  reorderEvaluationExportLabels,
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
 import { buildAssessmentPdfHtml } from '../lib/assessment-pdf-html.js'
@@ -60,7 +61,7 @@ import {
   updateParentContactDraft,
   updatePlayerDraftValue,
 } from '../hooks/players/playerProfileUtils.js'
-import { sortResponseItemsByValueType } from '../hooks/evaluations/evaluationFormUtils.js'
+import { isExportableResponseValue } from '../hooks/evaluations/evaluationFormUtils.js'
 import { getRecorderOptions } from '../lib/session-page-utils.js'
 import {
   EVALUATION_SECTIONS,
@@ -447,12 +448,12 @@ export function PlayerProfile() {
   }
 
   const getExportResponseItems = (evaluation) =>
-    sortResponseItemsByValueType(
-      Object.entries(evaluation.formResponses ?? {}).map(([label, value]) => ({
+    Object.entries(evaluation.formResponses ?? {})
+      .filter(([, value]) => isExportableResponseValue(value))
+      .map(([label, value]) => ({
         label,
         value,
-      })),
-    )
+      }))
 
   const getSelectedExportResponseItems = (evaluation) =>
     getSelectedEvaluationResponses(getExportResponseItems(evaluation), selectedExportLabels)
@@ -498,6 +499,22 @@ export function PlayerProfile() {
     const nextLabels = currentLabels.includes(label)
       ? currentLabels.filter((item) => item !== label)
       : [...currentLabels, label]
+
+    setSelectedExportLabels(nextLabels)
+    saveEvaluationExportLabels({
+      clubId: user?.clubId,
+      playerName: routePlayerName,
+      labels: nextLabels,
+    })
+  }
+
+  const handleReorderExportField = (sourceLabel, targetLabel, responseItems) => {
+    const nextLabels = reorderEvaluationExportLabels({
+      sourceLabel,
+      targetLabel,
+      responseItems,
+      selectedLabels: selectedExportLabels,
+    })
 
     setSelectedExportLabels(nextLabels)
     saveEvaluationExportLabels({
@@ -1522,6 +1539,7 @@ export function PlayerProfile() {
         onReassignEvaluation={(evaluation) => void handleReassignEvaluation(evaluation)}
         onReassignTargetChange={handleReassignTargetChange}
         onRemovePlayer={handleDeletePlayer}
+        onReorderExportField={handleReorderExportField}
         onSelectAllExportFields={handleSetAllExportFields}
         onSelectedEmailTemplateChange={(evaluationId, value) =>
           setSelectedEmailTemplates((currentTemplates) => ({

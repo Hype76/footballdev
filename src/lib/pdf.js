@@ -172,11 +172,13 @@ export function buildEvaluationSummary(evaluation) {
 }
 
 function buildResponseItemsMarkup(responseItems) {
-  if (!responseItems.length) {
+  const exportableResponseItems = responseItems.filter((item) => isExportableResponseValue(item?.value))
+
+  if (!exportableResponseItems.length) {
     return '<p style="margin: 14px 0 0; color: #64748b; font-size: 13px;">No responses provided.</p>'
   }
 
-  return responseItems
+  return exportableResponseItems
     .map(
       (item) => `
         <div style="break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; background: #ffffff;">
@@ -186,6 +188,15 @@ function buildResponseItemsMarkup(responseItems) {
       `,
     )
     .join('')
+}
+
+function isExportableResponseValue(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value !== 0
+  }
+
+  const trimmedValue = String(value ?? '').trim()
+  return trimmedValue !== '' && trimmedValue !== '0'
 }
 
 function buildPdfMarkup({ previewProps, mode, logoUrl }) {

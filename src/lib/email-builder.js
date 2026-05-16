@@ -19,40 +19,25 @@ function formatLines(value) {
 
 function normaliseResponses(responses) {
   if (Array.isArray(responses)) {
-    return responses
+    return responses.filter((item) => isExportableResponseValue(item?.value))
   }
 
   if (responses && typeof responses === 'object') {
-    return Object.entries(responses).map(([label, value]) => ({ label, value }))
+    return Object.entries(responses)
+      .filter(([, value]) => isExportableResponseValue(value))
+      .map(([label, value]) => ({ label, value }))
   }
 
   return []
 }
 
-function isNumericResponseValue(value) {
+function isExportableResponseValue(value) {
   if (typeof value === 'number') {
-    return Number.isFinite(value)
+    return Number.isFinite(value) && value !== 0
   }
 
-  if (typeof value !== 'string') {
-    return false
-  }
-
-  const trimmedValue = value.trim()
-  return trimmedValue !== '' && Number.isFinite(Number(trimmedValue))
-}
-
-function sortResponseItemsByValueType(responseItems) {
-  return [...responseItems].sort((firstItem, secondItem) => {
-    const firstIsNumeric = isNumericResponseValue(firstItem.value)
-    const secondIsNumeric = isNumericResponseValue(secondItem.value)
-
-    if (firstIsNumeric === secondIsNumeric) {
-      return 0
-    }
-
-    return firstIsNumeric ? -1 : 1
-  })
+  const trimmedValue = String(value ?? '').trim()
+  return trimmedValue !== '' && trimmedValue !== '0'
 }
 
 function chunkResponseRows(responseItems) {
@@ -98,7 +83,7 @@ function buildResponseMarkup(responseItems) {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
       <tbody>
-        ${chunkResponseRows(sortResponseItemsByValueType(responseItems))
+        ${chunkResponseRows(responseItems)
           .map(
             (row) => `
               <tr>

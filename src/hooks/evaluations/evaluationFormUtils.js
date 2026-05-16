@@ -205,11 +205,11 @@ export function getAverageScore(formResponses) {
 }
 
 export function createResponseItems(fields, responseValues, includeEmptyValues = false) {
-  return sortResponseItemsByValueType(fields
+  return fields
     .map((field) => {
       const value = normalizeResponseValue(field, responseValues[field.id])
 
-      if (!includeEmptyValues && value === '') {
+      if (!includeEmptyValues && !isExportableResponseValue(value)) {
         return null
       }
 
@@ -218,7 +218,7 @@ export function createResponseItems(fields, responseValues, includeEmptyValues =
         value,
       }
     })
-    .filter(Boolean))
+    .filter(Boolean)
 }
 
 export function sortResponseItemsByValueType(items = []) {
@@ -232,6 +232,15 @@ export function sortResponseItemsByValueType(items = []) {
 
     return leftIsNumber ? -1 : 1
   })
+}
+
+export function isExportableResponseValue(value) {
+  if (typeof value === 'number') {
+    return !Number.isNaN(value) && value !== 0
+  }
+
+  const trimmedValue = String(value ?? '').trim()
+  return trimmedValue !== '' && trimmedValue !== '0'
 }
 
 export function parseStoredDraft(storageKey) {

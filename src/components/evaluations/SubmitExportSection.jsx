@@ -1,4 +1,5 @@
 import { normalizeSessionValue } from '../../hooks/evaluations/evaluationFormUtils.js'
+import { EvaluationExportFieldsSelector } from './EvaluationExportFieldsSelector.jsx'
 import { NoticeBanner } from '../ui/NoticeBanner.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
@@ -23,6 +24,7 @@ export function SubmitExportSection({
   onPdfAttachmentApprovedChange,
   onPreviewModeChange,
   onPrintBlankForm,
+  onReorderExportField,
   onSelectAllExportFields,
   onSubmitClick,
   onToggleExportField,
@@ -159,34 +161,16 @@ export function SubmitExportSection({
         </div>
 
         {responseItems.length > 0 ? (
-          <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {responseItems.map((item) => {
-              const isSelected = hasSavedExportSelection ? selectedExportLabels.includes(item.label) : true
-
-              return (
-                <label
-                  key={item.label}
-                  className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => onToggleExportField(item.label)}
-                    className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-semibold">{item.label}</span>
-                    <span className="block break-words text-xs leading-5 text-[var(--text-muted)]">
-                      {String(item.value ?? '').trim() || 'No data entered'}
-                    </span>
-                  </span>
-                </label>
-              )
-            })}
-          </div>
+          <EvaluationExportFieldsSelector
+            hasSavedExportSelection={hasSavedExportSelection}
+            onReorderExportField={onReorderExportField}
+            onToggleExportField={onToggleExportField}
+            responseItems={responseItems}
+            selectedExportLabels={selectedExportLabels}
+          />
         ) : (
           <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            No assessment responses have been entered yet.
+            No assessment responses above zero have been entered yet.
           </p>
         )}
 
