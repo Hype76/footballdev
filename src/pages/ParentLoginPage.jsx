@@ -21,42 +21,45 @@ function getFriendlyLoginError(error) {
 
 export function ParentLoginPage() {
   const { resetPassword, session, signInWithPassword, signOut } = useAuth()
+  const [initialParams] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return {
+      parentInviteToken: String(params.get('parentInvite') ?? '').trim(),
+      confirmed: params.get('confirmed') === '1',
+      created: params.get('created') === '1',
+    }
+  })
+  const clearSessionAttemptedRef = useRef(false)
   const submitLockRef = useRef(false)
   const [email, setEmail] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isSigningOutConfirmedSession, setIsSigningOutConfirmedSession] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [message, setMessage] = useState('')
-  const [parentInviteToken, setParentInviteToken] = useState('')
-  const [password, setPassword] = useState('')
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const nextParentInviteToken = String(params.get('parentInvite') ?? '').trim()
-    const confirmed = params.get('confirmed') === '1'
-    const created = params.get('created') === '1'
-
-    setParentInviteToken(nextParentInviteToken)
-
-    if (confirmed) {
-      setMessage('Email confirmed. Log in to open parent access.')
-    } else if (created) {
-      setMessage('Parent account created. Check your email to confirm it before logging in.')
+  const [message, setMessage] = useState(() => {
+    if (initialParams.confirmed) {
+      return 'Email confirmed. Log in to open parent access.'
     }
-  }, [])
+
+    if (initialParams.created) {
+      return 'Parent account created. Check your email to confirm it before logging in.'
+    }
+
+    return ''
+  })
+  const [parentInviteToken] = useState(initialParams.parentInviteToken)
+  const [password, setPassword] = useState('')
+  const shouldClearExistingSession = initialParams.confirmed || initialParams.created
 
   useEffect(() => {
     let isMounted = true
-    const params = new URLSearchParams(window.location.search)
-    const confirmed = params.get('confirmed') === '1'
-    const created = params.get('created') === '1'
 
     const clearConfirmationSession = async () => {
-      if ((!confirmed && !created) || !session?.user) {
+      if (!shouldClearExistingSession || !session?.user || clearSessionAttemptedRef.current) {
         return
       }
 
+      clearSessionAttemptedRef.current = true
       setIsSigningOutConfirmedSession(true)
       try {
         await signOut()
@@ -74,7 +77,7 @@ export function ParentLoginPage() {
     return () => {
       isMounted = false
     }
-  }, [session?.user, signOut])
+  }, [session?.user, shouldClearExistingSession, signOut])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -135,12 +138,13 @@ export function ParentLoginPage() {
           Log in with the parent account you confirmed by email.
         </p>
 
-        {isSigningOutConfirmedSession ? (
+        {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? (
           <p className="mt-5 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
             Preparing parent login...
           </p>
         ) : null}
 
+        {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? null : (
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-slate-200">Email</span>
@@ -219,6 +223,7 @@ export function ParentLoginPage() {
             </Link>
           ) : null}
         </form>
+        )}
       </div>
     </main>
   )
