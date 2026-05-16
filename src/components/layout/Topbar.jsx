@@ -110,7 +110,7 @@ export function Topbar({ title, onMenuClick }) {
         </div>
 
         <div className="grid w-full gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 lg:w-auto lg:min-w-[360px]">
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-end">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end sm:justify-end">
             {isDemoUser(user) ? (
               <label className="col-span-2 grid gap-1 sm:min-w-44">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
@@ -166,7 +166,7 @@ export function Topbar({ title, onMenuClick }) {
             />
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
             >
               My Settings
             </Link>
@@ -175,7 +175,7 @@ export function Topbar({ title, onMenuClick }) {
               onClick={handleSignOut}
               disabled={isSigningOut}
               title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>

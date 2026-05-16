@@ -17,6 +17,7 @@ import {
   DIRECT_EMAIL_TEMPLATE_SECTION,
   EMAIL_TEMPLATE_AUDIENCES,
   getEmailTemplateKey,
+  mergeEmailTemplatesWithDefaults,
   normalizeEmailTemplateAudience,
 } from '../lib/email-templates.js'
 import { sendParentEmail } from '../lib/email-builder.js'
@@ -270,11 +271,14 @@ export function PlayerProfile() {
     }
 
     try {
-      const nextTemplates = await getParentEmailTemplates({ user, audience: 'all' })
+      const nextTemplates = mergeEmailTemplatesWithDefaults(
+        await getParentEmailTemplates({ user, audience: 'all' }),
+        'all',
+      )
       setEmailTemplates(nextTemplates)
     } catch (error) {
       console.error(error)
-      setEmailTemplates([])
+      setEmailTemplates(mergeEmailTemplatesWithDefaults([], 'all'))
     }
   }, [user])
 

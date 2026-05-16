@@ -287,6 +287,7 @@ export function getDefaultParentEmailTemplates() {
     audience: EMAIL_TEMPLATE_AUDIENCES.parent,
     orderIndex: index + 1,
     isEnabled: true,
+    isDefaultTemplate: true,
   }))
 }
 
@@ -296,6 +297,7 @@ export function getDefaultPlayerEmailTemplates() {
     audience: EMAIL_TEMPLATE_AUDIENCES.player,
     orderIndex: index + 1,
     isEnabled: true,
+    isDefaultTemplate: true,
   }))
 }
 
@@ -303,6 +305,45 @@ export function getDefaultEmailTemplates(audience = EMAIL_TEMPLATE_AUDIENCES.par
   return normalizeEmailTemplateAudience(audience) === EMAIL_TEMPLATE_AUDIENCES.player
     ? getDefaultPlayerEmailTemplates()
     : getDefaultParentEmailTemplates()
+}
+
+export function mergeEmailTemplatesWithDefaults(savedTemplates = [], audience = 'all') {
+  const audiences = String(audience ?? '').trim().toLowerCase() === 'all'
+    ? [EMAIL_TEMPLATE_AUDIENCES.parent, EMAIL_TEMPLATE_AUDIENCES.player]
+    : [normalizeEmailTemplateAudience(audience)]
+  const savedTemplatesList = Array.isArray(savedTemplates) ? savedTemplates : []
+
+  return audiences.flatMap((templateAudience) => {
+    const defaultTemplates = getDefaultEmailTemplates(templateAudience)
+    const defaultKeys = new Set(defaultTemplates.map((template) => template.key))
+    const savedByKey = new Map(
+      savedTemplatesList
+        .filter((template) => normalizeEmailTemplateAudience(template.audience) === templateAudience)
+        .map((template) => [template.key, template]),
+    )
+    const mergedDefaults = defaultTemplates.map((defaultTemplate) => {
+      const savedTemplate = savedByKey.get(defaultTemplate.key)
+
+      return {
+        ...defaultTemplate,
+        ...(savedTemplate ?? {}),
+        isDefaultTemplate: !savedTemplate?.id,
+      }
+    })
+    const customTemplates = savedTemplatesList
+      .filter(
+        (template) =>
+          normalizeEmailTemplateAudience(template.audience) === templateAudience &&
+          !defaultKeys.has(template.key),
+      )
+      .map((template) => ({
+        ...template,
+        isCustom: true,
+        isDefaultTemplate: false,
+      }))
+
+    return [...mergedDefaults, ...customTemplates]
+  })
 }
 
 export function isInviteEmailTemplate(templateKey) {

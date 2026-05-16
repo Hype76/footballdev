@@ -8,12 +8,14 @@ import { EvaluationPlayerDetailsSection } from '../components/evaluations/Evalua
 import { PreviousAssessmentsSection } from '../components/evaluations/PreviousAssessmentsSection.jsx'
 import { SubmitExportSection } from '../components/evaluations/SubmitExportSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   isInviteEmailTemplate,
+  mergeEmailTemplatesWithDefaults,
   normalizeEmailTemplateAudience,
 } from '../lib/email-templates.js'
 import { isDemoUser } from '../lib/demo.js'
@@ -118,6 +120,8 @@ export function CreateEvaluationPage() {
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
   const [isPdfAttachmentApproved, setIsPdfAttachmentApproved] = useState(false)
+  const [isDefaultTemplateConfirmOpen, setIsDefaultTemplateConfirmOpen] = useState(false)
+  const [hasApprovedDefaultTemplate, setHasApprovedDefaultTemplate] = useState(false)
   const [showPreviousAssessments, setShowPreviousAssessments] = useState(false)
   const [emailTemplateKey, setEmailTemplateKey] = useState('')
   const [emailTemplates, setEmailTemplates] = useState([])
@@ -502,7 +506,10 @@ export function CreateEvaluationPage() {
       setIsLoadingEmailTemplates(true)
 
       try {
-        const nextTemplates = await getParentEmailTemplates({ user, audience: 'all' })
+        const nextTemplates = mergeEmailTemplatesWithDefaults(
+          await getParentEmailTemplates({ user, audience: 'all' }),
+          'all',
+        )
 
         if (isMounted) {
           setEmailTemplates(nextTemplates)
@@ -511,7 +518,7 @@ export function CreateEvaluationPage() {
         console.error(error)
 
         if (isMounted) {
-          setEmailTemplates([])
+          setEmailTemplates(mergeEmailTemplatesWithDefaults([], 'all'))
         }
       } finally {
         if (isMounted) {
@@ -642,6 +649,7 @@ export function CreateEvaluationPage() {
   const selectedEmailTemplateKey = availableEmailTemplates.some((template) => template.key === emailTemplateKey)
     ? emailTemplateKey
     : availableEmailTemplates[0]?.key || ''
+  const selectedEmailTemplate = availableEmailTemplates.find((template) => template.key === selectedEmailTemplateKey) ?? null
   const shouldShowInviteDate = previewMode === 'email' && isInviteEmailTemplate(selectedEmailTemplateKey)
   const parentContacts = useMemo(
     () =>
@@ -661,6 +669,10 @@ export function CreateEvaluationPage() {
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
     : 'No teams exist for this club yet. Ask a manager to create a team before adding assessments.'
+
+  useEffect(() => {
+    setHasApprovedDefaultTemplate(false)
+  }, [previewMode, selectedEmailTemplateKey])
 
   useEffect(() => {
     if (isDemoAccount && previewMode === 'email') {
@@ -1016,7 +1028,18 @@ export function CreateEvaluationPage() {
       return
     }
 
+    if (previewMode === 'email' && selectedEmailTemplate?.isDefaultTemplate && !hasApprovedDefaultTemplate) {
+      setIsDefaultTemplateConfirmOpen(true)
+      return
+    }
+
     formRef.current.requestSubmit()
+  }
+
+  const handleContinueWithDefaultTemplate = () => {
+    setHasApprovedDefaultTemplate(true)
+    setIsDefaultTemplateConfirmOpen(false)
+    window.setTimeout(() => formRef.current?.requestSubmit(), 0)
   }
 
   return (
@@ -1025,6 +1048,21 @@ export function CreateEvaluationPage() {
         clubName={user?.clubName || 'Club Form'}
         logoUrl={user?.clubLogoUrl || fallbackLogo}
         fields={enabledFields}
+      />
+
+      <ConfirmModal
+        isOpen={isDefaultTemplateConfirmOpen}
+        title="Default template"
+        message="You are sending a default template. You can continue now, or open Templates to customise it first."
+        itemsTitle="Template"
+        items={[
+          selectedEmailTemplate?.label || 'Default template',
+          `Recipient type: ${contactNounPlural}`,
+        ]}
+        confirmLabel="Continue"
+        cancelLabel="Templates"
+        onCancel={() => navigate('/parent-email-templates')}
+        onConfirm={handleContinueWithDefaultTemplate}
       />
 
       <div className={isPrintingBlankView ? 'no-print' : ''}>

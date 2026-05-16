@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 export function ConfirmModal({
+  cancelLabel = 'Cancel',
   children,
   confirmLabel = 'Confirm',
   confirmDisabled = false,
@@ -115,7 +116,7 @@ export function ConfirmModal({
             title={cancelDisabledReason}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Cancel
+            {cancelLabel}
           </button>
           <button
             type="button"

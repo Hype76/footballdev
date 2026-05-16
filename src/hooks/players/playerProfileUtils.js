@@ -12,6 +12,7 @@ import {
   DIRECT_EMAIL_TEMPLATE_SECTION,
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
+import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
 
 export const PROFILE_EVALUATION_PAGE_SIZE = 5
 
@@ -570,6 +571,7 @@ export function buildPlayerProfileParentEmailPayload({
             recipientEmails: recipientEmail,
             recipientNames: recipientName,
             templateName: selectedTemplate.label,
+            selectedTemplate,
             payload: {
               parentEmail: recipientEmail,
               parentName: recipientName,
@@ -588,6 +590,15 @@ export function buildPlayerProfileParentEmailPayload({
               responses,
               subject: emailTemplate.subject,
               emailBody: emailTemplate.body,
+              pdfHtml: buildAssessmentPdfHtml({
+                clubName: user?.emailClubName || user?.clubName,
+                playerName: routePlayerName,
+                teamName: user?.emailTeamName || evaluation.team,
+                section: evaluation.section,
+                session: evaluation.session,
+                logoUrl: user?.clubLogoUrl || null,
+                responseItems: responses,
+              }),
               evaluationId: evaluation.id,
             },
           }
@@ -608,6 +619,7 @@ export function buildPlayerProfileParentEmailPayload({
     responses,
     templateKey: selectedKey,
     templateName: payloads.map((item) => item.templateName).join(', '),
+    usesDefaultTemplate: payloads.some((item) => item.selectedTemplate?.isDefaultTemplate),
     payloads,
   }
 }
@@ -672,8 +684,18 @@ export function buildPlayerDirectEmailPayload({
             responses: [],
             subject: emailTemplate.subject,
             emailBody: emailTemplate.body,
+            pdfHtml: buildAssessmentPdfHtml({
+              clubName: user?.emailClubName || user?.clubName,
+              playerName,
+              teamName: user?.emailTeamName || teamName,
+              section,
+              session: '',
+              logoUrl: user?.clubLogoUrl || null,
+              responseItems: [],
+            }),
             evaluationId: null,
           },
+          selectedTemplate,
         }
       }),
     )
@@ -697,6 +719,7 @@ export function buildPlayerDirectEmailPayload({
     responses: [],
     templateKey: selectedTemplate.key,
     templateName: selectedTemplate.label,
+    usesDefaultTemplate: Boolean(selectedTemplate.isDefaultTemplate),
     payloads,
   }
 }

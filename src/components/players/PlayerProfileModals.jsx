@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
 
 export function PlayerProfileModals({
@@ -31,7 +32,9 @@ export function PlayerProfileModals({
   reassignConfirmTarget,
   routePlayerName,
 }) {
+  const navigate = useNavigate()
   const canAttachPdf = Boolean(emailConfirmTarget)
+  const isDefaultTemplateEmail = Boolean(emailConfirmTarget?.usesDefaultTemplate)
 
   return (
     <>
@@ -107,8 +110,12 @@ export function PlayerProfileModals({
       <ConfirmModal
         isOpen={Boolean(emailConfirmTarget)}
         isBusy={Boolean(emailConfirmTarget?.evaluation && emailSendingId === emailConfirmTarget.evaluation.id)}
-        title={emailConfirmTarget?.evaluation?.isDirectEmail ? 'Send email' : 'Email parents'}
-        message="Check the email details before sending."
+        title={isDefaultTemplateEmail ? 'Default template' : emailConfirmTarget?.evaluation?.isDirectEmail ? 'Send email' : 'Email parents'}
+        message={
+          isDefaultTemplateEmail
+            ? 'You are sending a default template. You can continue now, or open Templates to customise it first.'
+            : 'Check the email details before sending.'
+        }
         itemsTitle="This will send:"
         items={[
           `Player: ${routePlayerName}`,
@@ -121,8 +128,16 @@ export function PlayerProfileModals({
           `Assessment fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}
-        confirmLabel="Send Now"
-        onCancel={onCancelEmail}
+        confirmLabel={isDefaultTemplateEmail ? 'Continue' : 'Send Now'}
+        cancelLabel={isDefaultTemplateEmail ? 'Templates' : 'Cancel'}
+        onCancel={() => {
+          if (isDefaultTemplateEmail) {
+            navigate('/parent-email-templates')
+            return
+          }
+
+          onCancelEmail()
+        }}
         onConfirm={onConfirmEmail}
       >
         {canAttachPdf ? (

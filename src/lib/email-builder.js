@@ -270,6 +270,7 @@ export async function sendParentEmail(data) {
       subject,
       html,
       logoUrl: data.logoUrl,
+      pdfHtml: data.pdfHtml,
       playerName: data.playerName,
       parentName: data.parentName,
       senderEmail: data.senderEmail,

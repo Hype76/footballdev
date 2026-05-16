@@ -127,10 +127,10 @@ function withTimeout(promise, timeoutMs, errorMessage) {
   })
 }
 
-async function buildPdfAttachment(emailHtml) {
+async function buildPdfAttachment(pdfHtml) {
   try {
     const pdfBuffer = await withTimeout(
-      buildPdfBuffer(emailHtml),
+      buildPdfBuffer(pdfHtml),
       10000,
       'PDF generation timed out',
     )
@@ -194,6 +194,7 @@ export async function handler(event) {
       clubEmail,
       subject,
       html,
+      pdfHtml,
       logoUrl,
       evaluationId,
       playerName,
@@ -240,7 +241,8 @@ export async function handler(event) {
     }
 
     const shouldAttachPdf = attachPdf === true
-    const attachments = shouldAttachPdf ? await buildPdfAttachment(emailHtml) : []
+    const attachmentHtml = buildEmailHtml(pdfHtml || emailHtml)
+    const attachments = shouldAttachPdf ? await buildPdfAttachment(attachmentHtml) : []
     emailSubject = String(subject ?? '').trim() || 'Player Feedback'
     const emailPayload = buildEmailPayload({
       fromName,
