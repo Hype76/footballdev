@@ -31,6 +31,11 @@ function getDisplayName(email) {
   return String(email ?? '').split('@')[0]?.replace(/[._-]+/g, ' ').trim() || 'Parent'
 }
 
+function isExistingUserError(error) {
+  const message = String(error?.message ?? '').toLowerCase()
+  return message.includes('already registered') || message.includes('already exists') || message.includes('user already')
+}
+
 function getBaseUrl(event) {
   const forwardedProto = event.headers['x-forwarded-proto'] || 'https'
   const forwardedHost = event.headers['x-forwarded-host'] || event.headers.host || 'staging.playerfeedback.online'
@@ -95,6 +100,52 @@ async function getInvite(token) {
   }
 }
 
+async function findAuthUserByEmail(email) {
+  let page = 1
+
+  while (page <= 10) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    })
+
+    if (error) {
+      throw error
+    }
+
+    const users = data?.users || []
+    const matchingUser = users.find((user) => String(user.email ?? '').trim().toLowerCase() === email)
+
+    if (matchingUser) {
+      return matchingUser
+    }
+
+    if (users.length < 1000) {
+      return null
+    }
+
+    page += 1
+  }
+
+  return null
+}
+
+async function deleteUnconfirmedAuthUser(email, user) {
+  const authUser = user || await findAuthUserByEmail(email)
+
+  if (!authUser?.id || authUser.email_confirmed_at || authUser.confirmed_at) {
+    return false
+  }
+
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(authUser.id)
+
+  if (error) {
+    throw error
+  }
+
+  return true
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed')
@@ -133,7 +184,7 @@ export async function handler(event) {
     const redirectTo = `${baseUrl}/parent-login?parentInvite=${encodeURIComponent(inviteToken)}&confirmed=1`
     const displayName = getDisplayName(email)
 
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    const createSignupLink = () => supabaseAdmin.auth.admin.generateLink({
       type: 'signup',
       email,
       password,
@@ -148,12 +199,24 @@ export async function handler(event) {
       },
     })
 
-    if (error) {
-      const message = String(error.message ?? '').toLowerCase()
-      if (message.includes('already registered') || message.includes('already exists') || message.includes('user already')) {
+    let { data, error } = await createSignupLink()
+
+    if (error && isExistingUserError(error)) {
+      const removedUnconfirmedUser = await deleteUnconfirmedAuthUser(email).catch((deleteError) => {
+        console.error(deleteError)
+        return false
+      })
+
+      if (removedUnconfirmedUser) {
+        const retryResult = await createSignupLink()
+        data = retryResult.data
+        error = retryResult.error
+      } else {
         return failureResponse(409, 'An account already exists for this email. Use parent login to open the child link.')
       }
+    }
 
+    if (error) {
       console.error(error)
       return failureResponse(400, error.message || 'Parent account could not be created.')
     }
@@ -174,6 +237,7 @@ export async function handler(event) {
 
     if (sendResult.error) {
       console.error(sendResult.error)
+      await deleteUnconfirmedAuthUser(email, data?.user).catch((deleteError) => console.error(deleteError))
       return failureResponse(502, sendResult.error.message || 'Parent confirmation email could not be sent.')
     }
 
