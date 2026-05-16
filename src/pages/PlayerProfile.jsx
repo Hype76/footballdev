@@ -609,7 +609,11 @@ export function PlayerProfile() {
       }
     } catch (error) {
       console.error(error)
-      showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
+      showToast({
+        title: 'Email not sent',
+        message: error.message || 'This email could not be sent right now. Try again in a moment.',
+        tone: 'error',
+      })
     } finally {
       setEmailSendingId('')
       setEmailConfirmTarget(null)

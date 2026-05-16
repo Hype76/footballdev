@@ -943,7 +943,11 @@ export function CreateEvaluationPage() {
           showToast({ title: 'Email sent successfully' })
         } catch (emailError) {
           console.error('Email failed', emailError)
-          showToast({ title: 'Email failed - will retry automatically', tone: 'error' })
+          showToast({
+            title: 'Email not sent',
+            message: emailError.message || 'This assessment was saved, but the email could not be sent right now.',
+            tone: 'error',
+          })
         }
       }
 

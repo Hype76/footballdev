@@ -122,7 +122,7 @@ export async function getClubPlanProfile(clubId) {
 
 export function assertPlanAccess(planProfile) {
   if (!isPlanAccessActive(planProfile)) {
-    throw Object.assign(new Error('Your plan needs to be active before you can use this feature.'), { statusCode: 403 })
+    throw Object.assign(new Error('Your billing plan needs to be active before you can use this feature.'), { statusCode: 403 })
   }
 }
 

@@ -96,6 +96,41 @@ export const PLAN_OPTIONS = [
 
 const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, plan]))
 
+const FEATURE_UPGRADE_COPY = {
+  approvalWorkflow: {
+    label: 'Team approval workflows',
+    action: 'change approval settings',
+  },
+  auditLogs: {
+    label: 'Activity logs',
+    action: 'view staff activity logs',
+  },
+  basicBranding: {
+    label: 'Club branding',
+    action: 'change club branding',
+  },
+  customBranding: {
+    label: 'Custom branding',
+    action: 'use custom branding',
+  },
+  customFormFields: {
+    label: 'Custom assessment fields',
+    action: 'change assessment fields',
+  },
+  parentEmail: {
+    label: 'Parent and player email',
+    action: 'send emails to parents or players',
+  },
+  pdfExport: {
+    label: 'PDF exports and attachments',
+    action: 'create PDFs or attach PDFs to emails',
+  },
+  themes: {
+    label: 'Theme settings',
+    action: 'change theme settings',
+  },
+}
+
 export function getPlanKey(value) {
   const rawValue = typeof value === 'string'
     ? value
@@ -204,11 +239,16 @@ export function getUpgradePlanForLimit(limitName) {
 }
 
 export function createFeatureUpgradeMessage(featureName) {
-  return `This feature is not included in your current plan. Upgrade to ${getUpgradePlanForFeature(featureName)} to use it.`
+  const featureCopy = FEATURE_UPGRADE_COPY[featureName] ?? {
+    label: 'This feature',
+    action: 'use it',
+  }
+
+  return `${featureCopy.label} is not available in your current billing tier. Upgrade to ${getUpgradePlanForFeature(featureName)} to ${featureCopy.action}.`
 }
 
 export function createLimitUpgradeMessage(user, limitName, label) {
   const limit = getPlanLimit(user, limitName)
   const targetPlan = getUpgradePlanForLimit(limitName)
-  return `${label} is limited to ${limit} on your current plan. Upgrade to ${targetPlan} to add more.`
+  return `${label} has reached the limit for your current billing tier (${limit}). Upgrade to ${targetPlan} to add more.`
 }
