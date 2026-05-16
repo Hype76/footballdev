@@ -27,8 +27,9 @@ import {
 export function AddPlayerPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
-  const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
-  const cacheKey = user ? `add-player:${user.id}:${user.clubId || 'platform'}` : ''
+  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
+  const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}:${activeTeamScope}` : ''
+  const cacheKey = user ? `add-player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
   const [playerForm, setPlayerForm] = useState(createInitialPlayerForm)
   const [players, setPlayers] = useState(() => {
     const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
@@ -116,11 +117,13 @@ export function AddPlayerPage() {
 
   const handlePlayerFormChange = (event) => {
     const { name, value } = event.target
+    const selectedTeam = name === 'team' ? availableTeams.find((team) => String(team.id) === value) : null
     setMessage('')
     setErrorMessage('')
     setPlayerForm((current) => ({
       ...current,
-      [name]: name === 'contactType' ? normalizePlayerContactType(value) : value,
+      [name]: name === 'contactType' ? normalizePlayerContactType(value) : selectedTeam ? selectedTeam.name : value,
+      ...(selectedTeam ? { teamId: selectedTeam.id } : {}),
       parentContacts: ensureContactsForType(
         current.parentContacts,
         name === 'contactType' ? value : current.contactType,
@@ -238,6 +241,7 @@ export function AddPlayerPage() {
       setPlayerForm({
         ...createInitialPlayerForm(),
         section: playerForm.section,
+        teamId: playerForm.teamId,
         team: playerForm.team,
       })
       setMessage('Player added.')

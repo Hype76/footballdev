@@ -88,7 +88,8 @@ function parseCcInput(value) {
 
 export function BulkEmailPage() {
   const { session, user } = useAuth()
-  const cacheKey = user ? `bulk-email:${user.id}:${user.clubId || 'platform'}` : ''
+  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
+  const cacheKey = user ? `bulk-email:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
   const [players, setPlayers] = useState(() => {
     const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
     return Array.isArray(cachedPlayers) ? cachedPlayers : []

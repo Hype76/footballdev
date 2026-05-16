@@ -71,9 +71,10 @@ export async function getActivePlayerCount(clubId) {
   return Number(count ?? 0)
 }
 
-export async function findExistingPlayer({ clubId, section, playerName, team = '' }) {
+export async function findExistingPlayer({ clubId, section, playerName, team = '', teamId = '' }) {
   const normalizedPlayerName = normalizeWords(playerName)
   const normalizedTeam = String(team ?? '').trim()
+  const normalizedTeamId = String(teamId ?? '').trim()
   const normalizedSection = EVALUATION_SECTIONS.includes(section) ? section : ''
 
   if (!clubId || !normalizedPlayerName) {
@@ -82,7 +83,7 @@ export async function findExistingPlayer({ clubId, section, playerName, team = '
 
   const { data, error } = await supabase
     .from('players')
-    .select('id, status, section, team')
+    .select('id, status, section, team, team_id')
     .eq('club_id', clubId)
     .eq('player_name', normalizedPlayerName)
     .order('updated_at', { ascending: false })
@@ -94,6 +95,14 @@ export async function findExistingPlayer({ clubId, section, playerName, team = '
 
   const rows = data ?? []
   return (
+    rows.find(
+      (player) =>
+        normalizedTeamId &&
+        normalizedSection &&
+        String(player.team_id ?? '').trim() === normalizedTeamId &&
+        player.section === normalizedSection,
+    ) ??
+    rows.find((player) => normalizedTeamId && String(player.team_id ?? '').trim() === normalizedTeamId) ??
     rows.find(
       (player) =>
         normalizedTeam &&
@@ -108,8 +117,8 @@ export async function findExistingPlayer({ clubId, section, playerName, team = '
   )
 }
 
-export async function assertPlayerLimitForUpsert({ user = null, clubId, section, playerName, team = '' }) {
-  const existingPlayer = await findExistingPlayer({ clubId, section, playerName, team })
+export async function assertPlayerLimitForUpsert({ user = null, clubId, section, playerName, team = '', teamId = '' }) {
+  const existingPlayer = await findExistingPlayer({ clubId, section, playerName, team, teamId })
 
   if (existingPlayer && String(existingPlayer.status ?? '').trim().toLowerCase() !== 'archived') {
     return existingPlayer

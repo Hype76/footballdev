@@ -19,7 +19,8 @@ import {
 
 export function ArchivedPlayersPage() {
   const { user } = useAuth()
-  const cacheKey = user ? `archived-players:${user.id}:${user.clubId || 'platform'}:${user.roleRank}` : ''
+  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
+  const cacheKey = user ? `archived-players:${user.id}:${user.clubId || 'platform'}:${user.roleRank}:${activeTeamScope}` : ''
   const [players, setPlayers] = useState(() => {
     const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
     return Array.isArray(cachedPlayers) ? cachedPlayers : []
@@ -33,7 +34,7 @@ export function ArchivedPlayersPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${activeTeamScope}` : ''
 
   useEffect(() => {
     let isMounted = true

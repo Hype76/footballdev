@@ -85,6 +85,7 @@ export function mapPlayerToRow(player, user) {
 
   return {
     club_id: player.clubId ?? user?.clubId ?? '',
+    team_id: player.teamId || user?.activeTeamId || null,
     player_name: normalizeWords(player.playerName),
     section: EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Trial',
     team: String(player.team ?? '').trim(),

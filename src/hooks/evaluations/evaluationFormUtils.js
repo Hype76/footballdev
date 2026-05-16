@@ -121,7 +121,7 @@ export function getDraftStorageKey(user) {
     return ''
   }
 
-  return `create-evaluation-draft:${user.id}:${user.clubId || 'platform'}`
+  return `create-evaluation-draft:${user.id}:${user.clubId || 'platform'}:${user.activeTeamId || user.activeTeamName || 'all'}`
 }
 
 export async function getLatestClubLogoUrl(user) {
@@ -326,12 +326,14 @@ export function buildPreviewSummary({ comments, formResponses }) {
   return comments?.overall || comments?.strengths || comments?.improvements || 'No written summary provided.'
 }
 
-export function findSavedPlayerForEvaluation(savedPlayers, playerName, team = '') {
+export function findSavedPlayerForEvaluation(savedPlayers, playerName, team = '', teamId = '') {
   const normalizedPlayerName = normalizePlayerName(playerName)
   const normalizedTeam = String(team ?? '').trim()
+  const normalizedTeamId = String(teamId ?? '').trim()
   const sameNamePlayers = savedPlayers.filter((player) => normalizePlayerName(player.playerName) === normalizedPlayerName)
 
   return (
+    sameNamePlayers.find((player) => normalizedTeamId && String(player.teamId ?? '').trim() === normalizedTeamId) ||
     sameNamePlayers.find((player) => !normalizedTeam || player.team === normalizedTeam) ||
     sameNamePlayers[0]
   )
@@ -354,7 +356,7 @@ export function createEvaluationPayload({
 }) {
   const normalizedPlayerName = normalizePlayerName(formData.playerName)
   const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
-  const matchingPlayer = findSavedPlayerForEvaluation(savedPlayers, normalizedPlayerName, formData.team)
+  const matchingPlayer = findSavedPlayerForEvaluation(savedPlayers, normalizedPlayerName, formData.team, matchingTeam?.id)
 
   return {
     ...(editingEvaluation || {}),

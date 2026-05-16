@@ -4,6 +4,7 @@ export function createInitialPlayerForm() {
   return {
     playerName: '',
     section: 'Trial',
+    teamId: '',
     team: '',
     positions: [],
     positionDraft: '',

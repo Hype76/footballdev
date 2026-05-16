@@ -68,14 +68,14 @@ export function AddPlayerFormSection({
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
             <select
               name="team"
-              value={playerForm.team}
+              value={playerForm.teamId || ''}
               onChange={onChange}
               required
               className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             >
               <option value="">Select team</option>
               {availableTeams.map((team) => (
-                <option key={team.id} value={team.name}>
+                <option key={team.id} value={team.id}>
                   {team.name}
                 </option>
               ))}

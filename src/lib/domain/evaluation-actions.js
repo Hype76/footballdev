@@ -60,6 +60,21 @@ export async function createEvaluation(data) {
     })
   }
 
+  if (data.clubId && data.team) {
+    const { data: teamRow, error: teamError } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('club_id', data.clubId)
+      .eq('name', String(data.team ?? '').trim())
+      .maybeSingle()
+
+    if (teamError) {
+      console.error(teamError)
+    } else {
+      linkedTeamId = data.teamId || teamRow?.id || linkedTeamId
+    }
+  }
+
   if (data.clubId && data.playerName && data.section) {
     await assertPlayerLimitForUpsert({
       user: evaluationUser,
@@ -67,6 +82,7 @@ export async function createEvaluation(data) {
       section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
       playerName: data.playerName,
       team: data.team,
+      teamId: linkedTeamId || data.teamId,
     })
 
     const existingPlayer = await findExistingPlayer({
@@ -74,9 +90,11 @@ export async function createEvaluation(data) {
       section: data.section,
       playerName: data.playerName,
       team: data.team,
+      teamId: linkedTeamId || data.teamId,
     })
     const playerPayload = {
       club_id: data.clubId,
+      team_id: linkedTeamId || data.teamId || null,
       player_name: normalizeWords(data.playerName),
       section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
       team: String(data.team ?? '').trim(),
@@ -107,21 +125,6 @@ export async function createEvaluation(data) {
       console.error(playerError)
     } else {
       linkedPlayerId = playerRow?.id || linkedPlayerId
-    }
-  }
-
-  if (data.clubId && data.team) {
-    const { data: teamRow, error: teamError } = await supabase
-      .from('teams')
-      .select('id')
-      .eq('club_id', data.clubId)
-      .eq('name', String(data.team ?? '').trim())
-      .maybeSingle()
-
-    if (teamError) {
-      console.error(teamError)
-    } else {
-      linkedTeamId = teamRow?.id || linkedTeamId
     }
   }
 

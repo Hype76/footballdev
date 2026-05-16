@@ -32,7 +32,8 @@ export function PlayersPage({
   const [searchParams, setSearchParams] = useSearchParams()
   const viewFilter = searchParams.get('view') || defaultView
   const urlSection = searchParams.get('section') || 'All'
-  const cacheKey = user ? `players-page:${user.id}:${user.clubId || 'platform'}:${user.roleRank}` : ''
+  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
+  const cacheKey = user ? `players-page:${user.id}:${user.clubId || 'platform'}:${user.roleRank}:${activeTeamScope}` : ''
   const [players, setPlayers] = useState(() => {
     const cachedPlayers = readViewCacheValue(cacheKey, 'players', [])
     return Array.isArray(cachedPlayers) ? cachedPlayers : []
@@ -48,7 +49,7 @@ export function PlayersPage({
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
-  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${activeTeamScope}` : ''
 
   useEffect(() => {
     let isMounted = true

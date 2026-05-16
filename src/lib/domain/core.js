@@ -839,7 +839,9 @@ export async function getEvaluations({ user, status, playerName, section, includ
     query = query.eq('section', section)
   }
 
-  if (user.activeTeamName) {
+  if (user.activeTeamId) {
+    query = query.eq('team_id', user.activeTeamId)
+  } else if (user.activeTeamName) {
     query = query.eq('team', user.activeTeamName)
   }
 
@@ -910,7 +912,9 @@ export async function getPlayers({ user, section, playerName, status, includeArc
       query = query.neq('status', 'archived')
     }
 
-    if (user.activeTeamName) {
+    if (user.activeTeamId) {
+      query = query.eq('team_id', user.activeTeamId)
+    } else if (user.activeTeamName) {
       query = query.eq('team', user.activeTeamName)
     }
 
@@ -942,6 +946,7 @@ export async function createPlayer({ user, player }) {
     section: player.section,
     playerName: player.playerName ?? player.name,
     team: player.team,
+    teamId: player.teamId || user.activeTeamId,
   })
 
   const payload = {
@@ -959,6 +964,7 @@ export async function createPlayer({ user, player }) {
     section: player.section,
     playerName: player.playerName ?? player.name,
     team: player.team,
+    teamId: player.teamId || user.activeTeamId,
   })
   const query = existingPlayer?.id
     ? supabase.from('players').update(payload).eq('id', existingPlayer.id)
@@ -969,7 +975,7 @@ export async function createPlayer({ user, player }) {
     const fallback = await supabase
       .from('players')
       .upsert(payload, {
-        onConflict: 'club_id,section,player_name',
+        onConflict: 'club_id,team_id,section,player_name',
       })
       .select('*')
       .single()
@@ -1108,6 +1114,8 @@ export async function restorePlayer({ user, playerId }) {
       clubId: user.clubId,
       section: currentPlayer.section,
       playerName: currentPlayer.playerName,
+      team: currentPlayer.team,
+      teamId: currentPlayer.teamId,
     })
   }
 

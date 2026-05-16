@@ -92,8 +92,9 @@ export function CreateEvaluationPage() {
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
   const searchParamsKey = searchParams.toString()
   const editingEvaluationId = String(searchParams.get('evaluationId') ?? '').trim()
-  const teamsCacheKey = user ? `assessment-teams:${user.id}:${user.clubId || 'platform'}` : ''
-  const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}` : ''
+  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
+  const teamsCacheKey = user ? `assessment-teams:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
+  const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
   const cachedTeams = readViewCacheValue(teamsCacheKey, 'availableTeams', [])
   const cachedFields = readViewCache(fieldsCacheKey)
   const [formData, setFormData] = useState(() => createInitialFormData(user))

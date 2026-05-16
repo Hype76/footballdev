@@ -95,7 +95,8 @@ export function PlayerProfile() {
   const isDemoAccount = isDemoUser(user)
   const { showToast } = useToast()
   const routePlayerName = decodeURIComponent(id)
-  const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${routePlayerName}` : ''
+  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
+  const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}:${routePlayerName}` : ''
   const [evaluations, setEvaluations] = useState(() => {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
