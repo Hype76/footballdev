@@ -794,6 +794,30 @@ export function CreateEvaluationPage() {
       return
     }
 
+    if (name === 'team' && formData.playerName) {
+      const currentPlayerName = normalizePlayerName(formData.playerName)
+      const currentSection = String(formData.section ?? '').trim()
+      const matchingPlayer = savedPlayers.find(
+        (player) =>
+          normalizePlayerName(player.playerName) === currentPlayerName &&
+          player.team === value &&
+          (!currentSection || player.section === currentSection),
+      )
+
+      if (!matchingPlayer) {
+        setSelectedParentContactIndexes([0])
+        setFormData((current) => ({
+          ...current,
+          team: value,
+          playerName: '',
+          parentName: '',
+          parentEmail: '',
+          parentContacts: [],
+        }))
+        return
+      }
+    }
+
     if (name === 'playerName' || name === 'team') {
       const { matchingParentContacts, nextFormData } = getMatchedPlayerFieldUpdate({
         fieldName: name,
@@ -805,6 +829,35 @@ export function CreateEvaluationPage() {
       })
       setFormData(nextFormData)
       setSelectedParentContactIndexes(getSelectedContactIndexes(matchingParentContacts))
+      return
+    }
+
+    if (name === 'section') {
+      const currentPlayerName = normalizePlayerName(formData.playerName)
+      const currentTeam = String(formData.team ?? '').trim()
+      const matchingPlayer = savedPlayers.find(
+        (player) =>
+          normalizePlayerName(player.playerName) === currentPlayerName &&
+          player.section === value &&
+          (!currentTeam || player.team === currentTeam),
+      )
+
+      if (matchingPlayer) {
+        setFormData((current) => ({
+          ...current,
+          section: value,
+        }))
+      } else {
+        setSelectedParentContactIndexes([0])
+        setFormData((current) => ({
+          ...current,
+          section: value,
+          playerName: '',
+          parentName: '',
+          parentEmail: '',
+          parentContacts: [],
+        }))
+      }
       return
     }
 
@@ -1110,6 +1163,7 @@ export function CreateEvaluationPage() {
                 contactLabel={contactLabel}
                 contactNoun={contactNoun}
                 contactNounPlural={contactNounPlural}
+                evaluationSections={EVALUATION_SECTIONS}
                 formData={formData}
                 onFieldChange={handleFieldChange}
                 onToggleParentContact={handleToggleParentContact}

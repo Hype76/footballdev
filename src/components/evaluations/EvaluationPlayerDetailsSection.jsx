@@ -8,6 +8,7 @@ export function EvaluationPlayerDetailsSection({
   contactLabel,
   contactNoun,
   contactNounPlural,
+  evaluationSections,
   formData,
   onFieldChange,
   onToggleParentContact,
@@ -17,6 +18,13 @@ export function EvaluationPlayerDetailsSection({
   selectedParentContactIndexes,
   user,
 }) {
+  const selectedSection = String(formData.section ?? '').trim()
+  const selectedTeam = String(formData.team ?? '').trim()
+  const playerOptions = savedPlayers
+    .filter((player) => !selectedSection || player.section === selectedSection)
+    .filter((player) => !selectedTeam || player.team === selectedTeam)
+    .sort((left, right) => left.playerName.localeCompare(right.playerName))
+
   return (
     <SectionCard
       title="Player details"
@@ -24,21 +32,20 @@ export function EvaluationPlayerDetailsSection({
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
-          <input
-            type="text"
-            name="playerName"
-            value={formData.playerName}
+          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
+          <select
+            name="section"
+            value={formData.section}
             onChange={onFieldChange}
             required
-            list="saved-player-list"
             className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-          />
-          <datalist id="saved-player-list">
-            {savedPlayers.map((player) => (
-              <option key={player.id} value={player.playerName} />
+          >
+            {evaluationSections.map((section) => (
+              <option key={section} value={section}>
+                {section}
+              </option>
             ))}
-          </datalist>
+          </select>
         </label>
 
         <label className="block">
@@ -62,6 +69,27 @@ export function EvaluationPlayerDetailsSection({
               ? 'Managers and admins can assess against any club team.'
               : 'Choose the team this assessment should sit under. Session selection is optional.'}
           </p>
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
+          <select
+            name="playerName"
+            value={formData.playerName}
+            onChange={onFieldChange}
+            required
+            disabled={playerOptions.length === 0}
+            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">
+              {playerOptions.length === 0 ? `No ${selectedSection || 'matching'} players available` : 'Select player'}
+            </option>
+            {playerOptions.map((player) => (
+              <option key={player.id} value={player.playerName}>
+                {player.playerName}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="block">
