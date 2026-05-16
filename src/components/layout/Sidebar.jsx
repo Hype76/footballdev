@@ -104,8 +104,8 @@ export function Sidebar({ isOpen, onClose }) {
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
-  const coachNavigationItems = navigationItems.filter((item) => ['/sessions', '/players', '/add-player'].includes(item.path))
-  const teamNavigationItems = navigationItems.filter((item) => !['/sessions', '/players', '/add-player'].includes(item.path))
+  const coachNavigationItems = navigationItems.filter((item) => ['/sessions', '/players', '/assess-player'].includes(item.path))
+  const teamNavigationItems = navigationItems.filter((item) => !['/sessions', '/players', '/assess-player'].includes(item.path))
 
   const handleSignOut = async () => {
     try {
@@ -158,7 +158,7 @@ export function Sidebar({ isOpen, onClose }) {
               Coach Mode
             </p>
             <p className="px-2 pt-1 text-xs leading-5 text-[var(--text-muted)]">
-              Matchday tools first.
+              Session tools first.
             </p>
             <div className="mt-3 space-y-2">
               {coachNavigationItems.map((item) =>
@@ -179,7 +179,7 @@ export function Sidebar({ isOpen, onClose }) {
                       ].join(' ')
                     }
                   >
-                    {item.path === '/sessions' ? 'Matchday' : item.label}
+                    {item.label}
                   </NavLink>
                 ),
               )}

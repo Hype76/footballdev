@@ -831,7 +831,7 @@ export function SessionsPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Coach Mode"
-        title="Matchday"
+        title="Sessions"
         description="Open the current session, record quick notes, and assess players with as few taps as possible."
       />
 
@@ -1054,7 +1054,7 @@ function MatchdayFocus({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-            Matchday Mode
+            Sessions Mode
           </p>
           <h3 className="mt-2 break-words text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
             {selectedSession?.title || selectedSession?.team || 'Get the next session ready'}
