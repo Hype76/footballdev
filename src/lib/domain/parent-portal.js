@@ -137,6 +137,54 @@ export async function revokeParentPortalLink({ linkId }) {
   return normalizeParentLink(data)
 }
 
+export async function getFamilyLinksForParentLink({ parentLinkId }) {
+  const normalizedParentLinkId = String(parentLinkId ?? '').trim()
+
+  if (!normalizedParentLinkId) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('parent_player_links')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .eq('parent_link_id', normalizedParentLinkId)
+    .eq('link_type', 'family')
+    .eq('status', 'active')
+    .order('accepted_at', { ascending: false })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeParentLink)
+}
+
+export async function revokeFamilyPortalLink({ linkId }) {
+  const normalizedLinkId = String(linkId ?? '').trim()
+
+  if (!normalizedLinkId) {
+    throw new Error('Choose a Friends and Family link before removing access.')
+  }
+
+  const { data, error } = await supabase.rpc('revoke_family_player_link', {
+    link_id_value: normalizedLinkId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const revokedRow = Array.isArray(data) ? data[0] : data
+
+  if (!revokedRow?.id) {
+    throw new Error('Friends and Family access could not be removed.')
+  }
+
+  return normalizeParentLink(revokedRow)
+}
+
 export async function createParentPortalInvites({ user, player, contacts }) {
   if (!user?.clubId || !player?.id) {
     throw new Error('Choose a player before creating parent links.')

@@ -84,9 +84,11 @@ export {
   createFamilyShareLink,
   createParentPortalInvites,
   createParentPortalInvitesForPlayers,
+  getFamilyLinksForParentLink,
   getParentLinkingPlayers,
   getParentLinksForPlayer,
   getParentPortalLinks,
+  revokeFamilyPortalLink,
   revokeParentPortalLink,
 } from './domain/parent-portal.js'
 
