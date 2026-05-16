@@ -41,6 +41,7 @@ const ArchivedPlayersPage = lazyRoute(() => import('../pages/ArchivedPlayersPage
 const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'BillingPage')
 const BulkEmailPage = lazyRoute(() => import('../pages/BulkEmailPage.jsx'), 'BulkEmailPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
+const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
 const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
@@ -194,7 +195,7 @@ function getDefaultWorkspacePath(user) {
   }
 
   if (canCreateEvaluation(user)) {
-    return user.activeTeamId ? '/sessions' : '/add-player'
+    return '/coach'
   }
 
   if (canManageUsers(user)) {
@@ -722,6 +723,17 @@ export const router = createBrowserRouter([
               {
                 element: <RequirePlayerWorkflowAccess />,
                 children: [
+                  {
+                    path: 'coach',
+                    element: (
+                      <PageSuspense>
+                        <CoachHomePage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Coach Home',
+                    },
+                  },
                   {
                     path: 'add-player',
                     element: (
