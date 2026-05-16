@@ -95,9 +95,14 @@ export function PlayersListSection({
                 >
                   <div className="grid gap-4 lg:grid-cols-6 lg:items-center">
                     <div className="md:col-span-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
-                        <span className={['rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em]', sectionBadgeClass].join(' ')}>
+                      <div className="grid max-w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,9.5rem)_max-content] sm:items-center">
+                        <p
+                          className="min-w-0 truncate text-base font-semibold text-[var(--text-primary)]"
+                          title={player.playerName}
+                        >
+                          {player.playerName}
+                        </p>
+                        <span className={['inline-flex min-h-7 w-32 items-center justify-center rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em]', sectionBadgeClass].join(' ')}>
                           {isSquadPlayer ? 'Squad player' : 'Trial player'}
                         </span>
                       </div>
