@@ -141,15 +141,10 @@ export async function getAvailableTeamsForUser(user) {
 
     const teamIds = [...new Set((assignmentRows ?? []).map((row) => String(row.team_id ?? '').trim()).filter(Boolean))]
 
-    if (teamIds.length === 0) {
-      return []
-    }
-
     const { data, error } = await supabase
       .from('teams')
       .select('*')
       .eq('club_id', user.clubId)
-      .in('id', teamIds)
       .order('name', { ascending: true })
 
     if (error) {
@@ -157,7 +152,10 @@ export async function getAvailableTeamsForUser(user) {
       throw error
     }
 
-    const teams = (data ?? []).map(normalizeTeamRow)
+    const clubTeams = (data ?? []).map(normalizeTeamRow)
+    const teams = teamIds.length > 0
+      ? clubTeams.filter((team) => teamIds.includes(String(team.id)))
+      : clubTeams
     const activeTeamId = String(user.activeTeamId ?? '').trim()
 
     if (!activeTeamId) {
@@ -210,7 +208,15 @@ export async function getSessionTeamsForUser(user) {
     return matchedTeam ? [matchedTeam] : [{ id: activeTeamId, name: activeTeamName }]
   }
 
-  return assignedTeams
+  if (assignedTeams.length > 0) {
+    return assignedTeams
+  }
+
+  if (!user?.clubId || user.role === 'super_admin') {
+    return []
+  }
+
+  return getTeams(user)
 }
 
 export async function createTeam({ user, name }) {

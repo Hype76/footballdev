@@ -659,7 +659,7 @@ export function CreateEvaluationPage() {
   const isDemoAccount = isDemoUser(user)
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
-    : 'No teams are assigned to your account yet. Ask a manager to allocate you to at least one team.'
+    : 'No teams exist for this club yet. Ask a manager to create a team before adding assessments.'
 
   useEffect(() => {
     if (isDemoAccount && previewMode === 'email') {

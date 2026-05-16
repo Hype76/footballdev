@@ -60,7 +60,7 @@ export function EvaluationPlayerDetailsSection({
           <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
             {canManageUsers(user)
               ? 'Managers and admins can assess against any club team.'
-              : 'You can only assess players for teams assigned to your account.'}
+              : 'Choose the team this assessment should sit under. Session selection is optional.'}
           </p>
         </label>
 
