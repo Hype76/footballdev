@@ -52,6 +52,7 @@ export function OpenSessionsSection({
                   <button
                     type="button"
                     disabled={isSaving}
+                    title={isSaving ? 'Please wait while the session is being updated.' : undefined}
                     onClick={() => void onCompleteSession()}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -82,6 +83,7 @@ export function OpenSessionsSection({
               value=""
               onChange={(event) => onOpenSession(event.target.value)}
               disabled={previousSessions.length === 0}
+              title={previousSessions.length === 0 ? 'There are no previous sessions to open yet.' : undefined}
               className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">

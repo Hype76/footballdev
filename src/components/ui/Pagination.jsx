@@ -30,6 +30,7 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
           type="button"
           onClick={() => handlePageChange(safePage - 1)}
           disabled={safePage <= 1}
+          title={safePage <= 1 ? 'You are already on the first page.' : undefined}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Previous
@@ -41,6 +42,7 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
           type="button"
           onClick={() => handlePageChange(safePage + 1)}
           disabled={safePage >= totalPages}
+          title={safePage >= totalPages ? 'You are already on the last page.' : undefined}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Next

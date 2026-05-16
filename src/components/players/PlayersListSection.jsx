@@ -133,6 +133,7 @@ export function PlayersListSection({
                     <button
                       type="button"
                       disabled={actionLoadingKey === `${player.playerId}:move-to-trial`}
+                      title={actionLoadingKey === `${player.playerId}:move-to-trial` ? 'Please wait while this player is being moved to trial.' : undefined}
                       onClick={(event) => void onMovePlayerToTrial(event, player)}
                       className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -142,6 +143,7 @@ export function PlayersListSection({
                   <button
                     type="button"
                     disabled={actionLoadingKey === `${player.playerId}:archive`}
+                    title={actionLoadingKey === `${player.playerId}:archive` ? 'Please wait while this player is being archived.' : undefined}
                     onClick={(event) => onArchivePlayer(event, player)}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >

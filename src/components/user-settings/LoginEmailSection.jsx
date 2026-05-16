@@ -21,6 +21,7 @@ export function LoginEmailSection({
             value={email}
             onChange={(event) => onEmailChange(event.target.value)}
             disabled={isDemoSettings}
+            title={isDemoSettings ? 'Demo accounts cannot change login email.' : undefined}
             required
             autoComplete="email"
             className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
@@ -29,6 +30,13 @@ export function LoginEmailSection({
         <button
           type="submit"
           disabled={isSavingEmail || isDemoSettings}
+          title={
+            isSavingEmail
+              ? 'Please wait while your login email request is being sent.'
+              : isDemoSettings
+                ? 'Demo accounts cannot change login email.'
+                : undefined
+          }
           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSavingEmail ? 'Requesting...' : 'Update login email'}

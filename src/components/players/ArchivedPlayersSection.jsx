@@ -34,6 +34,13 @@ export function ArchivedPlayersSection({
           <button
             type="button"
             disabled={selectedPlayerIds.length === 0 || isDeleting}
+            title={
+              isDeleting
+                ? 'Please wait while archived players are being deleted.'
+                : selectedPlayerIds.length === 0
+                  ? 'Select at least one archived player before deleting.'
+                  : undefined
+            }
             onClick={() => onDeleteModeOpen('selected')}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -42,6 +49,13 @@ export function ArchivedPlayersSection({
           <button
             type="button"
             disabled={players.length === 0 || isDeleting}
+            title={
+              isDeleting
+                ? 'Please wait while archived players are being deleted.'
+                : players.length === 0
+                  ? 'There are no archived players to delete.'
+                  : undefined
+            }
             onClick={() => onDeleteModeOpen('all')}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -109,6 +123,7 @@ export function ArchivedPlayersSection({
                   <button
                     type="button"
                     disabled={isRestoringId === player.id}
+                    title={isRestoringId === player.id ? 'Please wait while this player is being restored.' : undefined}
                     onClick={() => void onRestorePlayer(player)}
                     className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
                   >

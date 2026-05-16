@@ -148,6 +148,7 @@ function ClubSummary({
           <select
             value={club.planKey || 'small_club'}
             disabled={updatingClubId === club.id}
+            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planKey', event.target.value)}
             className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
           >
@@ -163,6 +164,7 @@ function ClubSummary({
           <select
             value={club.planStatus || 'active'}
             disabled={updatingClubId === club.id}
+            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planStatus', event.target.value)}
             className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
           >
@@ -177,6 +179,7 @@ function ClubSummary({
             type="checkbox"
             checked={Boolean(club.isPlanComped)}
             disabled={updatingClubId === club.id}
+            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'isPlanComped', event.target.checked)}
             className="h-4 w-4"
           />
@@ -193,6 +196,7 @@ function ClubSummary({
         <button
           type="button"
           disabled={updatingClubId === club.id}
+          title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onToggleClubStatus(club)}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -201,6 +205,7 @@ function ClubSummary({
         <button
           type="button"
           disabled={updatingClubId === club.id}
+          title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onDeleteClub(club)}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -260,6 +265,7 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
                   <button
                     type="button"
                     disabled={updatingUserId === member.id}
+                    title={updatingUserId === member.id ? 'Please wait while this user is being updated.' : undefined}
                     onClick={() =>
                       void onAccountAction(
                         club,
@@ -274,6 +280,7 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
                   <button
                     type="button"
                     disabled={updatingUserId === member.id}
+                    title={updatingUserId === member.id ? 'Please wait while this user is being updated.' : undefined}
                     onClick={() => void onAccountAction(club, member, 'delete')}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -306,6 +313,7 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
               <button
                 type="button"
                 disabled={updatingTeamId === team.id}
+                title={updatingTeamId === team.id ? 'Please wait while this team is being deleted.' : undefined}
                 onClick={() => void onDeleteTeam(club, team)}
                 className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >

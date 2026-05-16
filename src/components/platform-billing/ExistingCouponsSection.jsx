@@ -51,6 +51,13 @@ export function ExistingCouponsSection({
                 <button
                   type="button"
                   disabled={!coupon.promotionCodeId || livePromotionId === coupon.promotionCodeId}
+                  title={
+                    !coupon.promotionCodeId
+                      ? 'This coupon cannot be shown on the website because it has no promotion code.'
+                      : livePromotionId === coupon.promotionCodeId
+                        ? 'Please wait while the website promotion is being updated.'
+                        : undefined
+                  }
                   onClick={() => onSetLivePromotion(coupon)}
                   className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -59,6 +66,7 @@ export function ExistingCouponsSection({
                 <button
                   type="button"
                   disabled={deletingCouponId === coupon.id}
+                  title={deletingCouponId === coupon.id ? 'Please wait while this coupon is being deleted.' : undefined}
                   onClick={() => onDeleteCoupon(coupon)}
                   className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#7f1d1d] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[#fecaca] transition hover:bg-[#3f151a] disabled:cursor-not-allowed disabled:opacity-60"
                 >

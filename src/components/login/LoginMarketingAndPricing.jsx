@@ -192,6 +192,7 @@ export function LoginMarketingAndPricing({
                 <button
                   type="button"
                   disabled={isSubmitting}
+                  title={isSubmitting ? 'Please wait while your plan request is being processed.' : undefined}
                   onClick={() => onChoosePlan(plan)}
                   className={[
                     'inline-flex min-h-12 items-center justify-center rounded-lg px-5 py-3 text-sm font-black transition',

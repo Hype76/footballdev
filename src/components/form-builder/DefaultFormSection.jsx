@@ -7,6 +7,8 @@ export function DefaultFormSection({
   isSaving,
   onRefreshFields,
 }) {
+  const refreshDisabledReason = isSaving ? 'Please wait while the default form is loading.' : undefined
+
   return (
     <SectionCard
       title="Default form"
@@ -33,6 +35,7 @@ export function DefaultFormSection({
             type="button"
             onClick={onRefreshFields}
             disabled={isSaving}
+            title={refreshDisabledReason}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {isSaving ? 'Loading...' : 'Load default form'}

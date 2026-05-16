@@ -122,6 +122,7 @@ export function ResetPasswordPage() {
           <button
             type="submit"
             disabled={isSubmitting}
+            title={isSubmitting ? 'Please wait while your password is being updated.' : undefined}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#c6ff2f] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Updating...' : 'Update Password'}

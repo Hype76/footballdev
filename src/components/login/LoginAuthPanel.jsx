@@ -144,6 +144,7 @@ export function LoginAuthPanel({
             <button
               type="submit"
               disabled={isSubmitting}
+              title={isSubmitting ? 'Please wait while your request is being checked.' : undefined}
               className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
@@ -153,6 +154,7 @@ export function LoginAuthPanel({
                 <button
                   type="button"
                   disabled={isSubmitting}
+                  title={isSubmitting ? 'Please wait while your request is being checked.' : undefined}
                   onClick={onDemoLogin}
                   className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f]/10 px-5 py-3 text-sm font-black text-[#d8ff2f] transition hover:bg-[#d8ff2f]/15 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -161,6 +163,7 @@ export function LoginAuthPanel({
                 <button
                   type="button"
                   disabled={isSubmitting}
+                  title={isSubmitting ? 'Please wait while your request is being checked.' : undefined}
                   onClick={onPasswordReset}
                   className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
                 >

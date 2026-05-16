@@ -170,6 +170,13 @@ function SelectedTeamPanel({
                 isSaving ||
                 String(teamNameDrafts[selectedTeam.id] ?? selectedTeam.name).trim() === selectedTeam.name
               }
+              title={
+                isSaving
+                  ? 'Please wait while team details are being saved.'
+                  : String(teamNameDrafts[selectedTeam.id] ?? selectedTeam.name).trim() === selectedTeam.name
+                    ? 'Change the team name before saving.'
+                    : undefined
+              }
               onClick={() => void onSaveTeamName(selectedTeam.id)}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
             >
@@ -183,6 +190,7 @@ function SelectedTeamPanel({
         <button
           type="button"
           disabled={isSaving}
+          title={isSaving ? 'Please wait while team details are being saved.' : undefined}
           onClick={() => void onDeleteTeam(selectedTeam.id)}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -256,6 +264,13 @@ function AddExistingStaffPanel({
         <button
           type="button"
           disabled={isSaving || !staffToAddId}
+          title={
+            isSaving
+              ? 'Please wait while staff allocation is being saved.'
+              : !staffToAddId
+                ? 'Select a staff member before adding them to this team.'
+                : undefined
+          }
           onClick={() => void onAddExistingStaff()}
           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -302,6 +317,7 @@ function AllocatedStaffList({
                 <button
                   type="button"
                   disabled={isSaving}
+                  title={isSaving ? 'Please wait while staff allocation is being saved.' : undefined}
                   onClick={() => void onRemoveStaff(member.id)}
                   className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >

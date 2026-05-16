@@ -315,6 +315,13 @@ export function BulkEmailPage() {
             <button
               type="submit"
               disabled={isSending || selectedCount === 0}
+              title={
+                isSending
+                  ? 'Please wait while this email is being sent.'
+                  : selectedCount === 0
+                    ? 'Select at least one contact before sending.'
+                    : undefined
+              }
               className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSending ? 'Sending...' : `Send to ${selectedCount} contacts`}
@@ -331,6 +338,7 @@ export function BulkEmailPage() {
               type="button"
               onClick={toggleSelectAll}
               disabled={contactOptions.length === 0}
+              title={contactOptions.length === 0 ? 'There are no contacts available to select.' : undefined}
               className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {allVisibleSelected ? 'Untick all' : 'Select all'}

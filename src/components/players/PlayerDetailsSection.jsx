@@ -103,6 +103,8 @@ function PlayerDetailsEditor({
   onRemovePlayerPosition,
   onSavePlayer,
 }) {
+  const savingDisabledReason = isSavingPlayer ? 'Please wait while player details are being saved.' : undefined
+
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <label className="block">
@@ -226,6 +228,7 @@ function PlayerDetailsEditor({
         <button
           type="button"
           disabled={isSavingPlayer}
+          title={savingDisabledReason}
           onClick={onSavePlayer}
           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -234,6 +237,7 @@ function PlayerDetailsEditor({
         <button
           type="button"
           disabled={isSavingPlayer}
+          title={savingDisabledReason}
           onClick={onCancelEditing}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -259,6 +263,12 @@ function PlayerDetailsSummary({
   selectedDirectEmailTemplateKey,
 }) {
   const directEmailId = `direct:${player.id}`
+  const directEmailDisabledReason = directEmailSendingId === directEmailId
+    ? 'Please wait while this email is being sent.'
+    : directEmailTemplates.length === 0
+      ? 'Enable a Direct Email template before sending email from here.'
+      : undefined
+  const promotionDisabledReason = isPromoting ? 'Please wait while this player is being updated.' : undefined
 
   return (
     <div className="space-y-4">
@@ -313,6 +323,7 @@ function PlayerDetailsSummary({
             type="button"
             onClick={onSendDirectEmail}
             disabled={directEmailSendingId === directEmailId || directEmailTemplates.length === 0}
+            title={directEmailDisabledReason}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
           >
             {directEmailSendingId === directEmailId ? 'Sending...' : 'Send Email'}
@@ -321,6 +332,7 @@ function PlayerDetailsSummary({
             <button
               type="button"
               disabled={isPromoting}
+              title={promotionDisabledReason}
               onClick={onMovePlayerToTrial}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
             >
@@ -330,6 +342,7 @@ function PlayerDetailsSummary({
             <button
               type="button"
               disabled={isPromoting}
+              title={promotionDisabledReason}
               onClick={onPromotePlayer}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
             >

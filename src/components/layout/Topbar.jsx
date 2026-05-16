@@ -139,6 +139,7 @@ export function Topbar({ title, onMenuClick }) {
                   value={user?.role === 'super_admin' ? '__platform_admin__' : user?.activeTeamId || ''}
                   onChange={handleTeamChange}
                   disabled={isSwitchingTeam}
+                  title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
                   className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
@@ -173,6 +174,7 @@ export function Topbar({ title, onMenuClick }) {
               type="button"
               onClick={handleSignOut}
               disabled={isSigningOut}
+              title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}

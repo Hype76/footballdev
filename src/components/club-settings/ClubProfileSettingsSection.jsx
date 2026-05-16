@@ -15,6 +15,13 @@ export function ClubProfileSettingsSection({
   resolvedLogoUrl,
   selectedLogoFile,
 }) {
+  const uploadDisabledReason = isUploading
+    ? 'Please wait while the logo is uploading.'
+    : !selectedLogoFile
+      ? 'Choose a logo file before uploading.'
+      : undefined
+  const saveDisabledReason = isSaving ? 'Please wait while club settings are being saved.' : undefined
+
   return (
     <SectionCard
       title="Club profile"
@@ -52,6 +59,7 @@ export function ClubProfileSettingsSection({
                   type="button"
                   onClick={onLogoUpload}
                   disabled={isUploading || !selectedLogoFile}
+                  title={uploadDisabledReason}
                   className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isUploading ? 'Uploading...' : 'Upload Logo'}
@@ -103,6 +111,7 @@ export function ClubProfileSettingsSection({
               <button
                 type="submit"
                 disabled={isSaving}
+                title={saveDisabledReason}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {isSaving ? 'Saving...' : 'Save changes'}

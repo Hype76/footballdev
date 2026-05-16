@@ -26,6 +26,7 @@ export function PasswordSettingsSection({
               value={passwordData.password}
               onChange={(event) => onPasswordDataChange('password', event.target.value)}
               disabled={isDemoSettings}
+              title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
               minLength={8}
               autoComplete="new-password"
               className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
@@ -39,6 +40,7 @@ export function PasswordSettingsSection({
               value={passwordData.confirmPassword}
               onChange={(event) => onPasswordDataChange('confirmPassword', event.target.value)}
               disabled={isDemoSettings}
+              title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
               minLength={8}
               autoComplete="new-password"
               className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
@@ -52,6 +54,7 @@ export function PasswordSettingsSection({
             checked={showPassword}
             onChange={(event) => onShowPasswordChange(event.target.checked)}
             disabled={isDemoSettings}
+            title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
             className="h-4 w-4 rounded border-[var(--border-color)]"
           />
           <span>Show password</span>
@@ -61,6 +64,15 @@ export function PasswordSettingsSection({
           <button
             type="submit"
             disabled={isSavingPassword || isDemoSettings || !passwordData.password || !passwordData.confirmPassword}
+            title={
+              isSavingPassword
+                ? 'Please wait while your password is being updated.'
+                : isDemoSettings
+                  ? 'Demo accounts cannot change password.'
+                  : !passwordData.password || !passwordData.confirmPassword
+                    ? 'Enter and confirm your new password before saving.'
+                    : undefined
+            }
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSavingPassword ? 'Updating...' : 'Update password'}
@@ -70,6 +82,13 @@ export function PasswordSettingsSection({
             type="button"
             onClick={onResetPassword}
             disabled={isSendingReset || isDemoSettings}
+            title={
+              isSendingReset
+                ? 'Please wait while the reset email is being sent.'
+                : isDemoSettings
+                  ? 'Demo accounts cannot reset password.'
+                  : undefined
+            }
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSendingReset ? 'Sending...' : 'Send reset email'}

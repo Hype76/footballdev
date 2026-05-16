@@ -138,6 +138,13 @@ export function AccountProfileSection({
         <button
           type="submit"
           disabled={isSavingProfile || isDemoSettings}
+          title={
+            isSavingProfile
+              ? 'Please wait while your account is being saved.'
+              : isDemoSettings
+                ? 'Demo accounts cannot change account details.'
+                : undefined
+          }
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isSavingProfile ? 'Saving...' : 'Save account'}

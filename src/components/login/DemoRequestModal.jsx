@@ -68,6 +68,7 @@ export function DemoRequestModal({
             <button
               type="button"
               disabled={isSubmitting}
+              title={isSubmitting ? 'Please wait while your demo request is sent.' : undefined}
               onClick={onCancel}
               className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -76,6 +77,7 @@ export function DemoRequestModal({
             <button
               type="submit"
               disabled={isSubmitting}
+              title={isSubmitting ? 'Please wait while your demo request is sent.' : undefined}
               className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? 'Sending...' : 'Request Demo'}

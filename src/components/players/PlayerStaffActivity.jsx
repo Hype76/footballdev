@@ -18,6 +18,23 @@ export function PlayerStaffActivity({
   primaryPlayer,
   staffNotes,
 }) {
+  const saveNoteDisabledReason = isSavingNote
+    ? 'Please wait while this note is being saved.'
+    : isSavingVoiceNote
+      ? 'Please wait while the voice note is being saved.'
+      : !primaryPlayer?.id
+        ? 'Open a saved player before adding a note.'
+        : !noteDraft.trim()
+          ? 'Write a note before saving.'
+          : undefined
+  const voiceNoteDisabledReason = isSavingNote
+    ? 'Please wait while this note is being saved.'
+    : isSavingVoiceNote
+      ? 'Please wait while the voice note is being saved.'
+      : !primaryPlayer?.id
+        ? 'Open a saved player before recording a voice note.'
+        : undefined
+
   return (
     <SectionCard
       title="Staff notes and activity"
@@ -40,6 +57,7 @@ export function PlayerStaffActivity({
               type="button"
               onClick={onSaveNote}
               disabled={isSavingNote || isSavingVoiceNote || !noteDraft.trim() || !primaryPlayer?.id}
+              title={saveNoteDisabledReason}
               className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSavingNote ? 'Saving...' : 'Save Note'}
@@ -49,7 +67,7 @@ export function PlayerStaffActivity({
               onClick={isRecordingVoiceNote ? onStopVoiceNote : onStartVoiceNote}
               disabled={isSavingNote || isSavingVoiceNote || !primaryPlayer?.id}
               aria-label={isRecordingVoiceNote ? 'Stop player voice note recording' : 'Record player voice note'}
-              title={isRecordingVoiceNote ? 'Stop recording' : 'Voice note'}
+              title={voiceNoteDisabledReason || (isRecordingVoiceNote ? 'Stop recording' : 'Voice note')}
               className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 isRecordingVoiceNote
                   ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
@@ -75,6 +93,7 @@ export function PlayerStaffActivity({
                       <button
                         type="button"
                         disabled={deletingNoteId === note.id}
+                        title={deletingNoteId === note.id ? 'Please wait while this note is being deleted.' : undefined}
                         onClick={() => onDeleteNote(note)}
                         className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-xs font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                       >

@@ -22,6 +22,7 @@ export function CreatePlatformFeedbackSection({
         <button
           type="submit"
           disabled={isSaving}
+          title={isSaving ? 'Please wait while your feedback is being submitted.' : undefined}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isSaving ? 'Submitting...' : 'Submit Feedback'}

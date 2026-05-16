@@ -42,6 +42,7 @@ export function TesterAccessCodesSection({
                 <button
                   type="button"
                   disabled={updatingTesterCodeId === code.id}
+                  title={updatingTesterCodeId === code.id ? 'Please wait while this tester code is being updated.' : undefined}
                   onClick={() => onToggleTesterCode(code)}
                   className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >

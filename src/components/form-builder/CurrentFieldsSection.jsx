@@ -127,6 +127,18 @@ function FormFieldCard({
   onSaveField,
   onToggleEnabled,
 }) {
+  const moveUpDisabledReason = isSaving
+    ? 'Please wait while field changes are being saved.'
+    : fieldIndex === 0
+      ? 'This field is already at the top.'
+      : undefined
+  const moveDownDisabledReason = isSaving
+    ? 'Please wait while field changes are being saved.'
+    : fieldIndex === fieldsCount - 1
+      ? 'This field is already at the bottom.'
+      : undefined
+  const savingDisabledReason = isSaving ? 'Please wait while field changes are being saved.' : undefined
+
   return (
     <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
@@ -205,6 +217,7 @@ function FormFieldCard({
           <button
             type="button"
             disabled={isSaving || fieldIndex === 0}
+            title={moveUpDisabledReason}
             onClick={() => onMoveField(field.id, -1)}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -213,6 +226,7 @@ function FormFieldCard({
           <button
             type="button"
             disabled={isSaving || fieldIndex === fieldsCount - 1}
+            title={moveDownDisabledReason}
             onClick={() => onMoveField(field.id, 1)}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -221,6 +235,7 @@ function FormFieldCard({
           <button
             type="button"
             disabled={isSaving}
+            title={savingDisabledReason}
             onClick={() => onToggleEnabled(field)}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -235,6 +250,7 @@ function FormFieldCard({
               <button
                 type="button"
                 disabled={isSaving}
+                title={savingDisabledReason}
                 onClick={() => onSaveField(field)}
                 className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -243,6 +259,7 @@ function FormFieldCard({
               <button
                 type="button"
                 disabled={isSaving}
+                title={savingDisabledReason}
                 onClick={() => onDeleteField(field.id)}
                 className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
               >

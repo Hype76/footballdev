@@ -13,6 +13,12 @@ export function AddFieldSection({
   onAddField,
   onFormChange,
 }) {
+  const addFieldDisabledReason = isSaving
+    ? 'Please wait while this field is being saved.'
+    : !canUseCustomFields
+      ? createFeatureUpgradeMessage('customFormFields')
+      : undefined
+
   return (
     <SectionCard
       title="Add field"
@@ -88,6 +94,7 @@ export function AddFieldSection({
           <button
             type="submit"
             disabled={isSaving || !canUseCustomFields}
+            title={addFieldDisabledReason}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {isSaving ? 'Saving...' : 'Add field'}

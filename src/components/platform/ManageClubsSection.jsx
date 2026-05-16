@@ -41,6 +41,7 @@ export function ManageClubsSection({
         <button
           type="submit"
           disabled={isSaving}
+          title={isSaving ? 'Please wait while the club is being added.' : undefined}
           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSaving ? 'Adding...' : 'Add Club'}

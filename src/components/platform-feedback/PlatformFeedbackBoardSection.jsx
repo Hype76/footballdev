@@ -36,6 +36,7 @@ export function PlatformFeedbackBoardSection({
                   type="button"
                   onClick={() => onVote(item)}
                   disabled={activeVoteId === item.id}
+                  title={activeVoteId === item.id ? 'Please wait while your vote is being saved.' : undefined}
                   className={[
                     'inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
                     item.hasVoted

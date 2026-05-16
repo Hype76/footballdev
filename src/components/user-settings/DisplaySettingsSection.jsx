@@ -22,6 +22,7 @@ export function DisplaySettingsSection({
             value={themeMode}
             onChange={(event) => onThemeModeChange(event.target.value)}
             disabled={!canUseThemes}
+            title={!canUseThemes ? createFeatureUpgradeMessage('themes') : undefined}
             className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
           >
             {themeModeOptions.map((option) => (
@@ -38,6 +39,7 @@ export function DisplaySettingsSection({
             value={themeAccent}
             onChange={(event) => onThemeAccentChange(event.target.value)}
             disabled={!canUseThemes}
+            title={!canUseThemes ? createFeatureUpgradeMessage('themes') : undefined}
             className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
           >
             {themeAccentOptions.map((option) => (

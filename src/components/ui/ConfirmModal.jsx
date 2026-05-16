@@ -42,6 +42,16 @@ export function ConfirmModal({
   if (!isOpen) {
     return null
   }
+  const cancelDisabledReason = isBusy ? 'Please wait while this action finishes.' : undefined
+  const confirmDisabledReason = isBusy
+    ? 'Please wait while this action finishes.'
+    : confirmDisabled
+      ? 'This action is not available yet.'
+      : requirePassword && !password.trim()
+        ? 'Enter your password before confirming.'
+        : requireReason && !reason.trim()
+          ? 'Enter a reason before confirming.'
+          : undefined
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 py-6">
@@ -102,6 +112,7 @@ export function ConfirmModal({
             type="button"
             onClick={handleCancel}
             disabled={isBusy}
+            title={cancelDisabledReason}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
@@ -110,6 +121,7 @@ export function ConfirmModal({
             type="button"
             onClick={handleConfirm}
             disabled={isBusy || confirmDisabled || (requirePassword && !password.trim()) || (requireReason && !reason.trim())}
+            title={confirmDisabledReason}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isBusy ? 'Working...' : confirmLabel}

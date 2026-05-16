@@ -51,6 +51,7 @@ export function ActiveUsersSection({
                     <button
                       type="button"
                       disabled={isSaving}
+                      title={isSaving ? 'Please wait while user access is being updated.' : undefined}
                       onClick={() => onRemoveMember(member)}
                       className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -75,6 +76,13 @@ export function ActiveUsersSection({
                   <button
                     type="button"
                     disabled={isSaving || String(nameDrafts[member.id] ?? '').trim() === String(member.name ?? '').trim()}
+                    title={
+                      isSaving
+                        ? 'Please wait while user access is being updated.'
+                        : String(nameDrafts[member.id] ?? '').trim() === String(member.name ?? '').trim()
+                          ? 'Change the display name before saving.'
+                          : undefined
+                    }
                     onClick={() => onUpdateMemberName(member)}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >

@@ -215,6 +215,7 @@ export function TemplateEditorSection({
                 type="button"
                 onClick={() => void onSaveTemplate(template)}
                 disabled={savingKey === template.key}
+                title={savingKey === template.key ? 'Please wait while this template is being saved.' : undefined}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {savingKey === template.key ? 'Saving...' : 'Save Template'}
@@ -233,6 +234,7 @@ export function TemplateEditorSection({
                   type="button"
                   onClick={() => void onDeleteTemplate(template)}
                   disabled={deletingKey === template.key}
+                  title={deletingKey === template.key ? 'Please wait while this template is being deleted.' : undefined}
                   className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {deletingKey === template.key ? 'Deleting...' : 'Delete Template'}

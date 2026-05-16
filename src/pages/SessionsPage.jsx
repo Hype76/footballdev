@@ -1080,6 +1080,13 @@ function MatchdayFocus({
               type="button"
               onClick={onAssessAll}
               disabled={isLoading || selectedSessionLocked}
+              title={
+                isLoading
+                  ? 'Please wait while the session loads.'
+                  : selectedSessionLocked
+                    ? 'This session is completed, so assessments cannot be started from here.'
+                    : undefined
+              }
               className="inline-flex min-h-14 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-4 text-base font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {nextActionLabel}
@@ -1089,6 +1096,7 @@ function MatchdayFocus({
               type="button"
               onClick={handleSetupScroll}
               disabled={isLoading}
+              title={isLoading ? 'Please wait while the session loads.' : undefined}
               className="inline-flex min-h-14 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-4 text-base font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {nextActionLabel}

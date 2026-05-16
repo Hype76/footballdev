@@ -23,6 +23,21 @@ export function CoachOptionsSection({
   selectedSessionLocked,
   sessions,
 }) {
+  const addAllDisabledReason = isSaving
+    ? 'Please wait while the session is being updated.'
+    : selectedSessionLocked
+      ? 'This session is completed, so players cannot be added.'
+      : filteredPlayers.length === 0
+        ? 'There are no players available to add from this list.'
+        : undefined
+  const addSelectedDisabledReason = isSaving
+    ? 'Please wait while the session is being updated.'
+    : selectedSessionLocked
+      ? 'This session is completed, so players cannot be added.'
+      : selectedPlayerIds.length === 0
+        ? 'Select at least one player before adding selected players.'
+        : undefined
+
   return (
     <SectionCard
       title="Coach options"
@@ -109,6 +124,7 @@ export function CoachOptionsSection({
             <button
               type="button"
               disabled={isSaving || filteredPlayers.length === 0 || selectedSessionLocked}
+              title={addAllDisabledReason}
               onClick={() => void onImportPlayers('all')}
               className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -117,6 +133,7 @@ export function CoachOptionsSection({
             <button
               type="button"
               disabled={isSaving || selectedPlayerIds.length === 0 || selectedSessionLocked}
+              title={addSelectedDisabledReason}
               onClick={() => void onImportPlayers('selected')}
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
             >

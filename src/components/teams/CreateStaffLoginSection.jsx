@@ -113,7 +113,13 @@ export function CreateStaffLoginSection({
         <button
           type="submit"
           disabled={isSaving || assignableRoles.length === 0 || !canCreateMoreStaff}
-          title={canCreateMoreStaff ? undefined : staffLimitMessage}
+          title={
+            isSaving
+              ? 'Please wait while staff access is being saved.'
+              : assignableRoles.length === 0
+                ? 'Create an assignable staff role before adding staff access.'
+                : canCreateMoreStaff ? undefined : staffLimitMessage
+          }
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           Add Staff Access

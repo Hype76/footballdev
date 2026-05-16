@@ -224,6 +224,7 @@ export function BillingPage() {
                 key={planName}
                 type="button"
                 disabled={Boolean(isCheckoutLoading)}
+                title={isCheckoutLoading ? 'Please wait while checkout opens.' : undefined}
                 onClick={() => void handleChoosePlan(planName)}
                 className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >

@@ -40,6 +40,7 @@ export function PendingAllocationsSection({
                 <button
                   type="button"
                   disabled={isSaving}
+                  title={isSaving ? 'Please wait while this allocation is being removed.' : undefined}
                   onClick={() => onDeleteInvite(invite)}
                   className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                 >

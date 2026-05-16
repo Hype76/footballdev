@@ -104,6 +104,7 @@ export function CreateSessionSection({
             <button
               type="submit"
               disabled={isSaving}
+              title={isSaving ? 'Please wait while this session is being created.' : undefined}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? 'Saving...' : 'Create Session'}

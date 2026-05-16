@@ -33,6 +33,12 @@ export function SubmitExportSection({
   selectedResponseItems,
   shouldShowInviteDate,
 }) {
+  const submitDisabledReason = isSubmitting
+    ? 'Please wait while this assessment is being saved.'
+    : !canSubmitEvaluation
+      ? 'Complete the required player details and make sure assessment fields are available before saving.'
+      : undefined
+
   return (
     <SectionCard
       title="Submit and export"
@@ -194,6 +200,7 @@ export function SubmitExportSection({
           type="button"
           onClick={onSubmitClick}
           disabled={isSubmitting || !canSubmitEvaluation}
+          title={submitDisabledReason}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isSubmitting

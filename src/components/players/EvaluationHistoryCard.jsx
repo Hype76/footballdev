@@ -38,6 +38,26 @@ export function EvaluationHistoryCard({
   shouldShowInviteDate,
   user,
 }) {
+  const deleteAssessmentDisabledReason =
+    isDeletingEvaluationId === evaluation.id ? 'Please wait while this assessment is being deleted.' : undefined
+  const reassignSelectDisabledReason =
+    availablePlayers.length === 0 ? 'Add another player before this report can be moved.' : undefined
+  const reassignDisabledReason = isReassigningId === evaluation.id
+    ? 'Please wait while this report is being moved.'
+    : !selectedReassignTargets[evaluation.id]
+      ? 'Choose the correct player before moving this report.'
+      : undefined
+  const emailParentsDisabledReason = emailSendingId === evaluation.id
+    ? 'Please wait while the email is being sent.'
+    : !canShare
+      ? 'You can only email assessments you are allowed to view or edit.'
+      : !hasPlanFeature(user, 'parentEmail')
+        ? 'Parent email is not included in this plan.'
+        : availableEmailTemplates.length === 0
+          ? 'Create an email template before emailing parents.'
+          : undefined
+  const removePlayerDisabledReason = isDeleting ? 'Please wait while this player is being removed.' : undefined
+
   return (
     <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5">
       <div>
@@ -61,6 +81,7 @@ export function EvaluationHistoryCard({
               type="button"
               onClick={() => onDeleteEvaluation(evaluation)}
               disabled={isDeletingEvaluationId === evaluation.id}
+              title={deleteAssessmentDisabledReason}
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isDeletingEvaluationId === evaluation.id ? 'Deleting...' : 'Delete Assessment'}
@@ -77,6 +98,7 @@ export function EvaluationHistoryCard({
               value={selectedReassignTargets[evaluation.id] || ''}
               onChange={(event) => onReassignTargetChange(evaluation.id, event.target.value)}
               disabled={availablePlayers.length === 0}
+              title={reassignSelectDisabledReason}
               className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">
@@ -93,6 +115,7 @@ export function EvaluationHistoryCard({
             type="button"
             onClick={() => onReassignEvaluation(evaluation)}
             disabled={!selectedReassignTargets[evaluation.id] || isReassigningId === evaluation.id}
+            title={reassignDisabledReason}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
           >
             {isReassigningId === evaluation.id ? 'Moving...' : 'Move Report'}
@@ -155,7 +178,7 @@ export function EvaluationHistoryCard({
             type="button"
             onClick={() => onSendParentEmail(evaluation)}
             disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
-            title="Email parents"
+            title={emailParentsDisabledReason || 'Email parents'}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
@@ -184,6 +207,7 @@ export function EvaluationHistoryCard({
             <button
               type="button"
               disabled={isDeleting}
+              title={removePlayerDisabledReason}
               onClick={onRemovePlayer}
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >

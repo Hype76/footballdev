@@ -266,6 +266,7 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
             type="button"
             onClick={() => onSelect(option.id)}
             disabled={isLoading}
+            title={isLoading ? 'Please wait while the workspace opens.' : undefined}
             className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="min-w-0">

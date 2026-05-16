@@ -149,6 +149,7 @@ export function PlayerMergeAssessments({
               <button
                 type="button"
                 disabled={isMergingEvaluations}
+                title={isMergingEvaluations ? 'Please wait while the merged assessment is being saved.' : undefined}
                 onClick={onCreateMergedEvaluation}
                 className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >

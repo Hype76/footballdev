@@ -53,6 +53,7 @@ export function ArchivePlayerModal({
             type="button"
             onClick={onCancel}
             disabled={isBusy}
+            title={isBusy ? 'Please wait while this player is being archived.' : undefined}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
@@ -61,6 +62,13 @@ export function ArchivePlayerModal({
             type="button"
             onClick={() => onConfirm(trimmedReason)}
             disabled={isBusy || !trimmedReason}
+            title={
+              isBusy
+                ? 'Please wait while this player is being archived.'
+                : !trimmedReason
+                  ? 'Enter a reason before archiving this player.'
+                  : undefined
+            }
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isBusy ? 'Archiving...' : 'Archive Player'}

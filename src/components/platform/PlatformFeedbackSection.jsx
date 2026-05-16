@@ -100,6 +100,7 @@ export function PlatformFeedbackSection({
                   <button
                     type="button"
                     disabled={updatingFeedbackId === item.id}
+                    title={updatingFeedbackId === item.id ? 'Please wait while this feedback is being saved.' : undefined}
                     onClick={() => void onSave(item)}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -108,6 +109,7 @@ export function PlatformFeedbackSection({
                   <button
                     type="button"
                     disabled={updatingFeedbackId === item.id}
+                    title={updatingFeedbackId === item.id ? 'Please wait while this feedback is being updated.' : undefined}
                     onClick={() => void onDelete(item)}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                   >

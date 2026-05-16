@@ -55,6 +55,7 @@ export function PlatformAdminStaffSection({
           <button
             type="submit"
             disabled={isSaving}
+            title={isSaving ? 'Please wait while this platform admin is being saved.' : undefined}
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving ? 'Saving...' : 'Add Platform Admin'}
@@ -89,7 +90,13 @@ export function PlatformAdminStaffSection({
                       <button
                         type="button"
                         disabled={isCurrentUser || deletingAdminId === admin.id}
-                        title={isCurrentUser ? 'You cannot delete your own platform admin account.' : 'Delete platform admin'}
+                        title={
+                          deletingAdminId === admin.id
+                            ? 'Please wait while this platform admin is being deleted.'
+                            : isCurrentUser
+                              ? 'You cannot delete your own platform admin account.'
+                              : 'Delete platform admin'
+                        }
                         onClick={() => onDelete(admin)}
                         className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-xs font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                       >

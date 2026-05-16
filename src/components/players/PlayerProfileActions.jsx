@@ -21,6 +21,7 @@ export function PlayerProfileActions({
         <button
           type="button"
           disabled={isDeleting}
+          title={isDeleting ? 'Please wait while this player is being deleted.' : undefined}
           onClick={onDeletePlayer}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
