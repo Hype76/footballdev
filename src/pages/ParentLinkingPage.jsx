@@ -26,6 +26,10 @@ function getPlayerContacts(player) {
     .filter((contact) => contact.email)
 }
 
+function isSquadPlayer(player) {
+  return String(player?.section ?? '').trim().toLowerCase() === 'squad'
+}
+
 export function ParentLinkingPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -51,7 +55,7 @@ export function ParentLinkingPage() {
       setErrorMessage('')
 
       try {
-        const nextPlayers = await getParentLinkingPlayers({ user })
+        const nextPlayers = (await getParentLinkingPlayers({ user })).filter(isSquadPlayer)
 
         if (!isMounted) {
           return
