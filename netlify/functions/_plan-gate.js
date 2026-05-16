@@ -67,13 +67,13 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
   const loadUserProfile = async () => {
     let profileQuery = supabaseAdmin
       .from('users')
-      .select('id, auth_user_id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at)')
+      .select('id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at)')
       .limit(1)
 
     if (normalizedUserId) {
       profileQuery = profileQuery.eq('id', normalizedUserId)
     } else {
-      profileQuery = profileQuery.or(`auth_user_id.eq.${authUser.id},email.eq.${authEmail}`)
+      profileQuery = profileQuery.or(`id.eq.${authUser.id},email.eq.${authEmail}`)
     }
 
     if (normalizedClubId) {
@@ -103,7 +103,12 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
 
   const { data: userProfiles, error: userProfileError } = await loadUserProfile()
   let profileError = userProfileError
-  let profile = userProfiles?.[0] ?? null
+  let profile = userProfiles?.[0]
+    ? {
+        ...userProfiles[0],
+        auth_user_id: userProfiles[0].id,
+      }
+    : null
 
   if (!profile && !userProfileError) {
     const { data: membershipProfiles, error: membershipProfileError } = await loadMembershipProfile()
