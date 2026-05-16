@@ -386,7 +386,7 @@ export function FormBuilderPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Assessment Fields"
-        title="Configure evaluation fields"
+        title="Configure assessment fields"
         description="Default fields can be enabled or disabled. Custom fields can also be edited, reordered, or removed."
       />
 

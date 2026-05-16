@@ -118,7 +118,7 @@ export function PlayerProfileModals({
           `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
           `Attachment: ${canAttachPdf && isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`,
-          `Evaluation fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
+          `Assessment fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}
         confirmLabel="Send Now"

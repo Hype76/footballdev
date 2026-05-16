@@ -62,9 +62,9 @@ export function PlayersListSection({
       ) : filteredPlayers.length === 0 ? (
         <div className="mt-5 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
           {viewFilter === 'evaluated'
-            ? 'No players with completed evaluations found.'
+            ? 'No players with completed assessments found.'
             : viewFilter === 'scored'
-              ? 'No players with scored evaluations found.'
+              ? 'No players with scored assessments found.'
               : 'No players found.'}
         </div>
       ) : (

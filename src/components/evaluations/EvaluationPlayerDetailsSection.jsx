@@ -20,7 +20,7 @@ export function EvaluationPlayerDetailsSection({
   return (
     <SectionCard
       title="Player details"
-      description="Core details stay consistent while the club-configured evaluation fields adapt below."
+      description="Core details stay consistent while the club-configured assessment fields adapt below."
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label className="block">

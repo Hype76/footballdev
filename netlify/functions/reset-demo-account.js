@@ -497,7 +497,7 @@ async function seedEvaluations(clubId, players, actorId) {
         }
       }),
     ),
-    'Could not seed demo evaluations',
+    'Could not seed demo assessments',
   )
 }
 

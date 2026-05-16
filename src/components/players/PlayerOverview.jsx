@@ -18,7 +18,7 @@ export function PlayerOverview({
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{playerName}</p>
         </div>
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Total evaluations</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Total assessments</p>
           <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{evaluationCount}</p>
         </div>
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5">
@@ -39,7 +39,7 @@ export function PlayerOverview({
       >
         {ratingTrend.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-            No scored evaluations yet.
+            No scored assessments yet.
           </div>
         ) : (
           <div className="space-y-5">

@@ -286,7 +286,7 @@ function EvaluationExportFields({
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Assessment details to include</p>
             <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
               Choose what goes into the parent email. This choice is saved in this browser for {playerName}.
             </p>
@@ -339,7 +339,7 @@ function EvaluationExportFields({
           </div>
         ) : (
           <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            No evaluation responses were entered for this assessment.
+            No assessment responses were entered for this assessment.
           </p>
         )}
 

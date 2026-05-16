@@ -129,7 +129,7 @@ export function SubmitExportSection({
       <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">Evaluation details to include</p>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Assessment details to include</p>
             <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
               Choose what goes into the {contactNoun} email. This choice is saved in this browser for this player.
             </p>
@@ -180,7 +180,7 @@ export function SubmitExportSection({
           </div>
         ) : (
           <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            No evaluation responses have been entered yet.
+            No assessment responses have been entered yet.
           </p>
         )}
 
@@ -200,7 +200,7 @@ export function SubmitExportSection({
             ? (isSendingParentEmail ? 'Emailing Parents...' : 'Saving...')
             : previewMode === 'email'
               ? 'Save & Email Parents'
-              : 'Submit Evaluation'}
+              : 'Submit Assessment'}
         </button>
         <button
           type="button"

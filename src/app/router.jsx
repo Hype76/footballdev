@@ -822,7 +822,7 @@ export const router = createBrowserRouter([
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'Create Evaluation',
+                      title: 'Create Assessment',
                     },
                   },
                   {
@@ -871,7 +871,7 @@ export const router = createBrowserRouter([
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'Create Evaluation',
+                      title: 'Create Assessment',
                     },
                   },
                   {

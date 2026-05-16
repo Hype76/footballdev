@@ -1167,7 +1167,7 @@ export function PlayerProfile() {
       <PageHeader
         eyebrow="Player Profile"
         title={routePlayerName}
-        description="Review the evaluation history for this player with club-scoped visibility."
+        description="Review the assessment history for this player with club-scoped visibility."
       />
 
       {errorMessage ? (

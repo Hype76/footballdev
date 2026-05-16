@@ -232,7 +232,7 @@ export const WALKTHROUGHS = {
       {
         target: 'current-fields-section',
         title: 'Current fields',
-        body: 'Enable, disable, reorder, and edit the fields coaches will see during evaluations.',
+        body: 'Enable, disable, reorder, and edit the fields coaches will see during assessments.',
       },
       {
         target: 'add-field-section',

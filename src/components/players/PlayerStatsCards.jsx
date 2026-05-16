@@ -26,10 +26,10 @@ export function PlayerStatsCards({
       </Link>
       <Link
         to="/assess-player/completed"
-        aria-label="View players with completed evaluations"
+        aria-label="View players with completed assessments"
         className="block cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Evaluations</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Assessments</p>
         <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{totalEvaluations}</p>
         <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{evaluatedPlayerCount} players</p>
       </Link>

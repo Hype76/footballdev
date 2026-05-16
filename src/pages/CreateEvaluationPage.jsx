@@ -842,14 +842,14 @@ export function CreateEvaluationPage() {
     event.preventDefault()
 
     if (!user?.clubId && !isPlatformOwner) {
-      console.error('Evaluation submit failed: missing club ID for current user.')
+      console.error('Assessment submit failed: missing club ID for current user.')
       setActionErrorMessage('Your account is missing a club assignment.')
       return
     }
 
     if (!String(formData.team ?? '').trim()) {
-      console.error('Evaluation submit failed: no team selected.')
-      setActionErrorMessage('Select a team before submitting the evaluation.')
+      console.error('Assessment submit failed: no team selected.')
+      setActionErrorMessage('Select a team before submitting the assessment.')
       return
     }
 
@@ -983,7 +983,7 @@ export function CreateEvaluationPage() {
         message: `${normalizedPlayerName} assessment has been saved.`,
       })
     } catch (error) {
-      console.error('Evaluation submit failed', error)
+      console.error('Assessment submit failed', error)
       setIsSaved(false)
 
       if (isNetworkError(error)) {
@@ -1002,7 +1002,7 @@ export function CreateEvaluationPage() {
         }
       }
 
-      setActionErrorMessage('This evaluation could not be saved right now. Check the player details and try again.')
+      setActionErrorMessage('This assessment could not be saved right now. Check the player details and try again.')
     } finally {
       setIsSendingParentEmail(false)
       setIsSubmitting(false)
@@ -1036,7 +1036,7 @@ export function CreateEvaluationPage() {
 
         {isSaved ? (
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
-            Evaluation saved
+            Assessment saved
           </div>
         ) : null}
 

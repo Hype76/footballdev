@@ -137,7 +137,7 @@ export function EmailPreview({
 
         {showScoring ? (
           <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Evaluation Responses</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Assessment Responses</p>
 
             {visibleResponseItems.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">No responses provided.</p>
@@ -167,7 +167,7 @@ export function EmailPreview({
           </div>
         ) : (
           <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Evaluation Responses</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Assessment Responses</p>
 
             {visibleResponseItems.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">No selected text fields were provided.</p>

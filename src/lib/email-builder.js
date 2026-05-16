@@ -91,7 +91,7 @@ function formatSessionForDisplay(session) {
 
 function buildResponseMarkup(responseItems) {
   if (responseItems.length === 0) {
-    return '<p style="margin: 0; color: #64705f; font-size: 14px;">No selected evaluation details were included.</p>'
+    return '<p style="margin: 0; color: #64705f; font-size: 14px;">No selected assessment details were included.</p>'
   }
 
   return `
@@ -224,7 +224,7 @@ export function buildEmailHtml({
       }
 
       <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 12px; margin: 0 0 20px;">
-        <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Evaluation responses</p>
+        <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Assessment responses</p>
         ${buildResponseMarkup(responseItems)}
       </div>
 

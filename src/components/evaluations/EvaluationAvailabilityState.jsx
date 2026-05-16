@@ -27,7 +27,7 @@ export function EvaluationAvailabilityState({
 
   if (isLoadingFields) {
     return (
-      <SectionCard title="Form" description="Loading the configured evaluation fields for this club.">
+      <SectionCard title="Form" description="Loading the configured assessment fields for this club.">
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
           Loading form fields...
         </div>

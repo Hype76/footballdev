@@ -18,7 +18,7 @@ export function ConfiguredFieldsSection({
     >
       {enabledFields.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-          No evaluation fields are enabled for this club. Enable fields in Assessment Fields first.
+          No assessment fields are enabled for this club. Enable fields in Assessment Fields first.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

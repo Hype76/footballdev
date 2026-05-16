@@ -4,13 +4,13 @@ export const pricingPlans = [
     price: 'Free',
     priceLabel: 'No card needed',
     description: 'For one coach testing the basics before moving feedback online.',
-    features: ['1 team', '1 login', '5 players', '10 evaluations per month', 'Basic form only', 'No email sending'],
+    features: ['1 team', '1 login', '5 players', '10 assessments per month', 'Basic form only', 'No email sending'],
   },
   {
     name: 'Single Team',
     price: 9.99,
     description: 'For teams ready to send structured feedback to parents.',
-    features: ['2 weeks trial included', 'Cancel anytime', '1 team', '3 logins', 'Up to 20 players', 'Unlimited evaluations', 'Email to parents', 'Custom form fields', 'Basic logo branding'],
+    features: ['2 weeks trial included', 'Cancel anytime', '1 team', '3 logins', 'Up to 20 players', 'Unlimited assessments', 'Email to parents', 'Custom form fields', 'Basic logo branding'],
   },
   {
     name: 'Small Club',
