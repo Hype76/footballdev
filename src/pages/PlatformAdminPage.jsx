@@ -204,6 +204,41 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setRefreshKey((current) => current + 1)
   }
 
+  const patchClubStats = (updatedClub) => {
+    if (!updatedClub?.id) {
+      return
+    }
+
+    setStats((current) => {
+      if (!current?.clubs) {
+        return current
+      }
+
+      const nextStats = {
+        ...current,
+        clubs: current.clubs.map((club) =>
+          club.id === updatedClub.id
+            ? {
+                ...club,
+                planKey: updatedClub.planKey,
+                planStatus: updatedClub.planStatus,
+                isPlanComped: updatedClub.isPlanComped,
+                stripeSubscriptionId: updatedClub.stripeSubscriptionId,
+                currentPeriodEnd: updatedClub.currentPeriodEnd,
+                planUpdatedAt: updatedClub.planUpdatedAt,
+              }
+            : club,
+        ),
+      }
+
+      writeViewCache(cacheKey, {
+        stats: nextStats,
+      })
+
+      return nextStats
+    })
+  }
+
   const handleFeedbackDraftChange = (feedbackId, fieldName, value) => {
     setFeedbackDrafts((current) => ({
       ...current,
@@ -453,6 +488,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
       setSuccessMessage(result.message || 'Club plan updated.')
       showToast({ title: 'Club plan saved', message: result.message || 'Club plan settings have been updated.' })
+      patchClubStats(result.club)
       refreshStats()
     } catch (error) {
       console.error(error)
