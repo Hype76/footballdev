@@ -95,6 +95,7 @@ export async function getParentLinksForPlayer({ playerId }) {
     .from('parent_player_links')
     .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
     .eq('player_id', playerId)
+    .neq('status', 'revoked')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -106,6 +107,33 @@ export async function getParentLinksForPlayer({ playerId }) {
     ...normalizeParentLink(row),
     inviteUrl: buildInviteUrl(row.invite_token),
   }))
+}
+
+export async function revokeParentPortalLink({ linkId }) {
+  const normalizedLinkId = String(linkId ?? '').trim()
+
+  if (!normalizedLinkId) {
+    throw new Error('Choose a parent link before removing access.')
+  }
+
+  const { data, error } = await supabase
+    .from('parent_player_links')
+    .update({
+      status: 'revoked',
+      auth_user_id: null,
+      accepted_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', normalizedLinkId)
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return normalizeParentLink(data)
 }
 
 export async function createParentPortalInvites({ user, player, contacts }) {

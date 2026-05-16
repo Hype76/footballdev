@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
 import { sendParentPortalInvite } from '../lib/email-builder.js'
@@ -10,6 +11,7 @@ import {
   createParentPortalInvitesForPlayers,
   getParentLinkingPlayers,
   getParentLinksForPlayer,
+  revokeParentPortalLink,
 } from '../lib/supabase.js'
 
 function getPlayerContacts(player) {
@@ -38,7 +40,9 @@ export function ParentLinkingPage() {
   const [selectedContactIds, setSelectedContactIds] = useState([])
   const [links, setLinks] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRevokingLink, setIsRevokingLink] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [revokeTarget, setRevokeTarget] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
 
   const selectedPlayer = useMemo(
@@ -204,6 +208,31 @@ export function ParentLinkingPage() {
     }
   }
 
+  const handleRevokeParentLink = async () => {
+    if (!revokeTarget?.id) {
+      return
+    }
+
+    setIsRevokingLink(true)
+    setErrorMessage('')
+
+    try {
+      await revokeParentPortalLink({ linkId: revokeTarget.id })
+      const nextLinks = selectedPlayerId ? await getParentLinksForPlayer({ playerId: selectedPlayerId }) : []
+      setLinks(nextLinks)
+      showToast({
+        title: 'Parent access removed',
+        message: `${revokeTarget.email || 'Parent'} can no longer access this player in the parent portal.`,
+      })
+      setRevokeTarget(null)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Parent access could not be removed.')
+    } finally {
+      setIsRevokingLink(false)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -314,8 +343,21 @@ export function ParentLinkingPage() {
               <div className="mt-4 space-y-2">
                 {links.length > 0 ? links.map((link) => (
                   <div key={link.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                    <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{link.email || 'Link only'}</p>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">{link.status} | {link.linkType}</p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{link.email || 'Link only'}</p>
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">{link.status} | {link.linkType}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setRevokeTarget(link)}
+                        disabled={isSending || isRevokingLink || link.status === 'revoked'}
+                        title={link.status === 'revoked' ? 'This parent access has already been removed.' : undefined}
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-xs font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Remove Access
+                      </button>
+                    </div>
                   </div>
                 )) : (
                   <p className="text-sm text-[var(--text-muted)]">No parent links created for this player yet.</p>
@@ -325,6 +367,20 @@ export function ParentLinkingPage() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmModal
+        isOpen={Boolean(revokeTarget)}
+        isBusy={isRevokingLink}
+        title="Remove parent access"
+        message="This removes this parent from the parent portal for the selected player."
+        items={[
+          `Parent: ${revokeTarget?.email || 'Selected parent'}`,
+          `Player: ${selectedPlayer?.playerName || 'Selected player'}`,
+        ]}
+        confirmLabel="Remove Access"
+        onCancel={() => setRevokeTarget(null)}
+        onConfirm={() => void handleRevokeParentLink()}
+      />
     </div>
   )
 }
