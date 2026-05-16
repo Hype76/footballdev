@@ -34,6 +34,7 @@ function ParentShell({ children }) {
 export function ParentInvitePage() {
   const { token } = useParams()
   const { isLoading, selectAccessMode, session, signUpParentAccount } = useAuth()
+  const acceptAttemptedRef = useRef(false)
   const submitLockRef = useRef(false)
   const [acceptedLink, setAcceptedLink] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
@@ -91,10 +92,11 @@ export function ParentInvitePage() {
     let isMounted = true
 
     const acceptInvite = async () => {
-      if (!session?.user || !token) {
+      if (!session?.user || !token || isInviteLoading || !invite || acceptAttemptedRef.current) {
         return
       }
 
+      acceptAttemptedRef.current = true
       setIsAccepting(true)
       setErrorMessage('')
 
@@ -121,7 +123,7 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [selectAccessMode, session?.user, token])
+  }, [invite, isInviteLoading, selectAccessMode, session?.user, token])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
