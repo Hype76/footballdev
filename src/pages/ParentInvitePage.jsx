@@ -42,6 +42,7 @@ export function ParentInvitePage() {
   const [isInviteLoading, setIsInviteLoading] = useState(true)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [password, setPassword] = useState('')
 
@@ -65,6 +66,7 @@ export function ParentInvitePage() {
 
         if (isMounted) {
           setInvite(result.invite)
+          setEmail(result.invite.email || '')
         }
       } catch (error) {
         console.error(error)
@@ -124,7 +126,9 @@ export function ParentInvitePage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (submitLockRef.current || !invite?.email) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (submitLockRef.current || !normalizedEmail) {
       return
     }
 
@@ -135,7 +139,7 @@ export function ParentInvitePage() {
 
     try {
       const result = await signUpParentAccount({
-        email: invite.email,
+        email: normalizedEmail,
         password,
         inviteToken: token,
       })
@@ -178,9 +182,17 @@ export function ParentInvitePage() {
             <span className="mb-2 block text-sm font-bold text-slate-200">Email</span>
             <input
               type="email"
-              value={invite.email}
-              readOnly
-              className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-slate-300 outline-none"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                setErrorMessage('')
+                setMessage('')
+              }}
+              readOnly={Boolean(invite.email)}
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f] read-only:text-slate-300 read-only:focus:border-white/10"
             />
           </label>
 
@@ -221,7 +233,7 @@ export function ParentInvitePage() {
 
           <button
             type="submit"
-            disabled={isSubmitting || !invite.email}
+            disabled={isSubmitting || !email.trim()}
             className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Creating account...' : 'Create Parent Account'}

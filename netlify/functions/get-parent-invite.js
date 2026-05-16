@@ -30,7 +30,7 @@ export async function handler(event) {
   try {
     const { data, error } = await supabaseAdmin
       .from('parent_player_links')
-      .select('id, email, status, invite_token, accepted_at, players:player_id (player_name), teams:team_id (name), clubs:club_id (name, logo_url)')
+      .select('id, email, status, invite_token, accepted_at, link_type, players:player_id (player_name), teams:team_id (name), clubs:club_id (name, logo_url)')
       .eq('invite_token', token)
       .maybeSingle()
 
@@ -51,6 +51,7 @@ export async function handler(event) {
         id: data.id,
         email: String(data.email ?? '').trim().toLowerCase(),
         status: String(data.status ?? 'pending').trim(),
+        linkType: String(data.link_type ?? 'parent').trim(),
         acceptedAt: data.accepted_at ?? '',
         playerName: String(player?.player_name ?? '').trim(),
         teamName: String(team?.name ?? '').trim(),
