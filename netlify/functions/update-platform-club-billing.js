@@ -1,7 +1,7 @@
 import process from 'node:process'
 import Stripe from 'stripe'
 import { supabaseAdmin } from './_supabase.js'
-import { arePaymentsDisabled, json, normalizePlanStatus } from './_stripe-billing.js'
+import { json, normalizePlanStatus } from './_stripe-billing.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
 
 const VALID_PLAN_KEYS = ['individual', 'single_team', 'small_club', 'large_club']
@@ -83,10 +83,6 @@ async function getLatestBillingCustomerEmail(clubId) {
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return json(405, { success: false, message: 'Method not allowed' })
-  }
-
-  if (arePaymentsDisabled()) {
-    return json(403, { success: false, message: 'Payments are disabled in this test environment' })
   }
 
   try {
