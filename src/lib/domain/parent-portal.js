@@ -28,6 +28,7 @@ function normalizeParentLink(row) {
     invitedByName: String(row.invited_by_name ?? '').trim(),
     acceptedAt: row.accepted_at ?? '',
     inviteSentAt: row.invite_sent_at ?? '',
+    expiresAt: row.expires_at ?? '',
     createdAt: row.created_at ?? '',
   }
 }
@@ -158,6 +159,20 @@ export async function createParentPortalInvites({ user, player, contacts }) {
 
   const teamId = player.teamId || user.activeTeamId || null
   const emails = normalizedContacts.map((contact) => contact.email)
+  const nowIso = new Date().toISOString()
+
+  await supabase
+    .from('parent_player_links')
+    .update({
+      status: 'revoked',
+      updated_at: nowIso,
+    })
+    .eq('team_id', teamId)
+    .eq('player_id', player.id)
+    .eq('link_type', 'parent')
+    .eq('status', 'pending')
+    .lt('expires_at', nowIso)
+
   const existingQuery = supabase
     .from('parent_player_links')
     .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
@@ -190,6 +205,7 @@ export async function createParentPortalInvites({ user, player, contacts }) {
     link_type: 'parent',
     email: contact.email,
     status: 'pending',
+    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     invited_by: user.id,
     invited_by_name: user.displayName || user.username || user.name || user.email,
   }))
@@ -248,6 +264,18 @@ export async function createFamilyShareLink({ parentLink }) {
     throw new Error('Choose a child before creating a family link.')
   }
 
+  const nowIso = new Date().toISOString()
+
+  await supabase
+    .from('parent_player_links')
+    .update({
+      status: 'revoked',
+      updated_at: nowIso,
+    })
+    .eq('parent_link_id', parentLink.id)
+    .eq('link_type', 'family')
+    .eq('status', 'pending')
+
   const { data, error } = await supabase
     .from('parent_player_links')
     .insert({
@@ -257,6 +285,7 @@ export async function createFamilyShareLink({ parentLink }) {
       parent_link_id: parentLink.id,
       link_type: 'family',
       status: 'pending',
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     })
     .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
     .single()

@@ -30,7 +30,7 @@ export async function handler(event) {
   try {
     const { data, error } = await supabaseAdmin
       .from('parent_player_links')
-      .select('id, email, status, invite_token, accepted_at, link_type, players:player_id (player_name), teams:team_id (name), clubs:club_id (name, logo_url)')
+      .select('id, email, status, invite_token, accepted_at, expires_at, link_type, players:player_id (player_name), teams:team_id (name), clubs:club_id (name, logo_url)')
       .eq('invite_token', token)
       .maybeSingle()
 
@@ -40,6 +40,10 @@ export async function handler(event) {
 
     if (data.status === 'revoked') {
       return failureResponse(403, 'This parent invite is no longer available.')
+    }
+
+    if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
+      return failureResponse(410, 'This parent invite has expired. Ask the team to send a new parent portal link.')
     }
 
     const player = Array.isArray(data.players) ? data.players[0] : data.players
@@ -53,6 +57,7 @@ export async function handler(event) {
         status: String(data.status ?? 'pending').trim(),
         linkType: String(data.link_type ?? 'parent').trim(),
         acceptedAt: data.accepted_at ?? '',
+        expiresAt: data.expires_at ?? '',
         playerName: String(player?.player_name ?? '').trim(),
         teamName: String(team?.name ?? '').trim(),
         clubName: String(club?.name ?? '').trim(),
