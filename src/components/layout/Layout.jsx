@@ -205,10 +205,10 @@ export function Layout() {
             onMenuClick={() => setIsSidebarOpen(true)}
           />
 
-          <main className="flex-1 px-0 py-2 sm:px-4 sm:py-5 md:px-5 md:py-6 xl:px-8">
-            <div className="mx-auto w-full max-w-7xl">
+          <main className="flex-1 px-0 py-0 sm:px-4 sm:py-4 md:px-5 md:py-5 xl:px-8">
+            <div className="mx-auto w-full max-w-6xl">
               <WalkthroughProvider>
-                <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:border sm:p-5 md:p-6">
+                <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:border sm:p-4 md:p-5">
                   {needsClubSelection ? (
                     <WorkspaceSelection
                       eyebrow="Choose Club"

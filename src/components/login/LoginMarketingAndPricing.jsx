@@ -219,7 +219,7 @@ export function LoginMarketingAndPricing({
       </div>
 
       <footer className="flex flex-col gap-3 border-t border-white/10 pt-6 text-sm font-semibold text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-        <p>Player Feedback keeps club data scoped to the right workspace and team.</p>
+        <p>Copyright 2026 Player Feedback. All rights reserved. Powered by <a href="https://pulseslabs.online" className="hover:text-white" target="_blank" rel="noreferrer">pulseslabs.online</a>.</p>
         <div className="flex flex-wrap gap-4">
           <a href="/gdpr" className="hover:text-white">GDPR</a>
           <a href="/terms" className="hover:text-white">Terms of Service</a>

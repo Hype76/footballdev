@@ -104,6 +104,8 @@ export function Sidebar({ isOpen, onClose }) {
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
+  const coachNavigationItems = navigationItems.filter((item) => ['/sessions', '/players', '/add-player'].includes(item.path))
+  const teamNavigationItems = navigationItems.filter((item) => !['/sessions', '/players', '/add-player'].includes(item.path))
 
   const handleSignOut = async () => {
     try {
@@ -150,70 +152,89 @@ export function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        <nav className="mt-8 space-y-2 pb-4">
-          {navigationItems.map((item) =>
-            item.disabled ? (
-              <button
-                key={item.path}
-                type="button"
-                title={item.disabledMessage}
-                className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-left opacity-65"
-              >
-                <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M7 11V8a5 5 0 0 1 10 0v3" />
-                  <rect x="5" y="11" width="14" height="10" rx="2" />
-                </svg>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-[var(--text-muted)]">{item.label}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{item.disabledMessage}</span>
-                </span>
-              </button>
-            ) : (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                data-tour-id={getSidebarTourId(item.path)}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  [
-                    'block min-h-11 rounded-lg px-4 py-3 text-sm font-medium transition',
-                    isActive
-                      ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                  ].join(' ')
-                }
-              >
-                {item.label}
-              </NavLink>
-            ),
-          )}
+        <nav className="mt-7 space-y-2 pb-4">
+          <div className="rounded-lg border border-[var(--accent)] bg-[var(--panel-bg)] p-3">
+            <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+              Coach Mode
+            </p>
+            <p className="px-2 pt-1 text-xs leading-5 text-[var(--text-muted)]">
+              Matchday tools first.
+            </p>
+            <div className="mt-3 space-y-2">
+              {coachNavigationItems.map((item) =>
+                item.disabled ? (
+                  <DisabledNavItem key={item.path} item={item} />
+                ) : (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    data-tour-id={getSidebarTourId(item.path)}
+                    onClick={onClose}
+                    className={({ isActive }) =>
+                      [
+                        'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                        isActive
+                          ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                          : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                      ].join(' ')
+                    }
+                  >
+                    {item.path === '/sessions' ? 'Matchday' : item.label}
+                  </NavLink>
+                ),
+              )}
+            </div>
+          </div>
+
+          {teamNavigationItems.length > 0 ? (
+            <details className="group rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-2 text-sm font-semibold text-[var(--text-primary)]">
+                Team tools
+                <span className="text-xs text-[var(--text-muted)] group-open:hidden">Show</span>
+                <span className="hidden text-xs text-[var(--text-muted)] group-open:inline">Hide</span>
+              </summary>
+              <div className="mt-2 space-y-2">
+                {teamNavigationItems.map((item) =>
+                  item.disabled ? (
+                    <DisabledNavItem key={item.path} item={item} />
+                  ) : (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      data-tour-id={getSidebarTourId(item.path)}
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        [
+                          'block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
+                          isActive
+                            ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                            : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
+                        ].join(' ')
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ),
+                )}
+              </div>
+            </details>
+          ) : null}
         </nav>
 
         {clubNavigationItems.length > 0 ? (
-          <div
+          <details
             className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3"
             data-tour-id="sidebar-club-section"
           >
-            <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-              {clubNavigationLabel}
-            </p>
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-2 text-sm font-semibold text-[var(--text-primary)]">
+              {clubNavigationLabel} tools
+              <span className="text-xs text-[var(--text-muted)]">Admin</span>
+            </summary>
             {clubNavigationItems.map((item) =>
               item.disabled ? (
-                <button
-                  key={item.path}
-                  type="button"
-                  title={item.disabledMessage}
-                  className="mt-2 flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-left opacity-65"
-                >
-                  <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M7 11V8a5 5 0 0 1 10 0v3" />
-                    <rect x="5" y="11" width="14" height="10" rx="2" />
-                  </svg>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-[var(--text-muted)]">{item.label}</span>
-                    <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{item.disabledMessage}</span>
-                  </span>
-                </button>
+                <div key={item.path} className="mt-2">
+                  <DisabledNavItem item={item} />
+                </div>
               ) : (
                 <NavLink
                   key={item.path}
@@ -233,7 +254,7 @@ export function Sidebar({ isOpen, onClose }) {
                 </NavLink>
               ),
             )}
-          </div>
+          </details>
         ) : null}
 
         {isSuperAdmin(user) ? (
@@ -359,5 +380,24 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
       </aside>
     </>
+  )
+}
+
+function DisabledNavItem({ item }) {
+  return (
+    <button
+      type="button"
+      title={item.disabledMessage}
+      className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-left opacity-65"
+    >
+      <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M7 11V8a5 5 0 0 1 10 0v3" />
+        <rect x="5" y="11" width="14" height="10" rx="2" />
+      </svg>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-[var(--text-muted)]">{item.label}</span>
+        <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{item.disabledMessage}</span>
+      </span>
+    </button>
   )
 }

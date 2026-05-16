@@ -138,6 +138,11 @@ export function SessionsPage() {
 
     return [...new Set([...dbCompletedPlayerNames, ...localCompletedPlayerNames])]
   }, [evaluations, selectedSession, selectedSessionId, sessionPlayers, user])
+  const unassessedPlayerQueue = useMemo(
+    () => getUnassessedPlayerQueue({ completedPlayerNames, sessionPlayers }),
+    [completedPlayerNames, sessionPlayers],
+  )
+  const assessedPlayerCount = Math.max(0, sessionPlayers.length - unassessedPlayerQueue.length)
   const previousSessions = useMemo(
     () => combinedSessions.filter((session) => session.id !== selectedSessionId),
     [combinedSessions, selectedSessionId],
@@ -825,9 +830,9 @@ export function SessionsPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
-        eyebrow="Sessions"
-        title="Session planning"
-        description="Create a team session, add players from Trial or Squad, then assess everyone from one queue."
+        eyebrow="Coach Mode"
+        title="Matchday"
+        description="Open the current session, record quick notes, and assess players with as few taps as possible."
       />
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
@@ -852,49 +857,15 @@ export function SessionsPage() {
         </div>
       ) : null}
 
-      <OpenSessionsSection
-        canCompleteSessions={canCompleteSessions}
-        canDeleteSessions={canDeleteSessions}
-        combinedSessions={combinedSessions}
-        deleteSessionDisabledReason={deleteSessionDisabledReason}
-        isLoading={isLoading}
-        isSaving={isSaving}
-        onCompleteSession={handleCompleteSession}
-        onDeleteSession={handleDeleteSession}
-        onOpenSession={handleOpenSession}
-        previousSessions={previousSessions}
+      <MatchdayFocus
+        assessedPlayerCount={assessedPlayerCount}
+        isLoading={isLoading || isSessionPlayersLoading}
+        onAssessAll={handleAssessAll}
         selectedSession={selectedSession}
         selectedSessionCompleted={selectedSessionCompleted}
-      />
-
-      <CreateSessionSection
-        form={sessionForm}
-        isLoading={isLoading}
-        isSaving={isSaving}
-        onChange={handleSessionFormChange}
-        onSubmit={handleCreateSession}
-        teams={teams}
-      />
-
-      <CoachOptionsSection
-        activePlayerSection={activePlayerSection}
-        activePlayerTeam={activePlayerTeam}
-        canDeleteSessions={canDeleteSessions}
-        combinedSessions={combinedSessions}
-        filteredPlayers={filteredPlayers}
-        isSaving={isSaving}
-        onImportPlayers={handleImportPlayers}
-        onOpenSession={handleOpenSession}
-        onPlayerPageChange={setAvailablePlayerPage}
-        onPlayerSelection={handlePlayerSelection}
-        onSectionChange={handleSessionFormChange}
-        paginatedPlayers={paginatedFilteredPlayers}
-        playerPage={availablePlayerPage}
-        selectedPlayerIds={selectedPlayerIds}
-        selectedSessionAssessmentCount={selectedSessionAssessmentCount}
-        selectedSessionId={selectedSessionId}
         selectedSessionLocked={selectedSessionLocked}
-        sessions={sessions}
+        sessionPlayers={sessionPlayers}
+        unassessedPlayerCount={unassessedPlayerQueue.length}
       />
 
       <SessionPlayersSection
@@ -929,6 +900,63 @@ export function SessionsPage() {
         sessionPlayers={sessionPlayers}
         sessionVoiceNotes={sessionVoiceNotes}
       />
+
+      <details
+        id="session-setup"
+        open={sessions.length === 0}
+        className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 sm:p-4"
+      >
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-2 text-base font-semibold text-[var(--text-primary)]">
+          Setup and session admin
+          <span className="text-sm text-[var(--text-muted)]">Create, switch, add players</span>
+        </summary>
+        <div className="mt-4 space-y-4">
+          <OpenSessionsSection
+            canCompleteSessions={canCompleteSessions}
+            canDeleteSessions={canDeleteSessions}
+            combinedSessions={combinedSessions}
+            deleteSessionDisabledReason={deleteSessionDisabledReason}
+            isLoading={isLoading}
+            isSaving={isSaving}
+            onCompleteSession={handleCompleteSession}
+            onDeleteSession={handleDeleteSession}
+            onOpenSession={handleOpenSession}
+            previousSessions={previousSessions}
+            selectedSession={selectedSession}
+            selectedSessionCompleted={selectedSessionCompleted}
+          />
+
+          <CreateSessionSection
+            form={sessionForm}
+            isLoading={isLoading}
+            isSaving={isSaving}
+            onChange={handleSessionFormChange}
+            onSubmit={handleCreateSession}
+            teams={teams}
+          />
+
+          <CoachOptionsSection
+            activePlayerSection={activePlayerSection}
+            activePlayerTeam={activePlayerTeam}
+            canDeleteSessions={canDeleteSessions}
+            combinedSessions={combinedSessions}
+            filteredPlayers={filteredPlayers}
+            isSaving={isSaving}
+            onImportPlayers={handleImportPlayers}
+            onOpenSession={handleOpenSession}
+            onPlayerPageChange={setAvailablePlayerPage}
+            onPlayerSelection={handlePlayerSelection}
+            onSectionChange={handleSessionFormChange}
+            paginatedPlayers={paginatedFilteredPlayers}
+            playerPage={availablePlayerPage}
+            selectedPlayerIds={selectedPlayerIds}
+            selectedSessionAssessmentCount={selectedSessionAssessmentCount}
+            selectedSessionId={selectedSessionId}
+            selectedSessionLocked={selectedSessionLocked}
+            sessions={sessions}
+          />
+        </div>
+      </details>
 
       <ConfirmModal
         isOpen={Boolean(voiceNoteDeleteTarget)}
@@ -991,5 +1019,92 @@ export function SessionsPage() {
         onConfirm={() => void confirmCompleteSession()}
       />
     </div>
+  )
+}
+
+function MatchdayFocus({
+  assessedPlayerCount,
+  isLoading,
+  onAssessAll,
+  selectedSession,
+  selectedSessionCompleted,
+  selectedSessionLocked,
+  sessionPlayers,
+  unassessedPlayerCount,
+}) {
+  const hasSession = Boolean(selectedSession)
+  const hasPlayers = sessionPlayers.length > 0
+  const progressLabel = hasPlayers
+    ? `${assessedPlayerCount} of ${sessionPlayers.length} assessed`
+    : 'No players added yet'
+  const nextActionLabel = !hasSession
+    ? 'Set up session'
+    : !hasPlayers
+      ? 'Add players'
+      : unassessedPlayerCount > 0
+        ? assessedPlayerCount > 0 ? 'Continue assessments' : 'Start assessments'
+        : 'Review completed session'
+
+  const handleSetupScroll = () => {
+    document.getElementById('session-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  return (
+    <section className="rounded-lg border border-[var(--accent)] bg-[var(--panel-soft)] p-4 sm:p-5">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+            Matchday Mode
+          </p>
+          <h3 className="mt-2 break-words text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+            {selectedSession?.title || selectedSession?.team || 'Get the next session ready'}
+          </h3>
+          <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold">
+            <span className="rounded-full bg-[var(--panel-bg)] px-3 py-1 text-[var(--text-primary)]">
+              {progressLabel}
+            </span>
+            {selectedSessionCompleted ? (
+              <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[var(--accent-text)]">Completed</span>
+            ) : (
+              <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[var(--accent-text)]">Open</span>
+            )}
+          </div>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+            Keep this screen open during training or a match. Add quick notes, then work through the assessment queue.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:min-w-56">
+          {hasSession && hasPlayers && unassessedPlayerCount > 0 ? (
+            <button
+              type="button"
+              onClick={onAssessAll}
+              disabled={isLoading || selectedSessionLocked}
+              className="inline-flex min-h-14 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-4 text-base font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {nextActionLabel}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSetupScroll}
+              disabled={isLoading}
+              className="inline-flex min-h-14 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-4 text-base font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {nextActionLabel}
+            </button>
+          )}
+          {hasSession ? (
+            <button
+              type="button"
+              onClick={handleSetupScroll}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+            >
+              Session setup
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </section>
   )
 }
