@@ -573,6 +573,7 @@ export function buildPlayerProfileParentEmailPayload({
             templateName: selectedTemplate.label,
             selectedTemplate,
             payload: {
+              clubId: user?.clubId,
               parentEmail: recipientEmail,
               parentName: recipientName,
               senderEmail: user?.email,
@@ -667,6 +668,7 @@ export function buildPlayerDirectEmailPayload({
           recipientNames: recipientName,
           templateName: selectedTemplate.label,
           payload: {
+            clubId: user?.clubId,
             parentEmail: recipientEmail,
             parentName: recipientName,
             senderEmail: user?.email,

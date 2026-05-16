@@ -313,6 +313,7 @@ export async function exportEvaluationPdf({ filename, previewProps, mode = 'scor
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          clubId: previewProps?.clubId,
           filename,
           html: container.innerHTML,
         }),

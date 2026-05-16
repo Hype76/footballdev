@@ -47,7 +47,7 @@ function normalizePlanProfile(profile, authEmail) {
   }
 }
 
-export async function getAuthenticatedPlanProfile(event) {
+export async function getAuthenticatedPlanProfile(event, { clubId = '' } = {}) {
   const token = getBearerToken(event)
 
   if (!token) {
@@ -62,14 +62,22 @@ export async function getAuthenticatedPlanProfile(event) {
 
   const authUser = authData.user
   const authEmail = normalizeEmail(authUser.email)
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const normalizedClubId = String(clubId ?? '').trim()
+  let profileQuery = supabaseAdmin
     .from('users')
     .select('id, auth_user_id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at)')
     .or(`auth_user_id.eq.${authUser.id},email.eq.${authEmail}`)
-    .maybeSingle()
+    .limit(1)
+
+  if (normalizedClubId) {
+    profileQuery = profileQuery.eq('club_id', normalizedClubId)
+  }
+
+  const { data: profiles, error: profileError } = await profileQuery
+  const profile = profiles?.[0] ?? null
 
   if (profileError || !profile) {
-    throw Object.assign(new Error('User profile could not be loaded.'), { statusCode: 403 })
+    throw Object.assign(new Error('Your account could not be matched to this club. Sign out and back in, then try again.'), { statusCode: 403 })
   }
 
   const planProfile = normalizePlanProfile(profile, authEmail)
