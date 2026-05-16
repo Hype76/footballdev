@@ -99,7 +99,7 @@ export function ParentLoginPage() {
       })
 
       if (parentInviteToken) {
-        window.location.assign(`/parent-invite/${parentInviteToken}`)
+        window.location.assign(`/parent-invite/${parentInviteToken}?accept=1`)
       } else {
         window.location.assign('/parent-portal')
       }

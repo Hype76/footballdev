@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useAuth } from '../lib/auth.js'
@@ -46,8 +46,11 @@ function ParentShell({ children }) {
 
 export function ParentInvitePage() {
   const { token } = useParams()
-  const { isLoading, selectAccessMode, session, signUpParentAccount } = useAuth()
+  const [searchParams] = useSearchParams()
+  const shouldAcceptSignedInSession = searchParams.get('accept') === '1'
+  const { isLoading, selectAccessMode, session, signOut, signUpParentAccount } = useAuth()
   const acceptAttemptedRef = useRef(false)
+  const signOutAttemptedRef = useRef(false)
   const submitLockRef = useRef(false)
   const [acceptedLink, setAcceptedLink] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
@@ -111,8 +114,53 @@ export function ParentInvitePage() {
   useEffect(() => {
     let isMounted = true
 
+    const clearExistingSession = async () => {
+      if (
+        shouldAcceptSignedInSession ||
+        isLoading ||
+        !session?.user ||
+        signOutAttemptedRef.current
+      ) {
+        return
+      }
+
+      signOutAttemptedRef.current = true
+      setIsAccepting(true)
+      setErrorMessage('')
+
+      try {
+        await signOut()
+      } catch (error) {
+        console.error(error)
+        if (isMounted) {
+          setErrorMessage(error.message || 'Could not reset this browser session. Sign out and try this invite again.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsAccepting(false)
+        }
+      }
+    }
+
+    void clearExistingSession()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isLoading, session?.user, shouldAcceptSignedInSession, signOut])
+
+  useEffect(() => {
+    let isMounted = true
+
     const acceptInvite = async () => {
-      if (!session?.user || !token || isInviteLoading || !invite || acceptAttemptedRef.current) {
+      if (
+        !shouldAcceptSignedInSession ||
+        !session?.user ||
+        !token ||
+        isInviteLoading ||
+        !invite ||
+        acceptAttemptedRef.current
+      ) {
         return
       }
 
@@ -150,7 +198,7 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [invite, isInviteLoading, selectAccessMode, session?.user, token])
+  }, [invite, isInviteLoading, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
