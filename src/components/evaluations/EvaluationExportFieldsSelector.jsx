@@ -16,6 +16,21 @@ export function EvaluationExportFieldsSelector({
     setDraggedLabel('')
     setDragOverLabel('')
   }
+  const orderedResponseItems = (() => {
+    if (!Array.isArray(selectedExportLabels)) {
+      return responseItems
+    }
+
+    const selectedLabels = selectedExportLabels.map((label) => String(label ?? '').trim()).filter(Boolean)
+    const itemByLabel = new Map(responseItems.map((item) => [String(item.label ?? '').trim(), item]))
+    const orderedItems = selectedLabels
+      .map((label) => itemByLabel.get(label))
+      .filter(Boolean)
+    const orderedLabelSet = new Set(orderedItems.map((item) => String(item.label ?? '').trim()))
+    const remainingItems = responseItems.filter((item) => !orderedLabelSet.has(String(item.label ?? '').trim()))
+
+    return [...orderedItems, ...remainingItems]
+  })()
 
   if (responseItems.length === 0) {
     return null
@@ -42,7 +57,7 @@ export function EvaluationExportFieldsSelector({
       </div>
 
       <div className={gridClassName}>
-        {responseItems.map((item) => {
+        {orderedResponseItems.map((item) => {
           const isSelected = hasSavedExportSelection
             ? selectedExportLabels.includes(item.label)
             : true

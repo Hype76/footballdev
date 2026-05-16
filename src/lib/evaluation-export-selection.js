@@ -54,7 +54,14 @@ export function getSelectedEvaluationResponses(responseItems, selectedLabels) {
 
 export function reorderEvaluationExportLabels({ sourceLabel, targetLabel, responseItems, selectedLabels }) {
   const allLabels = (responseItems ?? []).map((item) => normaliseLabel(item.label)).filter(Boolean)
-  const currentLabels = Array.isArray(selectedLabels) ? selectedLabels.map(normaliseLabel).filter(Boolean) : allLabels
+  const selectedLabelList = Array.isArray(selectedLabels) ? selectedLabels.map(normaliseLabel).filter(Boolean) : null
+  const selectedLabelSet = selectedLabelList ? new Set(selectedLabelList) : null
+  const currentLabels = selectedLabelList
+    ? [
+      ...selectedLabelList,
+      ...allLabels.filter((label) => !selectedLabelSet.has(label)),
+    ]
+    : allLabels
   const sourceIndex = currentLabels.indexOf(normaliseLabel(sourceLabel))
   const targetIndex = currentLabels.indexOf(normaliseLabel(targetLabel))
 
@@ -66,5 +73,7 @@ export function reorderEvaluationExportLabels({ sourceLabel, targetLabel, respon
   const [movedLabel] = nextLabels.splice(sourceIndex, 1)
   nextLabels.splice(targetIndex, 0, movedLabel)
 
-  return nextLabels
+  return selectedLabelSet
+    ? nextLabels.filter((label) => selectedLabelSet.has(label))
+    : nextLabels
 }
