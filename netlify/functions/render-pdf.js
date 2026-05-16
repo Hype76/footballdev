@@ -11,7 +11,7 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event.body || '{}')
-    const planProfile = await getAuthenticatedPlanProfile(event, { clubId: body.clubId })
+    const planProfile = await getAuthenticatedPlanProfile(event, { clubId: body.clubId, userId: body.userId })
     assertPlanFeature(planProfile, 'pdfExport')
     const html = String(body.html ?? '').trim()
     const filename = String(body.filename ?? 'player-feedback.pdf')

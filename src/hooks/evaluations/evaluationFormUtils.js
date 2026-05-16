@@ -592,6 +592,7 @@ export function buildParentEmailJobs({
             recipientEmail,
             job: sendParentEmail({
               clubId: user?.clubId,
+              userId: user?.id,
               parentEmail: recipientEmail,
               parentName: recipientName,
               senderEmail: user?.email,

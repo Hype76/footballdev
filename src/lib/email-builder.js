@@ -266,6 +266,7 @@ export async function sendParentEmail(data) {
     },
     body: JSON.stringify({
       clubId: data.clubId,
+      userId: data.userId,
       parentEmail: data.parentEmail,
       displayName: data.displayName,
       teamName,

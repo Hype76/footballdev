@@ -47,7 +47,7 @@ function normalizePlanProfile(profile, authEmail) {
   }
 }
 
-export async function getAuthenticatedPlanProfile(event, { clubId = '' } = {}) {
+export async function getAuthenticatedPlanProfile(event, { clubId = '', userId = '' } = {}) {
   const token = getBearerToken(event)
 
   if (!token) {
@@ -63,11 +63,17 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '' } = {}) {
   const authUser = authData.user
   const authEmail = normalizeEmail(authUser.email)
   const normalizedClubId = String(clubId ?? '').trim()
+  const normalizedUserId = String(userId ?? '').trim()
   let profileQuery = supabaseAdmin
     .from('users')
     .select('id, auth_user_id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at)')
-    .or(`auth_user_id.eq.${authUser.id},email.eq.${authEmail}`)
     .limit(1)
+
+  if (normalizedUserId) {
+    profileQuery = profileQuery.eq('id', normalizedUserId)
+  } else {
+    profileQuery = profileQuery.or(`auth_user_id.eq.${authUser.id},email.eq.${authEmail}`)
+  }
 
   if (normalizedClubId) {
     profileQuery = profileQuery.eq('club_id', normalizedClubId)
@@ -77,6 +83,17 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '' } = {}) {
   const profile = profiles?.[0] ?? null
 
   if (profileError || !profile) {
+    throw Object.assign(new Error('Your account could not be matched to this club. Sign out and back in, then try again.'), { statusCode: 403 })
+  }
+
+  const profileAuthUserId = String(profile.auth_user_id ?? '').trim()
+  const profileEmail = normalizeEmail(profile.email)
+
+  if (profileAuthUserId && profileAuthUserId !== String(authUser.id)) {
+    throw Object.assign(new Error('Your account could not be matched to this club. Sign out and back in, then try again.'), { statusCode: 403 })
+  }
+
+  if (!profileAuthUserId && profileEmail !== authEmail) {
     throw Object.assign(new Error('Your account could not be matched to this club. Sign out and back in, then try again.'), { statusCode: 403 })
   }
 

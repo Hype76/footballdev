@@ -187,7 +187,7 @@ export async function handler(event) {
     }
 
     const body = JSON.parse(event.body || '{}')
-    const planProfile = await getAuthenticatedPlanProfile(event, { clubId: body.clubId })
+    const planProfile = await getAuthenticatedPlanProfile(event, { clubId: body.clubId, userId: body.userId })
     assertPlanFeature(planProfile, 'parentEmail')
 
     const {

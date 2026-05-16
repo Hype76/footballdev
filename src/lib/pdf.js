@@ -314,6 +314,7 @@ export async function exportEvaluationPdf({ filename, previewProps, mode = 'scor
         },
         body: JSON.stringify({
           clubId: previewProps?.clubId,
+          userId: previewProps?.userId,
           filename,
           html: container.innerHTML,
         }),
