@@ -169,7 +169,7 @@ export function hasPlanFeature(user, featureName) {
     return false
   }
 
-  if (user?.role === 'super_admin' || isPlanComped(user)) {
+  if (user?.role === 'super_admin') {
     return true
   }
 
@@ -207,7 +207,7 @@ export function canEditClubIdentity(user) {
 }
 
 export function getPlanLimit(user, limitName) {
-  if (user?.role === 'super_admin' || isPlanComped(user)) {
+  if (user?.role === 'super_admin') {
     return null
   }
 
