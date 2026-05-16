@@ -17,7 +17,7 @@ import { Topbar } from './Topbar.jsx'
 import { WalkthroughProvider } from '../walkthrough/WalkthroughProvider.jsx'
 
 export function Layout() {
-  const { authError, clubOptions, isProfileLoading, selectClub, selectTeam, teamOptions, user } = useAuth()
+  const { accessModeOptions, authError, clubOptions, isProfileLoading, selectAccessMode, selectClub, selectTeam, teamOptions, user } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [clubSelectionError, setClubSelectionError] = useState('')
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
@@ -180,6 +180,17 @@ export function Layout() {
     }
   }
 
+  const handleAccessModeSelect = async (accessMode) => {
+    setClubSelectionError('')
+
+    try {
+      await selectAccessMode(accessMode)
+    } catch (error) {
+      console.error(error)
+      setClubSelectionError(error.message || 'Could not open this access.')
+    }
+  }
+
   const handleTeamSelect = async (teamId) => {
     setClubSelectionError('')
 
@@ -191,8 +202,9 @@ export function Layout() {
     }
   }
 
-  const needsClubSelection = !isSuperAdmin(user) && clubOptions.length > 1
-  const needsTeamSelection = clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
+  const needsAccessModeSelection = !user && accessModeOptions.length > 0
+  const needsClubSelection = !needsAccessModeSelection && !isSuperAdmin(user) && clubOptions.length > 1
+  const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
@@ -209,7 +221,17 @@ export function Layout() {
             <div className="mx-auto w-full max-w-6xl">
               <WalkthroughProvider>
                 <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:border sm:p-4 md:p-5">
-                  {needsClubSelection ? (
+                  {needsAccessModeSelection ? (
+                    <WorkspaceSelection
+                      eyebrow="Choose Access"
+                      title="How do you want to open this account?"
+                      description="This login has both team access and parent access. Pick the area you want to use for this session."
+                      error={clubSelectionError || authError}
+                      isLoading={isProfileLoading}
+                      options={accessModeOptions}
+                      onSelect={handleAccessModeSelect}
+                    />
+                  ) : needsClubSelection ? (
                     <WorkspaceSelection
                       eyebrow="Choose Club"
                       title="Which club do you want to open?"

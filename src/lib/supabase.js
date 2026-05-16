@@ -80,6 +80,16 @@ export {
 } from './domain/teams.js'
 
 export {
+  acceptParentPortalInvite,
+  createFamilyShareLink,
+  createParentPortalInvites,
+  createParentPortalInvitesForPlayers,
+  getParentLinkingPlayers,
+  getParentLinksForPlayer,
+  getParentPortalLinks,
+} from './domain/parent-portal.js'
+
+export {
   archivePlayer,
   createCommunicationLog,
   createPlayerStaffNote,

@@ -222,6 +222,72 @@ async function getUserClubMemberships(authUser) {
   return (data ?? []).map(normalizeClubMembershipRow)
 }
 
+async function getParentPortalMemberships(authUser) {
+  if (!authUser?.id) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('parent_player_links')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name, logo_url)')
+    .eq('auth_user_id', authUser.id)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error(error)
+    return []
+  }
+
+  return (data ?? []).map((row) => {
+    const player = Array.isArray(row.players) ? row.players[0] : row.players
+    const team = Array.isArray(row.teams) ? row.teams[0] : row.teams
+    const club = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
+
+    return {
+      id: row.id,
+      clubId: row.club_id,
+      clubName: String(club?.name ?? '').trim(),
+      clubLogoUrl: String(club?.logo_url ?? '').trim(),
+      teamId: row.team_id,
+      teamName: String(team?.name ?? player?.team ?? '').trim(),
+      playerId: row.player_id,
+      playerName: String(player?.player_name ?? '').trim(),
+      playerSection: String(player?.section ?? '').trim(),
+      linkType: String(row.link_type ?? 'parent').trim(),
+    }
+  })
+}
+
+function normalizeParentPortalProfile(authUser, parentLinks) {
+  const selectedLink = parentLinks[0]
+
+  return {
+    id: authUser.id,
+    email: String(authUser.email ?? '').trim().toLowerCase(),
+    username: String(authUser.user_metadata?.username ?? '').trim(),
+    name: String(authUser.user_metadata?.name ?? authUser.email ?? '').trim(),
+    displayName: String(authUser.user_metadata?.display_name ?? authUser.user_metadata?.name ?? authUser.email ?? '').trim(),
+    role: 'parent_portal',
+    roleLabel: 'Parent',
+    roleRank: 0,
+    accountStatus: 'active',
+    planKey: 'small_club',
+    planStatus: 'active',
+    isPlanComped: false,
+    clubId: selectedLink?.clubId ?? '',
+    clubName: selectedLink?.clubName ?? 'Parent Portal',
+    clubLogoUrl: selectedLink?.clubLogoUrl ?? '',
+    activeTeamId: selectedLink?.teamId ?? '',
+    activeTeamName: selectedLink?.teamName ?? '',
+    parentPortalLinks: parentLinks,
+    selectedParentLinkId: selectedLink?.id ?? '',
+    selectedPlayerId: selectedLink?.playerId ?? '',
+    selectedPlayerName: selectedLink?.playerName ?? '',
+    selectedPlayerSection: selectedLink?.playerSection ?? '',
+  }
+}
+
 async function syncMembershipFromUserRow(data, authUser) {
   if (!data?.club_id || data.role === 'super_admin') {
     return null
@@ -387,7 +453,8 @@ export async function selectUserClub(authUser, clubId) {
 
 export async function fetchUserProfile(authUser, options = {}) {
   const selectedClubId = String(options.selectedClubId ?? '').trim()
-  const cacheKey = `user-profile:${authUser?.id || ''}:${selectedClubId || 'active'}`
+  const selectedAccessMode = String(options.selectedAccessMode ?? '').trim()
+  const cacheKey = `user-profile:${authUser?.id || ''}:${selectedClubId || 'active'}:${selectedAccessMode || 'default'}`
   const isDemoAuthUser = isDemoAccountValue(authUser)
 
   if (!authUser?.id) {
@@ -411,6 +478,8 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     let data = await loadUserRow()
+    const parentLinks = isDemoAuthUser ? [] : await getParentPortalMemberships(authUser)
+    const hasParentAccess = parentLinks.length > 0
 
     if (data?.role === 'super_admin') {
       const memberships = await getUserClubMemberships(authUser)
@@ -446,6 +515,10 @@ export async function fetchUserProfile(authUser, options = {}) {
     if (!data) {
       if (isDemoAuthUser) {
         throw new Error('Demo profile not found.')
+      }
+
+      if (hasParentAccess) {
+        return normalizeParentPortalProfile(authUser, parentLinks)
       }
 
       data = await resolveIncompleteClubProfile(authUser, selectedClubId)
@@ -484,6 +557,22 @@ export async function fetchUserProfile(authUser, options = {}) {
     }
 
     const memberships = data.role === 'super_admin' ? [] : await getUserClubMemberships(authUser)
+    const hasTeamAccess = Boolean(data?.club_id || memberships.length > 0 || data.role === 'super_admin')
+
+    if (hasTeamAccess && hasParentAccess && !selectedAccessMode) {
+      return {
+        requiresAccessModeSelection: true,
+        accessModeOptions: [
+          { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
+          { id: 'parent', label: 'Parent', meta: 'Open linked child access only' },
+        ],
+      }
+    }
+
+    if (hasParentAccess && selectedAccessMode === 'parent') {
+      return normalizeParentPortalProfile(authUser, parentLinks)
+    }
+
     if (memberships.length > 1 && !selectedClubId) {
       return {
         requiresClubSelection: true,

@@ -40,7 +40,7 @@ function getFriendlyAuthErrorMessage(error, mode) {
 }
 
 export function LoginPage() {
-  const { authError, resetPassword, signInWithPassword, signUpWithClub } = useAuth()
+  const { authError, resetPassword, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
   const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const signupBoxRef = useRef(null)
   const submitLockRef = useRef(false)
@@ -54,10 +54,17 @@ export function LoginPage() {
   const [livePromotion, setLivePromotion] = useState(null)
   const [localMessage, setLocalMessage] = useState('')
   const [localError, setLocalError] = useState('')
+  const [parentInviteToken, setParentInviteToken] = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const checkoutStatus = params.get('checkout')
+    const nextParentInviteToken = String(params.get('parentInvite') ?? '').trim()
+
+    if (nextParentInviteToken) {
+      setParentInviteToken(nextParentInviteToken)
+      setLocalMessage('Log in or create a parent account to accept your child link.')
+    }
 
     if (checkoutStatus === 'success') {
       setMode('signup')
@@ -263,12 +270,18 @@ export function LoginPage() {
 
     try {
       if (mode === 'signup') {
-        const signupResult = await signUpWithClub({
-          email: formData.email.trim(),
-          password: formData.password,
-          clubName: formData.clubName.trim(),
-          accessCode: formData.accessCode.trim(),
-        })
+        const signupResult = parentInviteToken
+          ? await signUpParentAccount({
+            email: formData.email.trim(),
+            password: formData.password,
+            inviteToken: parentInviteToken,
+          })
+          : await signUpWithClub({
+            email: formData.email.trim(),
+            password: formData.password,
+            clubName: formData.clubName.trim(),
+            accessCode: formData.accessCode.trim(),
+          })
 
         if (signupResult?.needsEmailVerification) {
           setMode('login')
@@ -276,7 +289,11 @@ export function LoginPage() {
             ...current,
             password: '',
           }))
-          setLocalMessage('Account created. Please check your email to verify your account before logging in.')
+          setLocalMessage(parentInviteToken
+            ? 'Parent account created. Please check your email to verify it, then open the parent invite link again.'
+            : 'Account created. Please check your email to verify your account before logging in.')
+        } else if (parentInviteToken) {
+          window.location.assign(`/parent-invite/${parentInviteToken}`)
         }
       } else {
         if (isDemoEmail(formData.email)) {
@@ -287,6 +304,10 @@ export function LoginPage() {
           email: formData.email.trim(),
           password: formData.password,
         })
+
+        if (parentInviteToken) {
+          window.location.assign(`/parent-invite/${parentInviteToken}`)
+        }
       }
     } catch (error) {
       console.error(error)
@@ -342,6 +363,7 @@ export function LoginPage() {
             onPasswordReset={handlePasswordReset}
             onSubmit={handleSubmit}
             onTogglePasswordVisibility={() => setIsPasswordVisible((current) => !current)}
+            parentInviteMode={Boolean(parentInviteToken)}
             signupBoxRef={signupBoxRef}
           />
         </div>

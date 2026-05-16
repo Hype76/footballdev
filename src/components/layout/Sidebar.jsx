@@ -6,12 +6,14 @@ import {
   canManageClubSettings,
   canManageFormFields,
   canManageParentEmailTemplates,
+  canManageParentLinks,
   canManageTeamSettings,
   canManageUsers,
   canViewPlatformFeedback,
   canViewActivityLog,
   canViewBilling,
   isSuperAdmin,
+  isParentPortalUser,
   useAuth,
 } from '../../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
@@ -23,11 +25,24 @@ function getSidebarTourId(path) {
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
   const logoUrl = user?.clubLogoUrl || fallbackLogo
+  const isParentPortal = isParentPortalUser(user)
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(user)
+  const handleSignOut = async () => {
+    try {
+      onClose()
+      await signOut()
+    } catch (error) {
+      console.error(error)
+    }
+  }
   const getVisibleNavigationItems = (items) => items.filter((item) => {
     if (isSuperAdmin(user)) {
       return item.path === '/activity-log'
+    }
+
+    if (isParentPortal) {
+      return item.path === '/parent-portal' || item.path === '/friends-family'
     }
 
     if (
@@ -38,6 +53,10 @@ export function Sidebar({ isOpen, onClose }) {
       item.path === '/archived-players'
     ) {
       return canCreateEvaluation(user)
+    }
+
+    if (item.path === '/parent-linking') {
+      return canManageParentLinks(user)
     }
 
     if (item.path === '/user-access') {
@@ -99,16 +118,86 @@ export function Sidebar({ isOpen, onClose }) {
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
-  const coachNavigationItems = navigationItems.filter((item) => ['/sessions', '/players', '/assess-player'].includes(item.path))
-  const teamNavigationItems = navigationItems.filter((item) => !['/sessions', '/players', '/assess-player'].includes(item.path))
+  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking']
+  const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
+  const teamNavigationItems = navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
 
-  const handleSignOut = async () => {
-    try {
-      onClose()
-      await signOut()
-    } catch (error) {
-      console.error(error)
-    }
+  if (isParentPortal) {
+    return (
+      <>
+        <div
+          className={[
+            'fixed inset-0 z-30 bg-black/50 transition lg:hidden',
+            isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
+          ].join(' ')}
+          onClick={onClose}
+        />
+        <aside
+          className={[
+            'fixed inset-y-0 left-0 z-40 flex w-[min(20rem,calc(100vw-1rem))] max-w-72 flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-4 py-5 transition sm:px-5 sm:py-6 lg:fixed lg:translate-x-0',
+            isOpen ? 'translate-x-0' : '-translate-x-full',
+          ].join(' ')}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]">
+                <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Parent Portal</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] lg:hidden"
+              aria-label="Close navigation"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+          <nav className="mt-7 space-y-2 pb-4">
+            <NavLink
+              to="/parent-portal"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                ].join(' ')
+              }
+            >
+              My Child
+            </NavLink>
+            <NavLink
+              to="/friends-family"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                ].join(' ')
+              }
+            >
+              Friends and Family
+            </NavLink>
+          </nav>
+          <div className="mt-auto pt-4">
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            >
+              Sign out
+            </button>
+          </div>
+        </aside>
+      </>
+    )
   }
 
   return (

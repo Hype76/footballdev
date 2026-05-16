@@ -295,3 +295,63 @@ export async function sendParentEmail(data) {
 
   return result
 }
+
+export function buildParentPortalInviteHtml({
+  clubName,
+  inviteUrl,
+  playerName,
+  teamName,
+}) {
+  const resolvedClub = String(clubName ?? '').trim() || 'Your club'
+  const resolvedPlayer = String(playerName ?? '').trim() || 'your child'
+  const resolvedTeam = String(teamName ?? '').trim() || 'their team'
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Parent portal invite</p>
+      <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.25;">${escapeHtml(resolvedClub)} has invited you</h1>
+      <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to view parent updates for ${escapeHtml(resolvedPlayer)} in ${escapeHtml(resolvedTeam)}.</p>
+      <p style="margin: 0 0 22px; font-size: 15px;">Open the link below, then log in or create your parent account to accept access.</p>
+      <p style="margin: 0 0 22px;">
+        <a href="${escapeHtml(inviteUrl)}" style="display: inline-block; background: #f7d74b; color: #142018; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 10px;">Open Parent Portal</a>
+      </p>
+      <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">If the button does not work, copy and paste this link into your browser:</p>
+      <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(inviteUrl)}</p>
+    </div>
+  `
+}
+
+export async function sendParentPortalInvite(data) {
+  const html = buildParentPortalInviteHtml(data)
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+
+  const response = await fetch('/.netlify/functions/send-parent-portal-invite', {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      clubId: data.clubId,
+      displayName: data.displayName,
+      inviteLinkId: data.inviteLinkId,
+      inviteUrl: data.inviteUrl,
+      parentEmail: data.parentEmail,
+      playerName: data.playerName,
+      senderEmail: data.senderEmail,
+      subject: data.subject,
+      teamName: data.teamName,
+      clubName: data.clubName,
+      html,
+    }),
+  })
+
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Parent portal invite could not be sent.')
+  }
+
+  return result
+}

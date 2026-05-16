@@ -7,11 +7,13 @@ import {
   canManageClubSettings,
   canManageFormFields,
   canManageParentEmailTemplates,
+  canManageParentLinks,
   canManageTeamSettings,
   canManageUsers,
   canViewActivityLog,
   canViewBilling,
   isSuperAdmin,
+  isParentPortalUser,
   isTesterAccessExpired,
   useAuth,
 } from '../lib/auth.js'
@@ -50,6 +52,10 @@ const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 
 const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
 const ParentEmailTemplatesPage = lazyRoute(() => import('../pages/ParentEmailTemplatesPage.jsx'), 'ParentEmailTemplatesPage')
+const ParentInvitePage = lazyRoute(() => import('../pages/ParentInvitePage.jsx'), 'ParentInvitePage')
+const ParentLinkingPage = lazyRoute(() => import('../pages/ParentLinkingPage.jsx'), 'ParentLinkingPage')
+const ParentPortalPage = lazyRoute(() => import('../pages/ParentPortalPage.jsx'), 'ParentPortalPage')
+const FriendsFamilyPage = lazyRoute(() => import('../pages/FriendsFamilyPage.jsx'), 'FriendsFamilyPage')
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
 const PlayersPage = lazyRoute(() => import('../pages/PlayersPage.jsx'), 'PlayersPage')
 const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx'), 'PlatformAdminPage')
@@ -179,6 +185,10 @@ function getDefaultWorkspacePath(user) {
     return '/platform-admin'
   }
 
+  if (isParentPortalUser(user)) {
+    return '/parent-portal'
+  }
+
   if (isAccountSuspended(user) || isClubSuspended(user)) {
     return '/'
   }
@@ -244,6 +254,10 @@ function useWorkspaceRouteGate({
 
   if (redirectSuperAdmin && isSuperAdmin(user)) {
     return { element: <Navigate to="/platform-admin" replace />, user }
+  }
+
+  if (!redirectSuperAdmin && isParentPortalUser(user)) {
+    return { element: null, user }
   }
 
   if (isAccountSuspended(user)) {
@@ -356,6 +370,10 @@ function WorkspaceHome() {
     return <Navigate to="/platform-admin" replace />
   }
 
+  if (isParentPortalUser(user)) {
+    return <Navigate to="/parent-portal" replace />
+  }
+
   if (isAccountSuspended(user)) {
     return <AccountSuspendedState />
   }
@@ -410,6 +428,37 @@ function RequirePlayerWorkflowAccess() {
   }
 
   if (!canCreateEvaluation(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireParentPortalAccess() {
+  const { element, user } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+    blockExpiredTester: false,
+  })
+
+  if (element) {
+    return element
+  }
+
+  if (!isParentPortalUser(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireParentLinkingAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canManageParentLinks(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -579,6 +628,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/parent-invite/:token',
+    element: (
+      <PageSuspense>
+        <ParentInvitePage />
+      </PageSuspense>
+    ),
+  },
+  {
     element: <PublicOnly />,
     children: [
       {
@@ -705,6 +762,33 @@ export const router = createBrowserRouter([
             },
           },
           {
+            element: <RequireParentPortalAccess />,
+            children: [
+              {
+                path: 'parent-portal',
+                element: (
+                  <PageSuspense>
+                    <ParentPortalPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Parent Portal',
+                },
+              },
+              {
+                path: 'friends-family',
+                element: (
+                  <PageSuspense>
+                    <FriendsFamilyPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Friends and Family',
+                },
+              },
+            ],
+          },
+          {
             element: <RequireClubWorkspace />,
             children: [
               {
@@ -797,6 +881,22 @@ export const router = createBrowserRouter([
                     handle: {
                       title: 'Archived Players',
                     },
+                  },
+                  {
+                    element: <RequireParentLinkingAccess />,
+                    children: [
+                      {
+                        path: 'parent-linking',
+                        element: (
+                          <PageSuspense>
+                            <ParentLinkingPage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Parent Linking',
+                        },
+                      },
+                    ],
                   },
                   {
                     path: 'create-evaluation',

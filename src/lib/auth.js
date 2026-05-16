@@ -20,6 +20,7 @@ export {
   canManageClubSettings,
   canManageFormFields,
   canManageParentEmailTemplates,
+  canManageParentLinks,
   canManageTeamSettings,
   canManageUsers,
   canShareEvaluation,
@@ -31,6 +32,7 @@ export {
   isClubAdmin,
   isDemoAccount,
   isSuperAdmin,
+  isParentPortalUser,
   isTesterAccessExpired,
 } from './auth-permissions.js'
 
@@ -39,6 +41,7 @@ let authDataModulePromise = null
 let teamDataModulePromise = null
 const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
 const SELECTED_TEAM_STORAGE_KEY = 'selected-team-id'
+const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
 
 function loadAuthDataModule() {
   if (!authDataModulePromise) {
@@ -81,6 +84,7 @@ export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
   const [clubOptions, setClubOptions] = useState([])
+  const [accessModeOptions, setAccessModeOptions] = useState([])
   const [teamOptions, setTeamOptions] = useState([])
   const [hasPlatformAdminAccess, setHasPlatformAdminAccess] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -247,12 +251,14 @@ export function AuthProvider({ children }) {
       setAuthUser(null)
       setUser(null)
       setClubOptions([])
+      setAccessModeOptions([])
       setTeamOptions([])
       setHasPlatformAdminAccess(false)
       setIsProfileLoading(false)
       setAuthError('')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
       window.sessionStorage.removeItem(DEMO_ROLE_STORAGE_KEY)
       setDemoRoleKeyState('')
       finishBootstrap()
@@ -279,8 +285,10 @@ export function AuthProvider({ children }) {
 
         const { fetchUserProfile } = await loadAuthDataModule()
         const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
+        const selectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
         const profile = await fetchUserProfile(nextSession.user, {
           selectedClubId,
+          selectedAccessMode,
         })
 
         if (!isMounted || activeSyncIdRef.current !== syncId) {
@@ -289,6 +297,16 @@ export function AuthProvider({ children }) {
 
         if (profile?.requiresClubSelection) {
           setClubOptions(profile.clubOptions ?? [])
+          setUser(null)
+          void refreshPlatformAdminAccess()
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
+        if (profile?.requiresAccessModeSelection) {
+          setAccessModeOptions(profile.accessModeOptions ?? [])
+          setClubOptions([])
           setUser(null)
           void refreshPlatformAdminAccess()
           setIsProfileLoading(false)
@@ -309,6 +327,7 @@ export function AuthProvider({ children }) {
         }
 
         setClubOptions(profile.clubOptions ?? [])
+        setAccessModeOptions([])
         setUser((currentUser) =>
           areUsersEquivalent(currentUser, profileWithDemoPreview) ? currentUser : profileWithDemoPreview,
         )
@@ -442,6 +461,51 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const selectAccessMode = async (accessMode) => {
+    if (!authUser) {
+      throw new Error('Login again before choosing access.')
+    }
+
+    const nextAccessMode = String(accessMode ?? '').trim()
+
+    if (!['team', 'parent'].includes(nextAccessMode)) {
+      throw new Error('Choose parent or team access to continue.')
+    }
+
+    setAuthError('')
+    setIsProfileLoading(true)
+
+    try {
+      const { fetchUserProfile } = await loadAuthDataModule()
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextAccessMode)
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      const profile = await fetchUserProfile(authUser, {
+        selectedAccessMode: nextAccessMode,
+      })
+
+      if (profile?.requiresClubSelection) {
+        setClubOptions(profile.clubOptions ?? [])
+        setAccessModeOptions([])
+        setUser(null)
+        setAuthError('')
+        return
+      }
+
+      const profileWithTeam = profile?.role === 'parent_portal' ? profile : await applyTeamSelection(profile)
+      setAccessModeOptions([])
+      setClubOptions(profile.clubOptions ?? [])
+      setUser(applyDemoRolePreview(profileWithTeam))
+      setAuthError('')
+    } catch (error) {
+      console.error(error)
+      setAuthError(error.message || 'Could not open this access.')
+      throw error
+    } finally {
+      setIsProfileLoading(false)
+    }
+  }
+
   const selectTeam = async (teamId) => {
     if (!teamId && isClubAdmin(userRef.current)) {
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
@@ -504,6 +568,7 @@ export function AuthProvider({ children }) {
 
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'team')
       setClubOptions(result.user.clubOptions ?? [])
       setTeamOptions([])
       setHasPlatformAdminAccess(true)
@@ -671,6 +736,72 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const signUpParentAccount = async ({ email, password, inviteToken = '' }) => {
+    setAuthError('')
+    const normalizedEmail = String(email ?? '').trim()
+    const normalizedInviteToken = String(inviteToken ?? '').trim()
+    const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
+    const invitePath = normalizedInviteToken ? `/parent-invite/${normalizedInviteToken}` : '/login'
+    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}${invitePath}`
+
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: {
+        emailRedirectTo,
+        data: {
+          username: signupDisplayName,
+          name: signupDisplayName,
+          display_name: signupDisplayName,
+          account_type: 'parent',
+        },
+      },
+    })
+
+    if (error) {
+      console.error(error)
+      setAuthError(error.message || 'Sign up failed.')
+      throw error
+    }
+
+    if (!data.user) {
+      const signupError = new Error('Account creation did not return a user.')
+      console.error(signupError)
+      setAuthError(signupError.message)
+      throw signupError
+    }
+
+    if (!data.session) {
+      setSession(null)
+      setAuthUser(null)
+      setUser(null)
+      setClubOptions([])
+      setTeamOptions([])
+      setAccessModeOptions([])
+      setIsProfileLoading(false)
+      setAuthError('')
+
+      return {
+        needsEmailVerification: true,
+        email: data.user.email || email,
+      }
+    }
+
+    setSession(data.session)
+    setAuthUser(data.user)
+    setUser(null)
+    setClubOptions([])
+    setTeamOptions([])
+    setAccessModeOptions([])
+    setIsProfileLoading(false)
+    setAuthError('')
+
+    return {
+      needsEmailVerification: false,
+      user: data.user,
+    }
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
 
@@ -745,6 +876,7 @@ export function AuthProvider({ children }) {
     authUser,
     user,
     clubOptions,
+    accessModeOptions,
     teamOptions,
     hasPlatformAdminAccess,
     isLoading,
@@ -752,7 +884,9 @@ export function AuthProvider({ children }) {
     authError,
     signInWithPassword,
     signUpWithClub,
+    signUpParentAccount,
     selectClub,
+    selectAccessMode,
     selectTeam,
     selectPlatformAdmin,
     refreshTeamSelection,

@@ -16,6 +16,10 @@ export const primaryNavigation = [
     path: '/add-player',
   },
   {
+    label: 'Parent Linking',
+    path: '/parent-linking',
+  },
+  {
     label: 'Teams',
     path: '/teams',
   },

@@ -39,6 +39,10 @@ export function isClubAdmin(user) {
   return user?.role === 'admin'
 }
 
+export function isParentPortalUser(user) {
+  return user?.role === 'parent_portal'
+}
+
 export function canManageUsers(user) {
   if (!user) {
     return false
@@ -148,6 +152,10 @@ export function canCreateEvaluation(user) {
   }
 
   return Boolean(user.clubId) && !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user.activeTeamId)) && isPlanAccessActive(user)
+}
+
+export function canManageParentLinks(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user)
 }
 
 export function canEditEvaluation(user, evaluation) {
