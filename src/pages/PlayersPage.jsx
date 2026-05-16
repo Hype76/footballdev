@@ -20,12 +20,17 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
-export function PlayersPage() {
+export function PlayersPage({
+  defaultView = 'all',
+  headerDescription = 'Review every player in this workspace, then open a profile for detailed ratings and progress.',
+  headerEyebrow = 'Players',
+  headerTitle = 'Player history',
+}) {
   const { user } = useAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const viewFilter = searchParams.get('view') || 'all'
+  const viewFilter = searchParams.get('view') || defaultView
   const urlSection = searchParams.get('section') || 'All'
   const cacheKey = user ? `players-page:${user.id}:${user.clubId || 'platform'}:${user.roleRank}` : ''
   const [players, setPlayers] = useState(() => {
@@ -290,9 +295,9 @@ export function PlayersPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
-        eyebrow="Players"
-        title="Player history"
-        description="Review every player in this workspace, then open a profile for detailed ratings and progress."
+        eyebrow={headerEyebrow}
+        title={headerTitle}
+        description={headerDescription}
       />
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}

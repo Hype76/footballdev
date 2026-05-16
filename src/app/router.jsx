@@ -42,6 +42,9 @@ const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'Billing
 const BulkEmailPage = lazyRoute(() => import('../pages/BulkEmailPage.jsx'), 'BulkEmailPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
+const AssessmentsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'AssessmentsMenuPage')
+const PlayersMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'PlayersMenuPage')
+const SessionsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'SessionsMenuPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
 const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
@@ -749,7 +752,7 @@ export const router = createBrowserRouter([
                     path: 'sessions',
                     element: (
                       <PageSuspense>
-                        <SessionsPage />
+                        <SessionsMenuPage />
                       </PageSuspense>
                     ),
                     handle: {
@@ -757,14 +760,47 @@ export const router = createBrowserRouter([
                     },
                   },
                   {
+                    path: 'sessions/start',
+                    element: (
+                      <PageSuspense>
+                        <SessionsPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Start Session',
+                    },
+                  },
+                  {
+                    path: 'sessions/previous',
+                    element: (
+                      <PageSuspense>
+                        <SessionsPage setupOpen />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Previous Sessions',
+                    },
+                  },
+                  {
                     path: 'players',
+                    element: (
+                      <PageSuspense>
+                        <PlayersMenuPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Players',
+                    },
+                  },
+                  {
+                    path: 'players/current',
                     element: (
                       <PageSuspense>
                         <PlayersPage />
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'Players',
+                      title: 'Current Players',
                     },
                   },
                   {
@@ -793,11 +829,38 @@ export const router = createBrowserRouter([
                     path: 'assess-player',
                     element: (
                       <PageSuspense>
+                        <AssessmentsMenuPage />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Assessments',
+                    },
+                  },
+                  {
+                    path: 'assess-player/new',
+                    element: (
+                      <PageSuspense>
                         <CreateEvaluationPage />
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'Assess Player',
+                      title: 'New Assessment',
+                    },
+                  },
+                  {
+                    path: 'assess-player/completed',
+                    element: (
+                      <PageSuspense>
+                        <PlayersPage
+                          defaultView="evaluated"
+                          headerDescription="Review players who already have completed assessments, then open a profile for the full history."
+                          headerEyebrow="Assessments"
+                          headerTitle="Completed assessments"
+                        />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Completed Assessments',
                     },
                   },
                   {

@@ -53,7 +53,7 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
-export function SessionsPage() {
+export function SessionsPage({ setupOpen = false }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -903,7 +903,7 @@ export function SessionsPage() {
 
       <details
         id="session-setup"
-        open={sessions.length === 0}
+        open={setupOpen || sessions.length === 0}
         className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 sm:p-4"
       >
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-2 text-base font-semibold text-[var(--text-primary)]">
