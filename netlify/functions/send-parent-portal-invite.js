@@ -274,6 +274,17 @@ export async function handler(event) {
 
     const response = await resend.emails.send(emailPayload)
     await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
+    const { error: inviteSentUpdateError } = await supabaseAdmin
+      .from('parent_player_links')
+      .update({
+        invite_sent_at: new Date().toISOString(),
+      })
+      .eq('id', inviteLink.id)
+
+    if (inviteSentUpdateError) {
+      console.error('Parent portal invite sent timestamp update failed', inviteSentUpdateError)
+    }
+
     await createEmailAuditLog({
       user: null,
       action: 'parent_portal_invite_sent',

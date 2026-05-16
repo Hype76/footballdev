@@ -27,6 +27,7 @@ function normalizeParentLink(row) {
     status: String(row.status ?? 'pending').trim(),
     invitedByName: String(row.invited_by_name ?? '').trim(),
     acceptedAt: row.accepted_at ?? '',
+    inviteSentAt: row.invite_sent_at ?? '',
     createdAt: row.created_at ?? '',
   }
 }
@@ -127,7 +128,7 @@ export async function createParentPortalInvites({ user, player, contacts }) {
   const emails = normalizedContacts.map((contact) => contact.email)
   const existingQuery = supabase
     .from('parent_player_links')
-    .select('email, auth_user_id')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
     .eq('team_id', teamId)
     .eq('player_id', player.id)
     .neq('status', 'revoked')
@@ -139,9 +140,17 @@ export async function createParentPortalInvites({ user, player, contacts }) {
     throw existingError
   }
 
-  const existingEmails = new Set((existingRows ?? []).map((row) => normalizeEmail(row.email)))
+  const existingRowsByEmail = new Map((existingRows ?? []).map((row) => [normalizeEmail(row.email), row]))
+  const existingSentOrAcceptedEmails = new Set(
+    (existingRows ?? [])
+      .filter((row) => row.status === 'active' || row.invite_sent_at)
+      .map((row) => normalizeEmail(row.email)),
+  )
+  const resendRows = normalizedContacts
+    .map((contact) => existingRowsByEmail.get(contact.email))
+    .filter((row) => row && row.status === 'pending' && !row.invite_sent_at)
   const rows = normalizedContacts
-    .filter((contact) => !existingEmails.has(contact.email))
+    .filter((contact) => !existingRowsByEmail.has(contact.email) && !existingSentOrAcceptedEmails.has(contact.email))
     .map((contact) => ({
     club_id: user.clubId,
     team_id: teamId,
@@ -154,7 +163,10 @@ export async function createParentPortalInvites({ user, player, contacts }) {
   }))
 
   if (rows.length === 0) {
-    return []
+    return resendRows.map((row) => ({
+      ...normalizeParentLink(row),
+      inviteUrl: buildInviteUrl(row.invite_token),
+    }))
   }
 
   const { data, error } = await supabase
@@ -167,7 +179,7 @@ export async function createParentPortalInvites({ user, player, contacts }) {
     throw error
   }
 
-  return (data ?? []).map((row) => ({
+  return [...resendRows, ...(data ?? [])].map((row) => ({
     ...normalizeParentLink(row),
     inviteUrl: buildInviteUrl(row.invite_token),
   }))
