@@ -68,6 +68,42 @@ async function getUserClubMemberships(authUser) {
   return (data ?? []).map(normalizeClubMembershipRow)
 }
 
+async function getParentPortalLinks(authUser) {
+  if (!authUser?.id) {
+    return []
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('parent_player_links')
+    .select('id, club_id, team_id, player_id, link_type, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name, logo_url)')
+    .eq('auth_user_id', authUser.id)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+
+  if (error && error.code !== '42P01') {
+    throw error
+  }
+
+  return (data ?? []).map((row) => {
+    const player = Array.isArray(row.players) ? row.players[0] : row.players
+    const team = Array.isArray(row.teams) ? row.teams[0] : row.teams
+    const club = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
+
+    return {
+      id: row.id,
+      clubId: row.club_id,
+      clubName: String(club?.name ?? '').trim(),
+      clubLogoUrl: String(club?.logo_url ?? '').trim(),
+      teamId: row.team_id,
+      teamName: String(team?.name ?? player?.team ?? '').trim(),
+      playerId: row.player_id,
+      playerName: String(player?.player_name ?? '').trim(),
+      playerSection: String(player?.section ?? '').trim(),
+      linkType: String(row.link_type ?? 'parent').trim(),
+    }
+  })
+}
+
 async function getAuthenticatedUser(event) {
   const token = getBearerToken(event)
 
@@ -138,7 +174,10 @@ async function getPlatformAdmin(authUser) {
 async function switchToPlatformAdmin(authUser, platformAdmin) {
   const name = platformAdmin.name || getDisplayName(authUser)
   const email = platformAdmin.email || normalizeEmail(authUser.email)
-  const clubOptions = await getUserClubMemberships(authUser)
+  const [clubOptions, parentPortalLinks] = await Promise.all([
+    getUserClubMemberships(authUser),
+    getParentPortalLinks(authUser),
+  ])
 
   const { data, error } = await supabaseAdmin
     .from('users')
@@ -180,6 +219,7 @@ async function switchToPlatformAdmin(authUser, platformAdmin) {
     clubId: '',
     clubName: 'Platform',
     clubOptions,
+    parentPortalLinks,
   }
 }
 

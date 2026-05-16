@@ -522,6 +522,10 @@ export function AuthProvider({ children }) {
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextPreferredAccessMode)
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+    } else {
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     }
 
     const { error } = await supabase.auth.signInWithPassword({

@@ -481,13 +481,28 @@ export async function fetchUserProfile(authUser, options = {}) {
     const parentLinks = isDemoAuthUser ? [] : await getParentPortalMemberships(authUser)
     const hasParentAccess = parentLinks.length > 0
 
+    if (hasParentAccess && selectedAccessMode === 'parent') {
+      return normalizeParentPortalProfile(authUser, parentLinks)
+    }
+
     if (data?.role === 'super_admin') {
       const memberships = await getUserClubMemberships(authUser)
+
+      if (hasParentAccess && !selectedAccessMode) {
+        return {
+          requiresAccessModeSelection: true,
+          accessModeOptions: [
+            { id: 'platform_admin', label: 'Platform Admin', meta: 'Open platform administration tools' },
+            { id: 'parent', label: 'Parent / Friends and Family', meta: 'Open linked child access only' },
+          ],
+        }
+      }
 
       return normalizeUserProfile({
         ...data,
         email: data.email || authUser.email,
         clubOptions: memberships,
+        parentPortalLinks: parentLinks,
       })
     }
 
@@ -567,10 +582,6 @@ export async function fetchUserProfile(authUser, options = {}) {
           { id: 'parent', label: 'Parent', meta: 'Open linked child access only' },
         ],
       }
-    }
-
-    if (hasParentAccess && selectedAccessMode === 'parent') {
-      return normalizeParentPortalProfile(authUser, parentLinks)
     }
 
     if (memberships.length > 1 && !selectedClubId) {
