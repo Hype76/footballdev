@@ -32,6 +32,7 @@ export function PlayerEvaluationsHistory({
   onSelectAllExportFields,
   onSelectedEmailTemplateChange,
   onSendParentEmail,
+  onSendTestEmail,
   onToggleEvaluationParentContact,
   onToggleExportField,
   page,
@@ -96,6 +97,7 @@ export function PlayerEvaluationsHistory({
                 onSelectAllExportFields={onSelectAllExportFields}
                 onSelectedEmailTemplateChange={onSelectedEmailTemplateChange}
                 onSendParentEmail={onSendParentEmail}
+                onSendTestEmail={onSendTestEmail}
                 onToggleEvaluationParentContact={onToggleEvaluationParentContact}
                 onToggleExportField={onToggleExportField}
                 playerName={playerName}

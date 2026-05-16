@@ -25,6 +25,7 @@ export function EvaluationHistoryCard({
   onSelectAllExportFields,
   onSelectedEmailTemplateChange,
   onSendParentEmail,
+  onSendTestEmail,
   onToggleEvaluationParentContact,
   onToggleExportField,
   playerName,
@@ -55,6 +56,15 @@ export function EvaluationHistoryCard({
         ? 'Parent email is not included in this plan.'
         : availableEmailTemplates.length === 0
           ? 'Create an email template before emailing parents.'
+          : undefined
+  const testEmailDisabledReason = emailSendingId === `test:${evaluation.id}`
+    ? 'Please wait while the test email is being sent.'
+    : !canShare
+      ? 'You can only send tests for assessments you are allowed to view or edit.'
+      : !user?.email
+        ? 'Your account email is not available, so the test cannot be sent.'
+        : !hasPlanFeature(user, 'parentEmail')
+          ? 'Parent and player email is not included in this plan.'
           : undefined
   const removePlayerDisabledReason = isDeleting ? 'Please wait while this player is being removed.' : undefined
 
@@ -123,7 +133,7 @@ export function EvaluationHistoryCard({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto_auto] xl:items-end">
+      <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto_auto_auto] xl:items-end">
         {availableEmailTemplates.length > 0 ? (
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
@@ -174,15 +184,26 @@ export function EvaluationHistoryCard({
           selectedResponseItems={selectedResponseItems}
         />
         {!isDemoAccount ? (
-          <button
-            type="button"
-            onClick={() => onSendParentEmail(evaluation)}
-            disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
-            title={emailParentsDisabledReason || 'Email parents'}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => onSendTestEmail(evaluation)}
+              disabled={emailSendingId === `test:${evaluation.id}` || !canShare || !user?.email || !hasPlanFeature(user, 'parentEmail')}
+              title={testEmailDisabledReason || 'Send a test copy to your email address'}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {emailSendingId === `test:${evaluation.id}` ? 'Sending...' : 'Test Email'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onSendParentEmail(evaluation)}
+              disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
+              title={emailParentsDisabledReason || 'Email parents'}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
+            </button>
+          </>
         ) : null}
         {canEditEvaluation(user, evaluation) ? (
           <button
@@ -306,7 +327,7 @@ function EvaluationExportFields({
   selectedResponseItems,
 }) {
   return (
-    <div className="xl:col-span-6">
+    <div className="xl:col-span-7">
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>

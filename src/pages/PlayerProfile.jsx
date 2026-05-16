@@ -28,6 +28,7 @@ import {
   getSelectedEvaluationResponses,
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
+import { buildAssessmentPdfHtml } from '../lib/assessment-pdf-html.js'
 import {
   buildFieldMovement,
   buildMergeDetailFields,
@@ -540,6 +541,90 @@ export function PlayerProfile() {
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not prepare the parent email.')
+    }
+  }
+
+  const handleSendTestEmail = async (evaluation) => {
+    if (emailSendingId) {
+      return
+    }
+
+    setErrorMessage('')
+
+    try {
+      if (!hasPlanFeature(user, 'parentEmail')) {
+        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+        return
+      }
+
+      if (!user?.email) {
+        setErrorMessage('Your account email is not available, so the test email cannot be sent.')
+        return
+      }
+
+      const responses = getSelectedExportResponseItems(evaluation)
+      const recipientName = user.displayName || user.username || user.name || user.email
+      const teamName = user.emailTeamName || evaluation.team
+      const clubName = user.emailClubName || user.clubName
+
+      setEmailSendingId(`test:${evaluation.id}`)
+      await sendParentEmail({
+        clubId: user.clubId,
+        userId: user.id,
+        parentEmail: user.email,
+        parentName: recipientName,
+        senderEmail: user.email,
+        displayName: recipientName,
+        team: teamName,
+        club: clubName,
+        section: evaluation.section,
+        session: evaluation.session,
+        planKey: user.planKey,
+        logoUrl: user.clubLogoUrl || null,
+        replyToEmail: user.replyToEmail || user.clubContactEmail,
+        clubContactEmail: user.clubContactEmail,
+        playerName: routePlayerName,
+        responses,
+        subject: `Test assessment copy for ${routePlayerName}`,
+        emailBody: `This is a test copy of the saved assessment for ${routePlayerName}. It was sent only to your signed-in account.`,
+        pdfHtml: buildAssessmentPdfHtml({
+          clubName,
+          playerName: routePlayerName,
+          teamName,
+          section: evaluation.section,
+          session: evaluation.session,
+          logoUrl: user.clubLogoUrl || null,
+          responseItems: responses,
+        }),
+        evaluationId: evaluation.id,
+        attachPdf: true,
+      })
+
+      showToast({ title: 'Test email sent', message: `Sent to ${user.email}.` })
+
+      const playerId = evaluation.playerId || primaryPlayer?.id
+      await createCommunicationLog({
+        user,
+        playerId,
+        evaluationId: evaluation.id,
+        channel: 'email',
+        action: 'test_email_sent',
+        recipientEmail: user.email,
+      })
+
+      if (playerId) {
+        const nextActivity = await getPlayerCommunicationLogs({ user, playerId })
+        setActivityLogs(nextActivity)
+      }
+    } catch (error) {
+      console.error(error)
+      showToast({
+        title: 'Test email not sent',
+        message: error.message || 'The test email could not be sent right now. Try again in a moment.',
+        tone: 'error',
+      })
+    } finally {
+      setEmailSendingId('')
     }
   }
 
@@ -1325,6 +1410,7 @@ export function PlayerProfile() {
           }))
         }
         onSendParentEmail={(evaluation) => void handleSendParentEmail(evaluation)}
+        onSendTestEmail={(evaluation) => void handleSendTestEmail(evaluation)}
         onToggleEvaluationParentContact={handleToggleEvaluationParentContact}
         onToggleExportField={handleToggleExportField}
         page={evaluationPage}
