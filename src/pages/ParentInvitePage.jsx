@@ -20,6 +20,19 @@ function getFriendlySignupError(error) {
   return rawMessage || 'Parent account could not be created.'
 }
 
+async function withTimeout(promise, message, timeoutMs = 15000) {
+  let timeoutId
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 function ParentShell({ children }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#030603] px-4 py-8 text-white">
@@ -58,7 +71,12 @@ export function ParentInvitePage() {
       }
 
       try {
-        const response = await fetch(`/.netlify/functions/get-parent-invite?token=${encodeURIComponent(token)}`)
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 15000)
+        const response = await fetch(`/.netlify/functions/get-parent-invite?token=${encodeURIComponent(token)}`, {
+          signal: controller.signal,
+        })
+        window.clearTimeout(timeoutId)
         const result = await response.json().catch(() => ({}))
 
         if (!response.ok || result.success === false || !result.invite) {
@@ -72,7 +90,9 @@ export function ParentInvitePage() {
       } catch (error) {
         console.error(error)
         if (isMounted) {
-          setErrorMessage(error.message || 'Parent invite details could not be loaded.')
+          setErrorMessage(error.name === 'AbortError'
+            ? 'Parent invite details took too long to load. Refresh the page and try again.'
+            : error.message || 'Parent invite details could not be loaded.')
         }
       } finally {
         if (isMounted) {
@@ -101,10 +121,17 @@ export function ParentInvitePage() {
       setErrorMessage('')
 
       try {
-        const link = await acceptParentPortalInvite(token)
-        await selectAccessMode('parent')
+        const link = await withTimeout(
+          acceptParentPortalInvite(token),
+          'Parent access took too long to open. Refresh the page and try again.',
+        )
+        await withTimeout(
+          selectAccessMode('parent'),
+          'Parent workspace took too long to open. Refresh the page and try again.',
+        )
         if (isMounted) {
           setAcceptedLink(link)
+          window.location.assign('/parent-portal')
         }
       } catch (error) {
         console.error(error)
