@@ -53,6 +53,7 @@ const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
 const ParentEmailTemplatesPage = lazyRoute(() => import('../pages/ParentEmailTemplatesPage.jsx'), 'ParentEmailTemplatesPage')
 const ParentInvitePage = lazyRoute(() => import('../pages/ParentInvitePage.jsx'), 'ParentInvitePage')
+const ParentLoginPage = lazyRoute(() => import('../pages/ParentLoginPage.jsx'), 'ParentLoginPage')
 const ParentLinkingPage = lazyRoute(() => import('../pages/ParentLinkingPage.jsx'), 'ParentLinkingPage')
 const ParentPortalPage = lazyRoute(() => import('../pages/ParentPortalPage.jsx'), 'ParentPortalPage')
 const FriendsFamilyPage = lazyRoute(() => import('../pages/FriendsFamilyPage.jsx'), 'FriendsFamilyPage')
@@ -632,6 +633,14 @@ export const router = createBrowserRouter([
     element: (
       <PageSuspense>
         <ParentInvitePage />
+      </PageSuspense>
+    ),
+  },
+  {
+    path: '/parent-login',
+    element: (
+      <PageSuspense>
+        <ParentLoginPage />
       </PageSuspense>
     ),
   },

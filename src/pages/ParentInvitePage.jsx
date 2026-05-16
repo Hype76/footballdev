@@ -1,16 +1,89 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useAuth } from '../lib/auth.js'
 import { acceptParentPortalInvite } from '../lib/supabase.js'
 
+function getFriendlySignupError(error) {
+  const rawMessage = String(error?.message ?? '').trim()
+  const normalizedMessage = rawMessage.toLowerCase()
+
+  if (normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists')) {
+    return 'An account already exists for this email. Use parent login to open the child link.'
+  }
+
+  if (normalizedMessage.includes('rate limit')) {
+    return 'Too many confirmation emails have been sent. Please wait a few minutes, then try again.'
+  }
+
+  return rawMessage || 'Parent account could not be created.'
+}
+
+function ParentShell({ children }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#030603] px-4 py-8 text-white">
+      <div className="pointer-events-none fixed inset-0 bg-[#071008]" />
+      <div className="relative w-full max-w-xl rounded-lg border border-white/10 bg-[#0b130d]/95 p-5 shadow-2xl shadow-black/40 sm:p-6">
+        {children}
+      </div>
+    </main>
+  )
+}
+
 export function ParentInvitePage() {
   const { token } = useParams()
-  const { isLoading, selectAccessMode, session } = useAuth()
+  const { isLoading, selectAccessMode, session, signUpParentAccount } = useAuth()
+  const submitLockRef = useRef(false)
   const [acceptedLink, setAcceptedLink] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
+  const [invite, setInvite] = useState(null)
   const [isAccepting, setIsAccepting] = useState(false)
+  const [isInviteLoading, setIsInviteLoading] = useState(true)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [message, setMessage] = useState('')
+  const [password, setPassword] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadInvite = async () => {
+      if (!token) {
+        setErrorMessage('Parent invite token is missing.')
+        setIsInviteLoading(false)
+        return
+      }
+
+      try {
+        const response = await fetch(`/.netlify/functions/get-parent-invite?token=${encodeURIComponent(token)}`)
+        const result = await response.json().catch(() => ({}))
+
+        if (!response.ok || result.success === false || !result.invite) {
+          throw new Error(result.message || 'Parent invite details could not be loaded.')
+        }
+
+        if (isMounted) {
+          setInvite(result.invite)
+        }
+      } catch (error) {
+        console.error(error)
+        if (isMounted) {
+          setErrorMessage(error.message || 'Parent invite details could not be loaded.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsInviteLoading(false)
+        }
+      }
+    }
+
+    void loadInvite()
+
+    return () => {
+      isMounted = false
+    }
+  }, [token])
 
   useEffect(() => {
     let isMounted = true
@@ -48,50 +121,137 @@ export function ParentInvitePage() {
     }
   }, [selectAccessMode, session?.user, token])
 
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+
+    if (submitLockRef.current || !invite?.email) {
+      return
+    }
+
+    submitLockRef.current = true
+    setIsSubmitting(true)
+    setErrorMessage('')
+    setMessage('')
+
+    try {
+      const result = await signUpParentAccount({
+        email: invite.email,
+        password,
+        inviteToken: token,
+      })
+
+      if (result?.needsEmailVerification) {
+        setPassword('')
+        setMessage('Parent account created. Check your email, confirm the account, then log in on the parent login page.')
+      } else {
+        window.location.assign(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&created=1`)
+      }
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(getFriendlySignupError(error))
+    } finally {
+      submitLockRef.current = false
+      setIsSubmitting(false)
+    }
+  }
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)]">
-      <div className="w-full max-w-xl rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-sm shadow-black/20 sm:p-6">
-        <img src={fallbackLogo} alt="Player Feedback" className="h-16 w-16 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] object-contain p-1" />
-        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Parent Portal</p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Open parent access</h1>
+    <ParentShell>
+      <img src={fallbackLogo} alt="Player Feedback" className="h-16 w-16 rounded-lg border border-[#d8ff2f]/25 bg-black/40 object-contain p-1" />
+      <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-[#d8ff2f]">Parent Portal</p>
+      <h1 className="mt-3 text-2xl font-semibold tracking-tight">Create parent access</h1>
 
-        {!session?.user && !isLoading ? (
-          <div className="mt-5 space-y-4">
-            <p className="text-sm leading-6 text-[var(--text-muted)]">
-              Log in or create an account first, then open this link again to connect the child to your parent portal.
-            </p>
-            <Link
-              to={`/login?parentInvite=${encodeURIComponent(token || '')}`}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)]"
-            >
-              Login or Sign Up
-            </Link>
+      {isInviteLoading || isLoading || isAccepting ? (
+        <p className="mt-5 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
+          Opening parent invite...
+        </p>
+      ) : null}
+
+      {invite && !session?.user && !acceptedLink ? (
+        <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-sm font-semibold text-white">{invite.playerName || 'Child access'}</p>
+            <p className="mt-1 text-xs text-slate-400">{invite.teamName || 'Team'} | {invite.clubName || 'Club'}</p>
           </div>
-        ) : null}
 
-        {isLoading || isAccepting ? (
-          <p className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            Opening parent access...
-          </p>
-        ) : null}
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-200">Email</span>
+            <input
+              type="email"
+              value={invite.email}
+              readOnly
+              className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-slate-300 outline-none"
+            />
+          </label>
 
-        {errorMessage ? <div className="mt-5"><NoticeBanner title="Parent access not opened" message={errorMessage} /></div> : null}
-
-        {acceptedLink ? (
-          <div className="mt-5 space-y-4">
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">{acceptedLink.playerName}</p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">{acceptedLink.teamName || 'No team'} | {acceptedLink.clubName || 'No club'}</p>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-200">Create password</span>
+            <div className="flex rounded-lg border border-white/10 bg-[#101b12] focus-within:border-[#d8ff2f]">
+              <input
+                type={isPasswordVisible ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                  setErrorMessage('')
+                  setMessage('')
+                }}
+                required
+                minLength={6}
+                autoComplete="new-password"
+                placeholder="Create a password"
+                className="min-h-12 min-w-0 flex-1 rounded-l-lg bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+              />
+              <button
+                type="button"
+                onClick={() => setIsPasswordVisible((current) => !current)}
+                className="min-h-12 rounded-r-lg px-4 py-3 text-sm font-bold text-[#d8ff2f]"
+              >
+                {isPasswordVisible ? 'Hide' : 'Show'}
+              </button>
             </div>
-            <Link
-              to="/parent-portal"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)]"
-            >
-              Open Parent Portal
-            </Link>
+          </label>
+
+          {errorMessage ? <NoticeBanner title="Parent access not created" message={errorMessage} /> : null}
+
+          {message ? (
+            <div className="rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
+              {message}
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !invite.email}
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? 'Creating account...' : 'Create Parent Account'}
+          </button>
+
+          <Link
+            to={`/parent-login?parentInvite=${encodeURIComponent(token || '')}`}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08]"
+          >
+            Already have parent access?
+          </Link>
+        </form>
+      ) : null}
+
+      {errorMessage && (!invite || session?.user) ? <div className="mt-5"><NoticeBanner title="Parent access not opened" message={errorMessage} /></div> : null}
+
+      {acceptedLink ? (
+        <div className="mt-5 space-y-4">
+          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-sm font-semibold text-white">{acceptedLink.playerName}</p>
+            <p className="mt-1 text-xs text-slate-400">{acceptedLink.teamName || 'No team'} | {acceptedLink.clubName || 'No club'}</p>
           </div>
-        ) : null}
-      </div>
-    </main>
+          <Link
+            to="/parent-portal"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#d8ff2f] px-4 py-3 text-sm font-semibold text-black"
+          >
+            Open Parent Portal
+          </Link>
+        </div>
+      ) : null}
+    </ParentShell>
   )
 }

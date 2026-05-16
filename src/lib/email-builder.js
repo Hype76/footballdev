@@ -311,9 +311,9 @@ export function buildParentPortalInviteHtml({
       <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Parent portal invite</p>
       <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.25;">${escapeHtml(resolvedClub)} has invited you</h1>
       <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to view parent updates for ${escapeHtml(resolvedPlayer)} in ${escapeHtml(resolvedTeam)}.</p>
-      <p style="margin: 0 0 22px; font-size: 15px;">Open the link below, then log in or create your parent account to accept access.</p>
+      <p style="margin: 0 0 22px; font-size: 15px;">Open the link below, create your parent password, then confirm your email address. After confirmation, you will return to the parent login page.</p>
       <p style="margin: 0 0 22px;">
-        <a href="${escapeHtml(inviteUrl)}" style="display: inline-block; background: #f7d74b; color: #142018; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 10px;">Open Parent Portal</a>
+        <a href="${escapeHtml(inviteUrl)}" style="display: inline-block; background: #f7d74b; color: #142018; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 10px;">Create Parent Access</a>
       </p>
       <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">If the button does not work, copy and paste this link into your browser:</p>
       <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(inviteUrl)}</p>

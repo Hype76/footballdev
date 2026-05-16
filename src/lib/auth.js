@@ -741,7 +741,9 @@ export function AuthProvider({ children }) {
     const normalizedEmail = String(email ?? '').trim()
     const normalizedInviteToken = String(inviteToken ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
-    const invitePath = normalizedInviteToken ? `/parent-invite/${normalizedInviteToken}` : '/login'
+    const invitePath = normalizedInviteToken
+      ? `/parent-login?parentInvite=${encodeURIComponent(normalizedInviteToken)}&confirmed=1`
+      : '/parent-login'
     const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}${invitePath}`
 
     const { data, error } = await supabase.auth.signUp({
