@@ -327,7 +327,8 @@ export function mergeEmailTemplatesWithDefaults(savedTemplates = [], audience = 
       return {
         ...defaultTemplate,
         ...(savedTemplate ?? {}),
-        isDefaultTemplate: !savedTemplate?.id,
+        isCustom: false,
+        isDefaultTemplate: true,
       }
     })
     const customTemplates = savedTemplatesList
