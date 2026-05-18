@@ -660,6 +660,10 @@ export function CreateEvaluationPage() {
       }),
     [formData.parentContacts, formData.parentEmail, formData.parentName, normalizedContactType],
   )
+  const savedParentContacts = useMemo(
+    () => normalizeParentContacts(formData.parentContacts, { contactType: normalizedContactType }),
+    [formData.parentContacts, normalizedContactType],
+  )
   const selectedParentContacts = useMemo(() => {
     const selectedContacts = parentContacts.filter((_, index) => selectedParentContactIndexes.includes(index))
     return selectedContacts.length > 0 ? selectedContacts : parentContacts.slice(0, 1)
@@ -1113,7 +1117,7 @@ export function CreateEvaluationPage() {
                 formData={formData}
                 onFieldChange={handleFieldChange}
                 onToggleParentContact={handleToggleParentContact}
-                parentContacts={parentContacts}
+                parentContacts={savedParentContacts}
                 readableSession={readableSession}
                 savedPlayers={savedPlayers}
                 selectedParentContactIndexes={selectedParentContactIndexes}
