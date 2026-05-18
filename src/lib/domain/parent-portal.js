@@ -55,6 +55,7 @@ function normalizeParentPortalMessage(row) {
     club: String(metadata.club ?? '').trim(),
     hasAttachment: metadata.hasAttachment === true,
     assessmentFields: Array.isArray(metadata.assessmentFields) ? metadata.assessmentFields : [],
+    readAt: row.read_at ?? '',
     createdAt: row.created_at ?? '',
   }
 }
@@ -91,6 +92,27 @@ export async function getParentPortalMessages({ parentLinkId }) {
   }
 
   return (data ?? []).map(normalizeParentPortalMessage)
+}
+
+export async function markParentPortalMessageRead({ parentLinkId, messageId }) {
+  const normalizedParentLinkId = String(parentLinkId ?? '').trim()
+  const normalizedMessageId = String(messageId ?? '').trim()
+
+  if (!normalizedParentLinkId || !normalizedMessageId) {
+    return ''
+  }
+
+  const { data, error } = await supabase.rpc('mark_parent_portal_message_read', {
+    parent_link_id_value: normalizedParentLinkId,
+    communication_log_id_value: normalizedMessageId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return data ?? new Date().toISOString()
 }
 
 export async function acceptParentPortalInvite(token) {

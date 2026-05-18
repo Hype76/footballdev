@@ -1,7 +1,18 @@
+import { useState } from 'react'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { formatActivityDate, getActivityLabel } from '../../hooks/players/playerProfileUtils.js'
 import { formatRetentionDate, getRetentionCountdownLabel } from '../../lib/retention.js'
 import { MicIcon } from '../icons/MicIcon.jsx'
+import {
+  getMessageAssessmentFields,
+  getMessageBody,
+  getMessageClubLabel,
+  getMessagePlayerLabel,
+  getMessageSubject,
+  getMessageTeamLabel,
+  getMessageTemplateName,
+  messageHasAttachment,
+} from '../../lib/email-message-display.js'
 
 export function PlayerStaffActivity({
   activityLogs,
@@ -18,6 +29,7 @@ export function PlayerStaffActivity({
   primaryPlayer,
   staffNotes,
 }) {
+  const [openActivityId, setOpenActivityId] = useState('')
   const saveNoteDisabledReason = isSavingNote
     ? 'Please wait while this note is being saved.'
     : isSavingVoiceNote
@@ -129,20 +141,120 @@ export function PlayerStaffActivity({
               </div>
             ) : (
               activityLogs.slice(0, 10).map((log) => (
-                <div key={log.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{getActivityLabel(log)}</p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
-                  </p>
-                  {log.recipientEmail ? (
-                    <p className="mt-1 break-words text-xs text-[var(--text-muted)]">Recipient: {log.recipientEmail}</p>
-                  ) : null}
-                </div>
+                <ActivityCard
+                  key={log.id}
+                  isOpen={openActivityId === log.id}
+                  log={log}
+                  onToggle={() => setOpenActivityId((currentId) => (currentId === log.id ? '' : log.id))}
+                />
               ))
             )}
           </div>
         </div>
       </div>
     </SectionCard>
+  )
+}
+
+function ActivityCard({ isOpen, log, onToggle }) {
+  const isEmail = log.channel === 'email' && log.action === 'parent_email_sent'
+
+  if (!isEmail) {
+    return (
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{getActivityLabel(log)}</p>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
+        </p>
+        {log.recipientEmail ? (
+          <p className="mt-1 break-words text-xs text-[var(--text-muted)]">Recipient: {log.recipientEmail}</p>
+        ) : null}
+      </div>
+    )
+  }
+
+  const assessmentFields = getMessageAssessmentFields(log)
+  const body = getMessageBody(log)
+  const clubLabel = getMessageClubLabel(log)
+  const playerLabel = getMessagePlayerLabel(log)
+  const subject = getMessageSubject(log)
+  const teamLabel = getMessageTeamLabel(log)
+  const templateName = getMessageTemplateName(log)
+
+  return (
+    <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)]">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="block w-full px-4 py-3 text-left transition hover:bg-[var(--panel-soft)]"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{subject}</p>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
+            </p>
+            {log.recipientEmail ? (
+              <p className="mt-1 break-words text-xs text-[var(--text-muted)]">Recipient: {log.recipientEmail}</p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {messageHasAttachment(log) ? (
+              <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+                PDF attached
+              </span>
+            ) : null}
+            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              {isOpen ? 'Hide email' : 'View email'}
+            </span>
+          </div>
+        </div>
+      </button>
+
+      {isOpen ? (
+        <div className="border-t border-[var(--border-color)] px-4 py-4">
+          <div className="grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-2">
+            {templateName ? <InfoLine label="Template" value={templateName} /> : null}
+            {playerLabel ? <InfoLine label="Player" value={playerLabel} /> : null}
+            {teamLabel ? <InfoLine label="Team" value={teamLabel} /> : null}
+            {clubLabel ? <InfoLine label="Club" value={clubLabel} /> : null}
+          </div>
+
+          <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+            {body ? (
+              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{body}</p>
+            ) : (
+              <p className="text-sm leading-6 text-[var(--text-muted)]">No email body was recorded for this message.</p>
+            )}
+          </div>
+
+          {assessmentFields.length > 0 ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Assessment details</p>
+              {assessmentFields.map((field) => (
+                <div key={field.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    {field.label}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm text-[var(--text-muted)]">
+                    {String(field.value ?? '')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  )
+}
+
+function InfoLine({ label, value }) {
+  return (
+    <p className="break-words">
+      <span className="font-semibold text-[var(--text-secondary)]">{label}: </span>
+      {value}
+    </p>
   )
 }

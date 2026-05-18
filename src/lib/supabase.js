@@ -89,6 +89,7 @@ export {
   getParentLinksForPlayer,
   getParentPortalLinks,
   getParentPortalMessages,
+  markParentPortalMessageRead,
   revokeFamilyPortalLink,
   revokeParentPortalLink,
 } from './domain/parent-portal.js'

@@ -2,13 +2,21 @@ import { useEffect, useState } from 'react'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useAuth } from '../lib/auth.js'
-import { getParentPortalMessages } from '../lib/supabase.js'
+import { getParentPortalMessages, markParentPortalMessageRead } from '../lib/supabase.js'
+import {
+  getMessageAssessmentFields,
+  getMessageBody,
+  getMessageSubject,
+  getMessageTemplateName,
+  messageHasAttachment,
+} from '../lib/email-message-display.js'
 
 export function ParentPortalPage() {
   const { user } = useAuth()
   const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [messages, setMessages] = useState([])
+  const [openMessageId, setOpenMessageId] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [messageError, setMessageError] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId)
@@ -55,6 +63,36 @@ export function ParentPortalPage() {
     }
   }, [selectedLink?.id])
 
+  useEffect(() => {
+    setOpenMessageId('')
+  }, [selectedLink?.id])
+
+  const handleToggleMessage = async (message) => {
+    const nextOpenMessageId = openMessageId === message.id ? '' : message.id
+    setOpenMessageId(nextOpenMessageId)
+
+    if (!nextOpenMessageId || message.readAt || !selectedLink?.id) {
+      return
+    }
+
+    try {
+      const readAt = await markParentPortalMessageRead({
+        parentLinkId: selectedLink.id,
+        messageId: message.id,
+      })
+
+      setMessages((currentMessages) =>
+        currentMessages.map((currentMessage) =>
+          currentMessage.id === message.id
+            ? { ...currentMessage, readAt: readAt || new Date().toISOString() }
+            : currentMessage,
+        ),
+      )
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -90,7 +128,12 @@ export function ParentPortalPage() {
         ) : messages.length > 0 ? (
           <div className="space-y-3">
             {messages.map((message) => (
-              <MessageCard key={message.id} message={message} />
+              <MessageCard
+                key={message.id}
+                isOpen={openMessageId === message.id}
+                message={message}
+                onToggle={() => void handleToggleMessage(message)}
+              />
             ))}
           </div>
         ) : (
@@ -121,44 +164,84 @@ export function ParentPortalPage() {
   )
 }
 
-function MessageCard({ message }) {
+function MessageCard({ isOpen, message, onToggle }) {
+  const assessmentFields = getMessageAssessmentFields(message)
+  const body = getMessageBody(message)
+  const hasAttachment = messageHasAttachment(message)
+  const templateName = getMessageTemplateName(message)
+  const subject = getMessageSubject(message)
+  const isUnread = !message.readAt
+
   return (
-    <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[var(--text-primary)]">
-            {message.subject || 'Email from the club'}
-          </p>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {formatMessageDate(message.createdAt)} | {message.senderName || message.senderEmail || 'Club staff'}
-          </p>
+    <article className={`rounded-lg border bg-[var(--panel-alt)] transition ${
+      isUnread ? 'border-[var(--accent)]' : 'border-[var(--border-color)]'
+    }`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="block w-full px-4 py-4 text-left transition hover:bg-[var(--panel-soft)]"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              {subject}
+            </p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {formatMessageDate(message.createdAt)} | {message.senderName || message.senderEmail || 'Club staff'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {isUnread ? (
+              <span className="inline-flex w-fit rounded-full border border-[var(--accent)] bg-[var(--accent)] px-3 py-1 text-xs font-semibold text-black">
+                Unread
+              </span>
+            ) : null}
+            {hasAttachment ? (
+              <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+                PDF attached
+              </span>
+            ) : null}
+            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              {isOpen ? 'Hide email' : 'View email'}
+            </span>
+          </div>
         </div>
-        {message.hasAttachment ? (
-          <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
-            PDF attached
-          </span>
-        ) : null}
-      </div>
+      </button>
 
-      {message.body ? (
-        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">
-          {message.body}
-        </p>
-      ) : null}
+      {isOpen ? (
+        <div className="min-w-0">
+          <div className="border-t border-[var(--border-color)] px-4 py-4">
+            {templateName ? (
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                {templateName}
+              </p>
+            ) : null}
 
-      {message.assessmentFields.length > 0 ? (
-        <div className="mt-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Assessment details</p>
-          {message.assessmentFields.map((field) => (
-            <div key={field.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                {field.label}
+            {body ? (
+              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">
+                {body}
               </p>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm text-[var(--text-muted)]">
-                {String(field.value ?? '')}
-              </p>
-            </div>
-          ))}
+            ) : (
+              <p className="text-sm leading-6 text-[var(--text-muted)]">No email body was recorded for this message.</p>
+            )}
+
+            {assessmentFields.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Assessment details</p>
+                {assessmentFields.map((field) => (
+                  <div key={field.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                      {field.label}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-[var(--text-muted)]">
+                      {String(field.value ?? '')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </article>
