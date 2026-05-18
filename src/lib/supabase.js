@@ -52,6 +52,7 @@ export {
 
 export {
   createClubRole,
+  createStaffInvite,
   createStaffUserWithPassword,
   deleteClubInvite,
   assignClubUserRole,

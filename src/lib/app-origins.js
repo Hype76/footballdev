@@ -35,6 +35,12 @@ export function getMainAppOrigin() {
   return currentOrigin
 }
 
+export function buildMainAppUrl(path = '/') {
+  const normalizedPath = String(path ?? '/').startsWith('/') ? String(path ?? '/') : `/${path}`
+
+  return `${getMainAppOrigin()}${normalizedPath}`
+}
+
 export function getParentAppOrigin() {
   const configuredOrigin = cleanOrigin(import.meta.env.VITE_PARENT_APP_URL)
 

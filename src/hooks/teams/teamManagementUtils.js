@@ -1,6 +1,5 @@
 export const initialCoachForm = {
   email: '',
-  password: '',
   teamId: '',
   roleKey: 'coach',
   customRoleLabel: '',

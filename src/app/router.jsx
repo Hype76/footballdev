@@ -66,6 +66,7 @@ const PlatformClubManagementPage = lazyRoute(() => import('../pages/PlatformClub
 const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPage.jsx'), 'PlatformFeedbackPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
+const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
 const TermsPage = lazyRoute(() => import('../pages/TermsPage.jsx'), 'TermsPage')
 const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
@@ -641,6 +642,14 @@ export const router = createBrowserRouter([
   {
     path: '/invite/:token',
     element: <NavigateToParentInvite />,
+  },
+  {
+    path: '/staff-invite/:token',
+    element: (
+      <Suspense fallback={null}>
+        <StaffInvitePage />
+      </Suspense>
+    ),
   },
   {
     path: '/portal',

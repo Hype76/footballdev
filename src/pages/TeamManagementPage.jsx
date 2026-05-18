@@ -25,7 +25,7 @@ import {
   verifyCurrentUserPassword,
 } from '../lib/auth.js'
 import {
-  createStaffUserWithPassword,
+  createStaffInvite,
   createClubRole,
   createTeam,
   deleteTeam,
@@ -70,7 +70,6 @@ export function TeamManagementPage() {
   const [teamPage, setTeamPage] = useState(1)
   const [staffPage, setStaffPage] = useState(1)
   const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
-  const [isCoachPasswordVisible, setIsCoachPasswordVisible] = useState(false)
   const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0 && roles.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -389,27 +388,18 @@ export function TeamManagementPage() {
         throw new Error('This email already has access to the selected team.')
       }
 
-      const createdStaff = await createStaffUserWithPassword({
+      const createdStaff = await createStaffInvite({
         user,
         email: coachForm.email,
-        password: coachForm.password,
         role: selectedRole,
+        teamId: selectedTeamId,
       })
 
       let nextAssignments = assignments
-      const createdStaffId = createdStaff?.profile?.id || createdStaff?.id || ''
-
-      if (selectedTeamId && createdStaffId) {
-        const nextStaffIds = [...new Set([...(currentTeam?.staffIds ?? []), createdStaffId])]
-        const savedAssignments = await replaceTeamStaffAssignments(selectedTeamId, nextStaffIds)
-        nextAssignments = [...assignments.filter((assignment) => assignment.teamId !== selectedTeamId), ...savedAssignments]
-        setAssignments(nextAssignments)
-      }
 
       await refreshUsersAndRoles()
       setCoachForm({
         email: '',
-        password: '',
         teamId: '',
         roleKey: selectedRole.roleKey || 'coach',
         customRoleLabel: '',
@@ -417,12 +407,12 @@ export function TeamManagementPage() {
       writeTeamCache({
         assignments: nextAssignments,
       })
-      setMessage('Staff access created.')
+      setMessage(createdStaff.kind === 'invite' ? 'Staff invite sent.' : 'Staff access updated.')
       showToast({
-        title: 'Staff access created',
-        message: selectedTeamId
-          ? `${coachForm.email} can now log in and access the selected team.`
-          : `${coachForm.email} can now log in with the initial password.`,
+        title: createdStaff.kind === 'invite' ? 'Staff invite sent' : 'Staff access updated',
+        message: createdStaff.kind === 'invite'
+          ? `${coachForm.email} has been sent a staff invite.`
+          : `${coachForm.email} can now access the selected team.`,
       })
     } catch (error) {
       console.error(error)
@@ -627,11 +617,9 @@ export function TeamManagementPage() {
         assignableRoles={assignableRoles}
         canCreateMoreStaff={canCreateMoreStaff}
         coachForm={coachForm}
-        isCoachPasswordVisible={isCoachPasswordVisible}
         isSaving={isSaving}
         onCoachFormChange={handleCoachFormChange}
         onCreateCoach={handleCreateCoach}
-        onTogglePasswordVisibility={() => setIsCoachPasswordVisible((current) => !current)}
         staffLimitMessage={staffLimitMessage}
         teams={teams}
       />

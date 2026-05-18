@@ -2,6 +2,7 @@ export {
   assignClubUserRole,
   canUpdateClubUserName,
   canRemoveClubUser,
+  createStaffInvite,
   createStaffUserWithPassword,
   deleteClubInvite,
   getDefaultClubRoles,

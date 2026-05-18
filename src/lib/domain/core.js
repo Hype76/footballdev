@@ -160,6 +160,24 @@ async function upsertClubMembershipFromInvite(authUser, invite) {
     throw error
   }
 
+  if (invite.teamId) {
+    const { error: teamStaffError } = await supabase
+      .from('team_staff')
+      .upsert(
+        {
+          team_id: invite.teamId,
+          user_id: authUser.id,
+        },
+        {
+          onConflict: 'team_id,user_id',
+        },
+      )
+
+    if (teamStaffError) {
+      console.error(teamStaffError)
+    }
+  }
+
   return normalizeClubMembershipRow(data)
 }
 
@@ -175,6 +193,7 @@ async function claimInvitedUserProfiles(authUser) {
     .select('*')
     .eq('email', normalizedEmail)
     .is('accepted_at', null)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
 
   if (inviteError) {
     console.error(inviteError)

@@ -1,4 +1,5 @@
 import { formatUkDate } from './date-format.js'
+import { buildMainAppUrl } from './app-origins.js'
 import { supabase } from './supabase-client.js'
 
 function escapeHtml(value) {
@@ -332,6 +333,74 @@ export async function sendParentPortalInvite(data) {
 
   if (!response.ok) {
     throw new Error(result.message || 'Parent portal invite could not be sent.')
+  }
+
+  return result
+}
+
+export function buildStaffInviteUrl(token) {
+  return buildMainAppUrl(`/staff-invite/${token}`)
+}
+
+export function buildStaffInviteHtml({
+  clubName,
+  inviteUrl,
+  logoUrl,
+  roleLabel,
+  teamName,
+}) {
+  const resolvedClub = String(clubName ?? '').trim() || 'Your club'
+  const resolvedRole = String(roleLabel ?? '').trim() || 'Staff'
+  const resolvedTeam = String(teamName ?? '').trim() || 'your team'
+  const safeLogoUrl = getSafeLogoUrl(logoUrl)
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
+      ${safeLogoUrl ? `<img src="${escapeHtml(safeLogoUrl)}" alt="${escapeHtml(resolvedClub)} logo" style="display: block; max-width: 84px; max-height: 84px; margin: 0 0 18px;" />` : ''}
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Staff invite</p>
+      <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.25;">${escapeHtml(resolvedClub)} has invited you</h1>
+      <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to join ${escapeHtml(resolvedTeam)} as ${escapeHtml(resolvedRole)}.</p>
+      <p style="margin: 0 0 22px; font-size: 15px;">Open the link below and create your password. The role and team access have already been set by the club.</p>
+      <p style="margin: 0 0 22px;">
+        <a href="${escapeHtml(inviteUrl)}" style="display: inline-block; background: #d8ff2f; color: #142018; text-decoration: none; font-weight: 800; padding: 12px 18px; border-radius: 10px;">Create Staff Access</a>
+      </p>
+      <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">This link expires after 7 days. If the button does not work, copy and paste this link into your browser:</p>
+      <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(inviteUrl)}</p>
+      ${buildPoweredByFooterMarkup()}
+    </div>
+  `
+}
+
+export async function sendStaffInvite(data) {
+  const inviteUrl = data.inviteUrl || buildStaffInviteUrl(data.inviteToken)
+  const html = buildStaffInviteHtml({
+    ...data,
+    inviteUrl,
+  })
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+
+  const response = await fetch('/.netlify/functions/send-staff-invite', {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      clubId: data.clubId,
+      displayName: data.displayName,
+      inviteId: data.inviteId,
+      inviteUrl,
+      senderEmail: data.senderEmail,
+      subject: data.subject,
+      html,
+    }),
+  })
+
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Staff invite could not be sent.')
   }
 
   return result

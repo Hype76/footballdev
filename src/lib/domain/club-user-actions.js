@@ -15,6 +15,19 @@ import { normalizeClubInviteRow } from './role-normalizers.js'
 import { normalizeUserProfile } from './profile-normalizers.js'
 import { assertStaffLoginLimitForEmail } from './plan-gates.js'
 import { getTeams } from './team-actions.js'
+import { buildStaffInviteUrl, sendStaffInvite } from '../email-builder.js'
+
+function createUuid() {
+  if (crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
 export async function assignClubUserRole({ user, email, role }) {
   await blockDemoMutation(user)
 
@@ -159,6 +172,151 @@ export async function createStaffUserWithPassword({ user, email, password, role 
   invalidateMemoryCacheByPrefix('visible-club-users:')
 
   return data
+}
+
+export async function createStaffInvite({ user, email, role, teamId = '' }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId) {
+    throw new Error('Club ID is required.')
+  }
+
+  const normalizedEmail = String(email ?? '').trim().toLowerCase()
+
+  if (!normalizedEmail) {
+    throw new Error('Email is required.')
+  }
+
+  const roleKey = normalizeRoleKey(role.roleKey ?? role.key)
+  const roleLabel = normalizeRoleLabel(role.roleLabel ?? role.label, roleKey)
+  const roleRank = normalizeRoleRank(role.roleRank ?? role.rank, roleKey)
+  const normalizedTeamId = String(teamId ?? '').trim() || null
+
+  await assertStaffLoginLimitForEmail({
+    user,
+    email: normalizedEmail,
+  })
+
+  const { data: existingUsers, error: existingUsersError } = await supabase
+    .from('users')
+    .select(USER_PROFILE_SELECT)
+    .eq('club_id', user.clubId)
+    .eq('email', normalizedEmail)
+    .limit(1)
+
+  if (existingUsersError) {
+    console.error(existingUsersError)
+    throw existingUsersError
+  }
+
+  const existingUser = existingUsers?.[0]
+
+  if (existingUser) {
+    const { data: updatedUserRow, error: updateError } = await supabase
+      .from('users')
+      .update({
+        role: roleKey,
+        role_label: roleLabel,
+        role_rank: roleRank,
+      })
+      .eq('id', existingUser.id)
+      .select(USER_PROFILE_SELECT)
+      .single()
+
+    if (updateError) {
+      console.error(updateError)
+      throw updateError
+    }
+
+    if (normalizedTeamId) {
+      const { error: teamStaffError } = await supabase
+        .from('team_staff')
+        .upsert(
+          {
+            team_id: normalizedTeamId,
+            user_id: existingUser.id,
+          },
+          {
+            onConflict: 'team_id,user_id',
+          },
+        )
+
+      if (teamStaffError) {
+        console.error(teamStaffError)
+        throw teamStaffError
+      }
+    }
+
+    invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+    invalidateMemoryCacheByPrefix(`user-access:${user.clubId}`)
+    invalidateMemoryCacheByPrefix('visible-club-users:')
+    invalidateMemoryCacheByPrefix('team-assignments:')
+
+    return {
+      kind: 'user',
+      record: normalizeUserProfile(updatedUserRow),
+    }
+  }
+
+  const inviteToken = createUuid()
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: inviteRow, error: inviteError } = await supabase
+    .from('club_user_invites')
+    .upsert(
+      {
+        club_id: user.clubId,
+        email: normalizedEmail,
+        role_key: roleKey,
+        role_label: roleLabel,
+        role_rank: roleRank,
+        team_id: normalizedTeamId,
+        invite_token: inviteToken,
+        expires_at: expiresAt,
+        accepted_at: null,
+        invite_sent_at: null,
+        created_by: user.id,
+        ...getEntryIdentity(user),
+        updated_by: getEntryUserId(user),
+        ...getEntryIdentity(user, 'updated_by'),
+      },
+      {
+        onConflict: 'club_id,email',
+      },
+    )
+    .select('*')
+    .single()
+
+  if (inviteError) {
+    console.error(inviteError)
+    throw inviteError
+  }
+
+  const invite = normalizeClubInviteRow(inviteRow)
+  const teams = normalizedTeamId ? await getTeams(user).catch(() => []) : []
+  const selectedTeam = teams.find((team) => String(team.id) === normalizedTeamId)
+
+  await sendStaffInvite({
+    clubId: user.clubId,
+    clubName: user.clubName,
+    displayName: user.displayName || user.username || user.name || user.email,
+    inviteId: invite.id,
+    inviteToken: invite.inviteToken,
+    inviteUrl: buildStaffInviteUrl(invite.inviteToken),
+    logoUrl: user.clubLogoUrl,
+    roleLabel,
+    senderEmail: user.email,
+    subject: `${user.clubName || 'Player Feedback'} staff invite`,
+    teamName: selectedTeam?.name || user.activeTeamName || 'your team',
+  })
+
+  invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
+  invalidateMemoryCacheByPrefix(`user-access:${user.clubId}`)
+  invalidateMemoryCacheByPrefix('visible-club-users:')
+
+  return {
+    kind: 'invite',
+    record: invite,
+  }
 }
 
 export function canRemoveClubUser(actor, targetUser) {
