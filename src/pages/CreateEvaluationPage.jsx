@@ -1004,6 +1004,16 @@ export function CreateEvaluationPage() {
             channel: 'email',
             action: 'parent_email_sent',
             recipientEmail: emailJobs.map((emailJob) => emailJob.recipientEmail).join(','),
+            metadata: {
+              subject: emailJobs[0]?.payload?.subject || '',
+              body: emailJobs[0]?.payload?.emailBody || '',
+              templateName: emailJobs.map((emailJob) => emailJob.templateName).join(', '),
+              team: emailJobs[0]?.payload?.team || '',
+              club: emailJobs[0]?.payload?.club || '',
+              playerName: normalizedPlayerName,
+              hasAttachment: isPdfAttachmentApproved,
+              assessmentFields: selectedResponseItems,
+            },
           })
           showToast({ title: 'Email sent successfully' })
         } catch (emailError) {

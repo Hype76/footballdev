@@ -712,6 +712,16 @@ export function PlayerProfile() {
         channel: 'email',
         action: 'parent_email_sent',
         recipientEmail: recipientEmails,
+        metadata: {
+          subject: payloads[0]?.payload?.subject || '',
+          body: payloads[0]?.payload?.emailBody || '',
+          templateName: emailConfirmTarget.templateName || '',
+          team: payloads[0]?.payload?.team || '',
+          club: payloads[0]?.payload?.club || '',
+          playerName: routePlayerName,
+          hasAttachment: attachPdf,
+          assessmentFields: emailConfirmTarget.responses || [],
+        },
       })
 
       if (playerId) {

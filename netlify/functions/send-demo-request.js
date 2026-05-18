@@ -73,6 +73,9 @@ function buildDemoRequestHtml({ name, email, phone, clubTeamName, planName, bill
             </tbody>
           </table>
           <p style="margin: 20px 0 0; color: #4b5563; font-size: 14px;">Reply directly to this email to contact the requester.</p>
+          <div style="border-top: 1px solid #e5e7eb; margin-top: 20px; padding-top: 14px;">
+            <p style="margin: 0; color: #6b7280; font-size: 11px; line-height: 1.45;">Powered by Player Feedback | playerfeedback.online</p>
+          </div>
         </div>
       </div>
     </div>

@@ -38,6 +38,27 @@ function buildInviteUrl(token) {
   return `${origin}/parent-invite/${token}`
 }
 
+function normalizeParentPortalMessage(row) {
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {}
+
+  return {
+    id: row.id,
+    playerId: row.player_id ?? '',
+    evaluationId: row.evaluation_id ?? '',
+    senderName: String(row.sender_name ?? '').trim(),
+    senderEmail: normalizeEmail(row.sender_email),
+    recipientEmail: String(row.recipient_email ?? '').trim(),
+    subject: String(metadata.subject ?? '').trim(),
+    body: String(metadata.body ?? '').trim(),
+    templateName: String(metadata.templateName ?? '').trim(),
+    team: String(metadata.team ?? '').trim(),
+    club: String(metadata.club ?? '').trim(),
+    hasAttachment: metadata.hasAttachment === true,
+    assessmentFields: Array.isArray(metadata.assessmentFields) ? metadata.assessmentFields : [],
+    createdAt: row.created_at ?? '',
+  }
+}
+
 export async function getParentPortalLinks() {
   const { data, error } = await supabase
     .from('parent_player_links')
@@ -51,6 +72,25 @@ export async function getParentPortalLinks() {
   }
 
   return (data ?? []).map(normalizeParentLink)
+}
+
+export async function getParentPortalMessages({ parentLinkId }) {
+  const normalizedParentLinkId = String(parentLinkId ?? '').trim()
+
+  if (!normalizedParentLinkId) {
+    return []
+  }
+
+  const { data, error } = await supabase.rpc('get_parent_portal_email_messages', {
+    parent_link_id_value: normalizedParentLinkId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeParentPortalMessage)
 }
 
 export async function acceptParentPortalInvite(token) {

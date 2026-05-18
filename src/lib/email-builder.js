@@ -128,11 +128,7 @@ export function shouldShowWebsiteAdvert(planKey) {
   return ['single_team', 'small_club'].includes(String(planKey ?? '').trim())
 }
 
-function buildWebsiteAdvertMarkup(planKey) {
-  if (!shouldShowWebsiteAdvert(planKey)) {
-    return ''
-  }
-
+function buildPoweredByFooterMarkup() {
   return `
       <div style="border-top: 1px solid #e7ece3; margin-top: 20px; padding-top: 14px;">
         <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Player Feedback | playerfeedback.online</p>
@@ -152,7 +148,6 @@ export function buildEmailHtml({
   responses,
   emailBody,
   logoUrl,
-  planKey,
 }) {
   const responseItems = normaliseResponses(responses)
   const templateBody = String(emailBody ?? '').trim()
@@ -216,7 +211,7 @@ export function buildEmailHtml({
 
       <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions, just reply to this email.</p>
       <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeHtml(resolvedClub || 'Club')} | ${escapeHtml(resolvedTeam || 'Team')}</p>
-      ${buildWebsiteAdvertMarkup(planKey)}
+      ${buildPoweredByFooterMarkup()}
     </div>
   `
 }
@@ -302,6 +297,7 @@ export function buildParentPortalInviteHtml({
       </p>
       <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">If the button does not work, copy and paste this link into your browser:</p>
       <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(inviteUrl)}</p>
+      ${buildPoweredByFooterMarkup()}
     </div>
   `
 }

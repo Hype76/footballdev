@@ -63,6 +63,9 @@ function buildConfirmationEmailHtml({ actionLink, invite, email }) {
             <a href="${escapeHtml(actionLink)}" style="display: inline-block; background: #d8ff2f; color: #050805; padding: 12px 18px; border-radius: 8px; font-weight: 800; text-decoration: none;">Confirm parent account</a>
           </p>
           <p style="margin: 0; color: #52645a; font-size: 13px;">This confirmation link is for this email address only.</p>
+          <div style="border-top: 1px solid #e5eadf; margin-top: 20px; padding-top: 14px;">
+            <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Player Feedback | playerfeedback.online</p>
+          </div>
         </div>
       </div>
     </div>
