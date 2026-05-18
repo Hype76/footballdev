@@ -14,6 +14,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canDeletePlayer, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
+  ASSESSMENT_EMAIL_TEMPLATE,
   DIRECT_EMAIL_TEMPLATE_SECTION,
   EMAIL_TEMPLATE_AUDIENCES,
   getEmailTemplateKey,
@@ -397,7 +398,7 @@ export function PlayerProfile() {
         ? template.sectionAvailability
         : EVALUATION_SECTIONS
 
-      return sectionAvailability.includes(evaluation.section || lastSection)
+      return template.key === ASSESSMENT_EMAIL_TEMPLATE.key || sectionAvailability.includes(evaluation.section || lastSection)
     })
   const getDirectEmailTemplateOptions = (player) => {
     const contactType = normalizePlayerContactType(player?.contactType || profileContactType)
