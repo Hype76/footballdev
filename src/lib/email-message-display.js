@@ -36,10 +36,6 @@ export function getMessagePdfHtml(message) {
     return storedPdfHtml
   }
 
-  if (!messageHasAttachment(message)) {
-    return ''
-  }
-
   const assessmentFields = getMessageAssessmentFields(message)
 
   if (assessmentFields.length === 0) {
@@ -50,7 +46,7 @@ export function getMessagePdfHtml(message) {
 }
 
 export function canDownloadMessagePdf(message) {
-  return messageHasAttachment(message) && Boolean(getMessagePdfHtml(message))
+  return Boolean(getMessagePdfHtml(message))
 }
 
 function escapeHtml(value) {

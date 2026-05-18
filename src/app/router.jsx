@@ -56,6 +56,7 @@ const ParentEmailTemplatesPage = lazyRoute(() => import('../pages/ParentEmailTem
 const ParentInvitePage = lazyRoute(() => import('../pages/ParentInvitePage.jsx'), 'ParentInvitePage')
 const ParentLoginPage = lazyRoute(() => import('../pages/ParentLoginPage.jsx'), 'ParentLoginPage')
 const ParentLinkingPage = lazyRoute(() => import('../pages/ParentLinkingPage.jsx'), 'ParentLinkingPage')
+const ParentMessagesPage = lazyRoute(() => import('../pages/ParentMessagesPage.jsx'), 'ParentMessagesPage')
 const ParentPortalPage = lazyRoute(() => import('../pages/ParentPortalPage.jsx'), 'ParentPortalPage')
 const FriendsFamilyPage = lazyRoute(() => import('../pages/FriendsFamilyPage.jsx'), 'FriendsFamilyPage')
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
@@ -832,6 +833,17 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Parent Portal',
+                },
+              },
+              {
+                path: 'parent-messages',
+                element: (
+                  <PageSuspense>
+                    <ParentMessagesPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Messages',
                 },
               },
               {

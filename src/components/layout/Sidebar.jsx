@@ -42,7 +42,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (isParentPortal) {
-      return item.path === '/parent-portal' || item.path === '/friends-family'
+      return item.path === '/parent-portal' || item.path === '/parent-messages' || item.path === '/friends-family'
     }
 
     if (
@@ -170,6 +170,20 @@ export function Sidebar({ isOpen, onClose }) {
               }
             >
               My Child
+            </NavLink>
+            <NavLink
+              to="/parent-messages"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                ].join(' ')
+              }
+            >
+              Messages
             </NavLink>
             <NavLink
               to="/friends-family"
