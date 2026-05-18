@@ -1,11 +1,7 @@
-const PRODUCTION_APP_ORIGIN = 'https://playerfeedback.online'
+import { getMainAppOrigin } from './app-origins.js'
 
 export function getPasswordResetRedirectUrl() {
-  const configuredOrigin = String(import.meta.env.VITE_APP_URL ?? import.meta.env.VITE_PUBLIC_APP_URL ?? '').trim()
-  const currentOrigin = window.location.origin
-  const resolvedOrigin = configuredOrigin || (window.location.hostname === 'localhost' ? PRODUCTION_APP_ORIGIN : currentOrigin)
-
-  return `${resolvedOrigin.replace(/\/$/, '')}/reset-password`
+  return `${getMainAppOrigin()}/reset-password`
 }
 
 export async function claimStripeCheckoutForProfile(session, profile) {

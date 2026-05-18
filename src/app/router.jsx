@@ -19,6 +19,7 @@ import {
 } from '../lib/auth.js'
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
 import { hasPlanFeature, isPlanAccessActive } from '../lib/plans.js'
+import { getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -78,6 +79,19 @@ function LoadingScreen() {
       </div>
     </main>
   )
+}
+
+function ExternalRedirect({ to }) {
+  window.location.replace(to)
+  return <LoadingScreen />
+}
+
+function isParentHost() {
+  return isParentPortalHost()
+}
+
+function NavigateToParentInvite() {
+  return <Navigate to={window.location.pathname.replace(/^\/invite\//, '/parent-invite/')} replace />
 }
 
 function RouteContentSkeleton() {
@@ -218,6 +232,10 @@ function getDefaultWorkspacePath(user) {
 }
 
 function RedirectToWorkspaceHome({ user }) {
+  if (isParentHost() && user && !isParentPortalUser(user)) {
+    return <ExternalRedirect to={getMainAppOrigin()} />
+  }
+
   return <Navigate to={getDefaultWorkspacePath(user)} replace />
 }
 
@@ -234,7 +252,7 @@ function useWorkspaceRouteGate({
   }
 
   if (!session?.user) {
-    return { element: <Navigate to="/login" replace />, user: null }
+    return { element: <Navigate to={isParentHost() ? '/parent-login' : '/login'} replace />, user: null }
   }
 
   if (!user && isProfileLoading) {
@@ -254,7 +272,11 @@ function useWorkspaceRouteGate({
   }
 
   if (redirectSuperAdmin && isSuperAdmin(user)) {
-    return { element: <Navigate to="/platform-admin" replace />, user }
+    return { element: isParentHost() ? <ExternalRedirect to={getMainAppOrigin()} /> : <Navigate to="/platform-admin" replace />, user }
+  }
+
+  if (isParentHost() && !isParentPortalUser(user)) {
+    return { element: <ExternalRedirect to={getMainAppOrigin()} />, user }
   }
 
   if (!redirectSuperAdmin && isParentPortalUser(user)) {
@@ -368,7 +390,11 @@ function WorkspaceHome() {
   }
 
   if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
+    return isParentHost() ? <ExternalRedirect to={getMainAppOrigin()} /> : <Navigate to="/platform-admin" replace />
+  }
+
+  if (isParentHost() && !isParentPortalUser(user)) {
+    return <ExternalRedirect to={getMainAppOrigin()} />
   }
 
   if (isParentPortalUser(user)) {
@@ -402,7 +428,7 @@ function RequireUser() {
   }
 
   if (!session?.user) {
-    return <Navigate to="/login" replace />
+    return <Navigate to={isParentHost() ? '/parent-login' : '/login'} replace />
   }
 
   return <Outlet />
@@ -474,7 +500,7 @@ function PublicOnly() {
   }
 
   if (session?.user) {
-    return <Navigate to="/" replace />
+    return <Navigate to={isParentHost() ? '/parent-portal' : '/'} replace />
   }
 
   return <Outlet />
@@ -613,6 +639,34 @@ function RequirePlatformAdminAccess() {
 
 export const router = createBrowserRouter([
   {
+    path: '/invite/:token',
+    element: <NavigateToParentInvite />,
+  },
+  {
+    path: '/portal',
+    element: <Navigate to="/parent-portal" replace />,
+  },
+  {
+    path: '/login',
+    element: isParentHost() ? (
+      <Navigate to="/parent-login" replace />
+    ) : (
+      <PublicOnly />
+    ),
+    children: isParentHost()
+      ? []
+      : [
+        {
+          index: true,
+          element: (
+            <PageSuspense>
+              <LoginPage />
+            </PageSuspense>
+          ),
+        },
+      ],
+  },
+  {
     path: '/gdpr',
     element: (
       <PageSuspense>
@@ -643,19 +697,6 @@ export const router = createBrowserRouter([
         <ParentLoginPage />
       </PageSuspense>
     ),
-  },
-  {
-    element: <PublicOnly />,
-    children: [
-      {
-        path: '/login',
-        element: (
-          <PageSuspense>
-            <LoginPage />
-          </PageSuspense>
-        ),
-      },
-    ],
   },
   {
     element: <RequireUser />,

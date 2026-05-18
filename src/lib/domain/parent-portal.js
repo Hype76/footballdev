@@ -1,5 +1,6 @@
 import { supabase } from '../supabase-client.js'
 import { getPlayers } from './players.js'
+import { buildParentAppUrl } from '../app-origins.js'
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -34,8 +35,7 @@ function normalizeParentLink(row) {
 }
 
 function buildInviteUrl(token) {
-  const origin = globalThis.location?.origin ?? ''
-  return `${origin}/parent-invite/${token}`
+  return buildParentAppUrl(`/parent-invite/${token}`)
 }
 
 function normalizeParentPortalMessage(row) {
