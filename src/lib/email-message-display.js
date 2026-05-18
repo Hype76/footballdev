@@ -28,6 +28,15 @@ export function messageHasAttachment(message) {
   return message?.hasAttachment === true || metadata.hasAttachment === true
 }
 
+export function getMessagePdfHtml(message) {
+  const metadata = getMessageMetadata(message)
+  return String(message?.pdfHtml ?? metadata.pdfHtml ?? '').trim()
+}
+
+export function canDownloadMessagePdf(message) {
+  return messageHasAttachment(message) && Boolean(getMessagePdfHtml(message))
+}
+
 export function getMessageTeamLabel(message) {
   const metadata = getMessageMetadata(message)
   return String(message?.team ?? metadata.team ?? '').trim()

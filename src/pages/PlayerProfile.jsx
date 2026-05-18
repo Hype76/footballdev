@@ -721,6 +721,7 @@ export function PlayerProfile() {
           playerName: routePlayerName,
           hasAttachment: attachPdf,
           assessmentFields: emailConfirmTarget.responses || [],
+          pdfHtml: attachPdf ? payloads[0]?.payload?.pdfHtml || '' : '',
         },
       })
 

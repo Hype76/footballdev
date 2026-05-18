@@ -4,15 +4,18 @@ import { formatActivityDate, getActivityLabel } from '../../hooks/players/player
 import { formatRetentionDate, getRetentionCountdownLabel } from '../../lib/retention.js'
 import { MicIcon } from '../icons/MicIcon.jsx'
 import {
+  canDownloadMessagePdf,
   getMessageAssessmentFields,
   getMessageBody,
   getMessageClubLabel,
+  getMessagePdfHtml,
   getMessagePlayerLabel,
   getMessageSubject,
   getMessageTeamLabel,
   getMessageTemplateName,
   messageHasAttachment,
 } from '../../lib/email-message-display.js'
+import { exportPdfHtml } from '../../lib/pdf.js'
 
 export function PlayerStaffActivity({
   activityLogs,
@@ -30,6 +33,8 @@ export function PlayerStaffActivity({
   staffNotes,
 }) {
   const [openActivityId, setOpenActivityId] = useState('')
+  const [downloadError, setDownloadError] = useState('')
+  const [downloadingActivityId, setDownloadingActivityId] = useState('')
   const saveNoteDisabledReason = isSavingNote
     ? 'Please wait while this note is being saved.'
     : isSavingVoiceNote
@@ -143,8 +148,27 @@ export function PlayerStaffActivity({
               activityLogs.slice(0, 10).map((log) => (
                 <ActivityCard
                   key={log.id}
+                  downloadError={openActivityId === log.id ? downloadError : ''}
+                  isDownloading={downloadingActivityId === log.id}
                   isOpen={openActivityId === log.id}
                   log={log}
+                  onDownloadPdf={async () => {
+                    setDownloadError('')
+                    setDownloadingActivityId(log.id)
+
+                    try {
+                      await exportPdfHtml({
+                        clubId: log.clubId,
+                        filename: buildActivityPdfFilename(log),
+                        html: getMessagePdfHtml(log),
+                      })
+                    } catch (error) {
+                      console.error(error)
+                      setDownloadError(error.message || 'PDF could not be downloaded.')
+                    } finally {
+                      setDownloadingActivityId('')
+                    }
+                  }}
                   onToggle={() => setOpenActivityId((currentId) => (currentId === log.id ? '' : log.id))}
                 />
               ))
@@ -156,7 +180,7 @@ export function PlayerStaffActivity({
   )
 }
 
-function ActivityCard({ isOpen, log, onToggle }) {
+function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf, onToggle }) {
   const isEmail = log.channel === 'email' && log.action === 'parent_email_sent'
 
   if (!isEmail) {
@@ -175,6 +199,7 @@ function ActivityCard({ isOpen, log, onToggle }) {
 
   const assessmentFields = getMessageAssessmentFields(log)
   const body = getMessageBody(log)
+  const canDownloadPdf = canDownloadMessagePdf(log)
   const clubLabel = getMessageClubLabel(log)
   const playerLabel = getMessagePlayerLabel(log)
   const subject = getMessageSubject(log)
@@ -244,10 +269,45 @@ function ActivityCard({ isOpen, log, onToggle }) {
               ))}
             </div>
           ) : null}
+
+          {messageHasAttachment(log) ? (
+            <div className="mt-4">
+              {canDownloadPdf ? (
+                <button
+                  type="button"
+                  onClick={onDownloadPdf}
+                  disabled={isDownloading}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isDownloading ? 'Downloading...' : 'Download PDF'}
+                </button>
+              ) : (
+                <p className="text-sm leading-6 text-[var(--text-muted)]">
+                  A PDF was attached to this email, but the download source was not recorded for this older message.
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          {downloadError ? (
+            <p className="mt-3 rounded-lg border border-red-500/30 bg-red-950/20 px-4 py-3 text-sm text-red-100">
+              {downloadError}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </article>
   )
+}
+
+function buildActivityPdfFilename(log) {
+  const playerName = getMessagePlayerLabel(log)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'player-feedback'
+
+  return `${playerName}-sent-email.pdf`
 }
 
 function InfoLine({ label, value }) {

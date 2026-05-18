@@ -1013,6 +1013,7 @@ export function CreateEvaluationPage() {
               playerName: normalizedPlayerName,
               hasAttachment: isPdfAttachmentApproved,
               assessmentFields: selectedResponseItems,
+              pdfHtml: isPdfAttachmentApproved ? emailJobs[0]?.payload?.pdfHtml || '' : '',
             },
           })
           showToast({ title: 'Email sent successfully' })

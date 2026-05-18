@@ -109,6 +109,49 @@ function downloadBlob(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+export async function exportPdfHtml({ clubId, filename = 'player-feedback.pdf', html }) {
+  const normalizedHtml = String(html ?? '').trim()
+
+  if (!normalizedHtml) {
+    throw new Error('This PDF is not available for download.')
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+
+  const response = await withTimeout(
+    fetch('/.netlify/functions/render-pdf', {
+      method: 'POST',
+      headers: {
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        clubId,
+        filename,
+        html: normalizedHtml,
+      }),
+    }),
+    15000,
+  )
+
+  if (!response?.ok) {
+    let message = 'PDF export failed.'
+
+    try {
+      const errorResult = await response.json()
+      message = errorResult.error || message
+    } catch {
+      message = response?.statusText || message
+    }
+
+    throw new Error(message)
+  }
+
+  const pdfBlob = await response.blob()
+  downloadBlob(pdfBlob, filename)
+}
+
 async function resolvePdfLogoUrl(logoUrl) {
   const normalizedLogoUrl = String(logoUrl ?? '').trim()
 

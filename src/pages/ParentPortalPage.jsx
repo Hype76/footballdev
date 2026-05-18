@@ -4,12 +4,15 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useAuth } from '../lib/auth.js'
 import { getParentPortalMessages, markParentPortalMessageRead } from '../lib/supabase.js'
 import {
+  canDownloadMessagePdf,
   getMessageAssessmentFields,
   getMessageBody,
+  getMessagePdfHtml,
   getMessageSubject,
   getMessageTemplateName,
   messageHasAttachment,
 } from '../lib/email-message-display.js'
+import { exportPdfHtml } from '../lib/pdf.js'
 
 export function ParentPortalPage() {
   const { user } = useAuth()
@@ -93,6 +96,19 @@ export function ParentPortalPage() {
     }
   }
 
+  const handleDownloadMessagePdf = async (message) => {
+    try {
+      await exportPdfHtml({
+        clubId: selectedLink?.clubId,
+        filename: buildMessagePdfFilename(message, selectedLink),
+        html: getMessagePdfHtml(message),
+      })
+    } catch (error) {
+      console.error(error)
+      setMessageError(error.message || 'PDF could not be downloaded.')
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -132,7 +148,9 @@ export function ParentPortalPage() {
                 key={message.id}
                 isOpen={openMessageId === message.id}
                 message={message}
+                onDownloadPdf={() => void handleDownloadMessagePdf(message)}
                 onToggle={() => void handleToggleMessage(message)}
+                selectedLink={selectedLink}
               />
             ))}
           </div>
@@ -164,9 +182,10 @@ export function ParentPortalPage() {
   )
 }
 
-function MessageCard({ isOpen, message, onToggle }) {
+function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
   const assessmentFields = getMessageAssessmentFields(message)
   const body = getMessageBody(message)
+  const canDownloadPdf = canDownloadMessagePdf(message)
   const hasAttachment = messageHasAttachment(message)
   const templateName = getMessageTemplateName(message)
   const subject = getMessageSubject(message)
@@ -241,11 +260,39 @@ function MessageCard({ isOpen, message, onToggle }) {
                 ))}
               </div>
             ) : null}
+
+            {hasAttachment ? (
+              <div className="mt-4">
+                {canDownloadPdf ? (
+                  <button
+                    type="button"
+                    onClick={onDownloadPdf}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                  >
+                    Download PDF
+                  </button>
+                ) : (
+                  <p className="text-sm leading-6 text-[var(--text-muted)]">
+                    A PDF was attached to this email, but the download source was not recorded for this older message.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
     </article>
   )
+}
+
+function buildMessagePdfFilename(message, selectedLink) {
+  const playerName = String(selectedLink?.playerName || message.playerName || 'player-feedback')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'player-feedback'
+
+  return `${playerName}-parent-email.pdf`
 }
 
 function formatMessageDate(value) {
