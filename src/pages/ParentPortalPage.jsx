@@ -21,6 +21,7 @@ export function ParentPortalPage() {
   const [messages, setMessages] = useState([])
   const [openMessageId, setOpenMessageId] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false)
   const [messageError, setMessageError] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
@@ -109,6 +110,44 @@ export function ParentPortalPage() {
     }
   }
 
+  const handleMarkAllMessagesRead = async () => {
+    const unreadMessages = messages.filter((message) => !message.readAt)
+
+    if (unreadMessages.length === 0 || !selectedLink?.id || isMarkingAllRead) {
+      return
+    }
+
+    setIsMarkingAllRead(true)
+    setMessageError('')
+
+    try {
+      const readEntries = await Promise.all(
+        unreadMessages.map(async (message) => {
+          const readAt = await markParentPortalMessageRead({
+            parentLinkId: selectedLink.id,
+            messageId: message.id,
+          })
+
+          return [message.id, readAt || new Date().toISOString()]
+        }),
+      )
+      const readAtByMessageId = new Map(readEntries)
+
+      setMessages((currentMessages) =>
+        currentMessages.map((message) =>
+          readAtByMessageId.has(message.id)
+            ? { ...message, readAt: readAtByMessageId.get(message.id) }
+            : message,
+        ),
+      )
+    } catch (error) {
+      console.error(error)
+      setMessageError(error.message || 'Messages could not be marked as read.')
+    } finally {
+      setIsMarkingAllRead(false)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -133,6 +172,19 @@ export function ParentPortalPage() {
       </SectionCard>
 
       <SectionCard title="Messages" description="Emails sent by the club for this child appear here.">
+        {messages.some((message) => !message.readAt) ? (
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void handleMarkAllMessagesRead()}
+              disabled={isMarkingAllRead}
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isMarkingAllRead ? 'Marking...' : 'Mark all as read'}
+            </button>
+          </div>
+        ) : null}
+
         {messageError ? (
           <p className="rounded-lg border border-red-500/30 bg-red-950/20 px-4 py-3 text-sm text-red-100">
             {messageError}
