@@ -4,11 +4,9 @@ export function CreateStaffLoginSection({
   assignableRoles,
   canCreateMoreStaff,
   coachForm,
-  isCoachPasswordVisible,
   isSaving,
   onCoachFormChange,
   onCreateCoach,
-  onTogglePasswordVisibility,
   staffLimitMessage,
   teams,
 }) {
@@ -18,7 +16,7 @@ export function CreateStaffLoginSection({
       tourId="create-staff-section"
       description={
         canCreateMoreStaff
-          ? 'Create a staff login, choose the role, and give that login access to a team.'
+          ? 'Send a staff invite, choose the role, and give that login access to a team.'
           : staffLimitMessage
       }
     >
@@ -34,29 +32,6 @@ export function CreateStaffLoginSection({
               required
               className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
-            <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
-              <input
-                type={isCoachPasswordVisible ? 'text' : 'password'}
-                name="password"
-                value={coachForm.password}
-                onChange={onCoachFormChange}
-                required
-                minLength={8}
-                autoComplete="new-password"
-                className="min-h-11 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-              />
-              <button
-                type="button"
-                onClick={onTogglePasswordVisibility}
-                className="min-h-11 rounded-r-2xl px-4 py-3 text-sm font-semibold text-[var(--text-secondary)]"
-              >
-                {isCoachPasswordVisible ? 'Hide' : 'Show'}
-              </button>
-            </div>
           </label>
 
           <label className="block">
@@ -122,7 +97,7 @@ export function CreateStaffLoginSection({
           }
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          Add Staff Access
+          Send Staff Invite
         </button>
       </form>
     </SectionCard>

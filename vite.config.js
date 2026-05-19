@@ -21,6 +21,7 @@ export default defineConfig({
         'icons/favicon-32.png',
         'icons/favicon-48.png',
         'icons/mstile-150.png',
+        'push-sw.js',
       ],
       manifest: {
         name: 'Player Feedback',
@@ -62,11 +63,12 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,ico,png,svg,webp,jpg,jpeg}'],
+        importScripts: ['push-sw.js'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        navigateFallback: '/index.html',
+        navigateFallback: null,
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === 'navigate',

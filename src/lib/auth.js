@@ -8,6 +8,7 @@ import {
 } from './auth-session-utils.js'
 import {
   isClubAdmin,
+  isParentPortalUser,
   isSuperAdmin,
 } from './auth-permissions.js'
 
@@ -19,18 +20,24 @@ export {
   canManageClubLogo,
   canManageClubSettings,
   canManageFormFields,
+  canManageMatchDay,
   canManageParentEmailTemplates,
+  canManageParentLinks,
+  canManagePolls,
+  canManageTeamAppearance,
   canManageTeamSettings,
   canManageUsers,
   canShareEvaluation,
   canViewActivityLog,
   canViewBilling,
+  canViewEndSeasonStats,
   canViewEvaluation,
   canViewPlatformFeedback,
   getRoleLabel,
   isClubAdmin,
   isDemoAccount,
   isSuperAdmin,
+  isParentPortalUser,
   isTesterAccessExpired,
 } from './auth-permissions.js'
 
@@ -39,6 +46,17 @@ let authDataModulePromise = null
 let teamDataModulePromise = null
 const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
 const SELECTED_TEAM_STORAGE_KEY = 'selected-team-id'
+const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
+const PLATFORM_ADMIN_ACCESS_OPTION = {
+  id: 'platform_admin',
+  label: 'Platform Admin',
+  meta: 'Open platform administration tools',
+}
+const PARENT_ACCESS_OPTION = {
+  id: 'parent',
+  label: 'Parent',
+  meta: 'Open linked child access only',
+}
 
 function loadAuthDataModule() {
   if (!authDataModulePromise) {
@@ -54,6 +72,30 @@ function loadTeamDataModule() {
   }
 
   return teamDataModulePromise
+}
+
+function buildAccessModeOptions(options = [], hasPlatformAdminAccess = false) {
+  const normalizedOptions = (options ?? [])
+    .map((option) => ({
+      id: String(option?.id ?? '').trim(),
+      label: String(option?.label ?? '').trim(),
+      meta: String(option?.meta ?? '').trim(),
+    }))
+    .filter((option) => option.id)
+
+  const withoutTeamAlias = hasPlatformAdminAccess
+    ? normalizedOptions.filter((option) => option.id !== 'team' && option.id !== 'platform_admin')
+    : normalizedOptions
+
+  const nextOptions = hasPlatformAdminAccess
+    ? [PLATFORM_ADMIN_ACCESS_OPTION, ...withoutTeamAlias]
+    : withoutTeamAlias
+
+  if (!nextOptions.some((option) => option.id === 'parent') && normalizedOptions.some((option) => option.id === 'parent')) {
+    nextOptions.push(PARENT_ACCESS_OPTION)
+  }
+
+  return nextOptions
 }
 
 export async function verifyCurrentUserPassword(email, password) {
@@ -81,6 +123,7 @@ export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
   const [clubOptions, setClubOptions] = useState([])
+  const [accessModeOptions, setAccessModeOptions] = useState([])
   const [teamOptions, setTeamOptions] = useState([])
   const [hasPlatformAdminAccess, setHasPlatformAdminAccess] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -128,6 +171,9 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
+        themeMode: selectedTeam.themeMode || profile.themeMode || '',
+        themeAccent: selectedTeam.themeAccent || profile.themeAccent || '',
+        themeButtonStyle: selectedTeam.themeButtonStyle || profile.themeButtonStyle || '',
       }
     }
 
@@ -149,6 +195,9 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: onlyTeam.id,
         activeTeamName: onlyTeam.name,
+        themeMode: onlyTeam.themeMode || profile.themeMode || '',
+        themeAccent: onlyTeam.themeAccent || profile.themeAccent || '',
+        themeButtonStyle: onlyTeam.themeButtonStyle || profile.themeButtonStyle || '',
       }
     }
 
@@ -169,6 +218,9 @@ export function AuthProvider({ children }) {
       ...profile,
       activeTeamId: selectedTeam.id,
       activeTeamName: selectedTeam.name,
+      themeMode: selectedTeam.themeMode || profile.themeMode || '',
+      themeAccent: selectedTeam.themeAccent || profile.themeAccent || '',
+      themeButtonStyle: selectedTeam.themeButtonStyle || profile.themeButtonStyle || '',
     }
   }
 
@@ -225,6 +277,35 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const openPlatformAdminProfile = async () => {
+    const accessToken = await getAccessToken()
+
+    if (!accessToken) {
+      throw new Error('Login again before opening platform admin.')
+    }
+
+    const response = await fetch('/.netlify/functions/platform-admin-access', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+    const result = await response.json().catch(() => ({}))
+
+    if (!response.ok || result.success === false || !result.user) {
+      throw new Error(result.message || 'Platform admin access could not be opened.')
+    }
+
+    window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+    window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+    window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'platform_admin')
+    setClubOptions(result.user.clubOptions ?? [])
+    setTeamOptions([])
+    setHasPlatformAdminAccess(true)
+
+    return result.user
+  }
+
   useEffect(() => {
     let isMounted = true
 
@@ -247,12 +328,14 @@ export function AuthProvider({ children }) {
       setAuthUser(null)
       setUser(null)
       setClubOptions([])
+      setAccessModeOptions([])
       setTeamOptions([])
       setHasPlatformAdminAccess(false)
       setIsProfileLoading(false)
       setAuthError('')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
       window.sessionStorage.removeItem(DEMO_ROLE_STORAGE_KEY)
       setDemoRoleKeyState('')
       finishBootstrap()
@@ -279,8 +362,26 @@ export function AuthProvider({ children }) {
 
         const { fetchUserProfile } = await loadAuthDataModule()
         const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
+        const selectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
+        const hasPlatformAccess = await refreshPlatformAdminAccess()
+
+        if (selectedAccessMode === 'platform_admin' && hasPlatformAccess) {
+          const platformProfile = await openPlatformAdminProfile()
+
+          if (!isMounted || activeSyncIdRef.current !== syncId) {
+            return
+          }
+
+          setAccessModeOptions([])
+          setUser(platformProfile)
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
         const profile = await fetchUserProfile(nextSession.user, {
           selectedClubId,
+          selectedAccessMode,
         })
 
         if (!isMounted || activeSyncIdRef.current !== syncId) {
@@ -290,7 +391,26 @@ export function AuthProvider({ children }) {
         if (profile?.requiresClubSelection) {
           setClubOptions(profile.clubOptions ?? [])
           setUser(null)
-          void refreshPlatformAdminAccess()
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
+        if (profile?.requiresAccessModeSelection) {
+          setAccessModeOptions(buildAccessModeOptions(profile.accessModeOptions, hasPlatformAccess))
+          setClubOptions([])
+          setUser(null)
+          setHasPlatformAdminAccess(hasPlatformAccess)
+          setIsProfileLoading(false)
+          setAuthError('')
+          return
+        }
+
+        if (hasPlatformAccess && isParentPortalUser(profile) && !selectedAccessMode) {
+          setAccessModeOptions(buildAccessModeOptions([PARENT_ACCESS_OPTION], hasPlatformAccess))
+          setClubOptions([])
+          setUser(null)
+          setHasPlatformAdminAccess(true)
           setIsProfileLoading(false)
           setAuthError('')
           return
@@ -309,10 +429,11 @@ export function AuthProvider({ children }) {
         }
 
         setClubOptions(profile.clubOptions ?? [])
+        setAccessModeOptions([])
         setUser((currentUser) =>
           areUsersEquivalent(currentUser, profileWithDemoPreview) ? currentUser : profileWithDemoPreview,
         )
-        void refreshPlatformAdminAccess()
+        setHasPlatformAdminAccess(hasPlatformAccess)
         setIsProfileLoading(false)
         setAuthError('')
       } catch (error) {
@@ -402,8 +523,23 @@ export function AuthProvider({ children }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const signInWithPassword = async ({ email, password }) => {
+  const signInWithPassword = async ({ email, password, preferredAccessMode = '' }) => {
     setAuthError('')
+    const nextPreferredAccessMode = String(preferredAccessMode ?? '').trim()
+
+    if (nextPreferredAccessMode) {
+      if (!['team', 'parent', 'platform_admin'].includes(nextPreferredAccessMode)) {
+        throw new Error('Choose parent, team, or platform admin access to continue.')
+      }
+
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextPreferredAccessMode)
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+    } else {
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -436,6 +572,59 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error(error)
       setAuthError(error.message || 'Could not switch club.')
+      throw error
+    } finally {
+      setIsProfileLoading(false)
+    }
+  }
+
+  const selectAccessMode = async (accessMode) => {
+    if (!authUser) {
+      throw new Error('Login again before choosing access.')
+    }
+
+    const nextAccessMode = String(accessMode ?? '').trim()
+
+    if (!['team', 'parent', 'platform_admin'].includes(nextAccessMode)) {
+      throw new Error('Choose parent, team, or platform admin access to continue.')
+    }
+
+    setAuthError('')
+    setIsProfileLoading(true)
+
+    try {
+      if (nextAccessMode === 'platform_admin') {
+        const platformProfile = await openPlatformAdminProfile()
+        setAccessModeOptions([])
+        setUser(platformProfile)
+        setAuthError('')
+        return
+      }
+
+      const { fetchUserProfile } = await loadAuthDataModule()
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextAccessMode)
+      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+      const profile = await fetchUserProfile(authUser, {
+        selectedAccessMode: nextAccessMode,
+      })
+
+      if (profile?.requiresClubSelection) {
+        setClubOptions(profile.clubOptions ?? [])
+        setAccessModeOptions([])
+        setUser(null)
+        setAuthError('')
+        return
+      }
+
+      const profileWithTeam = profile?.role === 'parent_portal' ? profile : await applyTeamSelection(profile)
+      setAccessModeOptions([])
+      setClubOptions(profile.clubOptions ?? [])
+      setUser(applyDemoRolePreview(profileWithTeam))
+      setAuthError('')
+    } catch (error) {
+      console.error(error)
+      setAuthError(error.message || 'Could not open this access.')
       throw error
     } finally {
       setIsProfileLoading(false)
@@ -475,39 +664,21 @@ export function AuthProvider({ children }) {
         ...current,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
+        themeMode: selectedTeam.themeMode || current.themeMode || '',
+        themeAccent: selectedTeam.themeAccent || current.themeAccent || '',
+        themeButtonStyle: selectedTeam.themeButtonStyle || current.themeButtonStyle || '',
       }
     })
   }
 
   const selectPlatformAdmin = async () => {
-    const accessToken = await getAccessToken()
-
-    if (!accessToken) {
-      throw new Error('Login again before opening platform admin.')
-    }
-
     setAuthError('')
     setIsProfileLoading(true)
 
     try {
-      const response = await fetch('/.netlify/functions/platform-admin-access', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok || result.success === false || !result.user) {
-        throw new Error(result.message || 'Platform admin access could not be opened.')
-      }
-
-      window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
-      window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
-      setClubOptions(result.user.clubOptions ?? [])
-      setTeamOptions([])
-      setHasPlatformAdminAccess(true)
-      setUser(result.user)
+      const platformProfile = await openPlatformAdminProfile()
+      setAccessModeOptions([])
+      setUser(platformProfile)
     } catch (error) {
       console.error(error)
       setAuthError(error.message || 'Platform admin access could not be opened.')
@@ -549,7 +720,7 @@ export function AuthProvider({ children }) {
     const normalizedClubName = String(clubName ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
 
-    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/login`
+    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/sign-in`
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -671,6 +842,43 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const signUpParentAccount = async ({ email, password, inviteToken = '' }) => {
+    setAuthError('')
+    const normalizedEmail = String(email ?? '').trim()
+    const normalizedInviteToken = String(inviteToken ?? '').trim()
+    const response = await fetch('/.netlify/functions/create-parent-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        password,
+        inviteToken: normalizedInviteToken,
+      }),
+    })
+    const result = await response.json().catch(() => ({}))
+
+    if (!response.ok || result.success === false) {
+      const error = new Error(result.message || 'Parent account could not be created.')
+      console.error(error)
+      setAuthError(error.message)
+      throw error
+    }
+
+    setSession(null)
+    setAuthUser(null)
+    setUser(null)
+    setClubOptions([])
+    setTeamOptions([])
+    setAccessModeOptions([])
+    setIsProfileLoading(false)
+    setAuthError('')
+
+    return {
+      needsEmailVerification: true,
+      email: result.email || normalizedEmail,
+    }
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
 
@@ -745,6 +953,7 @@ export function AuthProvider({ children }) {
     authUser,
     user,
     clubOptions,
+    accessModeOptions,
     teamOptions,
     hasPlatformAdminAccess,
     isLoading,
@@ -752,7 +961,9 @@ export function AuthProvider({ children }) {
     authError,
     signInWithPassword,
     signUpWithClub,
+    signUpParentAccount,
     selectClub,
+    selectAccessMode,
     selectTeam,
     selectPlatformAdmin,
     refreshTeamSelection,

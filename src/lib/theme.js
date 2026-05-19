@@ -1,9 +1,11 @@
 export const THEME_MODE_STORAGE_KEY = 'app-theme-mode'
 export const THEME_ACCENT_STORAGE_KEY = 'app-theme-accent'
+export const THEME_BUTTON_STYLE_STORAGE_KEY = 'app-theme-button-style'
 export const THEME_CHANGED_EVENT = 'app-theme-changed'
 
 export const THEME_MODES = ['system', 'dark', 'light']
 export const THEME_ACCENTS = ['yellow', 'blue', 'green', 'red', 'purple']
+export const THEME_BUTTON_STYLES = ['solid', 'gradient']
 
 export const themeModeOptions = [
   { value: 'system', label: 'System' },
@@ -19,6 +21,11 @@ export const themeAccentOptions = [
   { value: 'purple', label: 'Purple' },
 ]
 
+export const themeButtonStyleOptions = [
+  { value: 'solid', label: 'Solid colour' },
+  { value: 'gradient', label: 'Gradient' },
+]
+
 export function getStoredThemeMode() {
   const storedThemeMode = window.localStorage.getItem(THEME_MODE_STORAGE_KEY)
   return THEME_MODES.includes(storedThemeMode) ? storedThemeMode : 'system'
@@ -27,6 +34,11 @@ export function getStoredThemeMode() {
 export function getStoredThemeAccent() {
   const storedThemeAccent = window.localStorage.getItem(THEME_ACCENT_STORAGE_KEY)
   return THEME_ACCENTS.includes(storedThemeAccent) ? storedThemeAccent : 'yellow'
+}
+
+export function getStoredThemeButtonStyle() {
+  const storedThemeButtonStyle = window.localStorage.getItem(THEME_BUTTON_STYLE_STORAGE_KEY)
+  return THEME_BUTTON_STYLES.includes(storedThemeButtonStyle) ? storedThemeButtonStyle : 'solid'
 }
 
 export function getSystemTheme() {
@@ -41,17 +53,24 @@ export function normalizeThemeAccent(value) {
   return THEME_ACCENTS.includes(value) ? value : 'yellow'
 }
 
-export function saveThemePreferences({ mode, accent }) {
+export function normalizeThemeButtonStyle(value) {
+  return THEME_BUTTON_STYLES.includes(value) ? value : 'solid'
+}
+
+export function saveThemePreferences({ mode, accent, buttonStyle }) {
   const nextMode = normalizeThemeMode(mode)
   const nextAccent = normalizeThemeAccent(accent)
+  const nextButtonStyle = normalizeThemeButtonStyle(buttonStyle)
 
   window.localStorage.setItem(THEME_MODE_STORAGE_KEY, nextMode)
   window.localStorage.setItem(THEME_ACCENT_STORAGE_KEY, nextAccent)
+  window.localStorage.setItem(THEME_BUTTON_STYLE_STORAGE_KEY, nextButtonStyle)
   window.dispatchEvent(
     new CustomEvent(THEME_CHANGED_EVENT, {
       detail: {
         mode: nextMode,
         accent: nextAccent,
+        buttonStyle: nextButtonStyle,
       },
     }),
   )
@@ -59,5 +78,6 @@ export function saveThemePreferences({ mode, accent }) {
   return {
     mode: nextMode,
     accent: nextAccent,
+    buttonStyle: nextButtonStyle,
   }
 }

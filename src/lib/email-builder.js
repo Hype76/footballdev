@@ -1,4 +1,5 @@
 import { formatUkDate } from './date-format.js'
+import { buildMainAppUrl } from './app-origins.js'
 import { supabase } from './supabase-client.js'
 
 function escapeHtml(value) {
@@ -19,40 +20,25 @@ function formatLines(value) {
 
 function normaliseResponses(responses) {
   if (Array.isArray(responses)) {
-    return responses
+    return responses.filter((item) => isExportableResponseValue(item?.value))
   }
 
   if (responses && typeof responses === 'object') {
-    return Object.entries(responses).map(([label, value]) => ({ label, value }))
+    return Object.entries(responses)
+      .filter(([, value]) => isExportableResponseValue(value))
+      .map(([label, value]) => ({ label, value }))
   }
 
   return []
 }
 
-function isNumericResponseValue(value) {
+function isExportableResponseValue(value) {
   if (typeof value === 'number') {
-    return Number.isFinite(value)
+    return Number.isFinite(value) && value !== 0
   }
 
-  if (typeof value !== 'string') {
-    return false
-  }
-
-  const trimmedValue = value.trim()
-  return trimmedValue !== '' && Number.isFinite(Number(trimmedValue))
-}
-
-function sortResponseItemsByValueType(responseItems) {
-  return [...responseItems].sort((firstItem, secondItem) => {
-    const firstIsNumeric = isNumericResponseValue(firstItem.value)
-    const secondIsNumeric = isNumericResponseValue(secondItem.value)
-
-    if (firstIsNumeric === secondIsNumeric) {
-      return 0
-    }
-
-    return firstIsNumeric ? -1 : 1
-  })
+  const trimmedValue = String(value ?? '').trim()
+  return trimmedValue !== '' && trimmedValue !== '0'
 }
 
 function chunkResponseRows(responseItems) {
@@ -98,7 +84,7 @@ function buildResponseMarkup(responseItems) {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
       <tbody>
-        ${chunkResponseRows(sortResponseItemsByValueType(responseItems))
+        ${chunkResponseRows(responseItems)
           .map(
             (row) => `
               <tr>
@@ -143,11 +129,7 @@ export function shouldShowWebsiteAdvert(planKey) {
   return ['single_team', 'small_club'].includes(String(planKey ?? '').trim())
 }
 
-function buildWebsiteAdvertMarkup(planKey) {
-  if (!shouldShowWebsiteAdvert(planKey)) {
-    return ''
-  }
-
+function buildPoweredByFooterMarkup() {
   return `
       <div style="border-top: 1px solid #e7ece3; margin-top: 20px; padding-top: 14px;">
         <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Player Feedback | playerfeedback.online</p>
@@ -167,7 +149,6 @@ export function buildEmailHtml({
   responses,
   emailBody,
   logoUrl,
-  planKey,
 }) {
   const responseItems = normaliseResponses(responses)
   const templateBody = String(emailBody ?? '').trim()
@@ -231,7 +212,7 @@ export function buildEmailHtml({
 
       <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions, just reply to this email.</p>
       <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeHtml(resolvedClub || 'Club')} | ${escapeHtml(resolvedTeam || 'Team')}</p>
-      ${buildWebsiteAdvertMarkup(planKey)}
+      ${buildPoweredByFooterMarkup()}
     </div>
   `
 }
@@ -291,6 +272,135 @@ export async function sendParentEmail(data) {
 
   if (!response.ok) {
     throw new Error(result.message || 'Email failed - will retry automatically')
+  }
+
+  return result
+}
+
+export function buildParentPortalInviteHtml({
+  clubName,
+  inviteUrl,
+  playerName,
+  teamName,
+}) {
+  const resolvedClub = String(clubName ?? '').trim() || 'Your club'
+  const resolvedPlayer = String(playerName ?? '').trim() || 'your child'
+  const resolvedTeam = String(teamName ?? '').trim() || 'their team'
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Parent portal invite</p>
+      <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.25;">${escapeHtml(resolvedClub)} has invited you</h1>
+      <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to view parent updates for ${escapeHtml(resolvedPlayer)} in ${escapeHtml(resolvedTeam)}.</p>
+      <p style="margin: 0 0 22px; font-size: 15px;">Open the link below, create your parent password, then confirm your email address. After confirmation, you will return to the parent login page.</p>
+      <p style="margin: 0 0 22px;">
+        <a href="${escapeHtml(inviteUrl)}" style="display: inline-block; background: #f7d74b; color: #142018; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 10px;">Create Parent Access</a>
+      </p>
+      <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">If the button does not work, copy and paste this link into your browser:</p>
+      <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(inviteUrl)}</p>
+      ${buildPoweredByFooterMarkup()}
+    </div>
+  `
+}
+
+export async function sendParentPortalInvite(data) {
+  const html = buildParentPortalInviteHtml(data)
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+
+  const response = await fetch('/.netlify/functions/send-parent-portal-invite', {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      clubId: data.clubId,
+      displayName: data.displayName,
+      inviteLinkId: data.inviteLinkId,
+      inviteUrl: data.inviteUrl,
+      parentEmail: data.parentEmail,
+      playerName: data.playerName,
+      senderEmail: data.senderEmail,
+      subject: data.subject,
+      teamName: data.teamName,
+      clubName: data.clubName,
+      html,
+    }),
+  })
+
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Parent portal invite could not be sent.')
+  }
+
+  return result
+}
+
+export function buildStaffInviteUrl(token) {
+  return buildMainAppUrl(`/staff-invite/${token}`)
+}
+
+export function buildStaffInviteHtml({
+  clubName,
+  inviteUrl,
+  logoUrl,
+  roleLabel,
+  teamName,
+}) {
+  const resolvedClub = String(clubName ?? '').trim() || 'Your club'
+  const resolvedRole = String(roleLabel ?? '').trim() || 'Staff'
+  const resolvedTeam = String(teamName ?? '').trim() || 'your team'
+  const safeLogoUrl = getSafeLogoUrl(logoUrl)
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
+      ${safeLogoUrl ? `<img src="${escapeHtml(safeLogoUrl)}" alt="${escapeHtml(resolvedClub)} logo" style="display: block; max-width: 84px; max-height: 84px; margin: 0 0 18px;" />` : ''}
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Staff invite</p>
+      <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.25;">${escapeHtml(resolvedClub)} has invited you</h1>
+      <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to join ${escapeHtml(resolvedTeam)} as ${escapeHtml(resolvedRole)}.</p>
+      <p style="margin: 0 0 22px; font-size: 15px;">Open the link below and create your password. The role and team access have already been set by the club.</p>
+      <p style="margin: 0 0 22px;">
+        <a href="${escapeHtml(inviteUrl)}" style="display: inline-block; background: #d8ff2f; color: #142018; text-decoration: none; font-weight: 800; padding: 12px 18px; border-radius: 10px;">Create Staff Access</a>
+      </p>
+      <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">This link expires after 7 days. If the button does not work, copy and paste this link into your browser:</p>
+      <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(inviteUrl)}</p>
+      ${buildPoweredByFooterMarkup()}
+    </div>
+  `
+}
+
+export async function sendStaffInvite(data) {
+  const inviteUrl = data.inviteUrl || buildStaffInviteUrl(data.inviteToken)
+  const html = buildStaffInviteHtml({
+    ...data,
+    inviteUrl,
+  })
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+
+  const response = await fetch('/.netlify/functions/send-staff-invite', {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      clubId: data.clubId,
+      displayName: data.displayName,
+      inviteId: data.inviteId,
+      inviteUrl,
+      senderEmail: data.senderEmail,
+      subject: data.subject,
+      html,
+    }),
+  })
+
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Staff invite could not be sent.')
   }
 
   return result

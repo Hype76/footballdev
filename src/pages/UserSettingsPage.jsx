@@ -9,16 +9,17 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useWalkthrough } from '../components/walkthrough/walkthrough-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
-import { isDemoAccount, useAuth } from '../lib/auth.js'
+import { canManageTeamAppearance, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
 import {
   requestLoginEmailChange,
-  updateOwnThemeSettings,
+  updateTeamSettings,
   updateOwnUserSettings,
   updateSignedInPassword,
 } from '../lib/supabase.js'
 import { canEditClubIdentity, createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   getStoredThemeAccent,
+  getStoredThemeButtonStyle,
   getStoredThemeMode,
   saveThemePreferences,
 } from '../lib/theme.js'
@@ -29,6 +30,11 @@ export function UserSettingsPage() {
   const walkthrough = useWalkthrough()
   const { showToast } = useToast()
   const isDemoSettings = isDemoAccount(user)
+  const isParentSettings = isParentPortalUser(user)
+  const isClubAdminSettings = isClubAdmin(user)
+  const showSenderIdentity = Boolean(user?.clubId) && !isParentSettings && !isClubAdminSettings && user?.role !== 'super_admin'
+  const showDisplaySettings = canManageTeamAppearance(user) && Boolean(user?.activeTeamId)
+  const showWalkthroughSettings = !isParentSettings && !isClubAdminSettings
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
   const [displayName, setDisplayName] = useState(user?.displayName || user?.username || user?.name || '')
@@ -43,6 +49,7 @@ export function UserSettingsPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
   const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
+  const [themeButtonStyle, setThemeButtonStyle] = useState(getStoredThemeButtonStyle)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -65,6 +72,16 @@ export function UserSettingsPage() {
     user?.replyToEmail,
     user?.username,
   ])
+
+  useEffect(() => {
+    if (!user?.id) {
+      return
+    }
+
+    setThemeMode(user.themeMode || getStoredThemeMode())
+    setThemeAccent(user.themeAccent || getStoredThemeAccent())
+    setThemeButtonStyle(user.themeButtonStyle || getStoredThemeButtonStyle())
+  }, [user?.id, user?.themeAccent, user?.themeButtonStyle, user?.themeMode])
 
   useEffect(() => {
     if (!successMessage) {
@@ -209,17 +226,25 @@ export function UserSettingsPage() {
     }
 
     try {
-      const updatedProfile = await updateOwnThemeSettings({
-        authUser,
-        mode: nextPreferences.mode,
-        accent: nextPreferences.accent,
+      const updatedTeam = await updateTeamSettings({
+        teamId: user.activeTeamId,
+        user,
+        data: {
+          themeMode: nextPreferences.mode,
+          themeAccent: nextPreferences.accent,
+          themeButtonStyle: nextPreferences.buttonStyle,
+        },
       })
-      updateCurrentUserDetails(updatedProfile)
+      updateCurrentUserDetails({
+        themeMode: updatedTeam.themeMode,
+        themeAccent: updatedTeam.themeAccent,
+        themeButtonStyle: updatedTeam.themeButtonStyle,
+      })
     } catch (error) {
       console.error(error)
       showToast({
-        title: 'Theme saved on this device',
-        message: 'Your account theme could not be updated right now.',
+        title: 'Team theme not saved',
+        message: 'Your team appearance could not be updated right now.',
         tone: 'error',
       })
     }
@@ -234,10 +259,12 @@ export function UserSettingsPage() {
     const nextPreferences = saveThemePreferences({
       mode: nextThemeMode,
       accent: themeAccent,
+      buttonStyle: themeButtonStyle,
     })
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
-    showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
+    setThemeButtonStyle(nextPreferences.buttonStyle)
+    showToast({ title: 'Team theme updated', message: 'The active team display preference has been saved.' })
     void persistThemePreferences(nextPreferences)
   }
 
@@ -250,10 +277,30 @@ export function UserSettingsPage() {
     const nextPreferences = saveThemePreferences({
       mode: themeMode,
       accent: nextThemeAccent,
+      buttonStyle: themeButtonStyle,
     })
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
-    showToast({ title: 'Theme updated', message: 'Your colour preference has been saved.' })
+    setThemeButtonStyle(nextPreferences.buttonStyle)
+    showToast({ title: 'Team theme updated', message: 'The active team colour preference has been saved.' })
+    void persistThemePreferences(nextPreferences)
+  }
+
+  const handleThemeButtonStyleChange = (nextThemeButtonStyle) => {
+    if (!hasPlanFeature(user, 'themes')) {
+      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes'), tone: 'error' })
+      return
+    }
+
+    const nextPreferences = saveThemePreferences({
+      mode: themeMode,
+      accent: themeAccent,
+      buttonStyle: nextThemeButtonStyle,
+    })
+    setThemeMode(nextPreferences.mode)
+    setThemeAccent(nextPreferences.accent)
+    setThemeButtonStyle(nextPreferences.buttonStyle)
+    showToast({ title: 'Team theme updated', message: 'The active team button style has been saved.' })
     void persistThemePreferences(nextPreferences)
   }
 
@@ -272,15 +319,26 @@ export function UserSettingsPage() {
   }
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
-  const canUseThemes = hasPlanFeature(user, 'themes')
-  const canEditEmailClubName = canEditClubIdentity(user)
+  const canUseThemes = showDisplaySettings && hasPlanFeature(user, 'themes')
+  const canEditEmailClubName = showSenderIdentity && canEditClubIdentity(user)
+  const pageTitle = isParentSettings ? 'Parent account' : 'My account'
+  const pageDescription = isParentSettings
+    ? 'Manage your parent portal login and password.'
+    : isClubAdminSettings
+      ? 'Manage your personal account and sign-in details. Club details stay in Club Settings.'
+      : 'Manage your username, password, and personal account details.'
+  const workspaceLabel = isParentSettings
+    ? 'Parent Portal'
+    : user?.role === 'super_admin'
+      ? 'Platform'
+      : user?.clubName || 'No club assigned'
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="User Settings"
-        title="My account"
-        description="Manage your username, password, and personal account details."
+        title={pageTitle}
+        description={pageDescription}
       />
 
       {successMessage ? (
@@ -310,24 +368,32 @@ export function UserSettingsPage() {
           onUsernameChange={setUsername}
           replyToEmail={replyToEmail}
           senderPreview={senderPreview}
+          showEmailIdentity={showSenderIdentity}
           user={user}
           username={username}
+          workspaceLabel={workspaceLabel}
         />
 
         <div className="space-y-5">
-          <DisplaySettingsSection
-            canUseThemes={canUseThemes}
-            onThemeAccentChange={handleThemeAccentChange}
-            onThemeModeChange={handleThemeModeChange}
-            themeAccent={themeAccent}
-            themeMode={themeMode}
-          />
+          {showDisplaySettings ? (
+            <DisplaySettingsSection
+              canUseThemes={canUseThemes}
+              onThemeAccentChange={handleThemeAccentChange}
+              onThemeButtonStyleChange={handleThemeButtonStyleChange}
+              onThemeModeChange={handleThemeModeChange}
+              themeAccent={themeAccent}
+              themeButtonStyle={themeButtonStyle}
+              themeMode={themeMode}
+            />
+          ) : null}
 
-          <WalkthroughSettingsSection
-            disabled={Boolean(walkthrough?.disabled)}
-            onDisabledChange={handleWalkthroughDisabledChange}
-            onRestart={handleRestartWalkthrough}
-          />
+          {showWalkthroughSettings ? (
+            <WalkthroughSettingsSection
+              disabled={Boolean(walkthrough?.disabled)}
+              onDisabledChange={handleWalkthroughDisabledChange}
+              onRestart={handleRestartWalkthrough}
+            />
+          ) : null}
 
           <LoginEmailSection
             email={email}

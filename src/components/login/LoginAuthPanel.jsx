@@ -13,6 +13,7 @@ export function LoginAuthPanel({
   onPasswordReset,
   onSubmit,
   onTogglePasswordVisibility,
+  parentInviteMode = false,
   signupBoxRef,
 }) {
   return (
@@ -26,10 +27,12 @@ export function LoginAuthPanel({
             {mode === 'signup' ? 'Create account' : 'Secure login'}
           </p>
           <h2 className="mt-3 text-2xl font-black tracking-tight text-white">
-            {mode === 'signup' ? 'Start or join a club' : 'Open your workspace'}
+            {parentInviteMode ? 'Open parent access' : mode === 'signup' ? 'Start or join a club' : 'Open your workspace'}
           </h2>
           <p className="mt-3 text-sm leading-6 text-slate-300">
-            {mode === 'signup'
+            {parentInviteMode
+              ? 'Log in or create a parent account to accept your child link.'
+              : mode === 'signup'
               ? 'Create a club admin account, or sign up with an email already allocated by your club.'
               : 'Use the email and password linked to your club access.'}
           </p>
@@ -59,7 +62,7 @@ export function LoginAuthPanel({
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-          {mode === 'signup' ? (
+          {mode === 'signup' && !parentInviteMode ? (
             <label className="block">
               <span className="mb-2 block text-sm font-bold text-slate-200">Club Name</span>
               <input
@@ -74,7 +77,7 @@ export function LoginAuthPanel({
             </label>
           ) : null}
 
-          {mode === 'signup' ? (
+          {mode === 'signup' && !parentInviteMode ? (
             <label className="block">
               <span className="mb-2 block text-sm font-bold text-slate-200">Tester access code</span>
               <input

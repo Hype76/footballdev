@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { canDeletePlayer, canEditEvaluation } from '../../lib/auth.js'
 import { hasPlanFeature } from '../../lib/plans.js'
 import { buildEvaluationSummary } from '../../hooks/players/playerProfileUtils.js'
+import { EvaluationExportFieldsSelector } from '../evaluations/EvaluationExportFieldsSelector.jsx'
 
 export function EvaluationHistoryCard({
   availableEmailTemplates,
@@ -22,6 +24,7 @@ export function EvaluationHistoryCard({
   onReassignEvaluation,
   onReassignTargetChange,
   onRemovePlayer,
+  onReorderExportField,
   onSelectAllExportFields,
   onSelectedEmailTemplateChange,
   onSendParentEmail,
@@ -39,6 +42,7 @@ export function EvaluationHistoryCard({
   shouldShowInviteDate,
   user,
 }) {
+  const [isOpen, setIsOpen] = useState(false)
   const deleteAssessmentDisabledReason =
     isDeletingEvaluationId === evaluation.id ? 'Please wait while this assessment is being deleted.' : undefined
   const reassignSelectDisabledReason =
@@ -70,14 +74,31 @@ export function EvaluationHistoryCard({
 
   return (
     <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5">
-      <div>
-        <div>
-          <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
-          {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
-          <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        aria-expanded={isOpen}
+        className="block w-full text-left"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
+            {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
+            <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
+            </span>
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              {isOpen ? 'Close' : 'Open'}
+            </span>
+          </div>
         </div>
-      </div>
+      </button>
 
+      {isOpen ? (
+      <>
       <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -176,6 +197,7 @@ export function EvaluationHistoryCard({
         <EvaluationExportFields
           hasSavedExportSelection={hasSavedExportSelection}
           onClearExportFields={onClearExportFields}
+          onReorderExportField={onReorderExportField}
           onSelectAllExportFields={onSelectAllExportFields}
           onToggleExportField={onToggleExportField}
           playerName={playerName}
@@ -273,6 +295,8 @@ export function EvaluationHistoryCard({
           )}
         </div>
       </div>
+      </>
+      ) : null}
     </div>
   )
 }
@@ -319,6 +343,7 @@ function EvaluationRecipients({
 function EvaluationExportFields({
   hasSavedExportSelection,
   onClearExportFields,
+  onReorderExportField,
   onSelectAllExportFields,
   onToggleExportField,
   playerName,
@@ -355,36 +380,17 @@ function EvaluationExportFields({
         </div>
 
         {responseItems.length > 0 ? (
-          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {responseItems.map((item) => {
-              const isSelected = hasSavedExportSelection
-                ? selectedExportLabels.includes(item.label)
-                : true
-
-              return (
-                <label
-                  key={item.label}
-                  className="flex min-h-11 items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => onToggleExportField(item.label, responseItems)}
-                    className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-semibold">{item.label}</span>
-                    <span className="line-clamp-2 block break-words text-xs leading-5 text-[var(--text-muted)]">
-                      {String(item.value ?? '').trim() || 'No data entered'}
-                    </span>
-                  </span>
-                </label>
-              )
-            })}
-          </div>
+          <EvaluationExportFieldsSelector
+            gridClassName="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3"
+            hasSavedExportSelection={hasSavedExportSelection}
+            onReorderExportField={onReorderExportField}
+            onToggleExportField={onToggleExportField}
+            responseItems={responseItems}
+            selectedExportLabels={selectedExportLabels}
+          />
         ) : (
           <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            No assessment responses were entered for this assessment.
+            No assessment responses above zero were entered for this assessment.
           </p>
         )}
 

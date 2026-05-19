@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   createDraftFromField,
   createScoreOptions,
@@ -22,19 +23,60 @@ export function CurrentFieldsSection({
   onDraftChange,
   onMoveField,
   onPageChange,
+  onReorderField,
   onSaveField,
   onSetFieldGroup,
   onToggleEnabled,
   paginatedFields,
   visibleFields,
 }) {
+  const [isDragLocked, setIsDragLocked] = useState(true)
+  const [draggedFieldId, setDraggedFieldId] = useState('')
+  const [dragOverFieldId, setDragOverFieldId] = useState('')
+
+  const handleDragStart = (fieldId) => {
+    if (isDragLocked) {
+      return
+    }
+
+    setDraggedFieldId(fieldId)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedFieldId('')
+    setDragOverFieldId('')
+  }
+
+  const handleDragOver = (fieldId) => {
+    if (!isDragLocked && fieldId !== draggedFieldId) {
+      setDragOverFieldId(fieldId)
+    }
+  }
+
+  const handleDragLeave = (fieldId) => {
+    if (dragOverFieldId === fieldId) {
+      setDragOverFieldId('')
+    }
+  }
+
+  const handleDropField = (fieldId, targetFieldId) => {
+    setDraggedFieldId('')
+    setDragOverFieldId('')
+
+    if (isDragLocked) {
+      return
+    }
+
+    onReorderField(fieldId, targetFieldId)
+  }
+
   return (
     <SectionCard
       title="Current fields"
       tourId="current-fields-section"
       description="Switch between default fields and custom fields so the form setup stays clear."
     >
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           type="button"
           onClick={() => {
@@ -65,6 +107,23 @@ export function CurrentFieldsSection({
         >
           Custom Fields ({customFields.length})
         </button>
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => {
+            setIsDragLocked((current) => !current)
+            setDraggedFieldId('')
+            setDragOverFieldId('')
+          }}
+          className={[
+            'inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
+            isDragLocked
+              ? 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+              : 'border-[var(--accent)] bg-[var(--panel-soft)] text-[var(--text-primary)]',
+          ].join(' ')}
+        >
+          {isDragLocked ? 'Unlock drag' : 'Lock drag'}
+        </button>
       </div>
 
       {isLoading ? (
@@ -85,7 +144,7 @@ export function CurrentFieldsSection({
         <div className="space-y-3">
           {paginatedFields.items.map((field) => {
             const draft = fieldDrafts[field.id] ?? createDraftFromField(field)
-            const fieldIndex = fields.findIndex((item) => item.id === field.id)
+            const fieldIndex = visibleFields.findIndex((item) => item.id === field.id)
 
             return (
               <FormFieldCard
@@ -93,9 +152,17 @@ export function CurrentFieldsSection({
                 draft={draft}
                 field={field}
                 fieldIndex={fieldIndex}
-                fieldsCount={fields.length}
+                fieldsCount={visibleFields.length}
+                isDragLocked={isDragLocked}
                 isSaving={isSaving}
+                isDragOver={dragOverFieldId === field.id}
+                isDragging={draggedFieldId === field.id}
                 onDeleteField={onDeleteField}
+                onDragEnd={handleDragEnd}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDragStart={handleDragStart}
+                onDropField={handleDropField}
                 onDraftChange={onDraftChange}
                 onMoveField={onMoveField}
                 onSaveField={onSaveField}
@@ -120,8 +187,16 @@ function FormFieldCard({
   field,
   fieldIndex,
   fieldsCount,
+  isDragLocked,
   isSaving,
+  isDragOver,
+  isDragging,
   onDeleteField,
+  onDragEnd,
+  onDragLeave,
+  onDragOver,
+  onDragStart,
+  onDropField,
   onDraftChange,
   onMoveField,
   onSaveField,
@@ -140,7 +215,49 @@ function FormFieldCard({
   const savingDisabledReason = isSaving ? 'Please wait while field changes are being saved.' : undefined
 
   return (
-    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+    <div
+      draggable={!isSaving && !isDragLocked}
+      onDragStart={(event) => {
+        if (isDragLocked) {
+          event.preventDefault()
+          return
+        }
+
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/plain', field.id)
+        onDragStart(field.id)
+      }}
+      onDragEnd={onDragEnd}
+      onDragOver={(event) => {
+        if (isDragLocked) {
+          return
+        }
+
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'move'
+        onDragOver(field.id)
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          onDragLeave(field.id)
+        }
+      }}
+      onDrop={(event) => {
+        if (isDragLocked) {
+          return
+        }
+
+        event.preventDefault()
+        const sourceFieldId = event.dataTransfer.getData('text/plain')
+        onDropField(sourceFieldId, field.id)
+      }}
+      className={[
+        'rounded-lg border bg-[var(--panel-alt)] p-4 transition',
+        isSaving || isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
+        isDragging ? 'opacity-60' : '',
+        isDragOver ? 'border-[var(--accent)] ring-2 ring-[var(--accent)] ring-opacity-40' : 'border-[var(--border-color)]',
+      ].join(' ')}
+    >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="grid gap-4 md:grid-cols-2">
           {field.isDefault ? (

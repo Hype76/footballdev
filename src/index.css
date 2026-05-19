@@ -32,6 +32,7 @@
     --accent-text: #173117;
     --accent-soft: #e6ff9b;
     --button-primary: #111827;
+    --button-primary-gradient: linear-gradient(135deg, var(--button-primary), color-mix(in srgb, var(--button-primary) 72%, white));
     --button-primary-text: #ffffff;
     --danger-border: #ead7d7;
     --danger-soft: #faf2f2;
@@ -62,6 +63,7 @@
     --accent-text: #0f1d0b;
     --accent-soft: #2a3a0f;
     --button-primary: #c7ff1a;
+    --button-primary-gradient: linear-gradient(135deg, var(--button-primary), color-mix(in srgb, var(--button-primary) 72%, white));
     --button-primary-text: #0a0f08;
     --danger-border: #5a2a33;
     --danger-soft: #2a1519;
@@ -74,6 +76,7 @@
     --accent-text: #422006;
     --accent-soft: #fef3c7;
     --button-primary: #facc15;
+    --button-primary-gradient: linear-gradient(135deg, #facc15, #f97316);
     --button-primary-text: #422006;
     --text-secondary: #ca8a04;
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
@@ -84,6 +87,7 @@
     --accent-text: #ffffff;
     --accent-soft: #d8e7ff;
     --button-primary: #2f80ff;
+    --button-primary-gradient: linear-gradient(135deg, #2f80ff, #22d3ee);
     --button-primary-text: #ffffff;
     --text-secondary: #2f80ff;
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
@@ -94,6 +98,7 @@
     --accent-text: #052e16;
     --accent-soft: #bbf7d0;
     --button-primary: #22c55e;
+    --button-primary-gradient: linear-gradient(135deg, #22c55e, #a3e635);
     --button-primary-text: #052e16;
     --text-secondary: #22c55e;
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
@@ -104,6 +109,7 @@
     --accent-text: #ffffff;
     --accent-soft: #fecaca;
     --button-primary: #ef4444;
+    --button-primary-gradient: linear-gradient(135deg, #ef4444, #f97316);
     --button-primary-text: #ffffff;
     --text-secondary: #ef4444;
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
@@ -114,6 +120,7 @@
     --accent-text: #ffffff;
     --accent-soft: #ddd6fe;
     --button-primary: #8b5cf6;
+    --button-primary-gradient: linear-gradient(135deg, #8b5cf6, #ec4899);
     --button-primary-text: #ffffff;
     --text-secondary: #8b5cf6;
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
@@ -124,6 +131,7 @@
     --accent-text: #422006;
     --accent-soft: #3f3108;
     --button-primary: #fde047;
+    --button-primary-gradient: linear-gradient(135deg, #fde047, #fb923c);
     --button-primary-text: #422006;
     --text-secondary: #fde047;
   }
@@ -133,6 +141,7 @@
     --accent-text: #06172f;
     --accent-soft: #10243f;
     --button-primary: #60a5fa;
+    --button-primary-gradient: linear-gradient(135deg, #60a5fa, #67e8f9);
     --button-primary-text: #06172f;
     --text-secondary: #60a5fa;
   }
@@ -142,6 +151,7 @@
     --accent-text: #052e16;
     --accent-soft: #12351f;
     --button-primary: #4ade80;
+    --button-primary-gradient: linear-gradient(135deg, #4ade80, #bef264);
     --button-primary-text: #052e16;
     --text-secondary: #4ade80;
   }
@@ -151,6 +161,7 @@
     --accent-text: #3f0808;
     --accent-soft: #421919;
     --button-primary: #f87171;
+    --button-primary-gradient: linear-gradient(135deg, #f87171, #fb923c);
     --button-primary-text: #3f0808;
     --text-secondary: #f87171;
   }
@@ -160,6 +171,7 @@
     --accent-text: #201047;
     --accent-soft: #2c1d48;
     --button-primary: #a78bfa;
+    --button-primary-gradient: linear-gradient(135deg, #a78bfa, #f0abfc);
     --button-primary-text: #201047;
     --text-secondary: #a78bfa;
   }
@@ -197,7 +209,21 @@
   input,
   select,
   textarea {
+    min-width: 0;
+    width: 100%;
     max-width: 100%;
+  }
+
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='month'],
+  input[type='time'] {
+    display: block;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
   }
 
   img,
@@ -222,6 +248,21 @@
 
   button {
     cursor: pointer;
+  }
+
+  body.button-style-gradient [class*='bg-[var(--button-primary)]'] {
+    background: var(--button-primary-gradient);
+    background-size: 140% 140%;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 24%, transparent);
+  }
+
+  body.button-style-gradient button[class*='bg-[var(--button-primary)]']:hover {
+    transform: translateY(-1px);
+    background-position: 100% 0;
+  }
+
+  body.button-style-solid [class*='bg-[var(--button-primary)]'] {
+    background: var(--button-primary);
   }
 
   a {

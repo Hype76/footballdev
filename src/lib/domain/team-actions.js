@@ -60,6 +60,14 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
 
   const previousTeamName = String(currentTeam.name ?? '').trim()
   const payload = {}
+  const hasThemeUpdates =
+    data.themeMode !== undefined ||
+    data.themeAccent !== undefined ||
+    data.themeButtonStyle !== undefined
+
+  if (hasThemeUpdates && Number(user?.roleRank ?? 0) < 50) {
+    throw new Error('Only Team Admins can change team appearance.')
+  }
 
   if (data.name !== undefined) {
     payload.name = String(data.name ?? '').trim()
@@ -75,6 +83,18 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
     }
 
     payload.require_approval = Boolean(data.requireApproval)
+  }
+
+  if (data.themeMode !== undefined) {
+    payload.theme_mode = ['system', 'dark', 'light'].includes(data.themeMode) ? data.themeMode : 'system'
+  }
+
+  if (data.themeAccent !== undefined) {
+    payload.theme_accent = ['yellow', 'blue', 'green', 'red', 'purple'].includes(data.themeAccent) ? data.themeAccent : 'yellow'
+  }
+
+  if (data.themeButtonStyle !== undefined) {
+    payload.theme_button_style = ['solid', 'gradient'].includes(data.themeButtonStyle) ? data.themeButtonStyle : 'solid'
   }
 
   if (user?.id) {
@@ -96,6 +116,8 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
 
   invalidateMemoryCacheByPrefix('teams:')
   invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('user-profile:')
   invalidateMemoryCacheByPrefix('players:')
 
   if (payload.name && payload.name !== previousTeamName) {

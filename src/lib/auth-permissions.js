@@ -39,6 +39,10 @@ export function isClubAdmin(user) {
   return user?.role === 'admin'
 }
 
+export function isParentPortalUser(user) {
+  return user?.role === 'parent_portal'
+}
+
 export function canManageUsers(user) {
   if (!user) {
     return false
@@ -61,6 +65,14 @@ export function canViewActivityLog(user) {
 
 export function canManageTeamSettings(user) {
   return isClubAdmin(user) && isPlanAccessActive(user)
+}
+
+export function canViewEndSeasonStats(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
+}
+
+export function canManageTeamAppearance(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
 }
 
 export function canAssignRole(user, targetRole) {
@@ -148,6 +160,18 @@ export function canCreateEvaluation(user) {
   }
 
   return Boolean(user.clubId) && !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user.activeTeamId)) && isPlanAccessActive(user)
+}
+
+export function canManageParentLinks(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user)
+}
+
+export function canManagePolls(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
+}
+
+export function canManageMatchDay(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
 }
 
 export function canEditEvaluation(user, evaluation) {

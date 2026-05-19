@@ -28,6 +28,7 @@ import {
 import {
   getSavedEvaluationExportLabels,
   getSelectedEvaluationResponses,
+  reorderEvaluationExportLabels,
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
 import { removeDraft, saveDraft } from '../lib/offline-drafts.js'
@@ -123,6 +124,9 @@ export function CreateEvaluationPage() {
   const [isDefaultTemplateConfirmOpen, setIsDefaultTemplateConfirmOpen] = useState(false)
   const [hasApprovedDefaultTemplate, setHasApprovedDefaultTemplate] = useState(false)
   const [showPreviousAssessments, setShowPreviousAssessments] = useState(false)
+  const [isPreviousScoresConfirmOpen, setIsPreviousScoresConfirmOpen] = useState(false)
+  const [previousScoresPromptKey, setPreviousScoresPromptKey] = useState('')
+  const promptedPreviousScoresKeyRef = useRef('')
   const [emailTemplateKey, setEmailTemplateKey] = useState('')
   const [emailTemplates, setEmailTemplates] = useState([])
   const [isLoadingEmailTemplates, setIsLoadingEmailTemplates] = useState(false)
@@ -134,6 +138,9 @@ export function CreateEvaluationPage() {
   const [teamsLoadErrorMessage, setTeamsLoadErrorMessage] = useState('')
   const [offlineDraftId, setOfflineDraftId] = useState(createLocalId)
   const [offlineStatusMessage, setOfflineStatusMessage] = useState('')
+  const [nextAssessmentReminderTarget, setNextAssessmentReminderTarget] = useState(null)
+  const [nextAssessmentReminderDate, setNextAssessmentReminderDate] = useState('')
+  const [isSavingNextAssessmentReminder, setIsSavingNextAssessmentReminder] = useState(false)
 
   const draftStorageKey = getDraftStorageKey(user)
 
@@ -364,6 +371,20 @@ export function CreateEvaluationPage() {
       isMounted = false
     }
   }, [editingEvaluationId, formData.playerName, formData.team, isPlatformOwner, user, userScopeKey])
+
+  useEffect(() => {
+    const playerName = normalizePlayerName(formData.playerName)
+    const team = String(formData.team ?? '').trim()
+    const promptKey = `${playerName}:${team}`
+
+    if (editingEvaluation || previousEvaluations.length === 0 || !playerName || promptedPreviousScoresKeyRef.current === promptKey) {
+      return
+    }
+
+    promptedPreviousScoresKeyRef.current = promptKey
+    setPreviousScoresPromptKey(promptKey)
+    setIsPreviousScoresConfirmOpen(true)
+  }, [editingEvaluation, formData.playerName, formData.team, previousEvaluations.length])
 
   useEffect(() => {
     let isMounted = true
@@ -617,7 +638,7 @@ export function CreateEvaluationPage() {
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
   const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
-  const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
+  const canSubmitEvaluation = availableTeams.length > 0
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
   const normalizedContactType = normalizePlayerContactType(formData.contactType)
   const contactAudiences = getContactTemplateAudiences(normalizedContactType)
@@ -798,6 +819,30 @@ export function CreateEvaluationPage() {
       return
     }
 
+    if (name === 'team' && formData.playerName) {
+      const currentPlayerName = normalizePlayerName(formData.playerName)
+      const currentSection = String(formData.section ?? '').trim()
+      const matchingPlayer = savedPlayers.find(
+        (player) =>
+          normalizePlayerName(player.playerName) === currentPlayerName &&
+          player.team === value &&
+          (!currentSection || player.section === currentSection),
+      )
+
+      if (!matchingPlayer) {
+        setSelectedParentContactIndexes([0])
+        setFormData((current) => ({
+          ...current,
+          team: value,
+          playerName: '',
+          parentName: '',
+          parentEmail: '',
+          parentContacts: [],
+        }))
+        return
+      }
+    }
+
     if (name === 'playerName' || name === 'team') {
       const { matchingParentContacts, nextFormData } = getMatchedPlayerFieldUpdate({
         fieldName: name,
@@ -809,6 +854,35 @@ export function CreateEvaluationPage() {
       })
       setFormData(nextFormData)
       setSelectedParentContactIndexes(getSelectedContactIndexes(matchingParentContacts))
+      return
+    }
+
+    if (name === 'section') {
+      const currentPlayerName = normalizePlayerName(formData.playerName)
+      const currentTeam = String(formData.team ?? '').trim()
+      const matchingPlayer = savedPlayers.find(
+        (player) =>
+          normalizePlayerName(player.playerName) === currentPlayerName &&
+          player.section === value &&
+          (!currentTeam || player.team === currentTeam),
+      )
+
+      if (matchingPlayer) {
+        setFormData((current) => ({
+          ...current,
+          section: value,
+        }))
+      } else {
+        setSelectedParentContactIndexes([0])
+        setFormData((current) => ({
+          ...current,
+          section: value,
+          playerName: '',
+          parentName: '',
+          parentEmail: '',
+          parentContacts: [],
+        }))
+      }
       return
     }
 
@@ -846,6 +920,17 @@ export function CreateEvaluationPage() {
     saveExportSelection(getNextExportLabels({ label, responseItems, selectedExportLabels }))
   }
 
+  const handleReorderExportField = (sourceLabel, targetLabel, currentResponseItems) => {
+    saveExportSelection(
+      reorderEvaluationExportLabels({
+        sourceLabel,
+        targetLabel,
+        responseItems: currentResponseItems,
+        selectedLabels: selectedExportLabels,
+      }),
+    )
+  }
+
   const handleSetAllExportFields = () => {
     saveExportSelection(responseItems.map((item) => item.label))
   }
@@ -866,6 +951,11 @@ export function CreateEvaluationPage() {
     if (!String(formData.team ?? '').trim()) {
       console.error('Assessment submit failed: no team selected.')
       setActionErrorMessage('Select a team before submitting the assessment.')
+      return
+    }
+
+    if (previewMode === 'email' && selectedEmailTemplate?.isDefaultTemplate && !hasApprovedDefaultTemplate) {
+      setIsDefaultTemplateConfirmOpen(true)
       return
     }
 
@@ -943,6 +1033,17 @@ export function CreateEvaluationPage() {
             channel: 'email',
             action: 'parent_email_sent',
             recipientEmail: emailJobs.map((emailJob) => emailJob.recipientEmail).join(','),
+            metadata: {
+              subject: emailJobs[0]?.payload?.subject || '',
+              body: emailJobs[0]?.payload?.emailBody || '',
+              templateName: emailJobs.map((emailJob) => emailJob.templateName).join(', '),
+              team: emailJobs[0]?.payload?.team || '',
+              club: emailJobs[0]?.payload?.club || '',
+              playerName: normalizedPlayerName,
+              hasAttachment: isPdfAttachmentApproved,
+              assessmentFields: selectedResponseItems,
+              pdfHtml: isPdfAttachmentApproved ? emailJobs[0]?.payload?.pdfHtml || '' : '',
+            },
           })
           showToast({ title: 'Email sent successfully' })
         } catch (emailError) {
@@ -1002,6 +1103,13 @@ export function CreateEvaluationPage() {
         title: editingEvaluation ? 'Assessment updated' : 'Assessment saved',
         message: `${normalizedPlayerName} assessment has been saved.`,
       })
+      setNextAssessmentReminderTarget({
+        evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+        playerId: savedEvaluation?.playerId || evaluation.playerId,
+        playerName: normalizedPlayerName,
+        team: formData.team,
+        section: formData.section,
+      })
     } catch (error) {
       console.error('Assessment submit failed', error)
       setIsSaved(false)
@@ -1029,25 +1137,70 @@ export function CreateEvaluationPage() {
     }
   }
 
-  const handleSubmitClick = () => {
-    setActionErrorMessage('')
-
-    if (!formRef.current?.reportValidity()) {
-      return
-    }
-
-    if (previewMode === 'email' && selectedEmailTemplate?.isDefaultTemplate && !hasApprovedDefaultTemplate) {
-      setIsDefaultTemplateConfirmOpen(true)
-      return
-    }
-
-    formRef.current.requestSubmit()
-  }
-
   const handleContinueWithDefaultTemplate = () => {
     setHasApprovedDefaultTemplate(true)
     setIsDefaultTemplateConfirmOpen(false)
     window.setTimeout(() => formRef.current?.requestSubmit(), 0)
+  }
+
+  const handleEmailAfterSaveChange = (shouldEmail) => {
+    setPreviewMode(shouldEmail ? 'email' : 'scored')
+    setHasApprovedDefaultTemplate(false)
+
+    if (!shouldEmail) {
+      setIsPdfAttachmentApproved(false)
+    }
+  }
+
+  const handleShowPreviousScores = () => {
+    promptedPreviousScoresKeyRef.current = previousScoresPromptKey
+    setShowPreviousAssessments(true)
+    setIsPreviousScoresConfirmOpen(false)
+  }
+
+  const handleHidePreviousScores = () => {
+    promptedPreviousScoresKeyRef.current = previousScoresPromptKey
+    setShowPreviousAssessments(false)
+    setIsPreviousScoresConfirmOpen(false)
+  }
+
+  const handleSaveNextAssessmentReminder = async () => {
+    if (!nextAssessmentReminderTarget || !nextAssessmentReminderDate) {
+      return
+    }
+
+    setIsSavingNextAssessmentReminder(true)
+
+    try {
+      await createCommunicationLog({
+        user,
+        playerId: nextAssessmentReminderTarget.playerId,
+        evaluationId: nextAssessmentReminderTarget.evaluationId,
+        channel: 'reminder',
+        action: 'next_assessment_reminder_set',
+        metadata: {
+          dueDate: nextAssessmentReminderDate,
+          playerName: nextAssessmentReminderTarget.playerName,
+          team: nextAssessmentReminderTarget.team,
+          section: nextAssessmentReminderTarget.section,
+        },
+      })
+      showToast({
+        title: 'Reminder saved',
+        message: `Next assessment reminder set for ${nextAssessmentReminderDate}.`,
+      })
+      setNextAssessmentReminderTarget(null)
+      setNextAssessmentReminderDate('')
+    } catch (error) {
+      console.error(error)
+      showToast({
+        title: 'Reminder not saved',
+        message: error.message || 'The assessment was saved, but the reminder could not be saved.',
+        tone: 'error',
+      })
+    } finally {
+      setIsSavingNextAssessmentReminder(false)
+    }
   }
 
   return (
@@ -1073,6 +1226,46 @@ export function CreateEvaluationPage() {
         onClose={() => setIsDefaultTemplateConfirmOpen(false)}
         onConfirm={handleContinueWithDefaultTemplate}
       />
+
+      <ConfirmModal
+        isOpen={isPreviousScoresConfirmOpen}
+        title="Previous assessment found"
+        message="This player already has assessment history. Do you want to open the previous scores while completing this assessment?"
+        cancelLabel="Keep Closed"
+        confirmLabel="Show Previous Scores"
+        onCancel={handleHidePreviousScores}
+        onClose={handleHidePreviousScores}
+        onConfirm={handleShowPreviousScores}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(nextAssessmentReminderTarget)}
+        isBusy={isSavingNextAssessmentReminder}
+        title="Set next assessment reminder"
+        message="Do you want to set a reminder for the next assessment?"
+        cancelLabel="Not Now"
+        confirmLabel="Save Reminder"
+        confirmDisabled={!nextAssessmentReminderDate}
+        onCancel={() => {
+          setNextAssessmentReminderTarget(null)
+          setNextAssessmentReminderDate('')
+        }}
+        onClose={() => {
+          setNextAssessmentReminderTarget(null)
+          setNextAssessmentReminderDate('')
+        }}
+        onConfirm={() => void handleSaveNextAssessmentReminder()}
+      >
+        <label className="block">
+          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Reminder date</span>
+          <input
+            type="date"
+            value={nextAssessmentReminderDate}
+            onChange={(event) => setNextAssessmentReminderDate(event.target.value)}
+            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+          />
+        </label>
+      </ConfirmModal>
 
       <div className={isPrintingBlankView ? 'no-print' : ''}>
         <PageHeader
@@ -1114,6 +1307,7 @@ export function CreateEvaluationPage() {
                 contactLabel={contactLabel}
                 contactNoun={contactNoun}
                 contactNounPlural={contactNounPlural}
+                evaluationSections={EVALUATION_SECTIONS}
                 formData={formData}
                 onFieldChange={handleFieldChange}
                 onToggleParentContact={handleToggleParentContact}
@@ -1156,10 +1350,10 @@ export function CreateEvaluationPage() {
                 onGoToPlayer={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
                 onInviteDateChange={setInviteDate}
                 onPdfAttachmentApprovedChange={setIsPdfAttachmentApproved}
-                onPreviewModeChange={setPreviewMode}
+                onEmailAfterSaveChange={handleEmailAfterSaveChange}
                 onPrintBlankForm={() => setIsPrintingBlankView(true)}
+                onReorderExportField={handleReorderExportField}
                 onSelectAllExportFields={handleSetAllExportFields}
-                onSubmitClick={handleSubmitClick}
                 onToggleExportField={handleToggleExportField}
                 previewMode={previewMode}
                 responseItems={responseItems}

@@ -16,8 +16,24 @@ export const primaryNavigation = [
     path: '/add-player',
   },
   {
+    label: 'Parent Linking',
+    path: '/parent-linking',
+  },
+  {
+    label: 'Polls',
+    path: '/polls',
+  },
+  {
+    label: 'Match Day',
+    path: '/match-day',
+  },
+  {
     label: 'Teams',
     path: '/teams',
+  },
+  {
+    label: 'End of Season Stats',
+    path: '/end-season-stats',
   },
   {
     label: 'Archived Players',

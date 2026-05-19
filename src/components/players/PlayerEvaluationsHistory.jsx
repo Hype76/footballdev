@@ -29,6 +29,7 @@ export function PlayerEvaluationsHistory({
   onReassignEvaluation,
   onReassignTargetChange,
   onRemovePlayer,
+  onReorderExportField,
   onSelectAllExportFields,
   onSelectedEmailTemplateChange,
   onSendParentEmail,
@@ -94,6 +95,7 @@ export function PlayerEvaluationsHistory({
                 onReassignEvaluation={onReassignEvaluation}
                 onReassignTargetChange={onReassignTargetChange}
                 onRemovePlayer={onRemovePlayer}
+                onReorderExportField={onReorderExportField}
                 onSelectAllExportFields={onSelectAllExportFields}
                 onSelectedEmailTemplateChange={onSelectedEmailTemplateChange}
                 onSendParentEmail={onSendParentEmail}

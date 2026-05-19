@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { AddPlayerFormSection } from '../components/players/AddPlayerFormSection.jsx'
 import { RecentlyAddedPlayersSection } from '../components/players/RecentlyAddedPlayersSection.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
+import { sendParentPortalInvite } from '../lib/email-builder.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import {
   RECENT_PLAYER_PAGE_SIZE,
@@ -15,6 +17,7 @@ import {
 } from '../hooks/players/addPlayerUtils.js'
 import {
   createPlayer,
+  createParentPortalInvites,
   getAvailableTeamsForUser,
   getPlayers,
   normalizePlayerContactType,
@@ -23,6 +26,19 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+
+function getPlayerPortalContacts(player) {
+  const contacts = Array.isArray(player?.parentContacts) && player.parentContacts.length > 0
+    ? player.parentContacts
+    : [{ name: player?.parentName || '', email: player?.parentEmail || '' }]
+
+  return contacts
+    .map((contact) => ({
+      name: String(contact?.name ?? '').trim(),
+      email: String(contact?.email ?? '').trim().toLowerCase(),
+    }))
+    .filter((contact) => contact.email)
+}
 
 export function AddPlayerPage() {
   const { user } = useAuth()
@@ -41,6 +57,8 @@ export function AddPlayerPage() {
   })
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && availableTeams.length === 0)
   const [isAddingPlayer, setIsAddingPlayer] = useState(false)
+  const [isSendingParentPortalLink, setIsSendingParentPortalLink] = useState(false)
+  const [parentPortalInviteTarget, setParentPortalInviteTarget] = useState(null)
   const [recentPlayerPage, setRecentPlayerPage] = useState(1)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -246,6 +264,10 @@ export function AddPlayerPage() {
       })
       setMessage('Player added.')
       showToast({ title: 'Player saved', message: `${createdPlayer.playerName} has been added.` })
+
+      if (String(createdPlayer.section ?? '').trim().toLowerCase() === 'squad' && getPlayerPortalContacts(createdPlayer).length > 0) {
+        setParentPortalInviteTarget(createdPlayer)
+      }
     } catch (error) {
       console.error(error)
       const message = String(error.message ?? '')
@@ -256,6 +278,64 @@ export function AddPlayerPage() {
       )
     } finally {
       setIsAddingPlayer(false)
+    }
+  }
+
+  const sendParentPortalInvitesForPlayer = async (player) => {
+    const contacts = getPlayerPortalContacts(player)
+
+    if (contacts.length === 0) {
+      return []
+    }
+
+    const invites = await createParentPortalInvites({
+      user,
+      player,
+      contacts,
+    })
+
+    await Promise.all(
+      invites.map((invite) =>
+        sendParentPortalInvite({
+          clubId: invite.clubId,
+          inviteLinkId: invite.id,
+          parentEmail: invite.email,
+          senderEmail: user.email,
+          displayName: user.displayName || user.username || user.name,
+          teamName: invite.teamName,
+          clubName: invite.clubName || user.clubName,
+          playerName: invite.playerName,
+          subject: `Parent portal invite for ${invite.playerName}`,
+          inviteUrl: invite.inviteUrl,
+        }),
+      ),
+    )
+
+    return invites
+  }
+
+  const confirmSendParentPortalLink = async () => {
+    if (!parentPortalInviteTarget?.id) {
+      return
+    }
+
+    setIsSendingParentPortalLink(true)
+    setErrorMessage('')
+
+    try {
+      const invites = await sendParentPortalInvitesForPlayer(parentPortalInviteTarget)
+      showToast({
+        title: invites.length > 0 ? 'Parent invite sent' : 'No new invite needed',
+        message: invites.length > 0
+          ? `${invites.length} parent invite${invites.length === 1 ? '' : 's'} sent.`
+          : 'Every parent email already has an invite or link for this team.',
+      })
+      setParentPortalInviteTarget(null)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Parent portal invite could not be sent.')
+    } finally {
+      setIsSendingParentPortalLink(false)
     }
   }
 
@@ -314,6 +394,21 @@ export function AddPlayerPage() {
         paginatedRecentPlayers={paginatedRecentPlayers}
         recentPlayerPage={recentPlayerPage}
         recentPlayers={recentPlayers}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(parentPortalInviteTarget)}
+        isBusy={isSendingParentPortalLink}
+        title="Send parent portal link"
+        message="This player has been added straight to Squad. Send the parent portal invite now?"
+        items={[
+          `Player: ${parentPortalInviteTarget?.playerName || 'Selected player'}`,
+          `Team: ${parentPortalInviteTarget?.team || 'No team entered'}`,
+        ]}
+        cancelLabel="Not Now"
+        confirmLabel="Send Parent Link"
+        onCancel={() => setParentPortalInviteTarget(null)}
+        onConfirm={() => void confirmSendParentPortalLink()}
       />
     </div>
   )

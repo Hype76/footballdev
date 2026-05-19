@@ -54,8 +54,8 @@ async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
   const checkoutParams = {
     mode: 'subscription',
     line_items: [{ price: params.priceId, quantity: 1 }],
-    success_url: `${params.appUrl}/login?checkout=success&plan=${encodeURIComponent(params.planName)}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${params.appUrl}/login?checkout=cancelled`,
+    success_url: `${params.appUrl}/sign-in?checkout=success&plan=${encodeURIComponent(params.planName)}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${params.appUrl}/sign-in?checkout=cancelled`,
     customer_email: params.customerEmail || undefined,
     subscription_data: {
       trial_period_days: 14,

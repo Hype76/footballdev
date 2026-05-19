@@ -6,17 +6,23 @@ import {
   canCreateEvaluation,
   canManageClubSettings,
   canManageFormFields,
+  canManageMatchDay,
   canManageParentEmailTemplates,
+  canManageParentLinks,
+  canManagePolls,
   canManageTeamSettings,
   canManageUsers,
   canViewActivityLog,
   canViewBilling,
+  canViewEndSeasonStats,
   isSuperAdmin,
+  isParentPortalUser,
   isTesterAccessExpired,
   useAuth,
 } from '../lib/auth.js'
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
 import { hasPlanFeature, isPlanAccessActive } from '../lib/plans.js'
+import { getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -44,20 +50,35 @@ const AssessmentsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPage
 const PlayersMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'PlayersMenuPage')
 const SessionsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'SessionsMenuPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
+const EndSeasonStatsPage = lazyRoute(() => import('../pages/EndSeasonStatsPage.jsx'), 'EndSeasonStatsPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
 const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
 const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
 const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
+const MatchDayPage = lazyRoute(() => import('../pages/MatchDayPage.jsx'), 'MatchDayPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
 const ParentEmailTemplatesPage = lazyRoute(() => import('../pages/ParentEmailTemplatesPage.jsx'), 'ParentEmailTemplatesPage')
+const ParentInvitePage = lazyRoute(() => import('../pages/ParentInvitePage.jsx'), 'ParentInvitePage')
+const ParentLoginPage = lazyRoute(() => import('../pages/ParentLoginPage.jsx'), 'ParentLoginPage')
+const ParentLinkingPage = lazyRoute(() => import('../pages/ParentLinkingPage.jsx'), 'ParentLinkingPage')
+const ParentMessagesPage = lazyRoute(() => import('../pages/ParentMessagesPage.jsx'), 'ParentMessagesPage')
+const ParentPollsPage = lazyRoute(() => import('../pages/ParentPollsPage.jsx'), 'ParentPollsPage')
+const ParentPortalPage = lazyRoute(() => import('../pages/ParentPortalPage.jsx'), 'ParentPortalPage')
+const FriendsFamilyPage = lazyRoute(() => import('../pages/FriendsFamilyPage.jsx'), 'FriendsFamilyPage')
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
 const PlayersPage = lazyRoute(() => import('../pages/PlayersPage.jsx'), 'PlayersPage')
 const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx'), 'PlatformAdminPage')
 const PlatformBillingOptionsPage = lazyRoute(() => import('../pages/PlatformBillingOptionsPage.jsx'), 'PlatformBillingOptionsPage')
 const PlatformClubManagementPage = lazyRoute(() => import('../pages/PlatformClubManagementPage.jsx'), 'PlatformClubManagementPage')
 const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPage.jsx'), 'PlatformFeedbackPage')
+const PollsPage = lazyRoute(() => import('../pages/PollsPage.jsx'), 'PollsPage')
+const PublicFeaturesPage = lazyRoute(() => import('../pages/PublicFeaturesPage.jsx'), 'PublicFeaturesPage')
+const PublicLandingPage = lazyRoute(() => import('../pages/PublicLandingPage.jsx'), 'PublicLandingPage')
+const PublicParentsPage = lazyRoute(() => import('../pages/PublicParentsPage.jsx'), 'PublicParentsPage')
+const PublicPricingPage = lazyRoute(() => import('../pages/PublicPricingPage.jsx'), 'PublicPricingPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
+const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
 const TermsPage = lazyRoute(() => import('../pages/TermsPage.jsx'), 'TermsPage')
 const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
@@ -71,6 +92,19 @@ function LoadingScreen() {
       </div>
     </main>
   )
+}
+
+function ExternalRedirect({ to }) {
+  window.location.replace(to)
+  return <LoadingScreen />
+}
+
+function isParentHost() {
+  return isParentPortalHost()
+}
+
+function NavigateToParentInvite() {
+  return <Navigate to={window.location.pathname.replace(/^\/invite\//, '/parent-invite/')} replace />
 }
 
 function RouteContentSkeleton() {
@@ -179,6 +213,10 @@ function getDefaultWorkspacePath(user) {
     return '/platform-admin'
   }
 
+  if (isParentPortalUser(user)) {
+    return '/parent-portal'
+  }
+
   if (isAccountSuspended(user) || isClubSuspended(user)) {
     return '/'
   }
@@ -207,6 +245,10 @@ function getDefaultWorkspacePath(user) {
 }
 
 function RedirectToWorkspaceHome({ user }) {
+  if (isParentHost() && user && !isParentPortalUser(user)) {
+    return <ExternalRedirect to={getMainAppOrigin()} />
+  }
+
   return <Navigate to={getDefaultWorkspacePath(user)} replace />
 }
 
@@ -223,7 +265,7 @@ function useWorkspaceRouteGate({
   }
 
   if (!session?.user) {
-    return { element: <Navigate to="/login" replace />, user: null }
+    return { element: <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />, user: null }
   }
 
   if (!user && isProfileLoading) {
@@ -243,7 +285,15 @@ function useWorkspaceRouteGate({
   }
 
   if (redirectSuperAdmin && isSuperAdmin(user)) {
-    return { element: <Navigate to="/platform-admin" replace />, user }
+    return { element: isParentHost() ? <ExternalRedirect to={getMainAppOrigin()} /> : <Navigate to="/platform-admin" replace />, user }
+  }
+
+  if (isParentHost() && !isParentPortalUser(user)) {
+    return { element: <ExternalRedirect to={getMainAppOrigin()} />, user }
+  }
+
+  if (!redirectSuperAdmin && isParentPortalUser(user)) {
+    return { element: null, user }
   }
 
   if (isAccountSuspended(user)) {
@@ -353,7 +403,15 @@ function WorkspaceHome() {
   }
 
   if (isSuperAdmin(user)) {
-    return <Navigate to="/platform-admin" replace />
+    return isParentHost() ? <ExternalRedirect to={getMainAppOrigin()} /> : <Navigate to="/platform-admin" replace />
+  }
+
+  if (isParentHost() && !isParentPortalUser(user)) {
+    return <ExternalRedirect to={getMainAppOrigin()} />
+  }
+
+  if (isParentPortalUser(user)) {
+    return <Navigate to="/parent-portal" replace />
   }
 
   if (isAccountSuspended(user)) {
@@ -383,7 +441,7 @@ function RequireUser() {
   }
 
   if (!session?.user) {
-    return <Navigate to="/login" replace />
+    return <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />
   }
 
   return <Outlet />
@@ -416,6 +474,65 @@ function RequirePlayerWorkflowAccess() {
   return <Outlet />
 }
 
+function RequireParentPortalAccess() {
+  const { element, user } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+    blockExpiredTester: false,
+  })
+
+  if (element) {
+    return element
+  }
+
+  if (!isParentPortalUser(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireParentLinkingAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canManageParentLinks(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequirePollAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canManagePolls(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireMatchDayAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canManageMatchDay(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function PublicOnly() {
   const { isLoading, session } = useAuth()
 
@@ -424,7 +541,7 @@ function PublicOnly() {
   }
 
   if (session?.user) {
-    return <Navigate to="/" replace />
+    return <Navigate to={isParentHost() ? '/parent-portal' : '/'} replace />
   }
 
   return <Outlet />
@@ -524,6 +641,20 @@ function RequireTeamSettingsAccess() {
   return <Outlet />
 }
 
+function RequireEndSeasonStatsAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canViewEndSeasonStats(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function RequireActivityLogAccess() {
   const { element, user } = useWorkspaceRouteGate({
     redirectSuperAdmin: false,
@@ -563,6 +694,106 @@ function RequirePlatformAdminAccess() {
 
 export const router = createBrowserRouter([
   {
+    path: '/invite/:token',
+    element: <NavigateToParentInvite />,
+  },
+  {
+    path: '/staff-invite/:token',
+    element: (
+      <Suspense fallback={null}>
+        <StaffInvitePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/portal',
+    element: <Navigate to="/parent-portal" replace />,
+  },
+  {
+    path: '/login',
+    element: isParentHost() ? (
+      <Navigate to="/parent-login" replace />
+    ) : (
+      <PublicOnly />
+    ),
+    children: isParentHost()
+      ? []
+      : [
+          {
+            index: true,
+            element: (
+              <PageSuspense>
+                <PublicLandingPage />
+              </PageSuspense>
+            ),
+          },
+        ],
+  },
+  {
+    path: '/sign-in',
+    element: <PublicOnly />,
+    children: [
+      {
+        index: true,
+        element: (
+          <PageSuspense>
+            <LoginPage />
+          </PageSuspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/home',
+    element: <Navigate to="/login" replace />,
+  },
+  {
+    path: '/landing',
+    element: <Navigate to="/login" replace />,
+  },
+  {
+    path: '/features',
+    element: <PublicOnly />,
+    children: [
+      {
+        index: true,
+        element: (
+          <PageSuspense>
+            <PublicFeaturesPage />
+          </PageSuspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/parents',
+    element: <PublicOnly />,
+    children: [
+      {
+        index: true,
+        element: (
+          <PageSuspense>
+            <PublicParentsPage />
+          </PageSuspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/pricing',
+    element: <PublicOnly />,
+    children: [
+      {
+        index: true,
+        element: (
+          <PageSuspense>
+            <PublicPricingPage />
+          </PageSuspense>
+        ),
+      },
+    ],
+  },
+  {
     path: '/gdpr',
     element: (
       <PageSuspense>
@@ -579,17 +810,20 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    element: <PublicOnly />,
-    children: [
-      {
-        path: '/login',
-        element: (
-          <PageSuspense>
-            <LoginPage />
-          </PageSuspense>
-        ),
-      },
-    ],
+    path: '/parent-invite/:token',
+    element: (
+      <PageSuspense>
+        <ParentInvitePage />
+      </PageSuspense>
+    ),
+  },
+  {
+    path: '/parent-login',
+    element: (
+      <PageSuspense>
+        <ParentLoginPage />
+      </PageSuspense>
+    ),
   },
   {
     element: <RequireUser />,
@@ -705,6 +939,55 @@ export const router = createBrowserRouter([
             },
           },
           {
+            element: <RequireParentPortalAccess />,
+            children: [
+              {
+                path: 'parent-portal',
+                element: (
+                  <PageSuspense>
+                    <ParentPortalPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Parent Portal',
+                },
+              },
+              {
+                path: 'parent-messages',
+                element: (
+                  <PageSuspense>
+                    <ParentMessagesPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Messages',
+                },
+              },
+              {
+                path: 'parent-polls',
+                element: (
+                  <PageSuspense>
+                    <ParentPollsPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Polls',
+                },
+              },
+              {
+                path: 'friends-family',
+                element: (
+                  <PageSuspense>
+                    <FriendsFamilyPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Friends and Family',
+                },
+              },
+            ],
+          },
+          {
             element: <RequireClubWorkspace />,
             children: [
               {
@@ -799,6 +1082,38 @@ export const router = createBrowserRouter([
                     },
                   },
                   {
+                    element: <RequireParentLinkingAccess />,
+                    children: [
+                      {
+                        path: 'parent-linking',
+                        element: (
+                          <PageSuspense>
+                            <ParentLinkingPage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Parent Linking',
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    element: <RequirePollAccess />,
+                    children: [
+                      {
+                        path: 'polls',
+                        element: (
+                          <PageSuspense>
+                            <PollsPage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Polls',
+                        },
+                      },
+                    ],
+                  },
+                  {
                     path: 'create-evaluation',
                     element: (
                       <PageSuspense>
@@ -874,6 +1189,22 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequireMatchDayAccess />,
+            children: [
+              {
+                path: 'match-day',
+                element: (
+                  <PageSuspense>
+                    <MatchDayPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Match Day',
+                },
+              },
+            ],
+          },
+          {
             element: <RequireTeamSettingsAccess />,
             children: [
               {
@@ -885,6 +1216,22 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Teams',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireEndSeasonStatsAccess />,
+            children: [
+              {
+                path: 'end-season-stats',
+                element: (
+                  <PageSuspense>
+                    <EndSeasonStatsPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'End of Season Stats',
                 },
               },
             ],

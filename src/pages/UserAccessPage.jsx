@@ -14,7 +14,7 @@ import { initialUserAccessFormState, INVITE_PAGE_SIZE, MEMBER_PAGE_SIZE } from '
 import {
   canRemoveClubUser,
   canUpdateClubUserName,
-  createStaffUserWithPassword,
+  createStaffInvite,
   createClubRole,
   deleteClubInvite,
   getClubRoles,
@@ -50,7 +50,6 @@ export function UserAccessPage() {
   const [formState, setFormState] = useState(initialUserAccessFormState)
   const [isLoading, setIsLoading] = useState(() => roles.length === 0 && members.length === 0 && pendingInvites.length === 0)
   const [isSaving, setIsSaving] = useState(false)
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [nameDrafts, setNameDrafts] = useState({})
   const [memberPage, setMemberPage] = useState(1)
   const [invitePage, setInvitePage] = useState(1)
@@ -239,22 +238,26 @@ export function UserAccessPage() {
         throw new Error('You cannot assign that role.')
       }
 
-      await createStaffUserWithPassword({
+      const createdStaff = await createStaffInvite({
         user,
         email: formState.email,
-        password: formState.password,
         role: selectedRole,
+        teamId: user?.activeTeamId || '',
       })
 
       await refreshAccessData()
       setFormState({
         email: '',
-        password: '',
         roleKey: assignableRoles[0]?.roleKey || '',
         customRoleLabel: '',
       })
-      setMessage('User account created. They can log in with the initial password.')
-      showToast({ title: 'User saved', message: 'The user account has been created.' })
+      setMessage(createdStaff.kind === 'invite' ? 'Role invite sent.' : 'User access updated.')
+      showToast({
+        title: createdStaff.kind === 'invite' ? 'Role invite sent' : 'User access updated',
+        message: createdStaff.kind === 'invite'
+          ? `${formState.email} has been sent a staff invite.`
+          : `${formState.email} can now access this workspace.`,
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not update user access.')
@@ -402,10 +405,8 @@ export function UserAccessPage() {
         canAddMoreUsers={canAddMoreUsers}
         formState={formState}
         isLoading={isLoading}
-        isPasswordVisible={isPasswordVisible}
         isSaving={isSaving}
         onChange={handleChange}
-        onPasswordVisibilityToggle={() => setIsPasswordVisible((current) => !current)}
         onSubmit={handleSubmit}
         staffLimitMessage={staffLimitMessage}
       />

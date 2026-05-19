@@ -205,11 +205,11 @@ export function getAverageScore(formResponses) {
 }
 
 export function createResponseItems(fields, responseValues, includeEmptyValues = false) {
-  return sortResponseItemsByValueType(fields
+  return fields
     .map((field) => {
       const value = normalizeResponseValue(field, responseValues[field.id])
 
-      if (!includeEmptyValues && value === '') {
+      if (!includeEmptyValues && !isExportableResponseValue(value)) {
         return null
       }
 
@@ -218,7 +218,7 @@ export function createResponseItems(fields, responseValues, includeEmptyValues =
         value,
       }
     })
-    .filter(Boolean))
+    .filter(Boolean)
 }
 
 export function sortResponseItemsByValueType(items = []) {
@@ -232,6 +232,15 @@ export function sortResponseItemsByValueType(items = []) {
 
     return leftIsNumber ? -1 : 1
   })
+}
+
+export function isExportableResponseValue(value) {
+  if (typeof value === 'number') {
+    return !Number.isNaN(value) && value !== 0
+  }
+
+  const trimmedValue = String(value ?? '').trim()
+  return trimmedValue !== '' && trimmedValue !== '0'
 }
 
 export function parseStoredDraft(storageKey) {
@@ -588,40 +597,44 @@ export function buildParentEmailJobs({
             summary: '',
           })
 
-          return {
-            recipientEmail,
-            job: sendParentEmail({
-              clubId: user?.clubId,
-              userId: user?.id,
-              parentEmail: recipientEmail,
-              parentName: recipientName,
-              senderEmail: user?.email,
-              displayName: user?.displayName || user?.display_name || user?.username || user?.name,
-              teamName: user?.team_name || user?.emailTeamName || formData.team,
+          const payload = {
+            clubId: user?.clubId,
+            userId: user?.id,
+            parentEmail: recipientEmail,
+            parentName: recipientName,
+            senderEmail: user?.email,
+            displayName: user?.displayName || user?.display_name || user?.username || user?.name,
+            teamName: user?.team_name || user?.emailTeamName || formData.team,
+            clubName: user?.club_name || user?.emailClubName || user?.clubName,
+            section: formData.section,
+            session: formData.session,
+            planKey: user?.planKey,
+            logoUrl: user?.clubLogoUrl || null,
+            replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
+            clubContactEmail: user?.clubContactEmail,
+            playerName: normalizedPlayerName,
+            summary: '',
+            responses: selectedResponseItems,
+            subject: renderedTemplate.subject,
+            emailBody: renderedTemplate.body,
+            pdfHtml: buildAssessmentPdfHtml({
               clubName: user?.club_name || user?.emailClubName || user?.clubName,
+              playerName: normalizedPlayerName,
+              teamName: user?.team_name || user?.emailTeamName || formData.team,
               section: formData.section,
               session: formData.session,
-              planKey: user?.planKey,
               logoUrl: user?.clubLogoUrl || null,
-              replyToEmail: user?.reply_to_email || user?.replyToEmail || user?.clubContactEmail,
-              clubContactEmail: user?.clubContactEmail,
-              playerName: normalizedPlayerName,
-              summary: '',
-              responses: selectedResponseItems,
-              subject: renderedTemplate.subject,
-              emailBody: renderedTemplate.body,
-              pdfHtml: buildAssessmentPdfHtml({
-                clubName: user?.club_name || user?.emailClubName || user?.clubName,
-                playerName: normalizedPlayerName,
-                teamName: user?.team_name || user?.emailTeamName || formData.team,
-                section: formData.section,
-                session: formData.session,
-                logoUrl: user?.clubLogoUrl || null,
-                responseItems: selectedResponseItems,
-              }),
-              evaluationId: evaluation.id,
-              attachPdf,
+              responseItems: selectedResponseItems,
             }),
+            evaluationId: evaluation.id,
+            attachPdf,
+          }
+
+          return {
+            recipientEmail,
+            templateName: template.label,
+            payload,
+            job: sendParentEmail(payload),
           }
         }),
       )

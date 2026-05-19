@@ -200,6 +200,36 @@ export function FormBuilderPage() {
     })
   }
 
+  const saveFieldOrder = async (nextGroupFields) => {
+    const nextFields = fieldGroup === 'default'
+      ? [...nextGroupFields, ...customFields]
+      : [...defaultFields, ...nextGroupFields]
+    const normalizedFields = nextFields.map((field, index) => ({
+      ...field,
+      orderIndex: index + 1,
+    }))
+    const previousFields = fields
+    const previousDrafts = fieldDrafts
+
+    setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    syncFields(normalizedFields)
+
+    try {
+      await reorderFormFields(normalizedFields, user)
+      setSuccessMessage('Field order updated.')
+      showToast({ title: 'Field order saved', message: 'Assessment field order has been updated.' })
+    } catch (error) {
+      console.error(error)
+      setFields(previousFields)
+      setFieldDrafts(previousDrafts)
+      setErrorMessage(error.message || 'Could not reorder the fields.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleAddField = async (event) => {
     event.preventDefault()
     setIsSaving(true)
@@ -278,37 +308,39 @@ export function FormBuilderPage() {
   }
 
   const handleMoveField = async (fieldId, direction) => {
-    const currentIndex = fields.findIndex((field) => field.id === fieldId)
+    const currentGroupFields = fieldGroup === 'default' ? defaultFields : customFields
+    const currentIndex = currentGroupFields.findIndex((field) => field.id === fieldId)
     const nextIndex = currentIndex + direction
 
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= fields.length) {
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentGroupFields.length) {
       return
     }
 
-    const nextFields = [...fields]
-    const [movedField] = nextFields.splice(currentIndex, 1)
-    nextFields.splice(nextIndex, 0, movedField)
+    const reorderedGroupFields = [...currentGroupFields]
+    const [movedField] = reorderedGroupFields.splice(currentIndex, 1)
+    reorderedGroupFields.splice(nextIndex, 0, movedField)
 
-    const normalizedFields = nextFields.map((field, index) => ({
-      ...field,
-      orderIndex: index + 1,
-    }))
+    await saveFieldOrder(reorderedGroupFields)
+  }
 
-    setIsSaving(true)
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    try {
-      await reorderFormFields(normalizedFields, user)
-      syncFields(normalizedFields)
-      setSuccessMessage('Field order updated.')
-      showToast({ title: 'Field order saved', message: 'Assessment field order has been updated.' })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Could not reorder the fields.')
-    } finally {
-      setIsSaving(false)
+  const handleReorderField = async (fieldId, targetFieldId) => {
+    if (!fieldId || !targetFieldId || fieldId === targetFieldId) {
+      return
     }
+
+    const currentGroupFields = fieldGroup === 'default' ? defaultFields : customFields
+    const currentIndex = currentGroupFields.findIndex((field) => field.id === fieldId)
+    const targetIndex = currentGroupFields.findIndex((field) => field.id === targetFieldId)
+
+    if (currentIndex < 0 || targetIndex < 0) {
+      return
+    }
+
+    const reorderedGroupFields = [...currentGroupFields]
+    const [movedField] = reorderedGroupFields.splice(currentIndex, 1)
+    reorderedGroupFields.splice(targetIndex, 0, movedField)
+
+    await saveFieldOrder(reorderedGroupFields)
   }
 
   const handleToggleEnabled = async (field) => {
@@ -421,6 +453,7 @@ export function FormBuilderPage() {
         onDraftChange={handleDraftChange}
         onMoveField={handleMoveField}
         onPageChange={setFieldPage}
+        onReorderField={handleReorderField}
         onSaveField={handleSaveField}
         onSetFieldGroup={setFieldGroup}
         onToggleEnabled={handleToggleEnabled}

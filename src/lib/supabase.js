@@ -52,6 +52,7 @@ export {
 
 export {
   createClubRole,
+  createStaffInvite,
   createStaffUserWithPassword,
   deleteClubInvite,
   assignClubUserRole,
@@ -78,6 +79,21 @@ export {
   replaceTeamStaffAssignments,
   updateTeamSettings,
 } from './domain/teams.js'
+
+export {
+  acceptParentPortalInvite,
+  createFamilyShareLink,
+  createParentPortalInvites,
+  createParentPortalInvitesForPlayers,
+  getFamilyLinksForParentLink,
+  getParentLinkingPlayers,
+  getParentLinksForPlayer,
+  getParentPortalLinks,
+  getParentPortalMessages,
+  markParentPortalMessageRead,
+  revokeFamilyPortalLink,
+  revokeParentPortalLink,
+} from './domain/parent-portal.js'
 
 export {
   archivePlayer,
@@ -128,6 +144,35 @@ export {
 } from './domain/feedback.js'
 
 export {
+  createPoll,
+  deletePoll,
+  getParentPortalPolls,
+  getPolls,
+  POLL_AUDIENCE_OPTIONS,
+  POLL_TYPE_OPTIONS,
+  submitParentPortalPollVote,
+  submitStaffPollVote,
+  updatePollStatus,
+} from './domain/polls.js'
+
+export {
+  addMatchDayGoalAsScorer,
+  addStaffMatchDayGoal,
+  createMatchDay,
+  expressMatchDayScorerInterest,
+  getMatchDays,
+  getMatchLocations,
+  getParentPortalMatchDays,
+  getParentPortalMatchDayPlayers,
+  MATCH_DAY_HOME_AWAY_OPTIONS,
+  MATCH_DAY_STATUS_OPTIONS,
+  resetPreviousMatchDayResults,
+  selectMatchDayScorer,
+  updateMatchDay,
+  updateMatchDayScoreAsScorer,
+} from './domain/match-day.js'
+
+export {
   createPlatformClub,
   deletePlatformClub,
   deletePlatformTeam,
@@ -147,3 +192,7 @@ export {
   getAuditLogs,
   getRecordBackups,
 } from './domain/audit.js'
+
+export {
+  getEndSeasonStats,
+} from './domain/season-stats.js'

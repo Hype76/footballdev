@@ -5,10 +5,8 @@ export function AllocateRoleSection({
   canAddMoreUsers,
   formState,
   isLoading,
-  isPasswordVisible,
   isSaving,
   onChange,
-  onPasswordVisibilityToggle,
   onSubmit,
   staffLimitMessage,
 }) {
@@ -18,7 +16,7 @@ export function AllocateRoleSection({
       tourId="allocate-role-section"
       description={
         canAddMoreUsers
-          ? 'Admins and managers can allocate roles at their level or below. Custom roles are saved to this club.'
+            ? 'Admins and managers can email role invites at their level or below. Custom roles are saved to this club.'
           : staffLimitMessage
       }
     >
@@ -42,29 +40,6 @@ export function AllocateRoleSection({
               required
               className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Initial password</span>
-            <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
-              <input
-                type={isPasswordVisible ? 'text' : 'password'}
-                name="password"
-                value={formState.password}
-                onChange={onChange}
-                required
-                minLength={8}
-                autoComplete="new-password"
-                className="min-h-11 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-              />
-              <button
-                type="button"
-                onClick={onPasswordVisibilityToggle}
-                className="min-h-11 rounded-r-2xl px-4 py-3 text-sm font-semibold text-[var(--text-secondary)]"
-              >
-                {isPasswordVisible ? 'Hide' : 'Show'}
-              </button>
-            </div>
           </label>
 
           <label className="block">
@@ -113,7 +88,7 @@ export function AllocateRoleSection({
               }
               className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-              {isSaving ? 'Saving...' : 'Allocate user'}
+              {isSaving ? 'Sending...' : 'Send Role Invite'}
             </button>
           </div>
         </form>

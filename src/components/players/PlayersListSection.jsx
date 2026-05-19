@@ -108,6 +108,9 @@ export function PlayersListSection({
                       </div>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">{player.team || 'No team entered'}</p>
                       <p className="mt-1 text-sm text-[var(--text-muted)]">
+                        Shirt number: {player.shirtNumber || 'Not entered'}
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--text-muted)]">
                         {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
                       </p>
                     </div>

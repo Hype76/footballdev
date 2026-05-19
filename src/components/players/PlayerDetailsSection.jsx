@@ -131,6 +131,15 @@ function PlayerDetailsEditor({
         </select>
       </label>
       <label className="block">
+        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Shirt Number</span>
+        <input
+          value={draft.shirtNumber ?? ''}
+          onChange={(event) => onPlayerDraftChange('shirtNumber', event.target.value)}
+          inputMode="numeric"
+          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+        />
+      </label>
+      <label className="block">
         <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
         <input
           value={draft.team}
@@ -272,9 +281,10 @@ function PlayerDetailsSummary({
 
   return (
     <div className="space-y-4">
-      <div className="grid flex-1 gap-3 md:grid-cols-2 2xl:grid-cols-5">
+      <div className="grid flex-1 gap-3 md:grid-cols-2 2xl:grid-cols-6">
         <PlayerDetailItem label="Section" value={player.section} />
         <PlayerDetailItem label="Team" value={player.team || 'No team entered'} />
+        <PlayerDetailItem label="Shirt Number" value={player.shirtNumber || 'Not entered'} />
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Contacts</p>
           <div className="mt-2 space-y-1">

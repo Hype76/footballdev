@@ -29,6 +29,7 @@ export function TeamStaffAllocationsSection({
   staffSearch,
   staffToAddId,
   teamAssignments,
+  teamStats,
   teamNameDrafts,
   teamPage,
   teamPageSize,
@@ -55,6 +56,7 @@ export function TeamStaffAllocationsSection({
             paginatedTeams={paginatedTeams}
             selectedTeam={selectedTeam}
             teamAssignments={teamAssignments}
+            teamStats={teamStats}
             teamPage={teamPage}
             teamPageSize={teamPageSize}
           />
@@ -93,6 +95,7 @@ function TeamList({
   paginatedTeams,
   selectedTeam,
   teamAssignments,
+  teamStats,
   teamPage,
   teamPageSize,
 }) {
@@ -101,24 +104,32 @@ function TeamList({
       <p className="text-sm font-semibold text-[var(--text-primary)]">Club teams</p>
       <p className="mt-1 text-sm text-[var(--text-muted)]">Choose a team to manage its staff access.</p>
       <div className="mt-4 space-y-2">
-        {paginatedTeams.items.map((team) => (
-          <button
-            key={team.id}
-            type="button"
-            onClick={() => onSelectedTeamChange(team.id)}
-            className={[
-              'w-full rounded-lg border px-4 py-3 text-left transition',
-              selectedTeam?.id === team.id
-                ? 'border-[var(--accent)] bg-[var(--panel-soft)]'
-                : 'border-[var(--border-color)] bg-[var(--panel-bg)] hover:bg-[var(--panel-soft)]',
-            ].join(' ')}
-          >
-            <span className="block text-sm font-semibold text-[var(--text-primary)]">{team.name}</span>
-            <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-              {team.staffIds.length} staff allocated
-            </span>
-          </button>
-        ))}
+        {paginatedTeams.items.map((team) => {
+          const stats = teamStats?.[team.id] ?? { playerCount: 0, assessmentCount: 0 }
+
+          return (
+            <button
+              key={team.id}
+              type="button"
+              onClick={() => onSelectedTeamChange(team.id)}
+              className={[
+                'w-full rounded-lg border px-4 py-3 text-left transition',
+                selectedTeam?.id === team.id
+                  ? 'border-[var(--accent)] bg-[var(--panel-soft)]'
+                  : 'border-[var(--border-color)] bg-[var(--panel-bg)] hover:bg-[var(--panel-soft)]',
+              ].join(' ')}
+            >
+              <span className="block text-sm font-semibold text-[var(--text-primary)]">{team.name}</span>
+              <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                {team.staffIds.length} staff allocated
+              </span>
+              <span className="mt-2 grid gap-2 text-xs font-semibold text-[var(--text-muted)] sm:grid-cols-2">
+                <span>{stats.playerCount} players</span>
+                <span>{stats.assessmentCount} assessments</span>
+              </span>
+            </button>
+          )
+        })}
       </div>
       <Pagination
         currentPage={teamPage}

@@ -6,7 +6,7 @@ import { getRoleLabel, isClubAdmin, useAuth } from '../../lib/auth.js'
 import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
 
 export function Topbar({ title, onMenuClick }) {
-  const { authUser, clubOptions, demoRoleKey, hasPlatformAdminAccess, selectClub, selectPlatformAdmin, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
+  const { authUser, clubOptions, demoRoleKey, hasPlatformAdminAccess, selectAccessMode, selectClub, selectPlatformAdmin, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
   const roleLabel = user ? getRoleLabel(user) : 'Loading access'
@@ -16,9 +16,11 @@ export function Topbar({ title, onMenuClick }) {
   const userLabel = user?.email || authUser?.email || user?.name || 'Loading user'
   const teamLabel = user?.activeTeamName ? `Team: ${user.activeTeamName}` : clubLabel
   const isPlatformAdminView = user?.role === 'super_admin'
+  const isParentPortalView = user?.role === 'parent_portal'
+  const hasParentPortalAccess = Array.isArray(user?.parentPortalLinks) && user.parentPortalLinks.length > 0
   const shouldShowClubAdminOption = !isPlatformAdminView && canUseClubAdminView
   const shouldShowTeamPlaceholder = !isPlatformAdminView && !canUseClubAdminView && teamOptions?.length > 0
-  const shouldShowWorkspaceSelector = hasPlatformAdminAccess || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptions?.length > 0
+  const shouldShowWorkspaceSelector = hasPlatformAdminAccess || hasParentPortalAccess || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptions?.length > 0
   const workspaceContext = user?.role === 'super_admin'
     ? 'Viewing platform admin tools'
     : user?.activeTeamName
@@ -45,6 +47,18 @@ export function Topbar({ title, onMenuClick }) {
       try {
         setIsSwitchingTeam(true)
         await selectPlatformAdmin()
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setIsSwitchingTeam(false)
+      }
+      return
+    }
+
+    if (teamId === '__parent_portal__') {
+      try {
+        setIsSwitchingTeam(true)
+        await selectAccessMode('parent')
       } catch (error) {
         console.error(error)
       } finally {
@@ -136,13 +150,14 @@ export function Topbar({ title, onMenuClick }) {
                   Workspace view
                 </span>
                 <select
-                  value={user?.role === 'super_admin' ? '__platform_admin__' : user?.activeTeamId || ''}
+                  value={isPlatformAdminView ? '__platform_admin__' : isParentPortalView ? '__parent_portal__' : user?.activeTeamId || ''}
                   onChange={handleTeamChange}
                   disabled={isSwitchingTeam}
                   title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
                   className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
+                  {hasParentPortalAccess ? <option value="__parent_portal__">Parent Portal</option> : null}
                   {isPlatformAdminView
                     ? clubOptions.map((club) => (
                         <option key={club.clubId} value={`__club__:${club.clubId}`}>

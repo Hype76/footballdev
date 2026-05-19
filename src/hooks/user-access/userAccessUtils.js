@@ -1,6 +1,5 @@
 export const initialUserAccessFormState = {
   email: '',
-  password: '',
   roleKey: '',
   customRoleLabel: '',
 }

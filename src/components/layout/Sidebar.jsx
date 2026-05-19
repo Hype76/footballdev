@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
@@ -5,29 +6,116 @@ import {
   canCreateEvaluation,
   canManageClubSettings,
   canManageFormFields,
+  canManageMatchDay,
   canManageParentEmailTemplates,
+  canManageParentLinks,
+  canManagePolls,
   canManageTeamSettings,
   canManageUsers,
   canViewPlatformFeedback,
   canViewActivityLog,
   canViewBilling,
+  canViewEndSeasonStats,
   isSuperAdmin,
+  isParentPortalUser,
   useAuth,
 } from '../../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
+import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 
 function getSidebarTourId(path) {
   return `sidebar-${String(path ?? '').replace(/^\//, '').replace(/\//g, '-') || 'home'}`
 }
 
+function NavItemLabel({ label, showPollCount = false, pollCount = 0 }) {
+  return (
+    <span className="flex min-w-0 items-center justify-between gap-3">
+      <span className="min-w-0 truncate">{label}</span>
+      {showPollCount && pollCount > 0 ? (
+        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-2 text-xs font-bold text-black">
+          {pollCount > 99 ? '99+' : pollCount}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
   const logoUrl = user?.clubLogoUrl || fallbackLogo
+  const isParentPortal = isParentPortalUser(user)
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(user)
+  const [openPollCount, setOpenPollCount] = useState(0)
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadOpenPollCount() {
+      if (!user) {
+        setOpenPollCount(0)
+        return
+      }
+
+      try {
+        if (isParentPortalUser(user)) {
+          const links = Array.isArray(user.parentPortalLinks) ? user.parentPortalLinks : []
+          const pollBatches = await Promise.all(
+            links.map((link) => getParentPortalPolls({ parentLinkId: link.id }).catch(() => [])),
+          )
+          const uniquePollIds = new Set(
+            pollBatches.flat().filter((poll) => poll.status === 'open').map((poll) => poll.id),
+          )
+
+          if (isMounted) {
+            setOpenPollCount(uniquePollIds.size)
+          }
+          return
+        }
+
+        if (canManagePolls(user)) {
+          const polls = await getPolls({ user })
+          const count = polls.filter((poll) => poll.status === 'open').length
+
+          if (isMounted) {
+            setOpenPollCount(count)
+          }
+          return
+        }
+
+        if (isMounted) {
+          setOpenPollCount(0)
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setOpenPollCount(0)
+        }
+      }
+    }
+
+    void loadOpenPollCount()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user])
+  const handleSignOut = async () => {
+    try {
+      onClose()
+      await signOut()
+    } catch (error) {
+      console.error(error)
+    }
+  }
   const getVisibleNavigationItems = (items) => items.filter((item) => {
     if (isSuperAdmin(user)) {
       return item.path === '/activity-log'
+    }
+
+    if (isParentPortal) {
+      return item.path === '/parent-portal' || item.path === '/parent-messages' || item.path === '/parent-polls' || item.path === '/friends-family'
     }
 
     if (
@@ -40,12 +128,28 @@ export function Sidebar({ isOpen, onClose }) {
       return canCreateEvaluation(user)
     }
 
+    if (item.path === '/parent-linking') {
+      return canManageParentLinks(user)
+    }
+
+    if (item.path === '/polls') {
+      return canManagePolls(user)
+    }
+
+    if (item.path === '/match-day') {
+      return canManageMatchDay(user)
+    }
+
     if (item.path === '/user-access') {
       return canManageUsers(user)
     }
 
     if (item.path === '/teams') {
       return canManageTeamSettings(user)
+    }
+
+    if (item.path === '/end-season-stats') {
+      return canViewEndSeasonStats(user)
     }
 
     if (item.path === '/activity-log') {
@@ -99,16 +203,114 @@ export function Sidebar({ isOpen, onClose }) {
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
-  const coachNavigationItems = navigationItems.filter((item) => ['/sessions', '/players', '/assess-player'].includes(item.path))
-  const teamNavigationItems = navigationItems.filter((item) => !['/sessions', '/players', '/assess-player'].includes(item.path))
+  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/polls', '/match-day']
+  const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
+  const teamNavigationItems = navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
 
-  const handleSignOut = async () => {
-    try {
-      onClose()
-      await signOut()
-    } catch (error) {
-      console.error(error)
-    }
+  if (isParentPortal) {
+    return (
+      <>
+        <div
+          className={[
+            'fixed inset-0 z-30 bg-black/50 transition lg:hidden',
+            isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
+          ].join(' ')}
+          onClick={onClose}
+        />
+        <aside
+          className={[
+            'fixed inset-y-0 left-0 z-40 flex w-[min(20rem,calc(100vw-1rem))] max-w-72 flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-4 py-5 transition sm:px-5 sm:py-6 lg:fixed lg:translate-x-0',
+            isOpen ? 'translate-x-0' : '-translate-x-full',
+          ].join(' ')}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]">
+                <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Parent Portal</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] lg:hidden"
+              aria-label="Close navigation"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+          <nav className="mt-7 space-y-2 pb-4">
+            <NavLink
+              to="/parent-portal"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                ].join(' ')
+              }
+            >
+              Match Day
+            </NavLink>
+            <NavLink
+              to="/parent-messages"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                ].join(' ')
+              }
+            >
+              Messages
+            </NavLink>
+            <NavLink
+              to="/parent-polls"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                ].join(' ')
+              }
+            >
+              <NavItemLabel label="Polls" pollCount={openPollCount} showPollCount />
+            </NavLink>
+            <NavLink
+              to="/friends-family"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                ].join(' ')
+              }
+            >
+              Friends and Family
+            </NavLink>
+          </nav>
+          <div className="mt-auto pt-4">
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            >
+              Sign out
+            </button>
+          </div>
+        </aside>
+      </>
+    )
   }
 
   return (
@@ -189,7 +391,11 @@ export function Sidebar({ isOpen, onClose }) {
                       ].join(' ')
                     }
                   >
-                    {item.label}
+                    <NavItemLabel
+                      label={item.label}
+                      pollCount={openPollCount}
+                      showPollCount={item.path === '/polls'}
+                    />
                   </NavLink>
                 ),
               )}
@@ -222,7 +428,11 @@ export function Sidebar({ isOpen, onClose }) {
                         ].join(' ')
                       }
                     >
-                      {item.label}
+                      <NavItemLabel
+                        label={item.label}
+                        pollCount={openPollCount}
+                        showPollCount={item.path === '/polls'}
+                      />
                     </NavLink>
                   ),
                 )}
@@ -260,7 +470,11 @@ export function Sidebar({ isOpen, onClose }) {
                     ].join(' ')
                   }
                 >
-                  {item.label}
+                  <NavItemLabel
+                    label={item.label}
+                    pollCount={openPollCount}
+                    showPollCount={item.path === '/polls'}
+                  />
                 </NavLink>
               ),
             )}

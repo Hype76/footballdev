@@ -42,5 +42,38 @@ export function getSelectedEvaluationResponses(responseItems, selectedLabels) {
   }
 
   const selectedLabelSet = new Set(selectedLabels.map(normaliseLabel))
-  return items.filter((item) => selectedLabelSet.has(normaliseLabel(item.label)))
+  const itemsByLabel = new Map(items.map((item) => [normaliseLabel(item.label), item]))
+
+  return selectedLabels
+    .map(normaliseLabel)
+    .filter((label, index, labels) => label && labels.indexOf(label) === index)
+    .filter((label) => selectedLabelSet.has(label))
+    .map((label) => itemsByLabel.get(label))
+    .filter(Boolean)
+}
+
+export function reorderEvaluationExportLabels({ sourceLabel, targetLabel, responseItems, selectedLabels }) {
+  const allLabels = (responseItems ?? []).map((item) => normaliseLabel(item.label)).filter(Boolean)
+  const selectedLabelList = Array.isArray(selectedLabels) ? selectedLabels.map(normaliseLabel).filter(Boolean) : null
+  const selectedLabelSet = selectedLabelList ? new Set(selectedLabelList) : null
+  const currentLabels = selectedLabelList
+    ? [
+      ...selectedLabelList,
+      ...allLabels.filter((label) => !selectedLabelSet.has(label)),
+    ]
+    : allLabels
+  const sourceIndex = currentLabels.indexOf(normaliseLabel(sourceLabel))
+  const targetIndex = currentLabels.indexOf(normaliseLabel(targetLabel))
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return currentLabels
+  }
+
+  const nextLabels = [...currentLabels]
+  const [movedLabel] = nextLabels.splice(sourceIndex, 1)
+  nextLabels.splice(targetIndex, 0, movedLabel)
+
+  return selectedLabelSet
+    ? nextLabels.filter((label) => selectedLabelSet.has(label))
+    : nextLabels
 }
