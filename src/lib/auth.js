@@ -22,6 +22,7 @@ export {
   canManageFormFields,
   canManageParentEmailTemplates,
   canManageParentLinks,
+  canManagePolls,
   canManageTeamSettings,
   canManageUsers,
   canShareEvaluation,

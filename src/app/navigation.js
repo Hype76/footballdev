@@ -20,6 +20,10 @@ export const primaryNavigation = [
     path: '/parent-linking',
   },
   {
+    label: 'Polls',
+    path: '/polls',
+  },
+  {
     label: 'Teams',
     path: '/teams',
   },

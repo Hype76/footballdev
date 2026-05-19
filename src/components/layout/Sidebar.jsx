@@ -7,6 +7,7 @@ import {
   canManageFormFields,
   canManageParentEmailTemplates,
   canManageParentLinks,
+  canManagePolls,
   canManageTeamSettings,
   canManageUsers,
   canViewPlatformFeedback,
@@ -42,7 +43,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (isParentPortal) {
-      return item.path === '/parent-portal' || item.path === '/parent-messages' || item.path === '/friends-family'
+      return item.path === '/parent-portal' || item.path === '/parent-messages' || item.path === '/parent-polls' || item.path === '/friends-family'
     }
 
     if (
@@ -57,6 +58,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/parent-linking') {
       return canManageParentLinks(user)
+    }
+
+    if (item.path === '/polls') {
+      return canManagePolls(user)
     }
 
     if (item.path === '/user-access') {
@@ -118,7 +123,7 @@ export function Sidebar({ isOpen, onClose }) {
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
-  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking']
+  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/polls']
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
   const teamNavigationItems = navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
 
@@ -184,6 +189,20 @@ export function Sidebar({ isOpen, onClose }) {
               }
             >
               Messages
+            </NavLink>
+            <NavLink
+              to="/parent-polls"
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                  isActive
+                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                ].join(' ')
+              }
+            >
+              Polls
             </NavLink>
             <NavLink
               to="/friends-family"

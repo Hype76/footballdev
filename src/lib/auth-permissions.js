@@ -158,6 +158,10 @@ export function canManageParentLinks(user) {
   return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user)
 }
 
+export function canManagePolls(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
+}
+
 export function canEditEvaluation(user, evaluation) {
   if (!user || !evaluation) {
     return false

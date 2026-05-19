@@ -8,6 +8,7 @@ import {
   canManageFormFields,
   canManageParentEmailTemplates,
   canManageParentLinks,
+  canManagePolls,
   canManageTeamSettings,
   canManageUsers,
   canViewActivityLog,
@@ -57,6 +58,7 @@ const ParentInvitePage = lazyRoute(() => import('../pages/ParentInvitePage.jsx')
 const ParentLoginPage = lazyRoute(() => import('../pages/ParentLoginPage.jsx'), 'ParentLoginPage')
 const ParentLinkingPage = lazyRoute(() => import('../pages/ParentLinkingPage.jsx'), 'ParentLinkingPage')
 const ParentMessagesPage = lazyRoute(() => import('../pages/ParentMessagesPage.jsx'), 'ParentMessagesPage')
+const ParentPollsPage = lazyRoute(() => import('../pages/ParentPollsPage.jsx'), 'ParentPollsPage')
 const ParentPortalPage = lazyRoute(() => import('../pages/ParentPortalPage.jsx'), 'ParentPortalPage')
 const FriendsFamilyPage = lazyRoute(() => import('../pages/FriendsFamilyPage.jsx'), 'FriendsFamilyPage')
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
@@ -65,6 +67,7 @@ const PlatformAdminPage = lazyRoute(() => import('../pages/PlatformAdminPage.jsx
 const PlatformBillingOptionsPage = lazyRoute(() => import('../pages/PlatformBillingOptionsPage.jsx'), 'PlatformBillingOptionsPage')
 const PlatformClubManagementPage = lazyRoute(() => import('../pages/PlatformClubManagementPage.jsx'), 'PlatformClubManagementPage')
 const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPage.jsx'), 'PlatformFeedbackPage')
+const PollsPage = lazyRoute(() => import('../pages/PollsPage.jsx'), 'PollsPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
@@ -494,6 +497,20 @@ function RequireParentLinkingAccess() {
   return <Outlet />
 }
 
+function RequirePollAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canManagePolls(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function PublicOnly() {
   const { isLoading, session } = useAuth()
 
@@ -847,6 +864,17 @@ export const router = createBrowserRouter([
                 },
               },
               {
+                path: 'parent-polls',
+                element: (
+                  <PageSuspense>
+                    <ParentPollsPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Polls',
+                },
+              },
+              {
                 path: 'friends-family',
                 element: (
                   <PageSuspense>
@@ -965,6 +993,22 @@ export const router = createBrowserRouter([
                         ),
                         handle: {
                           title: 'Parent Linking',
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    element: <RequirePollAccess />,
+                    children: [
+                      {
+                        path: 'polls',
+                        element: (
+                          <PageSuspense>
+                            <PollsPage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Polls',
                         },
                       },
                     ],

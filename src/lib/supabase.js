@@ -144,6 +144,17 @@ export {
 } from './domain/feedback.js'
 
 export {
+  createPoll,
+  deletePoll,
+  getParentPortalPolls,
+  getPolls,
+  POLL_AUDIENCE_OPTIONS,
+  submitParentPortalPollVote,
+  submitStaffPollVote,
+  updatePollStatus,
+} from './domain/polls.js'
+
+export {
   createPlatformClub,
   deletePlatformClub,
   deletePlatformTeam,
