@@ -67,6 +67,10 @@ export function canManageTeamSettings(user) {
   return isClubAdmin(user) && isPlanAccessActive(user)
 }
 
+export function canViewEndSeasonStats(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
+}
+
 export function canManageTeamAppearance(user) {
   return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
 }

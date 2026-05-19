@@ -192,3 +192,7 @@ export {
   getAuditLogs,
   getRecordBackups,
 } from './domain/audit.js'
+
+export {
+  getEndSeasonStats,
+} from './domain/season-stats.js'

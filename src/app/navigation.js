@@ -32,6 +32,10 @@ export const primaryNavigation = [
     path: '/teams',
   },
   {
+    label: 'End of Season Stats',
+    path: '/end-season-stats',
+  },
+  {
     label: 'Archived Players',
     path: '/archived-players',
   },

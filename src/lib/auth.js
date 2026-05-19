@@ -30,6 +30,7 @@ export {
   canShareEvaluation,
   canViewActivityLog,
   canViewBilling,
+  canViewEndSeasonStats,
   canViewEvaluation,
   canViewPlatformFeedback,
   getRoleLabel,

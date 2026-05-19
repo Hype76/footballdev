@@ -15,6 +15,7 @@ import {
   canViewPlatformFeedback,
   canViewActivityLog,
   canViewBilling,
+  canViewEndSeasonStats,
   isSuperAdmin,
   isParentPortalUser,
   useAuth,
@@ -145,6 +146,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/teams') {
       return canManageTeamSettings(user)
+    }
+
+    if (item.path === '/end-season-stats') {
+      return canViewEndSeasonStats(user)
     }
 
     if (item.path === '/activity-log') {

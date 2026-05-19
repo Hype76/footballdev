@@ -14,6 +14,7 @@ import {
   canManageUsers,
   canViewActivityLog,
   canViewBilling,
+  canViewEndSeasonStats,
   isSuperAdmin,
   isParentPortalUser,
   isTesterAccessExpired,
@@ -49,6 +50,7 @@ const AssessmentsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPage
 const PlayersMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'PlayersMenuPage')
 const SessionsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'SessionsMenuPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
+const EndSeasonStatsPage = lazyRoute(() => import('../pages/EndSeasonStatsPage.jsx'), 'EndSeasonStatsPage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
 const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
 const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
@@ -639,6 +641,20 @@ function RequireTeamSettingsAccess() {
   return <Outlet />
 }
 
+function RequireEndSeasonStatsAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canViewEndSeasonStats(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
 function RequireActivityLogAccess() {
   const { element, user } = useWorkspaceRouteGate({
     redirectSuperAdmin: false,
@@ -1200,6 +1216,22 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Teams',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireEndSeasonStatsAccess />,
+            children: [
+              {
+                path: 'end-season-stats',
+                element: (
+                  <PageSuspense>
+                    <EndSeasonStatsPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'End of Season Stats',
                 },
               },
             ],
