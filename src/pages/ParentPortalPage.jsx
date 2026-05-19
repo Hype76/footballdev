@@ -15,6 +15,7 @@ import {
   addMatchDayGoalAsScorer,
   expressMatchDayScorerInterest,
   getParentPortalMatchDays,
+  getParentPortalMatchDayPlayers,
   updateMatchDayScoreAsScorer,
 } from '../lib/supabase.js'
 import { THEME_CHANGED_EVENT } from '../lib/theme.js'
@@ -73,12 +74,44 @@ function isPreviousMatch(match) {
   return new Date(`${match.matchDate}T23:59:59`).getTime() < Date.now()
 }
 
+function getPlayerSortName(player) {
+  return String(player.playerName ?? '').trim().toLowerCase()
+}
+
+function orderPlayersWithRecentScorers(players, match) {
+  const recentScorerNames = new Map()
+
+  ;(match.events ?? [])
+    .filter((event) => event.eventType === 'goal')
+    .forEach((event) => {
+      const scorerName = String(event.scorerName ?? '').trim().toLowerCase()
+
+      if (scorerName && !recentScorerNames.has(scorerName)) {
+        recentScorerNames.set(scorerName, recentScorerNames.size)
+      }
+    })
+
+  return [...players].sort((left, right) => {
+    const leftRecentRank = recentScorerNames.get(getPlayerSortName(left))
+    const rightRecentRank = recentScorerNames.get(getPlayerSortName(right))
+
+    if (leftRecentRank !== undefined || rightRecentRank !== undefined) {
+      if (leftRecentRank === undefined) return 1
+      if (rightRecentRank === undefined) return -1
+      return leftRecentRank - rightRecentRank
+    }
+
+    return getPlayerSortName(left).localeCompare(getPlayerSortName(right))
+  })
+}
+
 export function ParentPortalPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [matches, setMatches] = useState([])
+  const [players, setPlayers] = useState([])
   const [goalForms, setGoalForms] = useState({})
   const [scoreDrafts, setScoreDrafts] = useState({})
   const [activeMatchId, setActiveMatchId] = useState('')
@@ -93,6 +126,13 @@ export function ParentPortalPage() {
   const otherLinks = links.filter((link) => link.id !== selectedLink?.id)
   const activeMatches = useMemo(() => matches.filter((match) => !isPreviousMatch(match)), [matches])
   const previousMatches = useMemo(() => matches.filter(isPreviousMatch), [matches])
+  const squadPlayers = useMemo(
+    () =>
+      players
+        .filter((player) => String(player.status ?? 'active') !== 'archived')
+        .sort((left, right) => String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))),
+    [players],
+  )
 
   useEffect(() => {
     if (!selectedLink?.id) {
@@ -123,39 +163,49 @@ export function ParentPortalPage() {
   useEffect(() => {
     let isCurrent = true
 
-    async function runLoad() {
+    async function runLoad({ showLoading = false } = {}) {
       if (!selectedLink?.id) {
         setMatches([])
+        setPlayers([])
         return
       }
 
-      setIsLoadingMatches(true)
-      setMatchError('')
+      if (showLoading) {
+        setIsLoadingMatches(true)
+        setMatchError('')
+      }
 
       try {
-        const nextMatches = await getParentPortalMatchDays({ parentLinkId: selectedLink.id })
+        const [nextMatches, nextPlayers] = await Promise.all([
+          getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
+          getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }),
+        ])
 
         if (isCurrent) {
           setMatches(nextMatches)
+          setPlayers(nextPlayers)
         }
       } catch (error) {
         console.error(error)
 
         if (isCurrent) {
-          setMatches([])
+          if (showLoading) {
+            setMatches([])
+            setPlayers([])
+          }
           setMatchError(error.message || 'Match Day could not be loaded.')
         }
       } finally {
-        if (isCurrent) {
+        if (isCurrent && showLoading) {
           setIsLoadingMatches(false)
         }
       }
     }
 
-    void runLoad()
+    void runLoad({ showLoading: true })
     const intervalId = window.setInterval(() => {
       void runLoad()
-    }, 10000)
+    }, 60000)
 
     return () => {
       isCurrent = false
@@ -328,6 +378,19 @@ export function ParentPortalPage() {
     }))
   }
 
+  const handlePlayerPick = (matchId, fieldPrefix, playerId) => {
+    const player = squadPlayers.find((candidate) => String(candidate.id) === String(playerId))
+
+    if (!player) {
+      return
+    }
+
+    updateGoalForm(matchId, {
+      [`${fieldPrefix}Name`]: player.playerName,
+      [`${fieldPrefix}ShirtNumber`]: player.shirtNumber || '',
+    })
+  }
+
   const handleAddGoal = async (event, match) => {
     event.preventDefault()
 
@@ -442,6 +505,7 @@ export function ParentPortalPage() {
                 match={match}
                 onAddGoal={handleAddGoal}
                 onGoalFormChange={updateGoalForm}
+                onPlayerPick={handlePlayerPick}
                 onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
                   ...currentDrafts,
                   [match.id]: {
@@ -454,6 +518,7 @@ export function ParentPortalPage() {
                 }))}
                 onScoreSave={handleScoreSave}
                 onVolunteer={handleVolunteer}
+                players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
               />
             ))}
@@ -556,12 +621,15 @@ function ParentMatchCard({
   match,
   onAddGoal,
   onGoalFormChange,
+  onPlayerPick,
   onScoreDraftChange,
   onScoreSave,
   onVolunteer,
+  players,
   scoreDraft,
 }) {
   const isBusy = activeMatchId === match.id
+  const orderedPlayers = useMemo(() => orderPlayersWithRecentScorers(players, match), [match, players])
 
   return (
     <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
@@ -678,6 +746,19 @@ function ParentMatchCard({
                 />
               </label>
               <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Scorer player</span>
+                <select
+                  value=""
+                  onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)}
+                  className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                >
+                  <option value="">Choose player</option>
+                  {orderedPlayers.map((player) => (
+                    <option key={player.id} value={player.id}>{player.playerName}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Scorer name</span>
                 <input
                   value={goalForm.scorerName}
@@ -692,6 +773,19 @@ function ParentMatchCard({
                   onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })}
                   className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Assist player</span>
+                <select
+                  value=""
+                  onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)}
+                  className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                >
+                  <option value="">Choose player</option>
+                  {orderedPlayers.map((player) => (
+                    <option key={player.id} value={player.id}>{player.playerName}</option>
+                  ))}
+                </select>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Assist name</span>

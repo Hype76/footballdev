@@ -479,6 +479,30 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
   return (data ?? []).map(normalizeMatchDay)
 }
 
+export async function getParentPortalMatchDayPlayers({ parentLinkId }) {
+  const normalizedParentLinkId = normalizeText(parentLinkId)
+
+  if (!normalizedParentLinkId) {
+    return []
+  }
+
+  const { data, error } = await supabase.rpc('get_parent_portal_match_day_players', {
+    parent_link_id_value: normalizedParentLinkId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id ?? '',
+    playerName: normalizeText(row.player_name ?? row.playerName),
+    shirtNumber: normalizeText(row.shirt_number ?? row.shirtNumber),
+    status: normalizeText(row.status) || 'active',
+  }))
+}
+
 export async function expressMatchDayScorerInterest({ parentLinkId, matchDayId, message = '' }) {
   const { data, error } = await supabase.rpc('express_match_day_scorer_interest', {
     parent_link_id_value: parentLinkId,
