@@ -55,7 +55,7 @@ function formatMatchDate(match) {
 }
 
 function getCurrentMatchMinute(match, now = Date.now()) {
-  if (!match.matchDate || !match.kickoffTime || match.status === 'scheduled' || match.status === 'scorer_request') {
+  if (match.status === 'scheduled' || match.status === 'scorer_request') {
     return null
   }
 
@@ -67,25 +67,22 @@ function getCurrentMatchMinute(match, now = Date.now()) {
     return null
   }
 
-  const kickoff = new Date(`${match.matchDate}T${match.kickoffTime}`)
+  const phaseStart = new Date(match.phaseStartedAt || match.updatedAt || now)
+  const phaseStartTime = Number.isNaN(phaseStart.getTime()) ? now : phaseStart.getTime()
 
-  if (Number.isNaN(kickoff.getTime()) || kickoff.getTime() > now) {
+  if (phaseStartTime > now) {
     return null
   }
 
   if (match.status === 'second_half') {
-    const secondHalfStart = new Date(match.updatedAt || now)
-    const secondHalfStartTime = Number.isNaN(secondHalfStart.getTime()) ? now : secondHalfStart.getTime()
-    return Math.min(Math.max(Math.floor((now - secondHalfStartTime) / 60000) + 46, 46), 90)
+    return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 46, 46), 90)
   }
 
   if (match.status === 'extra_time') {
-    const extraTimeStart = new Date(match.updatedAt || now)
-    const extraTimeStartTime = Number.isNaN(extraTimeStart.getTime()) ? now : extraTimeStart.getTime()
-    return Math.min(Math.max(Math.floor((now - extraTimeStartTime) / 60000) + 91, 91), 120)
+    return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 91, 91), 120)
   }
 
-  return Math.min(Math.max(Math.floor((now - kickoff.getTime()) / 60000) + 1, 1), 45)
+  return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 1, 1), 45)
 }
 
 function getClubScore(match) {
@@ -410,6 +407,41 @@ export function ParentPortalPage() {
     }
   }
 
+  const handleStartMatch = async (match) => {
+    if (!selectedLink?.id) {
+      return
+    }
+
+    if (!confirmMatchDayAction('Start this match and begin the live match clock?')) {
+      return
+    }
+
+    setActiveMatchId(match.id)
+    setMatchError('')
+
+    try {
+      await updateMatchDayScoreAsScorer({
+        parentLinkId: selectedLink.id,
+        matchDayId: match.id,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        status: 'live',
+      })
+      void sendMatchDayPushNotification({
+        matchDayId: match.id,
+        type: 'live',
+        parentLinkId: selectedLink.id,
+      })
+      await loadMatches()
+      showToast({ title: 'Match started', message: 'The live match clock has started.' })
+    } catch (error) {
+      console.error(error)
+      setMatchError(error.message || 'Match could not be started.')
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
   const updateGoalForm = (matchId, updates) => {
     setGoalForms((currentForms) => ({
       ...currentForms,
@@ -452,7 +484,10 @@ export function ParentPortalPage() {
       const eventId = await addMatchDayGoalAsScorer({
         parentLinkId: selectedLink.id,
         matchDayId: match.id,
-        goal: goalForms[match.id] ?? EMPTY_GOAL_FORM,
+        goal: {
+          ...(goalForms[match.id] ?? EMPTY_GOAL_FORM),
+          minute: getCurrentMatchMinute(match, Date.now()) ?? '',
+        },
       })
       void sendMatchDayPushNotification({
         matchDayId: match.id,
@@ -560,6 +595,7 @@ export function ParentPortalPage() {
                   },
                 }))}
                 onScoreSave={handleScoreSave}
+                onStartMatch={handleStartMatch}
                 onVolunteer={handleVolunteer}
                 now={clockNow}
                 players={squadPlayers}
@@ -668,6 +704,7 @@ function ParentMatchCard({
   onPlayerPick,
   onScoreDraftChange,
   onScoreSave,
+  onStartMatch,
   onVolunteer,
   now,
   players,
@@ -723,6 +760,17 @@ function ParentMatchCard({
         </div>
       ) : (
         <div className="mt-5 space-y-4">
+          {match.status === 'scheduled' || match.status === 'scorer_request' ? (
+            <button
+              type="button"
+              onClick={() => onStartMatch(match)}
+              disabled={isBusy}
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              Start match
+            </button>
+          ) : null}
+
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
             <h5 className="text-sm font-semibold text-[var(--text-primary)]">Update score</h5>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
@@ -785,18 +833,6 @@ function ParentMatchCard({
                   <option value="club">Our team</option>
                   <option value="opponent">Opponent</option>
                 </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Minute</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="130"
-                  value={goalForm.minute}
-                  placeholder={currentMinute ? String(currentMinute) : ''}
-                  onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })}
-                  className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
-                />
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Scorer player</span>

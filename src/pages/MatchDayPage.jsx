@@ -76,6 +76,37 @@ function getOpponentScore(match) {
   return match.homeAway === 'away' ? match.homeScore : match.awayScore
 }
 
+function getCurrentMatchMinute(match, now = Date.now()) {
+  if (match.status === 'scheduled' || match.status === 'scorer_request') {
+    return null
+  }
+
+  if (match.status === 'half_time') {
+    return 45
+  }
+
+  if (match.status === 'full_time' || match.status === 'penalties') {
+    return null
+  }
+
+  const phaseStart = new Date(match.phaseStartedAt || match.updatedAt || now)
+  const phaseStartTime = Number.isNaN(phaseStart.getTime()) ? now : phaseStart.getTime()
+
+  if (phaseStartTime > now) {
+    return null
+  }
+
+  if (match.status === 'second_half') {
+    return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 46, 46), 90)
+  }
+
+  if (match.status === 'extra_time') {
+    return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 91, 91), 120)
+  }
+
+  return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 1, 1), 45)
+}
+
 function isPreviousMatch(match) {
   if (match.status === 'full_time') {
     return true
@@ -343,7 +374,10 @@ export function MatchDayPage() {
 
   const handleAddGoal = async (event, match) => {
     event.preventDefault()
-    const goal = goalForms[match.id] ?? EMPTY_GOAL_FORM
+    const goal = {
+      ...(goalForms[match.id] ?? EMPTY_GOAL_FORM),
+      minute: getCurrentMatchMinute(match, Date.now()) ?? '',
+    }
 
     if (!confirmMatchDayAction('Add this goal to the live feed and update the parent portal score?')) {
       return
@@ -653,12 +687,25 @@ function MatchDayCard({
           <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">
             {getClubScore(match)} - {getOpponentScore(match)}
           </p>
+          {getCurrentMatchMinute(match) ? (
+            <p className="mt-2 text-sm font-semibold text-[var(--text-secondary)]">{getCurrentMatchMinute(match)} min</p>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
           <h5 className="text-sm font-semibold text-[var(--text-primary)]">Score and status</h5>
+          {match.status === 'scheduled' || match.status === 'scorer_request' ? (
+            <button
+              type="button"
+              onClick={() => onStatusChange(match, 'live')}
+              disabled={isBusy}
+              className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              Start match
+            </button>
+          ) : null}
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Home</span>
@@ -760,17 +807,6 @@ function MatchDayCard({
               <option value="club">Our team</option>
               <option value="opponent">Opponent</option>
             </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Minute</span>
-            <input
-              type="number"
-              min="0"
-              max="130"
-              value={goalForm.minute}
-              onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })}
-              className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
-            />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Scorer player</span>
