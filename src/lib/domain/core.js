@@ -238,7 +238,12 @@ async function getUserClubMemberships(authUser) {
     throw error
   }
 
-  return (data ?? []).map(normalizeClubMembershipRow)
+  return (data ?? [])
+    .filter((row) => {
+      const clubRow = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
+      return Boolean(row.club_id && clubRow?.id)
+    })
+    .map(normalizeClubMembershipRow)
 }
 
 async function getParentPortalMemberships(authUser) {

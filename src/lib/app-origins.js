@@ -14,22 +14,31 @@ export function isParentPortalHost(hostname = globalThis.location?.hostname ?? '
 }
 
 export function getMainAppOrigin() {
+  const currentOrigin = cleanOrigin(globalThis.location?.origin)
+  const currentHost = String(globalThis.location?.hostname ?? '').trim().toLowerCase()
+
+  if (!currentOrigin || currentHost === 'localhost') {
+    return PRODUCTION_APP_ORIGIN
+  }
+
+  if (isParentPortalHost(currentHost)) {
+    return currentHost === 'parent-staging.playerfeedback.online'
+      ? STAGING_APP_ORIGIN
+      : PRODUCTION_APP_ORIGIN
+  }
+
+  if (currentHost === 'staging.playerfeedback.online') {
+    return STAGING_APP_ORIGIN
+  }
+
+  if (currentHost === 'playerfeedback.online') {
+    return PRODUCTION_APP_ORIGIN
+  }
+
   const configuredOrigin = cleanOrigin(import.meta.env.VITE_APP_URL ?? import.meta.env.VITE_PUBLIC_APP_URL)
 
   if (configuredOrigin) {
     return configuredOrigin
-  }
-
-  const currentOrigin = cleanOrigin(globalThis.location?.origin)
-
-  if (!currentOrigin || globalThis.location?.hostname === 'localhost') {
-    return PRODUCTION_APP_ORIGIN
-  }
-
-  if (isParentPortalHost(globalThis.location?.hostname)) {
-    return globalThis.location.hostname === 'parent-staging.playerfeedback.online'
-      ? STAGING_APP_ORIGIN
-      : PRODUCTION_APP_ORIGIN
   }
 
   return currentOrigin
@@ -42,12 +51,6 @@ export function buildMainAppUrl(path = '/') {
 }
 
 export function getParentAppOrigin() {
-  const configuredOrigin = cleanOrigin(import.meta.env.VITE_PARENT_APP_URL)
-
-  if (configuredOrigin) {
-    return configuredOrigin
-  }
-
   const currentOrigin = cleanOrigin(globalThis.location?.origin)
   const currentHost = String(globalThis.location?.hostname ?? '').trim().toLowerCase()
 
@@ -61,6 +64,12 @@ export function getParentAppOrigin() {
 
   if (currentHost === 'playerfeedback.online' || currentHost === 'parent.playerfeedback.online') {
     return PRODUCTION_PARENT_ORIGIN
+  }
+
+  const configuredOrigin = cleanOrigin(import.meta.env.VITE_PARENT_APP_URL)
+
+  if (configuredOrigin) {
+    return configuredOrigin
   }
 
   return currentOrigin || PRODUCTION_PARENT_ORIGIN

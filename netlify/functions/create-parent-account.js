@@ -39,12 +39,6 @@ function isExistingUserError(error) {
 function getBaseUrl(event) {
   const forwardedProto = event.headers['x-forwarded-proto'] || 'https'
   const forwardedHost = event.headers['x-forwarded-host'] || event.headers.host || 'staging.playerfeedback.online'
-  const configuredParentUrl = String(process.env.VITE_PARENT_APP_URL ?? '').trim().replace(/\/$/, '')
-
-  if (configuredParentUrl) {
-    return configuredParentUrl
-  }
-
   const normalizedHost = String(forwardedHost ?? '').trim().toLowerCase()
 
   if (normalizedHost === 'staging.playerfeedback.online' || normalizedHost === 'parent-staging.playerfeedback.online') {
@@ -53,6 +47,12 @@ function getBaseUrl(event) {
 
   if (normalizedHost === 'playerfeedback.online' || normalizedHost === 'parent.playerfeedback.online') {
     return 'https://parent.playerfeedback.online'
+  }
+
+  const configuredParentUrl = String(process.env.VITE_PARENT_APP_URL ?? '').trim().replace(/\/$/, '')
+
+  if (configuredParentUrl) {
+    return configuredParentUrl
   }
 
   return `${forwardedProto}://${forwardedHost}`.replace(/\/$/, '')

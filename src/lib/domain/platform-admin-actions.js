@@ -161,20 +161,9 @@ export async function deletePlatformClub({ user, clubId }) {
     throw clubError
   }
 
-  const deleteOperations = [
-    supabase.from('evaluations').delete().eq('club_id', clubId),
-    supabase.from('users').delete().eq('club_id', clubId),
-  ]
-
-  const deleteResults = await Promise.all(deleteOperations)
-  const firstDeleteError = deleteResults.find((result) => result.error)?.error
-
-  if (firstDeleteError) {
-    console.error(firstDeleteError)
-    throw firstDeleteError
-  }
-
-  const { error: deleteClubError } = await supabase.from('clubs').delete().eq('id', clubId)
+  const { error: deleteClubError } = await supabase.rpc('delete_platform_club_cascade', {
+    target_club_id: clubId,
+  })
 
   if (deleteClubError) {
     console.error(deleteClubError)
@@ -183,6 +172,13 @@ export async function deletePlatformClub({ user, clubId }) {
 
   invalidateMemoryCacheByPrefix('platform-stats')
   invalidateMemoryCacheByPrefix(`club:${clubId}`)
+  invalidateMemoryCacheByPrefix('user-profile:')
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('club-users:')
+  invalidateMemoryCacheByPrefix('user-access:')
+  clearViewCaches()
   await createAuditLog({
     user,
     action: 'club_deleted',
