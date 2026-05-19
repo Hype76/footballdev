@@ -31,7 +31,7 @@ export function UserSettingsPage() {
   const isDemoSettings = isDemoAccount(user)
   const isParentSettings = isParentPortalUser(user)
   const isClubAdminSettings = isClubAdmin(user)
-  const showSenderIdentity = !isParentSettings && !isClubAdminSettings
+  const showSenderIdentity = Boolean(user?.clubId) && !isParentSettings && !isClubAdminSettings && user?.role !== 'super_admin'
   const showDisplaySettings = !isParentSettings
   const showWalkthroughSettings = !isParentSettings && !isClubAdminSettings
   const [username, setUsername] = useState(user?.username || user?.name || '')
