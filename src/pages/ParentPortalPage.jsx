@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
@@ -140,6 +141,7 @@ export function ParentPortalPage() {
   const [hasPushSubscription, setHasPushSubscription] = useState(false)
   const [isUpdatingPush, setIsUpdatingPush] = useState(false)
   const [matchError, setMatchError] = useState('')
+  const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
@@ -602,24 +604,7 @@ export function ParentPortalPage() {
         {previousMatches.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
             {previousMatches.map((match) => (
-              <article key={match.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{formatMatchDate(match)}</p>
-                <h4 className="mt-2 text-base font-semibold text-[var(--text-primary)]">{match.teamName || 'Our team'} v {match.opponent}</h4>
-                <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
-                  {getClubScore(match)} - {getOpponentScore(match)}
-                </p>
-                {match.events.length > 0 ? (
-                  <div className="mt-3 space-y-2">
-                    {match.events.filter((event) => event.eventType === 'goal').slice(0, 4).map((event) => (
-                      <p key={event.id} className="text-xs text-[var(--text-muted)]">
-                        Goal: {event.scorerInitials || event.scorerName || 'Player'}
-                        {event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}
-                        {event.assistInitials || event.assistName ? ` | Assist ${event.assistInitials || event.assistName}` : ''}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-              </article>
+              <PreviousGameCard key={match.id} match={match} onOpen={setSelectedPreviousMatch} />
             ))}
           </div>
         ) : (
@@ -628,6 +613,8 @@ export function ParentPortalPage() {
           </p>
         )}
       </SectionCard>
+
+      <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
     </div>
   )
 }

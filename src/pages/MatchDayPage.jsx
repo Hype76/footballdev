@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
@@ -131,6 +132,7 @@ export function MatchDayPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
 
   const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
@@ -640,16 +642,7 @@ export function MatchDayPage() {
         {previousMatches.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
             {previousMatches.map((match) => (
-              <article key={match.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{formatMatchDate(match)}</p>
-                <h4 className="mt-2 text-base font-semibold text-[var(--text-primary)]">
-                  {match.teamName || 'Our team'} v {match.opponent}
-                </h4>
-                <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
-                  {getClubScore(match)} - {getOpponentScore(match)}
-                </p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">{match.status.replace(/_/g, ' ')}</p>
-              </article>
+              <PreviousGameCard key={match.id} match={match} onOpen={setSelectedPreviousMatch} />
             ))}
           </div>
         ) : (
@@ -658,6 +651,8 @@ export function MatchDayPage() {
           </p>
         )}
       </SectionCard>
+
+      <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
     </div>
   )
 }
