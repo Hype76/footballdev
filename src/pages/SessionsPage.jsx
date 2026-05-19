@@ -104,6 +104,7 @@ export function SessionsPage({ setupOpen = false }) {
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
+  const currentSessionRef = useRef(null)
   const userScopeKey = user
     ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}:${user.activeTeamName || ''}`
     : ''
@@ -479,6 +480,18 @@ export function SessionsPage({ setupOpen = false }) {
     setSelectedSessionId(nextSessionId)
     setSelectedPlayerIds([])
     setSearchParams(getOpenSessionSearchParams(searchParams, nextSessionId), { replace: true })
+  }
+
+  const handleCurrentSessionFocus = () => {
+    if (!selectedSessionId) {
+      setErrorMessage('Select a saved session first.')
+      return
+    }
+
+    currentSessionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
   }
 
   const handleCompleteSession = async () => {
@@ -868,38 +881,40 @@ export function SessionsPage({ setupOpen = false }) {
         unassessedPlayerCount={unassessedPlayerQueue.length}
       />
 
-      <SessionPlayersSection
-        canCompleteSessions={canCompleteSessions}
-        completedPlayerNames={completedPlayerNames}
-        isLoading={isSessionPlayersLoading}
-        isSaving={isSaving}
-        isSavingVoiceNote={isSavingVoiceNote}
-        deletingVoiceNoteId={deletingVoiceNoteId}
-        onAssessAll={handleAssessAll}
-        onAssessPlayer={(player) =>
-          navigate(buildSessionAssessmentUrl({
-            playerName: player.playerName,
-            selectedSession,
-            selectedSessionId,
-            sessionForm,
-            sessionPlayers,
-          }))
-        }
-        onClearSessionPlayers={handleClearSessionPlayers}
-        onDeleteVoiceNote={setVoiceNoteDeleteTarget}
-        onPageChange={setSessionPlayerPage}
-        onStartVoiceNote={handleStartVoiceNote}
-        onStopVoiceNote={handleStopVoiceNote}
-        paginatedPlayers={paginatedSessionPlayers}
-        page={sessionPlayerPage}
-        recordingTarget={recordingTarget}
-        selectedSession={selectedSession}
-        selectedSessionCompleted={selectedSessionCompleted}
-        selectedSessionId={selectedSessionId}
-        selectedSessionLocked={selectedSessionLocked}
-        sessionPlayers={sessionPlayers}
-        sessionVoiceNotes={sessionVoiceNotes}
-      />
+      <div ref={currentSessionRef} id="current-session">
+        <SessionPlayersSection
+          canCompleteSessions={canCompleteSessions}
+          completedPlayerNames={completedPlayerNames}
+          isLoading={isSessionPlayersLoading}
+          isSaving={isSaving}
+          isSavingVoiceNote={isSavingVoiceNote}
+          deletingVoiceNoteId={deletingVoiceNoteId}
+          onAssessAll={handleAssessAll}
+          onAssessPlayer={(player) =>
+            navigate(buildSessionAssessmentUrl({
+              playerName: player.playerName,
+              selectedSession,
+              selectedSessionId,
+              sessionForm,
+              sessionPlayers,
+            }))
+          }
+          onClearSessionPlayers={handleClearSessionPlayers}
+          onDeleteVoiceNote={setVoiceNoteDeleteTarget}
+          onPageChange={setSessionPlayerPage}
+          onStartVoiceNote={handleStartVoiceNote}
+          onStopVoiceNote={handleStopVoiceNote}
+          paginatedPlayers={paginatedSessionPlayers}
+          page={sessionPlayerPage}
+          recordingTarget={recordingTarget}
+          selectedSession={selectedSession}
+          selectedSessionCompleted={selectedSessionCompleted}
+          selectedSessionId={selectedSessionId}
+          selectedSessionLocked={selectedSessionLocked}
+          sessionPlayers={sessionPlayers}
+          sessionVoiceNotes={sessionVoiceNotes}
+        />
+      </div>
 
       <details
         id="session-setup"
@@ -928,6 +943,7 @@ export function SessionsPage({ setupOpen = false }) {
             isLoading={isLoading}
             isSaving={isSaving}
             onCompleteSession={handleCompleteSession}
+            onCurrentSession={handleCurrentSessionFocus}
             onDeleteSession={handleDeleteSession}
             onOpenSession={handleOpenSession}
             previousSessions={previousSessions}

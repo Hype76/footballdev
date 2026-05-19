@@ -9,6 +9,7 @@ export function OpenSessionsSection({
   isLoading,
   isSaving,
   onCompleteSession,
+  onCurrentSession,
   onDeleteSession,
   onOpenSession,
   previousSessions,
@@ -70,9 +71,15 @@ export function OpenSessionsSection({
                     Delete Session
                   </button>
                 ) : null}
-                <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+                <button
+                  type="button"
+                  disabled={!selectedSession}
+                  title={selectedSession ? 'Go to the selected session players and notes.' : 'Select a session first.'}
+                  onClick={onCurrentSession}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   Current Session
-                </span>
+                </button>
               </div>
             </div>
           </div>
