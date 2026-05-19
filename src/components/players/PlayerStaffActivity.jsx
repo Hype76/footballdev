@@ -32,6 +32,7 @@ export function PlayerStaffActivity({
   primaryPlayer,
   staffNotes,
 }) {
+  const [isSectionOpen, setIsSectionOpen] = useState(false)
   const [openActivityId, setOpenActivityId] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const [downloadingActivityId, setDownloadingActivityId] = useState('')
@@ -57,44 +58,63 @@ export function PlayerStaffActivity({
       title="Staff notes and activity"
       description="Internal notes and staff actions stay inside the club workspace. They are not added to parent emails."
     >
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <button
+        type="button"
+        onClick={() => setIsSectionOpen((currentValue) => !currentValue)}
+        aria-expanded={isSectionOpen}
+        className="flex w-full flex-col gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-left transition hover:bg-[var(--panel-soft)] sm:flex-row sm:items-center sm:justify-between"
+      >
         <div>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Add internal note</span>
-            <textarea
-              value={noteDraft}
-              onChange={(event) => onNoteChange(event.target.value)}
-              rows={4}
-              className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-              placeholder="Add a staff-only note for this player"
-            />
-          </label>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={onSaveNote}
-              disabled={isSavingNote || isSavingVoiceNote || !noteDraft.trim() || !primaryPlayer?.id}
-              title={saveNoteDisabledReason}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSavingNote ? 'Saving...' : 'Save Note'}
-            </button>
-            <button
-              type="button"
-              onClick={isRecordingVoiceNote ? onStopVoiceNote : onStartVoiceNote}
-              disabled={isSavingNote || isSavingVoiceNote || !primaryPlayer?.id}
-              aria-label={isRecordingVoiceNote ? 'Stop player voice note recording' : 'Record player voice note'}
-              title={voiceNoteDisabledReason || (isRecordingVoiceNote ? 'Stop recording' : 'Voice note')}
-              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                isRecordingVoiceNote
-                  ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
-                  : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
-              }`}
-            >
-              <MicIcon />
-              {isRecordingVoiceNote ? 'Stop Recording' : isSavingVoiceNote ? 'Saving Voice Note...' : 'Voice Note'}
-            </button>
-          </div>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Staff notes and player activity</p>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            {staffNotes.length} staff {staffNotes.length === 1 ? 'note' : 'notes'} | {activityLogs.length} activity{' '}
+            {activityLogs.length === 1 ? 'item' : 'items'}
+          </p>
+        </div>
+        <span className="inline-flex min-h-9 w-fit items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]">
+          {isSectionOpen ? 'Close' : 'Open'}
+        </span>
+      </button>
+
+      {isSectionOpen ? (
+        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Add internal note</span>
+              <textarea
+                value={noteDraft}
+                onChange={(event) => onNoteChange(event.target.value)}
+                rows={4}
+                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                placeholder="Add a staff-only note for this player"
+              />
+            </label>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={onSaveNote}
+                disabled={isSavingNote || isSavingVoiceNote || !noteDraft.trim() || !primaryPlayer?.id}
+                title={saveNoteDisabledReason}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingNote ? 'Saving...' : 'Save Note'}
+              </button>
+              <button
+                type="button"
+                onClick={isRecordingVoiceNote ? onStopVoiceNote : onStartVoiceNote}
+                disabled={isSavingNote || isSavingVoiceNote || !primaryPlayer?.id}
+                aria-label={isRecordingVoiceNote ? 'Stop player voice note recording' : 'Record player voice note'}
+                title={voiceNoteDisabledReason || (isRecordingVoiceNote ? 'Stop recording' : 'Voice note')}
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isRecordingVoiceNote
+                    ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
+                    : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+                }`}
+              >
+                <MicIcon />
+                {isRecordingVoiceNote ? 'Stop Recording' : isSavingVoiceNote ? 'Saving Voice Note...' : 'Voice Note'}
+              </button>
+            </div>
 
           <div className="mt-4 space-y-3">
             {staffNotes.length === 0 ? (
@@ -176,6 +196,7 @@ export function PlayerStaffActivity({
           </div>
         </div>
       </div>
+      ) : null}
     </SectionCard>
   )
 }
