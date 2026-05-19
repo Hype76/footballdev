@@ -911,6 +911,15 @@ export function SessionsPage({ setupOpen = false }) {
           <span className="text-sm text-[var(--text-muted)]">Create, switch, add players</span>
         </summary>
         <div className="mt-4 space-y-4">
+          <CreateSessionSection
+            form={sessionForm}
+            isLoading={isLoading}
+            isSaving={isSaving}
+            onChange={handleSessionFormChange}
+            onSubmit={handleCreateSession}
+            teams={teams}
+          />
+
           <OpenSessionsSection
             canCompleteSessions={canCompleteSessions}
             canDeleteSessions={canDeleteSessions}
@@ -924,15 +933,6 @@ export function SessionsPage({ setupOpen = false }) {
             previousSessions={previousSessions}
             selectedSession={selectedSession}
             selectedSessionCompleted={selectedSessionCompleted}
-          />
-
-          <CreateSessionSection
-            form={sessionForm}
-            isLoading={isLoading}
-            isSaving={isSaving}
-            onChange={handleSessionFormChange}
-            onSubmit={handleCreateSession}
-            teams={teams}
           />
 
           <CoachOptionsSection
