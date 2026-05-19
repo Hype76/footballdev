@@ -8,9 +8,9 @@ export function PublicLandingPage() {
     <main className="relative min-h-dvh overflow-hidden bg-[#061009] text-white">
       <div className="absolute inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-[#061009]/16 sm:bg-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#061009]/78 via-[#061009]/42 to-[#061009]/5" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#061009]/62 via-transparent to-[#061009]/10" />
+        <div className="absolute inset-0 bg-[#061009]/8 sm:bg-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#061009]/58 via-[#061009]/18 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#061009]/32 via-transparent to-transparent" />
       </div>
 
       <div className="relative flex min-h-dvh w-full flex-col">
