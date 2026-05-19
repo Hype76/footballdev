@@ -433,6 +433,30 @@ function WorkspaceHome() {
   return <RedirectToWorkspaceHome user={user} />
 }
 
+function PublicLandingOrWorkspaceHome() {
+  const { isLoading, session } = useAuth()
+
+  if (isLoading && !session?.user) {
+    return <LoadingScreen />
+  }
+
+  if (!session?.user) {
+    return isParentHost() ? (
+      <Navigate to="/parent-login" replace />
+    ) : (
+      <PageSuspense>
+        <PublicLandingPage />
+      </PageSuspense>
+    )
+  }
+
+  return (
+    <PageSuspense>
+      <WorkspaceHome />
+    </PageSuspense>
+  )
+}
+
 function RequireUser() {
   const { isLoading, session } = useAuth()
 
@@ -694,6 +718,10 @@ function RequirePlatformAdminAccess() {
 
 export const router = createBrowserRouter([
   {
+    index: true,
+    element: <PublicLandingOrWorkspaceHome />,
+  },
+  {
     path: '/invite/:token',
     element: <NavigateToParentInvite />,
   },
@@ -839,14 +867,6 @@ export const router = createBrowserRouter([
       {
         element: <Layout />,
         children: [
-          {
-            index: true,
-            element: (
-              <PageSuspense>
-                <WorkspaceHome />
-              </PageSuspense>
-            ),
-          },
           {
             path: 'dashboard',
             element: <Navigate to="/" replace />,
