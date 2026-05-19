@@ -70,6 +70,9 @@ const PlatformBillingOptionsPage = lazyRoute(() => import('../pages/PlatformBill
 const PlatformClubManagementPage = lazyRoute(() => import('../pages/PlatformClubManagementPage.jsx'), 'PlatformClubManagementPage')
 const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPage.jsx'), 'PlatformFeedbackPage')
 const PollsPage = lazyRoute(() => import('../pages/PollsPage.jsx'), 'PollsPage')
+const PublicFeaturesPage = lazyRoute(() => import('../pages/PublicFeaturesPage.jsx'), 'PublicFeaturesPage')
+const PublicParentsPage = lazyRoute(() => import('../pages/PublicParentsPage.jsx'), 'PublicParentsPage')
+const PublicPricingPage = lazyRoute(() => import('../pages/PublicPricingPage.jsx'), 'PublicPricingPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
@@ -708,6 +711,48 @@ export const router = createBrowserRouter([
           ),
         },
       ],
+  },
+  {
+    path: '/features',
+    element: <PublicOnly />,
+    children: [
+      {
+        index: true,
+        element: (
+          <PageSuspense>
+            <PublicFeaturesPage />
+          </PageSuspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/parents',
+    element: <PublicOnly />,
+    children: [
+      {
+        index: true,
+        element: (
+          <PageSuspense>
+            <PublicParentsPage />
+          </PageSuspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/pricing',
+    element: <PublicOnly />,
+    children: [
+      {
+        index: true,
+        element: (
+          <PageSuspense>
+            <PublicPricingPage />
+          </PageSuspense>
+        ),
+      },
+    ],
   },
   {
     path: '/gdpr',

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import fallbackLogo from '../assets/player-feedback-logo.png'
+import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
-import { DemoRequestModal } from '../components/login/DemoRequestModal.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { LoginHeroContent } from '../components/login/LoginHeroContent.jsx'
-import { LoginMarketingAndPricing } from '../components/login/LoginMarketingAndPricing.jsx'
 import { useAuth } from '../lib/auth.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 
@@ -13,13 +12,6 @@ const initialFormData = {
   password: '',
   clubName: '',
   accessCode: '',
-}
-
-const initialDemoFormData = {
-  name: '',
-  email: '',
-  phone: '',
-  clubTeamName: '',
 }
 
 function getFriendlyAuthErrorMessage(error, mode) {
@@ -41,17 +33,12 @@ function getFriendlyAuthErrorMessage(error, mode) {
 
 export function LoginPage() {
   const { authError, resetPassword, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
-  const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const signupBoxRef = useRef(null)
   const submitLockRef = useRef(false)
   const [mode, setMode] = useState('login')
   const [formData, setFormData] = useState(initialFormData)
-  const [demoPlan, setDemoPlan] = useState(null)
-  const [demoFormData, setDemoFormData] = useState(initialDemoFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
-  const [billingCycle, setBillingCycle] = useState('monthly')
-  const [livePromotion, setLivePromotion] = useState(null)
   const [localMessage, setLocalMessage] = useState('')
   const [localError, setLocalError] = useState('')
   const [parentInviteToken, setParentInviteToken] = useState('')
@@ -76,29 +63,6 @@ export function LoginPage() {
     }
   }, [])
 
-  useEffect(() => {
-    let isMounted = true
-
-    const loadLivePromotion = async () => {
-      try {
-        const response = await fetch('/.netlify/functions/get-live-promotion')
-        const result = await response.json().catch(() => ({}))
-
-        if (isMounted && response.ok && result.success !== false) {
-          setLivePromotion(result.promotion ?? null)
-        }
-      } catch (error) {
-        console.error(error)
-      }
-    }
-
-    void loadLivePromotion()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
   const handleChange = (event) => {
     const { name, value } = event.target
     setLocalError('')
@@ -113,114 +77,6 @@ export function LoginPage() {
     setMode(nextMode)
     setLocalError('')
     setLocalMessage('')
-  }
-
-  const handleDemoChange = (event) => {
-    const { name, value } = event.target
-    setLocalError('')
-    setLocalMessage('')
-    setDemoFormData((current) => ({
-      ...current,
-      [name]: value,
-    }))
-  }
-
-  const handleDemoSubmit = async (event) => {
-    event.preventDefault()
-    setIsSubmitting(true)
-    setLocalError('')
-    setLocalMessage('')
-
-    try {
-      const response = await fetch('/.netlify/functions/send-demo-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...demoFormData,
-          planName: demoPlan?.name || '',
-          billingCycle,
-        }),
-      })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Demo request could not be sent.')
-      }
-
-      setDemoPlan(null)
-      setDemoFormData(initialDemoFormData)
-      setLocalMessage('Demo request sent. We will be in touch shortly.')
-    } catch (error) {
-      console.error(error)
-      setLocalError(error.message || 'Demo request could not be sent.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleChoosePlan = async (plan) => {
-    setLocalError('')
-    setLocalMessage('')
-
-    if (plan.name === 'Individual') {
-      setMode('signup')
-      setLocalMessage('Create your free account to start.')
-      window.setTimeout(() => {
-        signupBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 0)
-      return
-    }
-
-    if (plan.name === 'Large Club') {
-      if (paymentsDisabled) {
-        setMode('signup')
-        setLocalMessage('Create a test club account. Payments are disabled on this test site.')
-        window.setTimeout(() => {
-          signupBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }, 0)
-        return
-      }
-
-      setDemoPlan(plan)
-      return
-    }
-
-    if (paymentsDisabled) {
-      setMode('signup')
-      setLocalMessage('Create a test club account. Payments are disabled on this test site.')
-      window.setTimeout(() => {
-        signupBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 0)
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      const response = await fetch('/.netlify/functions/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planName: plan.name,
-          billingCycle,
-          customerEmail: formData.email.trim() || undefined,
-          clubName: formData.clubName.trim() || undefined,
-          livePromotionCodeId: livePromotion?.promotionCodeId || undefined,
-        }),
-      })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok || result.success === false || !result.url) {
-        throw new Error(result.message || 'Checkout could not be started.')
-      }
-
-      window.location.assign(result.url)
-    } catch (error) {
-      console.error(error)
-      setLocalError(error.message || 'Checkout could not be started.')
-    } finally {
-      setIsSubmitting(false)
-    }
   }
 
   const prepareDemoAccount = async () => {
@@ -335,17 +191,17 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#030603] text-white">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-[-10%] top-[-20%] h-[560px] w-[560px] rounded-full bg-[#d8ff2f]/18 blur-[100px]" />
-        <div className="absolute bottom-[-25%] right-[-10%] h-[600px] w-[600px] rounded-full bg-[#1f8a47]/22 blur-[110px]" />
-        <div className="absolute inset-0 bg-[#071008]" />
+    <main className="min-h-screen overflow-hidden bg-[#061009] text-white">
+      <div className="fixed inset-0">
+        <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#061009] via-[#061009]/82 to-[#061009]/35" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#061009] via-transparent to-[#061009]/35" />
       </div>
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
+      <div className="relative flex min-h-screen w-full flex-col">
         <LoginHeader logo={fallbackLogo} />
 
-        <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[1.08fr_0.92fr] lg:py-10">
+        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:py-10">
           <LoginHeroContent />
 
           <LoginAuthPanel
@@ -367,31 +223,7 @@ export function LoginPage() {
             signupBoxRef={signupBoxRef}
           />
         </div>
-
-        <LoginMarketingAndPricing
-          billingCycle={billingCycle}
-          isSubmitting={isSubmitting}
-          livePromotion={livePromotion}
-          localError={localError}
-          localMessage={localMessage}
-          onBillingCycleChange={setBillingCycle}
-          onChoosePlan={handleChoosePlan}
-          onRequestDemo={setDemoPlan}
-          paymentsDisabled={paymentsDisabled}
-        />
       </div>
-
-      <DemoRequestModal
-        demoFormData={demoFormData}
-        demoPlan={demoPlan}
-        isSubmitting={isSubmitting}
-        onCancel={() => {
-          setDemoPlan(null)
-          setDemoFormData(initialDemoFormData)
-        }}
-        onChange={handleDemoChange}
-        onSubmit={handleDemoSubmit}
-      />
     </main>
   )
 }
