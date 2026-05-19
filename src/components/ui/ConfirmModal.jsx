@@ -62,11 +62,11 @@ export function ConfirmModal({
           : undefined
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 py-6">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/70 px-4 py-6">
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-lg rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl sm:p-6"
+        className="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl sm:p-6"
       >
         <button
           type="button"

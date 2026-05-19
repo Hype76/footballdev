@@ -30,8 +30,8 @@ export function EvaluationPlayerDetailsSection({
       title="Player details"
       description="Core details stay consistent while the club-configured assessment fields adapt below."
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <label className="block">
+      <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <label className="block min-w-0">
           <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
           <select
             name="section"
@@ -48,7 +48,7 @@ export function EvaluationPlayerDetailsSection({
           </select>
         </label>
 
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
           <select
             name="team"
@@ -71,7 +71,7 @@ export function EvaluationPlayerDetailsSection({
           </p>
         </label>
 
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
           <select
             name="playerName"
@@ -92,7 +92,7 @@ export function EvaluationPlayerDetailsSection({
           </select>
         </label>
 
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach</span>
           <input
             type="text"
@@ -103,7 +103,7 @@ export function EvaluationPlayerDetailsSection({
           />
         </label>
 
-        <div className="md:col-span-2">
+        <div className="min-w-0 md:col-span-2">
           <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{contactLabel} Email Recipients</span>
           {parentContacts.length > 0 ? (
             <div className="grid gap-3 md:grid-cols-2">
@@ -127,7 +127,7 @@ export function EvaluationPlayerDetailsSection({
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
+              <label className="block min-w-0">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                   {contactLabel} Name
                 </span>
@@ -139,7 +139,7 @@ export function EvaluationPlayerDetailsSection({
                   className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
-              <label className="block">
+              <label className="block min-w-0">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                   {contactLabel} Email
                 </span>
@@ -158,7 +158,7 @@ export function EvaluationPlayerDetailsSection({
           </p>
         </div>
 
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session</span>
           <input
             type="date"
