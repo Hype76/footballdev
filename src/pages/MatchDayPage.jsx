@@ -553,7 +553,7 @@ export function MatchDayPage() {
                 onChange={(event) => updateForm({ enableMotmPoll: event.target.checked })}
                 className="h-4 w-4 accent-[var(--accent)]"
               />
-              <span className="text-sm font-semibold text-[var(--text-primary)]">Create Man of the Match poll at full time</span>
+              <span className="text-sm font-semibold text-[var(--text-primary)]">Create Player of the Match poll at full time</span>
             </label>
 
             <label className="block">

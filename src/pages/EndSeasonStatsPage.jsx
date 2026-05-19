@@ -26,6 +26,10 @@ function formatWinners(players, fieldLabel, field) {
   return players.map((player) => `${player.playerName} (${player[field]})`).join(', ')
 }
 
+function compareText(left, right) {
+  return String(left || '').localeCompare(String(right || ''), undefined, { sensitivity: 'base' })
+}
+
 export function EndSeasonStatsPage() {
   const { user } = useAuth()
   const [teams, setTeams] = useState([])
@@ -34,6 +38,7 @@ export function EndSeasonStatsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [awardsGeneratedAt, setAwardsGeneratedAt] = useState('')
+  const [sortConfig, setSortConfig] = useState({ field: 'total', direction: 'desc' })
 
   useEffect(() => {
     let isMounted = true
@@ -75,20 +80,35 @@ export function EndSeasonStatsPage() {
     }
   }, [selectedTeamId, user])
 
-  const sortedStats = useMemo(
-    () =>
-      [...stats].sort((left, right) => {
-        const totalLeft = left.goals + left.assists + left.motmVotes
-        const totalRight = right.goals + right.assists + right.motmVotes
+  const sortedStats = useMemo(() => {
+    const directionMultiplier = sortConfig.direction === 'asc' ? 1 : -1
 
-        if (totalRight !== totalLeft) {
-          return totalRight - totalLeft
-        }
+    return [...stats].sort((left, right) => {
+      let result = 0
 
-        return left.playerName.localeCompare(right.playerName)
-      }),
-    [stats],
-  )
+      if (sortConfig.field === 'playerName') {
+        result = compareText(left.playerName, right.playerName)
+      } else if (sortConfig.field === 'teamName') {
+        result = compareText(left.teamName || 'No team', right.teamName || 'No team')
+      } else if (sortConfig.field === 'goals') {
+        result = Number(left.goals ?? 0) - Number(right.goals ?? 0)
+      } else if (sortConfig.field === 'assists') {
+        result = Number(left.assists ?? 0) - Number(right.assists ?? 0)
+      } else if (sortConfig.field === 'motmVotes') {
+        result = Number(left.motmVotes ?? 0) - Number(right.motmVotes ?? 0)
+      } else {
+        const totalLeft = Number(left.goals ?? 0) + Number(left.assists ?? 0) + Number(left.motmVotes ?? 0)
+        const totalRight = Number(right.goals ?? 0) + Number(right.assists ?? 0) + Number(right.motmVotes ?? 0)
+        result = totalLeft - totalRight
+      }
+
+      if (result !== 0) {
+        return result * directionMultiplier
+      }
+
+      return compareText(left.playerName, right.playerName)
+    })
+  }, [sortConfig, stats])
 
   const awardSummary = useMemo(() => ({
     goals: getTopPlayers(stats, 'goals'),
@@ -108,19 +128,26 @@ export function EndSeasonStatsPage() {
     setAwardsGeneratedAt(new Date().toISOString())
   }
 
+  const updateSort = (field) => {
+    setSortConfig((currentSort) => ({
+      field,
+      direction: currentSort.field === field && currentSort.direction === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Team"
         title="End of Season Stats"
-        description="Review year-to-date Match Day goals, assists, and Man of the Match votes for squad players."
+        description="Review year-to-date Match Day goals, assists, and Player of the Match votes for squad players."
       />
 
       {errorMessage ? <NoticeBanner title="Stats unavailable" message={errorMessage} /> : null}
 
       <SectionCard
         title="Season view"
-        description="Stats are calculated from Match Day records and Man of the Match parent polls for the current calendar year."
+        description="Stats are calculated from Match Day records and Player of the Match parent polls for the current calendar year."
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <label className="block md:min-w-72">
@@ -159,7 +186,7 @@ export function EndSeasonStatsPage() {
           <div className="grid gap-3 md:grid-cols-3">
             <AwardCard title="Top goal scorer" value={formatWinners(awardSummary.goals, 'goals', 'goals')} />
             <AwardCard title="Top assistant" value={formatWinners(awardSummary.assists, 'assists', 'assists')} />
-            <AwardCard title="Top Man of the Match" value={formatWinners(awardSummary.motmVotes, 'votes', 'motmVotes')} />
+            <AwardCard title="Top Player of the Match" value={formatWinners(awardSummary.motmVotes, 'votes', 'motmVotes')} />
           </div>
         </SectionCard>
       ) : null}
@@ -174,11 +201,11 @@ export function EndSeasonStatsPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
                 <tr className="border-b border-[var(--border-color)]">
-                  <th className="px-3 py-3">Player</th>
-                  <th className="px-3 py-3">Team</th>
-                  <th className="px-3 py-3 text-right">Goals</th>
-                  <th className="px-3 py-3 text-right">Assists</th>
-                  <th className="px-3 py-3 text-right">MOTM</th>
+                  <SortableHeader field="playerName" label="Player" sortConfig={sortConfig} onSort={updateSort} />
+                  <SortableHeader field="teamName" label="Team" sortConfig={sortConfig} onSort={updateSort} />
+                  <SortableHeader align="right" field="goals" label="Goals" sortConfig={sortConfig} onSort={updateSort} />
+                  <SortableHeader align="right" field="assists" label="Assists" sortConfig={sortConfig} onSort={updateSort} />
+                  <SortableHeader align="right" field="motmVotes" label="POTM" sortConfig={sortConfig} onSort={updateSort} />
                 </tr>
               </thead>
               <tbody>
@@ -212,5 +239,27 @@ function AwardCard({ title, value }) {
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{title}</p>
       <p className="mt-3 text-lg font-semibold text-[var(--text-primary)]">{value}</p>
     </article>
+  )
+}
+
+function SortableHeader({ align = 'left', field, label, onSort, sortConfig }) {
+  const isActive = sortConfig.field === field
+  const directionLabel = isActive && sortConfig.direction === 'asc' ? 'ascending' : 'descending'
+  const sortLabel = isActive ? (sortConfig.direction === 'asc' ? 'Asc' : 'Desc') : 'Sort'
+
+  return (
+    <th className={`px-3 py-3 ${align === 'right' ? 'text-right' : ''}`}>
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        aria-label={`Sort ${label} ${directionLabel}`}
+        className={`inline-flex items-center gap-1 font-semibold uppercase tracking-[0.16em] transition hover:text-[var(--text-primary)] ${
+          align === 'right' ? 'justify-end' : 'justify-start'
+        } ${isActive ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'}`}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="text-[0.62rem]">{sortLabel}</span>
+      </button>
+    </th>
   )
 }
