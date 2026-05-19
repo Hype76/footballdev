@@ -32,7 +32,6 @@ export function PlayerStaffActivity({
   primaryPlayer,
   staffNotes,
 }) {
-  const [isSectionOpen, setIsSectionOpen] = useState(false)
   const [openActivityId, setOpenActivityId] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const [downloadingActivityId, setDownloadingActivityId] = useState('')
@@ -57,27 +56,17 @@ export function PlayerStaffActivity({
     <SectionCard
       title="Staff notes and activity"
       description="Internal notes and staff actions stay inside the club workspace. They are not added to parent emails."
+      defaultCollapsed
     >
-      <button
-        type="button"
-        onClick={() => setIsSectionOpen((currentValue) => !currentValue)}
-        aria-expanded={isSectionOpen}
-        className="flex w-full flex-col gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-left transition hover:bg-[var(--panel-soft)] sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">Staff notes and player activity</p>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {staffNotes.length} staff {staffNotes.length === 1 ? 'note' : 'notes'} | {activityLogs.length} activity{' '}
-            {activityLogs.length === 1 ? 'item' : 'items'}
-          </p>
-        </div>
-        <span className="inline-flex min-h-9 w-fit items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]">
-          {isSectionOpen ? 'Close' : 'Open'}
-        </span>
-      </button>
+      <div className="mb-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">Staff notes and player activity</p>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          {staffNotes.length} staff {staffNotes.length === 1 ? 'note' : 'notes'} | {activityLogs.length} activity{' '}
+          {activityLogs.length === 1 ? 'item' : 'items'}
+        </p>
+      </div>
 
-      {isSectionOpen ? (
-        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div>
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Add internal note</span>
@@ -196,7 +185,6 @@ export function PlayerStaffActivity({
           </div>
         </div>
       </div>
-      ) : null}
     </SectionCard>
   )
 }
