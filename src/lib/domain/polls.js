@@ -86,6 +86,8 @@ export function normalizePoll(row) {
     closesAt: row.closes_at ?? row.closesAt ?? '',
     allowMultiple: Boolean(row.allow_multiple ?? row.allowMultiple ?? false),
     maxChoices: row.max_choices ?? row.maxChoices ?? null,
+    allowOwnChildVotes: Boolean(row.allow_own_child_votes ?? row.allowOwnChildVotes ?? true),
+    allowVoteChanges: Boolean(row.allow_vote_changes ?? row.allowVoteChanges ?? true),
     hideVotes: Boolean(row.hide_votes ?? row.hideVotes ?? false),
     allowComments: Boolean(row.allow_comments ?? row.allowComments ?? false),
     createdBy: row.created_by ?? row.createdBy ?? '',
@@ -195,6 +197,8 @@ export async function createPoll({ user, poll }) {
     closes_at: closesAt,
     allow_multiple: Boolean(poll?.allowMultiple),
     max_choices: poll?.allowMultiple && Number(poll?.maxChoices ?? 0) > 0 ? Number(poll.maxChoices) : null,
+    allow_own_child_votes: audience === 'parents' ? Boolean(poll?.allowOwnChildVotes ?? true) : true,
+    allow_vote_changes: Boolean(poll?.allowVoteChanges ?? true),
     hide_votes: Boolean(poll?.hideVotes),
     allow_comments: Boolean(poll?.allowComments),
     created_by: getEntryUserId(user),
@@ -301,6 +305,10 @@ export async function submitStaffPollVote({ user, poll, optionId }) {
   }
 
   if (existingVote?.id) {
+    if (poll.allowVoteChanges === false) {
+      throw new Error('Your vote is locked for this poll.')
+    }
+
     const { error: deleteError } = await supabase
       .from('poll_votes')
       .delete()
@@ -316,6 +324,14 @@ export async function submitStaffPollVote({ user, poll, optionId }) {
   }
 
   if (!poll.allowMultiple) {
+    if (poll.allowVoteChanges === false) {
+      const hasExistingVote = (poll.votes ?? []).some((vote) => String(vote.voterEmail ?? '').trim().toLowerCase() === normalizedEmail)
+
+      if (hasExistingVote) {
+        throw new Error('Your vote is locked for this poll.')
+      }
+    }
+
     const { error: deleteExistingError } = await supabase
       .from('poll_votes')
       .delete()
@@ -326,20 +342,30 @@ export async function submitStaffPollVote({ user, poll, optionId }) {
       console.error(deleteExistingError)
       throw deleteExistingError
     }
-  } else if (Number(poll.maxChoices ?? 0) > 0) {
-    const { count, error: countError } = await supabase
-      .from('poll_votes')
-      .select('id', { count: 'exact', head: true })
-      .eq('poll_id', poll.id)
-      .eq('voter_email', normalizedEmail)
+  } else {
+    if (poll.allowVoteChanges === false) {
+      const hasExistingVote = (poll.votes ?? []).some((vote) => String(vote.voterEmail ?? '').trim().toLowerCase() === normalizedEmail)
 
-    if (countError) {
-      console.error(countError)
-      throw countError
+      if (hasExistingVote) {
+        throw new Error('Your vote is locked for this poll.')
+      }
     }
 
-    if (Number(count ?? 0) >= Number(poll.maxChoices)) {
-      throw new Error(`You can only choose ${poll.maxChoices} option(s) for this poll.`)
+    if (Number(poll.maxChoices ?? 0) > 0) {
+      const { count, error: countError } = await supabase
+        .from('poll_votes')
+        .select('id', { count: 'exact', head: true })
+        .eq('poll_id', poll.id)
+        .eq('voter_email', normalizedEmail)
+
+      if (countError) {
+        console.error(countError)
+        throw countError
+      }
+
+      if (Number(count ?? 0) >= Number(poll.maxChoices)) {
+        throw new Error(`You can only choose ${poll.maxChoices} option(s) for this poll.`)
+      }
     }
   }
 

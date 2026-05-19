@@ -184,6 +184,7 @@ function ParentPollCard({ activePollId, onVote, poll }) {
   const selectedOptionIds = getSelectedOptionIds(poll)
   const hasVoted = selectedOptionIds.length > 0
   const isBusy = activePollId === poll.id
+  const isVoteLocked = hasVoted && poll.allowVoteChanges === false
   const shouldShowVotes = !poll.hideVotes || hasVoted
 
   return (
@@ -198,11 +199,21 @@ function ParentPollCard({ activePollId, onVote, poll }) {
               {poll.maxChoices ? `Choose up to ${poll.maxChoices}` : 'Choose more than one'}
             </span>
           ) : null}
+          {poll.allowOwnChildVotes === false ? (
+            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              Own child not available
+            </span>
+          ) : null}
+          {poll.allowVoteChanges === false ? (
+            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              Vote locked after choice
+            </span>
+          ) : null}
         </div>
         <h4 className="text-lg font-semibold text-[var(--text-primary)]">{poll.title}</h4>
         {poll.description ? <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-muted)]">{poll.description}</p> : null}
         <p className="text-xs text-[var(--text-muted)]">
-          {hasVoted ? 'Your answer has been saved. You can change it while the poll is open.' : poll.allowMultiple && poll.maxChoices ? `Choose up to ${poll.maxChoices} answers.` : poll.allowMultiple ? 'Choose one or more answers.' : 'Choose one answer.'}
+          {isVoteLocked ? 'Your answer has been saved and cannot be changed.' : hasVoted ? 'Your answer has been saved. You can change it while the poll is open.' : poll.allowMultiple && poll.maxChoices ? `Choose up to ${poll.maxChoices} answers.` : poll.allowMultiple ? 'Choose one or more answers.' : 'Choose one answer.'}
         </p>
       </div>
 
@@ -224,14 +235,14 @@ function ParentPollCard({ activePollId, onVote, poll }) {
                 <button
                   type="button"
                   onClick={() => onVote(poll, option.id)}
-                  disabled={isBusy}
+                  disabled={isBusy || isVoteLocked}
                   className={`inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     isSelected
                       ? 'border border-[var(--accent)] bg-[var(--button-primary)] text-[var(--button-primary-text)]'
                       : 'border border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
                   }`}
                 >
-                  {isSelected ? 'Selected' : 'Vote'}
+                  {isVoteLocked && isSelected ? 'Locked' : isSelected ? 'Selected' : 'Vote'}
                 </button>
               </div>
               {shouldShowVotes ? (

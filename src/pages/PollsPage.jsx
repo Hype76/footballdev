@@ -27,6 +27,8 @@ const EMPTY_FORM = {
   closesAt: '',
   allowMultiple: false,
   maxChoices: '',
+  allowOwnChildVotes: true,
+  allowVoteChanges: true,
   hideVotes: false,
   allowComments: false,
   options: ['Yes', 'No'],
@@ -523,6 +525,26 @@ export function PollsPage() {
               />
               Allow comments
             </label>
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              <input
+                type="checkbox"
+                checked={form.allowVoteChanges}
+                onChange={(event) => updateForm({ allowVoteChanges: event.target.checked })}
+                className="h-4 w-4"
+              />
+              Allow choice change
+            </label>
+            {form.audience === 'parents' ? (
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  checked={form.allowOwnChildVotes}
+                  onChange={(event) => updateForm({ allowOwnChildVotes: event.target.checked })}
+                  className="h-4 w-4"
+                />
+                Allow vote for own child
+              </label>
+            ) : null}
           </div>
 
           <PollOptionsEditor
@@ -719,6 +741,16 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
             {poll.allowMultiple ? (
               <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
                 {poll.maxChoices ? `Up to ${poll.maxChoices} choices` : 'Multiple choice'}
+              </span>
+            ) : null}
+            {!isStaffPoll && poll.allowOwnChildVotes === false ? (
+              <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+                Own child blocked
+              </span>
+            ) : null}
+            {poll.allowVoteChanges === false ? (
+              <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+                Vote locked after choice
               </span>
             ) : null}
             <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
