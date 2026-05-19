@@ -83,30 +83,18 @@ function getCurrentMatchMinute(match, now = Date.now()) {
     return null
   }
 
-  if (match.status === 'half_time') {
-    return 45
-  }
-
-  if (match.status === 'full_time' || match.status === 'penalties') {
+  if (match.status === 'full_time' || match.status === 'postponed' || match.status === 'cancelled') {
     return null
   }
 
-  const phaseStart = new Date(match.phaseStartedAt || match.updatedAt || now)
-  const phaseStartTime = Number.isNaN(phaseStart.getTime()) ? now : phaseStart.getTime()
+  const startedAt = new Date(match.phaseStartedAt || match.updatedAt || now)
+  const startedAtTime = Number.isNaN(startedAt.getTime()) ? now : startedAt.getTime()
 
-  if (phaseStartTime > now) {
+  if (startedAtTime > now) {
     return null
   }
 
-  if (match.status === 'second_half') {
-    return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 46, 46), 90)
-  }
-
-  if (match.status === 'extra_time') {
-    return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 91, 91), 120)
-  }
-
-  return Math.min(Math.max(Math.floor((now - phaseStartTime) / 60000) + 1, 1), 45)
+  return Math.max(Math.floor((now - startedAtTime) / 60000) + 1, 1)
 }
 
 function isPreviousMatch(match) {
@@ -274,7 +262,12 @@ export function MatchDayPage() {
     setErrorMessage('')
 
     try {
-      await updateMatchDay({ user, matchId: match.id, updates: { status } })
+      const updates = { status }
+      if (status === 'live' && !match.phaseStartedAt) {
+        updates.phaseStartedAt = new Date().toISOString()
+      }
+
+      await updateMatchDay({ user, matchId: match.id, updates })
       if (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time') {
         void sendMatchDayPushNotification({
           matchDayId: match.id,

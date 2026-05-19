@@ -290,9 +290,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.status !== undefined) payload.status = normalizeStatus(updates.status)
   if (updates.homeScore !== undefined) payload.home_score = Math.max(Number(updates.homeScore ?? 0), 0)
   if (updates.awayScore !== undefined) payload.away_score = Math.max(Number(updates.awayScore ?? 0), 0)
-  if (updates.status !== undefined && ['live', 'second_half', 'extra_time'].includes(payload.status)) {
-    payload.phase_started_at = new Date().toISOString()
-  }
+  if (updates.phaseStartedAt !== undefined) payload.phase_started_at = updates.phaseStartedAt || null
 
   if (payload.venue_name) {
     const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location', {
