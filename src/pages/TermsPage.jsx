@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 
 const terms = [
-  ['Use of the service', 'Player Feedback is provided for football clubs and authorised staff to manage assessments, notes, communications, teams, and related administration. Users must keep access details secure and use the service only for legitimate club purposes.'],
+  ['Use of the service', 'Football Player is provided for football clubs and authorised staff to manage assessments, notes, communications, teams, and related administration. Users must keep access details secure and use the service only for legitimate club purposes.'],
   ['Club responsibility', 'Each club is responsible for the accuracy, fairness, and lawful use of the data it enters. Clubs must make sure staff have permission to access player, parent, and team information.'],
   ['Parent communications', 'Email tools are provided to support club communication. Clubs are responsible for checking message content, recipient details, and sender details before sending.'],
   ['Voice notes', 'Voice notes are for short term coaching context. They must not include unnecessary sensitive information and are scheduled for deletion after 2 weeks.'],
@@ -22,8 +22,8 @@ export function TermsPage() {
       <div className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/login" className="flex items-center gap-3">
-            <img src={fallbackLogo} alt="Player Feedback" className="h-11 w-11 rounded-lg object-contain" />
-            <span className="text-lg font-black tracking-tight">Player Feedback</span>
+            <img src={fallbackLogo} alt="Football Player" className="h-11 w-11 rounded-lg object-contain" />
+            <span className="text-lg font-black tracking-tight">Football Player</span>
           </Link>
           <nav className="flex flex-wrap gap-3 text-sm font-bold text-slate-300">
             <Link to="/login" className="hover:text-white">Main page</Link>
@@ -35,7 +35,7 @@ export function TermsPage() {
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Terms</p>
           <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight sm:text-5xl">Terms of Service</h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
-            These terms set out how clubs, coaches, administrators, and authorised users may use Player Feedback. They are written for normal club use and should be read with the GDPR and Data Protection Notice.
+            These terms set out how clubs, coaches, administrators, and authorised users may use Football Player. They are written for normal club use and should be read with the GDPR and Data Protection Notice.
           </p>
           <p className="mt-3 text-sm font-semibold text-slate-400">Last updated: 11 May 2026</p>
         </section>

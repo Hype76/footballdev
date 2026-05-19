@@ -78,7 +78,7 @@ export const planGuides = [
     details: [
       'One team, three staff logins, and twenty active players.',
       'Includes parent emails, parent email templates, and custom form fields.',
-      'Parent emails include a small Player Feedback website advert.',
+      'Parent emails include a small Football Player website advert.',
     ],
   },
   {
@@ -88,7 +88,7 @@ export const planGuides = [
     details: [
       'Up to ten teams with unlimited players and staff logins.',
       'Includes parent emails, custom templates, custom branding, themes, and audit logs.',
-      'Parent emails include a small Player Feedback website advert.',
+      'Parent emails include a small Football Player website advert.',
     ],
   },
   {

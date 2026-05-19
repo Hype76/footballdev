@@ -38,15 +38,21 @@ function isExistingUserError(error) {
 
 function getBaseUrl(event) {
   const forwardedProto = event.headers['x-forwarded-proto'] || 'https'
-  const forwardedHost = event.headers['x-forwarded-host'] || event.headers.host || 'staging.playerfeedback.online'
+  const forwardedHost = event.headers['x-forwarded-host'] || event.headers.host || 'staging.footballplayer.online'
   const normalizedHost = String(forwardedHost ?? '').trim().toLowerCase()
 
-  if (normalizedHost === 'staging.playerfeedback.online' || normalizedHost === 'parent-staging.playerfeedback.online') {
-    return 'https://parent-staging.playerfeedback.online'
+  if (normalizedHost === 'staging.footballplayer.online'
+    || normalizedHost === 'parent-staging.footballplayer.online'
+    || normalizedHost === 'staging.playerfeedback.online'
+    || normalizedHost === 'parent-staging.playerfeedback.online') {
+    return 'https://parent-staging.footballplayer.online'
   }
 
-  if (normalizedHost === 'playerfeedback.online' || normalizedHost === 'parent.playerfeedback.online') {
-    return 'https://parent.playerfeedback.online'
+  if (normalizedHost === 'footballplayer.online'
+    || normalizedHost === 'parent.footballplayer.online'
+    || normalizedHost === 'playerfeedback.online'
+    || normalizedHost === 'parent.playerfeedback.online') {
+    return 'https://parent.footballplayer.online'
   }
 
   const configuredParentUrl = String(process.env.VITE_PARENT_APP_URL ?? '').trim().replace(/\/$/, '')
@@ -60,7 +66,7 @@ function getBaseUrl(event) {
 
 function buildConfirmationEmailHtml({ actionLink, invite, email }) {
   const childName = invite.playerName || 'your child'
-  const teamCopy = [invite.teamName, invite.clubName].filter(Boolean).join(' | ') || 'Player Feedback'
+  const teamCopy = [invite.teamName, invite.clubName].filter(Boolean).join(' | ') || 'Football Player'
 
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
@@ -80,7 +86,7 @@ function buildConfirmationEmailHtml({ actionLink, invite, email }) {
           </p>
           <p style="margin: 0; color: #52645a; font-size: 13px;">This confirmation link is for this email address only.</p>
           <div style="border-top: 1px solid #e5eadf; margin-top: 20px; padding-top: 14px;">
-            <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Player Feedback | playerfeedback.online</p>
+            <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Football Player | footballplayer.online</p>
           </div>
         </div>
       </div>
@@ -248,7 +254,7 @@ export async function handler(event) {
 
     const resend = new Resend(process.env.RESEND_API_KEY)
     const sendResult = await resend.emails.send({
-      from: 'Player Feedback <feedback@playerfeedback.online>',
+      from: 'Football Player <feedback@footballplayer.online>',
       to: [email],
       subject: 'Confirm your parent portal account',
       html: buildConfirmationEmailHtml({ actionLink, invite, email }),

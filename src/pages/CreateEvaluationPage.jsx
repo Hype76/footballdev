@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 import { BlankPrintForm } from '../components/evaluations/BlankPrintForm.jsx'
 import { ConfiguredFieldsSection } from '../components/evaluations/ConfiguredFieldsSection.jsx'
 import { EvaluationAvailabilityState } from '../components/evaluations/EvaluationAvailabilityState.jsx'

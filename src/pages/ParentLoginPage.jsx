@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { buildParentAppUrl, isParentPortalHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
@@ -151,7 +151,7 @@ export function ParentLoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-[#030603] px-4 py-8 text-white">
       <div className="pointer-events-none fixed inset-0 bg-[#071008]" />
       <div className="relative w-full max-w-md rounded-lg border border-white/10 bg-[#0b130d]/95 p-5 shadow-2xl shadow-black/40 sm:p-6">
-        <img src={fallbackLogo} alt="Player Feedback" className="h-16 w-16 rounded-lg border border-[#d8ff2f]/25 bg-black/40 object-contain p-1" />
+        <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#d8ff2f]/25 bg-black/40 object-contain p-1" />
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-[#d8ff2f]">Parent Portal</p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">Parent login</h1>
         <p className="mt-3 text-sm leading-6 text-slate-300">

@@ -60,6 +60,6 @@ export async function authenticateWithBiometrics() {
   return LocalAuthentication.authenticateAsync({
     cancelLabel: 'Use password',
     disableDeviceFallback: false,
-    promptMessage: 'Unlock Player Feedback',
+    promptMessage: 'Unlock Football Player',
   })
 }

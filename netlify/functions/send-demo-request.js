@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { Resend } from 'resend'
 
-const DEMO_REQUEST_RECIPIENT = 'info@playerfeedback.online'
+const DEMO_REQUEST_RECIPIENT = 'info@footballplayer.online'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -53,7 +53,7 @@ function buildDemoRequestHtml({ name, email, phone, clubTeamName, planName, bill
     <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5; padding: 24px;">
       <div style="max-width: 640px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 18px; overflow: hidden;">
         <div style="background: #101510; color: #ffffff; padding: 24px;">
-          <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Player Feedback</p>
+          <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Football Player</p>
           <h1 style="margin: 0; font-size: 24px;">New demo request</h1>
         </div>
         <div style="padding: 24px; background: #ffffff;">
@@ -74,7 +74,7 @@ function buildDemoRequestHtml({ name, email, phone, clubTeamName, planName, bill
           </table>
           <p style="margin: 20px 0 0; color: #4b5563; font-size: 14px;">Reply directly to this email to contact the requester.</p>
           <div style="border-top: 1px solid #e5e7eb; margin-top: 20px; padding-top: 14px;">
-            <p style="margin: 0; color: #6b7280; font-size: 11px; line-height: 1.45;">Powered by Player Feedback | playerfeedback.online</p>
+            <p style="margin: 0; color: #6b7280; font-size: 11px; line-height: 1.45;">Powered by Football Player | footballplayer.online</p>
           </div>
         </div>
       </div>
@@ -123,7 +123,7 @@ export async function handler(event) {
     })
 
     const response = await resend.emails.send({
-      from: 'Player Feedback Demo <feedback@playerfeedback.online>',
+      from: 'Football Player Demo <feedback@footballplayer.online>',
       to: [DEMO_REQUEST_RECIPIENT],
       reply_to: email,
       subject: `Demo Request: ${clubTeamName}`,

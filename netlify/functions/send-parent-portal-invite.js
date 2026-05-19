@@ -16,7 +16,7 @@ import {
   getAuthenticatedRequestUser,
 } from './_plan-gate.js'
 
-const DEMO_EMAIL = 'demo@playerfeedback.online'
+const DEMO_EMAIL = 'demo@footballplayer.online'
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
@@ -81,7 +81,7 @@ function buildEmailPayload({
   emailHtml,
 }) {
   const emailPayload = {
-    from: `${fromName} <feedback@playerfeedback.online>`,
+    from: `${fromName} <feedback@footballplayer.online>`,
     to: [recipient],
     replyTo: safeReplyTo || undefined,
     subject: String(subject ?? '').trim() || 'Parent Portal Invite',

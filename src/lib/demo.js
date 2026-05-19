@@ -1,4 +1,4 @@
-export const DEMO_EMAIL = 'demo@playerfeedback.online'
+export const DEMO_EMAIL = 'demo@footballplayer.online'
 export const DEMO_PASSWORD = 'Demo12345!'
 export const DEMO_ROLE_STORAGE_KEY = 'player-feedback-demo-role'
 

@@ -106,7 +106,7 @@ export async function handler(event) {
       return json(400, { success: false, message: 'This plan is not available for checkout yet' })
     }
 
-    const appUrl = (process.env.VITE_APP_URL || process.env.URL || 'https://playerfeedback.online').replace(/\/$/, '')
+    const appUrl = (process.env.VITE_APP_URL || process.env.URL || 'https://footballplayer.online').replace(/\/$/, '')
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2026-02-25.clover',
     })

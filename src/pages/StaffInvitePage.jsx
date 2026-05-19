@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 
 export function StaffInvitePage() {
@@ -126,7 +126,7 @@ export function StaffInvitePage() {
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">{invite.clubName || 'Player Feedback'}</p>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">{invite.clubName || 'Football Player'}</p>
               <p className="mt-1 text-sm text-[var(--text-muted)]">{invite.teamName || 'Team access'} | {invite.roleLabel || 'Staff'}</p>
               <p className="mt-3 break-words text-sm text-[var(--text-secondary)]">{invite.email}</p>
             </div>

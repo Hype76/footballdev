@@ -132,7 +132,7 @@ export function shouldShowWebsiteAdvert(planKey) {
 function buildPoweredByFooterMarkup() {
   return `
       <div style="border-top: 1px solid #e7ece3; margin-top: 20px; padding-top: 14px;">
-        <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Player Feedback | playerfeedback.online</p>
+        <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Football Player | footballplayer.online</p>
       </div>
   `
 }
@@ -222,10 +222,10 @@ export function buildPlayerFeedbackSubject({ playerName, teamName, team }) {
   const resolvedTeam = String(teamName || team || '').trim()
 
   if (resolvedPlayer && resolvedTeam) {
-    return `Player Feedback: ${resolvedPlayer} (${resolvedTeam})`
+    return `Football Player: ${resolvedPlayer} (${resolvedTeam})`
   }
 
-  return 'Player Feedback Report'
+  return 'Football Player Report'
 }
 
 export async function sendParentEmail(data) {

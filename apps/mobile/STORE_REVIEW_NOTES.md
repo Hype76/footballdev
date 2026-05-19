@@ -1,6 +1,6 @@
 # Store Review Notes
 
-Player Feedback Mobile is a free login-only companion app for existing club users.
+Football Player Mobile is a free login-only companion app for existing club users.
 
 The app does not include:
 
@@ -16,6 +16,6 @@ Access is controlled by the existing account and club permissions returned by Su
 Current test login for local development:
 
 ```text
-mobile.test@playerfeedback.test
+mobile.test@footballplayer.test
 TestMobile123!
 ```

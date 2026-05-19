@@ -1,4 +1,4 @@
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { LoginHeroContent } from '../components/login/LoginHeroContent.jsx'

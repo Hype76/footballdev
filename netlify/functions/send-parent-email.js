@@ -20,7 +20,7 @@ import {
 
 void supabaseAdmin
 
-const DEMO_EMAIL = 'demo@playerfeedback.online'
+const DEMO_EMAIL = 'demo@footballplayer.online'
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')
@@ -101,10 +101,10 @@ function buildEmailPayload({
   attachments,
 }) {
   const emailPayload = {
-    from: `${fromName} <feedback@playerfeedback.online>`,
+    from: `${fromName} <feedback@footballplayer.online>`,
     to: recipients,
     replyTo: safeReplyTo || undefined,
-    subject: String(subject ?? '').trim() || 'Player Feedback',
+    subject: String(subject ?? '').trim() || 'Football Player',
     html: emailHtml,
   }
 
@@ -177,7 +177,7 @@ export async function handler(event) {
   }
 
   let recipients = []
-  let emailSubject = 'Player Feedback'
+  let emailSubject = 'Football Player'
   let emailLogRecord = null
 
   try {
@@ -260,7 +260,7 @@ export async function handler(event) {
 
     const attachmentHtml = buildEmailHtml(pdfHtml || emailHtml)
     const attachments = shouldAttachPdf ? await buildPdfAttachment(attachmentHtml) : []
-    emailSubject = String(subject ?? '').trim() || 'Player Feedback'
+    emailSubject = String(subject ?? '').trim() || 'Football Player'
     const emailPayload = buildEmailPayload({
       fromName,
       recipients,

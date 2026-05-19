@@ -1,4 +1,4 @@
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 
@@ -14,7 +14,7 @@ export function PublicParentsPage() {
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[0.85fr_1fr] lg:px-8 lg:py-16">
         <div className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
-          <img src={landingHeroImage} alt="Coach using Player Feedback beside a football pitch" className="h-full min-h-[420px] w-full object-cover" />
+          <img src={landingHeroImage} alt="Coach using Football Player beside a football pitch" className="h-full min-h-[420px] w-full object-cover" />
         </div>
         <div className="flex flex-col justify-center">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Parents portal</p>

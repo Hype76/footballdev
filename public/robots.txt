@@ -3,4 +3,4 @@ Allow: /
 
 Disallow: /supabase/
 
-Sitemap: https://playerfeedback.online/sitemap.xml
+Sitemap: https://footballplayer.online/sitemap.xml

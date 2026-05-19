@@ -1,10 +1,10 @@
 import process from 'node:process'
 
-const DEMO_EMAIL = 'demo@playerfeedback.online'
+const DEMO_EMAIL = 'demo@footballplayer.online'
 const DEMO_PASSWORD = 'Demo12345!'
-const DEMO_CLUB_NAME = 'Player Feedback Demo Club'
+const DEMO_CLUB_NAME = 'Football Player Demo Club'
 const DEMO_USER_NAME = 'Demo User'
-const DEMO_CLUB_CONTACT_EMAIL = 'demo.club@playerfeedback.test'
+const DEMO_CLUB_CONTACT_EMAIL = 'demo.club@footballplayer.test'
 
 let supabaseAdmin = null
 
@@ -349,14 +349,14 @@ async function seedPlayers(clubId, teams, actorId) {
   const u12 = teams.find((team) => team.name === 'U12 Demo') || teams[0]
   const u14 = teams.find((team) => team.name === 'U14 Demo') || teams[0]
   const rows = [
-    ['Demo Trial Player 01', 'Trial', u12, ['Striker', 'Winger'], 'Demo Parent 01', 'demo.parent.01@playerfeedback.test'],
-    ['Demo Trial Player 02', 'Trial', u12, ['CM'], 'Demo Parent 02', 'demo.parent.02@playerfeedback.test'],
-    ['Demo Trial Player 03', 'Trial', u14, ['CB'], 'Demo Parent 03', 'demo.parent.03@playerfeedback.test'],
-    ['Demo Trial Player 04', 'Trial', u14, ['GK'], 'Demo Parent 04', 'demo.parent.04@playerfeedback.test'],
-    ['Demo Squad Player 01', 'Squad', u12, ['Winger'], 'Demo Parent 05', 'demo.parent.05@playerfeedback.test'],
-    ['Demo Squad Player 02', 'Squad', u12, ['CM', 'CDM'], 'Demo Parent 06', 'demo.parent.06@playerfeedback.test'],
-    ['Demo Squad Player 03', 'Squad', u14, ['ST'], 'Demo Parent 07', 'demo.parent.07@playerfeedback.test'],
-    ['Demo Squad Player 04', 'Squad', u14, ['LB'], 'Demo Parent 08', 'demo.parent.08@playerfeedback.test'],
+    ['Demo Trial Player 01', 'Trial', u12, ['Striker', 'Winger'], 'Demo Parent 01', 'demo.parent.01@footballplayer.test'],
+    ['Demo Trial Player 02', 'Trial', u12, ['CM'], 'Demo Parent 02', 'demo.parent.02@footballplayer.test'],
+    ['Demo Trial Player 03', 'Trial', u14, ['CB'], 'Demo Parent 03', 'demo.parent.03@footballplayer.test'],
+    ['Demo Trial Player 04', 'Trial', u14, ['GK'], 'Demo Parent 04', 'demo.parent.04@footballplayer.test'],
+    ['Demo Squad Player 01', 'Squad', u12, ['Winger'], 'Demo Parent 05', 'demo.parent.05@footballplayer.test'],
+    ['Demo Squad Player 02', 'Squad', u12, ['CM', 'CDM'], 'Demo Parent 06', 'demo.parent.06@footballplayer.test'],
+    ['Demo Squad Player 03', 'Squad', u14, ['ST'], 'Demo Parent 07', 'demo.parent.07@footballplayer.test'],
+    ['Demo Squad Player 04', 'Squad', u14, ['LB'], 'Demo Parent 08', 'demo.parent.08@footballplayer.test'],
   ]
 
   const insertedPlayers = await throwOnError(

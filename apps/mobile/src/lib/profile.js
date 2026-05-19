@@ -64,7 +64,7 @@ function normalizeProfile(profile, club, authUser) {
     roleRank: Number(profile.role_rank || 0),
     accountStatus: String(profile.status || 'active').trim(),
     clubId: String(profile.club_id || '').trim(),
-    clubName: String(club?.name || profile.club_name || 'Player Feedback').trim(),
+    clubName: String(club?.name || profile.club_name || 'Football Player').trim(),
     clubLogoUrl: String(club?.logo_url || '').trim(),
     clubStatus: String(club?.status || 'active').trim(),
     planKey: String(club?.plan_key || 'small_club').trim(),

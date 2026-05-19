@@ -12,10 +12,10 @@ export function LoginHeader({ logo }) {
     <header className="flex items-center justify-between gap-4 border-b border-white/10 bg-[#061009]/90 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
       <a href="/login" className="flex min-w-0 items-center gap-3">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d8ff2f]/30 bg-black/50 shadow-lg shadow-[#d8ff2f]/10 sm:h-16 sm:w-16">
-          <img src={logo} alt="Player Feedback" className="h-full w-full object-contain p-1" />
+          <img src={logo} alt="Football Player" className="h-full w-full object-contain p-1" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-lg font-black tracking-tight sm:text-xl">Player Feedback</p>
+          <p className="truncate text-lg font-black tracking-tight sm:text-xl">Football Player</p>
           <p className="truncate text-xs text-slate-400 sm:text-sm">Football club management software</p>
         </div>
       </a>

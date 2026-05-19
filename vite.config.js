@@ -16,7 +16,7 @@ export default defineConfig({
         'browserconfig.xml',
         'og-image.png',
         'twitter-image.png',
-        'player-feedback-logo.png',
+        'football-player-logo.png',
         'icons/favicon-16.png',
         'icons/favicon-32.png',
         'icons/favicon-48.png',
@@ -24,7 +24,7 @@ export default defineConfig({
         'push-sw.js',
       ],
       manifest: {
-        name: 'Player Feedback',
+        name: 'Football Player',
         short_name: 'Feedback',
         description: 'Football club assessment software for player feedback, reports, and parent communication.',
         theme_color: '#07120c',

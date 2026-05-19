@@ -75,7 +75,7 @@ export function InformationPage() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Information"
-        title="Player Feedback guide"
+        title="Football Player guide"
         description={`Signed in as ${getRoleLabel(user)} on the ${currentPlanName} plan.`}
       />
 

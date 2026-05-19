@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 
 const rights = [
   'Access a copy of personal data held in the platform.',
@@ -27,8 +27,8 @@ export function GdprPage() {
       <div className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/login" className="flex items-center gap-3">
-            <img src={fallbackLogo} alt="Player Feedback" className="h-11 w-11 rounded-lg object-contain" />
-            <span className="text-lg font-black tracking-tight">Player Feedback</span>
+            <img src={fallbackLogo} alt="Football Player" className="h-11 w-11 rounded-lg object-contain" />
+            <span className="text-lg font-black tracking-tight">Football Player</span>
           </Link>
           <nav className="flex flex-wrap gap-3 text-sm font-bold text-slate-300">
             <Link to="/login" className="hover:text-white">Main page</Link>
@@ -40,7 +40,7 @@ export function GdprPage() {
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Privacy and GDPR</p>
           <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight sm:text-5xl">GDPR and Data Protection Notice</h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
-            This page explains how Player Feedback supports clubs with responsible data handling under UK GDPR and the Data Protection Act 2018. Club administrators remain responsible for deciding what player, parent, and staff data is entered into their workspace.
+            This page explains how Football Player supports clubs with responsible data handling under UK GDPR and the Data Protection Act 2018. Club administrators remain responsible for deciding what player, parent, and staff data is entered into their workspace.
           </p>
           <p className="mt-3 text-sm font-semibold text-slate-400">Last updated: 11 May 2026</p>
         </section>
@@ -49,7 +49,7 @@ export function GdprPage() {
           <section className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
             <h2 className="text-2xl font-black">Who controls the data</h2>
             <p className="mt-3 text-sm leading-7 text-slate-300">
-              Each club controls the player, parent, coach, team, assessment, and communication data it adds to the platform. Player Feedback provides the software used to store, secure, and process that data for the club.
+              Each club controls the player, parent, coach, team, assessment, and communication data it adds to the platform. Football Player provides the software used to store, secure, and process that data for the club.
             </p>
           </section>
 
@@ -89,14 +89,14 @@ export function GdprPage() {
               ))}
             </ul>
             <p className="mt-4 text-sm leading-7 text-slate-300">
-              Requests should normally be sent to the club that manages the workspace. If a request relates to platform operation, the club can contact Player Feedback support.
+              Requests should normally be sent to the club that manages the workspace. If a request relates to platform operation, the club can contact Football Player support.
             </p>
           </section>
 
           <section className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
             <h2 className="text-2xl font-black">Security</h2>
             <p className="mt-3 text-sm leading-7 text-slate-300">
-              Player Feedback uses account authentication, role based access, club and team scoping, audit logs, database security policies, and private storage links for voice recordings. Staff should keep passwords private and only grant access to people who need it for club duties.
+              Football Player uses account authentication, role based access, club and team scoping, audit logs, database security policies, and private storage links for voice recordings. Staff should keep passwords private and only grant access to people who need it for club duties.
             </p>
           </section>
         </div>

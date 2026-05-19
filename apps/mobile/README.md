@@ -1,6 +1,6 @@
-# Player Feedback Mobile
+# Football Player Mobile
 
-Expo mobile app for Player Feedback.
+Expo mobile app for Football Player.
 
 ## Local Preview
 

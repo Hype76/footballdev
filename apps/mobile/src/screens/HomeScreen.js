@@ -8,7 +8,7 @@ import { AddPlayerScreen } from './AddPlayerScreen'
 import { ListScreen } from './ListScreen'
 import { ManageScreen } from './ManageScreen'
 
-const logo = require('../../assets/player-feedback-logo.png')
+const logo = require('../../assets/football-player-logo.png')
 
 const primaryKeys = ['sessions', 'players', 'add-player', 'create-session', 'evaluations', 'teams']
 const managementKeys = ['archived-players', 'user-access', 'form-builder', 'parent-email-templates', 'activity-log', 'club-settings', 'platform-feedback', 'information', 'settings']

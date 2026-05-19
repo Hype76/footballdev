@@ -59,7 +59,7 @@ export function AccountProfileSection({
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
             <p className="text-sm font-semibold text-[var(--text-primary)]">Parent email identity</p>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-              Emails will be sent from feedback@playerfeedback.online. Parent replies will go to your reply-to email.
+              Emails will be sent from feedback@footballplayer.online. Parent replies will go to your reply-to email.
             </p>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -126,7 +126,7 @@ export function AccountProfileSection({
           <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Sender preview</p>
             <p className="mt-2 break-words text-sm font-medium text-[var(--text-primary)]">
-              {senderPreview} &lt;feedback@playerfeedback.online&gt;
+              {senderPreview} &lt;feedback@footballplayer.online&gt;
             </p>
           </div>
           </div>

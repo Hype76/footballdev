@@ -1,4 +1,4 @@
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 
@@ -39,7 +39,7 @@ export function PublicFeaturesPage() {
               Built for the actual week of a football club.
             </h1>
             <p className="mt-6 text-base leading-8 text-slate-200 sm:text-lg">
-              Player Feedback focuses on the work that normally gets split across paper forms, spreadsheets, WhatsApp messages, and memory.
+              Football Player focuses on the work that normally gets split across paper forms, spreadsheets, WhatsApp messages, and memory.
             </p>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 ## App Review Position
 
-Player Feedback mobile is a free, login-only companion app for existing club staff.
+Football Player mobile is a free, login-only companion app for existing club staff.
 
 The app does not show billing, checkout, subscription management, plan upgrades, Stripe, invoices, or payment links. Subscription purchase and account billing are handled outside the mobile app by authorised club administrators.
 
@@ -11,7 +11,7 @@ The app does not show billing, checkout, subscription management, plan upgrades,
 Use these points in Apple App Review and Google Play review notes:
 
 - This app is free to download.
-- Users must already have a Player Feedback club account.
+- Users must already have a Football Player club account.
 - The mobile app provides club operations tools for sessions, players, assessments, team access, templates, settings, and feedback.
 - Payments, subscriptions, checkout, invoices, and billing management are not available in the app.
 - Biometric login is optional and only unlocks a locally saved session on supported devices.
@@ -21,7 +21,7 @@ Use these points in Apple App Review and Google Play review notes:
 Local development test account:
 
 ```text
-Email: mobile.test@playerfeedback.test
+Email: mobile.test@footballplayer.test
 Password: TestMobile123!
 Workspace: Codex Test FC
 ```

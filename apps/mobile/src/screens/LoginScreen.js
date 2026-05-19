@@ -14,7 +14,7 @@ import { TextField } from '../components/TextField'
 import { useAuth } from '../lib/auth'
 import { colors, spacing } from '../theme'
 
-const logo = require('../../assets/player-feedback-logo.png')
+const logo = require('../../assets/football-player-logo.png')
 
 function getFriendlyAuthError(error) {
   const message = String(error?.message || '').trim()
@@ -57,7 +57,7 @@ export function LoginScreen() {
             <View style={styles.header}>
               <Image source={logo} style={styles.logo} />
               <View style={styles.headerText}>
-                <Text style={styles.brand}>Player Feedback</Text>
+                <Text style={styles.brand}>Football Player</Text>
                 <Text style={styles.subhead}>Club operations and player feedback software</Text>
               </View>
             </View>

@@ -20,7 +20,7 @@ export function LoginAuthPanel({
     <section ref={signupBoxRef} className="order-1 lg:order-2">
       <div className="mx-auto w-full max-w-md rounded-lg border border-white/10 bg-[#0b130d]/90 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-6">
         <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border border-[#d8ff2f]/30 bg-black/50 shadow-xl shadow-[#d8ff2f]/10 sm:h-32 sm:w-32">
-          <img src={logo} alt="Player Feedback" className="h-full w-full object-contain p-2" />
+          <img src={logo} alt="Football Player" className="h-full w-full object-contain p-2" />
         </div>
         <div className="rounded-lg border border-[#d8ff2f]/15 bg-[#111d12] p-5">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#d8ff2f]">
@@ -85,7 +85,7 @@ export function LoginAuthPanel({
                 name="accessCode"
                 value={formData.accessCode}
                 onChange={onChange}
-                placeholder="Optional code from Player Feedback"
+                placeholder="Optional code from Football Player"
                 className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm uppercase text-white outline-none transition placeholder:normal-case placeholder:text-slate-500 focus:border-[#d8ff2f]"
               />
               <span className="mt-2 block text-xs leading-5 text-slate-400">

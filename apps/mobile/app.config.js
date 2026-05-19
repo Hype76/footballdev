@@ -5,9 +5,9 @@ const allowLiveSupabase = process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false'
 
 module.exports = {
   expo: {
-    name: 'Player Feedback',
-    slug: 'player-feedback',
-    description: 'Login-only mobile workspace for Player Feedback club staff.',
+    name: 'Football Player',
+    slug: 'football-player',
+    description: 'Login-only mobile workspace for Football Player club staff.',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -15,7 +15,7 @@ module.exports = {
     primaryColor: '#d7ff2f',
     userInterfaceStyle: 'dark',
     newArchEnabled: true,
-    scheme: 'playerfeedback',
+    scheme: 'footballplayer',
     runtimeVersion: {
       policy: 'appVersion',
     },
@@ -28,11 +28,11 @@ module.exports = {
       backgroundColor: '#030603',
     },
     ios: {
-      bundleIdentifier: 'com.playerfeedback.app',
+      bundleIdentifier: 'com.footballplayer.app',
       supportsTablet: true,
       buildNumber: '1',
       infoPlist: {
-        NSFaceIDUsageDescription: 'Player Feedback uses Face ID to unlock your saved session when biometric login is enabled.',
+        NSFaceIDUsageDescription: 'Football Player uses Face ID to unlock your saved session when biometric login is enabled.',
         ITSAppUsesNonExemptEncryption: false,
       },
       config: {
@@ -40,7 +40,7 @@ module.exports = {
       },
     },
     android: {
-      package: 'com.playerfeedback.app',
+      package: 'com.footballplayer.app',
       versionCode: 1,
       blockedPermissions: [
         'android.permission.ACCESS_COARSE_LOCATION',
@@ -61,7 +61,7 @@ module.exports = {
       [
         'expo-local-authentication',
         {
-          faceIDPermission: 'Player Feedback uses Face ID to unlock your saved session when biometric login is enabled.',
+          faceIDPermission: 'Football Player uses Face ID to unlock your saved session when biometric login is enabled.',
         },
       ],
       'expo-secure-store',

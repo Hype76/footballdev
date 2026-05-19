@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import fallbackLogo from '../assets/player-feedback-logo.png'
+import fallbackLogo from '../assets/football-player-logo.png'
 import { DemoRequestModal } from '../components/login/DemoRequestModal.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { formatPrice, formatPriceLabel, getPromotionSummary, pricingPlans } from '../lib/login-pricing.js'

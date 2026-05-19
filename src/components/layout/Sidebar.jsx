@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import fallbackLogo from '../../assets/player-feedback-logo.png'
+import fallbackLogo from '../../assets/football-player-logo.png'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,

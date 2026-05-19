@@ -16,7 +16,7 @@ function AppContent() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
           <ActivityIndicator color={colors.accent} />
-          <Text style={styles.loadingText}>Loading Player Feedback</Text>
+          <Text style={styles.loadingText}>Loading Football Player</Text>
         </View>
       </SafeAreaView>
     )

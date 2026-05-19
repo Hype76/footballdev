@@ -305,7 +305,7 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
     logoUrl: user.clubLogoUrl,
     roleLabel,
     senderEmail: user.email,
-    subject: `${user.clubName || 'Player Feedback'} staff invite`,
+    subject: `${user.clubName || 'Football Player'} staff invite`,
     teamName: selectedTeam?.name || user.activeTeamName || 'your team',
   })
 

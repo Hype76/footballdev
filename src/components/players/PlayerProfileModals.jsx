@@ -121,7 +121,7 @@ export function PlayerProfileModals({
           `Player: ${routePlayerName}`,
           `Recipients: ${emailConfirmTarget?.recipientEmails || 'No recipients selected'}`,
           `Template: ${emailConfirmTarget?.templateName || 'Email template'}`,
-          `Subject: ${emailConfirmTarget?.payloads?.[0]?.payload?.subject || 'Player Feedback Report'}`,
+          `Subject: ${emailConfirmTarget?.payloads?.[0]?.payload?.subject || 'Football Player Report'}`,
           `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
           `Attachment: ${canAttachPdf && isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`,

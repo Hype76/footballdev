@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import fallbackLogo from '../../assets/player-feedback-logo.png'
+import fallbackLogo from '../../assets/football-player-logo.png'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 import { getRoleLabel, isClubAdmin, useAuth } from '../../lib/auth.js'
 import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'

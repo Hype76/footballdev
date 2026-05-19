@@ -40,7 +40,7 @@ export function LoginMarketingAndPricing({
         <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Why it exists</p>
         <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Better feedback for players. Less admin for coaches.</h2>
         <p className="mt-4 max-w-4xl text-base leading-8 text-slate-300">
-          Grassroots clubs work hard to give players a fair chance. Trial notes, parent messages, emails, and paper forms can quickly become messy. Player Feedback helps clubs keep development records organised, communicate properly with parents, and save coaches time after every session.
+          Grassroots clubs work hard to give players a fair chance. Trial notes, parent messages, emails, and paper forms can quickly become messy. Football Player helps clubs keep development records organised, communicate properly with parents, and save coaches time after every session.
         </p>
       </div>
 
@@ -220,7 +220,7 @@ export function LoginMarketingAndPricing({
       </div>
 
       <footer className="flex flex-col gap-3 border-t border-white/10 pt-6 text-sm font-semibold text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-        <p>Copyright 2026 Player Feedback. All rights reserved. Powered by <a href="https://pulseslabs.online" className="hover:text-white" target="_blank" rel="noreferrer">pulseslabs.online</a>.</p>
+        <p>Copyright 2026 Football Player. All rights reserved. Powered by <a href="https://pulseslabs.online" className="hover:text-white" target="_blank" rel="noreferrer">pulseslabs.online</a>.</p>
         <div className="flex flex-wrap gap-4">
           <a href="/gdpr" className="hover:text-white">GDPR</a>
           <a href="/terms" className="hover:text-white">Terms of Service</a>

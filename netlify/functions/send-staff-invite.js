@@ -16,7 +16,7 @@ import {
   getAuthenticatedRequestUser,
 } from './_plan-gate.js'
 
-const DEMO_EMAIL = 'demo@playerfeedback.online'
+const DEMO_EMAIL = 'demo@footballplayer.online'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -170,7 +170,7 @@ export async function handler(event) {
 
     const club = Array.isArray(invite.clubs) ? invite.clubs[0] : invite.clubs
     const team = Array.isArray(invite.teams) ? invite.teams[0] : invite.teams
-    const clubName = cleanHeaderPart(club?.name, 'Player Feedback')
+    const clubName = cleanHeaderPart(club?.name, 'Football Player')
     const teamName = cleanHeaderPart(team?.name, 'Team')
     const safeDisplayName = cleanHeaderPart(body.displayName || planProfile.name, 'Club admin')
     const fromName = `${safeDisplayName} (${clubName})`
@@ -188,7 +188,7 @@ export async function handler(event) {
 
     emailSubject = String(body.subject ?? '').trim() || `${clubName} staff invite`
     const emailPayload = {
-      from: `${fromName} <feedback@playerfeedback.online>`,
+      from: `${fromName} <feedback@footballplayer.online>`,
       to: [recipient],
       replyTo: safeReplyTo || undefined,
       subject: emailSubject,

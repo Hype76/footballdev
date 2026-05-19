@@ -171,7 +171,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
     key: 'assessment',
     label: 'Send Assessment',
     sectionAvailability: ['Squad', DIRECT_EMAIL_TEMPLATE_SECTION],
-    subject: 'Player Feedback for {playerFirstName}',
+    subject: 'Football Player for {playerFirstName}',
     body: [
       'Dear {parentName},',
       '',
@@ -256,7 +256,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
     key: 'assessment',
     label: 'Send Assessment',
     sectionAvailability: ['Squad', DIRECT_EMAIL_TEMPLATE_SECTION],
-    subject: 'Player Feedback for {playerFirstName}',
+    subject: 'Football Player for {playerFirstName}',
     body: [
       'Dear {playerFirstName},',
       '',
@@ -467,7 +467,7 @@ export function buildParentEmailTemplate({
   let bodyLines = []
 
   if (resolvedTemplateKey === 'assessment') {
-    subject = `Player Feedback for ${resolvedPlayerFirstName}`
+    subject = `Football Player for ${resolvedPlayerFirstName}`
     bodyLines = [
       greeting,
       '',

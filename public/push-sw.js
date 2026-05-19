@@ -5,12 +5,12 @@ self.addEventListener('push', (event) => {
     payload = event.data ? event.data.json() : {}
   } catch {
     payload = {
-      title: 'Player Feedback',
+      title: 'Football Player',
       body: event.data ? event.data.text() : '',
     }
   }
 
-  const title = String(payload.title || 'Player Feedback')
+  const title = String(payload.title || 'Football Player')
   const options = {
     body: String(payload.body || ''),
     icon: payload.icon || '/icons/icon-192.png',

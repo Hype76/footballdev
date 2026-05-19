@@ -11,7 +11,7 @@ export function LockedScreen({ onUnlock }) {
       <View style={styles.container}>
         <View style={styles.card}>
           <Text style={styles.kicker}>Secure unlock</Text>
-          <Text style={styles.title}>Player Feedback is locked.</Text>
+          <Text style={styles.title}>Football Player is locked.</Text>
           <Text style={styles.message}>Use your device security to unlock this session.</Text>
           <Button onPress={onUnlock}>Unlock</Button>
           <Button onPress={signOut} variant="secondary">
