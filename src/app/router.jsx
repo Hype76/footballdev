@@ -71,6 +71,7 @@ const PlatformClubManagementPage = lazyRoute(() => import('../pages/PlatformClub
 const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPage.jsx'), 'PlatformFeedbackPage')
 const PollsPage = lazyRoute(() => import('../pages/PollsPage.jsx'), 'PollsPage')
 const PublicFeaturesPage = lazyRoute(() => import('../pages/PublicFeaturesPage.jsx'), 'PublicFeaturesPage')
+const PublicLandingPage = lazyRoute(() => import('../pages/PublicLandingPage.jsx'), 'PublicLandingPage')
 const PublicParentsPage = lazyRoute(() => import('../pages/PublicParentsPage.jsx'), 'PublicParentsPage')
 const PublicPricingPage = lazyRoute(() => import('../pages/PublicPricingPage.jsx'), 'PublicPricingPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
@@ -711,6 +712,24 @@ export const router = createBrowserRouter([
           ),
         },
       ],
+  },
+  {
+    path: '/home',
+    element: <PublicOnly />,
+    children: [
+      {
+        index: true,
+        element: (
+          <PageSuspense>
+            <PublicLandingPage />
+          </PageSuspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/landing',
+    element: <Navigate to="/home" replace />,
   },
   {
     path: '/features',

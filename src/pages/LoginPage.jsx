@@ -3,7 +3,6 @@ import fallbackLogo from '../assets/player-feedback-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
-import { LoginHeroContent } from '../components/login/LoginHeroContent.jsx'
 import { useAuth } from '../lib/auth.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 
@@ -201,9 +200,7 @@ export function LoginPage() {
       <div className="relative flex min-h-screen w-full flex-col">
         <LoginHeader logo={fallbackLogo} />
 
-        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:py-10">
-          <LoginHeroContent />
-
+        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
           <LoginAuthPanel
             authError={authError}
             formData={formData}

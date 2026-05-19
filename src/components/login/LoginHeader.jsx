@@ -1,7 +1,7 @@
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 
 const navItems = [
-  ['/login', 'Home'],
+  ['/home', 'Home'],
   ['/features', 'Features'],
   ['/parents', 'Parents'],
   ['/pricing', 'Pricing'],
@@ -10,7 +10,7 @@ const navItems = [
 export function LoginHeader({ logo }) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-white/10 bg-[#061009]/90 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
-      <a href="/login" className="flex min-w-0 items-center gap-3">
+      <a href="/home" className="flex min-w-0 items-center gap-3">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d8ff2f]/30 bg-black/50 shadow-lg shadow-[#d8ff2f]/10 sm:h-16 sm:w-16">
           <img src={logo} alt="Player Feedback" className="h-full w-full object-contain p-1" />
         </div>
@@ -32,10 +32,10 @@ export function LoginHeader({ logo }) {
       </nav>
       <div className="flex items-center gap-2">
         <a
-          href="/pricing"
+          href="/login"
           className="hidden min-h-11 items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f] px-4 py-3 text-sm font-black text-black transition hover:opacity-90 sm:inline-flex"
         >
-          View Plans
+          Login
         </a>
         <InstallAppButton
           wrapperClassName="lg:hidden"

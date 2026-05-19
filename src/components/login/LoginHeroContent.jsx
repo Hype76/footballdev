@@ -16,10 +16,10 @@ export function LoginHeroContent() {
           Explore Features
         </a>
         <a
-          href="/pricing"
+          href="/login"
           className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]"
         >
-          See Plans
+          Login
         </a>
       </div>
       <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">

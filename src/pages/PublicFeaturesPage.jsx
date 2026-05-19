@@ -70,7 +70,7 @@ export function PublicFeaturesPage() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <a href="/login" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90">
-              Open Demo
+              Login
             </a>
             <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]">
               View Pricing
