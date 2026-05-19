@@ -195,14 +195,14 @@ function ParentPollCard({ activePollId, onVote, poll }) {
           </span>
           {poll.allowMultiple ? (
             <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
-              Choose more than one
+              {poll.maxChoices ? `Choose up to ${poll.maxChoices}` : 'Choose more than one'}
             </span>
           ) : null}
         </div>
         <h4 className="text-lg font-semibold text-[var(--text-primary)]">{poll.title}</h4>
         {poll.description ? <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-muted)]">{poll.description}</p> : null}
         <p className="text-xs text-[var(--text-muted)]">
-          {hasVoted ? 'Your answer has been saved. You can change it while the poll is open.' : poll.allowMultiple ? 'Choose one or more answers.' : 'Choose one answer.'}
+          {hasVoted ? 'Your answer has been saved. You can change it while the poll is open.' : poll.allowMultiple && poll.maxChoices ? `Choose up to ${poll.maxChoices} answers.` : poll.allowMultiple ? 'Choose one or more answers.' : 'Choose one answer.'}
         </p>
       </div>
 

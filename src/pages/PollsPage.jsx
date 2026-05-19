@@ -26,6 +26,7 @@ const EMPTY_FORM = {
   teamId: '',
   closesAt: '',
   allowMultiple: false,
+  maxChoices: '',
   hideVotes: false,
   allowComments: false,
   options: ['Yes', 'No'],
@@ -230,6 +231,7 @@ export function PollsPage() {
     updateForm({
       pollType,
       allowMultiple: pollType === 'time',
+      maxChoices: pollType === 'time' ? '' : '',
       options: nextOptions,
     })
   }
@@ -481,11 +483,28 @@ export function PollsPage() {
               <input
                 type="checkbox"
                 checked={form.allowMultiple}
-                onChange={(event) => updateForm({ allowMultiple: event.target.checked })}
+                onChange={(event) => updateForm({
+                  allowMultiple: event.target.checked,
+                  maxChoices: event.target.checked ? form.maxChoices : '',
+                })}
                 className="h-4 w-4"
               />
               Multiple choice
             </label>
+            {form.allowMultiple ? (
+              <label className="block rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2">
+                <span className="mb-1 block text-sm font-semibold text-[var(--text-primary)]">Number of choices</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={Math.max(buildOptionsForSubmit(form).length, 1)}
+                  value={form.maxChoices}
+                  onChange={(event) => updateForm({ maxChoices: event.target.value })}
+                  className="min-h-9 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                  placeholder="No limit"
+                />
+              </label>
+            ) : null}
             <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
               <input
                 type="checkbox"
@@ -697,6 +716,11 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
             <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
               {poll.pollType === 'time' ? 'Time poll' : poll.pollType === 'awards' ? 'Awards poll' : 'Text poll'}
             </span>
+            {poll.allowMultiple ? (
+              <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+                {poll.maxChoices ? `Up to ${poll.maxChoices} choices` : 'Multiple choice'}
+              </span>
+            ) : null}
             <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
               {isClosed ? 'Closed' : 'Open'}
             </span>

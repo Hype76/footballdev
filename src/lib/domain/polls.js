@@ -85,6 +85,7 @@ export function normalizePoll(row) {
     status: String(row.status ?? 'open').trim() === 'closed' ? 'closed' : 'open',
     closesAt: row.closes_at ?? row.closesAt ?? '',
     allowMultiple: Boolean(row.allow_multiple ?? row.allowMultiple ?? false),
+    maxChoices: row.max_choices ?? row.maxChoices ?? null,
     hideVotes: Boolean(row.hide_votes ?? row.hideVotes ?? false),
     allowComments: Boolean(row.allow_comments ?? row.allowComments ?? false),
     createdBy: row.created_by ?? row.createdBy ?? '',
@@ -193,6 +194,7 @@ export async function createPoll({ user, poll }) {
     status: 'open',
     closes_at: closesAt,
     allow_multiple: Boolean(poll?.allowMultiple),
+    max_choices: poll?.allowMultiple && Number(poll?.maxChoices ?? 0) > 0 ? Number(poll.maxChoices) : null,
     hide_votes: Boolean(poll?.hideVotes),
     allow_comments: Boolean(poll?.allowComments),
     created_by: getEntryUserId(user),
@@ -323,6 +325,21 @@ export async function submitStaffPollVote({ user, poll, optionId }) {
     if (deleteExistingError) {
       console.error(deleteExistingError)
       throw deleteExistingError
+    }
+  } else if (Number(poll.maxChoices ?? 0) > 0) {
+    const { count, error: countError } = await supabase
+      .from('poll_votes')
+      .select('id', { count: 'exact', head: true })
+      .eq('poll_id', poll.id)
+      .eq('voter_email', normalizedEmail)
+
+    if (countError) {
+      console.error(countError)
+      throw countError
+    }
+
+    if (Number(count ?? 0) >= Number(poll.maxChoices)) {
+      throw new Error(`You can only choose ${poll.maxChoices} option(s) for this poll.`)
     }
   }
 
