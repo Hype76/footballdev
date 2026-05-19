@@ -32,6 +32,8 @@ const EMPTY_MATCH_FORM = {
   notes: '',
   scorerRequestMessage: 'Can anyone help as live scorer for this match?',
   status: 'scorer_request',
+  enableMotmPoll: true,
+  motmPollExpiryHours: 2,
 }
 
 const EMPTY_GOAL_FORM = {
@@ -549,6 +551,31 @@ export function MatchDayPage() {
               className="min-h-24 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
             />
           </label>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2">
+              <input
+                type="checkbox"
+                checked={form.enableMotmPoll}
+                onChange={(event) => updateForm({ enableMotmPoll: event.target.checked })}
+                className="h-4 w-4 accent-[var(--accent)]"
+              />
+              <span className="text-sm font-semibold text-[var(--text-primary)]">Create Man of the Match poll at full time</span>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Poll expiry hours</span>
+              <input
+                type="number"
+                min="1"
+                max="72"
+                value={form.motmPollExpiryHours}
+                onChange={(event) => updateForm({ motmPollExpiryHours: event.target.value })}
+                disabled={!form.enableMotmPoll}
+                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </label>
+          </div>
 
           <button
             type="submit"

@@ -114,6 +114,9 @@ export function normalizeMatchDay(row) {
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     phaseStartedAt: row.phase_started_at ?? row.phaseStartedAt ?? '',
+    enableMotmPoll: Boolean(row.enable_motm_poll ?? row.enableMotmPoll ?? true),
+    motmPollExpiryHours: Number(row.motm_poll_expiry_hours ?? row.motmPollExpiryHours ?? 2),
+    motmPollId: row.motm_poll_id ?? row.motmPollId ?? '',
     previousHiddenAt: row.previous_hidden_at ?? row.previousHiddenAt ?? '',
     hasInterest: Boolean(row.has_interest ?? row.hasInterest),
     isScorer: Boolean(row.is_scorer ?? row.isScorer),
@@ -238,6 +241,8 @@ export async function createMatchDay({ user, match }) {
       notes: normalizeText(match?.notes),
       scorer_request_message: normalizeText(match?.scorerRequestMessage),
       status: normalizeStatus(match?.status || 'scorer_request'),
+      enable_motm_poll: Boolean(match?.enableMotmPoll ?? true),
+      motm_poll_expiry_hours: Math.max(Number(match?.motmPollExpiryHours ?? 2), 1),
       created_by: getEntryUserId(user),
       created_by_name: getEntryUserName(user),
     })
