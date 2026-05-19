@@ -1390,9 +1390,14 @@ export function PlayerProfile() {
       <PlayerOverview
         evaluationCount={evaluations.length}
         fieldMovement={fieldMovement}
+        isRecordingVoiceNote={isRecordingVoiceNote}
+        isSavingVoiceNote={isSavingVoiceNote}
         lastSection={lastSection}
+        onStartVoiceNote={() => void handleStartProfileVoiceNote()}
+        onStopVoiceNote={handleStopProfileVoiceNote}
         overallAverage={overallAverage}
         playerName={routePlayerName}
+        primaryPlayer={primaryPlayer}
         ratingTrend={ratingTrend}
         ratingTrendMax={ratingTrendMax}
       />
