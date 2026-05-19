@@ -22,11 +22,10 @@ export function SubmitExportSection({
   onGoToPlayer,
   onInviteDateChange,
   onPdfAttachmentApprovedChange,
-  onPreviewModeChange,
+  onEmailAfterSaveChange,
   onPrintBlankForm,
   onReorderExportField,
   onSelectAllExportFields,
-  onSubmitClick,
   onToggleExportField,
   previewMode,
   responseItems,
@@ -35,43 +34,40 @@ export function SubmitExportSection({
   selectedResponseItems,
   shouldShowInviteDate,
 }) {
+  const isEmailEnabled = previewMode === 'email'
   const submitDisabledReason = isSubmitting
     ? 'Please wait while this assessment is being saved.'
     : !canSubmitEvaluation
-      ? 'Complete the required player details and make sure assessment fields are available before saving.'
+      ? 'Complete the required player details before saving.'
       : undefined
 
   return (
     <SectionCard
       title="Submit and export"
-      description="Choose whether to save only or send the assessment email after saving."
+      description="Save the assessment first. Email and PDF options are optional."
     >
       <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
         Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        {[
-          { key: 'scored', label: 'Save Only' },
-          ...(isDemoAccount ? [] : [{ key: 'email', label: 'Save and Email' }]),
-        ].map((option) => (
-          <button
-            key={option.key}
-            type="button"
-            onClick={() => onPreviewModeChange(option.key)}
-            className={[
-              'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
-              previewMode === option.key
-                ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-            ].join(' ')}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      {!isDemoAccount ? (
+        <label className="mb-4 flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <input
+            type="checkbox"
+            checked={isEmailEnabled}
+            onChange={(event) => onEmailAfterSaveChange(event.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-[var(--text-primary)]">Email parents after saving</span>
+            <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+              Leave this off to save the assessment only.
+            </span>
+          </span>
+        </label>
+      ) : null}
 
-      {previewMode === 'email' ? (
+      {isEmailEnabled ? (
         <div className="mb-4 grid gap-4 md:grid-cols-2">
           {availableEmailTemplates.length > 0 ? (
             <label className="block">
@@ -134,64 +130,61 @@ export function SubmitExportSection({
         </div>
       ) : null}
 
-      <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">Assessment details to include</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
-              Choose what goes into the {contactNoun} email. This choice is saved in this browser for this player.
+      {isEmailEnabled || isPdfAttachmentApproved ? (
+        <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Assessment details to include</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                Choose what goes into the {contactNoun} email and PDF. This choice is saved in this browser for this player.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={onSelectAllExportFields}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={onClearExportFields}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {responseItems.length > 0 ? (
+            <EvaluationExportFieldsSelector
+              hasSavedExportSelection={hasSavedExportSelection}
+              onReorderExportField={onReorderExportField}
+              onToggleExportField={onToggleExportField}
+              responseItems={responseItems}
+              selectedExportLabels={selectedExportLabels}
+            />
+          ) : (
+            <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
+              No assessment responses above zero have been entered yet.
             </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onSelectAllExportFields}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-            >
-              Select All
-            </button>
-            <button
-              type="button"
-              onClick={onClearExportFields}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
+          )}
 
-        {responseItems.length > 0 ? (
-          <EvaluationExportFieldsSelector
-            hasSavedExportSelection={hasSavedExportSelection}
-            onReorderExportField={onReorderExportField}
-            onToggleExportField={onToggleExportField}
-            responseItems={responseItems}
-            selectedExportLabels={selectedExportLabels}
-          />
-        ) : (
-          <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            No assessment responses above zero have been entered yet.
+          <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
+            {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
           </p>
-        )}
-
-        <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
-          {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
-        </p>
-      </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
-          type="button"
-          onClick={onSubmitClick}
+          type="submit"
           disabled={isSubmitting || !canSubmitEvaluation}
           title={submitDisabledReason}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {isSubmitting
-            ? (isSendingParentEmail ? 'Emailing Parents...' : 'Saving...')
-            : previewMode === 'email'
-              ? 'Save & Email Parents'
-              : 'Submit Assessment'}
+          {isSubmitting ? (isSendingParentEmail ? 'Saving and emailing...' : 'Saving...') : 'Save Assessment'}
         </button>
         <button
           type="button"
@@ -206,7 +199,7 @@ export function SubmitExportSection({
             onClick={onGoToPlayer}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
           >
-            Save & Go to Player
+            Open Player Profile
           </button>
         ) : null}
       </div>

@@ -638,7 +638,7 @@ export function CreateEvaluationPage() {
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
   const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
-  const canSubmitEvaluation = enabledFields.length > 0 && availableTeams.length > 0
+  const canSubmitEvaluation = availableTeams.length > 0
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
   const normalizedContactType = normalizePlayerContactType(formData.contactType)
   const contactAudiences = getContactTemplateAudiences(normalizedContactType)
@@ -954,6 +954,11 @@ export function CreateEvaluationPage() {
       return
     }
 
+    if (previewMode === 'email' && selectedEmailTemplate?.isDefaultTemplate && !hasApprovedDefaultTemplate) {
+      setIsDefaultTemplateConfirmOpen(true)
+      return
+    }
+
     setIsSubmitting(true)
     setActionErrorMessage('')
 
@@ -1132,25 +1137,19 @@ export function CreateEvaluationPage() {
     }
   }
 
-  const handleSubmitClick = () => {
-    setActionErrorMessage('')
-
-    if (!formRef.current?.reportValidity()) {
-      return
-    }
-
-    if (previewMode === 'email' && selectedEmailTemplate?.isDefaultTemplate && !hasApprovedDefaultTemplate) {
-      setIsDefaultTemplateConfirmOpen(true)
-      return
-    }
-
-    formRef.current.requestSubmit()
-  }
-
   const handleContinueWithDefaultTemplate = () => {
     setHasApprovedDefaultTemplate(true)
     setIsDefaultTemplateConfirmOpen(false)
     window.setTimeout(() => formRef.current?.requestSubmit(), 0)
+  }
+
+  const handleEmailAfterSaveChange = (shouldEmail) => {
+    setPreviewMode(shouldEmail ? 'email' : 'scored')
+    setHasApprovedDefaultTemplate(false)
+
+    if (!shouldEmail) {
+      setIsPdfAttachmentApproved(false)
+    }
   }
 
   const handleShowPreviousScores = () => {
@@ -1351,11 +1350,10 @@ export function CreateEvaluationPage() {
                 onGoToPlayer={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
                 onInviteDateChange={setInviteDate}
                 onPdfAttachmentApprovedChange={setIsPdfAttachmentApproved}
-                onPreviewModeChange={setPreviewMode}
+                onEmailAfterSaveChange={handleEmailAfterSaveChange}
                 onPrintBlankForm={() => setIsPrintingBlankView(true)}
                 onReorderExportField={handleReorderExportField}
                 onSelectAllExportFields={handleSetAllExportFields}
-                onSubmitClick={handleSubmitClick}
                 onToggleExportField={handleToggleExportField}
                 previewMode={previewMode}
                 responseItems={responseItems}
