@@ -49,6 +49,18 @@ export function AddPlayerFormSection({
           </label>
 
           <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Shirt Number</span>
+            <input
+              type="text"
+              name="shirtNumber"
+              value={playerForm.shirtNumber}
+              onChange={onChange}
+              inputMode="numeric"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+
+          <label className="block">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
             <select
               name="section"
@@ -64,7 +76,7 @@ export function AddPlayerFormSection({
             </select>
           </label>
 
-          <label className="block">
+          <label className="block xl:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
             <select
               name="team"

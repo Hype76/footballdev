@@ -1,8 +1,19 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 function CoachActionMenuPage({ actions }) {
+  const navigate = useNavigate()
+
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col justify-center gap-5">
+      <div className="mx-auto flex w-full max-w-3xl justify-start">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+        >
+          Back
+        </button>
+      </div>
       <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-2">
         {actions.map((action) => (
           <Link

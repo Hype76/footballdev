@@ -3,6 +3,7 @@ import { PLAYER_CONTACT_TYPES, normalizePlayerContactType } from '../../lib/supa
 export function createInitialPlayerForm() {
   return {
     playerName: '',
+    shirtNumber: '',
     section: 'Trial',
     teamId: '',
     team: '',

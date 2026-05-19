@@ -124,6 +124,9 @@ export function CreateEvaluationPage() {
   const [isDefaultTemplateConfirmOpen, setIsDefaultTemplateConfirmOpen] = useState(false)
   const [hasApprovedDefaultTemplate, setHasApprovedDefaultTemplate] = useState(false)
   const [showPreviousAssessments, setShowPreviousAssessments] = useState(false)
+  const [isPreviousScoresConfirmOpen, setIsPreviousScoresConfirmOpen] = useState(false)
+  const [previousScoresPromptKey, setPreviousScoresPromptKey] = useState('')
+  const promptedPreviousScoresKeyRef = useRef('')
   const [emailTemplateKey, setEmailTemplateKey] = useState('')
   const [emailTemplates, setEmailTemplates] = useState([])
   const [isLoadingEmailTemplates, setIsLoadingEmailTemplates] = useState(false)
@@ -135,6 +138,9 @@ export function CreateEvaluationPage() {
   const [teamsLoadErrorMessage, setTeamsLoadErrorMessage] = useState('')
   const [offlineDraftId, setOfflineDraftId] = useState(createLocalId)
   const [offlineStatusMessage, setOfflineStatusMessage] = useState('')
+  const [nextAssessmentReminderTarget, setNextAssessmentReminderTarget] = useState(null)
+  const [nextAssessmentReminderDate, setNextAssessmentReminderDate] = useState('')
+  const [isSavingNextAssessmentReminder, setIsSavingNextAssessmentReminder] = useState(false)
 
   const draftStorageKey = getDraftStorageKey(user)
 
@@ -365,6 +371,20 @@ export function CreateEvaluationPage() {
       isMounted = false
     }
   }, [editingEvaluationId, formData.playerName, formData.team, isPlatformOwner, user, userScopeKey])
+
+  useEffect(() => {
+    const playerName = normalizePlayerName(formData.playerName)
+    const team = String(formData.team ?? '').trim()
+    const promptKey = `${playerName}:${team}`
+
+    if (editingEvaluation || previousEvaluations.length === 0 || !playerName || promptedPreviousScoresKeyRef.current === promptKey) {
+      return
+    }
+
+    promptedPreviousScoresKeyRef.current = promptKey
+    setPreviousScoresPromptKey(promptKey)
+    setIsPreviousScoresConfirmOpen(true)
+  }, [editingEvaluation, formData.playerName, formData.team, previousEvaluations.length])
 
   useEffect(() => {
     let isMounted = true
@@ -1078,6 +1098,13 @@ export function CreateEvaluationPage() {
         title: editingEvaluation ? 'Assessment updated' : 'Assessment saved',
         message: `${normalizedPlayerName} assessment has been saved.`,
       })
+      setNextAssessmentReminderTarget({
+        evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+        playerId: savedEvaluation?.playerId || evaluation.playerId,
+        playerName: normalizedPlayerName,
+        team: formData.team,
+        section: formData.section,
+      })
     } catch (error) {
       console.error('Assessment submit failed', error)
       setIsSaved(false)
@@ -1126,6 +1153,57 @@ export function CreateEvaluationPage() {
     window.setTimeout(() => formRef.current?.requestSubmit(), 0)
   }
 
+  const handleShowPreviousScores = () => {
+    promptedPreviousScoresKeyRef.current = previousScoresPromptKey
+    setShowPreviousAssessments(true)
+    setIsPreviousScoresConfirmOpen(false)
+  }
+
+  const handleHidePreviousScores = () => {
+    promptedPreviousScoresKeyRef.current = previousScoresPromptKey
+    setShowPreviousAssessments(false)
+    setIsPreviousScoresConfirmOpen(false)
+  }
+
+  const handleSaveNextAssessmentReminder = async () => {
+    if (!nextAssessmentReminderTarget || !nextAssessmentReminderDate) {
+      return
+    }
+
+    setIsSavingNextAssessmentReminder(true)
+
+    try {
+      await createCommunicationLog({
+        user,
+        playerId: nextAssessmentReminderTarget.playerId,
+        evaluationId: nextAssessmentReminderTarget.evaluationId,
+        channel: 'reminder',
+        action: 'next_assessment_reminder_set',
+        metadata: {
+          dueDate: nextAssessmentReminderDate,
+          playerName: nextAssessmentReminderTarget.playerName,
+          team: nextAssessmentReminderTarget.team,
+          section: nextAssessmentReminderTarget.section,
+        },
+      })
+      showToast({
+        title: 'Reminder saved',
+        message: `Next assessment reminder set for ${nextAssessmentReminderDate}.`,
+      })
+      setNextAssessmentReminderTarget(null)
+      setNextAssessmentReminderDate('')
+    } catch (error) {
+      console.error(error)
+      showToast({
+        title: 'Reminder not saved',
+        message: error.message || 'The assessment was saved, but the reminder could not be saved.',
+        tone: 'error',
+      })
+    } finally {
+      setIsSavingNextAssessmentReminder(false)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <BlankPrintForm
@@ -1149,6 +1227,46 @@ export function CreateEvaluationPage() {
         onClose={() => setIsDefaultTemplateConfirmOpen(false)}
         onConfirm={handleContinueWithDefaultTemplate}
       />
+
+      <ConfirmModal
+        isOpen={isPreviousScoresConfirmOpen}
+        title="Previous assessment found"
+        message="This player already has assessment history. Do you want to open the previous scores while completing this assessment?"
+        cancelLabel="Keep Closed"
+        confirmLabel="Show Previous Scores"
+        onCancel={handleHidePreviousScores}
+        onClose={handleHidePreviousScores}
+        onConfirm={handleShowPreviousScores}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(nextAssessmentReminderTarget)}
+        isBusy={isSavingNextAssessmentReminder}
+        title="Set next assessment reminder"
+        message="Do you want to set a reminder for the next assessment?"
+        cancelLabel="Not Now"
+        confirmLabel="Save Reminder"
+        confirmDisabled={!nextAssessmentReminderDate}
+        onCancel={() => {
+          setNextAssessmentReminderTarget(null)
+          setNextAssessmentReminderDate('')
+        }}
+        onClose={() => {
+          setNextAssessmentReminderTarget(null)
+          setNextAssessmentReminderDate('')
+        }}
+        onConfirm={() => void handleSaveNextAssessmentReminder()}
+      >
+        <label className="block">
+          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Reminder date</span>
+          <input
+            type="date"
+            value={nextAssessmentReminderDate}
+            onChange={(event) => setNextAssessmentReminderDate(event.target.value)}
+            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+          />
+        </label>
+      </ConfirmModal>
 
       <div className={isPrintingBlankView ? 'no-print' : ''}>
         <PageHeader

@@ -94,6 +94,7 @@ export function getActivityLabel(log) {
     pdf_without_scores_downloaded: 'Report without scores downloaded',
     email_template_pdf_downloaded: 'Email template report downloaded',
     parent_email_sent: 'Parent email sent',
+    next_assessment_reminder_set: 'Next assessment reminder set',
     staff_note_added: 'Staff note added',
     voice_note_added: 'Voice note added',
     invite_back_selected: 'Invite back selected',

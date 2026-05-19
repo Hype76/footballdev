@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { canDeletePlayer, canEditEvaluation } from '../../lib/auth.js'
 import { hasPlanFeature } from '../../lib/plans.js'
 import { buildEvaluationSummary } from '../../hooks/players/playerProfileUtils.js'
@@ -41,6 +42,7 @@ export function EvaluationHistoryCard({
   shouldShowInviteDate,
   user,
 }) {
+  const [isOpen, setIsOpen] = useState(false)
   const deleteAssessmentDisabledReason =
     isDeletingEvaluationId === evaluation.id ? 'Please wait while this assessment is being deleted.' : undefined
   const reassignSelectDisabledReason =
@@ -72,14 +74,31 @@ export function EvaluationHistoryCard({
 
   return (
     <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5">
-      <div>
-        <div>
-          <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
-          {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
-          <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        aria-expanded={isOpen}
+        className="block w-full text-left"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-lg font-semibold text-[var(--text-primary)]">{evaluation.date || 'No date entered'}</p>
+            {evaluation.session ? <p className="mt-1 text-sm text-[var(--text-muted)]">Session: {evaluation.session}</p> : null}
+            <p className="mt-1 text-sm text-[var(--text-muted)]">Section: {evaluation.section || 'Trial'}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
+            </span>
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              {isOpen ? 'Close' : 'Open'}
+            </span>
+          </div>
         </div>
-      </div>
+      </button>
 
+      {isOpen ? (
+      <>
       <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -276,6 +295,8 @@ export function EvaluationHistoryCard({
           )}
         </div>
       </div>
+      </>
+      ) : null}
     </div>
   )
 }

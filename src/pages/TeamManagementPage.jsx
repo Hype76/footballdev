@@ -31,6 +31,8 @@ import {
   deleteTeam,
   getClubRoles,
   getClubUsers,
+  getEvaluations,
+  getPlayers,
   readViewCacheValue,
   getTeamStaffAssignments,
   getTeams,
@@ -61,6 +63,10 @@ export function TeamManagementPage() {
     const cachedRoles = readViewCacheValue(cacheKey, 'roles', [])
     return Array.isArray(cachedRoles) ? cachedRoles : []
   })
+  const [teamStats, setTeamStats] = useState(() => {
+    const cachedStats = readViewCacheValue(cacheKey, 'teamStats', {})
+    return cachedStats && typeof cachedStats === 'object' ? cachedStats : {}
+  })
   const [newTeamName, setNewTeamName] = useState('')
   const [teamNameDrafts, setTeamNameDrafts] = useState({})
   const [coachForm, setCoachForm] = useState(initialCoachForm)
@@ -83,22 +89,29 @@ export function TeamManagementPage() {
       setErrorMessage('')
 
       try {
-        const [teamsResult, usersResult, assignmentsResult, rolesResult] = await Promise.allSettled([
+        const [teamsResult, usersResult, assignmentsResult, rolesResult, playersResult, evaluationsResult] = await Promise.allSettled([
           withRequestTimeout(() => getTeams(user), 'Could not load teams.'),
           withRequestTimeout(() => getClubUsers(user), 'Could not load club users.'),
           withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
+          withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
+          withRequestTimeout(() => getEvaluations({ user }), 'Could not load assessments.'),
         ])
 
         const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []
         const nextUsers = usersResult.status === 'fulfilled' ? usersResult.value : []
         const nextAssignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : []
         const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : []
+        const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : []
+        const nextEvaluations = evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : []
+        const nextTeamStats = buildTeamStats(nextTeams, nextPlayers, nextEvaluations)
         const hasFailure =
           teamsResult.status === 'rejected' ||
           usersResult.status === 'rejected' ||
           assignmentsResult.status === 'rejected' ||
-          rolesResult.status === 'rejected'
+          rolesResult.status === 'rejected' ||
+          playersResult.status === 'rejected' ||
+          evaluationsResult.status === 'rejected'
 
         if (!isMounted) {
           return
@@ -119,17 +132,25 @@ export function TeamManagementPage() {
         if (rolesResult.status === 'rejected') {
           console.error(rolesResult.reason)
         }
+        if (playersResult.status === 'rejected') {
+          console.error(playersResult.reason)
+        }
+        if (evaluationsResult.status === 'rejected') {
+          console.error(evaluationsResult.reason)
+        }
 
         setTeams(nextTeams)
         setUsers(nextUsers.filter((member) => member.role !== 'super_admin'))
         setAssignments(nextAssignments)
         setRoles(nextRoles)
+        setTeamStats(nextTeamStats)
         setTeamNameDrafts(Object.fromEntries(nextTeams.map((team) => [team.id, team.name])))
         writeViewCache(cacheKey, {
           teams: nextTeams,
           users: nextUsers.filter((member) => member.role !== 'super_admin'),
           assignments: nextAssignments,
           roles: nextRoles,
+          teamStats: nextTeamStats,
         })
 
         if (hasFailure) {
@@ -253,6 +274,7 @@ export function TeamManagementPage() {
       users,
       assignments,
       roles,
+      teamStats,
       ...nextState,
     })
   }
@@ -652,6 +674,7 @@ export function TeamManagementPage() {
         staffSearch={staffSearch}
         staffToAddId={staffToAddId}
         teamAssignments={teamAssignments}
+        teamStats={teamStats}
         teamNameDrafts={teamNameDrafts}
         teamPage={teamPage}
         teamPageSize={TEAM_PAGE_SIZE}
@@ -673,4 +696,35 @@ export function TeamManagementPage() {
       />
     </div>
   )
+}
+
+function buildTeamStats(teams, players, evaluations) {
+  const stats = Object.fromEntries(
+    teams.map((team) => [
+      team.id,
+      {
+        playerCount: 0,
+        assessmentCount: 0,
+      },
+    ]),
+  )
+  const teamIdByName = new Map(teams.map((team) => [String(team.name ?? '').trim().toLowerCase(), team.id]))
+
+  players.forEach((player) => {
+    const teamId = player.teamId || teamIdByName.get(String(player.team ?? '').trim().toLowerCase())
+
+    if (teamId && stats[teamId]) {
+      stats[teamId].playerCount += 1
+    }
+  })
+
+  evaluations.forEach((evaluation) => {
+    const teamId = evaluation.teamId || teamIdByName.get(String(evaluation.team ?? '').trim().toLowerCase())
+
+    if (teamId && stats[teamId]) {
+      stats[teamId].assessmentCount += 1
+    }
+  })
+
+  return stats
 }
