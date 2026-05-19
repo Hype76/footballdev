@@ -775,7 +775,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
             disabled={isBusy}
             className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isClosed ? 'Reopen' : 'Close'}
+            {isClosed ? 'Reopen' : 'Close poll early'}
           </button>
           {canDelete ? (
             <button

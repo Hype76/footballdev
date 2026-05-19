@@ -165,6 +165,7 @@ export function ParentPollsPage() {
                 activePollId={activePollId}
                 onVote={handleVote}
                 poll={poll}
+                selectedLink={selectedLink}
               />
             ))}
           </div>
@@ -178,7 +179,7 @@ export function ParentPollsPage() {
   )
 }
 
-function ParentPollCard({ activePollId, onVote, poll }) {
+function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
   const counts = getPollVoteCounts(poll)
   const totalVotes = getTotalVotes(poll)
   const selectedOptionIds = getSelectedOptionIds(poll)
@@ -186,6 +187,7 @@ function ParentPollCard({ activePollId, onVote, poll }) {
   const isBusy = activePollId === poll.id
   const isVoteLocked = hasVoted && poll.allowVoteChanges === false
   const shouldShowVotes = !poll.hideVotes || hasVoted
+  const selectedPlayerId = String(selectedLink?.playerId ?? '').trim()
 
   return (
     <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
@@ -222,12 +224,26 @@ function ParentPollCard({ activePollId, onVote, poll }) {
           const count = Number(counts.get(option.id) ?? 0)
           const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0
           const isSelected = selectedOptionIds.includes(option.id)
+          const isOwnChildOption = poll.allowOwnChildVotes === false
+            && selectedPlayerId
+            && String(option.playerId ?? '').trim() === selectedPlayerId
+          const isDisabled = isBusy || isVoteLocked || isOwnChildOption
 
           return (
-            <div key={option.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
+            <div
+              key={option.id}
+              className={`rounded-lg border p-3 ${
+                isOwnChildOption
+                  ? 'border-[var(--border-color)] bg-[var(--panel-soft)] opacity-60'
+                  : 'border-[var(--border-color)] bg-[var(--panel-bg)]'
+              }`}
+            >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{option.label}</p>
+                  {isOwnChildOption ? (
+                    <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">Own child not available for this poll</p>
+                  ) : null}
                   {shouldShowVotes ? (
                     <p className="mt-1 text-xs text-[var(--text-muted)]">{count} votes | {percent}%</p>
                   ) : null}
@@ -235,14 +251,14 @@ function ParentPollCard({ activePollId, onVote, poll }) {
                 <button
                   type="button"
                   onClick={() => onVote(poll, option.id)}
-                  disabled={isBusy || isVoteLocked}
+                  disabled={isDisabled}
                   className={`inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     isSelected
                       ? 'border border-[var(--accent)] bg-[var(--button-primary)] text-[var(--button-primary-text)]'
                       : 'border border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
                   }`}
                 >
-                  {isVoteLocked && isSelected ? 'Locked' : isSelected ? 'Selected' : 'Vote'}
+                  {isOwnChildOption ? 'Unavailable' : isVoteLocked && isSelected ? 'Locked' : isSelected ? 'Selected' : 'Vote'}
                 </button>
               </div>
               {shouldShowVotes ? (
