@@ -24,6 +24,7 @@ export {
   canManageParentEmailTemplates,
   canManageParentLinks,
   canManagePolls,
+  canManageTeamAppearance,
   canManageTeamSettings,
   canManageUsers,
   canShareEvaluation,
@@ -169,6 +170,9 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
+        themeMode: selectedTeam.themeMode || profile.themeMode || '',
+        themeAccent: selectedTeam.themeAccent || profile.themeAccent || '',
+        themeButtonStyle: selectedTeam.themeButtonStyle || profile.themeButtonStyle || '',
       }
     }
 
@@ -190,6 +194,9 @@ export function AuthProvider({ children }) {
         ...profile,
         activeTeamId: onlyTeam.id,
         activeTeamName: onlyTeam.name,
+        themeMode: onlyTeam.themeMode || profile.themeMode || '',
+        themeAccent: onlyTeam.themeAccent || profile.themeAccent || '',
+        themeButtonStyle: onlyTeam.themeButtonStyle || profile.themeButtonStyle || '',
       }
     }
 
@@ -210,6 +217,9 @@ export function AuthProvider({ children }) {
       ...profile,
       activeTeamId: selectedTeam.id,
       activeTeamName: selectedTeam.name,
+      themeMode: selectedTeam.themeMode || profile.themeMode || '',
+      themeAccent: selectedTeam.themeAccent || profile.themeAccent || '',
+      themeButtonStyle: selectedTeam.themeButtonStyle || profile.themeButtonStyle || '',
     }
   }
 
@@ -653,6 +663,9 @@ export function AuthProvider({ children }) {
         ...current,
         activeTeamId: selectedTeam.id,
         activeTeamName: selectedTeam.name,
+        themeMode: selectedTeam.themeMode || current.themeMode || '',
+        themeAccent: selectedTeam.themeAccent || current.themeAccent || '',
+        themeButtonStyle: selectedTeam.themeButtonStyle || current.themeButtonStyle || '',
       }
     })
   }

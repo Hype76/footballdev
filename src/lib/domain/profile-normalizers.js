@@ -109,6 +109,7 @@ export function normalizeUserProfile(profile) {
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
     themeMode: String(profile.theme_mode ?? profile.themeMode ?? '').trim(),
     themeAccent: String(profile.theme_accent ?? profile.themeAccent ?? '').trim(),
+    themeButtonStyle: String(profile.theme_button_style ?? profile.themeButtonStyle ?? '').trim(),
     activeTeamId: String(profile.activeTeamId ?? '').trim(),
     activeTeamName: String(profile.activeTeamName ?? '').trim(),
     clubOptions: Array.isArray(profile.clubOptions) ? profile.clubOptions : [],

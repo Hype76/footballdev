@@ -4,12 +4,15 @@ import { isClubAdmin, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import { createAuditLog } from '../../lib/supabase.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
+  THEME_BUTTON_STYLE_STORAGE_KEY,
   THEME_CHANGED_EVENT,
   THEME_MODE_STORAGE_KEY,
   getStoredThemeAccent,
+  getStoredThemeButtonStyle,
   getStoredThemeMode,
   getSystemTheme,
   normalizeThemeAccent,
+  normalizeThemeButtonStyle,
   normalizeThemeMode,
 } from '../../lib/theme.js'
 import { Sidebar } from './Sidebar.jsx'
@@ -22,6 +25,7 @@ export function Layout() {
   const [clubSelectionError, setClubSelectionError] = useState('')
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
   const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
+  const [themeButtonStyle, setThemeButtonStyle] = useState(getStoredThemeButtonStyle)
   const [systemTheme, setSystemTheme] = useState(getSystemTheme)
   const lastClickAuditRef = useRef({ key: '', timestamp: 0 })
   const location = useLocation()
@@ -48,6 +52,7 @@ export function Layout() {
     const handleThemeChange = (event) => {
       setThemeMode(normalizeThemeMode(event.detail?.mode ?? getStoredThemeMode()))
       setThemeAccent(normalizeThemeAccent(event.detail?.accent ?? getStoredThemeAccent()))
+      setThemeButtonStyle(normalizeThemeButtonStyle(event.detail?.buttonStyle ?? getStoredThemeButtonStyle()))
     }
 
     window.addEventListener(THEME_CHANGED_EVENT, handleThemeChange)
@@ -61,7 +66,7 @@ export function Layout() {
       return
     }
 
-    const hasSavedTheme = Boolean(user.themeMode || user.themeAccent)
+    const hasSavedTheme = Boolean(user.themeMode || user.themeAccent || user.themeButtonStyle)
 
     if (!hasSavedTheme) {
       return
@@ -70,10 +75,11 @@ export function Layout() {
     const timeoutId = window.setTimeout(() => {
       setThemeMode(normalizeThemeMode(user.themeMode || getStoredThemeMode()))
       setThemeAccent(normalizeThemeAccent(user.themeAccent || getStoredThemeAccent()))
+      setThemeButtonStyle(normalizeThemeButtonStyle(user.themeButtonStyle || getStoredThemeButtonStyle()))
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [user?.id, user?.themeAccent, user?.themeMode])
+  }, [user?.id, user?.themeAccent, user?.themeButtonStyle, user?.themeMode])
 
   useEffect(() => {
     document.body.classList.remove(
@@ -84,12 +90,16 @@ export function Layout() {
       'accent-green',
       'accent-red',
       'accent-purple',
+      'button-style-solid',
+      'button-style-gradient',
     )
     document.body.classList.add(resolvedTheme === 'dark' ? 'theme-dark' : 'theme-light')
     document.body.classList.add(`accent-${themeAccent}`)
+    document.body.classList.add(`button-style-${themeButtonStyle}`)
     window.localStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode)
     window.localStorage.setItem(THEME_ACCENT_STORAGE_KEY, themeAccent)
-  }, [resolvedTheme, themeAccent, themeMode])
+    window.localStorage.setItem(THEME_BUTTON_STYLE_STORAGE_KEY, themeButtonStyle)
+  }, [resolvedTheme, themeAccent, themeButtonStyle, themeMode])
 
   useEffect(() => {
     const legacyTheme = window.localStorage.getItem('app-theme')

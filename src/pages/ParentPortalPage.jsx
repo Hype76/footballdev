@@ -17,6 +17,7 @@ import {
   getParentPortalMatchDays,
   updateMatchDayScoreAsScorer,
 } from '../lib/supabase.js'
+import { THEME_CHANGED_EVENT } from '../lib/theme.js'
 
 const EMPTY_GOAL_FORM = {
   teamSide: 'club',
@@ -88,6 +89,22 @@ export function ParentPortalPage() {
   const otherLinks = links.filter((link) => link.id !== selectedLink?.id)
   const activeMatches = useMemo(() => matches.filter((match) => !isPreviousMatch(match)), [matches])
   const previousMatches = useMemo(() => matches.filter(isPreviousMatch), [matches])
+
+  useEffect(() => {
+    if (!selectedLink?.id) {
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(THEME_CHANGED_EVENT, {
+        detail: {
+          mode: selectedLink.themeMode || user?.themeMode || 'system',
+          accent: selectedLink.themeAccent || user?.themeAccent || 'yellow',
+          buttonStyle: selectedLink.themeButtonStyle || user?.themeButtonStyle || 'solid',
+        },
+      }),
+    )
+  }, [selectedLink, user?.themeAccent, user?.themeButtonStyle, user?.themeMode])
 
   async function loadMatches() {
     if (!selectedLink?.id) {

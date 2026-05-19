@@ -17,6 +17,9 @@ function normalizeParentLink(row) {
     clubName: String(club?.name ?? '').trim(),
     teamId: row.team_id,
     teamName: String(team?.name ?? player?.team ?? '').trim(),
+    themeMode: String(team?.theme_mode ?? '').trim(),
+    themeAccent: String(team?.theme_accent ?? '').trim(),
+    themeButtonStyle: String(team?.theme_button_style ?? '').trim(),
     playerId: row.player_id,
     playerName: String(player?.player_name ?? '').trim(),
     playerSection: String(player?.section ?? '').trim(),
@@ -64,7 +67,7 @@ function normalizeParentPortalMessage(row) {
 export async function getParentPortalLinks() {
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
     .eq('status', 'active')
     .order('created_at', { ascending: false })
 
@@ -134,7 +137,7 @@ export async function acceptParentPortalInvite(token) {
 
   const { data: linkedRow, error: linkedError } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
     .eq('id', acceptedRow.id)
     .single()
 
@@ -157,7 +160,7 @@ export async function getParentLinksForPlayer({ playerId }) {
 
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
     .eq('player_id', playerId)
     .neq('status', 'revoked')
     .order('created_at', { ascending: false })
@@ -189,7 +192,7 @@ export async function revokeParentPortalLink({ linkId }) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', normalizedLinkId)
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
     .single()
 
   if (error) {
@@ -209,7 +212,7 @@ export async function getFamilyLinksForParentLink({ parentLinkId }) {
 
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
     .eq('parent_link_id', normalizedParentLinkId)
     .eq('link_type', 'family')
     .eq('status', 'active')
@@ -286,7 +289,7 @@ export async function createParentPortalInvites({ user, player, contacts }) {
 
   const existingQuery = supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
     .eq('team_id', teamId)
     .eq('player_id', player.id)
     .neq('status', 'revoked')
@@ -331,7 +334,7 @@ export async function createParentPortalInvites({ user, player, contacts }) {
   const { data, error } = await supabase
     .from('parent_player_links')
     .insert(rows)
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
 
   if (error) {
     console.error(error)
@@ -398,7 +401,7 @@ export async function createFamilyShareLink({ parentLink }) {
       status: 'pending',
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     })
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
     .single()
 
   if (error) {

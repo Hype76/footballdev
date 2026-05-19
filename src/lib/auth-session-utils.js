@@ -83,6 +83,7 @@ export function areUsersEquivalent(leftUser, rightUser) {
     Boolean(leftUser.requireApproval) === Boolean(rightUser.requireApproval) &&
     String(leftUser.themeMode ?? '') === String(rightUser.themeMode ?? '') &&
     String(leftUser.themeAccent ?? '') === String(rightUser.themeAccent ?? '') &&
+    String(leftUser.themeButtonStyle ?? '') === String(rightUser.themeButtonStyle ?? '') &&
     String(leftUser.activeTeamId ?? '') === String(rightUser.activeTeamId ?? '') &&
     String(leftUser.activeTeamName ?? '') === String(rightUser.activeTeamName ?? '')
   )

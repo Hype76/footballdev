@@ -248,7 +248,7 @@ async function getParentPortalMemberships(authUser) {
 
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name), clubs:club_id (name, logo_url)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url)')
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
@@ -270,6 +270,9 @@ async function getParentPortalMemberships(authUser) {
       clubLogoUrl: String(club?.logo_url ?? '').trim(),
       teamId: row.team_id,
       teamName: String(team?.name ?? player?.team ?? '').trim(),
+      themeMode: String(team?.theme_mode ?? '').trim(),
+      themeAccent: String(team?.theme_accent ?? '').trim(),
+      themeButtonStyle: String(team?.theme_button_style ?? '').trim(),
       playerId: row.player_id,
       playerName: String(player?.player_name ?? '').trim(),
       playerSection: String(player?.section ?? '').trim(),
@@ -299,6 +302,9 @@ function normalizeParentPortalProfile(authUser, parentLinks) {
     clubLogoUrl: selectedLink?.clubLogoUrl ?? '',
     activeTeamId: selectedLink?.teamId ?? '',
     activeTeamName: selectedLink?.teamName ?? '',
+    themeMode: selectedLink?.themeMode ?? '',
+    themeAccent: selectedLink?.themeAccent ?? '',
+    themeButtonStyle: selectedLink?.themeButtonStyle ?? '',
     parentPortalLinks: parentLinks,
     selectedParentLinkId: selectedLink?.id ?? '',
     selectedPlayerId: selectedLink?.playerId ?? '',
