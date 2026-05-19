@@ -17,8 +17,10 @@ export function AccountProfileSection({
   onUsernameChange,
   replyToEmail,
   senderPreview,
+  showEmailIdentity = true,
   user,
   username,
+  workspaceLabel,
 }) {
   return (
     <SectionCard
@@ -39,11 +41,26 @@ export function AccountProfileSection({
           />
         </label>
 
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-          <p className="text-sm font-semibold text-[var(--text-primary)]">Parent email identity</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-            Emails will be sent from feedback@playerfeedback.online. Parent replies will go to your reply-to email.
-          </p>
+        {!showEmailIdentity ? (
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Display Name</span>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(event) => onDisplayNameChange(event.target.value)}
+              required
+              autoComplete="name"
+              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </label>
+        ) : null}
+
+        {showEmailIdentity ? (
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Parent email identity</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+              Emails will be sent from feedback@playerfeedback.online. Parent replies will go to your reply-to email.
+            </p>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="block">
@@ -112,7 +129,8 @@ export function AccountProfileSection({
               {senderPreview} &lt;feedback@playerfeedback.online&gt;
             </p>
           </div>
-        </div>
+          </div>
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
@@ -131,7 +149,7 @@ export function AccountProfileSection({
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Workspace</p>
           <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">
-            {user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'No club assigned'}
+            {workspaceLabel || (user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'No club assigned')}
           </p>
         </div>
 

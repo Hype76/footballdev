@@ -9,7 +9,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useWalkthrough } from '../components/walkthrough/walkthrough-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
-import { isDemoAccount, useAuth } from '../lib/auth.js'
+import { isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
 import {
   requestLoginEmailChange,
   updateOwnThemeSettings,
@@ -29,6 +29,11 @@ export function UserSettingsPage() {
   const walkthrough = useWalkthrough()
   const { showToast } = useToast()
   const isDemoSettings = isDemoAccount(user)
+  const isParentSettings = isParentPortalUser(user)
+  const isClubAdminSettings = isClubAdmin(user)
+  const showSenderIdentity = !isParentSettings && !isClubAdminSettings
+  const showDisplaySettings = !isParentSettings
+  const showWalkthroughSettings = !isParentSettings && !isClubAdminSettings
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
   const [displayName, setDisplayName] = useState(user?.displayName || user?.username || user?.name || '')
@@ -272,15 +277,26 @@ export function UserSettingsPage() {
   }
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
-  const canUseThemes = hasPlanFeature(user, 'themes')
-  const canEditEmailClubName = canEditClubIdentity(user)
+  const canUseThemes = showDisplaySettings && hasPlanFeature(user, 'themes')
+  const canEditEmailClubName = showSenderIdentity && canEditClubIdentity(user)
+  const pageTitle = isParentSettings ? 'Parent account' : 'My account'
+  const pageDescription = isParentSettings
+    ? 'Manage your parent portal login and password.'
+    : isClubAdminSettings
+      ? 'Manage your personal account and sign-in details. Club details stay in Club Settings.'
+      : 'Manage your username, password, and personal account details.'
+  const workspaceLabel = isParentSettings
+    ? 'Parent Portal'
+    : user?.role === 'super_admin'
+      ? 'Platform'
+      : user?.clubName || 'No club assigned'
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="User Settings"
-        title="My account"
-        description="Manage your username, password, and personal account details."
+        title={pageTitle}
+        description={pageDescription}
       />
 
       {successMessage ? (
@@ -310,24 +326,30 @@ export function UserSettingsPage() {
           onUsernameChange={setUsername}
           replyToEmail={replyToEmail}
           senderPreview={senderPreview}
+          showEmailIdentity={showSenderIdentity}
           user={user}
           username={username}
+          workspaceLabel={workspaceLabel}
         />
 
         <div className="space-y-5">
-          <DisplaySettingsSection
-            canUseThemes={canUseThemes}
-            onThemeAccentChange={handleThemeAccentChange}
-            onThemeModeChange={handleThemeModeChange}
-            themeAccent={themeAccent}
-            themeMode={themeMode}
-          />
+          {showDisplaySettings ? (
+            <DisplaySettingsSection
+              canUseThemes={canUseThemes}
+              onThemeAccentChange={handleThemeAccentChange}
+              onThemeModeChange={handleThemeModeChange}
+              themeAccent={themeAccent}
+              themeMode={themeMode}
+            />
+          ) : null}
 
-          <WalkthroughSettingsSection
-            disabled={Boolean(walkthrough?.disabled)}
-            onDisabledChange={handleWalkthroughDisabledChange}
-            onRestart={handleRestartWalkthrough}
-          />
+          {showWalkthroughSettings ? (
+            <WalkthroughSettingsSection
+              disabled={Boolean(walkthrough?.disabled)}
+              onDisabledChange={handleWalkthroughDisabledChange}
+              onRestart={handleRestartWalkthrough}
+            />
+          ) : null}
 
           <LoginEmailSection
             email={email}
