@@ -72,12 +72,12 @@ export function DisplaySettingsSection({
       <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Preview</p>
         <div className="mt-3 flex flex-wrap gap-3">
-          <button
-            type="button"
+          <span
+            aria-hidden="true"
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
           >
             Primary action
-          </button>
+          </span>
           <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
             Accent state
           </span>

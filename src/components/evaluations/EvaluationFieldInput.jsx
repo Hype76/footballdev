@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 function isScoreFieldType(fieldType) {
   return fieldType === 'score_1_5' || fieldType === 'score_1_10' || fieldType === 'number'
 }
@@ -43,16 +45,21 @@ const SCORE_HELP = [
 ]
 
 function ScoreInfo() {
+  const [isOpen, setIsOpen] = useState(false)
+
   return (
     <span className="group relative inline-flex">
       <button
         type="button"
         aria-label="Score information"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
+        onBlur={() => setIsOpen(false)}
         className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-sm font-bold text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus:border-[var(--accent)] focus:outline-none"
       >
         i
       </button>
-      <span className="pointer-events-none absolute right-0 top-12 z-20 hidden w-80 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-left text-xs leading-5 text-[var(--text-primary)] shadow-xl shadow-black/20 group-hover:block group-focus-within:block">
+      <span className={`pointer-events-none absolute right-0 top-12 z-20 w-80 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-left text-xs leading-5 text-[var(--text-primary)] shadow-xl shadow-black/20 group-hover:block group-focus-within:block ${isOpen ? 'block' : 'hidden'}`}>
         <span className="mb-3 block text-sm font-semibold text-[var(--text-primary)]">Scoring guide</span>
         {SCORE_HELP.map((help, index) => (
           <span key={help.label} className="mt-2 block">

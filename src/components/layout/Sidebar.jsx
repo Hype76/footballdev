@@ -611,6 +611,8 @@ function DisabledNavItem({ item }) {
   return (
     <button
       type="button"
+      disabled
+      aria-disabled="true"
       title={item.disabledMessage}
       className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-left opacity-65"
     >
