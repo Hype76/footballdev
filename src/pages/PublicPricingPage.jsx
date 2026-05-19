@@ -129,16 +129,16 @@ export function PublicPricingPage() {
   return (
     <main className="min-h-screen bg-[#061009] text-white">
       <LoginHeader logo={fallbackLogo} />
-      <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      <section className="mx-auto w-full max-w-7xl px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Pricing</p>
-            <h1 className="mt-5 text-4xl font-black leading-[1.03] tracking-tight sm:text-6xl">Simple plans for teams and clubs.</h1>
-            <p className="mt-5 text-base leading-8 text-slate-300">
+            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">Simple plans for teams and clubs.</h1>
+            <p className="mt-5 text-base leading-7 text-slate-300 sm:leading-8">
               Start with one team, then scale into a full club workspace with staff roles, branding, parent communication, and audit logs.
             </p>
           </div>
-          <div className="grid w-full max-w-xs grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1">
+          <div className="grid w-full grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1 sm:max-w-xs">
             {[
               ['monthly', 'Monthly'],
               ['annual', 'Annual'],
@@ -174,16 +174,16 @@ export function PublicPricingPage() {
             return (
               <article key={plan.name} className="relative flex flex-col rounded-lg border border-white/10 bg-white/[0.045] p-5 shadow-xl shadow-black/20">
                 {plan.name === 'Small Club' ? (
-                  <span className="absolute right-5 top-5 rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f]">
+                  <span className="absolute right-4 top-4 rounded-full border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-3 py-1 text-xs font-bold text-[#d8ff2f] sm:right-5 sm:top-5">
                     Popular
                   </span>
                 ) : null}
-                <div className="min-h-[128px] pr-16">
+                <div className="min-h-[116px] pr-14 sm:min-h-[128px] sm:pr-16">
                   <h2 className="text-lg font-black">{plan.name}</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{plan.description}</p>
                 </div>
-                <div className="min-h-[92px]">
-                  <span className="text-4xl font-black">{formatPrice(plan, billingCycle)}</span>
+                <div className="min-h-[84px] sm:min-h-[92px]">
+                  <span className="text-3xl font-black sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
                   {priceLabel ? <span className="ml-2 text-sm font-semibold text-slate-400">{priceLabel}</span> : null}
                   {showPromotion ? <p className="mt-2 text-xs font-semibold text-[#d8ff2f]">{getPromotionSummary(livePromotion)}</p> : null}
                 </div>

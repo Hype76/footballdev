@@ -12,22 +12,22 @@ export function PublicParentsPage() {
   return (
     <main className="min-h-screen bg-[#061009] text-white">
       <LoginHeader logo={fallbackLogo} />
-      <section className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[0.85fr_1fr] lg:px-8 lg:py-16">
-        <div className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
-          <img src={landingHeroImage} alt="Coach using Football Player beside a football pitch" className="h-full min-h-[420px] w-full object-cover" />
+      <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:grid-cols-[0.85fr_1fr] lg:gap-8 lg:px-8 lg:py-16">
+        <div className="order-2 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] lg:order-1">
+          <img src={landingHeroImage} alt="Coach using Football Player beside a football pitch" className="h-full min-h-[260px] w-full object-cover sm:min-h-[340px] lg:min-h-[420px]" />
         </div>
-        <div className="flex flex-col justify-center">
+        <div className="order-1 flex flex-col justify-center lg:order-2">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Parents portal</p>
-          <h1 className="mt-5 text-4xl font-black leading-[1.03] tracking-tight sm:text-6xl">
+          <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
             Better parent communication without extra coach admin.
           </h1>
-          <p className="mt-6 text-base leading-8 text-slate-300 sm:text-lg">
+          <p className="mt-5 text-base leading-7 text-slate-300 sm:mt-6 sm:text-lg sm:leading-8">
             Parents need clear updates. Coaches need less admin. The parent portal gives clubs a controlled, branded way to share what matters.
           </p>
           <div className="mt-8 grid gap-4">
             {parentCards.map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-white/10 bg-white/[0.045] p-5">
-                <h2 className="text-xl font-black">{title}</h2>
+              <article key={title} className="rounded-lg border border-white/10 bg-white/[0.045] p-4 sm:p-5">
+                <h2 className="text-lg font-black sm:text-xl">{title}</h2>
                 <p className="mt-2 text-sm leading-7 text-slate-300">{copy}</p>
               </article>
             ))}

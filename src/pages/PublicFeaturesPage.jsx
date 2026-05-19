@@ -32,23 +32,23 @@ export function PublicFeaturesPage() {
       <section className="relative overflow-hidden">
         <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#061009] via-[#061009]/88 to-[#061009]/58" />
-        <div className="relative mx-auto grid min-h-[62vh] w-full max-w-7xl items-end gap-8 px-4 py-16 sm:px-6 lg:px-8">
+        <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Features</p>
-            <h1 className="mt-5 text-4xl font-black leading-[1.03] tracking-tight sm:text-6xl">
+            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
               Built for the actual week of a football club.
             </h1>
-            <p className="mt-6 text-base leading-8 text-slate-200 sm:text-lg">
+            <p className="mt-5 text-base leading-7 text-slate-200 sm:mt-6 sm:text-lg sm:leading-8">
               Football Player focuses on the work that normally gets split across paper forms, spreadsheets, WhatsApp messages, and memory.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-12 sm:px-6 md:grid-cols-2 lg:px-8">
+      <section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-8 sm:gap-5 sm:px-6 sm:py-12 md:grid-cols-2 lg:px-8">
         {featureGroups.map((feature) => (
-          <article key={feature.title} className="rounded-lg border border-white/10 bg-white/[0.045] p-6 shadow-xl shadow-black/20">
-            <h2 className="text-2xl font-black tracking-tight">{feature.title}</h2>
+          <article key={feature.title} className="rounded-lg border border-white/10 bg-white/[0.045] p-5 shadow-xl shadow-black/20 sm:p-6">
+            <h2 className="text-xl font-black tracking-tight sm:text-2xl">{feature.title}</h2>
             <p className="mt-4 text-sm leading-7 text-slate-300">{feature.copy}</p>
             <ul className="mt-6 space-y-3">
               {feature.points.map((point) => (
@@ -62,10 +62,10 @@ export function PublicFeaturesPage() {
         ))}
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-4 pb-14 sm:px-6 lg:px-8">
-        <div className="grid gap-5 rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+      <section className="mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
+        <div className="grid gap-5 rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <h2 className="text-2xl font-black tracking-tight">Ready to see the workspace?</h2>
+            <h2 className="text-xl font-black tracking-tight sm:text-2xl">Ready to see the workspace?</h2>
             <p className="mt-2 text-sm leading-6 text-slate-200">Open the demo account or choose a plan that matches your club size.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
