@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import fallbackLogo from '../../assets/player-feedback-logo.png'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
@@ -18,9 +19,23 @@ import {
   useAuth,
 } from '../../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
+import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 
 function getSidebarTourId(path) {
   return `sidebar-${String(path ?? '').replace(/^\//, '').replace(/\//g, '-') || 'home'}`
+}
+
+function NavItemLabel({ label, showPollCount = false, pollCount = 0 }) {
+  return (
+    <span className="flex min-w-0 items-center justify-between gap-3">
+      <span className="min-w-0 truncate">{label}</span>
+      {showPollCount && pollCount > 0 ? (
+        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-2 text-xs font-bold text-black">
+          {pollCount > 99 ? '99+' : pollCount}
+        </span>
+      ) : null}
+    </span>
+  )
 }
 
 export function Sidebar({ isOpen, onClose }) {
@@ -29,6 +44,61 @@ export function Sidebar({ isOpen, onClose }) {
   const isParentPortal = isParentPortalUser(user)
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(user)
+  const [openPollCount, setOpenPollCount] = useState(0)
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadOpenPollCount() {
+      if (!user) {
+        setOpenPollCount(0)
+        return
+      }
+
+      try {
+        if (isParentPortalUser(user)) {
+          const links = Array.isArray(user.parentPortalLinks) ? user.parentPortalLinks : []
+          const pollBatches = await Promise.all(
+            links.map((link) => getParentPortalPolls({ parentLinkId: link.id }).catch(() => [])),
+          )
+          const uniquePollIds = new Set(
+            pollBatches.flat().filter((poll) => poll.status === 'open').map((poll) => poll.id),
+          )
+
+          if (isMounted) {
+            setOpenPollCount(uniquePollIds.size)
+          }
+          return
+        }
+
+        if (canManagePolls(user)) {
+          const polls = await getPolls({ user })
+          const count = polls.filter((poll) => poll.status === 'open').length
+
+          if (isMounted) {
+            setOpenPollCount(count)
+          }
+          return
+        }
+
+        if (isMounted) {
+          setOpenPollCount(0)
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setOpenPollCount(0)
+        }
+      }
+    }
+
+    void loadOpenPollCount()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user])
   const handleSignOut = async () => {
     try {
       onClose()
@@ -202,7 +272,7 @@ export function Sidebar({ isOpen, onClose }) {
                 ].join(' ')
               }
             >
-              Polls
+              <NavItemLabel label="Polls" pollCount={openPollCount} showPollCount />
             </NavLink>
             <NavLink
               to="/friends-family"
@@ -311,7 +381,11 @@ export function Sidebar({ isOpen, onClose }) {
                       ].join(' ')
                     }
                   >
-                    {item.label}
+                    <NavItemLabel
+                      label={item.label}
+                      pollCount={openPollCount}
+                      showPollCount={item.path === '/polls'}
+                    />
                   </NavLink>
                 ),
               )}
@@ -344,7 +418,11 @@ export function Sidebar({ isOpen, onClose }) {
                         ].join(' ')
                       }
                     >
-                      {item.label}
+                      <NavItemLabel
+                        label={item.label}
+                        pollCount={openPollCount}
+                        showPollCount={item.path === '/polls'}
+                      />
                     </NavLink>
                   ),
                 )}
@@ -382,7 +460,11 @@ export function Sidebar({ isOpen, onClose }) {
                     ].join(' ')
                   }
                 >
-                  {item.label}
+                  <NavItemLabel
+                    label={item.label}
+                    pollCount={openPollCount}
+                    showPollCount={item.path === '/polls'}
+                  />
                 </NavLink>
               ),
             )}
