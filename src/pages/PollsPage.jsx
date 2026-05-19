@@ -8,9 +8,11 @@ import { canManagePolls, useAuth } from '../lib/auth.js'
 import {
   createPoll,
   deletePoll,
+  getPlayers,
   getPolls,
   getTeams,
   POLL_AUDIENCE_OPTIONS,
+  POLL_TYPE_OPTIONS,
   submitStaffPollVote,
   updatePollStatus,
   withRequestTimeout,
@@ -20,9 +22,37 @@ const EMPTY_FORM = {
   title: '',
   description: '',
   audience: 'parents',
+  pollType: 'text',
   teamId: '',
   closesAt: '',
+  allowMultiple: false,
+  hideVotes: false,
+  allowComments: false,
   options: ['Yes', 'No'],
+}
+
+function getOptionId(index) {
+  return `option-${index + 1}`
+}
+
+function formatDateTimeLabel(value) {
+  if (!value) {
+    return ''
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value)
+  }
+
+  return date.toLocaleString([], {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function getPollVoteCounts(poll) {
@@ -43,15 +73,46 @@ function getTotalVotes(poll) {
   return [...counts.values()].reduce((total, count) => total + Number(count ?? 0), 0)
 }
 
-function getOwnVote(poll, user) {
+function getOwnOptionIds(poll, user) {
   const userEmail = String(user?.email ?? '').trim().toLowerCase()
-  return (poll.votes ?? []).find((vote) => {
-    if (vote.authUserId && user?.id && String(vote.authUserId) === String(user.id)) {
-      return true
-    }
+  return (poll.votes ?? [])
+    .filter((vote) => {
+      if (vote.authUserId && user?.id && String(vote.authUserId) === String(user.id)) {
+        return true
+      }
 
-    return userEmail && String(vote.voterEmail ?? '').trim().toLowerCase() === userEmail
-  })
+      return userEmail && String(vote.voterEmail ?? '').trim().toLowerCase() === userEmail
+    })
+    .map((vote) => vote.optionId)
+}
+
+function buildOptionsForSubmit(form) {
+  if (form.pollType === 'time') {
+    return form.options
+      .map((value, index) => ({
+        id: getOptionId(index),
+        label: formatDateTimeLabel(value),
+        value,
+      }))
+      .filter((option) => option.value && option.label)
+  }
+
+  if (form.pollType === 'awards') {
+    return form.options
+      .map((option, index) => ({
+        id: option.id || getOptionId(index),
+        label: String(option.label ?? '').trim(),
+        playerId: String(option.playerId ?? '').trim(),
+      }))
+      .filter((option) => option.label)
+  }
+
+  return form.options
+    .map((label, index) => ({
+      id: getOptionId(index),
+      label,
+    }))
+    .filter((option) => String(option.label ?? '').trim())
 }
 
 export function PollsPage() {
@@ -59,7 +120,9 @@ export function PollsPage() {
   const { showToast } = useToast()
   const [polls, setPolls] = useState([])
   const [teams, setTeams] = useState([])
+  const [players, setPlayers] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
+  const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [audienceFilter, setAudienceFilter] = useState('all')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -75,14 +138,30 @@ export function PollsPage() {
     return polls.filter((poll) => poll.audience === audienceFilter)
   }, [audienceFilter, polls])
 
+  const awardPlayers = useMemo(
+    () =>
+      players
+        .filter((player) => {
+          if (form.teamId && String(player.teamId ?? '') !== String(form.teamId)) {
+            return false
+          }
+
+          return String(player.status ?? 'active') !== 'archived'
+        })
+        .sort((left, right) => String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))),
+    [form.teamId, players],
+  )
+
   async function loadPolls() {
-    const [nextPolls, nextTeams] = await Promise.all([
+    const [nextPolls, nextTeams, nextPlayers] = await Promise.all([
       withRequestTimeout(() => getPolls({ user }), 'Polls could not be loaded.'),
       withRequestTimeout(() => getTeams(user), 'Teams could not be loaded.'),
+      withRequestTimeout(() => getPlayers({ user }), 'Players could not be loaded.'),
     ])
 
     setPolls(nextPolls)
     setTeams(nextTeams)
+    setPlayers(nextPlayers)
   }
 
   useEffect(() => {
@@ -97,14 +176,16 @@ export function PollsPage() {
       setErrorMessage('')
 
       try {
-        const [nextPolls, nextTeams] = await Promise.all([
+        const [nextPolls, nextTeams, nextPlayers] = await Promise.all([
           withRequestTimeout(() => getPolls({ user }), 'Polls could not be loaded.'),
           withRequestTimeout(() => getTeams(user), 'Teams could not be loaded.'),
+          withRequestTimeout(() => getPlayers({ user }), 'Players could not be loaded.'),
         ])
 
         if (isMounted) {
           setPolls(nextPolls)
           setTeams(nextTeams)
+          setPlayers(nextPlayers)
         }
       } catch (error) {
         console.error(error)
@@ -130,13 +211,27 @@ export function PollsPage() {
     return <Navigate to="/" replace />
   }
 
-  const handleFormChange = (field, value) => {
+  const updateForm = (updates) => {
     setForm((currentForm) => ({
       ...currentForm,
-      [field]: value,
+      ...updates,
     }))
     setErrorMessage('')
     setSuccessMessage('')
+  }
+
+  const handlePollTypeChange = (pollType) => {
+    const nextOptions = pollType === 'awards'
+      ? []
+      : pollType === 'time'
+        ? ['', '']
+        : ['Yes', 'No']
+
+    updateForm({
+      pollType,
+      allowMultiple: pollType === 'time',
+      options: nextOptions,
+    })
   }
 
   const handleOptionChange = (index, value) => {
@@ -149,7 +244,7 @@ export function PollsPage() {
   const addOption = () => {
     setForm((currentForm) => ({
       ...currentForm,
-      options: [...currentForm.options, ''],
+      options: [...currentForm.options, currentForm.pollType === 'awards' ? { label: '', playerId: '' } : ''],
     }))
   }
 
@@ -160,6 +255,46 @@ export function PollsPage() {
     }))
   }
 
+  const addSelectedPlayer = () => {
+    const player = awardPlayers.find((candidate) => String(candidate.id) === String(selectedPlayerId))
+
+    if (!player) {
+      return
+    }
+
+    setForm((currentForm) => {
+      const existingPlayerIds = new Set(currentForm.options.map((option) => String(option.playerId ?? '')))
+
+      if (existingPlayerIds.has(String(player.id))) {
+        return currentForm
+      }
+
+      return {
+        ...currentForm,
+        options: [
+          ...currentForm.options,
+          {
+            id: `player-${player.id}`,
+            label: player.playerName,
+            playerId: player.id,
+          },
+        ],
+      }
+    })
+    setSelectedPlayerId('')
+  }
+
+  const addAllPlayers = () => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      options: awardPlayers.map((player) => ({
+        id: `player-${player.id}`,
+        label: player.playerName,
+        playerId: player.id,
+      })),
+    }))
+  }
+
   const handleCreatePoll = async (event) => {
     event.preventDefault()
     setIsSaving(true)
@@ -167,7 +302,13 @@ export function PollsPage() {
     setSuccessMessage('')
 
     try {
-      await createPoll({ user, poll: form })
+      await createPoll({
+        user,
+        poll: {
+          ...form,
+          options: buildOptionsForSubmit(form),
+        },
+      })
       setForm(EMPTY_FORM)
       await loadPolls()
       setSuccessMessage('Poll created.')
@@ -242,7 +383,7 @@ export function PollsPage() {
       <PageHeader
         eyebrow="Polls"
         title="Polls"
-        description="Create a quick poll for parent portal users or team staff, then track replies in one place."
+        description="Create text, time, or awards polls for parent portal users or team staff."
       />
 
       {successMessage ? (
@@ -253,16 +394,36 @@ export function PollsPage() {
 
       {errorMessage ? <NoticeBanner title="Poll action failed" message={errorMessage} /> : null}
 
-      <SectionCard title="Create poll" description="Choose who should answer this poll, add options, and publish it.">
+      <SectionCard title="Create poll" description="Choose a quick poll type, configure the options, and publish it.">
         <form className="space-y-4" onSubmit={handleCreatePoll}>
+          <div>
+            <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Poll type</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {POLL_TYPE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handlePollTypeChange(option.value)}
+                  className={`min-h-11 rounded-lg border px-4 py-3 text-sm font-semibold transition ${
+                    form.pollType === option.value
+                      ? 'border-[var(--accent)] bg-[var(--button-primary)] text-[var(--button-primary-text)]'
+                      : 'border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Poll title</span>
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Title</span>
               <input
                 value={form.title}
-                onChange={(event) => handleFormChange('title', event.target.value)}
+                onChange={(event) => updateForm({ title: event.target.value })}
                 className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
-                placeholder="Example: Can you attend Saturday?"
+                placeholder={form.pollType === 'awards' ? 'Example: Player of the match' : 'Write a question'}
                 required
               />
             </label>
@@ -271,7 +432,7 @@ export function PollsPage() {
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Audience</span>
               <select
                 value={form.audience}
-                onChange={(event) => handleFormChange('audience', event.target.value)}
+                onChange={(event) => updateForm({ audience: event.target.value })}
                 className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
               >
                 {POLL_AUDIENCE_OPTIONS.map((option) => (
@@ -284,7 +445,7 @@ export function PollsPage() {
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
               <select
                 value={form.teamId}
-                onChange={(event) => handleFormChange('teamId', event.target.value)}
+                onChange={(event) => updateForm({ teamId: event.target.value })}
                 className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
               >
                 <option value="">All teams in this club</option>
@@ -295,11 +456,11 @@ export function PollsPage() {
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Close date</span>
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Due date</span>
               <input
                 type="datetime-local"
                 value={form.closesAt}
-                onChange={(event) => handleFormChange('closesAt', event.target.value)}
+                onChange={(event) => updateForm({ closesAt: event.target.value })}
                 className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
               />
             </label>
@@ -309,44 +470,53 @@ export function PollsPage() {
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Description</span>
             <textarea
               value={form.description}
-              onChange={(event) => handleFormChange('description', event.target.value)}
+              onChange={(event) => updateForm({ description: event.target.value })}
               className="min-h-24 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
-              placeholder="Add any detail people need before answering."
+              placeholder="Description optional"
             />
           </label>
 
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Options</p>
-              <button
-                type="button"
-                onClick={addOption}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-              >
-                Add option
-              </button>
-            </div>
-            <div className="space-y-3">
-              {form.options.map((option, index) => (
-                <div key={`option-${index}`} className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    value={option}
-                    onChange={(event) => handleOptionChange(index, event.target.value)}
-                    className="min-h-11 flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
-                    placeholder={`Option ${index + 1}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeOption(index)}
-                    disabled={form.options.length <= 2}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              <input
+                type="checkbox"
+                checked={form.allowMultiple}
+                onChange={(event) => updateForm({ allowMultiple: event.target.checked })}
+                className="h-4 w-4"
+              />
+              Multiple choice
+            </label>
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              <input
+                type="checkbox"
+                checked={form.hideVotes}
+                onChange={(event) => updateForm({ hideVotes: event.target.checked })}
+                className="h-4 w-4"
+              />
+              Hide votes
+            </label>
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              <input
+                type="checkbox"
+                checked={form.allowComments}
+                onChange={(event) => updateForm({ allowComments: event.target.checked })}
+                className="h-4 w-4"
+              />
+              Allow comments
+            </label>
           </div>
+
+          <PollOptionsEditor
+            addAllPlayers={addAllPlayers}
+            addOption={addOption}
+            addSelectedPlayer={addSelectedPlayer}
+            awardPlayers={awardPlayers}
+            form={form}
+            onOptionChange={handleOptionChange}
+            onRemoveOption={removeOption}
+            selectedPlayerId={selectedPlayerId}
+            setSelectedPlayerId={setSelectedPlayerId}
+          />
 
           <button
             type="submit"
@@ -402,10 +572,116 @@ export function PollsPage() {
   )
 }
 
+function PollOptionsEditor({
+  addAllPlayers,
+  addOption,
+  addSelectedPlayer,
+  awardPlayers,
+  form,
+  onOptionChange,
+  onRemoveOption,
+  selectedPlayerId,
+  setSelectedPlayerId,
+}) {
+  if (form.pollType === 'awards') {
+    return (
+      <div>
+        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Award candidates</p>
+          <button
+            type="button"
+            onClick={addAllPlayers}
+            disabled={awardPlayers.length === 0}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Add all players
+          </button>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <select
+            value={selectedPlayerId}
+            onChange={(event) => setSelectedPlayerId(event.target.value)}
+            className="min-h-11 flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+          >
+            <option value="">Select a player</option>
+            {awardPlayers.map((player) => (
+              <option key={player.id} value={player.id}>
+                {player.playerName}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={addSelectedPlayer}
+            disabled={!selectedPlayerId}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Add player
+          </button>
+        </div>
+        <div className="mt-3 space-y-2">
+          {form.options.length > 0 ? form.options.map((option, index) => (
+            <div key={option.id || `${option.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2">
+              <span className="min-w-0 break-words text-sm font-semibold text-[var(--text-primary)]">{option.label}</span>
+              <button
+                type="button"
+                onClick={() => onRemoveOption(index)}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+              >
+                Remove
+              </button>
+            </div>
+          )) : (
+            <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+              Add players from the dropdown or use Add all players.
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{form.pollType === 'time' ? 'Time options' : 'Options'}</p>
+        <button
+          type="button"
+          onClick={addOption}
+          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+        >
+          Add option
+        </button>
+      </div>
+      <div className="space-y-3">
+        {form.options.map((option, index) => (
+          <div key={`option-${index}`} className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type={form.pollType === 'time' ? 'datetime-local' : 'text'}
+              value={option}
+              onChange={(event) => onOptionChange(index, event.target.value)}
+              className="min-h-11 flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              placeholder={`Option ${index + 1}`}
+            />
+            <button
+              type="button"
+              onClick={() => onRemoveOption(index)}
+              disabled={form.options.length <= 2}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVote, poll, user }) {
   const counts = getPollVoteCounts(poll)
   const totalVotes = getTotalVotes(poll)
-  const ownVote = getOwnVote(poll, user)
+  const ownOptionIds = getOwnOptionIds(poll, user)
   const isBusy = activePollId === poll.id
   const isStaffPoll = poll.audience === 'staff'
   const isClosed = poll.status === 'closed'
@@ -417,6 +693,9 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
               {isStaffPoll ? 'Team staff' : 'Parent portal'}
+            </span>
+            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              {poll.pollType === 'time' ? 'Time poll' : poll.pollType === 'awards' ? 'Awards poll' : 'Text poll'}
             </span>
             <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
               {isClosed ? 'Closed' : 'Open'}
@@ -459,7 +738,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
         {poll.options.map((option) => {
           const count = Number(counts.get(option.id) ?? 0)
           const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0
-          const isSelected = ownVote?.optionId === option.id
+          const isSelected = ownOptionIds.includes(option.id)
 
           return (
             <div key={option.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">

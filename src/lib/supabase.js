@@ -149,6 +149,7 @@ export {
   getParentPortalPolls,
   getPolls,
   POLL_AUDIENCE_OPTIONS,
+  POLL_TYPE_OPTIONS,
   submitParentPortalPollVote,
   submitStaffPollVote,
   updatePollStatus,

@@ -24,6 +24,14 @@ function getTotalVotes(poll) {
   return [...counts.values()].reduce((total, count) => total + Number(count ?? 0), 0)
 }
 
+function getSelectedOptionIds(poll) {
+  if (Array.isArray(poll.currentOptionIds) && poll.currentOptionIds.length > 0) {
+    return poll.currentOptionIds
+  }
+
+  return poll.currentOptionId ? [poll.currentOptionId] : []
+}
+
 export function ParentPollsPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -173,16 +181,28 @@ export function ParentPollsPage() {
 function ParentPollCard({ activePollId, onVote, poll }) {
   const counts = getPollVoteCounts(poll)
   const totalVotes = getTotalVotes(poll)
-  const selectedOptionId = poll.currentOptionId
+  const selectedOptionIds = getSelectedOptionIds(poll)
+  const hasVoted = selectedOptionIds.length > 0
   const isBusy = activePollId === poll.id
+  const shouldShowVotes = !poll.hideVotes || hasVoted
 
   return (
     <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
       <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+            {poll.pollType === 'time' ? 'Time poll' : poll.pollType === 'awards' ? 'Awards poll' : 'Text poll'}
+          </span>
+          {poll.allowMultiple ? (
+            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              Choose more than one
+            </span>
+          ) : null}
+        </div>
         <h4 className="text-lg font-semibold text-[var(--text-primary)]">{poll.title}</h4>
         {poll.description ? <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-muted)]">{poll.description}</p> : null}
         <p className="text-xs text-[var(--text-muted)]">
-          {selectedOptionId ? 'Your answer has been saved. You can change it while the poll is open.' : 'Choose one answer.'}
+          {hasVoted ? 'Your answer has been saved. You can change it while the poll is open.' : poll.allowMultiple ? 'Choose one or more answers.' : 'Choose one answer.'}
         </p>
       </div>
 
@@ -190,14 +210,14 @@ function ParentPollCard({ activePollId, onVote, poll }) {
         {poll.options.map((option) => {
           const count = Number(counts.get(option.id) ?? 0)
           const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0
-          const isSelected = selectedOptionId === option.id
+          const isSelected = selectedOptionIds.includes(option.id)
 
           return (
             <div key={option.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{option.label}</p>
-                  {selectedOptionId ? (
+                  {shouldShowVotes ? (
                     <p className="mt-1 text-xs text-[var(--text-muted)]">{count} votes | {percent}%</p>
                   ) : null}
                 </div>
@@ -214,7 +234,7 @@ function ParentPollCard({ activePollId, onVote, poll }) {
                   {isSelected ? 'Selected' : 'Vote'}
                 </button>
               </div>
-              {selectedOptionId ? (
+              {shouldShowVotes ? (
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--panel-alt)]">
                   <div className="h-full rounded-full bg-[var(--button-primary)]" style={{ width: `${percent}%` }} />
                 </div>

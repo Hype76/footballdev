@@ -9,6 +9,12 @@ export const POLL_AUDIENCE_OPTIONS = [
   { value: 'staff', label: 'Team staff poll' },
 ]
 
+export const POLL_TYPE_OPTIONS = [
+  { value: 'text', label: 'Text poll' },
+  { value: 'time', label: 'Time poll' },
+  { value: 'awards', label: 'Awards poll' },
+]
+
 function normalizePollOption(option, index) {
   if (typeof option === 'string') {
     const label = String(option ?? '').trim()
@@ -18,7 +24,12 @@ function normalizePollOption(option, index) {
   const label = String(option?.label ?? '').trim()
   const id = String(option?.id ?? '').trim() || `option-${index + 1}`
 
-  return label ? { id, label } : null
+  return label ? {
+    id,
+    label,
+    value: String(option?.value ?? '').trim(),
+    playerId: String(option?.playerId ?? '').trim(),
+  } : null
 }
 
 function normalizePollVote(row) {
@@ -67,14 +78,27 @@ export function normalizePoll(row) {
     title: String(row.title ?? '').trim(),
     description: String(row.description ?? '').trim(),
     audience: String(row.audience ?? 'parents').trim() === 'staff' ? 'staff' : 'parents',
+    pollType: ['text', 'time', 'awards'].includes(String(row.poll_type ?? row.pollType ?? '').trim())
+      ? String(row.poll_type ?? row.pollType).trim()
+      : 'text',
     options,
     status: String(row.status ?? 'open').trim() === 'closed' ? 'closed' : 'open',
     closesAt: row.closes_at ?? row.closesAt ?? '',
+    allowMultiple: Boolean(row.allow_multiple ?? row.allowMultiple ?? false),
+    hideVotes: Boolean(row.hide_votes ?? row.hideVotes ?? false),
+    allowComments: Boolean(row.allow_comments ?? row.allowComments ?? false),
     createdBy: row.created_by ?? row.createdBy ?? '',
     createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
     currentOptionId: String(row.current_option_id ?? row.currentOptionId ?? '').trim(),
+    currentOptionIds: Array.isArray(row.current_option_ids)
+      ? row.current_option_ids.map((optionId) => String(optionId ?? '').trim()).filter(Boolean)
+      : Array.isArray(row.currentOptionIds)
+        ? row.currentOptionIds.map((optionId) => String(optionId ?? '').trim()).filter(Boolean)
+        : String(row.current_option_id ?? row.currentOptionId ?? '').trim()
+          ? [String(row.current_option_id ?? row.currentOptionId ?? '').trim()]
+          : [],
     votes,
   }
 }
@@ -85,6 +109,11 @@ function normalizeAudience(value) {
 
 function normalizeStatus(value) {
   return String(value ?? '').trim() === 'closed' ? 'closed' : 'open'
+}
+
+function normalizePollType(value) {
+  const pollType = String(value ?? '').trim()
+  return ['text', 'time', 'awards'].includes(pollType) ? pollType : 'text'
 }
 
 function normalizeOptions(options) {
@@ -99,6 +128,8 @@ function normalizeOptions(options) {
   return normalizedOptions.map((option, index) => ({
     id: option.id || `option-${index + 1}`,
     label: option.label,
+    value: option.value || '',
+    playerId: option.playerId || '',
   }))
 }
 
@@ -142,6 +173,7 @@ export async function createPoll({ user, poll }) {
   const title = String(poll?.title ?? '').trim()
   const description = String(poll?.description ?? '').trim()
   const audience = normalizeAudience(poll?.audience)
+  const pollType = normalizePollType(poll?.pollType)
   const teamId = String(poll?.teamId ?? '').trim() || null
   const options = normalizeOptions(poll?.options)
   const closesAt = String(poll?.closesAt ?? '').trim() || null
@@ -156,9 +188,13 @@ export async function createPoll({ user, poll }) {
     title,
     description,
     audience,
+    poll_type: pollType,
     options,
     status: 'open',
     closes_at: closesAt,
+    allow_multiple: Boolean(poll?.allowMultiple),
+    hide_votes: Boolean(poll?.hideVotes),
+    allow_comments: Boolean(poll?.allowComments),
     created_by: getEntryUserId(user),
     created_by_name: getEntryUserName(user) || getEntryUserEmail(user),
   }
@@ -183,6 +219,7 @@ export async function createPoll({ user, poll }) {
     entityId: data.id,
     metadata: {
       audience,
+      pollType,
       title,
       teamId,
     },
@@ -248,23 +285,59 @@ export async function submitStaffPollVote({ user, poll, optionId }) {
     throw new Error('Your account email is required before voting.')
   }
 
+  const { data: existingVote, error: existingError } = await supabase
+    .from('poll_votes')
+    .select('*')
+    .eq('poll_id', poll.id)
+    .eq('voter_email', normalizedEmail)
+    .eq('option_id', normalizedOptionId)
+    .maybeSingle()
+
+  if (existingError) {
+    console.error(existingError)
+    throw existingError
+  }
+
+  if (existingVote?.id) {
+    const { error: deleteError } = await supabase
+      .from('poll_votes')
+      .delete()
+      .eq('id', existingVote.id)
+
+    if (deleteError) {
+      console.error(deleteError)
+      throw deleteError
+    }
+
+    invalidateMemoryCacheByPrefix('polls:')
+    return normalizePollVote(existingVote)
+  }
+
+  if (!poll.allowMultiple) {
+    const { error: deleteExistingError } = await supabase
+      .from('poll_votes')
+      .delete()
+      .eq('poll_id', poll.id)
+      .eq('voter_email', normalizedEmail)
+
+    if (deleteExistingError) {
+      console.error(deleteExistingError)
+      throw deleteExistingError
+    }
+  }
+
   const { data, error } = await supabase
     .from('poll_votes')
-    .upsert(
-      {
-        poll_id: poll.id,
-        club_id: user.clubId,
-        team_id: poll.teamId || null,
-        auth_user_id: user.id,
-        voter_email: normalizedEmail,
-        voter_name: getEntryUserName(user),
-        option_id: normalizedOptionId,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'poll_id,voter_email',
-      },
-    )
+    .insert({
+      poll_id: poll.id,
+      club_id: user.clubId,
+      team_id: poll.teamId || null,
+      auth_user_id: user.id,
+      voter_email: normalizedEmail,
+      voter_name: getEntryUserName(user),
+      option_id: normalizedOptionId,
+      updated_at: new Date().toISOString(),
+    })
     .select('*')
     .single()
 
