@@ -25,7 +25,7 @@ export default defineConfig({
       ],
       manifest: {
         name: 'Football Player',
-        short_name: 'Feedback',
+        short_name: 'Football Player',
         description: 'Football club assessment software for player feedback, reports, and parent communication.',
         theme_color: '#07120c',
         background_color: '#07120c',
