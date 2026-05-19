@@ -69,7 +69,7 @@ export function PublicFeaturesPage() {
             <p className="mt-2 text-sm leading-6 text-slate-200">Open the demo account or choose a plan that matches your club size.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <a href="/login" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90">
+            <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90">
               Login
             </a>
             <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]">

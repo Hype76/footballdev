@@ -16,7 +16,7 @@ export function LoginHeroContent() {
           Explore Features
         </a>
         <a
-          href="/login"
+          href="/sign-in"
           className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]"
         >
           Login

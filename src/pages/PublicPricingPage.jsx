@@ -90,7 +90,7 @@ export function PublicPricingPage() {
     setErrorMessage('')
 
     if (plan.name === 'Individual' || paymentsDisabled) {
-      window.location.assign('/login')
+      window.location.assign('/sign-in')
       return
     }
 

@@ -187,7 +187,7 @@ export function StaffInvitePage() {
               </>
             ) : (
               <Link
-                to="/login"
+                to="/sign-in"
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
               >
                 Go to sign in

@@ -263,7 +263,7 @@ function useWorkspaceRouteGate({
   }
 
   if (!session?.user) {
-    return { element: <Navigate to={isParentHost() ? '/parent-login' : '/login'} replace />, user: null }
+    return { element: <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />, user: null }
   }
 
   if (!user && isProfileLoading) {
@@ -439,7 +439,7 @@ function RequireUser() {
   }
 
   if (!session?.user) {
-    return <Navigate to={isParentHost() ? '/parent-login' : '/login'} replace />
+    return <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />
   }
 
   return <Outlet />
@@ -703,33 +703,37 @@ export const router = createBrowserRouter([
     children: isParentHost()
       ? []
       : [
-        {
-          index: true,
-          element: (
-            <PageSuspense>
-              <LoginPage />
-            </PageSuspense>
-          ),
-        },
-      ],
+          {
+            index: true,
+            element: (
+              <PageSuspense>
+                <PublicLandingPage />
+              </PageSuspense>
+            ),
+          },
+        ],
   },
   {
-    path: '/home',
+    path: '/sign-in',
     element: <PublicOnly />,
     children: [
       {
         index: true,
         element: (
           <PageSuspense>
-            <PublicLandingPage />
+            <LoginPage />
           </PageSuspense>
         ),
       },
     ],
   },
   {
+    path: '/home',
+    element: <Navigate to="/login" replace />,
+  },
+  {
     path: '/landing',
-    element: <Navigate to="/home" replace />,
+    element: <Navigate to="/login" replace />,
   },
   {
     path: '/features',

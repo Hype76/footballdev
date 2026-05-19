@@ -719,7 +719,7 @@ export function AuthProvider({ children }) {
     const normalizedClubName = String(clubName ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
 
-    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/login`
+    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/sign-in`
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
