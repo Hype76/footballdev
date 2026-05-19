@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { buildParentAppUrl, isParentPortalHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 import { acceptParentPortalInvite } from '../lib/supabase.js'
 
@@ -62,11 +63,24 @@ export function ParentInvitePage() {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [password, setPassword] = useState('')
+  const isParentHost = isParentPortalHost()
+
+  useEffect(() => {
+    if (isParentHost) {
+      return
+    }
+
+    window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
+  }, [isParentHost])
 
   useEffect(() => {
     let isMounted = true
 
     const loadInvite = async () => {
+      if (!isParentHost) {
+        return
+      }
+
       if (!token) {
         setErrorMessage('Parent invite token is missing.')
         setIsInviteLoading(false)
@@ -109,13 +123,14 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [token])
+  }, [isParentHost, token])
 
   useEffect(() => {
     let isMounted = true
 
     const clearExistingSession = async () => {
       if (
+        !isParentHost ||
         shouldAcceptSignedInSession ||
         isLoading ||
         !session?.user ||
@@ -130,7 +145,7 @@ export function ParentInvitePage() {
       const inviteEmail = String(invite.email ?? '').trim().toLowerCase()
 
       if (sessionEmail && inviteEmail && sessionEmail === inviteEmail) {
-        window.location.assign(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&confirmed=1`)
+        window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&confirmed=1`))
         return
       }
 
@@ -157,13 +172,14 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [invite, isInviteLoading, isLoading, session?.user, shouldAcceptSignedInSession, signOut, token])
+  }, [invite, isInviteLoading, isLoading, isParentHost, session?.user, shouldAcceptSignedInSession, signOut, token])
 
   useEffect(() => {
     let isMounted = true
 
     const acceptInvite = async () => {
       if (
+        !isParentHost ||
         !shouldAcceptSignedInSession ||
         !session?.user ||
         !token ||
@@ -189,7 +205,7 @@ export function ParentInvitePage() {
         )
         if (isMounted) {
           setAcceptedLink(link)
-          window.location.assign('/parent-portal')
+          window.location.assign(buildParentAppUrl('/parent-portal'))
         }
       } catch (error) {
         console.error(error)
@@ -208,10 +224,15 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [invite, isInviteLoading, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
+  }, [invite, isInviteLoading, isParentHost, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+
+    if (!isParentHost) {
+      window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
+      return
+    }
 
     const normalizedEmail = email.trim().toLowerCase()
 
@@ -235,7 +256,7 @@ export function ParentInvitePage() {
         setPassword('')
         setMessage('Parent account created. Check your email, confirm the account, then log in on the parent login page.')
       } else {
-        window.location.assign(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&created=1`)
+        window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&created=1`))
       }
     } catch (error) {
       console.error(error)
@@ -326,12 +347,12 @@ export function ParentInvitePage() {
             {isSubmitting ? 'Creating account...' : 'Create Parent Account'}
           </button>
 
-          <Link
-            to={`/parent-login?parentInvite=${encodeURIComponent(token || '')}`}
+          <a
+            href={buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}`)}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08]"
           >
             Already have parent access?
-          </Link>
+          </a>
         </form>
       ) : null}
 
@@ -343,12 +364,12 @@ export function ParentInvitePage() {
             <p className="text-sm font-semibold text-white">{acceptedLink.playerName}</p>
             <p className="mt-1 text-xs text-slate-400">{acceptedLink.teamName || 'No team'} | {acceptedLink.clubName || 'No club'}</p>
           </div>
-          <Link
-            to="/parent-portal"
+          <a
+            href={buildParentAppUrl('/parent-portal')}
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#d8ff2f] px-4 py-3 text-sm font-semibold text-black"
           >
             Open Parent Portal
-          </Link>
+          </a>
         </div>
       ) : null}
     </ParentShell>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import fallbackLogo from '../assets/player-feedback-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { buildParentAppUrl, isParentPortalHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 
 function getFriendlyLoginError(error) {
@@ -50,12 +50,21 @@ export function ParentLoginPage() {
   const [parentInviteToken] = useState(initialParams.parentInviteToken)
   const [password, setPassword] = useState('')
   const shouldClearExistingSession = initialParams.confirmed || initialParams.created
+  const isParentHost = isParentPortalHost()
+
+  useEffect(() => {
+    if (isParentHost) {
+      return
+    }
+
+    window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
+  }, [isParentHost])
 
   useEffect(() => {
     let isMounted = true
 
     const clearConfirmationSession = async () => {
-      if (!shouldClearExistingSession || !session?.user || clearSessionAttemptedRef.current) {
+      if (!isParentHost || !shouldClearExistingSession || !session?.user || clearSessionAttemptedRef.current) {
         return
       }
 
@@ -77,10 +86,15 @@ export function ParentLoginPage() {
     return () => {
       isMounted = false
     }
-  }, [session?.user, shouldClearExistingSession, signOut])
+  }, [isParentHost, session?.user, shouldClearExistingSession, signOut])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+
+    if (!isParentHost) {
+      window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
+      return
+    }
 
     if (submitLockRef.current) {
       return
@@ -99,9 +113,9 @@ export function ParentLoginPage() {
       })
 
       if (parentInviteToken) {
-        window.location.assign(`/parent-invite/${parentInviteToken}?accept=1`)
+        window.location.assign(buildParentAppUrl(`/parent-invite/${parentInviteToken}?accept=1`))
       } else {
-        window.location.assign('/parent-portal')
+        window.location.assign(buildParentAppUrl('/parent-portal'))
       }
     } catch (error) {
       console.error(error)
@@ -113,6 +127,11 @@ export function ParentLoginPage() {
   }
 
   const handlePasswordReset = async () => {
+    if (!isParentHost) {
+      window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
+      return
+    }
+
     setIsSubmitting(true)
     setErrorMessage('')
     setMessage('')
@@ -216,12 +235,12 @@ export function ParentLoginPage() {
           </button>
 
           {parentInviteToken ? (
-            <Link
-              to={`/parent-invite/${parentInviteToken}`}
+            <a
+              href={buildParentAppUrl(`/parent-invite/${parentInviteToken}`)}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f]/10 px-5 py-3 text-sm font-bold text-[#d8ff2f] transition hover:bg-[#d8ff2f]/15"
             >
               Back to parent invite
-            </Link>
+            </a>
           ) : null}
         </form>
         )}
