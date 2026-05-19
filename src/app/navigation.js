@@ -24,6 +24,10 @@ export const primaryNavigation = [
     path: '/polls',
   },
   {
+    label: 'Match Day',
+    path: '/match-day',
+  },
+  {
     label: 'Teams',
     path: '/teams',
   },

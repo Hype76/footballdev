@@ -156,6 +156,22 @@ export {
 } from './domain/polls.js'
 
 export {
+  addMatchDayGoalAsScorer,
+  addStaffMatchDayGoal,
+  createMatchDay,
+  expressMatchDayScorerInterest,
+  getMatchDays,
+  getMatchLocations,
+  getParentPortalMatchDays,
+  MATCH_DAY_HOME_AWAY_OPTIONS,
+  MATCH_DAY_STATUS_OPTIONS,
+  resetPreviousMatchDayResults,
+  selectMatchDayScorer,
+  updateMatchDay,
+  updateMatchDayScoreAsScorer,
+} from './domain/match-day.js'
+
+export {
   createPlatformClub,
   deletePlatformClub,
   deletePlatformTeam,

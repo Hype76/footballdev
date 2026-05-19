@@ -20,6 +20,7 @@ export {
   canManageClubLogo,
   canManageClubSettings,
   canManageFormFields,
+  canManageMatchDay,
   canManageParentEmailTemplates,
   canManageParentLinks,
   canManagePolls,
