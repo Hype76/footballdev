@@ -44,6 +44,10 @@ const EMPTY_GOAL_FORM = {
   notes: '',
 }
 
+function confirmMatchDayAction(message) {
+  return window.confirm(message)
+}
+
 function formatMatchDate(match) {
   if (!match.matchDate) {
     return 'Date not set'
@@ -203,6 +207,11 @@ export function MatchDayPage() {
 
   const handleCreateMatch = async (event) => {
     event.preventDefault()
+
+    if (!confirmMatchDayAction('Create this Match Day and publish the scorer request to the parent portal?')) {
+      return
+    }
+
     setIsSaving(true)
     setErrorMessage('')
 
@@ -224,6 +233,10 @@ export function MatchDayPage() {
   }
 
   const handleStatusChange = async (match, status) => {
+    if (!confirmMatchDayAction(`Change this match status to ${status.replace(/_/g, ' ')}? Parents may receive a live update.`)) {
+      return
+    }
+
     setActiveMatchId(match.id)
     setErrorMessage('')
 
@@ -251,6 +264,10 @@ export function MatchDayPage() {
       awayScore: match.awayScore,
     }
 
+    if (!confirmMatchDayAction(`Save this score as ${draft.homeScore || 0} - ${draft.awayScore || 0} for the parent portal?`)) {
+      return
+    }
+
     setActiveMatchId(match.id)
     setErrorMessage('')
 
@@ -274,6 +291,12 @@ export function MatchDayPage() {
   }
 
   const handleSelectScorer = async (match, interest) => {
+    const parentName = interest.parentEmail || interest.parentName || 'this parent'
+
+    if (!confirmMatchDayAction(`Select ${parentName} as a Match Day scorer? They will be able to update the live score.`)) {
+      return
+    }
+
     setActiveMatchId(match.id)
     setErrorMessage('')
 
@@ -321,6 +344,11 @@ export function MatchDayPage() {
   const handleAddGoal = async (event, match) => {
     event.preventDefault()
     const goal = goalForms[match.id] ?? EMPTY_GOAL_FORM
+
+    if (!confirmMatchDayAction('Add this goal to the live feed and update the parent portal score?')) {
+      return
+    }
+
     setActiveMatchId(match.id)
     setErrorMessage('')
 
@@ -346,7 +374,7 @@ export function MatchDayPage() {
   }
 
   const handleResetPrevious = async () => {
-    const confirmed = window.confirm('Reset previous games for the season? This hides full time results from the parent portal previous games list.')
+    const confirmed = confirmMatchDayAction('Reset previous games for the season? This hides full time results from the parent portal previous games list.')
 
     if (!confirmed) {
       return

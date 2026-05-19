@@ -29,6 +29,10 @@ const EMPTY_GOAL_FORM = {
   notes: '',
 }
 
+function confirmMatchDayAction(message) {
+  return window.confirm(message)
+}
+
 function formatMatchDate(match) {
   if (!match.matchDate) {
     return 'Date not set'
@@ -198,6 +202,10 @@ export function ParentPortalPage() {
       return
     }
 
+    if (!confirmMatchDayAction('Send your interest to become the Match Day scorer for this game?')) {
+      return
+    }
+
     setActiveMatchId(match.id)
     setMatchError('')
 
@@ -221,6 +229,10 @@ export function ParentPortalPage() {
       return
     }
 
+    if (!confirmMatchDayAction('Enable Match Day notifications on this device?')) {
+      return
+    }
+
     setIsUpdatingPush(true)
     setMatchError('')
 
@@ -240,6 +252,10 @@ export function ParentPortalPage() {
 
   const handleDisableNotifications = async () => {
     if (!selectedLink?.id) {
+      return
+    }
+
+    if (!confirmMatchDayAction('Disable Match Day notifications on this device?')) {
       return
     }
 
@@ -267,6 +283,10 @@ export function ParentPortalPage() {
       homeScore: match.homeScore,
       awayScore: match.awayScore,
       status: match.status,
+    }
+
+    if (!confirmMatchDayAction(`Save this score as ${draft.homeScore || 0} - ${draft.awayScore || 0} for everyone following the match?`)) {
+      return
     }
 
     setActiveMatchId(match.id)
@@ -312,6 +332,10 @@ export function ParentPortalPage() {
     event.preventDefault()
 
     if (!selectedLink?.id) {
+      return
+    }
+
+    if (!confirmMatchDayAction('Add this goal to the live Match Day feed?')) {
       return
     }
 
