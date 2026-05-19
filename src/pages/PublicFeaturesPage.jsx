@@ -30,8 +30,8 @@ export function PublicFeaturesPage() {
     <main className="min-h-screen bg-[#061009] text-white">
       <LoginHeader logo={fallbackLogo} />
       <section className="relative overflow-hidden">
-        <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#061009]/92 via-[#061009]/72 to-[#061009]/35" />
+        <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-85" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#061009]/78 via-[#061009]/45 to-[#061009]/10" />
         <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Features</p>
