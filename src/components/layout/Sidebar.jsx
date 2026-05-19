@@ -6,6 +6,7 @@ import {
   canCreateEvaluation,
   canManageClubSettings,
   canManageFormFields,
+  canManageMatchDay,
   canManageParentEmailTemplates,
   canManageParentLinks,
   canManagePolls,
@@ -134,6 +135,10 @@ export function Sidebar({ isOpen, onClose }) {
       return canManagePolls(user)
     }
 
+    if (item.path === '/match-day') {
+      return canManageMatchDay(user)
+    }
+
     if (item.path === '/user-access') {
       return canManageUsers(user)
     }
@@ -193,7 +198,7 @@ export function Sidebar({ isOpen, onClose }) {
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
-  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/polls']
+  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/polls', '/match-day']
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
   const teamNavigationItems = navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
 
@@ -244,7 +249,7 @@ export function Sidebar({ isOpen, onClose }) {
                 ].join(' ')
               }
             >
-              My Child
+              Match Day
             </NavLink>
             <NavLink
               to="/parent-messages"

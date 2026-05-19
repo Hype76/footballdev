@@ -1030,22 +1030,6 @@ export const router = createBrowserRouter([
                     ],
                   },
                   {
-                    element: <RequireMatchDayAccess />,
-                    children: [
-                      {
-                        path: 'match-day',
-                        element: (
-                          <PageSuspense>
-                            <MatchDayPage />
-                          </PageSuspense>
-                        ),
-                        handle: {
-                          title: 'Match Day',
-                        },
-                      },
-                    ],
-                  },
-                  {
                     path: 'create-evaluation',
                     element: (
                       <PageSuspense>
@@ -1117,6 +1101,22 @@ export const router = createBrowserRouter([
                     },
                   },
                 ],
+              },
+            ],
+          },
+          {
+            element: <RequireMatchDayAccess />,
+            children: [
+              {
+                path: 'match-day',
+                element: (
+                  <PageSuspense>
+                    <MatchDayPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Match Day',
+                },
               },
             ],
           },
