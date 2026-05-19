@@ -54,6 +54,40 @@ function formatMatchDate(match) {
   })
 }
 
+function getCurrentMatchMinute(match, now = Date.now()) {
+  if (!match.matchDate || !match.kickoffTime || match.status === 'scheduled' || match.status === 'scorer_request') {
+    return null
+  }
+
+  if (match.status === 'half_time') {
+    return 45
+  }
+
+  if (match.status === 'full_time' || match.status === 'penalties') {
+    return null
+  }
+
+  const kickoff = new Date(`${match.matchDate}T${match.kickoffTime}`)
+
+  if (Number.isNaN(kickoff.getTime()) || kickoff.getTime() > now) {
+    return null
+  }
+
+  if (match.status === 'second_half') {
+    const secondHalfStart = new Date(match.updatedAt || now)
+    const secondHalfStartTime = Number.isNaN(secondHalfStart.getTime()) ? now : secondHalfStart.getTime()
+    return Math.min(Math.max(Math.floor((now - secondHalfStartTime) / 60000) + 46, 46), 90)
+  }
+
+  if (match.status === 'extra_time') {
+    const extraTimeStart = new Date(match.updatedAt || now)
+    const extraTimeStartTime = Number.isNaN(extraTimeStart.getTime()) ? now : extraTimeStart.getTime()
+    return Math.min(Math.max(Math.floor((now - extraTimeStartTime) / 60000) + 91, 91), 120)
+  }
+
+  return Math.min(Math.max(Math.floor((now - kickoff.getTime()) / 60000) + 1, 1), 45)
+}
+
 function getClubScore(match) {
   return match.homeAway === 'away' ? match.awayScore : match.homeScore
 }
@@ -114,6 +148,7 @@ export function ParentPortalPage() {
   const [players, setPlayers] = useState([])
   const [goalForms, setGoalForms] = useState({})
   const [scoreDrafts, setScoreDrafts] = useState({})
+  const [clockNow, setClockNow] = useState(() => Date.now())
   const [activeMatchId, setActiveMatchId] = useState('')
   const [isLoadingMatches, setIsLoadingMatches] = useState(false)
   const [pushState, setPushState] = useState(() => getPushSupportState())
@@ -212,6 +247,14 @@ export function ParentPortalPage() {
       window.clearInterval(intervalId)
     }
   }, [selectedLink?.id])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setClockNow(Date.now())
+    }, 60000)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   useEffect(() => {
     let isCurrent = true
@@ -350,7 +393,7 @@ export function ParentPortalPage() {
         awayScore: draft.awayScore,
         status: draft.status,
       })
-      if (draft.status === 'half_time' || draft.status === 'full_time') {
+      if (draft.status === 'half_time' || draft.status === 'second_half' || draft.status === 'extra_time' || draft.status === 'penalties' || draft.status === 'full_time') {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
           type: draft.status,
@@ -518,6 +561,7 @@ export function ParentPortalPage() {
                 }))}
                 onScoreSave={handleScoreSave}
                 onVolunteer={handleVolunteer}
+                now={clockNow}
                 players={squadPlayers}
                 scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
               />
@@ -625,11 +669,13 @@ function ParentMatchCard({
   onScoreDraftChange,
   onScoreSave,
   onVolunteer,
+  now,
   players,
   scoreDraft,
 }) {
   const isBusy = activeMatchId === match.id
   const orderedPlayers = useMemo(() => orderPlayersWithRecentScorers(players, match), [match, players])
+  const currentMinute = getCurrentMatchMinute(match, now)
 
   return (
     <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
@@ -658,6 +704,9 @@ function ParentMatchCard({
           <p className="mt-2 text-4xl font-semibold text-[var(--text-primary)]">
             {getClubScore(match)} - {getOpponentScore(match)}
           </p>
+          {currentMinute ? (
+            <p className="mt-2 text-sm font-semibold text-[var(--text-secondary)]">{currentMinute} min</p>
+          ) : null}
         </div>
       </div>
 
@@ -706,6 +755,9 @@ function ParentMatchCard({
                 >
                   <option value="live">Live</option>
                   <option value="half_time">Half time</option>
+                  <option value="second_half">Second half</option>
+                  <option value="extra_time">Extra time</option>
+                  <option value="penalties">Penalties</option>
                   <option value="full_time">Full time</option>
                 </select>
               </label>
@@ -741,6 +793,7 @@ function ParentMatchCard({
                   min="0"
                   max="130"
                   value={goalForm.minute}
+                  placeholder={currentMinute ? String(currentMinute) : ''}
                   onChange={(event) => onGoalFormChange(match.id, { minute: event.target.value })}
                   className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 />

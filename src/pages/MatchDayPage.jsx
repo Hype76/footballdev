@@ -242,7 +242,7 @@ export function MatchDayPage() {
 
     try {
       await updateMatchDay({ user, matchId: match.id, updates: { status } })
-      if (status === 'half_time' || status === 'full_time') {
+      if (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time') {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
           type: status,

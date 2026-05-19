@@ -173,6 +173,32 @@ function buildPayload({ match, type, event }) {
     }
   }
 
+  if (type === 'second_half') {
+    return {
+      title: 'Second half started',
+      body: scoreLine,
+      tag: `match-day-${match.id}-second-half`,
+    }
+  }
+
+  if (type === 'extra_time') {
+    return {
+      title: 'Extra time',
+      body: scoreLine,
+      tag: `match-day-${match.id}-extra-time`,
+      renotify: true,
+    }
+  }
+
+  if (type === 'penalties') {
+    return {
+      title: 'Penalties',
+      body: scoreLine,
+      tag: `match-day-${match.id}-penalties`,
+      renotify: true,
+    }
+  }
+
   if (type === 'full_time') {
     return {
       title: 'Full time',
