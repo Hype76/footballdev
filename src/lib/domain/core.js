@@ -1412,16 +1412,20 @@ export async function createPlayerStaffNote({ user, playerId, sessionId = '', no
     throw error
   }
 
-  await createCommunicationLog({
-    user,
-    playerId: playerId || null,
-    channel: hasAudio ? 'voice_note' : 'staff_note',
-    action: hasAudio ? 'voice_note_added' : 'staff_note_added',
-    metadata: {
-      sessionId: sessionId || '',
-      hasAudio,
-    },
-  })
+  try {
+    await createCommunicationLog({
+      user,
+      playerId: playerId || null,
+      channel: hasAudio ? 'voice_note' : 'staff_note',
+      action: hasAudio ? 'voice_note_added' : 'staff_note_added',
+      metadata: {
+        sessionId: sessionId || '',
+        hasAudio,
+      },
+    })
+  } catch (logError) {
+    console.error('Staff note activity could not be logged', logError)
+  }
 
   const [noteWithAudioUrl] = await attachStaffVoiceNoteUrls([normalizePlayerStaffNoteRow(data)])
   return noteWithAudioUrl

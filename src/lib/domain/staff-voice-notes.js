@@ -23,12 +23,34 @@ export function getAudioFileExtension(mimeType) {
   return 'webm'
 }
 
+export function getBaseAudioMimeType(mimeType) {
+  const normalizedType = String(mimeType ?? '').toLowerCase().split(';')[0].trim()
+
+  if (normalizedType === 'audio/mp4') {
+    return 'audio/mp4'
+  }
+
+  if (normalizedType === 'audio/mpeg') {
+    return 'audio/mpeg'
+  }
+
+  if (normalizedType === 'audio/wav') {
+    return 'audio/wav'
+  }
+
+  if (normalizedType === 'audio/ogg') {
+    return 'audio/ogg'
+  }
+
+  return 'audio/webm'
+}
+
 export async function uploadStaffVoiceNote({ user, playerId = '', sessionId = '', audioBlob }) {
   if (!audioBlob) {
     return { audioPath: '', audioMimeType: '' }
   }
 
-  const audioMimeType = String(audioBlob.type || 'audio/webm').trim() || 'audio/webm'
+  const audioMimeType = getBaseAudioMimeType(audioBlob.type || 'audio/webm')
   const targetId = String(playerId || sessionId || 'team-note').replace(/[^a-zA-Z0-9-]/g, '')
   const randomId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const audioPath = `${user.clubId}/${targetId}/${randomId}.${getAudioFileExtension(audioMimeType)}`
