@@ -1,4 +1,5 @@
 import fallbackLogo from '../assets/football-player-logo.png'
+import heroLogo from '../assets/football-player-logo-transparent.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 
@@ -32,7 +33,7 @@ export function PublicFeaturesPage() {
       <section className="relative overflow-hidden">
         <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#061009] via-[#061009]/88 to-[#061009]/58" />
-        <div className="relative mx-auto grid min-h-[62vh] w-full max-w-7xl items-end gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_0.85fr] lg:px-8">
+        <div className="relative mx-auto grid min-h-[62vh] w-full max-w-7xl items-end gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.75fr)] lg:px-8">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Features</p>
             <h1 className="mt-5 text-4xl font-black leading-[1.03] tracking-tight sm:text-6xl">
@@ -41,6 +42,14 @@ export function PublicFeaturesPage() {
             <p className="mt-6 text-base leading-8 text-slate-200 sm:text-lg">
               Football Player focuses on the work that normally gets split across paper forms, spreadsheets, WhatsApp messages, and memory.
             </p>
+          </div>
+          <div className="pointer-events-none hidden min-h-[360px] items-center justify-center lg:flex">
+            <img
+              src={heroLogo}
+              alt=""
+              aria-hidden="true"
+              className="w-full max-w-[500px] opacity-85 drop-shadow-[0_24px_70px_rgba(139,233,0,0.22)]"
+            />
           </div>
         </div>
       </section>
