@@ -4,10 +4,6 @@ import { supabaseAdmin } from './_supabase.js'
 import { assertPlanFeature, getClubPlanProfile } from './_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
 
-export const config = {
-  schedule: '* * * * *',
-}
-
 function jsonResponse(statusCode, payload) {
   return {
     statusCode,
@@ -195,12 +191,4 @@ export async function handler(event) {
 
   const result = await processScheduledEmails()
   return jsonResponse(result.statusCode, result.payload)
-}
-
-export default async function scheduledHandler() {
-  const result = await processScheduledEmails()
-
-  return Response.json(result.payload, {
-    status: result.statusCode,
-  })
 }
