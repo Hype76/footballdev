@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
 
 export function PlayerProfileModals({
+  emailSendMode,
   emailConfirmTarget,
   emailSendingId,
   evaluationDeleteTarget,
@@ -10,6 +11,7 @@ export function PlayerProfileModals({
   isDeletingEvaluationId,
   isMergeConfirmOpen,
   isMergingEvaluations,
+  isAssessmentFieldsApproved,
   isPdfAttachmentApproved,
   isReassigningId,
   mergeSelectedEvaluations,
@@ -21,19 +23,25 @@ export function PlayerProfileModals({
   onCancelEmail,
   onCancelMerge,
   onCancelReassign,
+  onAssessmentFieldsApprovedChange,
   onConfirmDeleteEvaluation,
   onConfirmDeletePlayer,
   onConfirmEmail,
+  onEmailSendModeChange,
   onConfirmMerge,
   onConfirmReassign,
   onPdfAttachmentApprovedChange,
+  onScheduledEmailDateTimeChange,
   playerDeleteTarget,
   players,
   reassignConfirmTarget,
   routePlayerName,
+  scheduledEmailDateTime,
 }) {
   const navigate = useNavigate()
   const canAttachPdf = Boolean(emailConfirmTarget)
+  const fieldCount = emailConfirmTarget?.responses?.length || 0
+  const canAttachAssessmentFields = fieldCount > 0
   const isDefaultTemplateEmail = Boolean(emailConfirmTarget?.usesDefaultTemplate)
 
   return (
@@ -125,10 +133,11 @@ export function PlayerProfileModals({
           `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
           `Attachment: ${canAttachPdf && isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`,
-          `Assessment fields: ${emailConfirmTarget?.responses?.length || 0} selected`,
+          `Assessment fields: ${canAttachAssessmentFields && isAssessmentFieldsApproved ? `${fieldCount} attached` : 'Not attached'}`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}
-        confirmLabel={isDefaultTemplateEmail ? 'Continue' : 'Send Now'}
+        confirmLabel={emailSendMode === 'scheduled' ? 'Schedule Email' : 'Send Now'}
+        confirmDisabled={emailSendMode === 'scheduled' && !scheduledEmailDateTime}
         cancelLabel={isDefaultTemplateEmail ? 'Configure Email Templates' : 'Cancel'}
         onClose={onCancelEmail}
         onCancel={() => {
@@ -141,6 +150,60 @@ export function PlayerProfileModals({
         }}
         onConfirm={onConfirmEmail}
       >
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <span className="block text-sm font-semibold text-[var(--text-primary)]">Send timing</span>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              <input
+                type="radio"
+                name="email-send-mode"
+                value="now"
+                checked={emailSendMode !== 'scheduled'}
+                onChange={() => onEmailSendModeChange('now')}
+                className="h-4 w-4 accent-[var(--accent)]"
+              />
+              Send now
+            </label>
+            <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              <input
+                type="radio"
+                name="email-send-mode"
+                value="scheduled"
+                checked={emailSendMode === 'scheduled'}
+                onChange={() => onEmailSendModeChange('scheduled')}
+                className="h-4 w-4 accent-[var(--accent)]"
+              />
+              Schedule
+            </label>
+          </div>
+          {emailSendMode === 'scheduled' ? (
+            <label className="mt-3 block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Send date and time</span>
+              <input
+                type="datetime-local"
+                value={scheduledEmailDateTime}
+                onChange={(event) => onScheduledEmailDateTimeChange(event.target.value)}
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+          ) : null}
+        </div>
+        {canAttachAssessmentFields ? (
+          <label className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <input
+              type="checkbox"
+              checked={Boolean(isAssessmentFieldsApproved)}
+              onChange={(event) => onAssessmentFieldsApprovedChange(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-[var(--text-primary)]">Attach assessment fields</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+                Include the selected assessment fields in the email body.
+              </span>
+            </span>
+          </label>
+        ) : null}
         {canAttachPdf ? (
           <label className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
             <input

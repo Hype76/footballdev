@@ -634,7 +634,7 @@ export function buildParentEmailJobs({
             recipientEmail,
             templateName: template.label,
             payload,
-            job: sendParentEmail(payload),
+            job: () => sendParentEmail(payload),
           }
         }),
       )

@@ -19,9 +19,11 @@ export function SubmitExportSection({
   lastSavedPlayerName,
   onClearExportFields,
   onEmailTemplateChange,
+  onEmailSendModeChange,
   onGoToPlayer,
   onInviteDateChange,
   onPdfAttachmentApprovedChange,
+  onScheduledEmailDateTimeChange,
   onEmailAfterSaveChange,
   onPrintBlankForm,
   onReorderExportField,
@@ -30,6 +32,8 @@ export function SubmitExportSection({
   previewMode,
   responseItems,
   selectedEmailTemplateKey,
+  emailSendMode,
+  scheduledEmailDateTime,
   selectedExportLabels,
   selectedResponseItems,
   shouldShowInviteDate,
@@ -127,6 +131,42 @@ export function SubmitExportSection({
               </span>
             </span>
           </label>
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 md:col-span-2">
+            <span className="block text-sm font-semibold text-[var(--text-primary)]">Send timing</span>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                <input
+                  type="radio"
+                  name="assessment-email-send-mode"
+                  checked={emailSendMode !== 'scheduled'}
+                  onChange={() => onEmailSendModeChange('now')}
+                  className="h-4 w-4 accent-[var(--accent)]"
+                />
+                Send now
+              </label>
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                <input
+                  type="radio"
+                  name="assessment-email-send-mode"
+                  checked={emailSendMode === 'scheduled'}
+                  onChange={() => onEmailSendModeChange('scheduled')}
+                  className="h-4 w-4 accent-[var(--accent)]"
+                />
+                Schedule
+              </label>
+            </div>
+            {emailSendMode === 'scheduled' ? (
+              <label className="mt-3 block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Send date and time</span>
+                <input
+                  type="datetime-local"
+                  value={scheduledEmailDateTime}
+                  onChange={(event) => onScheduledEmailDateTimeChange(event.target.value)}
+                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                />
+              </label>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

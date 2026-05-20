@@ -98,6 +98,10 @@ export function canManageParentEmailTemplates(user) {
   return Boolean(user?.clubId) && !isSuperAdmin(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
 }
 
+export function canManageEmailQueue(user) {
+  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
+}
+
 export function canManageClubSettings(user) {
   return isClubAdmin(user) && isPlanAccessActive(user)
 }

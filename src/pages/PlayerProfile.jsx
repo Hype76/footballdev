@@ -172,6 +172,9 @@ export function PlayerProfile() {
   const recordingStartedAtRef = useRef(0)
   const [emailConfirmTarget, setEmailConfirmTarget] = useState(null)
   const [isPdfAttachmentApproved, setIsPdfAttachmentApproved] = useState(false)
+  const [isAssessmentFieldsApproved, setIsAssessmentFieldsApproved] = useState(true)
+  const [emailSendMode, setEmailSendMode] = useState('now')
+  const [scheduledEmailDateTime, setScheduledEmailDateTime] = useState('')
   const [reassignConfirmTarget, setReassignConfirmTarget] = useState(null)
   const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -573,6 +576,9 @@ export function PlayerProfile() {
       }
 
       setIsPdfAttachmentApproved(false)
+      setIsAssessmentFieldsApproved(emailDetails.responses.length > 0)
+      setEmailSendMode('now')
+      setScheduledEmailDateTime('')
       setEmailConfirmTarget(emailDetails)
     } catch (error) {
       console.error(error)
@@ -685,6 +691,9 @@ export function PlayerProfile() {
       }
 
       setIsPdfAttachmentApproved(false)
+      setIsAssessmentFieldsApproved(emailDetails.responses.length > 0)
+      setEmailSendMode('now')
+      setScheduledEmailDateTime('')
       setEmailConfirmTarget(emailDetails)
     } catch (error) {
       console.error(error)
@@ -703,8 +712,47 @@ export function PlayerProfile() {
 
     try {
       const attachPdf = isPdfAttachmentApproved
-      await Promise.all(payloads.map((item) => sendParentEmail({ ...item.payload, attachPdf })))
-      showToast({ title: 'Email sent successfully' })
+      const attachAssessmentFields = isAssessmentFieldsApproved && emailConfirmTarget.responses.length > 0
+      const isScheduledSend = emailSendMode === 'scheduled'
+
+      if (isScheduledSend && (!scheduledEmailDateTime || Number.isNaN(new Date(scheduledEmailDateTime).getTime()))) {
+        throw new Error('Choose a valid scheduled send date and time.')
+      }
+
+      const scheduledAt = isScheduledSend ? new Date(scheduledEmailDateTime).toISOString() : ''
+
+      await Promise.all(payloads.map((item) => sendParentEmail({
+        ...item.payload,
+        responses: attachAssessmentFields ? item.payload.responses : [],
+        attachPdf,
+        teamId: user?.activeTeamId || '',
+        scheduledAt,
+        communicationLog: isScheduledSend
+          ? {
+              clubId: user?.clubId || '',
+              playerId: evaluation.playerId || primaryPlayer?.id || null,
+              evaluationId: evaluation.isDirectEmail ? null : evaluation.id,
+              userId: user?.id || '',
+              userName: user?.displayName || user?.username || user?.name || user?.email || '',
+              userEmail: user?.email || '',
+              recipientEmail: item.recipientEmails || recipientEmails,
+              metadata: {
+                subject: item.payload?.subject || '',
+                body: item.payload?.emailBody || '',
+                templateName: emailConfirmTarget.templateName || '',
+                team: item.payload?.team || '',
+                club: item.payload?.club || '',
+                playerName: routePlayerName,
+                hasAttachment: attachPdf,
+                hasAssessmentFields: attachAssessmentFields,
+                scheduledAt,
+                assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
+                pdfHtml: attachPdf ? item.payload?.pdfHtml || '' : '',
+              },
+            }
+          : null,
+      })))
+      showToast({ title: isScheduledSend ? 'Email scheduled' : 'Email sent successfully' })
 
       const playerId = evaluation.playerId || primaryPlayer?.id
       await createCommunicationLog({
@@ -712,7 +760,7 @@ export function PlayerProfile() {
         playerId,
         evaluationId: evaluation.isDirectEmail ? null : evaluation.id,
         channel: 'email',
-        action: 'parent_email_sent',
+        action: isScheduledSend ? 'parent_email_scheduled' : 'parent_email_sent',
         recipientEmail: recipientEmails,
         metadata: {
           subject: payloads[0]?.payload?.subject || '',
@@ -722,7 +770,9 @@ export function PlayerProfile() {
           club: payloads[0]?.payload?.club || '',
           playerName: routePlayerName,
           hasAttachment: attachPdf,
-          assessmentFields: emailConfirmTarget.responses || [],
+          hasAssessmentFields: attachAssessmentFields,
+          scheduledAt,
+          assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
           pdfHtml: attachPdf ? payloads[0]?.payload?.pdfHtml || '' : '',
         },
       })
@@ -750,6 +800,9 @@ export function PlayerProfile() {
       setEmailSendingId('')
       setEmailConfirmTarget(null)
       setIsPdfAttachmentApproved(false)
+      setIsAssessmentFieldsApproved(true)
+      setEmailSendMode('now')
+      setScheduledEmailDateTime('')
     }
   }
 
@@ -1594,6 +1647,7 @@ export function PlayerProfile() {
         isDeletingEvaluationId={isDeletingEvaluationId}
         isMergeConfirmOpen={isMergeConfirmOpen}
         isMergingEvaluations={isMergingEvaluations}
+        isAssessmentFieldsApproved={isAssessmentFieldsApproved}
         isPdfAttachmentApproved={isPdfAttachmentApproved}
         isReassigningId={isReassigningId}
         mergeSelectedEvaluations={mergeSelectedEvaluations}
@@ -1605,19 +1659,27 @@ export function PlayerProfile() {
         onCancelEmail={() => {
           setEmailConfirmTarget(null)
           setIsPdfAttachmentApproved(false)
+          setIsAssessmentFieldsApproved(true)
+          setEmailSendMode('now')
+          setScheduledEmailDateTime('')
         }}
         onCancelMerge={() => setIsMergeConfirmOpen(false)}
         onCancelReassign={() => setReassignConfirmTarget(null)}
         onConfirmDeleteEvaluation={(password) => void confirmDeleteEvaluation(password)}
         onConfirmDeletePlayer={(password, reason) => void confirmDeletePlayer(password, reason)}
         onConfirmEmail={() => void confirmSendParentEmail()}
+        onAssessmentFieldsApprovedChange={setIsAssessmentFieldsApproved}
+        onEmailSendModeChange={setEmailSendMode}
         onConfirmMerge={() => void confirmCreateMergedEvaluation()}
         onConfirmReassign={() => void confirmReassignEvaluation()}
         onPdfAttachmentApprovedChange={setIsPdfAttachmentApproved}
+        onScheduledEmailDateTimeChange={setScheduledEmailDateTime}
         playerDeleteTarget={playerDeleteTarget}
         players={players}
         reassignConfirmTarget={reassignConfirmTarget}
         routePlayerName={routePlayerName}
+        emailSendMode={emailSendMode}
+        scheduledEmailDateTime={scheduledEmailDateTime}
       />
 
     </div>

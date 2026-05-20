@@ -19,6 +19,7 @@ export {
   canEditEvaluation,
   canManageClubLogo,
   canManageClubSettings,
+  canManageEmailQueue,
   canManageFormFields,
   canManageMatchDay,
   canManageParentEmailTemplates,

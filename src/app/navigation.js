@@ -20,6 +20,10 @@ export const primaryNavigation = [
     path: '/parent-linking',
   },
   {
+    label: 'Email Queue',
+    path: '/email-queue',
+  },
+  {
     label: 'Polls',
     path: '/polls',
   },

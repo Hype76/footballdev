@@ -19,6 +19,7 @@ import {
   normalizeEmailTemplateAudience,
 } from '../lib/email-templates.js'
 import { isDemoUser } from '../lib/demo.js'
+import { sendParentEmail } from '../lib/email-builder.js'
 import {
   createFeatureUpgradeMessage,
   createLimitUpgradeMessage,
@@ -121,6 +122,8 @@ export function CreateEvaluationPage() {
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
   const [isPdfAttachmentApproved, setIsPdfAttachmentApproved] = useState(false)
+  const [emailSendMode, setEmailSendMode] = useState('now')
+  const [scheduledEmailDateTime, setScheduledEmailDateTime] = useState('')
   const [isDefaultTemplateConfirmOpen, setIsDefaultTemplateConfirmOpen] = useState(false)
   const [hasApprovedDefaultTemplate, setHasApprovedDefaultTemplate] = useState(false)
   const [showPreviousAssessments, setShowPreviousAssessments] = useState(false)
@@ -1004,6 +1007,14 @@ export function CreateEvaluationPage() {
           }
 
           setIsSendingParentEmail(true)
+          const isScheduledSend = emailSendMode === 'scheduled'
+
+          if (isScheduledSend && (!scheduledEmailDateTime || Number.isNaN(new Date(scheduledEmailDateTime).getTime()))) {
+            throw new Error('Choose a valid scheduled send date and time.')
+          }
+
+          const scheduledAt = isScheduledSend ? new Date(scheduledEmailDateTime).toISOString() : ''
+
           const emailJobs = buildParentEmailJobs({
             attachPdf: isPdfAttachmentApproved,
             contactAudiences,
@@ -1025,13 +1036,41 @@ export function CreateEvaluationPage() {
             throw new Error(`Add a ${contactNoun} email before sending.`)
           }
 
-          await Promise.all(emailJobs.map((emailJob) => emailJob.job))
+          await Promise.all(emailJobs.map((emailJob) => sendParentEmail({
+            ...emailJob.payload,
+            attachPdf: isPdfAttachmentApproved,
+            teamId: user?.activeTeamId || '',
+            scheduledAt,
+            communicationLog: isScheduledSend
+              ? {
+                  clubId: user?.clubId || '',
+                  playerId: savedEvaluation?.playerId || evaluation.playerId || null,
+                  evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+                  userId: user?.id || '',
+                  userName: user?.displayName || user?.username || user?.name || user?.email || '',
+                  userEmail: user?.email || '',
+                  recipientEmail: emailJob.recipientEmail,
+                  metadata: {
+                    subject: emailJob.payload?.subject || '',
+                    body: emailJob.payload?.emailBody || '',
+                    templateName: emailJob.templateName || '',
+                    team: emailJob.payload?.team || '',
+                    club: emailJob.payload?.club || '',
+                    playerName: normalizedPlayerName,
+                    hasAttachment: isPdfAttachmentApproved,
+                    scheduledAt,
+                    assessmentFields: selectedResponseItems,
+                    pdfHtml: isPdfAttachmentApproved ? emailJob.payload?.pdfHtml || '' : '',
+                  },
+                }
+              : null,
+          })))
           await createCommunicationLog({
             user,
             playerId: savedEvaluation?.playerId || evaluation.playerId,
             evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
             channel: 'email',
-            action: 'parent_email_sent',
+            action: isScheduledSend ? 'parent_email_scheduled' : 'parent_email_sent',
             recipientEmail: emailJobs.map((emailJob) => emailJob.recipientEmail).join(','),
             metadata: {
               subject: emailJobs[0]?.payload?.subject || '',
@@ -1041,11 +1080,12 @@ export function CreateEvaluationPage() {
               club: emailJobs[0]?.payload?.club || '',
               playerName: normalizedPlayerName,
               hasAttachment: isPdfAttachmentApproved,
+              scheduledAt,
               assessmentFields: selectedResponseItems,
               pdfHtml: isPdfAttachmentApproved ? emailJobs[0]?.payload?.pdfHtml || '' : '',
             },
           })
-          showToast({ title: 'Email sent successfully' })
+          showToast({ title: isScheduledSend ? 'Email scheduled' : 'Email sent successfully' })
         } catch (emailError) {
           console.error('Email failed', emailError)
           showToast({
@@ -1149,6 +1189,8 @@ export function CreateEvaluationPage() {
 
     if (!shouldEmail) {
       setIsPdfAttachmentApproved(false)
+      setEmailSendMode('now')
+      setScheduledEmailDateTime('')
     }
   }
 
@@ -1346,10 +1388,13 @@ export function CreateEvaluationPage() {
                 isSubmitting={isSubmitting}
                 lastSavedPlayerName={lastSavedPlayerName}
                 onClearExportFields={handleClearExportFields}
+                emailSendMode={emailSendMode}
                 onEmailTemplateChange={setEmailTemplateKey}
+                onEmailSendModeChange={setEmailSendMode}
                 onGoToPlayer={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
                 onInviteDateChange={setInviteDate}
                 onPdfAttachmentApprovedChange={setIsPdfAttachmentApproved}
+                onScheduledEmailDateTimeChange={setScheduledEmailDateTime}
                 onEmailAfterSaveChange={handleEmailAfterSaveChange}
                 onPrintBlankForm={() => setIsPrintingBlankView(true)}
                 onReorderExportField={handleReorderExportField}
@@ -1360,6 +1405,7 @@ export function CreateEvaluationPage() {
                 selectedEmailTemplateKey={selectedEmailTemplateKey}
                 selectedExportLabels={selectedExportLabels}
                 selectedResponseItems={selectedResponseItems}
+                scheduledEmailDateTime={scheduledEmailDateTime}
                 shouldShowInviteDate={shouldShowInviteDate}
               />
             </form>

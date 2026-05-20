@@ -5,6 +5,7 @@ import { Layout } from '../components/layout/Layout.jsx'
 import {
   canCreateEvaluation,
   canManageClubSettings,
+  canManageEmailQueue,
   canManageFormFields,
   canManageMatchDay,
   canManageParentEmailTemplates,
@@ -51,6 +52,7 @@ const PlayersMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.js
 const SessionsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'SessionsMenuPage')
 const CreateEvaluationPage = lazyRoute(() => import('../pages/CreateEvaluationPage.jsx'), 'CreateEvaluationPage')
 const EndSeasonStatsPage = lazyRoute(() => import('../pages/EndSeasonStatsPage.jsx'), 'EndSeasonStatsPage')
+const EmailQueuePage = lazyRoute(() => import('../pages/EmailQueuePage.jsx'), 'EmailQueuePage')
 const FormBuilderPage = lazyRoute(() => import('../pages/FormBuilderPage.jsx'), 'FormBuilderPage')
 const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
 const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
@@ -523,6 +525,20 @@ function RequireParentLinkingAccess() {
   }
 
   if (!canManageParentLinks(user)) {
+    return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequireEmailQueueAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+
+  if (element) {
+    return element
+  }
+
+  if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -1113,6 +1129,22 @@ export const router = createBrowserRouter([
                         ),
                         handle: {
                           title: 'Parent Linking',
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    element: <RequireEmailQueueAccess />,
+                    children: [
+                      {
+                        path: 'email-queue',
+                        element: (
+                          <PageSuspense>
+                            <EmailQueuePage />
+                          </PageSuspense>
+                        ),
+                        handle: {
+                          title: 'Email Queue',
                         },
                       },
                     ],

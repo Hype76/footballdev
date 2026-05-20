@@ -5,6 +5,7 @@ import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
   canManageClubSettings,
+  canManageEmailQueue,
   canManageFormFields,
   canManageMatchDay,
   canManageParentEmailTemplates,
@@ -20,6 +21,7 @@ import {
   isParentPortalUser,
   useAuth,
 } from '../../lib/auth.js'
+import { getScheduledEmails } from '../../lib/domain/scheduled-emails.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 
@@ -47,6 +49,7 @@ export function Sidebar({ isOpen, onClose }) {
   const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(user)
   const [openPollCount, setOpenPollCount] = useState(0)
+  const [queuedEmailCount, setQueuedEmailCount] = useState(0)
 
   useEffect(() => {
     let isMounted = true
@@ -101,6 +104,45 @@ export function Sidebar({ isOpen, onClose }) {
       isMounted = false
     }
   }, [user])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadQueuedEmailCount() {
+      if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
+        setQueuedEmailCount(0)
+        return
+      }
+
+      try {
+        const queuedEmails = await getScheduledEmails({ user })
+
+        if (isMounted) {
+          setQueuedEmailCount(queuedEmails.length)
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
+          setQueuedEmailCount(0)
+        }
+      }
+    }
+
+    void loadQueuedEmailCount()
+
+    const handleQueueChange = () => {
+      void loadQueuedEmailCount()
+    }
+
+    window.addEventListener('scheduled-email-queue-changed', handleQueueChange)
+
+    return () => {
+      isMounted = false
+      window.removeEventListener('scheduled-email-queue-changed', handleQueueChange)
+    }
+  }, [user])
+
   const handleSignOut = async () => {
     try {
       onClose()
@@ -130,6 +172,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (item.path === '/parent-linking') {
       return canManageParentLinks(user)
+    }
+
+    if (item.path === '/email-queue') {
+      return canManageEmailQueue(user) && hasPlanFeature(user, 'parentEmail') && queuedEmailCount > 0
     }
 
     if (item.path === '/polls') {
@@ -198,12 +244,20 @@ export function Sidebar({ isOpen, onClose }) {
       }
     }
 
+    if (item.path === '/email-queue' && !hasPlanFeature(user, 'parentEmail')) {
+      return {
+        ...item,
+        disabled: true,
+        disabledMessage: createFeatureUpgradeMessage('parentEmail'),
+      }
+    }
+
     return item
   })
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
-  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/polls', '/match-day']
+  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
   const teamNavigationItems = navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
 

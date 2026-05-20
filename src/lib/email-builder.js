@@ -265,6 +265,9 @@ export async function sendParentEmail(data) {
       attachPdf: data.attachPdf,
       idempotencyKey: data.idempotencyKey,
       evaluationId: data.evaluationId,
+      teamId: data.teamId,
+      scheduledAt: data.scheduledAt,
+      communicationLog: data.communicationLog,
     }),
   })
 
@@ -272,6 +275,10 @@ export async function sendParentEmail(data) {
 
   if (!response.ok) {
     throw new Error(result.message || 'Email failed - will retry automatically')
+  }
+
+  if (result.scheduled) {
+    window.dispatchEvent(new Event('scheduled-email-queue-changed'))
   }
 
   return result
