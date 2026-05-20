@@ -160,6 +160,7 @@ export function PublicParentsPage() {
           <p className="mt-5 text-base leading-7 text-slate-300 sm:mt-6 sm:text-lg sm:leading-8">
             Parents need clear updates. Coaches need less admin. The parent portal gives clubs a controlled, branded way to share what matters.
           </p>
+          <ParentPortalLoginBox />
           <div className="mt-8 grid gap-4">
             {parentCards.map(([title, copy]) => (
               <article key={title} className="rounded-lg border border-white/10 bg-white/[0.045] p-4 sm:p-5">
@@ -168,7 +169,6 @@ export function PublicParentsPage() {
               </article>
             ))}
           </div>
-          <ParentPortalLoginBox />
         </div>
       </section>
     </main>

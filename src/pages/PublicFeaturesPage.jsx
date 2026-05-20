@@ -65,7 +65,7 @@ export function PublicFeaturesPage() {
       <section className="mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <div className="grid gap-5 rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <h2 className="text-xl font-black tracking-tight sm:text-2xl">Ready to see the workspace?</h2>
+            <h2 className="text-xl font-black tracking-tight sm:text-2xl">Ready to see Football Player in action?</h2>
             <p className="mt-2 text-sm leading-6 text-slate-200">Open the demo account or choose a plan that matches your club size.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
