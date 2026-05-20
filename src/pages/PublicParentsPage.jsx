@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import fallbackLogo from '../assets/football-player-logo.png'
-import landingHeroImage from '../assets/landing-hero-football-club.png'
+import parentPortalGoalPhoneImage from '../assets/parent-portal-goal-phone.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { buildParentAppUrl } from '../lib/app-origins.js'
@@ -149,8 +149,12 @@ export function PublicParentsPage() {
     <main className="min-h-screen bg-[#061009] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-white lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:grid-cols-[0.85fr_1fr] lg:gap-8 lg:px-8 lg:py-16">
-        <div className="order-2 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] lg:order-1">
-          <img src={landingHeroImage} alt="Coach using Football Player beside a football pitch" className="h-full min-h-[260px] w-full object-cover sm:min-h-[340px] lg:min-h-[420px]" />
+        <div className="order-2 flex items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-[#07120a] p-4 lg:order-1">
+          <img
+            src={parentPortalGoalPhoneImage}
+            alt="Mobile phone showing a Football Player goal celebration"
+            className="h-full min-h-[320px] w-full object-contain sm:min-h-[440px] lg:min-h-[620px]"
+          />
         </div>
         <div className="order-1 flex flex-col justify-center lg:order-2">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Parents portal</p>
