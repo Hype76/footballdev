@@ -26,6 +26,10 @@ const featureGroups = [
 ]
 
 export function PublicFeaturesPage() {
+  const openContactModal = () => {
+    window.dispatchEvent(new CustomEvent('football-player:open-contact'))
+  }
+
   return (
     <main className="min-h-screen bg-[#061009] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-white lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
@@ -65,13 +69,20 @@ export function PublicFeaturesPage() {
       <section className="mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <div className="grid gap-5 rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <h2 className="text-xl font-black tracking-tight sm:text-2xl">Ready to see Football Player in action?</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-200">Open the demo account or choose a plan that matches your club size.</p>
+            <h2 className="text-xl font-black tracking-tight sm:text-2xl">Try it now, or contact us.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-200">Open the demo account, ask a question, or choose a plan that matches your club size.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90">
-              Login
+              Try Now
             </a>
+            <button
+              type="button"
+              onClick={openContactModal}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]"
+            >
+              Contact Us
+            </button>
             <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]">
               View Pricing
             </a>

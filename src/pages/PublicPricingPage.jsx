@@ -21,6 +21,10 @@ export function PublicPricingPage() {
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
+  const openContactModal = () => {
+    window.dispatchEvent(new CustomEvent('football-player:open-contact'))
+  }
+
   useEffect(() => {
     let isMounted = true
 
@@ -210,10 +214,10 @@ export function PublicPricingPage() {
                   {plan.name !== 'Individual' && !paymentsDisabled ? (
                     <button
                       type="button"
-                      onClick={() => setDemoPlan(plan)}
+                      onClick={plan.name === 'Large Club' ? openContactModal : () => setDemoPlan(plan)}
                       className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]"
                     >
-                      Request Demo
+                      {plan.name === 'Large Club' ? 'Contact Us' : 'Request Demo'}
                     </button>
                   ) : null}
                 </div>
