@@ -142,15 +142,14 @@ async function sendScheduledEmail(row) {
   }
 }
 
-export async function handler(event) {
-  if (event.httpMethod && event.httpMethod !== 'POST') {
-    return jsonResponse(405, { success: false, message: 'Method Not Allowed' })
-  }
-
+async function processScheduledEmails() {
   const missingEnvVars = getMissingEnvVars()
 
   if (missingEnvVars.length > 0) {
-    return jsonResponse(500, { success: false, message: `Missing required environment variables: ${missingEnvVars.join(', ')}` })
+    return {
+      statusCode: 500,
+      payload: { success: false, message: `Missing required environment variables: ${missingEnvVars.join(', ')}` },
+    }
   }
 
   const now = new Date().toISOString()
@@ -164,7 +163,10 @@ export async function handler(event) {
 
   if (error) {
     console.error(error)
-    return jsonResponse(500, { success: false, message: 'Scheduled email queue could not be loaded.' })
+    return {
+      statusCode: 500,
+      payload: { success: false, message: 'Scheduled email queue could not be loaded.' },
+    }
   }
 
   const summary = {
@@ -180,5 +182,25 @@ export async function handler(event) {
     summary[status] += 1
   }
 
-  return jsonResponse(200, { success: true, ...summary })
+  return {
+    statusCode: 200,
+    payload: { success: true, ...summary },
+  }
+}
+
+export async function handler(event) {
+  if (event.httpMethod && event.httpMethod !== 'POST') {
+    return jsonResponse(405, { success: false, message: 'Method Not Allowed' })
+  }
+
+  const result = await processScheduledEmails()
+  return jsonResponse(result.statusCode, result.payload)
+}
+
+export default async function scheduledHandler() {
+  const result = await processScheduledEmails()
+
+  return Response.json(result.payload, {
+    status: result.statusCode,
+  })
 }
