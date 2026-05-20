@@ -19,7 +19,11 @@ function getFriendlyLoginError(error) {
     return 'Confirm your email address first, then log in here.'
   }
 
-  return rawMessage || 'Parent login failed.'
+  if (normalizedMessage.includes('auth session missing') || normalizedMessage.includes('session')) {
+    return 'Email or password is incorrect.'
+  }
+
+  return 'Parent login could not be completed. Check your details and try again.'
 }
 
 export function ParentLoginPage() {
