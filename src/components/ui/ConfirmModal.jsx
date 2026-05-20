@@ -50,6 +50,7 @@ export function ConfirmModal({
   if (!isOpen) {
     return null
   }
+  const hasCompactItems = items.length > 6
   const cancelDisabledReason = isBusy ? 'Please wait while this action finishes.' : undefined
   const confirmDisabledReason = isBusy
     ? 'Please wait while this action finishes.'
@@ -84,7 +85,13 @@ export function ConfirmModal({
         {items.length > 0 ? (
           <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
             <p className="text-sm font-semibold text-[var(--text-primary)]">{itemsTitle}</p>
-            <ul className="mt-3 space-y-2">
+            <ul
+              className={
+                hasCompactItems
+                  ? 'mt-3 grid max-h-48 gap-x-4 gap-y-2 overflow-y-auto pr-1 sm:grid-cols-2'
+                  : 'mt-3 space-y-2'
+              }
+            >
               {items.map((item) => (
                 <li key={item} className="text-sm leading-6 text-[var(--text-muted)]">
                   {item}
