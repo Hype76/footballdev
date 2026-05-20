@@ -1,5 +1,8 @@
 import { supabase } from '../supabase-client.js'
 
+let lastQueueProcessAt = 0
+let queueProcessPromise = null
+
 async function postScheduledEmailAction(payload) {
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token || ''
@@ -20,7 +23,46 @@ async function postScheduledEmailAction(payload) {
   return result
 }
 
+export async function processDueScheduledEmails({ force = false } = {}) {
+  const now = Date.now()
+
+  if (!force && now - lastQueueProcessAt < 45000) {
+    return null
+  }
+
+  if (queueProcessPromise) {
+    return queueProcessPromise
+  }
+
+  lastQueueProcessAt = now
+  queueProcessPromise = fetch('/.netlify/functions/process-scheduled-emails', {
+    method: 'POST',
+  })
+    .then(async (response) => {
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Scheduled emails could not be processed.')
+      }
+
+      if ((result.sent || result.duplicate || result.failed) > 0) {
+        window.dispatchEvent(new Event('scheduled-email-queue-changed'))
+      }
+
+      return result
+    })
+    .finally(() => {
+      queueProcessPromise = null
+    })
+
+  return queueProcessPromise
+}
+
 export async function getScheduledEmails({ user }) {
+  await processDueScheduledEmails().catch((error) => {
+    console.error(error)
+  })
+
   const result = await postScheduledEmailAction({
     action: 'list',
     clubId: user?.clubId,

@@ -5,6 +5,9 @@
 [build.environment]
   NODE_VERSION = "22.17.0"
 
+[functions."send-scheduled-emails"]
+  schedule = "* * * * *"
+
 [[redirects]]
   from = "/supabase/*"
   to = "/404"
