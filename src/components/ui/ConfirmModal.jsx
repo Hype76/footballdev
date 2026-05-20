@@ -51,6 +51,24 @@ export function ConfirmModal({
     return null
   }
   const hasCompactItems = items.length > 6
+  const itemRows = items.map((item) => {
+    const itemText = String(item ?? '')
+    const separatorIndex = itemText.indexOf(':')
+
+    if (separatorIndex === -1) {
+      return {
+        key: itemText,
+        label: '',
+        value: itemText,
+      }
+    }
+
+    return {
+      key: itemText,
+      label: itemText.slice(0, separatorIndex).trim(),
+      value: itemText.slice(separatorIndex + 1).trim(),
+    }
+  })
   const cancelDisabledReason = isBusy ? 'Please wait while this action finishes.' : undefined
   const confirmDisabledReason = isBusy
     ? 'Please wait while this action finishes.'
@@ -88,13 +106,20 @@ export function ConfirmModal({
             <ul
               className={
                 hasCompactItems
-                  ? 'mt-3 grid max-h-48 gap-x-4 gap-y-2 overflow-y-auto pr-1 sm:grid-cols-2'
+                  ? 'mt-3 grid max-h-52 gap-2 overflow-y-auto overflow-x-hidden pr-1 sm:grid-cols-2'
                   : 'mt-3 space-y-2'
               }
             >
-              {items.map((item) => (
-                <li key={item} className="text-sm leading-6 text-[var(--text-muted)]">
-                  {item}
+              {itemRows.map((item) => (
+                <li key={item.key} className="min-w-0 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+                  {item.label ? (
+                    <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                      {item.label}
+                    </span>
+                  ) : null}
+                  <span className="mt-1 block min-w-0 break-words text-sm leading-6 text-[var(--text-muted)]">
+                    {item.value}
+                  </span>
                 </li>
               ))}
             </ul>
