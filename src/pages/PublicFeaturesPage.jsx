@@ -27,7 +27,7 @@ const featureGroups = [
 
 export function PublicFeaturesPage() {
   return (
-    <main className="min-h-screen bg-[#061009] text-white">
+    <main className="min-h-screen bg-[#061009] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-white lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="relative overflow-hidden">
         <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-100" />

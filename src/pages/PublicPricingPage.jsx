@@ -127,7 +127,7 @@ export function PublicPricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#061009] text-white">
+    <main className="min-h-screen bg-[#061009] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-white lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto w-full max-w-7xl px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">

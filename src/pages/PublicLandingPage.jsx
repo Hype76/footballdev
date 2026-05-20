@@ -16,7 +16,7 @@ export function PublicLandingPage() {
       <div className="relative flex min-h-dvh w-full flex-col">
         <LoginHeader logo={fallbackLogo} />
 
-        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:px-8">
+        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:px-8 lg:pb-10">
           <LoginHeroContent />
         </div>
       </div>

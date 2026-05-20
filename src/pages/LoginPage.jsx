@@ -200,7 +200,7 @@ export function LoginPage() {
       <div className="relative flex min-h-screen w-full flex-col">
         <LoginHeader logo={fallbackLogo} />
 
-        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-10">
           <LoginAuthPanel
             authError={authError}
             formData={formData}

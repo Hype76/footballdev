@@ -10,7 +10,7 @@ const parentCards = [
 
 export function PublicParentsPage() {
   return (
-    <main className="min-h-screen bg-[#061009] text-white">
+    <main className="min-h-screen bg-[#061009] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-white lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:grid-cols-[0.85fr_1fr] lg:gap-8 lg:px-8 lg:py-16">
         <div className="order-2 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] lg:order-1">
