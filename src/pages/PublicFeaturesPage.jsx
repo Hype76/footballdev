@@ -36,10 +36,10 @@ export function PublicFeaturesPage() {
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Features</p>
             <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
-              Built for the actual week of a football club.
+              Academy standards, built for grassroots football.
             </h1>
             <p className="mt-5 text-base leading-7 text-slate-200 sm:mt-6 sm:text-lg sm:leading-8">
-              Football Player focuses on the work that normally gets split across paper forms, spreadsheets, WhatsApp messages, and memory.
+              Bring professional structure to trials, player development, staff access, match days, and parent communication without making club admin harder.
             </p>
           </div>
         </div>
