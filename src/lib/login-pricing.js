@@ -16,7 +16,7 @@ export const pricingPlans = [
     name: 'Small Club',
     price: 24.99,
     description: 'For clubs running several teams with staff access and oversight.',
-    features: ['Single Team +', 'Up to 10 teams', 'Unlimited staff logins', 'Unlimited players', 'Custom branding and themes', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
+    features: ['Single Team +', 'Up to 10 teams', 'Unlimited staff logins', 'Unlimited players', 'Custom branding and themes', 'Staff roles with coach access', 'Audit logs', 'Priority support'],
   },
   {
     name: 'Large Club',
