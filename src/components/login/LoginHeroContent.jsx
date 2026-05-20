@@ -25,15 +25,15 @@ export function LoginHeroContent() {
       <div className="mt-8 grid max-w-2xl gap-3 min-[520px]:grid-cols-3">
         <div className="rounded-lg border border-white/10 bg-black/25 p-4 backdrop-blur">
           <p className="text-xl font-black sm:text-2xl">Trials</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Decisions, notes, and invite outcomes stay organised.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Keep trial notes, decisions, and invite outcomes in one place.</p>
         </div>
         <div className="rounded-lg border border-white/10 bg-black/25 p-4 backdrop-blur">
           <p className="text-xl font-black sm:text-2xl">Teams</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Staff access and team branding stay controlled.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Give staff the right access and keep every team on brand.</p>
         </div>
         <div className="rounded-lg border border-white/10 bg-black/25 p-4 backdrop-blur">
           <p className="text-xl font-black sm:text-2xl">Parents</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Parents get clear updates without coach admin overload.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Send clear updates to parents without chasing messages after training.</p>
         </div>
       </div>
     </section>
