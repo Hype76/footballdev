@@ -25,7 +25,7 @@ export function LoginHeroContent() {
       <div className="mt-8 grid max-w-2xl gap-3 min-[520px]:grid-cols-3">
         <div className="rounded-lg border border-white/10 bg-black/25 p-4 backdrop-blur">
           <p className="text-xl font-black sm:text-2xl">Trials</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Keep trial notes, decisions, and invite outcomes in one place.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Keep trial notes, decisions, and outcomes in one place.</p>
         </div>
         <div className="rounded-lg border border-white/10 bg-black/25 p-4 backdrop-blur">
           <p className="text-xl font-black sm:text-2xl">Teams</p>
@@ -33,7 +33,7 @@ export function LoginHeroContent() {
         </div>
         <div className="rounded-lg border border-white/10 bg-black/25 p-4 backdrop-blur">
           <p className="text-xl font-black sm:text-2xl">Parents</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Send clear updates to parents without chasing messages after training.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Keep parents updated without adding more work for coaches.</p>
         </div>
       </div>
     </section>

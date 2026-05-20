@@ -3,26 +3,26 @@ export const pricingPlans = [
     name: 'Individual',
     price: 'Free',
     priceLabel: 'No card needed',
-    description: 'For one coach testing the basics before moving feedback online.',
-    features: ['1 team', '1 login', '5 players', '10 assessments per month', 'Basic form only', 'No email sending'],
+    description: 'For one coach running a small team with the core tools.',
+    features: ['1 team', '1 staff login', '5 players', '10 assessments per month', 'Parent portal for included players', 'Match Day fully unlocked', 'Basic assessment form', 'No parent email sending or PDF attachments'],
   },
   {
     name: 'Single Team',
     price: 9.99,
-    description: 'For teams ready to send structured feedback to parents.',
-    features: ['2 weeks trial included', 'Cancel anytime', '1 team', '3 logins', 'Up to 20 players', 'Unlimited assessments', 'Email to parents', 'Custom form fields', 'Basic logo branding'],
+    description: 'For one team that needs parent updates and more complete reporting.',
+    features: ['2 weeks trial included', 'Cancel anytime', '1 team', '3 staff logins', '20 players', 'Unlimited assessments', 'Parent portal included', 'Match Day fully unlocked', 'Parent email sending', 'PDF reports and attachments', 'Custom assessment fields', 'Basic logo branding'],
   },
   {
     name: 'Small Club',
     price: 24.99,
-    description: 'For growing clubs needing staff access and oversight.',
-    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Single Team', 'Up to 10 teams', 'Unlimited logins', 'Custom branding and themes', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
+    description: 'For clubs running several teams with staff access and oversight.',
+    features: ['2 weeks trial included', 'Cancel anytime', 'Everything in Single Team', 'Up to 10 teams', 'Unlimited staff logins', 'Unlimited players', 'Parent portal included', 'Match Day fully unlocked', 'Custom branding and themes', 'Staff roles with coach access', 'Optional approval workflow', 'Audit logs', 'Priority support'],
   },
   {
     name: 'Large Club',
     price: 'Contact us',
     description: 'For larger clubs that need more teams, rollout help, or custom support.',
-    features: ['Custom setup', 'More than 10 teams', 'Unlimited logins', 'Custom branding and themes', 'Custom rollout support', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
+    features: ['Custom setup', 'More than 10 teams', 'Unlimited staff logins', 'Unlimited players', 'Parent portal included', 'Match Day fully unlocked', 'Custom branding and themes', 'Custom rollout support', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
   },
 ]
 

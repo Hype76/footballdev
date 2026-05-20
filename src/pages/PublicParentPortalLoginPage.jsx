@@ -1,0 +1,33 @@
+import fallbackLogo from '../assets/football-player-logo.png'
+import parentPortalGoalPhoneImage from '../assets/parent-portal-goal-phone.png'
+import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import { ParentPortalLoginBox } from '../components/login/ParentPortalLoginBox.jsx'
+
+export function PublicParentPortalLoginPage() {
+  return (
+    <main className="min-h-screen bg-[#061009] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-white lg:pb-0">
+      <LoginHeader logo={fallbackLogo} />
+      <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:grid-cols-[0.75fr_1fr] lg:gap-8 lg:px-8 lg:py-16">
+        <div className="order-2 flex items-start justify-center overflow-hidden rounded-lg border border-white/10 bg-[#07120a] p-4 sm:p-6 lg:order-1">
+          <img
+            src={parentPortalGoalPhoneImage}
+            alt="Mobile phone showing a Football Player goal notification"
+            className="max-h-[680px] min-h-[320px] w-full object-contain sm:min-h-[440px] lg:min-h-0"
+          />
+        </div>
+        <div className="order-1 flex flex-col justify-center lg:order-2">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Parent portal</p>
+          <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
+            Log in to your parent portal.
+          </h1>
+          <p className="mt-5 text-base leading-7 text-slate-300 sm:mt-6 sm:text-lg sm:leading-8">
+            Open the account you confirmed by email to view your linked child, club messages, reports, and polls.
+          </p>
+          <div className="mt-6">
+            <ParentPortalLoginBox />
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
