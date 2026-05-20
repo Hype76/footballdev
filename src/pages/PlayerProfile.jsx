@@ -463,6 +463,21 @@ export function PlayerProfile() {
   const getSelectedExportResponseItems = (evaluation) =>
     getSelectedEvaluationResponses(getExportResponseItems(evaluation), selectedExportLabels)
 
+  const getLatestEvaluationWithResponses = (player) => {
+    const playerId = String(player?.id ?? '').trim()
+    const playerName = String(player?.playerName || routePlayerName || '').trim().toLowerCase()
+
+    return evaluations.find((evaluation) => {
+      const evaluationPlayerId = String(evaluation.playerId ?? '').trim()
+      const evaluationPlayerName = String(evaluation.playerName || routePlayerName || '').trim().toLowerCase()
+      const matchesPlayer = playerId
+        ? evaluationPlayerId === playerId || evaluationPlayerName === playerName
+        : evaluationPlayerName === playerName
+
+      return matchesPlayer && getSelectedExportResponseItems(evaluation).length > 0
+    }) ?? evaluations.find((evaluation) => getSelectedExportResponseItems(evaluation).length > 0) ?? null
+  }
+
   const buildParentEmailPayload = (evaluation) => {
     return buildPlayerProfileParentEmailPayload({
       evaluation,
@@ -487,14 +502,17 @@ export function PlayerProfile() {
       parentEmail: player.parentEmail,
       contactType: normalizePlayerContactType(player.contactType || profileContactType),
     })
+    const sourceEvaluation = getLatestEvaluationWithResponses(player)
 
     return buildPlayerDirectEmailPayload({
       audience: normalizeEmailTemplateAudience(selectedTemplate?.audience),
       contacts,
       inviteDate: selectedDirectInviteDates[player.id] || '',
       player,
+      responses: sourceEvaluation ? getSelectedExportResponseItems(sourceEvaluation) : [],
       routePlayerName,
       selectedTemplate,
+      sourceEvaluation,
       user,
     })
   }

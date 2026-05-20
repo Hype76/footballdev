@@ -632,8 +632,10 @@ export function buildPlayerDirectEmailPayload({
   contacts,
   inviteDate = '',
   player,
+  responses = [],
   routePlayerName,
   selectedTemplate,
+  sourceEvaluation = null,
   user,
 }) {
   if (!selectedTemplate) {
@@ -642,7 +644,10 @@ export function buildPlayerDirectEmailPayload({
 
   const playerName = String(player?.playerName || routePlayerName || '').trim()
   const teamName = String(player?.team || user?.activeTeamName || '').trim()
-  const section = String(player?.section || '').trim() || DIRECT_EMAIL_TEMPLATE_SECTION
+  const section = String(player?.section || sourceEvaluation?.section || '').trim() || DIRECT_EMAIL_TEMPLATE_SECTION
+  const session = sourceEvaluation?.session || ''
+  const responseItems = Array.isArray(responses) ? responses : []
+  const summary = sourceEvaluation ? buildEvaluationSummary(sourceEvaluation, 'email') : ''
   const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
   const selectedContacts = contacts.filter((contact) => contact.type === contactType)
   const payloads = selectedContacts
@@ -659,9 +664,9 @@ export function buildPlayerDirectEmailPayload({
           coachName: user?.displayName || user?.username || user?.name || user?.email,
           clubName: user?.clubName,
           teamName,
-          session: '',
+          session,
           inviteDate,
-          summary: '',
+          summary,
           templateKey: selectedTemplate.key,
         })
 
@@ -680,15 +685,15 @@ export function buildPlayerDirectEmailPayload({
             team: user?.emailTeamName || teamName,
             club: user?.emailClubName || user?.clubName,
             section,
-            session: '',
+            session,
             inviteDate,
             planKey: user?.planKey,
             logoUrl: user?.clubLogoUrl || null,
             replyToEmail: user?.replyToEmail || user?.clubContactEmail,
             clubContactEmail: user?.clubContactEmail,
             playerName,
-            summary: '',
-            responses: [],
+            summary,
+            responses: responseItems,
             subject: emailTemplate.subject,
             emailBody: emailTemplate.body,
             pdfHtml: buildAssessmentPdfHtml({
@@ -696,11 +701,11 @@ export function buildPlayerDirectEmailPayload({
               playerName,
               teamName: user?.emailTeamName || teamName,
               section,
-              session: '',
+              session,
               logoUrl: user?.clubLogoUrl || null,
-              responseItems: [],
+              responseItems,
             }),
-            evaluationId: null,
+            evaluationId: sourceEvaluation?.id || null,
           },
           selectedTemplate,
         }
@@ -717,13 +722,14 @@ export function buildPlayerDirectEmailPayload({
       id: `direct:${player?.id || playerName}`,
       isDirectEmail: true,
       playerId: player?.id || '',
+      sourceEvaluationId: sourceEvaluation?.id || '',
       section,
       team: teamName,
     },
     inviteDate,
     recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
     recipientNames: payloads.map((item) => item.recipientNames).join(', '),
-    responses: [],
+    responses: responseItems,
     templateKey: selectedTemplate.key,
     templateName: selectedTemplate.label,
     usesDefaultTemplate: Boolean(selectedTemplate.isDefaultTemplate),
