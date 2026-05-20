@@ -4,6 +4,7 @@ import {
   normalizeParentContacts,
 } from '../../lib/supabase.js'
 import { getDraftParentContacts } from '../../hooks/players/playerProfileUtils.js'
+import { isInviteEmailTemplate } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function PlayerDetailsSection({
@@ -24,11 +25,13 @@ export function PlayerDetailsSection({
   onRemovePlayerPosition,
   onRefreshEmailTemplates,
   onSavePlayer,
+  onSelectedDirectInviteDateChange,
   onSelectedDirectEmailTemplateChange,
   onSendDirectEmail,
   onStartEditingPlayer,
   playerDrafts,
   profilePlayers,
+  selectedDirectInviteDates,
 }) {
   return (
     <SectionCard
@@ -72,10 +75,12 @@ export function PlayerDetailsSection({
                     directEmailSendingId={directEmailSendingId}
                     directEmailTemplates={getDirectEmailTemplateOptions(player)}
                     selectedDirectEmailTemplateKey={getSelectedDirectEmailTemplateOption(player)?.optionKey || ''}
+                    selectedDirectInviteDate={selectedDirectInviteDates[player.id] || ''}
                     isPromoting={isPromotingId === player.id}
                     onMovePlayerToTrial={() => onMovePlayerToTrial(player.id)}
                     onPromotePlayer={() => onPromotePlayer(player.id)}
                     onRefreshEmailTemplates={onRefreshEmailTemplates}
+                    onSelectedDirectInviteDateChange={(value) => onSelectedDirectInviteDateChange(player.id, value)}
                     onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
                     onSendDirectEmail={() => onSendDirectEmail(player)}
                     onStartEditingPlayer={() => onStartEditingPlayer(player)}
@@ -265,13 +270,17 @@ function PlayerDetailsSummary({
   onMovePlayerToTrial,
   onPromotePlayer,
   onRefreshEmailTemplates,
+  onSelectedDirectInviteDateChange,
   onSelectedDirectEmailTemplateChange,
   onSendDirectEmail,
   onStartEditingPlayer,
   player,
+  selectedDirectInviteDate,
   selectedDirectEmailTemplateKey,
 }) {
   const directEmailId = `direct:${player.id}`
+  const selectedTemplateKey = String(selectedDirectEmailTemplateKey ?? '').split(':').pop()
+  const shouldShowInviteDate = isInviteEmailTemplate(selectedTemplateKey)
   const directEmailDisabledReason = directEmailSendingId === directEmailId
     ? 'Please wait while this email is being sent.'
     : directEmailTemplates.length === 0
@@ -307,7 +316,7 @@ function PlayerDetailsSummary({
       </div>
 
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto_auto_auto] lg:items-end">
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(160px,0.45fr)_auto_auto_auto] lg:items-end">
           {directEmailTemplates.length > 0 ? (
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
@@ -328,6 +337,19 @@ function PlayerDetailsSummary({
             <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-muted)]">
               Enable a template for Direct Email before sending.
             </div>
+          )}
+          {shouldShowInviteDate ? (
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Invite date</span>
+              <input
+                type="date"
+                value={selectedDirectInviteDate}
+                onChange={(event) => onSelectedDirectInviteDateChange(event.target.value)}
+                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              />
+            </label>
+          ) : (
+            <div className="hidden lg:block" />
           )}
           <button
             type="button"

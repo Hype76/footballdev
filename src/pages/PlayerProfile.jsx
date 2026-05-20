@@ -150,6 +150,7 @@ export function PlayerProfile() {
   const [mergeDetailSources, setMergeDetailSources] = useState({})
   const [mergeFieldSources, setMergeFieldSources] = useState({})
   const [selectedEmailTemplates, setSelectedEmailTemplates] = useState({})
+  const [selectedDirectInviteDates, setSelectedDirectInviteDates] = useState({})
   const [emailTemplates, setEmailTemplates] = useState([])
   const [selectedParentContacts, setSelectedParentContacts] = useState({})
   const [selectedInviteDates, setSelectedInviteDates] = useState({})
@@ -487,6 +488,7 @@ export function PlayerProfile() {
     return buildPlayerDirectEmailPayload({
       audience: normalizeEmailTemplateAudience(selectedTemplate?.audience),
       contacts,
+      inviteDate: selectedDirectInviteDates[player.id] || '',
       player,
       routePlayerName,
       selectedTemplate,
@@ -1420,6 +1422,12 @@ export function PlayerProfile() {
         onRemovePlayerPosition={handleRemovePlayerPosition}
         onSavePlayer={(playerId) => void handleSavePlayer(playerId)}
         onRefreshEmailTemplates={() => void loadEmailTemplates()}
+        onSelectedDirectInviteDateChange={(playerId, value) =>
+          setSelectedDirectInviteDates((currentDates) => ({
+            ...currentDates,
+            [playerId]: value,
+          }))
+        }
         onSelectedDirectEmailTemplateChange={(playerId, value) =>
           setSelectedEmailTemplates((currentTemplates) => ({
             ...currentTemplates,
@@ -1430,6 +1438,7 @@ export function PlayerProfile() {
         onStartEditingPlayer={handleStartEditingPlayer}
         playerDrafts={playerDrafts}
         profilePlayers={profilePlayers}
+        selectedDirectInviteDates={selectedDirectInviteDates}
       />
 
       <PlayerProfileActions

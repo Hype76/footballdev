@@ -630,6 +630,7 @@ export function buildPlayerProfileParentEmailPayload({
 export function buildPlayerDirectEmailPayload({
   audience,
   contacts,
+  inviteDate = '',
   player,
   routePlayerName,
   selectedTemplate,
@@ -659,7 +660,7 @@ export function buildPlayerDirectEmailPayload({
           clubName: user?.clubName,
           teamName,
           session: '',
-          inviteDate: '',
+          inviteDate,
           summary: '',
           templateKey: selectedTemplate.key,
         })
@@ -680,6 +681,7 @@ export function buildPlayerDirectEmailPayload({
             club: user?.emailClubName || user?.clubName,
             section,
             session: '',
+            inviteDate,
             planKey: user?.planKey,
             logoUrl: user?.clubLogoUrl || null,
             replyToEmail: user?.replyToEmail || user?.clubContactEmail,
@@ -718,7 +720,7 @@ export function buildPlayerDirectEmailPayload({
       section,
       team: teamName,
     },
-    inviteDate: '',
+    inviteDate,
     recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
     recipientNames: payloads.map((item) => item.recipientNames).join(', '),
     responses: [],
