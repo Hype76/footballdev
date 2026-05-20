@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
+import { ScheduleDateTimePicker } from '../ui/ScheduleDateTimePicker.jsx'
 
 export function PlayerProfileModals({
   emailSendMode,
@@ -177,15 +178,12 @@ export function PlayerProfileModals({
             </label>
           </div>
           {emailSendMode === 'scheduled' ? (
-            <label className="mt-3 block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Send date and time</span>
-              <input
-                type="datetime-local"
+            <div className="mt-3">
+              <ScheduleDateTimePicker
                 value={scheduledEmailDateTime}
-                onChange={(event) => onScheduledEmailDateTimeChange(event.target.value)}
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                onChange={onScheduledEmailDateTimeChange}
               />
-            </label>
+            </div>
           ) : null}
         </div>
         {canAttachAssessmentFields ? (

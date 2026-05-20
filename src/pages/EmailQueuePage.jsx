@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
+import { ScheduleDateTimePicker } from '../components/ui/ScheduleDateTimePicker.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageEmailQueue, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
@@ -292,15 +293,10 @@ export function EmailQueuePage() {
               className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
             />
           </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Send date and time</span>
-            <input
-              type="datetime-local"
-              value={editDraft.scheduledAt}
-              onChange={(event) => setEditDraft((current) => ({ ...current, scheduledAt: event.target.value }))}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
-            />
-          </label>
+          <ScheduleDateTimePicker
+            value={editDraft.scheduledAt}
+            onChange={(scheduledAt) => setEditDraft((current) => ({ ...current, scheduledAt }))}
+          />
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email HTML</span>
             <textarea
