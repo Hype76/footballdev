@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppState, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { createAssessmentFieldValues, getAssessmentFieldMax, isAssessmentScoreField, resetAssessmentFieldValues } from '../mobile-core/src/assessment'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import {
@@ -649,17 +650,7 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
   }, [players, selectedPlayerId])
 
   useEffect(() => {
-    setFieldValues((currentValues) => {
-      const nextValues = { ...currentValues }
-
-      fields.forEach((field) => {
-        if (nextValues[field.id] === undefined) {
-          nextValues[field.id] = isScoreField(field.type) ? 3 : ''
-        }
-      })
-
-      return nextValues
-    })
+    setFieldValues((currentValues) => createAssessmentFieldValues(fields, currentValues))
   }, [fields])
 
   async function handleSave() {
@@ -673,13 +664,7 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
 
     try {
       await submitCoachAssessment(user, selectedPlayer, { fieldValues }, fields)
-      setFieldValues((currentValues) => {
-        const nextValues = {}
-        fields.forEach((field) => {
-          nextValues[field.id] = isScoreField(field.type) ? currentValues[field.id] || 3 : ''
-        })
-        return nextValues
-      })
+      setFieldValues((currentValues) => resetAssessmentFieldValues(fields, currentValues))
       await onRefresh()
       onStatusMessage(`Assessment saved for ${selectedPlayer.playerName}.`)
     } catch (error) {
@@ -710,11 +695,11 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
           {showAllPlayers ? 'Show fewer players' : `Show all ${players.length} players`}
         </PrimaryButton>
       ) : null}
-      {fields.map((field) => isScoreField(field.type) ? (
+      {fields.map((field) => isAssessmentScoreField(field.type) ? (
         <ScoreStepper
           key={field.id}
           label={field.label}
-          max={field.type === 'score_1_10' ? 10 : 5}
+          max={getAssessmentFieldMax(field)}
           onChange={(value) => setFieldValues((currentValues) => ({ ...currentValues, [field.id]: value }))}
           value={fieldValues[field.id] ?? 0}
         />
@@ -731,10 +716,6 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
       <PrimaryButton loading={isSaving} onPress={handleSave}>Save Assessment</PrimaryButton>
     </Panel>
   )
-}
-
-function isScoreField(type) {
-  return ['score_1_5', 'score_1_10', 'number'].includes(String(type || '').trim())
 }
 
 function AppContent() {

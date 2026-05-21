@@ -385,6 +385,7 @@ assertNoTrackedMobilePrivateFiles()
 
 const mobileConfig = read('apps/mobile-core/src/config.js')
 const mobileAuth = read('apps/mobile-core/src/auth.js')
+const mobileAssessment = read('apps/mobile-core/src/assessment.js')
 const mobileData = read('apps/mobile-core/src/data.js')
 const mobileDeviceControls = read('apps/mobile-core/src/deviceControls.js')
 const mobileExportWebCheck = read('apps/scripts/mobile-export-web-check.mjs')
@@ -404,6 +405,8 @@ assertNotIncludes(mobileConfig, 'Live Supabase is blocked', 'Mobile runtime conf
 assertNotIncludes(mobileConfig, 'environment variables are missing', 'Mobile runtime config')
 assertIncludes(mobileAuth, 'This app build is missing its connection setup.', 'Mobile auth')
 assertNotIncludes(mobileAuth, 'environment variables are missing', 'Mobile auth')
+assertIncludes(mobileAssessment, 'export function createAssessmentFieldValues', 'Mobile assessment field defaults')
+assertIncludes(mobileAssessment, 'export function resetAssessmentFieldValues', 'Mobile assessment field reset')
 assertIncludes(mobileData, 'function getSelectedParentLink', 'Mobile parent link selection')
 assertIncludes(mobileData, 'return links.find((link) => link.id === user?.selectedParentLinkId) || links[0] || null', 'Mobile parent link selection')
 assertIncludes(mobileDeviceControls, 'export function useMobileDeviceControls', 'Mobile device controls')
@@ -518,6 +521,8 @@ assertIncludes(coachAppSource, 'Start the match before adding goals.', 'Coach ma
 assertIncludes(coachAppSource, "disabled={!['live', 'second_half'].includes(match.status)}", 'Coach matchday guardrails')
 assertIncludes(coachAppSource, 'visiblePlayers', 'Coach assessment player access')
 assertIncludes(coachAppSource, 'Show all ${players.length} players', 'Coach assessment player access')
+assertIncludes(coachAppSource, 'createAssessmentFieldValues(fields, currentValues)', 'Coach assessment field defaults')
+assertIncludes(coachAppSource, 'resetAssessmentFieldValues(fields, currentValues)', 'Coach assessment field reset')
 
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))

@@ -1,4 +1,5 @@
 import { getMobileRuntimeConfig } from './config'
+import { isAssessmentScoreField } from './assessment'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getAccessToken, supabase } from './supabase'
 
@@ -611,10 +612,6 @@ export async function undoCoachLastMatchGoal(user, match) {
   return normalizeMatchDayEvent(data)
 }
 
-function isScoreField(type) {
-  return ['score_1_5', 'score_1_10', 'number'].includes(normalizeText(type))
-}
-
 export async function submitCoachAssessment(user, player, assessment, fields = []) {
   if (!user?.clubId || !player?.id) {
     throw new Error('Choose a player before saving an assessment.')
@@ -628,7 +625,7 @@ export async function submitCoachAssessment(user, player, assessment, fields = [
   configuredFields.forEach((field) => {
     const value = fieldValues[field.id] ?? ''
 
-    if (isScoreField(field.type)) {
+    if (isAssessmentScoreField(field.type)) {
       const numericValue = Math.max(Number(value || 0), 0)
       formResponses[field.label] = numericValue
       if (numericValue > 0) {
