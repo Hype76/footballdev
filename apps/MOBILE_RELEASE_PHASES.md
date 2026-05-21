@@ -23,6 +23,7 @@ Exit criteria: both app projects exist in Expo, each app has its own EAS project
 - Create one EAS project for Football Player Coach.
 - Create one EAS project for Football Player Parents.
 - Use `MOBILE_EAS_SETUP_CHECKLIST.md` for the app-by-app EAS setup steps.
+- Use `npm run mobile:next` to print the current external step, local readiness snapshot, and no-deploy reminder.
 - Set `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS for each app.
 - Set test Supabase URL and publishable key in EAS for each app.
 - Set the HTTPS test API base URL in EAS for each app.

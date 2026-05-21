@@ -1,4 +1,18 @@
+import { execSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { mobileApps } from './mobile-apps.mjs'
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const evidenceDir = join(repoRoot, 'apps/mobile-release-evidence')
+
+function readGitStatus() {
+  return execSync('git status --short', {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  }).trim()
+}
 
 const phase = {
   title: 'Phase 2: Expo EAS Setup',
@@ -20,9 +34,17 @@ console.log(`${phase.title}`)
 console.log(`Status: ${phase.status}`)
 console.log(phase.rule)
 console.log('')
+console.log('Local readiness snapshot:')
+console.log(`- Working tree: ${readGitStatus() ? 'has uncommitted changes' : 'clean'}`)
+console.log(`- Private evidence folder: ${existsSync(evidenceDir) ? 'present' : 'not created yet'}`)
+console.log('- Required local gate before external actions: npm run mobile:release-check')
+console.log('- No Netlify deploy is required for mobile EAS or store setup.')
+console.log('')
 console.log('Before external setup:')
 console.log('- Run npm run mobile:release-check from the repo root.')
+console.log('- Create or update the private evidence file with npm run mobile:evidence:init.')
 console.log('- Confirm you are logged in to the correct Expo account.')
+console.log('- Make sure the working tree is clean before creating EAS projects or native builds.')
 console.log('- Do not commit EAS project IDs, Supabase keys, API URLs, Apple keys, Google service account files, provisioning profiles, passwords, or reviewer credentials.')
 console.log('')
 console.log('Create EAS projects:')

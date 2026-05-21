@@ -8,6 +8,7 @@ Do not commit EAS project IDs, Supabase keys, API URLs for private environments,
 
 - Confirm this work is for the test database only.
 - Confirm `npm run mobile:release-check` passes locally.
+- Run `npm run mobile:next` and confirm the working tree is clean before external setup.
 - Confirm you are logged in to the correct Expo account.
 - Confirm no local `.env` files, build artifacts, or credential files are tracked by git.
 
