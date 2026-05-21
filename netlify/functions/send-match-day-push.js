@@ -168,6 +168,15 @@ function buildPayload({ match, type, event }) {
     }
   }
 
+  if (type === 'score_correction') {
+    return {
+      title: 'Score corrected',
+      body: scoreLine,
+      tag: `match-day-${match.id}-score-correction-${event?.id || Date.now()}`,
+      renotify: true,
+    }
+  }
+
   if (type === 'half_time') {
     return {
       title: 'Half time',

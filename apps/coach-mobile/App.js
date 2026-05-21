@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -65,6 +66,7 @@ function LoginScreen() {
 
 function CoachHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
+  const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('matchday')
   const [players, setPlayers] = useState([])
   const [sessions, setSessions] = useState([])
@@ -149,6 +151,14 @@ function CoachHome() {
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    const route = lastNotificationResponse?.notification?.request?.content?.data?.route
+
+    if (route === 'matchday') {
+      setActiveTab('matchday')
+    }
+  }, [lastNotificationResponse])
 
   async function enableNotifications() {
     setIsRegisteringPush(true)

@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -63,6 +64,7 @@ function LoginScreen() {
 
 function ParentHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
+  const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('matchday')
   const [messages, setMessages] = useState([])
   const [polls, setPolls] = useState([])
@@ -152,6 +154,24 @@ function ParentHome() {
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    const route = lastNotificationResponse?.notification?.request?.content?.data?.route
+
+    if (route === 'messages') {
+      setActiveTab('messages')
+      return
+    }
+
+    if (route === 'polls') {
+      setActiveTab('polls')
+      return
+    }
+
+    if (route === 'parent-portal' || route === 'matchday') {
+      setActiveTab('matchday')
+    }
+  }, [lastNotificationResponse])
 
   async function enableNotifications() {
     setIsRegisteringPush(true)
