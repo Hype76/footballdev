@@ -322,6 +322,7 @@ for (const app of apps) {
     assertIncludes(checklist, 'Keep reviewer email and password out of git. Add them only inside App Store Connect and Google Play Console.', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'Do not paste reviewer credentials into repo files.', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'Record build IDs and device results in `../MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', `${app.name} store submission checklist`)
+    assertIncludes(checklist, '../mobile-release-evidence/', `${app.name} store submission checklist`)
     assertIncludes(checklist, `npm run mobile:build:${app.appRole}:android:internal`, `${app.name} store submission checklist`)
     assertIncludes(checklist, `npm run mobile:build:${app.appRole}:ios:store-test`, `${app.name} store submission checklist`)
     assertIncludes(checklist, `npm run mobile:build:${app.appRole}:android:store-test`, `${app.name} store submission checklist`)

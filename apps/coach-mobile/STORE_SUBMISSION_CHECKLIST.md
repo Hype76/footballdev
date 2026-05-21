@@ -21,7 +21,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Prepare screenshots from `../MOBILE_SCREENSHOT_PLAN.md`.
 - Check build numbering against `../MOBILE_VERSIONING.md`.
 - Follow release phase ownership from `../MOBILE_RELEASE_PHASES.md`.
-- Record external build, device, screenshot, and submission evidence in a private copy of `../MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
+- Record external build, device, screenshot, and submission evidence in a private copy of `../MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` inside `../mobile-release-evidence/`.
 - Create the Expo EAS project and set `EXPO_PUBLIC_EAS_PROJECT_ID`.
 - Add test Supabase URL and publishable key as EAS secrets.
 - Add the Netlify test API base URL as `EXPO_PUBLIC_API_BASE_URL`.
