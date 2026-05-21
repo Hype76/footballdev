@@ -15,7 +15,8 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Coach app supports matchday, players, quick assessments, sessions, team switching, and club-wide All Teams for eligible roles.
 - Parents app supports linked child switching, matchday updates, messages, polls, and scorer volunteer actions.
 - Android sensitive permissions that are not used are explicitly blocked.
-- Store metadata, privacy questionnaire, reviewer handoff, screenshot plan, store account setup, and device testing docs are present.
+- Store metadata, privacy questionnaire, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
+- EAS remote app versioning and store-test auto-increment are configured for both apps.
 - `npm run mobile:release-check` passes locally.
 
 ## Still external before store submission
@@ -23,6 +24,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Create Expo EAS projects for both apps.
 - Add each final `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS, not in git.
 - Add test Supabase and test Netlify API environment values in EAS.
+- Confirm EAS remote build numbers and version codes are ready for the next store submissions.
 - Create Apple App Store Connect records.
 - Create Google Play Console records.
 - Create reviewer test accounts and supply credentials only inside store consoles.

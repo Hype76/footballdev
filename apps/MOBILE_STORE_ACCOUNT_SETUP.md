@@ -4,6 +4,7 @@ Use this when creating the Expo, Apple, and Google records for the two mobile ap
 
 See `MOBILE_RELEASE_STATUS.md` for the current done and remaining release state.
 Use `MOBILE_SCREENSHOT_PLAN.md` when preparing store screenshots.
+Use `MOBILE_VERSIONING.md` before creating native builds.
 
 ## Apps
 
@@ -16,6 +17,7 @@ Use `MOBILE_SCREENSHOT_PLAN.md` when preparing store screenshots.
 - Scheme: `footballplayercoach`
 - EAS profile for internal Android QA: `internal`
 - EAS profile for TestFlight and store-style Android QA: `store-test`
+- Versioning: EAS remote app versioning with store-test auto-increment
 
 ### Parents app
 
@@ -26,6 +28,7 @@ Use `MOBILE_SCREENSHOT_PLAN.md` when preparing store screenshots.
 - Scheme: `footballplayerparents`
 - EAS profile for internal Android QA: `internal`
 - EAS profile for TestFlight and store-style Android QA: `store-test`
+- Versioning: EAS remote app versioning with store-test auto-increment
 
 ## Expo EAS setup
 
