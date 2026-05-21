@@ -17,7 +17,7 @@ Status: complete in this branch.
 
 ## Phase 2: Expo EAS Setup
 
-Status: external.
+Status: complete externally on May 21 2026.
 
 Exit criteria: both app projects exist in Expo, each app has its own EAS project ID stored in EAS only, and both apps resolve test Supabase values for store-test builds.
 
@@ -34,7 +34,7 @@ Exit criteria: both app projects exist in Expo, each app has its own EAS project
 
 ## Phase 3: Apple And Google Store Records
 
-Status: external.
+Status: active external step.
 
 Exit criteria: four store records exist, reviewer notes are entered, reviewer credentials are stored only inside the store consoles, and privacy answers match `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
 

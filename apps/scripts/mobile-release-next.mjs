@@ -15,19 +15,9 @@ function readGitStatus() {
 }
 
 const phase = {
-  title: 'Phase 2: Expo EAS Setup',
+  title: 'Phase 3: Apple And Google Store Records',
   status: 'external',
   rule: 'Keep both apps on test Supabase until live release approval is explicit.',
-}
-
-const easInitCommands = {
-  coach: 'npm run mobile:eas:init:coach',
-  parent: 'npm run mobile:eas:init:parent',
-}
-
-const easEnvCommands = {
-  coach: 'npm run mobile:eas:env:coach',
-  parent: 'npm run mobile:eas:env:parent',
 }
 
 console.log(`${phase.title}`)
@@ -40,33 +30,32 @@ console.log(`- Private evidence folder: ${existsSync(evidenceDir) ? 'present' : 
 console.log('- Required local gate before external actions: npm run mobile:release-check')
 console.log('- No Netlify deploy is required for mobile EAS or store setup.')
 console.log('')
-console.log('Before external setup:')
-console.log('- Run npm run mobile:release-check from the repo root.')
-console.log('- Create or update the private evidence file with npm run mobile:evidence:init.')
-console.log('- Sign in to Expo with npx eas-cli login if needed.')
-console.log('- Verify the Expo account with npm run mobile:eas:whoami.')
-console.log('- Make sure the working tree is clean before creating EAS projects or native builds.')
-console.log('- Do not commit EAS project IDs, Supabase keys, API URLs, Apple keys, Google service account files, provisioning profiles, passwords, or reviewer credentials.')
+console.log('EAS setup is complete:')
+console.log('- Football Player Coach EAS project exists.')
+console.log('- Football Player Parents EAS project exists.')
+console.log('- Both apps have development, preview, and production EAS values set.')
+console.log('- EAS values keep EXPO_PUBLIC_SUPABASE_ENV=test and EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false.')
 console.log('')
-console.log('Create EAS projects:')
+console.log('Before store record setup:')
+console.log('- Run npm run mobile:release-check from the repo root.')
+console.log('- Run npm run mobile:store:preflight before creating or editing store records.')
+console.log('- Use apps/MOBILE_STORE_RECORD_CHECKLIST.md for all four store records.')
+console.log('- Use apps/MOBILE_REVIEWER_HANDOFF.md for review notes.')
+console.log('- Enter reviewer credentials only in App Store Connect and Google Play Console.')
+console.log('- Do not commit Apple keys, Google service account files, provisioning profiles, passwords, reviewer credentials, or private store notes.')
+console.log('')
+console.log('Store records to create:')
 
 mobileApps.forEach((app) => {
   console.log(`- ${app.expectedName}`)
-  console.log(`  ${easInitCommands[app.appRole]}`)
-  console.log('  Store EXPO_PUBLIC_EAS_PROJECT_ID in Expo EAS only.')
-  console.log(`  Verify environment values with ${easEnvCommands[app.appRole]}`)
+  console.log(`  Apple App Store Connect: ${app.bundleIdentifier}`)
+  console.log(`  Google Play Console: ${app.packageName}`)
 })
 
 console.log('')
-console.log('Set these EAS values for each app and each reviewer build profile:')
-console.log('- EXPO_PUBLIC_SUPABASE_ENV=test')
-console.log('- EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false')
-console.log('- EXPO_PUBLIC_SUPABASE_URL set to the test Supabase project')
-console.log('- EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY set to the test Supabase project')
-console.log('- EXPO_PUBLIC_API_BASE_URL set to the HTTPS test API host')
-console.log('- EXPO_PUBLIC_EAS_PROJECT_ID set in EAS only')
+console.log('Before native builds:')
+console.log('- Re-run npm run mobile:eas:env:coach and npm run mobile:eas:env:parent if any EAS values change.')
+console.log('- Run npm run mobile:build:preflight.')
+console.log('- Set MOBILE_NATIVE_BUILD_CONFIRMED=true only for the build command after EAS values and store-record readiness are confirmed.')
 console.log('')
-console.log('After setup:')
-console.log('- Run npm run mobile:release-check again.')
-console.log('- Record external evidence outside git with apps/MOBILE_EXTERNAL_RELEASE_EVIDENCE.md.')
-console.log('- Do not start native builds until both EAS projects and test environment values are confirmed.')
+console.log('No Netlify deploy is required for mobile EAS, store setup, or native builds.')

@@ -29,6 +29,8 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - External release evidence template is present at `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.
 - EAS remote app versioning and store-test auto-increment are configured for both apps.
+- Expo EAS projects exist for both apps.
+- Development, preview, and production EAS environments are set for both apps with test Supabase and live Supabase disabled.
 - `npm run mobile:release-check` passes locally.
 - `npm run mobile:preflight` is available for local read-only release readiness checks.
 
@@ -37,9 +39,9 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 Complete these in order, and record the outcome in a private copy of `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` inside `apps/mobile-release-evidence/`.
 
 - Create the ignored private evidence file with `npm run mobile:evidence:init`.
-- Create Expo EAS projects for both apps using `MOBILE_EAS_SETUP_CHECKLIST.md`.
-- Add each final `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS, not in git.
-- Add test Supabase and test Netlify API environment values in EAS using `MOBILE_ENVIRONMENT_RUNBOOK.md`.
+- Keep Expo EAS project IDs in EAS and ignored local app `.env.local` files only, not in git.
+- Use `MOBILE_ENVIRONMENT_RUNBOOK.md` when changing any mobile environment value.
+- Recheck EAS values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`, including the printed profile matrix, if any test environment value changes.
 - Confirm EAS remote build numbers and version codes are ready for the next store submissions.
 - Record EAS remote build numbers and version codes in the private evidence file.
 - Create Apple App Store Connect records.
@@ -61,10 +63,8 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Run `npm run mobile:preflight` before external EAS, Apple, or Google work.
 - Run `npm run mobile:next` and confirm the local readiness snapshot is clean before external setup.
 - Run `npm run mobile:eas:whoami` and sign in with `npx eas-cli login` if it reports that Expo EAS is not logged in.
-- Create or confirm the two Expo EAS projects.
-- If EAS project setup changes `app.config.js`, revert that app config change and store `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS only.
-- Add EAS environment values for both apps with `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
-- Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`, including the printed profile matrix.
+- EAS projects and test-only EAS values are in place for both apps.
+- Verify EAS project values again with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent` if any environment value changes.
 - Run `npm run mobile:store:preflight` before creating or editing Apple and Google store records.
 - Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
 - Use `MOBILE_STORE_RECORD_CHECKLIST.md` while creating the four store records.
