@@ -4,6 +4,8 @@ Use this when setting up local mobile development, EAS builds, TestFlight, Googl
 
 Do not commit real Supabase keys, EAS project IDs, API URLs for private environments, service role keys, Apple keys, Google service account files, provisioning profiles, or passwords.
 
+Both mobile app `.gitignore` files must ignore native build artifacts and private credential files such as `.apk`, `.aab`, `.ipa`, `.p8`, `.mobileprovision`, `.keystore`, `.jks`, `GoogleService-Info.plist`, `google-services.json`, and `credentials.json`.
+
 ## Local Development
 
 Local `.env` files may be created beside each app, but must not be committed.

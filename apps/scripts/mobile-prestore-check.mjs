@@ -10,6 +10,7 @@ const apps = [
     appRole: 'coach',
     bundleIdentifier: 'com.footballplayer.coach',
     envExample: 'apps/coach-mobile/.env.example',
+    gitignore: 'apps/coach-mobile/.gitignore',
     notificationIcon: 'apps/coach-mobile/assets/notification-icon.png',
     easConfig: 'apps/coach-mobile/eas.json',
     expectedName: 'Football Player Coach',
@@ -28,6 +29,7 @@ const apps = [
     appRole: 'parent',
     bundleIdentifier: 'com.footballplayer.parents',
     envExample: 'apps/parent-mobile/.env.example',
+    gitignore: 'apps/parent-mobile/.gitignore',
     notificationIcon: 'apps/parent-mobile/assets/notification-icon.png',
     easConfig: 'apps/parent-mobile/eas.json',
     expectedName: 'Football Player Parents',
@@ -150,6 +152,7 @@ function scanPackageDependencies(packageJson, appName) {
 for (const app of apps) {
   assertFile(app.appConfig, `${app.name} app config`)
   assertFile(app.envExample, `${app.name} env example`)
+  assertFile(app.gitignore, `${app.name} gitignore`)
   assertFile(app.notificationIcon, `${app.name} notification icon`)
   assertFile(app.easConfig, `${app.name} EAS config`)
   assertFile(app.metadata, `${app.name} store metadata`)
@@ -185,6 +188,27 @@ for (const app of apps) {
     assertIncludes(envExample, 'EXPO_PUBLIC_EAS_PROJECT_ID=', `${app.name} env example`)
     assertNotIncludes(envExample, 'EXPO_PUBLIC_SUPABASE_ENV=live', `${app.name} env example`)
     assertNotIncludes(envExample, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=true', `${app.name} env example`)
+  }
+
+  if (existsSync(join(repoRoot, app.gitignore))) {
+    const appGitignore = read(app.gitignore)
+    ;[
+      '.expo/',
+      'dist-web-check/',
+      '.env',
+      '*.apk',
+      '*.aab',
+      '*.ipa',
+      '*.p8',
+      '*.mobileprovision',
+      '*.keystore',
+      '*.jks',
+      'GoogleService-Info.plist',
+      'google-services.json',
+      'credentials.json',
+    ].forEach((pattern) => {
+      assertIncludes(appGitignore, pattern, `${app.name} gitignore`)
+    })
   }
 
   if (existsSync(join(repoRoot, app.easConfig))) {
@@ -300,6 +324,7 @@ if (existsSync(join(repoRoot, sharedPrivacyPath))) {
 if (existsSync(join(repoRoot, environmentRunbookPath))) {
   const environmentRunbook = read(environmentRunbookPath)
   assertIncludes(environmentRunbook, 'Do not commit real Supabase keys', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'Both mobile app `.gitignore` files must ignore native build artifacts and private credential files', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'For TestFlight and Google internal builds, `EXPO_PUBLIC_API_BASE_URL` must point at the test API host, not localhost.', 'Mobile environment runbook')
