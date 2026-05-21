@@ -1,7 +1,14 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 
 export function useMobileActionRunner({ setActiveActionId, setStatusMessage }) {
+  const activeActionRef = useRef('')
+
   return useCallback(async (actionId, action, { errorMessage, successMessage } = {}) => {
+    if (activeActionRef.current) {
+      return null
+    }
+
+    activeActionRef.current = actionId
     setActiveActionId(actionId)
     setStatusMessage('')
 
@@ -21,6 +28,10 @@ export function useMobileActionRunner({ setActiveActionId, setStatusMessage }) {
       setStatusMessage(error.message || errorMessage || 'Action could not be completed.')
       return null
     } finally {
+      if (activeActionRef.current === actionId) {
+        activeActionRef.current = ''
+      }
+
       setActiveActionId('')
     }
   }, [setActiveActionId, setStatusMessage])
