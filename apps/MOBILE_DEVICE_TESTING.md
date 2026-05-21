@@ -7,6 +7,7 @@ Use this runbook for physical iOS and Android QA before the PR is marked ready.
 - Confirm the PR deploy preview is green.
 - Confirm both apps use test Supabase only.
 - Run `npm run mobile:prestore` from the repo root.
+- Run `npm run mobile:doctor` from the repo root.
 - Run `npm run mobile:export:web` from the repo root.
 - Confirm these EAS secrets exist for both apps:
   - `EXPO_PUBLIC_SUPABASE_ENV=test`

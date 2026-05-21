@@ -47,6 +47,7 @@ Run from the repo root:
 npm run lint
 npm run build
 npm run mobile:prestore
+npm run mobile:doctor
 npm run mobile:export:web
 git diff --check
 ```

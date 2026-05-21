@@ -8,7 +8,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "doctor": "expo-doctor",
+    "doctor": "npx expo-doctor",
     "build:android:internal": "npx eas-cli build --profile internal --platform android",
     "build:android:store-test": "npx eas-cli build --profile store-test --platform android",
     "build:ios:store-test": "npx eas-cli build --profile store-test --platform ios",
@@ -29,8 +29,5 @@
     "react-native": "0.81.5",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.21.0"
-  },
-  "devDependencies": {
-    "@expo/metro-config": "~54.0.10"
   }
 }

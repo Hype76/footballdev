@@ -10,7 +10,9 @@ const apps = [
     notificationIcon: 'apps/coach-mobile/assets/notification-icon.png',
     easConfig: 'apps/coach-mobile/eas.json',
     metadata: 'apps/coach-mobile/STORE_METADATA.md',
+    metroConfig: 'apps/coach-mobile/metro.config.js',
     name: 'Coach',
+    packageJson: 'apps/coach-mobile/package.json',
     sourceRoots: ['apps/coach-mobile/App.js', 'apps/mobile-core/src'],
   },
   {
@@ -18,7 +20,9 @@ const apps = [
     notificationIcon: 'apps/parent-mobile/assets/notification-icon.png',
     easConfig: 'apps/parent-mobile/eas.json',
     metadata: 'apps/parent-mobile/STORE_METADATA.md',
+    metroConfig: 'apps/parent-mobile/metro.config.js',
     name: 'Parents',
+    packageJson: 'apps/parent-mobile/package.json',
     sourceRoots: ['apps/parent-mobile/App.js', 'apps/mobile-core/src'],
   },
 ]
@@ -88,6 +92,8 @@ for (const app of apps) {
   assertFile(app.notificationIcon, `${app.name} notification icon`)
   assertFile(app.easConfig, `${app.name} EAS config`)
   assertFile(app.metadata, `${app.name} store metadata`)
+  assertFile(app.metroConfig, `${app.name} Metro config`)
+  assertFile(app.packageJson, `${app.name} package`)
 
   if (existsSync(join(repoRoot, app.appConfig))) {
     const appConfig = read(app.appConfig)
@@ -108,6 +114,22 @@ for (const app of apps) {
     assertIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "false"', `${app.name} EAS config`)
     assertNotIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "live"', `${app.name} EAS config`)
     assertNotIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS config`)
+  }
+
+  if (existsSync(join(repoRoot, app.packageJson))) {
+    const appPackage = JSON.parse(read(app.packageJson))
+    if (appPackage.scripts?.doctor !== 'npx expo-doctor') {
+      failures.push(`${app.name} package must run Expo Doctor through npx`)
+    }
+    if (appPackage.dependencies?.['@expo/metro-config'] || appPackage.devDependencies?.['@expo/metro-config']) {
+      failures.push(`${app.name} package must not install @expo/metro-config directly`)
+    }
+  }
+
+  if (existsSync(join(repoRoot, app.metroConfig))) {
+    const metroConfig = read(app.metroConfig)
+    assertIncludes(metroConfig, "require('expo/metro-config')", `${app.name} Metro config`)
+    assertNotIncludes(metroConfig, "require('@expo/metro-config')", `${app.name} Metro config`)
   }
 
   if (existsSync(join(repoRoot, app.metadata))) {
@@ -135,6 +157,9 @@ assertIncludes(mobileSupabase, 'config.isUsable ? config.supabaseUrl', 'Mobile S
 
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))
+  if (rootPackage.scripts?.['mobile:doctor'] !== 'node apps/scripts/mobile-doctor-check.mjs') {
+    failures.push('Root package must include mobile:doctor script')
+  }
   if (rootPackage.scripts?.['mobile:export:web'] !== 'node apps/scripts/mobile-export-web-check.mjs') {
     failures.push('Root package must include mobile:export:web script')
   }
