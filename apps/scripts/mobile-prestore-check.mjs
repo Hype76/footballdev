@@ -70,6 +70,7 @@ const mobileEasInitGuardPath = 'apps/scripts/mobile-eas-init-guard.mjs'
 const mobileEasEnvListGuardPath = 'apps/scripts/mobile-eas-env-list-guard.mjs'
 const mobileEasAuthPath = 'apps/scripts/mobile-eas-auth.mjs'
 const mobileEasAuthCheckPath = 'apps/scripts/mobile-eas-auth-check.mjs'
+const mobileLocalEnvPath = 'apps/scripts/mobile-local-env.mjs'
 const mobileEvidenceInitPath = 'apps/scripts/mobile-evidence-init.mjs'
 
 function read(relativePath) {
@@ -411,6 +412,7 @@ assertFile(mobileEasInitGuardPath, 'Mobile EAS init guard')
 assertFile(mobileEasEnvListGuardPath, 'Mobile EAS env list guard')
 assertFile(mobileEasAuthPath, 'Mobile EAS auth helper')
 assertFile(mobileEasAuthCheckPath, 'Mobile EAS auth check')
+assertFile(mobileLocalEnvPath, 'Mobile local env loader')
 assertFile(mobileEvidenceInitPath, 'Mobile release evidence initializer')
 assertNoTrackedMobilePrivateFiles()
 
@@ -430,6 +432,7 @@ const mobileEasInitGuard = existsSync(join(repoRoot, mobileEasInitGuardPath)) ? 
 const mobileEasEnvListGuard = existsSync(join(repoRoot, mobileEasEnvListGuardPath)) ? read(mobileEasEnvListGuardPath) : ''
 const mobileEasAuth = existsSync(join(repoRoot, mobileEasAuthPath)) ? read(mobileEasAuthPath) : ''
 const mobileEasAuthCheck = existsSync(join(repoRoot, mobileEasAuthCheckPath)) ? read(mobileEasAuthCheckPath) : ''
+const mobileLocalEnv = existsSync(join(repoRoot, mobileLocalEnvPath)) ? read(mobileLocalEnvPath) : ''
 const mobileEvidenceInit = existsSync(join(repoRoot, mobileEvidenceInitPath)) ? read(mobileEvidenceInitPath) : ''
 
 assertIncludes(rootGitignore, 'apps/mobile-release-evidence/', 'Root gitignore')
@@ -445,6 +448,7 @@ assertIncludes(mobileBuildGuard, "execFileSync('npm', ['run', 'mobile:release-ch
 assertIncludes(mobileBuildGuard, 'MOBILE_NATIVE_BUILD_CONFIRMED', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'EAS setup and test environment values are confirmed', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'assertEasLogin()', 'Mobile build guard')
+assertIncludes(mobileBuildGuard, 'loadMobileLocalEnv(repoRoot, app.path)', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'build'", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'--profile', profile", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'--platform', platform", 'Mobile build guard')
@@ -475,6 +479,7 @@ assertIncludes(mobileSubmitGuard, "execFileSync('npm', ['run', 'mobile:release-c
 assertIncludes(mobileSubmitGuard, 'MOBILE_SUBMISSION_CONFIRMED', 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, 'final external QA is confirmed', 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, 'assertEasLogin()', 'Mobile submit guard')
+assertIncludes(mobileSubmitGuard, 'loadMobileLocalEnv(repoRoot, app.path)', 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'submit'", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'--profile', 'store-test'", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'--platform', platform", 'Mobile submit guard')
@@ -504,6 +509,7 @@ assertIncludes(mobileReleaseNext, 'npm run mobile:eas:env:coach', 'Mobile releas
 assertIncludes(mobileReleaseNext, 'npm run mobile:eas:env:parent', 'Mobile release next helper')
 assertIncludes(mobileEasInitGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, 'assertEasLogin()', 'Mobile EAS init guard')
+assertIncludes(mobileEasInitGuard, 'loadMobileLocalEnv(repoRoot, app.path)', 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, "'project:init'", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, "'--force'", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, 'Cannot automatically write to dynamic config', 'Mobile EAS init guard')
@@ -513,7 +519,9 @@ assertIncludes(mobileEasInitGuard, "git', ['status', '--short', '--', app.appCon
 assertIncludes(mobileEasInitGuard, 'app config changed during EAS project setup', 'Mobile EAS init guard')
 assertIncludes(mobileEasEnvListGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'assertEasLogin()', 'Mobile EAS env list guard')
+assertIncludes(mobileEasEnvListGuard, 'loadMobileLocalEnv(repoRoot, app.path)', 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, "'env:list'", 'Mobile EAS env list guard')
+assertIncludes(mobileEasEnvListGuard, "['development', 'preview', 'production']", 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, "'--scope', 'project'", 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'This command does not request sensitive values.', 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'Required profile values before native builds:', 'Mobile EAS env list guard')
@@ -521,6 +529,8 @@ assertIncludes(mobileEasEnvListGuard, 'Do not set MOBILE_NATIVE_BUILD_CONFIRMED=
 assertIncludes(mobileEasAuth, 'Expo EAS login is required before this mobile external command can run.', 'Mobile EAS auth helper')
 assertIncludes(mobileEasAuth, 'npx eas-cli login', 'Mobile EAS auth helper')
 assertIncludes(mobileEasAuthCheck, 'Expo EAS login check passed.', 'Mobile EAS auth check')
+assertIncludes(mobileLocalEnv, 'loadMobileLocalEnv', 'Mobile local env loader')
+assertIncludes(mobileLocalEnv, ".env.local", 'Mobile local env loader')
 assertIncludes(mobileEvidenceInit, "process.argv.includes('--check')", 'Mobile release evidence initializer')
 assertIncludes(mobileEvidenceInit, 'apps/mobile-release-evidence', 'Mobile release evidence initializer')
 assertIncludes(mobileEvidenceInit, 'MOBILE_EXTERNAL_RELEASE_EVIDENCE.md', 'Mobile release evidence initializer')

@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertEasLogin } from './mobile-eas-auth.mjs'
 import { mobileApps } from './mobile-apps.mjs'
+import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const [appRole, profile, platform] = process.argv.slice(2)
@@ -40,6 +41,10 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 console.log(`Release gate passed. Starting EAS build for ${app.expectedName} ${profile} ${platform}.`)
 execFileSync('npx', ['eas-cli', 'build', '--profile', profile, '--platform', platform], {
   cwd: resolve(repoRoot, app.path),
+  env: {
+    ...process.env,
+    ...loadMobileLocalEnv(repoRoot, app.path),
+  },
   stdio: 'inherit',
   shell: process.platform === 'win32',
 })

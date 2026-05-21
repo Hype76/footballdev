@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertEasLogin } from './mobile-eas-auth.mjs'
 import { mobileApps } from './mobile-apps.mjs'
+import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const [appRole] = process.argv.slice(2)
@@ -38,8 +39,18 @@ console.log('- internal: EXPO_PUBLIC_SUPABASE_ENV=test, EXPO_PUBLIC_ALLOW_LIVE_S
 console.log('- store-test: EXPO_PUBLIC_SUPABASE_ENV=test, EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false, API URL must be HTTPS test.')
 console.log('Do not set MOBILE_NATIVE_BUILD_CONFIRMED=true until internal and store-test match those values.')
 
-execFileSync('npx', ['eas-cli', 'env:list', '--scope', 'project', '--format', 'long'], {
-  cwd: resolve(repoRoot, app.path),
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
-})
+const easEnv = {
+  ...process.env,
+  ...loadMobileLocalEnv(repoRoot, app.path),
+}
+
+for (const environmentName of ['development', 'preview', 'production']) {
+  console.log('')
+  console.log(`EAS environment: ${environmentName}`)
+  execFileSync('npx', ['eas-cli', 'env:list', environmentName, '--scope', 'project', '--format', 'long'], {
+    cwd: resolve(repoRoot, app.path),
+    env: easEnv,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
+}

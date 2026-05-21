@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertEasLogin } from './mobile-eas-auth.mjs'
 import { mobileApps } from './mobile-apps.mjs'
+import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const [appRole] = process.argv.slice(2)
@@ -27,6 +28,10 @@ console.log('If EAS offers to write the project ID into app.config.js, remove th
 const initResult = spawnSync('npx', ['eas-cli', 'project:init', '--force'], {
   cwd: resolve(repoRoot, app.path),
   encoding: 'utf8',
+  env: {
+    ...process.env,
+    ...loadMobileLocalEnv(repoRoot, app.path),
+  },
   shell: process.platform === 'win32',
 })
 
