@@ -18,6 +18,7 @@ import {
   updateCoachMatchStatus,
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
+import { getTabForNotificationRoute } from '../mobile-core/src/routes'
 import { colors } from '../mobile-core/src/theme'
 import { AccessScreen, ChoiceGroup, EmptyState, HintText, LegalFooter, ListStack, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, Panel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SegmentedControl, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
@@ -168,9 +169,10 @@ function CoachHome() {
 
   useEffect(() => {
     const route = lastNotificationResponse?.notification?.request?.content?.data?.route
+    const targetTab = getTabForNotificationRoute('coach', route)
 
-    if (route === 'matchday') {
-      setActiveTab('matchday')
+    if (targetTab) {
+      setActiveTab(targetTab)
     }
   }, [lastNotificationResponse])
 
