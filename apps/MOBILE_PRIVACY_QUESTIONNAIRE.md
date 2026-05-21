@@ -123,6 +123,6 @@ Security and deletion:
 
 - Privacy and data protection: `https://footballplayer.online/gdpr`
 - Terms: `https://footballplayer.online/terms`
-- Website and provisional support URL: `https://footballplayer.online/`
+- Website and support URL: `https://footballplayer.online/`
 
-Confirm final support contact and privacy wording before submitting production builds.
+Confirm the public support route is monitored before submitting production builds.

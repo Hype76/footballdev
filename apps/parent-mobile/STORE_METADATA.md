@@ -63,5 +63,3 @@ The app does not include third-party advertising or in-app purchases.
 - Privacy and data protection: `https://footballplayer.online/gdpr`
 - Terms: `https://footballplayer.online/terms`
 - Support: `https://footballplayer.online/`
-
-Confirm final support URL before store submission.

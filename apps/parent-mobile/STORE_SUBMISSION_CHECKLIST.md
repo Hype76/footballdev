@@ -88,4 +88,4 @@ npx eas-cli build --profile store-test --platform android
 - Capture final store screenshots.
 - Supply reviewer credentials for the test parent account.
 - Add reviewer notes in App Store Connect and Google Play Console.
-- Confirm final support URL and privacy policy URL.
+- Confirm the public support route is monitored and the privacy policy URL opens correctly.

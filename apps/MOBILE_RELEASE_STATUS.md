@@ -31,7 +31,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Install builds on real Android and iOS devices.
 - Verify push notifications on real Android and iOS devices.
 - Capture store screenshots using test data only.
-- Confirm final support URL and privacy wording before submission.
+- Confirm the public support route is monitored and privacy wording still matches production before submission.
 
 ## Release gate
 

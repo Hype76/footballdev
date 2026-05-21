@@ -171,6 +171,8 @@ for (const app of apps) {
     assertIncludes(metadata, 'This review build uses the test database', `${app.name} metadata`)
     assertIncludes(metadata, 'https://footballplayer.online/gdpr', `${app.name} metadata`)
     assertIncludes(metadata, 'https://footballplayer.online/terms', `${app.name} metadata`)
+    assertIncludes(metadata, 'Support: `https://footballplayer.online/`', `${app.name} metadata`)
+    assertNotIncludes(metadata, 'Confirm final support URL', `${app.name} metadata`)
   }
 
   app.sourceRoots.forEach((sourceRoot) => scanSource(sourceRoot, app.name))
@@ -214,6 +216,8 @@ if (existsSync(join(repoRoot, sharedPrivacyPath))) {
   assertIncludes(privacyDraft, 'Apps use Expo push notification services', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'https://footballplayer.online/gdpr', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'https://footballplayer.online/terms', 'Mobile privacy questionnaire')
+  assertIncludes(privacyDraft, 'Website and support URL: `https://footballplayer.online/`', 'Mobile privacy questionnaire')
+  assertNotIncludes(privacyDraft, 'provisional support URL', 'Mobile privacy questionnaire')
 }
 
 if (existsSync(join(repoRoot, reviewerHandoffPath))) {
@@ -245,6 +249,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
+  assertNotIncludes(releaseStatus, 'Confirm final support URL', 'Mobile release status')
 }
 
 if (failures.length > 0) {
