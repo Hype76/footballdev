@@ -40,6 +40,7 @@ const forbiddenMobileDependencyPatterns = [
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const environmentRunbookPath = 'apps/MOBILE_ENVIRONMENT_RUNBOOK.md'
+const easSetupChecklistPath = 'apps/MOBILE_EAS_SETUP_CHECKLIST.md'
 const notificationRunbookPath = 'apps/MOBILE_NOTIFICATION_RUNBOOK.md'
 const preStoreQaPath = 'apps/MOBILE_PRE_STORE_QA.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
@@ -346,6 +347,7 @@ for (const app of apps) {
 
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
 assertFile(environmentRunbookPath, 'Mobile environment runbook')
+assertFile(easSetupChecklistPath, 'Mobile EAS setup checklist')
 assertFile(notificationRunbookPath, 'Mobile notification runbook')
 assertFile(preStoreQaPath, 'Mobile pre-store QA')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
@@ -601,6 +603,22 @@ if (existsSync(join(repoRoot, environmentRunbookPath))) {
   assertIncludes(environmentRunbook, 'Do not set live Supabase values for either mobile app until live release approval is explicitly given.', 'Mobile environment runbook')
 }
 
+if (existsSync(join(repoRoot, easSetupChecklistPath))) {
+  const easSetupChecklist = read(easSetupChecklistPath)
+  assertIncludes(easSetupChecklist, '# Football Player Mobile EAS Setup Checklist', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'Football Player Coach', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'Football Player Parents', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'com.footballplayer.coach', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'com.footballplayer.parents', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_EAS_PROJECT_ID', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_API_BASE_URL` must be HTTPS for TestFlight and Google internal builds.', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'Do not set live Supabase values for either mobile app until live release approval is explicitly given.', 'Mobile EAS setup checklist')
+  assertNotIncludes(easSetupChecklist, 'EXPO_PUBLIC_SUPABASE_ENV=live', 'Mobile EAS setup checklist')
+  assertNotIncludes(easSetupChecklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=true', 'Mobile EAS setup checklist')
+}
+
 if (existsSync(join(repoRoot, notificationRunbookPath))) {
   const notificationRunbook = read(notificationRunbookPath)
   assertIncludes(notificationRunbook, 'Native push must be tested on real iOS and Android devices.', 'Mobile notification runbook')
@@ -631,6 +649,8 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'Football Player Parents', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'com.footballplayer.parents', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify each store listing uses the current icons from the app assets.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'EAS setup: `MOBILE_EAS_SETUP_CHECKLIST.md`', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Release phases: `MOBILE_RELEASE_PHASES.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify privacy wording matches `MOBILE_PRIVACY_QUESTIONNAIRE.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify the public support route `https://footballplayer.online/` is monitored before submission.', 'Mobile pre-store QA')
@@ -709,6 +729,7 @@ if (existsSync(join(repoRoot, versioningPath))) {
 if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   const storeSetup = read(storeAccountSetupPath)
   assertIncludes(storeSetup, 'MOBILE_RELEASE_STATUS.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'MOBILE_EAS_SETUP_CHECKLIST.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store account setup')
@@ -728,12 +749,13 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   const releaseStatus = read(releaseStatusPath)
   assertIncludes(releaseStatus, 'npm run mobile:release-check', 'Mobile release status')
   assertIncludes(releaseStatus, 'For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Resolved Expo app config is checked by `npm run mobile:config`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Both apps are locked to test Supabase by default.', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile release status')
-  assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps using `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'EAS remote app versioning and store-test auto-increment are configured for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared Expo native app config exists at `apps/mobile-core/appConfig.cjs`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared mobile UI now covers login, fallback screens, screen chrome, overview, tab rail, settings, layout panels, lists, choice controls, and segmented controls.', 'Mobile release status')
@@ -750,6 +772,7 @@ if (existsSync(join(repoRoot, releasePhasesPath))) {
   assertIncludes(releasePhases, '## Phase 1: Local Repo Readiness', 'Mobile release phases')
   assertIncludes(releasePhases, 'Status: complete in this branch.', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 2: Expo EAS Setup', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Use `MOBILE_EAS_SETUP_CHECKLIST.md` for the app-by-app EAS setup steps.', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 3: Apple And Google Store Records', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 4: Native Builds', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 5: Real Device QA', 'Mobile release phases')

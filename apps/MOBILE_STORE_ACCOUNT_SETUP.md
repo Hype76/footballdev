@@ -4,6 +4,7 @@ Use this when creating the Expo, Apple, and Google records for the two mobile ap
 
 See `MOBILE_RELEASE_STATUS.md` for the current done and remaining release state.
 Use `MOBILE_ENVIRONMENT_RUNBOOK.md` when setting EAS and test API environment values.
+Use `MOBILE_EAS_SETUP_CHECKLIST.md` when creating Expo EAS projects and setting app build environments.
 Use `MOBILE_NOTIFICATION_RUNBOOK.md` when testing native push notifications.
 Use `MOBILE_SCREENSHOT_PLAN.md` when preparing store screenshots.
 Use `MOBILE_VERSIONING.md` before creating native builds.

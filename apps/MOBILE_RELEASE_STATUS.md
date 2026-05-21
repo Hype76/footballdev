@@ -23,13 +23,14 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - Resolved Expo app config is checked by `npm run mobile:config`.
 - Android sensitive permissions that are not used are explicitly blocked.
 - Store metadata, privacy questionnaire, environment runbook, notification runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
+- Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.
 - Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.
 - EAS remote app versioning and store-test auto-increment are configured for both apps.
 - `npm run mobile:release-check` passes locally.
 
 ## Still external before store submission
 
-- Create Expo EAS projects for both apps.
+- Create Expo EAS projects for both apps using `MOBILE_EAS_SETUP_CHECKLIST.md`.
 - Add each final `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS, not in git.
 - Add test Supabase and test Netlify API environment values in EAS using `MOBILE_ENVIRONMENT_RUNBOOK.md`.
 - Confirm EAS remote build numbers and version codes are ready for the next store submissions.
