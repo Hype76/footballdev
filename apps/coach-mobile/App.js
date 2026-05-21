@@ -388,6 +388,7 @@ function CoachHome() {
                 ? 'Coach alerts are enabled on this device.'
                 : notificationState?.message || 'Enable coach alerts for this device.'}
               notificationEnabled={Boolean(notificationState?.isRegistered)}
+              notificationNeedsRefresh={Boolean(notificationState?.requiresContextRefresh)}
               onDisableNotifications={disableNotifications}
               onEnableNotifications={enableNotifications}
               onSignOut={signOut}

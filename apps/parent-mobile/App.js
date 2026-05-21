@@ -364,6 +364,7 @@ function ParentHome() {
                 ? 'Alerts are enabled on this device for the selected child.'
                 : notificationState?.message || 'Enable alerts for matchday goals, full time, messages, and polls.'}
               notificationEnabled={Boolean(notificationState?.isRegistered)}
+              notificationNeedsRefresh={Boolean(notificationState?.requiresContextRefresh)}
               onDisableNotifications={disableNotifications}
               onEnableNotifications={enableNotifications}
               onSignOut={signOut}

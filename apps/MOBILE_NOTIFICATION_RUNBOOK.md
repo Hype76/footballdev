@@ -10,6 +10,7 @@ Native push must be tested on real iOS and Android devices. Simulators, emulator
 - Android uses the `matchday` notification channel.
 - Both app configs use `./assets/notification-icon.png`.
 - Device registration sends the Expo push token to `/.netlify/functions/register-mobile-push-device`.
+- Device registration stores the selected team or child context locally and asks the user to refresh notifications after that context changes.
 - Notification disable sends a DELETE request to `/.netlify/functions/register-mobile-push-device`.
 - Notification taps route users back to the relevant app area.
 - App badge count is cleared when notification setup runs.
@@ -67,3 +68,4 @@ Before store submission, confirm:
 - Stale or uninstalled-device tokens are marked revoked in `mobile_push_devices` after Expo reports `DeviceNotRegistered`.
 - Parent notifications stay scoped to the selected linked child.
 - Coach notifications stay scoped to the relevant club and team.
+- Switching the selected team or child after notification registration shows a refresh prompt before the device is treated as registered for the new context.

@@ -5,6 +5,7 @@ import { Platform } from 'react-native'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 
 const MOBILE_PUSH_TOKEN_KEY = 'football-player:mobile-push-token'
+const MOBILE_PUSH_CONTEXT_KEY = 'football-player:mobile-push-context'
 const MATCHDAY_CHANNEL_ID = 'matchday'
 
 Notifications.setNotificationHandler({
@@ -44,11 +45,49 @@ async function setStoredDeviceToken(deviceToken) {
 
   if (!normalizedToken) {
     await AsyncStorage.removeItem(MOBILE_PUSH_TOKEN_KEY)
+    await AsyncStorage.removeItem(MOBILE_PUSH_CONTEXT_KEY)
     return ''
   }
 
   await AsyncStorage.setItem(MOBILE_PUSH_TOKEN_KEY, normalizedToken)
   return normalizedToken
+}
+
+async function getStoredDeviceContext() {
+  const rawValue = await AsyncStorage.getItem(MOBILE_PUSH_CONTEXT_KEY)
+
+  if (!rawValue) {
+    return null
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue)
+
+    return parsedValue && typeof parsedValue === 'object' ? parsedValue : null
+  } catch {
+    return null
+  }
+}
+
+async function setStoredDeviceContext({ appRole, parentLinkId = '', teamId = '' }) {
+  const context = {
+    appRole: normalize(appRole),
+    parentLinkId: normalize(parentLinkId),
+    teamId: normalize(teamId),
+  }
+
+  await AsyncStorage.setItem(MOBILE_PUSH_CONTEXT_KEY, JSON.stringify(context))
+  return context
+}
+
+function isSameDeviceContext(currentContext, expectedContext) {
+  if (!currentContext) {
+    return false
+  }
+
+  return normalize(currentContext.appRole) === normalize(expectedContext.appRole)
+    && normalize(currentContext.parentLinkId) === normalize(expectedContext.parentLinkId)
+    && normalize(currentContext.teamId) === normalize(expectedContext.teamId)
 }
 
 export async function getNativeNotificationPermissionState() {
@@ -70,14 +109,28 @@ export async function getNativeNotificationPermissionState() {
   }
 }
 
-export async function getNativeNotificationDeviceState() {
+export async function getNativeNotificationDeviceState({ appRole = '', parentLinkId = '', teamId = '' } = {}) {
   const permission = await getNativeNotificationPermissionState()
   const deviceToken = await getStoredDeviceToken()
+  const deviceContext = await getStoredDeviceContext()
+  const expectedContext = {
+    appRole,
+    parentLinkId,
+    teamId,
+  }
+  const hasContext = Boolean(normalize(appRole) || normalize(parentLinkId) || normalize(teamId))
+  const contextMatches = hasContext ? isSameDeviceContext(deviceContext, expectedContext) : true
+  const requiresContextRefresh = Boolean(deviceToken && hasContext && !contextMatches)
 
   return {
     ...permission,
+    context: deviceContext,
     deviceToken,
-    isRegistered: Boolean(deviceToken),
+    isRegistered: Boolean(deviceToken && contextMatches),
+    message: requiresContextRefresh
+      ? 'Refresh notifications for the selected context.'
+      : permission.message,
+    requiresContextRefresh,
   }
 }
 
@@ -139,6 +192,11 @@ export async function registerNativePushDevice({
   }
 
   await setStoredDeviceToken(deviceToken)
+  await setStoredDeviceContext({
+    appRole,
+    parentLinkId,
+    teamId,
+  })
 
   return {
     deviceToken,

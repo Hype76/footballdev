@@ -3,11 +3,15 @@ import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } fr
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from './notifications'
 import { getAccessToken } from './supabase'
 
-async function readDeviceControlState() {
+async function readDeviceControlState({ appRole = '', parentLinkId = '', teamId = '' } = {}) {
   const [availability, enabled, notificationState] = await Promise.all([
     getBiometricAvailability(),
     getBiometricEnabled(),
-    getNativeNotificationDeviceState(),
+    getNativeNotificationDeviceState({
+      appRole,
+      parentLinkId,
+      teamId,
+    }),
   ])
 
   return {
@@ -40,12 +44,16 @@ export function useMobileDeviceControls({
   }, [onStatusMessage])
 
   const refreshDeviceState = useCallback(async () => {
-    const nextDeviceState = await readDeviceControlState()
+    const nextDeviceState = await readDeviceControlState({
+      appRole,
+      parentLinkId,
+      teamId,
+    })
 
     setBiometricAvailable(nextDeviceState.biometricAvailable)
     setBiometricEnabledState(nextDeviceState.biometricEnabled)
     setNotificationState(nextDeviceState.notificationState)
-  }, [])
+  }, [appRole, parentLinkId, teamId])
 
   useEffect(() => {
     void initializeMobileNotifications().catch((error) => {
@@ -58,9 +66,13 @@ export function useMobileDeviceControls({
 
     async function loadDeviceState() {
       try {
-        const nextDeviceState = await readDeviceControlState()
+          const nextDeviceState = await readDeviceControlState({
+            appRole,
+            parentLinkId,
+            teamId,
+          })
 
-        if (isMounted) {
+          if (isMounted) {
           setBiometricAvailable(nextDeviceState.biometricAvailable)
           setBiometricEnabledState(nextDeviceState.biometricEnabled)
           setNotificationState(nextDeviceState.notificationState)
@@ -75,7 +87,7 @@ export function useMobileDeviceControls({
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [appRole, parentLinkId, teamId])
 
   const enableNotifications = useCallback(async () => {
     setIsRegisteringPush(true)

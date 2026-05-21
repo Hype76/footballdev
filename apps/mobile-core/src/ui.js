@@ -540,6 +540,7 @@ export function MobileSettingsPanel({
   lastUpdatedAt,
   notificationCopy,
   notificationEnabled,
+  notificationNeedsRefresh = false,
   onDisableNotifications,
   onEnableNotifications,
   onSignOut,
@@ -551,7 +552,7 @@ export function MobileSettingsPanel({
         <Text style={styles.simpleTitle}>Notifications</Text>
         <Text style={styles.simpleBody}>{notificationCopy}</Text>
         <PrimaryButton loading={isRegisteringPush} onPress={onEnableNotifications}>
-          {notificationEnabled ? 'Refresh notifications' : 'Enable notifications'}
+          {notificationEnabled || notificationNeedsRefresh ? 'Refresh notifications' : 'Enable notifications'}
         </PrimaryButton>
         {notificationEnabled ? (
           <PrimaryButton loading={isRegisteringPush} onPress={onDisableNotifications} variant="secondary">
