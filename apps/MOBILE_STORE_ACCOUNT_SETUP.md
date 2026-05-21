@@ -2,6 +2,8 @@
 
 Use this when creating the Expo, Apple, and Google records for the two mobile apps. Do not commit private keys, passwords, API keys, provisioning profiles, or service account files.
 
+See `MOBILE_RELEASE_STATUS.md` for the current done and remaining release state.
+
 ## Apps
 
 ### Coach app

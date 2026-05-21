@@ -46,6 +46,7 @@ const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
 const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
+const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const rootPackagePath = 'package.json'
 
 function read(relativePath) {
@@ -172,6 +173,7 @@ for (const app of apps) {
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
 assertFile(storeAccountSetupPath, 'Mobile store account setup')
+assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(rootPackagePath, 'Root package')
 
 const mobileConfig = read('apps/mobile-core/src/config.js')
@@ -219,12 +221,22 @@ if (existsSync(join(repoRoot, reviewerHandoffPath))) {
 
 if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   const storeSetup = read(storeAccountSetupPath)
+  assertIncludes(storeSetup, 'MOBILE_RELEASE_STATUS.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.parents', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile store account setup')
   assertIncludes(storeSetup, 'Do not put real Supabase keys, EAS project IDs, or production API URLs in `.env.example`.', 'Mobile store account setup')
   assertIncludes(storeSetup, 'Do not commit private keys', 'Mobile store account setup')
+}
+
+if (existsSync(join(repoRoot, releaseStatusPath))) {
+  const releaseStatus = read(releaseStatusPath)
+  assertIncludes(releaseStatus, 'npm run mobile:release-check', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Both apps are locked to test Supabase by default.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
 }
 
 if (failures.length > 0) {

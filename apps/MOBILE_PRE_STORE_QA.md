@@ -12,6 +12,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Privacy questionnaire draft: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - Reviewer handoff draft: `MOBILE_REVIEWER_HANDOFF.md`
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
+- Release status: `MOBILE_RELEASE_STATUS.md`
 - Test database only until live release approval is given.
 
 ## Required secrets
