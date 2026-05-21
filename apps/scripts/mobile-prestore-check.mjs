@@ -467,6 +467,7 @@ const sendCoachMobilePushFunction = read('netlify/functions/send-coach-mobile-pu
 const sendMatchDayPushFunction = read('netlify/functions/send-match-day-push.js')
 const sendParentMobilePushFunction = read('netlify/functions/send-parent-mobile-push.js')
 assertIncludes(mobileConfig, 'isUsable: isConfigured && !isLiveBlocked', 'Mobile runtime config')
+assertIncludes(mobileConfig, ".toLowerCase()", 'Mobile runtime config')
 assertIncludes(mobileConfig, 'This app build is not ready for access yet.', 'Mobile runtime config')
 assertIncludes(mobileConfig, 'This app build is missing its connection setup.', 'Mobile runtime config')
 assertNotIncludes(mobileConfig, 'Live Supabase is blocked', 'Mobile runtime config')

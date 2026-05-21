@@ -12,7 +12,7 @@ export function getMobileRuntimeConfig(appRole) {
       || process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
       || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   )
-  const supabaseEnvironment = normalize(extra.supabaseEnvironment || process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test')
+  const supabaseEnvironment = normalize(extra.supabaseEnvironment || process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test').toLowerCase()
   const allowLiveSupabase = normalize(extra.allowLiveSupabase || process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false') === 'true'
   const apiBaseUrl = normalize(extra.apiBaseUrl || process.env.EXPO_PUBLIC_API_BASE_URL)
   const easProjectId = normalize(extra.easProjectId || process.env.EXPO_PUBLIC_EAS_PROJECT_ID)
