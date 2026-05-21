@@ -463,9 +463,7 @@ function CoachHome() {
           {statusMessage ? <Text style={styles.notice}>{statusMessage}</Text> : null}
 
           <PrimaryButton onPress={signOut} variant="secondary">Sign Out</PrimaryButton>
-          <Text style={styles.meta}>
-            Supabase: {config.supabaseEnvironment || 'test'} | API: {config.apiBaseUrl || 'not set'}
-          </Text>
+          <Text style={styles.meta}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
           <LegalFooter />
         </View>
       </ScrollView>

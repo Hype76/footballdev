@@ -61,6 +61,11 @@ const forbiddenBrandPatterns = [
   /playerfeedback/i,
 ]
 
+const forbiddenMobileDiagnosticPatterns = [
+  /Supabase:\s*\{/,
+  /API:\s*\{/,
+]
+
 const forbiddenMobileDependencyPatterns = [
   /analytics/i,
   /amplitude/i,
@@ -172,6 +177,12 @@ function scanSource(relativePath, appName) {
   forbiddenBrandPatterns.forEach((pattern) => {
     if (pattern.test(content)) {
       failures.push(`${appName} mobile source contains old brand term ${pattern}: ${relativePath}`)
+    }
+  })
+
+  forbiddenMobileDiagnosticPatterns.forEach((pattern) => {
+    if (pattern.test(content)) {
+      failures.push(`${appName} mobile source contains store-facing environment diagnostics ${pattern}: ${relativePath}`)
     }
   })
 }
@@ -353,6 +364,14 @@ assertIncludes(mobileNotifications, 'Notifications.setBadgeCountAsync(0)', 'Mobi
 assertIncludes(mobileSupabase, 'config.isUsable ? config.supabaseUrl', 'Mobile Supabase client')
 assertIncludes(mobileUi, 'Powered by pulseslabs.online', 'Mobile legal footer')
 assertIncludes(mobileUi, 'Copyright 2026 Football Player.', 'Mobile legal footer')
+
+apps.forEach((app) => {
+  const appSource = read(app.sourceRoots[0])
+  assertIncludes(appSource, 'Connection ready', `${app.name} settings status`)
+  assertIncludes(appSource, 'Connection needs setup', `${app.name} settings status`)
+  assertNotIncludes(appSource, 'Supabase:', `${app.name} settings status`)
+  assertNotIncludes(appSource, 'API:', `${app.name} settings status`)
+})
 
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))
