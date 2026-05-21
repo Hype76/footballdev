@@ -120,6 +120,7 @@ npm run build:android:store-test
 - Parent message read actions require a valid selected child and message.
 - Parent matchday cards only show scorer volunteering while the match is available for scorer requests.
 - Parent poll cards disable voting after an answer is sent or when a poll is closed.
+- Parent poll cards show a clear unavailable state when a poll has no answer options.
 - Shared mobile UI renders consistently across both apps for login, headers, tabs, overview, cards, lists, settings, choice controls, and segmented controls.
 - Shared mobile device controls behave consistently across both apps for notifications and biometric unlock.
 - Biometric unlock locks the app again after the app is backgrounded and reopened.

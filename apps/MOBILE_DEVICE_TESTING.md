@@ -104,6 +104,7 @@ npm run build:ios:store-test
 - Parent can mark a valid unread message as read and cannot mark an invalid message.
 - Staff schedules a parent message, parent device receives a notification only when it is sent.
 - Staff creates a parent poll, parent device receives a poll notification.
+- Parent sees a clear unavailable state if a poll has no answer options.
 - Parent answers an open poll once and then sees the answer as sent.
 - Parent cannot answer a closed poll.
 

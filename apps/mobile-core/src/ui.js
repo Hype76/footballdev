@@ -491,7 +491,8 @@ export function PollCard({ activeOptionId = '', isBusy = false, onVote, poll }) 
   const visibleOptions = showAllOptions ? poll.options : poll.options.slice(0, 4)
   const isOpen = poll.status === 'open'
   const hasAnswer = Boolean(activeOptionId)
-  const canVote = isOpen && !hasAnswer
+  const hasOptions = poll.options.length > 0
+  const canVote = isOpen && !hasAnswer && hasOptions
 
   return (
     <View style={styles.simpleCard}>
@@ -499,6 +500,7 @@ export function PollCard({ activeOptionId = '', isBusy = false, onVote, poll }) 
       {poll.description ? <Text style={styles.simpleBody}>{poll.description}</Text> : null}
       {!isOpen ? <Text style={styles.simpleMeta}>Poll closed</Text> : null}
       {isOpen && hasAnswer ? <Text style={styles.simpleMeta}>Answer sent</Text> : null}
+      {isOpen && !hasOptions ? <Text style={styles.simpleMeta}>No answers available</Text> : null}
       <View style={styles.optionList}>
         {visibleOptions.map((option) => (
           <Pressable
