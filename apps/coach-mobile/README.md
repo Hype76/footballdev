@@ -48,7 +48,7 @@ npm run submit:android:store-test
 ## Store readiness
 
 - App checklist: `STORE_SUBMISSION_CHECKLIST.md`
-- Store metadata draft: `STORE_METADATA.md`
+- Store metadata: `STORE_METADATA.md`
 - Environment runbook: `../MOBILE_ENVIRONMENT_RUNBOOK.md`
 - Notification runbook: `../MOBILE_NOTIFICATION_RUNBOOK.md`
 - Screenshot plan: `../MOBILE_SCREENSHOT_PLAN.md`

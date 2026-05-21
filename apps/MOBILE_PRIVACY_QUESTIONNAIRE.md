@@ -1,8 +1,8 @@
-# Football Player Mobile Privacy Questionnaire Draft
+# Football Player Mobile Privacy Questionnaire
 
-Use this draft when completing App Store Connect app privacy, Google Play Data Safety, and reviewer questionnaires.
+Use this when completing App Store Connect app privacy, Google Play Data Safety, and reviewer questionnaires.
 
-This is not legal advice. Confirm final answers against the live privacy policy and the real production configuration before submission.
+This is a technical implementation summary, not legal advice. Check the answers against the published privacy policy and the real production configuration before submission.
 
 ## Applies to both apps
 
@@ -82,7 +82,7 @@ Purpose:
 - Health or fitness data.
 - Browsing history outside the app.
 
-## Apple privacy labels draft
+## Apple Privacy Labels
 
 Likely categories to review:
 
@@ -103,7 +103,7 @@ Tracking:
 - Mobile pre-store checks block common analytics and advertising SDK packages unless the privacy questionnaire is deliberately revised.
 - Confirm no production analytics or marketing SDK has been added before submission.
 
-## Google Play Data Safety draft
+## Google Play Data Safety
 
 Likely data types to review:
 

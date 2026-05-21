@@ -578,17 +578,23 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
 }
 
 if (existsSync(join(repoRoot, sharedPrivacyPath))) {
-  const privacyDraft = read(sharedPrivacyPath)
-  assertIncludes(privacyDraft, 'Apps do not include in-app purchases.', 'Mobile privacy questionnaire')
-  assertIncludes(privacyDraft, 'Apps do not collect precise location.', 'Mobile privacy questionnaire')
-  assertIncludes(privacyDraft, 'Android builds explicitly block location, camera, microphone, contacts, media, and Bluetooth permissions.', 'Mobile privacy questionnaire')
-  assertIncludes(privacyDraft, 'Android builds request only notification and biometric unlock permissions.', 'Mobile privacy questionnaire')
-  assertIncludes(privacyDraft, 'Apps use Expo push notification services', 'Mobile privacy questionnaire')
-  assertIncludes(privacyDraft, 'https://footballplayer.online/gdpr', 'Mobile privacy questionnaire')
-  assertIncludes(privacyDraft, 'https://footballplayer.online/terms', 'Mobile privacy questionnaire')
-  assertIncludes(privacyDraft, 'Website and support URL: `https://footballplayer.online/`', 'Mobile privacy questionnaire')
-  assertIncludes(privacyDraft, 'Mobile pre-store checks block common analytics and advertising SDK packages unless the privacy questionnaire is deliberately revised.', 'Mobile privacy questionnaire')
-  assertNotIncludes(privacyDraft, 'provisional support URL', 'Mobile privacy questionnaire')
+  const privacyQuestionnaire = read(sharedPrivacyPath)
+  assertIncludes(privacyQuestionnaire, '# Football Player Mobile Privacy Questionnaire', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'This is a technical implementation summary, not legal advice.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'Apps do not include in-app purchases.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'Apps do not collect precise location.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'Android builds explicitly block location, camera, microphone, contacts, media, and Bluetooth permissions.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'Android builds request only notification and biometric unlock permissions.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'Apps use Expo push notification services', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'https://footballplayer.online/gdpr', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'https://footballplayer.online/terms', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'Website and support URL: `https://footballplayer.online/`', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'Mobile pre-store checks block common analytics and advertising SDK packages unless the privacy questionnaire is deliberately revised.', 'Mobile privacy questionnaire')
+  assertNotIncludes(privacyQuestionnaire, 'Privacy Questionnaire Draft', 'Mobile privacy questionnaire')
+  assertNotIncludes(privacyQuestionnaire, 'Use this draft', 'Mobile privacy questionnaire')
+  assertNotIncludes(privacyQuestionnaire, 'Apple privacy labels draft', 'Mobile privacy questionnaire')
+  assertNotIncludes(privacyQuestionnaire, 'Google Play Data Safety draft', 'Mobile privacy questionnaire')
+  assertNotIncludes(privacyQuestionnaire, 'provisional support URL', 'Mobile privacy questionnaire')
 }
 
 if (existsSync(join(repoRoot, environmentRunbookPath))) {
