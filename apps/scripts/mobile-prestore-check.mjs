@@ -7,24 +7,36 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const apps = [
   {
     appConfig: 'apps/coach-mobile/app.config.js',
+    appRole: 'coach',
+    bundleIdentifier: 'com.footballplayer.coach',
     envExample: 'apps/coach-mobile/.env.example',
     notificationIcon: 'apps/coach-mobile/assets/notification-icon.png',
     easConfig: 'apps/coach-mobile/eas.json',
+    expectedName: 'Football Player Coach',
     metadata: 'apps/coach-mobile/STORE_METADATA.md',
     metroConfig: 'apps/coach-mobile/metro.config.js',
     name: 'Coach',
     packageJson: 'apps/coach-mobile/package.json',
+    packageName: 'com.footballplayer.coach',
+    scheme: 'footballplayercoach',
+    slug: 'football-player-coach',
     sourceRoots: ['apps/coach-mobile/App.js', 'apps/mobile-core/src'],
   },
   {
     appConfig: 'apps/parent-mobile/app.config.js',
+    appRole: 'parent',
+    bundleIdentifier: 'com.footballplayer.parents',
     envExample: 'apps/parent-mobile/.env.example',
     notificationIcon: 'apps/parent-mobile/assets/notification-icon.png',
     easConfig: 'apps/parent-mobile/eas.json',
+    expectedName: 'Football Player Parents',
     metadata: 'apps/parent-mobile/STORE_METADATA.md',
     metroConfig: 'apps/parent-mobile/metro.config.js',
     name: 'Parents',
     packageJson: 'apps/parent-mobile/package.json',
+    packageName: 'com.footballplayer.parents',
+    scheme: 'footballplayerparents',
+    slug: 'football-player-parents',
     sourceRoots: ['apps/parent-mobile/App.js', 'apps/mobile-core/src'],
   },
 ]
@@ -143,6 +155,12 @@ for (const app of apps) {
 
   if (existsSync(join(repoRoot, app.appConfig))) {
     const appConfig = read(app.appConfig)
+    assertIncludes(appConfig, `name: '${app.expectedName}'`, `${app.name} app identity`)
+    assertIncludes(appConfig, `slug: '${app.slug}'`, `${app.name} app identity`)
+    assertIncludes(appConfig, `scheme: '${app.scheme}'`, `${app.name} app identity`)
+    assertIncludes(appConfig, `bundleIdentifier: '${app.bundleIdentifier}'`, `${app.name} iOS identity`)
+    assertIncludes(appConfig, `package: '${app.packageName}'`, `${app.name} Android identity`)
+    assertIncludes(appConfig, `appRole: '${app.appRole}'`, `${app.name} app role`)
     assertIncludes(appConfig, "const supabaseEnvironment = process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test'", `${app.name} app config`)
     assertIncludes(appConfig, "const allowLiveSupabase = process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false'", `${app.name} app config`)
     assertIncludes(appConfig, 'ITSAppUsesNonExemptEncryption: false', `${app.name} iOS config`)
@@ -201,6 +219,8 @@ for (const app of apps) {
 
   if (existsSync(join(repoRoot, app.metadata))) {
     const metadata = read(app.metadata)
+    assertIncludes(metadata, `## App name\n\n${app.expectedName}`, `${app.name} metadata`)
+    assertIncludes(metadata, '## Category\n\nSports', `${app.name} metadata`)
     assertIncludes(metadata, 'Payments are handled outside the mobile app', `${app.name} metadata`)
     assertIncludes(metadata, 'This review build uses the test database', `${app.name} metadata`)
     assertIncludes(metadata, 'https://footballplayer.online/gdpr', `${app.name} metadata`)
