@@ -357,10 +357,14 @@ assertFile(mobileConfigCheckPath, 'Mobile config check')
 assertNoTrackedMobilePrivateFiles()
 
 const mobileAppsRegistry = existsSync(join(repoRoot, mobileAppsRegistryPath)) ? read(mobileAppsRegistryPath) : ''
+const mobileConfigCheck = existsSync(join(repoRoot, mobileConfigCheckPath)) ? read(mobileConfigCheckPath) : ''
 
 assertIncludes(mobileAppsRegistry, 'export const mobileApps', 'Mobile app registry')
 assertIncludes(mobileAppsRegistry, "path: 'apps/coach-mobile'", 'Mobile app registry')
 assertIncludes(mobileAppsRegistry, "path: 'apps/parent-mobile'", 'Mobile app registry')
+assertIncludes(mobileConfigCheck, 'assertStoreSafeApiBaseUrl', 'Mobile config check')
+assertIncludes(mobileConfigCheck, 'must use https for release checks when set', 'Mobile config check')
+assertIncludes(mobileConfigCheck, 'must not point at a local development host', 'Mobile config check')
 
 const sharedAppConfig = existsSync(join(repoRoot, sharedAppConfigPath)) ? read(sharedAppConfigPath) : ''
 

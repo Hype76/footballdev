@@ -7,6 +7,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const require = createRequire(import.meta.url)
 const failures = []
 
+function normalize(value) {
+  return String(value ?? '').trim()
+}
+
 function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     failures.push(`${label} expected ${expected} but got ${actual}`)
@@ -16,6 +20,22 @@ function assertEqual(actual, expected, label) {
 function assertIncludes(values, expected, label) {
   if (!Array.isArray(values) || !values.includes(expected)) {
     failures.push(`${label} must include ${expected}`)
+  }
+}
+
+function assertStoreSafeApiBaseUrl(value, label) {
+  const apiBaseUrl = normalize(value)
+
+  if (!apiBaseUrl) {
+    return
+  }
+
+  if (!/^https:\/\//i.test(apiBaseUrl)) {
+    failures.push(`${label} must use https for release checks when set`)
+  }
+
+  if (/\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)(:|\/|$)/i.test(apiBaseUrl)) {
+    failures.push(`${label} must not point at a local development host`)
   }
 }
 
@@ -44,6 +64,7 @@ for (const app of mobileApps) {
   assertEqual(expo.extra?.appRole, app.appRole, `${app.name} resolved app role`)
   assertEqual(expo.extra?.supabaseEnvironment, 'test', `${app.name} resolved Supabase environment`)
   assertEqual(expo.extra?.allowLiveSupabase, 'false', `${app.name} resolved live Supabase gate`)
+  assertStoreSafeApiBaseUrl(expo.extra?.apiBaseUrl, `${app.name} resolved API base URL`)
   assertEqual(expo.plugins?.[0]?.[0], 'expo-notifications', `${app.name} notification plugin`)
   assertEqual(expo.plugins?.[0]?.[1]?.defaultChannel, 'matchday', `${app.name} notification channel`)
   assertEqual(expo.plugins?.[0]?.[1]?.icon, './assets/notification-icon.png', `${app.name} notification icon`)
