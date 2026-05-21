@@ -109,6 +109,7 @@ npx eas-cli build --profile store-test --platform android
 - Parent app keeps matchday, messages, polls, and notification registration scoped to the selected child.
 - Pull-to-refresh reloads Coach matchday, player, session, and assessment data.
 - Pull-to-refresh reloads Parents matchday, message, and poll data.
+- Reopening either app refreshes the current selected data without requiring sign out.
 
 ## Remaining app-store readiness work
 

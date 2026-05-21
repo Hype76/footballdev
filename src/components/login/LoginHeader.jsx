@@ -8,6 +8,10 @@ const navItems = [
   ['/pricing', 'Pricing'],
 ]
 
+const mobileNavLabelStyle = {
+  whiteSpace: 'nowrap',
+}
+
 const emptyContactForm = {
   email: '',
   message: '',
@@ -256,23 +260,23 @@ export function LoginHeader({ logo }) {
             <a
               key={href}
               href={href}
-              className="inline-flex min-h-12 items-center justify-center rounded-2xl px-1 py-2 text-center text-[10.5px] font-black text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[390px]:px-1.5 min-[390px]:text-[11px] min-[430px]:text-xs"
+              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-0.5 py-2 text-center text-[9.5px] font-black leading-none text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[360px]:text-[10px] min-[390px]:px-1 min-[390px]:text-[10.5px] min-[430px]:text-[11px]"
             >
-              <span className="whitespace-nowrap">{label}</span>
+              <span className="block" style={mobileNavLabelStyle}>{label}</span>
             </a>
           ))}
           <button
             type="button"
             onClick={openContactModal}
-            className="inline-flex min-h-12 items-center justify-center rounded-2xl px-1 py-2 text-center text-[10.5px] font-black text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[390px]:px-1.5 min-[390px]:text-[11px] min-[430px]:text-xs"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-0.5 py-2 text-center text-[9.5px] font-black leading-none text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[360px]:text-[10px] min-[390px]:px-1 min-[390px]:text-[10.5px] min-[430px]:text-[11px]"
           >
-            <span className="whitespace-nowrap">Contact</span>
+            <span className="block" style={mobileNavLabelStyle}>Contact</span>
           </button>
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#d8ff2f] px-1 py-2 text-center text-[10.5px] font-black text-black transition hover:opacity-90 min-[390px]:px-1.5 min-[390px]:text-[11px] min-[430px]:text-xs"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl bg-[#d8ff2f] px-0.5 py-2 text-center text-[9.5px] font-black leading-none text-black transition hover:opacity-90 min-[360px]:text-[10px] min-[390px]:px-1 min-[390px]:text-[10.5px] min-[430px]:text-[11px]"
           >
-            <span className="whitespace-nowrap">Login</span>
+            <span className="block" style={mobileNavLabelStyle}>Login</span>
           </a>
         </div>
       </nav>

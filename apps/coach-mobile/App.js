@@ -1,8 +1,8 @@
 import 'react-native-url-polyfill/auto'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
-import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ActivityIndicator, AppState, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
@@ -104,6 +104,22 @@ function CoachHome() {
     [selectedTeam?.id, selectedTeam?.name, user],
   )
 
+  const refreshCoachData = useCallback(async () => {
+    const [nextSummary, nextMatches, nextPlayers, nextSessions, nextFields] = await Promise.all([
+      getCoachHomeSummary(selectedMobileUser),
+      getCoachMatchDays(selectedMobileUser),
+      getCoachPlayers(selectedMobileUser),
+      getCoachSessions(selectedMobileUser),
+      getCoachAssessmentFields(selectedMobileUser),
+    ])
+
+    setSummary(nextSummary)
+    setMatches(nextMatches)
+    setPlayers(nextPlayers)
+    setSessions(nextSessions)
+    setAssessmentFields(nextFields)
+  }, [selectedMobileUser])
+
   useEffect(() => {
     void initializeMobileNotifications()
   }, [])
@@ -154,7 +170,7 @@ function CoachHome() {
     return () => {
       isMounted = false
     }
-  }, [selectedMobileUser])
+  }, [refreshCoachData, selectedMobileUser])
 
   useEffect(() => {
     if (selectedTeam?.id && selectedTeamId !== selectedTeam.id) {
@@ -197,6 +213,20 @@ function CoachHome() {
       setActiveTab('matchday')
     }
   }, [lastNotificationResponse])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && selectedMobileUser?.clubId) {
+        void refreshCoachData().catch((error) => {
+          console.error(error)
+        })
+      }
+    })
+
+    return () => {
+      subscription.remove()
+    }
+  }, [refreshCoachData, selectedMobileUser?.clubId])
 
   async function enableNotifications() {
     setIsRegisteringPush(true)
@@ -255,22 +285,6 @@ function CoachHome() {
     } finally {
       setIsUpdatingBiometrics(false)
     }
-  }
-
-  async function refreshCoachData() {
-    const [nextSummary, nextMatches, nextPlayers, nextSessions, nextFields] = await Promise.all([
-      getCoachHomeSummary(selectedMobileUser),
-      getCoachMatchDays(selectedMobileUser),
-      getCoachPlayers(selectedMobileUser),
-      getCoachSessions(selectedMobileUser),
-      getCoachAssessmentFields(selectedMobileUser),
-    ])
-
-    setSummary(nextSummary)
-    setMatches(nextMatches)
-    setPlayers(nextPlayers)
-    setSessions(nextSessions)
-    setAssessmentFields(nextFields)
   }
 
   async function handleRefresh() {

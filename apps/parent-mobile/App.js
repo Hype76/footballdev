@@ -1,8 +1,8 @@
 import 'react-native-url-polyfill/auto'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
-import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ActivityIndicator, AppState, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
@@ -99,6 +99,20 @@ function ParentHome() {
     return poll.status === 'open' && !poll.currentOptionId && selectedOptionIds.length === 0
   }).length
 
+  const refreshParentData = useCallback(async () => {
+    const [nextSummary, nextMatches, nextMessages, nextPolls] = await Promise.all([
+      getParentHomeSummary(selectedMobileUser),
+      getParentMatchDays(selectedMobileUser),
+      getParentMessages(selectedMobileUser),
+      getParentPolls(selectedMobileUser),
+    ])
+
+    setSummary(nextSummary)
+    setMatches(nextMatches)
+    setMessages(nextMessages)
+    setPolls(nextPolls)
+  }, [selectedMobileUser])
+
   useEffect(() => {
     void initializeMobileNotifications()
   }, [])
@@ -147,7 +161,7 @@ function ParentHome() {
     return () => {
       isMounted = false
     }
-  }, [selectedMobileUser])
+  }, [refreshParentData, selectedMobileUser])
 
   useEffect(() => {
     if (selectedLink?.id && selectedLinkId !== selectedLink.id) {
@@ -200,6 +214,20 @@ function ParentHome() {
       setActiveTab('matchday')
     }
   }, [lastNotificationResponse])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && selectedMobileUser?.id) {
+        void refreshParentData().catch((error) => {
+          console.error(error)
+        })
+      }
+    })
+
+    return () => {
+      subscription.remove()
+    }
+  }, [refreshParentData, selectedMobileUser?.id])
 
   async function enableNotifications() {
     setIsRegisteringPush(true)
@@ -258,20 +286,6 @@ function ParentHome() {
     } finally {
       setIsUpdatingBiometrics(false)
     }
-  }
-
-  async function refreshParentData() {
-    const [nextSummary, nextMatches, nextMessages, nextPolls] = await Promise.all([
-      getParentHomeSummary(selectedMobileUser),
-      getParentMatchDays(selectedMobileUser),
-      getParentMessages(selectedMobileUser),
-      getParentPolls(selectedMobileUser),
-    ])
-
-    setSummary(nextSummary)
-    setMatches(nextMatches)
-    setMessages(nextMessages)
-    setPolls(nextPolls)
   }
 
   async function handleManualRefresh() {

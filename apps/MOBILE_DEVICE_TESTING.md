@@ -54,6 +54,7 @@ npm run build:ios:store-test
 - In Parents, switch linked child if the account has more than one linked child.
 - Pull down to refresh the Coach home screen and confirm the latest matchday and player data reloads.
 - Pull down to refresh the Parents home screen and confirm the latest matchday, messages, and polls reload.
+- Send each app to the background, reopen it, and confirm the current data refreshes without signing out.
 - Enable notifications in both apps.
 - Confirm Android notification permission is granted.
 - Disable notifications in both apps, then enable them again.
@@ -69,6 +70,7 @@ npm run build:ios:store-test
 - In Parents, switch linked child if the account has more than one linked child.
 - Pull down to refresh the Coach home screen and confirm the latest matchday and player data reloads.
 - Pull down to refresh the Parents home screen and confirm the latest matchday, messages, and polls reload.
+- Send each app to the background, reopen it, and confirm the current data refreshes without signing out.
 - Enable notifications in both apps.
 - Confirm iOS notification permission is granted.
 - Disable notifications in both apps, then enable them again.
@@ -92,6 +94,7 @@ npm run build:ios:store-test
 - Both apps install on Android and iPhone.
 - Both apps login with test accounts.
 - Pull-to-refresh reloads the current Coach and Parents app data.
+- Reopening either app refreshes the current Coach and Parents app data.
 - Parent account cannot open the Coach app.
 - Coach-only account cannot open the Parents app without a parent link.
 - Native push registration succeeds in both apps.
