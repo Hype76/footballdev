@@ -33,6 +33,7 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - Development, preview, and production EAS environments are set for both apps with test Supabase and live Supabase disabled.
 - Android internal builds are created for both apps and recorded in the private evidence file.
 - Android store-test AAB builds are created for both apps and recorded in the private evidence file.
+- iOS store-test builds are created for both apps and recorded in the private evidence file.
 - `npm run mobile:release-check` passes locally.
 - `npm run mobile:preflight` is available for local read-only release readiness checks.
 
@@ -52,7 +53,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Create reviewer test accounts and supply credentials only inside store consoles.
 - Run `npm run mobile:reviewer:preflight` before entering credentials in Apple or Google.
 - Build real Android internal builds with the root mobile build commands. Complete for both apps on May 21 2026.
-- Build real iOS TestFlight builds with the root mobile build commands after Apple distribution credentials are set up interactively in EAS.
+- Build real iOS TestFlight builds with the root mobile build commands. Complete for both apps on May 21 2026.
 - Install builds on real Android and iOS devices.
 - Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Record external QA and submission evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
@@ -76,7 +77,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Run `npm run mobile:build:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.
 - Create one Android internal build and one iOS TestFlight build for each app with the root mobile build commands.
 - Android internal and Android store-test builds have been created for both apps.
-- iOS TestFlight builds are blocked until Apple distribution credentials are set up interactively in EAS.
+- iOS TestFlight builds have been created for both apps.
 - Install all four builds on real devices.
 - Complete `MOBILE_DEVICE_TESTING.md`, with push notification evidence from `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Capture screenshots from the real builds using `MOBILE_SCREENSHOT_PLAN.md`.
