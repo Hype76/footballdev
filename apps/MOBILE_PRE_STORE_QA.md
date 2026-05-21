@@ -122,7 +122,14 @@ npx eas-cli build --profile store-test --platform android
 - Run physical device push tests on iPhone and Android.
 - Prepare store screenshots for both apps from `MOBILE_SCREENSHOT_PLAN.md`.
 - Prepare reviewer credentials for both apps.
-- Confirm final app names, icons, bundle identifiers, package names, privacy wording, and support URLs.
+- Verify store records match the current app identities:
+  - Coach app name: `Football Player Coach`
+  - Coach bundle ID and package name: `com.footballplayer.coach`
+  - Parents app name: `Football Player Parents`
+  - Parents bundle ID and package name: `com.footballplayer.parents`
+- Verify each store listing uses the current icons from the app assets.
+- Verify privacy wording matches `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
+- Verify the public support route `https://footballplayer.online/` is monitored before submission.
 - Confirm final live release approval before changing any mobile Supabase setting to live.
 
 ## Release gate

@@ -75,6 +75,7 @@ const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const environmentRunbookPath = 'apps/MOBILE_ENVIRONMENT_RUNBOOK.md'
 const notificationRunbookPath = 'apps/MOBILE_NOTIFICATION_RUNBOOK.md'
+const preStoreQaPath = 'apps/MOBILE_PRE_STORE_QA.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
 const screenshotPlanPath = 'apps/MOBILE_SCREENSHOT_PLAN.md'
 const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
@@ -287,6 +288,7 @@ for (const app of apps) {
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
 assertFile(environmentRunbookPath, 'Mobile environment runbook')
 assertFile(notificationRunbookPath, 'Mobile notification runbook')
+assertFile(preStoreQaPath, 'Mobile pre-store QA')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
 assertFile(screenshotPlanPath, 'Mobile screenshot plan')
 assertFile(storeAccountSetupPath, 'Mobile store account setup')
@@ -355,6 +357,19 @@ if (existsSync(join(repoRoot, notificationRunbookPath))) {
   assertIncludes(notificationRunbook, 'send-parent-mobile-push', 'Mobile notification runbook')
   assertIncludes(notificationRunbook, 'mobile_push_devices', 'Mobile notification runbook')
   assertIncludes(notificationRunbook, 'notification_events', 'Mobile notification runbook')
+}
+
+if (existsSync(join(repoRoot, preStoreQaPath))) {
+  const preStoreQa = read(preStoreQaPath)
+  assertIncludes(preStoreQa, 'Football Player Coach', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'com.footballplayer.coach', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Football Player Parents', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'com.footballplayer.parents', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Verify each store listing uses the current icons from the app assets.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Verify privacy wording matches `MOBILE_PRIVACY_QUESTIONNAIRE.md`.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Verify the public support route `https://footballplayer.online/` is monitored before submission.', 'Mobile pre-store QA')
+  assertNotIncludes(preStoreQa, 'Confirm final app names', 'Mobile pre-store QA')
+  assertNotIncludes(preStoreQa, 'support URLs', 'Mobile pre-store QA')
 }
 
 if (existsSync(join(repoRoot, reviewerHandoffPath))) {
