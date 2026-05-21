@@ -250,29 +250,29 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
-      <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-1 rounded-[1.5rem] border border-white/10 bg-black/78 p-2 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-6 lg:hidden">
-        <div className="grid w-full grid-cols-6 gap-1">
+      <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center rounded-[1.5rem] border border-white/10 bg-black/78 p-1.5 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-6 lg:hidden">
+        <div className="grid w-full grid-cols-6 gap-0.5 min-[390px]:gap-1">
           {navItems.map(([href, label]) => (
             <a
               key={href}
               href={href}
-              className="inline-flex min-h-12 items-center justify-center rounded-2xl px-2 py-2 text-center text-[11px] font-black text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[390px]:text-xs"
+              className="inline-flex min-h-12 items-center justify-center rounded-2xl px-1 py-2 text-center text-[10.5px] font-black text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[390px]:px-1.5 min-[390px]:text-[11px] min-[430px]:text-xs"
             >
-              {label}
+              <span className="whitespace-nowrap">{label}</span>
             </a>
           ))}
           <button
             type="button"
             onClick={openContactModal}
-            className="inline-flex min-h-12 items-center justify-center rounded-2xl px-2 py-2 text-center text-[11px] font-black text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[390px]:text-xs"
+            className="inline-flex min-h-12 items-center justify-center rounded-2xl px-1 py-2 text-center text-[10.5px] font-black text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[390px]:px-1.5 min-[390px]:text-[11px] min-[430px]:text-xs"
           >
-            Contact
+            <span className="whitespace-nowrap">Contact</span>
           </button>
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#d8ff2f] px-2 py-2 text-center text-[11px] font-black text-black transition hover:opacity-90 min-[390px]:text-xs"
+            className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#d8ff2f] px-1 py-2 text-center text-[10.5px] font-black text-black transition hover:opacity-90 min-[390px]:px-1.5 min-[390px]:text-[11px] min-[430px]:text-xs"
           >
-            Login
+            <span className="whitespace-nowrap">Login</span>
           </a>
         </div>
       </nav>
