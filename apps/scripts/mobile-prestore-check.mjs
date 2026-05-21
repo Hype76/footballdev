@@ -188,6 +188,8 @@ for (const app of apps) {
     const appConfig = read(app.appConfig)
     const appPackageForVersion = existsSync(join(repoRoot, app.packageJson)) ? JSON.parse(read(app.packageJson)) : null
 
+    assertNotIncludes(appConfig, 'projectId:', `${app.name} app config`)
+    assertNotIncludes(appConfig, 'EXPO_PUBLIC_EAS_PROJECT_ID=', `${app.name} app config`)
     assertIncludes(appConfig, `name: '${app.expectedName}'`, `${app.name} app identity`)
     assertIncludes(appConfig, `slug: '${app.slug}'`, `${app.name} app identity`)
     assertIncludes(appConfig, `scheme: '${app.scheme}'`, `${app.name} app identity`)
@@ -582,6 +584,7 @@ if (existsSync(join(repoRoot, environmentRunbookPath))) {
   assertIncludes(environmentRunbook, 'Do not commit real Supabase keys', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'Both mobile app `.gitignore` files must ignore native build artifacts and private credential files', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, '`npm run mobile:prestore` fails if a mobile `.env` file, native build artifact, or private store credential file is tracked by git.', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'Do not commit EAS project IDs into `app.config.js`.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'For TestFlight and Google internal builds, `EXPO_PUBLIC_API_BASE_URL` must point at the test API host, not localhost.', 'Mobile environment runbook')
@@ -677,6 +680,7 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'MOBILE_VERSIONING.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.parents', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'If `eas project:init` offers to write a project ID into `app.config.js`, keep the app config env-driven and put the value in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID` instead.', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile store account setup')
   assertIncludes(storeSetup, 'Do not put real Supabase keys, EAS project IDs, or production API URLs in `.env.example`.', 'Mobile store account setup')

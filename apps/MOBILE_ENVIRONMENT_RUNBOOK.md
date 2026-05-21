@@ -4,6 +4,8 @@ Use this when setting up local mobile development, EAS builds, TestFlight, Googl
 
 Do not commit real Supabase keys, EAS project IDs, API URLs for private environments, service role keys, Apple keys, Google service account files, provisioning profiles, or passwords.
 
+Do not commit EAS project IDs into `app.config.js`. The shared Expo config reads `EXPO_PUBLIC_EAS_PROJECT_ID` from the app environment.
+
 Both mobile app `.gitignore` files must ignore native build artifacts and private credential files such as `.apk`, `.aab`, `.ipa`, `.p8`, `.mobileprovision`, `.keystore`, `.jks`, `GoogleService-Info.plist`, `google-services.json`, and `credentials.json`.
 
 ## Local Development

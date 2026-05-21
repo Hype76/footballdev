@@ -48,6 +48,8 @@ npx eas-cli project:init
 
 After each project is created, add its project ID to EAS environment variables as `EXPO_PUBLIC_EAS_PROJECT_ID`.
 
+If `eas project:init` offers to write a project ID into `app.config.js`, keep the app config env-driven and put the value in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID` instead.
+
 Set these EAS environment variables for both apps:
 
 - `EXPO_PUBLIC_SUPABASE_ENV=test`
