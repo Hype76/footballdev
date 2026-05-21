@@ -121,6 +121,10 @@ function ParentHome() {
       setIsLoadingSummary(true)
       setStatusMessage('')
       setLoadError('')
+      setSummary(null)
+      setMatches([])
+      setMessages([])
+      setPolls([])
 
       try {
         const [nextSummary, nextMatches, nextMessages, nextPolls] = await Promise.all([

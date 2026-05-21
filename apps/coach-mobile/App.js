@@ -128,6 +128,11 @@ function CoachHome() {
       setIsLoadingSummary(true)
       setStatusMessage('')
       setLoadError('')
+      setSummary(null)
+      setMatches([])
+      setPlayers([])
+      setSessions([])
+      setAssessmentFields([])
 
       try {
         const [nextSummary, nextMatches, nextPlayers, nextSessions, nextFields] = await Promise.all([
