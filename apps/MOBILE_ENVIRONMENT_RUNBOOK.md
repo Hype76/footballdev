@@ -40,6 +40,14 @@ Set these values separately for both apps inside Expo EAS:
 
 For TestFlight and Google internal builds, `EXPO_PUBLIC_API_BASE_URL` must point at the test API host, not localhost.
 
+Verify these EAS profiles for both apps before building:
+
+- `development` may use the test API host or a local development URL for local device testing.
+- `internal` must use the HTTPS test API host.
+- `store-test` must use the HTTPS test API host.
+
+Every profile must keep `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
+
 ## Netlify Test Environment
 
 Set these in the test Netlify environment used by the mobile apps:

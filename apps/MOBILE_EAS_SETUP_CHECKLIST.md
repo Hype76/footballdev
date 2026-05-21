@@ -56,6 +56,12 @@ Set these values separately for both apps in Expo EAS:
 - `EXPO_PUBLIC_API_BASE_URL`
 - `EXPO_PUBLIC_EAS_PROJECT_ID`
 
+Set and verify them for every build profile that can create reviewer builds:
+
+- `development`
+- `internal`
+- `store-test`
+
 Rules:
 
 - `EXPO_PUBLIC_SUPABASE_URL` must point at the test Supabase project.
@@ -64,6 +70,18 @@ Rules:
 - `EXPO_PUBLIC_API_BASE_URL` must not be localhost for TestFlight or Google internal builds.
 - `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE` must stay `false`.
 - `EXPO_PUBLIC_SUPABASE_ENV` must stay `test`.
+
+## Profile Verification
+
+Before the first native build for each app, verify these profile values in Expo EAS:
+
+| Profile | Supabase env | Live allowed | API URL | Project ID |
+| --- | --- | --- | --- | --- |
+| development | `test` | `false` | test or local dev URL | set in EAS only |
+| internal | `test` | `false` | HTTPS test URL | set in EAS only |
+| store-test | `test` | `false` | HTTPS test URL | set in EAS only |
+
+Do not create TestFlight or Google internal builds until `internal` and `store-test` both use the HTTPS test API URL.
 
 ## After EAS Project Setup
 

@@ -641,6 +641,8 @@ if (existsSync(join(repoRoot, environmentRunbookPath))) {
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'For TestFlight and Google internal builds, `EXPO_PUBLIC_API_BASE_URL` must point at the test API host, not localhost.', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, '`internal` must use the HTTPS test API host.', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, '`store-test` must use the HTTPS test API host.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'Do not set live Supabase values for either mobile app until live release approval is explicitly given.', 'Mobile environment runbook')
 }
 
@@ -655,6 +657,9 @@ if (existsSync(join(repoRoot, easSetupChecklistPath))) {
   assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_API_BASE_URL` must be HTTPS for TestFlight and Google internal builds.', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, '## Profile Verification', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, '| store-test | `test` | `false` | HTTPS test URL | set in EAS only |', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'Do not create TestFlight or Google internal builds until `internal` and `store-test` both use the HTTPS test API URL.', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'Do not set live Supabase values for either mobile app until live release approval is explicitly given.', 'Mobile EAS setup checklist')
   assertNotIncludes(easSetupChecklist, 'EXPO_PUBLIC_SUPABASE_ENV=live', 'Mobile EAS setup checklist')
   assertNotIncludes(easSetupChecklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=true', 'Mobile EAS setup checklist')
