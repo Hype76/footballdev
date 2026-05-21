@@ -12,8 +12,8 @@ This app is test-only until the mobile release is explicitly approved for live S
 
 ## Required before TestFlight or Google internal testing
 
-- Review `STORE_METADATA.md` and confirm final public copy.
-- Review `../MOBILE_PRIVACY_QUESTIONNAIRE.md` and confirm final privacy answers.
+- Verify `STORE_METADATA.md` matches the current app name, restricted-login access model, support URL, privacy URL, and terms URL.
+- Verify `../MOBILE_PRIVACY_QUESTIONNAIRE.md` matches the current app permissions, notification behaviour, no-purchase model, and test-data review build.
 - Prepare reviewer notes and screenshot list from `../MOBILE_REVIEWER_HANDOFF.md`.
 - Complete store account setup from `../MOBILE_STORE_ACCOUNT_SETUP.md`.
 - Check EAS and API values against `../MOBILE_ENVIRONMENT_RUNBOOK.md`.
@@ -27,7 +27,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Confirm `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
 - Create an Apple App Store Connect app record.
 - Create a Google Play Console app record.
-- Confirm app icons and splash assets are final enough for review builds.
+- Confirm app icons and splash assets match the current Football Player brand for review builds.
 - Confirm Android notification icon renders clearly in the status bar and notification drawer.
 - Confirm a real test coach account exists for reviewer login.
 - Keep reviewer email and password out of git. Add them only inside App Store Connect and Google Play Console.

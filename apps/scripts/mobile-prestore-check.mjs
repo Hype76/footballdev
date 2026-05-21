@@ -111,6 +111,12 @@ function assertNotIncludes(content, unexpected, label) {
   }
 }
 
+function assertNotIncludesInsensitive(content, unexpected, label) {
+  if (content.toLowerCase().includes(unexpected.toLowerCase())) {
+    failures.push(`${label} must not include ${unexpected}`)
+  }
+}
+
 function assertNoReviewerCredentialValues(content, label) {
   content.split(/\r?\n/).forEach((line, index) => {
     const normalizedLine = line.trim().replace(/^-+\s*/, '')
@@ -318,10 +324,16 @@ for (const app of apps) {
     assertIncludes(checklist, '../MOBILE_NOTIFICATION_RUNBOOK.md', `${app.name} store submission checklist`)
     assertIncludes(checklist, '../MOBILE_SCREENSHOT_PLAN.md', `${app.name} store submission checklist`)
     assertIncludes(checklist, '../MOBILE_VERSIONING.md', `${app.name} store submission checklist`)
+    assertIncludes(checklist, 'Verify `STORE_METADATA.md` matches the current app name, restricted-login access model, support URL, privacy URL, and terms URL.', `${app.name} store submission checklist`)
+    assertIncludes(checklist, 'Verify `../MOBILE_PRIVACY_QUESTIONNAIRE.md` matches the current app permissions, notification behaviour, no-purchase model, and test-data review build.', `${app.name} store submission checklist`)
+    assertIncludes(checklist, 'Confirm app icons and splash assets match the current Football Player brand for review builds.', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'EXPO_PUBLIC_SUPABASE_ENV=test', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'Keep reviewer email and password out of git. Add them only inside App Store Connect and Google Play Console.', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'Do not paste reviewer credentials into repo files.', `${app.name} store submission checklist`)
+    assertNotIncludesInsensitive(checklist, 'confirm final public copy', `${app.name} store submission checklist`)
+    assertNotIncludesInsensitive(checklist, 'confirm final privacy answers', `${app.name} store submission checklist`)
+    assertNotIncludesInsensitive(checklist, 'final enough', `${app.name} store submission checklist`)
   }
 
   if (existsSync(join(repoRoot, app.readme))) {
