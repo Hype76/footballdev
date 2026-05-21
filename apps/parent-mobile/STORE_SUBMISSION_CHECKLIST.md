@@ -71,6 +71,10 @@ This app is test-only until the mobile release is explicitly approved for live S
 
 ## Build commands
 
+Run only after EAS project setup, test Supabase values, HTTPS test API values, and EAS environment verification are complete.
+
+The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true`.
+
 ```bash
 npm run mobile:build:parent:android:internal
 npm run mobile:build:parent:ios:store-test

@@ -8,6 +8,7 @@ const [appRole, profile, platform] = process.argv.slice(2)
 
 const allowedBuilds = new Set(['internal:android', 'store-test:android', 'store-test:ios'])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
+const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -16,6 +17,13 @@ if (!app) {
 
 if (!allowedBuilds.has(`${profile}:${platform}`)) {
   console.error('Unknown mobile build. Expected internal android, store-test android, or store-test ios.')
+  process.exit(1)
+}
+
+if (!buildConfirmed) {
+  console.error('Mobile native build is blocked until EAS setup and test environment values are confirmed.')
+  console.error('Complete both EAS projects, test Supabase values, HTTPS test API values, and EAS env verification first.')
+  console.error('Then rerun with MOBILE_NATIVE_BUILD_CONFIRMED=true.')
   process.exit(1)
 }
 

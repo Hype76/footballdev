@@ -108,6 +108,8 @@ Run the local release checks first:
 npm run mobile:release-check
 ```
 
+The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true` after EAS setup and test environment verification are complete.
+
 Build Coach:
 
 ```bash

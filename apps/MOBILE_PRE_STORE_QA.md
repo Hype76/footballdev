@@ -70,6 +70,8 @@ git diff --check
 
 Run native builds from the repo root:
 
+The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true` after EAS setup and test environment verification are complete.
+
 ```bash
 npm run mobile:build:coach:android:internal
 npm run mobile:build:coach:ios:store-test
@@ -142,6 +144,7 @@ npm run mobile:build:parent:android:store-test
 - Check `MOBILE_VERSIONING.md` before creating native builds.
 - Create Expo EAS projects for both apps.
 - Add real EAS project IDs to each app environment.
+- Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for the build command after EAS values are verified.
 - Keep `.env.example` files test-only and empty of real secrets.
 - Build real Android internal test builds.
 - Build real iOS TestFlight builds.

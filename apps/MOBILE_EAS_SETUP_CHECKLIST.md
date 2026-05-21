@@ -116,6 +116,7 @@ Do not start native builds until:
 - The test API host is reachable over HTTPS.
 - `npm run mobile:release-check` passes.
 - `MOBILE_RELEASE_PHASES.md` still shows Phase 2 as the active external step.
+- `MOBILE_NATIVE_BUILD_CONFIRMED=true` is set only for the build command after EAS values are verified.
 
 ## Live Database Gate
 

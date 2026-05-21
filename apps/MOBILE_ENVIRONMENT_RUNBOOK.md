@@ -78,6 +78,7 @@ Check both apps:
 - `EXPO_PUBLIC_SUPABASE_ENV` is `test`.
 - `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE` is `false`.
 - No real secrets were added to `.env.example`, docs, or source files.
+- Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for the build command after the EAS project values have been verified.
 
 ## Live Gate
 
