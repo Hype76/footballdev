@@ -24,7 +24,7 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 
 console.log(`Release gate passed. Starting EAS project setup for ${app.expectedName}.`)
 console.log('If EAS offers to write the project ID into app.config.js, remove that change and store EXPO_PUBLIC_EAS_PROJECT_ID in EAS only.')
-execFileSync('npx', ['eas-cli', 'project:init'], {
+execFileSync('npx', ['eas-cli', 'project:init', '--force'], {
   cwd: resolve(repoRoot, app.path),
   stdio: 'inherit',
   shell: process.platform === 'win32',
