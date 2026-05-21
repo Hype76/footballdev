@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from './theme'
 
@@ -223,12 +224,15 @@ export function MessageCard({ isBusy = false, message, onMarkRead }) {
 }
 
 export function PollCard({ activeOptionId = '', isBusy = false, onVote, poll }) {
+  const [showAllOptions, setShowAllOptions] = useState(false)
+  const visibleOptions = showAllOptions ? poll.options : poll.options.slice(0, 4)
+
   return (
     <View style={styles.simpleCard}>
       <Text style={styles.simpleTitle}>{poll.title}</Text>
       {poll.description ? <Text style={styles.simpleBody}>{poll.description}</Text> : null}
       <View style={styles.optionList}>
-        {poll.options.slice(0, 4).map((option) => (
+        {visibleOptions.map((option) => (
           <Pressable
             disabled={isBusy}
             key={option.id}
@@ -239,6 +243,11 @@ export function PollCard({ activeOptionId = '', isBusy = false, onVote, poll }) 
           </Pressable>
         ))}
       </View>
+      {poll.options.length > 4 ? (
+        <PrimaryButton onPress={() => setShowAllOptions((currentValue) => !currentValue)} variant="secondary">
+          {showAllOptions ? 'Show fewer options' : `Show all ${poll.options.length} options`}
+        </PrimaryButton>
+      ) : null}
     </View>
   )
 }

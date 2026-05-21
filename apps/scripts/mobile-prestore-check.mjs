@@ -408,6 +408,8 @@ assertNotIncludes(mobileProfile, 'parent portal link', 'Mobile profile access')
 assertIncludes(mobileSupabase, 'config.isUsable ? config.supabaseUrl', 'Mobile Supabase client')
 assertIncludes(mobileUi, 'Powered by pulseslabs.online', 'Mobile legal footer')
 assertIncludes(mobileUi, 'Copyright 2026 Football Player.', 'Mobile legal footer')
+assertIncludes(mobileUi, 'visibleOptions', 'Mobile poll option access')
+assertIncludes(mobileUi, 'Show all ${poll.options.length} options', 'Mobile poll option access')
 
 apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
