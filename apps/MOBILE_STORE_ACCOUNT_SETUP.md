@@ -110,9 +110,9 @@ Build Coach:
 
 ```bash
 cd apps/coach-mobile
-npx eas-cli build --profile internal --platform android
-npx eas-cli build --profile store-test --platform ios
-npx eas-cli build --profile store-test --platform android
+npm run build:android:internal
+npm run build:ios:store-test
+npm run build:android:store-test
 ```
 
 Submit Coach after store records, credentials, screenshots, reviewer notes, and device QA are complete:
@@ -127,9 +127,9 @@ Build Parents:
 
 ```bash
 cd apps/parent-mobile
-npx eas-cli build --profile internal --platform android
-npx eas-cli build --profile store-test --platform ios
-npx eas-cli build --profile store-test --platform android
+npm run build:android:internal
+npm run build:ios:store-test
+npm run build:android:store-test
 ```
 
 Submit Parents after store records, credentials, screenshots, reviewer notes, and device QA are complete:

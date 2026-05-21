@@ -293,6 +293,18 @@ for (const app of apps) {
     if (appPackage.scripts?.doctor !== 'npx expo-doctor') {
       failures.push(`${app.name} package must run Expo Doctor through npx`)
     }
+    if (appPackage.scripts?.['build:android:internal'] !== 'npx eas-cli build --profile internal --platform android') {
+      failures.push(`${app.name} package must include Android internal build script`)
+    }
+    if (appPackage.scripts?.['build:android:store-test'] !== 'npx eas-cli build --profile store-test --platform android') {
+      failures.push(`${app.name} package must include Android store-test build script`)
+    }
+    if (appPackage.scripts?.['build:ios:store-test'] !== 'npx eas-cli build --profile store-test --platform ios') {
+      failures.push(`${app.name} package must include iOS store-test build script`)
+    }
+    if (appPackage.scripts?.['export:web'] !== 'expo export --platform web --output-dir dist-web-check') {
+      failures.push(`${app.name} package must include mobile web export script`)
+    }
     if (appPackage.scripts?.['submit:android:store-test'] !== 'npx eas-cli submit --profile store-test --platform android') {
       failures.push(`${app.name} package must include Android store-test submit script`)
     }
