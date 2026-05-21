@@ -59,6 +59,7 @@ const mobileBuildGuardPath = 'apps/scripts/mobile-build-guard.mjs'
 const mobileSubmitGuardPath = 'apps/scripts/mobile-submit-guard.mjs'
 const mobileReleaseNextPath = 'apps/scripts/mobile-release-next.mjs'
 const mobileEasInitGuardPath = 'apps/scripts/mobile-eas-init-guard.mjs'
+const mobileEasEnvListGuardPath = 'apps/scripts/mobile-eas-env-list-guard.mjs'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -375,6 +376,7 @@ assertFile(mobileBuildGuardPath, 'Mobile build guard')
 assertFile(mobileSubmitGuardPath, 'Mobile submit guard')
 assertFile(mobileReleaseNextPath, 'Mobile release next helper')
 assertFile(mobileEasInitGuardPath, 'Mobile EAS init guard')
+assertFile(mobileEasEnvListGuardPath, 'Mobile EAS env list guard')
 assertNoTrackedMobilePrivateFiles()
 
 const rootGitignore = existsSync(join(repoRoot, rootGitignorePath)) ? read(rootGitignorePath) : ''
@@ -384,6 +386,7 @@ const mobileBuildGuard = existsSync(join(repoRoot, mobileBuildGuardPath)) ? read
 const mobileSubmitGuard = existsSync(join(repoRoot, mobileSubmitGuardPath)) ? read(mobileSubmitGuardPath) : ''
 const mobileReleaseNext = existsSync(join(repoRoot, mobileReleaseNextPath)) ? read(mobileReleaseNextPath) : ''
 const mobileEasInitGuard = existsSync(join(repoRoot, mobileEasInitGuardPath)) ? read(mobileEasInitGuardPath) : ''
+const mobileEasEnvListGuard = existsSync(join(repoRoot, mobileEasEnvListGuardPath)) ? read(mobileEasEnvListGuardPath) : ''
 
 assertIncludes(rootGitignore, 'apps/mobile-release-evidence/', 'Root gitignore')
 assertIncludes(rootGitignore, 'apps/*release-evidence-private*', 'Root gitignore')
@@ -408,9 +411,15 @@ assertIncludes(mobileReleaseNext, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobi
 assertIncludes(mobileReleaseNext, 'Do not start native builds until both EAS projects and test environment values are confirmed.', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'npm run mobile:eas:init:coach', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'npm run mobile:eas:init:parent', 'Mobile release next helper')
+assertIncludes(mobileReleaseNext, 'npm run mobile:eas:env:coach', 'Mobile release next helper')
+assertIncludes(mobileReleaseNext, 'npm run mobile:eas:env:parent', 'Mobile release next helper')
 assertIncludes(mobileEasInitGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, "'project:init'", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, 'EXPO_PUBLIC_EAS_PROJECT_ID in EAS only', 'Mobile EAS init guard')
+assertIncludes(mobileEasEnvListGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile EAS env list guard')
+assertIncludes(mobileEasEnvListGuard, "'env:list'", 'Mobile EAS env list guard')
+assertIncludes(mobileEasEnvListGuard, "'--scope', 'project'", 'Mobile EAS env list guard')
+assertIncludes(mobileEasEnvListGuard, 'This command does not request sensitive values.', 'Mobile EAS env list guard')
 
 const sharedAppConfig = existsSync(join(repoRoot, sharedAppConfigPath)) ? read(sharedAppConfigPath) : ''
 
@@ -646,6 +655,12 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   if (rootPackage.scripts?.['mobile:eas:init:parent'] !== 'node apps/scripts/mobile-eas-init-guard.mjs parent') {
     failures.push('Root package must include guarded Parents EAS init script')
   }
+  if (rootPackage.scripts?.['mobile:eas:env:coach'] !== 'node apps/scripts/mobile-eas-env-list-guard.mjs coach') {
+    failures.push('Root package must include guarded Coach EAS env list script')
+  }
+  if (rootPackage.scripts?.['mobile:eas:env:parent'] !== 'node apps/scripts/mobile-eas-env-list-guard.mjs parent') {
+    failures.push('Root package must include guarded Parents EAS env list script')
+  }
 }
 
 if (existsSync(join(repoRoot, sharedPrivacyPath))) {
@@ -689,6 +704,8 @@ if (existsSync(join(repoRoot, environmentRunbookPath))) {
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'For TestFlight and Google internal builds, `EXPO_PUBLIC_API_BASE_URL` must point at the test API host, not localhost.', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'npm run mobile:eas:env:coach', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'npm run mobile:eas:env:parent', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, '`internal` must use the HTTPS test API host.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, '`store-test` must use the HTTPS test API host.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'Do not set live Supabase values for either mobile app until live release approval is explicitly given.', 'Mobile environment runbook')
@@ -704,6 +721,8 @@ if (existsSync(join(repoRoot, easSetupChecklistPath))) {
   assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_EAS_PROJECT_ID', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'npm run mobile:eas:init:coach', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'npm run mobile:eas:init:parent', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'npm run mobile:eas:env:coach', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'npm run mobile:eas:env:parent', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_API_BASE_URL` must be HTTPS for TestFlight and Google internal builds.', 'Mobile EAS setup checklist')
@@ -875,6 +894,8 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'apps/mobile-release-evidence/', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
   assertIncludes(releaseStatus, '## Next external action checklist', 'Mobile release status')
+  assertIncludes(releaseStatus, 'npm run mobile:eas:env:coach', 'Mobile release status')
+  assertIncludes(releaseStatus, 'npm run mobile:eas:env:parent', 'Mobile release status')
   assertIncludes(releaseStatus, 'Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
   assertNotIncludes(releaseStatus, 'Confirm final support URL', 'Mobile release status')

@@ -53,6 +53,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Run `npm run mobile:release-check` from the repo root and record the passing commit.
 - Create or confirm the two Expo EAS projects.
 - Add EAS environment values for both apps with `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
+- Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`.
 - Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
 - Enter reviewer credentials only in App Store Connect and Google Play Console.
 - Create one Android internal build and one iOS TestFlight build for each app.

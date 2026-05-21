@@ -27,6 +27,12 @@ npm run mobile:eas:init:coach
 
 If EAS offers to write the project ID into `app.config.js`, do not keep that change. Set the project ID in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID`.
 
+List the EAS project environment values without exposing sensitive values:
+
+```bash
+npm run mobile:eas:env:coach
+```
+
 ## Parents App
 
 - EAS project name: Football Player Parents
@@ -42,6 +48,12 @@ npm run mobile:eas:init:parent
 ```
 
 If EAS offers to write the project ID into `app.config.js`, do not keep that change. Set the project ID in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID`.
+
+List the EAS project environment values without exposing sensitive values:
+
+```bash
+npm run mobile:eas:env:parent
+```
 
 ## EAS Environment Values
 
@@ -80,6 +92,13 @@ Before the first native build for each app, verify these profile values in Expo 
 | store-test | `test` | `false` | HTTPS test URL | set in EAS only |
 
 Do not create TestFlight or Google internal builds until `internal` and `store-test` both use the HTTPS test API URL.
+
+Use the guarded env list commands to verify EAS values before native builds:
+
+```bash
+npm run mobile:eas:env:coach
+npm run mobile:eas:env:parent
+```
 
 ## After EAS Project Setup
 

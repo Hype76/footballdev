@@ -11,6 +11,11 @@ const easInitCommands = {
   parent: 'npm run mobile:eas:init:parent',
 }
 
+const easEnvCommands = {
+  coach: 'npm run mobile:eas:env:coach',
+  parent: 'npm run mobile:eas:env:parent',
+}
+
 console.log(`${phase.title}`)
 console.log(`Status: ${phase.status}`)
 console.log(phase.rule)
@@ -26,6 +31,7 @@ mobileApps.forEach((app) => {
   console.log(`- ${app.expectedName}`)
   console.log(`  ${easInitCommands[app.appRole]}`)
   console.log('  Store EXPO_PUBLIC_EAS_PROJECT_ID in Expo EAS only.')
+  console.log(`  Verify environment values with ${easEnvCommands[app.appRole]}`)
 })
 
 console.log('')

@@ -48,6 +48,13 @@ Verify these EAS profiles for both apps before building:
 
 Every profile must keep `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
 
+List the remote EAS project values without exposing sensitive values:
+
+```bash
+npm run mobile:eas:env:coach
+npm run mobile:eas:env:parent
+```
+
 ## Netlify Test Environment
 
 Set these in the test Netlify environment used by the mobile apps:
