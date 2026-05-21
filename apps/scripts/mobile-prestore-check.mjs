@@ -431,6 +431,8 @@ assertIncludes(mobileDeviceControls, 'registerNativePushDevice', 'Mobile device 
 assertIncludes(mobileDeviceControls, 'revokeNativePushDevice', 'Mobile device controls')
 assertIncludes(mobileDeviceControls, 'setBiometricEnabled', 'Mobile device controls')
 assertIncludes(mobileDeviceControls, 'getAccessToken', 'Mobile device controls')
+assertIncludes(mobileDeviceControls, 'initializeMobileNotifications().catch', 'Mobile device controls')
+assertIncludes(mobileDeviceControls, 'await refreshDeviceState()', 'Mobile device controls')
 assertIncludes(mobileExportWebCheck, "assertExportFile(app, 'index.html')", 'Mobile web export check')
 assertIncludes(mobileExportWebCheck, "assertExportFile(app, 'metadata.json')", 'Mobile web export check')
 assertIncludes(mobileExportWebCheck, "assertExportDirectoryHasFiles(app, '_expo')", 'Mobile web export check')

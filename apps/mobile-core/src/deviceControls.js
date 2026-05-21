@@ -3,6 +3,20 @@ import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } fr
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from './notifications'
 import { getAccessToken } from './supabase'
 
+async function readDeviceControlState() {
+  const [availability, enabled, notificationState] = await Promise.all([
+    getBiometricAvailability(),
+    getBiometricEnabled(),
+    getNativeNotificationDeviceState(),
+  ])
+
+  return {
+    biometricAvailable: availability.available,
+    biometricEnabled: enabled,
+    notificationState,
+  }
+}
+
 export function useMobileDeviceControls({
   apiBaseUrl,
   appRole,
@@ -26,19 +40,17 @@ export function useMobileDeviceControls({
   }, [onStatusMessage])
 
   const refreshDeviceState = useCallback(async () => {
-    const [availability, enabled, nextNotificationState] = await Promise.all([
-      getBiometricAvailability(),
-      getBiometricEnabled(),
-      getNativeNotificationDeviceState(),
-    ])
+    const nextDeviceState = await readDeviceControlState()
 
-    setBiometricAvailable(availability.available)
-    setBiometricEnabledState(enabled)
-    setNotificationState(nextNotificationState)
+    setBiometricAvailable(nextDeviceState.biometricAvailable)
+    setBiometricEnabledState(nextDeviceState.biometricEnabled)
+    setNotificationState(nextDeviceState.notificationState)
   }, [])
 
   useEffect(() => {
-    void initializeMobileNotifications()
+    void initializeMobileNotifications().catch((error) => {
+      console.error(error)
+    })
   }, [])
 
   useEffect(() => {
@@ -46,16 +58,12 @@ export function useMobileDeviceControls({
 
     async function loadDeviceState() {
       try {
-        const [availability, enabled, nextNotificationState] = await Promise.all([
-          getBiometricAvailability(),
-          getBiometricEnabled(),
-          getNativeNotificationDeviceState(),
-        ])
+        const nextDeviceState = await readDeviceControlState()
 
         if (isMounted) {
-          setBiometricAvailable(availability.available)
-          setBiometricEnabledState(enabled)
-          setNotificationState(nextNotificationState)
+          setBiometricAvailable(nextDeviceState.biometricAvailable)
+          setBiometricEnabledState(nextDeviceState.biometricEnabled)
+          setNotificationState(nextDeviceState.notificationState)
         }
       } catch (error) {
         console.error(error)
