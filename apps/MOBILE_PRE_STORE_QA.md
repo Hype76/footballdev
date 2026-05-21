@@ -2,6 +2,8 @@
 
 This checklist covers both Expo apps before TestFlight, Google internal testing, or store review.
 
+Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
+
 ## Apps
 
 - Coach app: `apps/coach-mobile`
@@ -48,9 +50,9 @@ Run from each mobile app folder:
 
 ```bash
 npm run export:web
-npx eas build --profile internal --platform android
-npx eas build --profile store-test --platform ios
-npx eas build --profile store-test --platform android
+npx eas-cli build --profile internal --platform android
+npx eas-cli build --profile store-test --platform ios
+npx eas-cli build --profile store-test --platform android
 ```
 
 ## Store policy checks

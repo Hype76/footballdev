@@ -41,4 +41,5 @@ npm run build:android:store-test
 
 - App checklist: `STORE_SUBMISSION_CHECKLIST.md`
 - Shared mobile QA: `../MOBILE_PRE_STORE_QA.md`
+- Device testing runbook: `../MOBILE_DEVICE_TESTING.md`
 - Keep `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false` until live release approval is given.

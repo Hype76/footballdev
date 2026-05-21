@@ -55,9 +55,9 @@ This app is test-only until the mobile release is explicitly approved for live S
 ```bash
 cd apps/coach-mobile
 npm install
-npx eas build --profile internal --platform android
-npx eas build --profile store-test --platform ios
-npx eas build --profile store-test --platform android
+npx eas-cli build --profile internal --platform android
+npx eas-cli build --profile store-test --platform ios
+npx eas-cli build --profile store-test --platform android
 ```
 
 ## Reviewer notes

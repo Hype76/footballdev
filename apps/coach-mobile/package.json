@@ -9,9 +9,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "doctor": "expo-doctor",
-    "build:android:internal": "npx eas build --profile internal --platform android",
-    "build:android:store-test": "npx eas build --profile store-test --platform android",
-    "build:ios:store-test": "npx eas build --profile store-test --platform ios",
+    "build:android:internal": "npx eas-cli build --profile internal --platform android",
+    "build:android:store-test": "npx eas-cli build --profile store-test --platform android",
+    "build:ios:store-test": "npx eas-cli build --profile store-test --platform ios",
     "export:web": "expo export --platform web --output-dir dist-web-check"
   },
   "dependencies": {
