@@ -9,6 +9,7 @@ const navItems = [
 ]
 
 const mobileNavLabelStyle = {
+  lineHeight: 1,
   whiteSpace: 'nowrap',
 }
 
@@ -254,13 +255,13 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
-      <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center rounded-[1.5rem] border border-white/10 bg-black/78 p-1.5 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-6 lg:hidden">
-        <div className="grid w-full grid-cols-6 gap-0.5 min-[390px]:gap-1">
+      <nav className="fixed inset-x-1.5 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center rounded-[1.5rem] border border-white/10 bg-black/78 p-1 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-6 sm:p-1.5 lg:hidden">
+        <div className="grid w-full grid-cols-6 gap-px min-[390px]:gap-0.5">
           {navItems.map(([href, label]) => (
             <a
               key={href}
               href={href}
-              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-0.5 py-2 text-center text-[9.5px] font-black leading-none text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[360px]:text-[10px] min-[390px]:px-1 min-[390px]:text-[10.5px] min-[430px]:text-[11px]"
+              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-px py-2 text-center text-[8.5px] font-black leading-none text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[360px]:text-[9px] min-[390px]:px-0.5 min-[390px]:text-[9.5px] min-[430px]:text-[10.5px]"
             >
               <span className="block" style={mobileNavLabelStyle}>{label}</span>
             </a>
@@ -268,13 +269,13 @@ export function LoginHeader({ logo }) {
           <button
             type="button"
             onClick={openContactModal}
-            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-0.5 py-2 text-center text-[9.5px] font-black leading-none text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[360px]:text-[10px] min-[390px]:px-1 min-[390px]:text-[10.5px] min-[430px]:text-[11px]"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-px py-2 text-center text-[8.5px] font-black leading-none text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[360px]:text-[9px] min-[390px]:px-0.5 min-[390px]:text-[9.5px] min-[430px]:text-[10.5px]"
           >
             <span className="block" style={mobileNavLabelStyle}>Contact</span>
           </button>
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl bg-[#d8ff2f] px-0.5 py-2 text-center text-[9.5px] font-black leading-none text-black transition hover:opacity-90 min-[360px]:text-[10px] min-[390px]:px-1 min-[390px]:text-[10.5px] min-[430px]:text-[11px]"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl bg-[#d8ff2f] px-px py-2 text-center text-[8.5px] font-black leading-none text-black transition hover:opacity-90 min-[360px]:text-[9px] min-[390px]:px-0.5 min-[390px]:text-[9.5px] min-[430px]:text-[10.5px]"
           >
             <span className="block" style={mobileNavLabelStyle}>Login</span>
           </a>
