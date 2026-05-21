@@ -60,6 +60,7 @@ const mobileSubmitGuardPath = 'apps/scripts/mobile-submit-guard.mjs'
 const mobileReleaseNextPath = 'apps/scripts/mobile-release-next.mjs'
 const mobileEasInitGuardPath = 'apps/scripts/mobile-eas-init-guard.mjs'
 const mobileEasEnvListGuardPath = 'apps/scripts/mobile-eas-env-list-guard.mjs'
+const mobileEvidenceInitPath = 'apps/scripts/mobile-evidence-init.mjs'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -382,6 +383,7 @@ assertFile(mobileSubmitGuardPath, 'Mobile submit guard')
 assertFile(mobileReleaseNextPath, 'Mobile release next helper')
 assertFile(mobileEasInitGuardPath, 'Mobile EAS init guard')
 assertFile(mobileEasEnvListGuardPath, 'Mobile EAS env list guard')
+assertFile(mobileEvidenceInitPath, 'Mobile release evidence initializer')
 assertNoTrackedMobilePrivateFiles()
 
 const rootGitignore = existsSync(join(repoRoot, rootGitignorePath)) ? read(rootGitignorePath) : ''
@@ -392,6 +394,7 @@ const mobileSubmitGuard = existsSync(join(repoRoot, mobileSubmitGuardPath)) ? re
 const mobileReleaseNext = existsSync(join(repoRoot, mobileReleaseNextPath)) ? read(mobileReleaseNextPath) : ''
 const mobileEasInitGuard = existsSync(join(repoRoot, mobileEasInitGuardPath)) ? read(mobileEasInitGuardPath) : ''
 const mobileEasEnvListGuard = existsSync(join(repoRoot, mobileEasEnvListGuardPath)) ? read(mobileEasEnvListGuardPath) : ''
+const mobileEvidenceInit = existsSync(join(repoRoot, mobileEvidenceInitPath)) ? read(mobileEvidenceInitPath) : ''
 
 assertIncludes(rootGitignore, 'apps/mobile-release-evidence/', 'Root gitignore')
 assertIncludes(rootGitignore, 'apps/*release-evidence-private*', 'Root gitignore')
@@ -425,6 +428,10 @@ assertIncludes(mobileEasEnvListGuard, "execFileSync('npm', ['run', 'mobile:relea
 assertIncludes(mobileEasEnvListGuard, "'env:list'", 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, "'--scope', 'project'", 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'This command does not request sensitive values.', 'Mobile EAS env list guard')
+assertIncludes(mobileEvidenceInit, "process.argv.includes('--check')", 'Mobile release evidence initializer')
+assertIncludes(mobileEvidenceInit, 'apps/mobile-release-evidence', 'Mobile release evidence initializer')
+assertIncludes(mobileEvidenceInit, 'MOBILE_EXTERNAL_RELEASE_EVIDENCE.md', 'Mobile release evidence initializer')
+assertIncludes(mobileEvidenceInit, 'Do not commit completed evidence', 'Mobile release evidence initializer')
 
 const sharedAppConfig = existsSync(join(repoRoot, sharedAppConfigPath)) ? read(sharedAppConfigPath) : ''
 
@@ -655,6 +662,12 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   }
   if (rootPackage.scripts?.['mobile:next'] !== 'node apps/scripts/mobile-release-next.mjs') {
     failures.push('Root package must include mobile:next script')
+  }
+  if (rootPackage.scripts?.['mobile:evidence:init'] !== 'node apps/scripts/mobile-evidence-init.mjs') {
+    failures.push('Root package must include mobile:evidence:init script')
+  }
+  if (rootPackage.scripts?.['mobile:evidence:check'] !== 'node apps/scripts/mobile-evidence-init.mjs --check') {
+    failures.push('Root package must include mobile:evidence:check script')
   }
   if (rootPackage.scripts?.['mobile:eas:init:coach'] !== 'node apps/scripts/mobile-eas-init-guard.mjs coach') {
     failures.push('Root package must include guarded Coach EAS init script')

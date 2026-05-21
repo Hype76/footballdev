@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const templatePath = resolve(repoRoot, 'apps/MOBILE_EXTERNAL_RELEASE_EVIDENCE.md')
 const evidenceDir = resolve(repoRoot, 'apps/mobile-release-evidence')
+const isCheckMode = process.argv.includes('--check')
 
 const today = new Date().toISOString().slice(0, 10)
 const commit = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
@@ -18,6 +19,11 @@ const targetPath = resolve(evidenceDir, `${today}-${commit}-external-release-evi
 if (!existsSync(templatePath)) {
   console.error('Missing apps/MOBILE_EXTERNAL_RELEASE_EVIDENCE.md.')
   process.exit(1)
+}
+
+if (isCheckMode) {
+  console.log(`Mobile release evidence initializer check passed. Private folder target: ${evidenceDir}`)
+  process.exit(0)
 }
 
 mkdirSync(evidenceDir, { recursive: true })

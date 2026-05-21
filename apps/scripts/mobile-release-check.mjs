@@ -9,6 +9,7 @@ const checks = [
   ['npm', ['run', 'build']],
   ['npm', ['run', 'mobile:config']],
   ['npm', ['run', 'mobile:prestore']],
+  ['npm', ['run', 'mobile:evidence:check']],
   ['npm', ['run', 'mobile:doctor']],
   ['npm', ['run', 'mobile:export:web']],
   ['git', ['diff', '--check']],
