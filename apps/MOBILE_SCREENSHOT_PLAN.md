@@ -19,6 +19,9 @@ Capture the required iPhone sizes from TestFlight or an installed iOS release ca
 
 - Minimum set: 6.7 inch iPhone display screenshots.
 - Add 6.5 inch iPhone screenshots if App Store Connect asks for them.
+- Use screenshots from a physical device or TestFlight build where possible.
+- Keep each uploaded screenshot under 10 MB.
+- Use PNG or JPEG files only.
 - Use portrait screenshots.
 - Do not show the Expo Go shell, browser chrome, or debug overlays.
 
@@ -27,6 +30,9 @@ Capture the required iPhone sizes from TestFlight or an installed iOS release ca
 Capture Android phone screenshots from the internal test build or release candidate.
 
 - Minimum set: phone screenshots.
+- Upload at least two screenshots per app listing.
+- Keep each screenshot between 320 px and 3840 px on each side.
+- Use PNG or JPEG files only.
 - Use portrait screenshots.
 - Do not show Android debug overlays, emulator controls, or browser chrome.
 - Keep the status bar clean and avoid low battery indicators.

@@ -126,6 +126,7 @@ npx eas-cli build --profile store-test --platform android
 - Build real iOS TestFlight builds.
 - Run physical device push tests on iPhone and Android.
 - Prepare store screenshots for both apps from `MOBILE_SCREENSHOT_PLAN.md`.
+- Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.
 - Prepare reviewer credentials for both apps.
 - Verify store records match the current app identities:
   - Coach app name: `Football Player Coach`
