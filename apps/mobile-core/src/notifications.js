@@ -56,7 +56,7 @@ export async function getNativeNotificationPermissionState() {
     return {
       canAsk: false,
       granted: false,
-      message: 'Native push notifications need a real iOS or Android device.',
+      message: 'Push notifications need a real iOS or Android device.',
     }
   }
 

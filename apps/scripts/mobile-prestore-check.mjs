@@ -25,6 +25,7 @@ const apps = [
     slug: 'football-player-coach',
     sourceRoots: ['apps/coach-mobile/App.js', 'apps/mobile-core/src'],
     submissionChecklist: 'apps/coach-mobile/STORE_SUBMISSION_CHECKLIST.md',
+    restrictedAccessCopy: 'Restricted club access.',
   },
   {
     appConfig: 'apps/parent-mobile/app.config.js',
@@ -45,6 +46,7 @@ const apps = [
     slug: 'football-player-parents',
     sourceRoots: ['apps/parent-mobile/App.js', 'apps/mobile-core/src'],
     submissionChecklist: 'apps/parent-mobile/STORE_SUBMISSION_CHECKLIST.md',
+    restrictedAccessCopy: 'Restricted parent access.',
   },
 ]
 
@@ -391,6 +393,8 @@ apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
   assertIncludes(appSource, 'Connection ready', `${app.name} settings status`)
   assertIncludes(appSource, 'Connection needs setup', `${app.name} settings status`)
+  assertIncludes(appSource, app.restrictedAccessCopy, `${app.name} login copy`)
+  assertNotIncludes(appSource, 'Test environment only.', `${app.name} login copy`)
   assertNotIncludes(appSource, 'Supabase:', `${app.name} settings status`)
   assertNotIncludes(appSource, 'API:', `${app.name} settings status`)
 })

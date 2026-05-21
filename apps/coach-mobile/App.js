@@ -57,7 +57,7 @@ function LoginScreen() {
             <PrimaryButton loading={isSubmitting} onPress={handleLogin}>Log In</PrimaryButton>
           </View>
 
-          <Text style={styles.meta}>Test environment only.</Text>
+          <Text style={styles.meta}>Restricted club access.</Text>
           <LegalFooter />
         </View>
       </ScrollView>
@@ -433,7 +433,7 @@ function CoachHome() {
             <Text style={styles.item}>
               {notificationState?.isRegistered
                 ? 'Coach alerts are enabled on this device.'
-                : notificationState?.message || 'Enable native coach alerts for this device.'}
+                : notificationState?.message || 'Enable coach alerts for this device.'}
             </Text>
             <PrimaryButton loading={isRegisteringPush} onPress={enableNotifications}>
               {notificationState?.isRegistered ? 'Refresh Notifications' : 'Enable Notifications'}

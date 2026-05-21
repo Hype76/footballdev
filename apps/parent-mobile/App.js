@@ -55,7 +55,7 @@ function LoginScreen() {
             <PrimaryButton loading={isSubmitting} onPress={handleLogin}>Log In</PrimaryButton>
           </View>
 
-          <Text style={styles.meta}>Test environment only.</Text>
+          <Text style={styles.meta}>Restricted parent access.</Text>
           <LegalFooter />
         </View>
       </ScrollView>
