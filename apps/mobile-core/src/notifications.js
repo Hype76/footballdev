@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 
 const MOBILE_PUSH_TOKEN_KEY = 'football-player:mobile-push-token'
+const MATCHDAY_CHANNEL_ID = 'matchday'
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -16,6 +17,21 @@ Notifications.setNotificationHandler({
 
 function normalize(value) {
   return String(value ?? '').trim()
+}
+
+export async function initializeMobileNotifications() {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(MATCHDAY_CHANNEL_ID, {
+      description: 'Matchday, message, and poll alerts.',
+      importance: Notifications.AndroidImportance.MAX,
+      lightColor: '#d7ff2f',
+      name: 'Matchday alerts',
+      sound: 'default',
+      vibrationPattern: [0, 250, 250, 250],
+    })
+  }
+
+  await Notifications.setBadgeCountAsync(0).catch(() => {})
 }
 
 async function getStoredDeviceToken() {
@@ -108,6 +124,7 @@ export async function registerNativePushDevice({
     },
     body: JSON.stringify({
       appRole,
+      channelId: MATCHDAY_CHANNEL_ID,
       deviceName: Device.deviceName || '',
       deviceToken,
       parentLinkId,

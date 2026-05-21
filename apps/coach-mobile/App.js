@@ -17,7 +17,7 @@ import {
   undoCoachLastMatchGoal,
   updateCoachMatchStatus,
 } from '../mobile-core/src/data'
-import { getNativeNotificationDeviceState, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
+import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
 import { MatchCard, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatCard, TextField } from '../mobile-core/src/ui'
@@ -101,6 +101,10 @@ function CoachHome() {
       : user,
     [selectedTeam?.id, selectedTeam?.name, user],
   )
+
+  useEffect(() => {
+    void initializeMobileNotifications()
+  }, [])
 
   useEffect(() => {
     let isMounted = true

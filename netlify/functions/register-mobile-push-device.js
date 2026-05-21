@@ -154,6 +154,9 @@ export async function handler(event) {
       .upsert({
         ...payload,
         platform: normalizeText(body.platform) || 'unknown',
+        metadata: {
+          channelId: normalizeText(body.channelId) || 'matchday',
+        },
         device_name: normalizeText(body.deviceName).slice(0, 120),
         status: 'active',
         notification_enabled: true,

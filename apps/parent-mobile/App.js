@@ -15,7 +15,7 @@ import {
   submitParentPollVote,
   volunteerAsMatchScorer,
 } from '../mobile-core/src/data'
-import { getNativeNotificationDeviceState, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
+import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
 import { MatchCard, MessageCard, PollCard, PrimaryButton, StatCard, TextField } from '../mobile-core/src/ui'
@@ -96,6 +96,10 @@ function ParentHome() {
     const selectedOptionIds = Array.isArray(poll.currentOptionIds) ? poll.currentOptionIds : []
     return poll.status === 'open' && !poll.currentOptionId && selectedOptionIds.length === 0
   }).length
+
+  useEffect(() => {
+    void initializeMobileNotifications()
+  }, [])
 
   useEffect(() => {
     let isMounted = true
