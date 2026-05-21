@@ -2,6 +2,8 @@
 
 This records the current state of the Coach and Parents mobile app rebuild.
 
+For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
+
 ## Complete in this branch
 
 - Coach Expo app exists at `apps/coach-mobile`.
@@ -21,6 +23,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Resolved Expo app config is checked by `npm run mobile:config`.
 - Android sensitive permissions that are not used are explicitly blocked.
 - Store metadata, privacy questionnaire, environment runbook, notification runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
+- Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.
 - EAS remote app versioning and store-test auto-increment are configured for both apps.
 - `npm run mobile:release-check` passes locally.
 

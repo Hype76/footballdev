@@ -17,6 +17,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
 - Versioning guide: `MOBILE_VERSIONING.md`
 - Release status: `MOBILE_RELEASE_STATUS.md`
+- Release phases: `MOBILE_RELEASE_PHASES.md`
 - Test database only until live release approval is given.
 
 ## Required secrets

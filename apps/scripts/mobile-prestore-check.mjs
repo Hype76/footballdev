@@ -47,6 +47,7 @@ const screenshotPlanPath = 'apps/MOBILE_SCREENSHOT_PLAN.md'
 const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
 const versioningPath = 'apps/MOBILE_VERSIONING.md'
 const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
+const releasePhasesPath = 'apps/MOBILE_RELEASE_PHASES.md'
 const rootPackagePath = 'package.json'
 const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
 const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
@@ -352,6 +353,7 @@ assertFile(screenshotPlanPath, 'Mobile screenshot plan')
 assertFile(storeAccountSetupPath, 'Mobile store account setup')
 assertFile(versioningPath, 'Mobile versioning guide')
 assertFile(releaseStatusPath, 'Mobile release status')
+assertFile(releasePhasesPath, 'Mobile release phases')
 assertFile(rootPackagePath, 'Root package')
 assertFile(sharedAppConfigPath, 'Mobile shared app config')
 assertFile(mobileAppsRegistryPath, 'Mobile app registry')
@@ -629,6 +631,7 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'Football Player Parents', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'com.footballplayer.parents', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify each store listing uses the current icons from the app assets.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Release phases: `MOBILE_RELEASE_PHASES.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify privacy wording matches `MOBILE_PRIVACY_QUESTIONNAIRE.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify the public support route `https://footballplayer.online/` is monitored before submission.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.', 'Mobile pre-store QA')
@@ -724,6 +727,8 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
 if (existsSync(join(repoRoot, releaseStatusPath))) {
   const releaseStatus = read(releaseStatusPath)
   assertIncludes(releaseStatus, 'npm run mobile:release-check', 'Mobile release status')
+  assertIncludes(releaseStatus, 'For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Resolved Expo app config is checked by `npm run mobile:config`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Both apps are locked to test Supabase by default.', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile release status')
@@ -738,6 +743,18 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
   assertNotIncludes(releaseStatus, 'Confirm final support URL', 'Mobile release status')
+}
+
+if (existsSync(join(repoRoot, releasePhasesPath))) {
+  const releasePhases = read(releasePhasesPath)
+  assertIncludes(releasePhases, '## Phase 1: Local Repo Readiness', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Status: complete in this branch.', 'Mobile release phases')
+  assertIncludes(releasePhases, '## Phase 2: Expo EAS Setup', 'Mobile release phases')
+  assertIncludes(releasePhases, '## Phase 3: Apple And Google Store Records', 'Mobile release phases')
+  assertIncludes(releasePhases, '## Phase 4: Native Builds', 'Mobile release phases')
+  assertIncludes(releasePhases, '## Phase 5: Real Device QA', 'Mobile release phases')
+  assertIncludes(releasePhases, '## Phase 6: Screenshots And Final Store Submission', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Do not switch either app to live Supabase until live release approval is explicitly given.', 'Mobile release phases')
 }
 
 if (failures.length > 0) {
