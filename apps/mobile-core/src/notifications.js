@@ -98,7 +98,7 @@ export async function registerNativePushDevice({
   }
 
   if (!apiBaseUrl) {
-    throw new Error('The mobile API base URL is not configured.')
+    throw new Error('Notifications are not ready for this build.')
   }
 
   const existingPermission = await Notifications.getPermissionsAsync()
@@ -152,7 +152,7 @@ export async function revokeNativePushDevice({ accessToken, apiBaseUrl }) {
   }
 
   if (!apiBaseUrl) {
-    throw new Error('The mobile API base URL is not configured.')
+    throw new Error('Notifications are not ready for this build.')
   }
 
   const deviceToken = await getStoredDeviceToken()

@@ -30,7 +30,7 @@ export async function fetchJsonWithTimeout(url, options = {}) {
     }
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error('The mobile API request timed out. Check the test API URL and try again.')
+      throw new Error('The request timed out. Check your connection and try again.')
     }
 
     throw error
