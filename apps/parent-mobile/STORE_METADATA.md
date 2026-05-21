@@ -28,6 +28,10 @@ football parents, grassroots football, matchday updates, team messages, parent p
 
 Sports
 
+## Copyright and publisher
+
+Copyright 2026 Football Player. Powered by pulseslabs.online.
+
 ## Age rating notes
 
 No gambling, no user generated public social feed, no public chat, no mature content.

@@ -28,6 +28,10 @@ football coaching, grassroots football, matchday, player assessment, football cl
 
 Sports
 
+## Copyright and publisher
+
+Copyright 2026 Football Player. Powered by pulseslabs.online.
+
 ## Age rating notes
 
 No gambling, no user generated public social feed, no public chat, no mature content.

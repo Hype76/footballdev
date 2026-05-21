@@ -314,6 +314,7 @@ for (const app of apps) {
     const metadata = read(app.metadata)
     assertIncludes(metadata, `## App name\n\n${app.expectedName}`, `${app.name} metadata`)
     assertIncludes(metadata, '## Category\n\nSports', `${app.name} metadata`)
+    assertIncludes(metadata, 'Copyright 2026 Football Player. Powered by pulseslabs.online.', `${app.name} metadata`)
     assertIncludes(metadata, 'Payments are handled outside the mobile app', `${app.name} metadata`)
     assertIncludes(metadata, 'This review build uses the test database', `${app.name} metadata`)
     assertIncludes(metadata, 'https://footballplayer.online/gdpr', `${app.name} metadata`)
