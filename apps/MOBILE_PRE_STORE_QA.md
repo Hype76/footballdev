@@ -67,9 +67,9 @@ git diff --check
 Run from each mobile app folder:
 
 ```bash
-npx eas-cli build --profile internal --platform android
-npx eas-cli build --profile store-test --platform ios
-npx eas-cli build --profile store-test --platform android
+npm run build:android:internal
+npm run build:ios:store-test
+npm run build:android:store-test
 ```
 
 ## Store policy checks
