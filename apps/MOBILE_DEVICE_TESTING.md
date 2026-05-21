@@ -4,7 +4,8 @@ Use this runbook for physical iOS and Android QA before the PR is marked ready.
 
 ## Before building
 
-- Confirm the PR deploy preview is green.
+- Confirm this branch has passed `npm run mobile:release-check`.
+- Create or update the private release evidence file with `npm run mobile:evidence:init`.
 - Confirm both apps use test Supabase only.
 - Confirm EAS environment values match `MOBILE_ENVIRONMENT_RUNBOOK.md`.
 - Confirm EAS project setup matches `MOBILE_EAS_SETUP_CHECKLIST.md`.
@@ -27,8 +28,11 @@ Use this runbook for physical iOS and Android QA before the PR is marked ready.
   - `WEB_PUSH_PUBLIC_KEY`
   - `WEB_PUSH_PRIVATE_KEY`
   - `WEB_PUSH_SUBJECT`
+- Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only after EAS values and the HTTPS test API are verified.
 
 ## Build Coach app
+
+The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true`.
 
 ```bash
 npm run mobile:build:coach:android:internal
@@ -36,6 +40,8 @@ npm run mobile:build:coach:ios:store-test
 ```
 
 ## Build Parents app
+
+The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true`.
 
 ```bash
 npm run mobile:build:parent:android:internal
@@ -108,14 +114,16 @@ npm run mobile:build:parent:ios:store-test
 
 ## Evidence log
 
-Record this outside the repo for each test run. Use `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` as the template:
+Record this in a private evidence copy under `apps/mobile-release-evidence/` for each test run. Create the copy with `npm run mobile:evidence:init`.
 
 - Build IDs for Coach iOS, Coach Android, Parents iOS, and Parents Android.
 - Device model, operating system version, and app version for each installed build.
 - Test account role used for each app.
 - Pass or fail result for login, refresh, foreground reload, notifications, biometric unlock, and role restriction checks.
+- Role restriction evidence for parent account blocked from Coach and coach-only account blocked from Parents.
 - `mobile_push_devices` rows created or revoked during the run.
 - `notification_events` rows for each push test, including failed outcomes.
+- Notification tap result for matchday, message, and poll routes.
 - Screenshot folder path used for store captures.
 - Any failure notes, retest date, and fixed build ID.
 

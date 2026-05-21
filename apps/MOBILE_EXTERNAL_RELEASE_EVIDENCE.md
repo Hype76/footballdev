@@ -69,10 +69,12 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 - Coach refresh:
 - Coach notifications:
 - Coach biometric unlock:
+- Parent account blocked from Coach:
 - Parents login:
 - Parents refresh:
 - Parents notifications:
 - Parents biometric unlock:
+- Coach-only account blocked from Parents:
 
 ### iOS
 
@@ -82,10 +84,12 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 - Coach refresh:
 - Coach notifications:
 - Coach biometric unlock:
+- Parent account blocked from Coach:
 - Parents login:
 - Parents refresh:
 - Parents notifications:
 - Parents biometric unlock:
+- Coach-only account blocked from Parents:
 
 ## Notification Evidence
 
@@ -100,6 +104,10 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 - Immediate parent message notification:
 - Scheduled parent message notification:
 - Parent poll notification:
+- Matchday notification tap route:
+- Parent message notification tap route:
+- Parent poll notification tap route:
+- Scorer volunteer notification tap route:
 - Failed notification rows reviewed in `notification_events`:
 - Stale tokens revoked after `DeviceNotRegistered`:
 

@@ -58,6 +58,8 @@ Required test environment values:
 
 ## QA Evidence
 
+Record these results in a private evidence copy under `apps/mobile-release-evidence/`.
+
 Before store submission, confirm:
 
 - Both apps can register a real device token.
@@ -69,3 +71,5 @@ Before store submission, confirm:
 - Parent notifications stay scoped to the selected linked child.
 - Coach notifications stay scoped to the relevant club and team.
 - Switching the selected team or child after notification registration shows a refresh prompt before the device is treated as registered for the new context.
+- Notification tap routes are checked for matchday, parent messages, parent polls, and scorer volunteer flows.
+- Any failed `notification_events` rows are reviewed before submission.
