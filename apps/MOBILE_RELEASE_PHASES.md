@@ -12,6 +12,7 @@ Status: complete in this branch.
 - Test Supabase is the default and live Supabase is blocked.
 - Billing, checkout, subscription management, Stripe controls, and bulk email are excluded from mobile source.
 - Store metadata, privacy, reviewer, screenshot, environment, versioning, notification, and device QA docs exist.
+- `npm run mobile:preflight` runs the local next-step, build, store, and submit preflights without external service calls.
 - `npm run mobile:release-check` passes locally.
 
 ## Phase 2: Expo EAS Setup
@@ -23,6 +24,7 @@ Exit criteria: both app projects exist in Expo, each app has its own EAS project
 - Create one EAS project for Football Player Coach.
 - Create one EAS project for Football Player Parents.
 - Use `MOBILE_EAS_SETUP_CHECKLIST.md` for the app-by-app EAS setup steps.
+- Use `npm run mobile:preflight` before starting external setup.
 - Use `npm run mobile:next` to print the current external step, local readiness snapshot, and no-deploy reminder.
 - Set `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS for each app.
 - Set test Supabase URL and publishable key in EAS for each app.
@@ -40,6 +42,7 @@ Exit criteria: four store records exist, reviewer notes are entered, reviewer cr
 - Create the App Store Connect record for Football Player Parents.
 - Create the Google Play Console record for Football Player Coach.
 - Create the Google Play Console record for Football Player Parents.
+- Run `npm run mobile:preflight` before creating or editing store records.
 - Add store metadata from each app's `STORE_METADATA.md`.
 - Add privacy answers from `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
 - Add reviewer access notes from `MOBILE_REVIEWER_HANDOFF.md`.
@@ -52,6 +55,7 @@ Status: external after EAS setup.
 Exit criteria: Coach and Parents each have one Android internal build and one iOS TestFlight build created from a commit that passed `npm run mobile:release-check`.
 
 - Run `npm run mobile:release-check` immediately before builds.
+- Run `npm run mobile:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.
 - Build Coach Android internal build with `npm run mobile:build:coach:android:internal`.
 - Build Coach iOS TestFlight build with `npm run mobile:build:coach:ios:store-test`.
 - Build Parents Android internal build with `npm run mobile:build:parent:android:internal`.
@@ -82,6 +86,7 @@ Exit criteria: screenshots are captured from real builds with test data only, re
 - Confirm screenshots show test data only.
 - Confirm reviewer credentials work immediately before submission.
 - Run `npm run mobile:release-check` one final time.
+- Run `npm run mobile:preflight` before setting `MOBILE_SUBMISSION_CONFIRMED=true`.
 - Submit Coach to Apple with `npm run mobile:submit:coach:ios:store-test`.
 - Submit Coach to Google with `npm run mobile:submit:coach:android:store-test`.
 - Submit Parents to Apple with `npm run mobile:submit:parent:ios:store-test`.

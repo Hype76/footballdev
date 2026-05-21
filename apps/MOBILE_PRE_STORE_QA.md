@@ -58,6 +58,12 @@ Run the full local release check from the repo root:
 npm run mobile:release-check
 ```
 
+Run the local preflight summary before external EAS, Apple, or Google work:
+
+```bash
+npm run mobile:preflight
+```
+
 Or run the checks individually:
 
 ```bash

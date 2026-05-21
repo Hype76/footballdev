@@ -30,6 +30,7 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.
 - EAS remote app versioning and store-test auto-increment are configured for both apps.
 - `npm run mobile:release-check` passes locally.
+- `npm run mobile:preflight` is available for local read-only release readiness checks.
 
 ## Still external before store submission
 
@@ -56,6 +57,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 ## Next external action checklist
 
 - Run `npm run mobile:release-check` from the repo root and record the passing commit.
+- Run `npm run mobile:preflight` before external EAS, Apple, or Google work.
 - Run `npm run mobile:next` and confirm the local readiness snapshot is clean before external setup.
 - Create or confirm the two Expo EAS projects.
 - If EAS project setup changes `app.config.js`, revert that app config change and store `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS only.
