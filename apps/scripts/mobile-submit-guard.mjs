@@ -8,6 +8,7 @@ const [appRole, platform] = process.argv.slice(2)
 
 const allowedPlatforms = new Set(['android', 'ios'])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
+const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -16,6 +17,13 @@ if (!app) {
 
 if (!allowedPlatforms.has(platform)) {
   console.error('Unknown submit platform. Expected android or ios.')
+  process.exit(1)
+}
+
+if (!submissionConfirmed) {
+  console.error('Mobile store submission is blocked until final external QA is confirmed.')
+  console.error('Complete store records, reviewer credentials, screenshots, reviewer notes, physical device QA, notification QA, and private release evidence first.')
+  console.error('Then rerun with MOBILE_SUBMISSION_CONFIRMED=true.')
   process.exit(1)
 }
 

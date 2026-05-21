@@ -79,7 +79,9 @@ npm run mobile:build:parent:android:store-test
 
 ## Submit commands
 
-Run only after store records, reviewer credentials, screenshots, reviewer notes, and device QA are complete.
+Run only after store records, reviewer credentials, screenshots, reviewer notes, device QA, notification QA, and private release evidence are complete.
+
+The guarded submit commands require `MOBILE_SUBMISSION_CONFIRMED=true`.
 
 ```bash
 npm run mobile:submit:parent:ios:store-test

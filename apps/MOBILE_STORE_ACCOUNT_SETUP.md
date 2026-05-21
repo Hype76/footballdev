@@ -116,7 +116,9 @@ npm run mobile:build:coach:ios:store-test
 npm run mobile:build:coach:android:store-test
 ```
 
-Submit Coach after store records, credentials, screenshots, reviewer notes, and device QA are complete:
+Submit Coach after store records, credentials, screenshots, reviewer notes, device QA, notification QA, and private release evidence are complete.
+
+The guarded submit commands require `MOBILE_SUBMISSION_CONFIRMED=true`.
 
 ```bash
 npm run mobile:submit:coach:ios:store-test
@@ -131,7 +133,9 @@ npm run mobile:build:parent:ios:store-test
 npm run mobile:build:parent:android:store-test
 ```
 
-Submit Parents after store records, credentials, screenshots, reviewer notes, and device QA are complete:
+Submit Parents after store records, credentials, screenshots, reviewer notes, device QA, notification QA, and private release evidence are complete.
+
+The guarded submit commands require `MOBILE_SUBMISSION_CONFIRMED=true`.
 
 ```bash
 npm run mobile:submit:parent:ios:store-test
@@ -151,3 +155,4 @@ Do not submit either app until:
 - Store review notes explain that payments are handled outside the mobile app.
 - Both apps still use `EXPO_PUBLIC_SUPABASE_ENV=test`.
 - Both apps still use `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
+- `MOBILE_SUBMISSION_CONFIRMED=true` is set only for the final submit command after the evidence log is complete.
