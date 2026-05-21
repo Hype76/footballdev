@@ -2,7 +2,7 @@ import 'react-native-url-polyfill/auto'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
@@ -78,6 +78,7 @@ function CoachHome() {
   const [statusMessage, setStatusMessage] = useState('')
   const [activeActionId, setActiveActionId] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
@@ -272,6 +273,25 @@ function CoachHome() {
     setAssessmentFields(nextFields)
   }
 
+  async function handleRefresh() {
+    if (!selectedMobileUser?.clubId) {
+      return
+    }
+
+    setIsRefreshing(true)
+    setStatusMessage('')
+
+    try {
+      await refreshCoachData()
+      setStatusMessage('Latest coach updates loaded.')
+    } catch (error) {
+      console.error(error)
+      setStatusMessage(error.message || 'Latest coach updates could not be loaded.')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   async function handleMatchStatus(match, status) {
     setActiveActionId(`status:${match.id}:${status}`)
     setStatusMessage('')
@@ -363,7 +383,17 @@ function CoachHome() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={(
+          <RefreshControl
+            colors={[colors.accent]}
+            onRefresh={handleRefresh}
+            refreshing={isRefreshing}
+            tintColor={colors.accent}
+          />
+        )}
+      >
         <View style={styles.shell}>
           <Image source={require('./assets/football-player-logo.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.kicker}>{user.clubName}</Text>
