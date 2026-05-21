@@ -20,6 +20,8 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Check native push requirements against `../MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Prepare screenshots from `../MOBILE_SCREENSHOT_PLAN.md`.
 - Check build numbering against `../MOBILE_VERSIONING.md`.
+- Follow release phase ownership from `../MOBILE_RELEASE_PHASES.md`.
+- Record external build, device, screenshot, and submission evidence in a private copy of `../MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Create the Expo EAS project and set `EXPO_PUBLIC_EAS_PROJECT_ID`.
 - Add test Supabase URL and publishable key as EAS secrets.
 - Add the Netlify test API base URL as `EXPO_PUBLIC_API_BASE_URL`.
@@ -101,6 +103,7 @@ npm run submit:android:store-test
 - Add the final EAS project ID.
 - Build and install the Android internal build.
 - Build and install the iOS TestFlight build.
+- Record build IDs and device results in `../MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Capture final store screenshots from `../MOBILE_SCREENSHOT_PLAN.md`.
 - Supply reviewer credentials for the test coach account.
 - Do not paste reviewer credentials into repo files.
