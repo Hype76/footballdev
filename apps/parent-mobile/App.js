@@ -16,7 +16,7 @@ import {
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { colors } from '../mobile-core/src/theme'
-import { AccessScreen, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, ScreenHeader, StatusBanner, TabRail } from '../mobile-core/src/ui'
+import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, ScreenHeader, StatusBanner, TabRail } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -385,24 +385,15 @@ function ParentHome() {
 
 function ChildSelector({ links, onSelect, selectedLinkId }) {
   return (
-    <View style={styles.childSelector}>
-      {links.map((link) => {
-        const isActive = link.id === selectedLinkId
-
-        return (
-          <Pressable
-            key={link.id}
-            onPress={() => onSelect(link.id)}
-            style={[styles.childButton, isActive ? styles.childButtonActive : null]}
-          >
-            <Text style={[styles.childName, isActive ? styles.childNameActive : null]}>{link.playerName}</Text>
-            {link.teamName ? (
-              <Text style={[styles.childMeta, isActive ? styles.childMetaActive : null]}>{link.teamName}</Text>
-            ) : null}
-          </Pressable>
-        )
-      })}
-    </View>
+    <ChoiceGroup
+      onChange={onSelect}
+      options={links.map((link) => ({
+        label: link.playerName,
+        meta: link.teamName || '',
+        value: link.id,
+      }))}
+      selectedValue={selectedLinkId}
+    />
   )
 }
 
@@ -501,40 +492,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 18,
     fontWeight: '800',
-  },
-  childButton: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 3,
-    minHeight: 54,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  childButtonActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  childMeta: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  childMetaActive: {
-    color: '#000000',
-  },
-  childName: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  childNameActive: {
-    color: '#000000',
-  },
-  childSelector: {
-    gap: 8,
-    marginTop: 4,
   },
   list: {
     gap: 12,

@@ -443,6 +443,8 @@ assertIncludes(mobileUi, 'export function MobileScreen', 'Mobile shared screen c
 assertIncludes(mobileUi, 'export function ScreenHeader', 'Mobile shared screen chrome')
 assertIncludes(mobileUi, 'export function LoadingRow', 'Mobile shared screen chrome')
 assertIncludes(mobileUi, 'export function EmptyState', 'Mobile shared empty state')
+assertIncludes(mobileUi, 'export function ChoiceGroup', 'Mobile shared choice controls')
+assertIncludes(mobileUi, 'styles.choiceButton', 'Mobile shared choice controls')
 
 apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
@@ -450,6 +452,7 @@ apps.forEach((app) => {
   assertIncludes(appSource, 'ScreenHeader', `${app.name} shared screen chrome`)
   assertIncludes(appSource, 'LoadingRow', `${app.name} shared loading state`)
   assertIncludes(appSource, 'EmptyState', `${app.name} shared empty state`)
+  assertIncludes(appSource, 'ChoiceGroup', `${app.name} shared choice controls`)
   assertIncludes(appSource, 'RefreshControl', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'refreshControl={(', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'onRefresh={handleRefresh}', `${app.name} pull-to-refresh`)

@@ -18,7 +18,7 @@ import {
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { colors } from '../mobile-core/src/theme'
-import { AccessScreen, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -397,34 +397,12 @@ function CoachHome() {
 }
 
 function TeamSelector({ canUseAllTeams, onSelect, selectedTeamId, teams }) {
-  return (
-    <View style={styles.teamSelectorCard}>
-      <Text style={styles.cardTitle}>Team view</Text>
-      <View style={styles.teamSelector}>
-        {canUseAllTeams ? (
-          <Pressable
-            onPress={() => onSelect('')}
-            style={[styles.teamButton, !selectedTeamId ? styles.teamButtonActive : null]}
-          >
-            <Text style={[styles.teamButtonText, !selectedTeamId ? styles.teamButtonTextActive : null]}>All Teams</Text>
-          </Pressable>
-        ) : null}
-        {teams.map((team) => {
-          const isActive = team.id === selectedTeamId
+  const options = [
+    ...(canUseAllTeams ? [{ label: 'All Teams', value: '' }] : []),
+    ...teams.map((team) => ({ label: team.name, value: team.id })),
+  ]
 
-          return (
-            <Pressable
-              key={team.id}
-              onPress={() => onSelect(team.id)}
-              style={[styles.teamButton, isActive ? styles.teamButtonActive : null]}
-            >
-              <Text style={[styles.teamButtonText, isActive ? styles.teamButtonTextActive : null]}>{team.name}</Text>
-            </Pressable>
-          )
-        })}
-      </View>
-    </View>
-  )
+  return <ChoiceGroup onChange={onSelect} options={options} selectedValue={selectedTeamId} title="Team view" />
 }
 
 function MatchdayPanel({ activeActionId, matches, onAddDetailedGoal, onAddGoal, onStatusChange, onUndoGoal }) {
@@ -730,19 +708,11 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Quick Assessment</Text>
       <Text style={styles.item}>{selectedPlayer?.playerName || 'Choose player'}</Text>
-      <View style={styles.playerPicker}>
-        {visiblePlayers.map((player) => (
-          <Pressable
-            key={player.id}
-            onPress={() => setSelectedPlayerId(player.id)}
-            style={[styles.pickerButton, selectedPlayer?.id === player.id ? styles.pickerButtonActive : null]}
-          >
-            <Text style={[styles.pickerText, selectedPlayer?.id === player.id ? styles.pickerTextActive : null]}>
-              {player.playerName}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <ChoiceGroup
+        onChange={setSelectedPlayerId}
+        options={visiblePlayers.map((player) => ({ label: player.playerName, value: player.id }))}
+        selectedValue={selectedPlayer?.id || ''}
+      />
       {players.length > 8 ? (
         <PrimaryButton onPress={() => setShowAllPlayers((currentValue) => !currentValue)} variant="secondary">
           {showAllPlayers ? 'Show fewer players' : `Show all ${players.length} players`}
@@ -854,31 +824,6 @@ const styles = StyleSheet.create({
   phaseGrid: {
     gap: 10,
   },
-  pickerButton: {
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  pickerButtonActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  pickerText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  pickerTextActive: {
-    color: '#000000',
-  },
-  playerPicker: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   segmentButton: {
     alignItems: 'center',
     backgroundColor: colors.card,
@@ -906,39 +851,5 @@ const styles = StyleSheet.create({
   },
   segmentTextActive: {
     color: '#000000',
-  },
-  teamButton: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    minHeight: 46,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  teamButtonActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  teamButtonText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  teamButtonTextActive: {
-    color: '#000000',
-  },
-  teamSelector: {
-    gap: 8,
-  },
-  teamSelectorCard: {
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 10,
-    padding: 14,
-    width: '100%',
   },
 })

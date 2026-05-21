@@ -61,6 +61,32 @@ export function EmptyState({ message }) {
   )
 }
 
+export function ChoiceGroup({ options, onChange, selectedValue, title }) {
+  return (
+    <View style={styles.choiceGroupCard}>
+      {title ? <Text style={styles.choiceGroupTitle}>{title}</Text> : null}
+      <View style={styles.choiceGroup}>
+        {options.map((option) => {
+          const isActive = option.value === selectedValue
+
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => onChange(option.value)}
+              style={[styles.choiceButton, isActive ? styles.choiceButtonActive : null]}
+            >
+              <Text style={[styles.choiceLabel, isActive ? styles.choiceLabelActive : null]}>{option.label}</Text>
+              {option.meta ? (
+                <Text style={[styles.choiceMeta, isActive ? styles.choiceMetaActive : null]}>{option.meta}</Text>
+              ) : null}
+            </Pressable>
+          )
+        })}
+      </View>
+    </View>
+  )
+}
+
 export function LoadingScreen({ message }) {
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -582,6 +608,54 @@ const styles = StyleSheet.create({
     color: '#ffb4b4',
     fontSize: 14,
     fontWeight: '800',
+  },
+  choiceButton: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  choiceButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  choiceGroup: {
+    gap: 8,
+  },
+  choiceGroupCard: {
+    backgroundColor: colors.panel,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+    width: '100%',
+  },
+  choiceGroupTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  choiceLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  choiceLabelActive: {
+    color: '#000000',
+  },
+  choiceMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  choiceMetaActive: {
+    color: '#000000',
   },
   field: {
     gap: 8,
