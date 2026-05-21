@@ -31,6 +31,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - App blocks access when Supabase environment is set to live without explicit approval.
 - Notification permission prompt appears on a real device.
 - Coach device can register for notifications.
+- Coach device can disable notifications and re-enable them.
 - Biometric unlock can be enabled when the device supports it.
 - Biometric unlock does not appear as enabled when the device has no enrolled security.
 - Sign out clears the active session.
@@ -38,6 +39,9 @@ This app is test-only until the mobile release is explicitly approved for live S
 ## Coach workflow QA
 
 - Matchday list loads from test data.
+- Team switcher appears for multi-team access.
+- Club-wide roles can use All Teams.
+- Regular coaches remain scoped to assigned teams.
 - Start match changes a scheduled match to live.
 - Goal For updates the score and parent devices receive a push.
 - Goal Against updates the score and parent devices receive a clear goal update.
@@ -68,3 +72,13 @@ npx eas-cli build --profile store-test --platform android
 - Notifications require a real device.
 - Biometric login appears only when the phone supports enrolled biometrics.
 - This build uses the test database until the live release is explicitly approved.
+
+## Remaining before store review
+
+- Create the Expo EAS app project.
+- Add the final EAS project ID.
+- Build and install the Android internal build.
+- Build and install the iOS TestFlight build.
+- Capture final store screenshots.
+- Supply reviewer credentials for the test coach account.
+- Confirm final support URL and privacy policy URL.

@@ -62,11 +62,15 @@ npx eas-cli build --profile store-test --platform android
 - No billing, checkout, subscription management, or Stripe controls are present in either app.
 - Subscription management remains on the desktop web platform.
 - Reviewer notes must explain that payments are handled outside the mobile app.
+- Coach app is for club staff only.
+- Parents app is for linked parent and family access only.
 
 ## Native notification QA
 
 - Parent app can register a device token.
 - Coach app can register a device token.
+- Parent app can disable device notifications.
+- Coach app can disable device notifications.
 - Coach goal sends parent push.
 - Coach half time sends parent push.
 - Coach full time sends parent push.
@@ -75,6 +79,26 @@ npx eas-cli build --profile store-test --platform android
 - Immediate parent message sends parent push.
 - Scheduled parent message sends parent push when it is actually sent.
 - Parent poll creation sends parent push.
+- Notification taps open the relevant mobile app area.
+
+## App workflow QA
+
+- Coach app shows assigned teams and respects the selected team.
+- Coach app lets club-wide roles view all teams.
+- Parent app shows linked children and respects the selected child.
+- Parent app keeps matchday, messages, polls, and notification registration scoped to the selected child.
+
+## Remaining app-store readiness work
+
+- Create Expo EAS projects for both apps.
+- Add real EAS project IDs to each app environment.
+- Build real Android internal test builds.
+- Build real iOS TestFlight builds.
+- Run physical device push tests on iPhone and Android.
+- Prepare store screenshots for both apps.
+- Prepare reviewer credentials for both apps.
+- Confirm final app names, icons, bundle identifiers, package names, privacy wording, and support URLs.
+- Confirm final live release approval before changing any mobile Supabase setting to live.
 
 ## Release gate
 

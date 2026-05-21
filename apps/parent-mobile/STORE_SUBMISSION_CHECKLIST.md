@@ -32,6 +32,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - App blocks access when Supabase environment is set to live without explicit approval.
 - Notification permission prompt appears on a real device.
 - Parent device can register for notifications.
+- Parent device can disable notifications and re-enable them.
 - Biometric unlock can be enabled when the device supports it.
 - Biometric unlock does not appear as enabled when the device has no enrolled security.
 - Sign out clears the active session.
@@ -39,6 +40,8 @@ This app is test-only until the mobile release is explicitly approved for live S
 ## Parent workflow QA
 
 - Linked child summary loads.
+- Child switcher appears for accounts with more than one linked child.
+- Matchday, messages, polls, and notifications follow the selected child.
 - Matchday tab loads fixtures and recent events.
 - Refresh Matchday reloads the latest score.
 - Goal push notifications arrive from coach mobile actions.
@@ -70,3 +73,13 @@ npx eas-cli build --profile store-test --platform android
 - Notifications require a real device.
 - Biometric login appears only when the phone supports enrolled biometrics.
 - This build uses the test database until the live release is explicitly approved.
+
+## Remaining before store review
+
+- Create the Expo EAS app project.
+- Add the final EAS project ID.
+- Build and install the Android internal build.
+- Build and install the iOS TestFlight build.
+- Capture final store screenshots.
+- Supply reviewer credentials for the test parent account.
+- Confirm final support URL and privacy policy URL.

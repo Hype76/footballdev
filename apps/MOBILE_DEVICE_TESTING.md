@@ -46,8 +46,11 @@ npm run build:ios:store-test
 - Install the Parents APK on a second real Android phone, or uninstall and swap accounts if only one device is available.
 - Login to Coach with the test coach account.
 - Login to Parents with the test parent account.
+- In Coach, switch team context if the account has more than one assigned team.
+- In Parents, switch linked child if the account has more than one linked child.
 - Enable notifications in both apps.
 - Confirm Android notification permission is granted.
+- Disable notifications in both apps, then enable them again.
 - Confirm biometric unlock can be enabled where supported.
 
 ## iPhone install test
@@ -56,8 +59,11 @@ npm run build:ios:store-test
 - Install the Parents build through TestFlight.
 - Login to Coach with the test coach account.
 - Login to Parents with the test parent account.
+- In Coach, switch team context if the account has more than one assigned team.
+- In Parents, switch linked child if the account has more than one linked child.
 - Enable notifications in both apps.
 - Confirm iOS notification permission is granted.
+- Disable notifications in both apps, then enable them again.
 - Confirm Face ID or Touch ID unlock can be enabled where supported.
 
 ## Notification test matrix
@@ -80,6 +86,7 @@ npm run build:ios:store-test
 - Parent account cannot open the Coach app.
 - Coach-only account cannot open the Parents app without a parent link.
 - Native push registration succeeds in both apps.
+- Native push opt out succeeds in both apps.
 - Notification events are recorded in `notification_events`.
 - Apps remain on test Supabase.
 - No mobile billing, checkout, subscription management, or bulk email controls are visible.
