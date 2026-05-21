@@ -59,6 +59,7 @@ Status: external after native builds.
 - Install Coach and Parents on real iPhones through TestFlight.
 - Complete `MOBILE_DEVICE_TESTING.md`.
 - Complete notification tests from `MOBILE_NOTIFICATION_RUNBOOK.md`.
+- Record release evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Record the external evidence log for tested build IDs, devices, accounts, push rows, failures, and retests.
 - Confirm both apps remain on test Supabase.
 

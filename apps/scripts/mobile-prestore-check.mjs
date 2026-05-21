@@ -49,6 +49,7 @@ const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
 const versioningPath = 'apps/MOBILE_VERSIONING.md'
 const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const releasePhasesPath = 'apps/MOBILE_RELEASE_PHASES.md'
+const externalEvidencePath = 'apps/MOBILE_EXTERNAL_RELEASE_EVIDENCE.md'
 const rootPackagePath = 'package.json'
 const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
 const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
@@ -356,6 +357,7 @@ assertFile(storeAccountSetupPath, 'Mobile store account setup')
 assertFile(versioningPath, 'Mobile versioning guide')
 assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(releasePhasesPath, 'Mobile release phases')
+assertFile(externalEvidencePath, 'Mobile external release evidence template')
 assertFile(rootPackagePath, 'Root package')
 assertFile(sharedAppConfigPath, 'Mobile shared app config')
 assertFile(mobileAppsRegistryPath, 'Mobile app registry')
@@ -636,6 +638,8 @@ if (existsSync(join(repoRoot, notificationRunbookPath))) {
 if (existsSync(join(repoRoot, 'apps/MOBILE_DEVICE_TESTING.md'))) {
   const deviceTesting = read('apps/MOBILE_DEVICE_TESTING.md')
   assertIncludes(deviceTesting, '## Evidence log', 'Mobile device testing')
+  assertIncludes(deviceTesting, 'Confirm EAS project setup matches `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile device testing')
+  assertIncludes(deviceTesting, 'Use `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` as the template', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Build IDs for Coach iOS, Coach Android, Parents iOS, and Parents Android.', 'Mobile device testing')
   assertIncludes(deviceTesting, '`mobile_push_devices` rows created or revoked during the run.', 'Mobile device testing')
   assertIncludes(deviceTesting, '`notification_events` rows for each push test, including failed outcomes.', 'Mobile device testing')
@@ -652,6 +656,8 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'EAS setup: `MOBILE_EAS_SETUP_CHECKLIST.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Release phases: `MOBILE_RELEASE_PHASES.md`', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'External evidence template: `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Record external QA evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify privacy wording matches `MOBILE_PRIVACY_QUESTIONNAIRE.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify the public support route `https://footballplayer.online/` is monitored before submission.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.', 'Mobile pre-store QA')
@@ -733,6 +739,7 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'MOBILE_EXTERNAL_RELEASE_EVIDENCE.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_VERSIONING.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.parents', 'Mobile store account setup')
@@ -750,6 +757,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'npm run mobile:release-check', 'Mobile release status')
   assertIncludes(releaseStatus, 'For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'External release evidence template is present at `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Resolved Expo app config is checked by `npm run mobile:config`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Both apps are locked to test Supabase by default.', 'Mobile release status')
@@ -762,6 +770,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Shared mobile device controls now cover push notification registration, push notification opt out, device notification state, and biometric setting changes.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared Expo config now owns native permissions, notification plugin setup, biometric permission text, runtime version policy, and test database defaults for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Record external QA and submission evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
   assertNotIncludes(releaseStatus, 'Confirm final support URL', 'Mobile release status')
@@ -776,8 +785,26 @@ if (existsSync(join(repoRoot, releasePhasesPath))) {
   assertIncludes(releasePhases, '## Phase 3: Apple And Google Store Records', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 4: Native Builds', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 5: Real Device QA', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Record release evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 6: Screenshots And Final Store Submission', 'Mobile release phases')
   assertIncludes(releasePhases, 'Do not switch either app to live Supabase until live release approval is explicitly given.', 'Mobile release phases')
+}
+
+if (existsSync(join(repoRoot, externalEvidencePath))) {
+  const externalEvidence = read(externalEvidencePath)
+  assertIncludes(externalEvidence, '# Football Player Mobile External Release Evidence', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, 'Use this template outside git', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, 'Do not commit a completed copy of this file', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, '## EAS Projects', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, '## Native Builds', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, '## Device QA', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, '## Notification Evidence', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, '## Screenshot Evidence', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, '## Store Submission Evidence', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, 'Live Supabase disabled', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile external release evidence template')
+  assertNotIncludes(externalEvidence, 'Password:', 'Mobile external release evidence template')
+  assertNotIncludes(externalEvidence, 'Email:', 'Mobile external release evidence template')
 }
 
 if (failures.length > 0) {

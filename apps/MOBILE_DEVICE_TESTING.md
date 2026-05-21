@@ -7,6 +7,7 @@ Use this runbook for physical iOS and Android QA before the PR is marked ready.
 - Confirm the PR deploy preview is green.
 - Confirm both apps use test Supabase only.
 - Confirm EAS environment values match `MOBILE_ENVIRONMENT_RUNBOOK.md`.
+- Confirm EAS project setup matches `MOBILE_EAS_SETUP_CHECKLIST.md`.
 - Confirm notification checks follow `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Run `npm run mobile:release-check` from the repo root.
 - Run `npm run mobile:config` from the repo root.
@@ -92,7 +93,7 @@ npm run build:ios:store-test
 
 ## Evidence log
 
-Record this outside the repo for each test run:
+Record this outside the repo for each test run. Use `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` as the template:
 
 - Build IDs for Coach iOS, Coach Android, Parents iOS, and Parents Android.
 - Device model, operating system version, and app version for each installed build.

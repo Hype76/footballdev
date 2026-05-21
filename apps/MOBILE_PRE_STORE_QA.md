@@ -19,6 +19,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Versioning guide: `MOBILE_VERSIONING.md`
 - Release status: `MOBILE_RELEASE_STATUS.md`
 - Release phases: `MOBILE_RELEASE_PHASES.md`
+- External evidence template: `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`
 - Test database only until live release approval is given.
 
 ## Required secrets
@@ -129,6 +130,7 @@ npm run build:android:store-test
 - Build real Android internal test builds.
 - Build real iOS TestFlight builds.
 - Run physical device push tests on iPhone and Android.
+- Record external QA evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Prepare store screenshots for both apps from `MOBILE_SCREENSHOT_PLAN.md`.
 - Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.
 - Prepare reviewer credentials for both apps.

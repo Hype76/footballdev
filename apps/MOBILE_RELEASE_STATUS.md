@@ -24,6 +24,7 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - Android sensitive permissions that are not used are explicitly blocked.
 - Store metadata, privacy questionnaire, environment runbook, notification runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
 - Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.
+- External release evidence template is present at `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.
 - EAS remote app versioning and store-test auto-increment are configured for both apps.
 - `npm run mobile:release-check` passes locally.
@@ -41,6 +42,7 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - Build real iOS TestFlight builds.
 - Install builds on real Android and iOS devices.
 - Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.
+- Record external QA and submission evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Capture store screenshots using `MOBILE_SCREENSHOT_PLAN.md` and test data only.
 - Confirm the public support route is monitored and privacy wording still matches production before submission.
 
