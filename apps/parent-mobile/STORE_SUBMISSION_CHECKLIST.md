@@ -28,6 +28,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Confirm a real test parent account exists for reviewer login.
 - Confirm the parent account has at least one linked player with matchday data.
 - Confirm the linked player has at least one portal message and one open parent poll.
+- Confirm store app access notes say this is a restricted-login parent app with no in-app signup.
 
 ## Native device QA
 
@@ -88,4 +89,5 @@ npx eas-cli build --profile store-test --platform android
 - Capture final store screenshots.
 - Supply reviewer credentials for the test parent account.
 - Add reviewer notes in App Store Connect and Google Play Console.
+- Add app access instructions from `../MOBILE_REVIEWER_HANDOFF.md`.
 - Confirm the public support route is monitored and the privacy policy URL opens correctly.

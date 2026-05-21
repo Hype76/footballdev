@@ -27,6 +27,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Confirm Android notification icon renders clearly in the status bar and notification drawer.
 - Confirm a real test coach account exists for reviewer login.
 - Confirm the test coach account has access to at least one team, one player, one match, and one assessment form.
+- Confirm store app access notes say this is a restricted-login staff app with no in-app signup.
 
 ## Native device QA
 
@@ -87,4 +88,5 @@ npx eas-cli build --profile store-test --platform android
 - Capture final store screenshots.
 - Supply reviewer credentials for the test coach account.
 - Add reviewer notes in App Store Connect and Google Play Console.
+- Add app access instructions from `../MOBILE_REVIEWER_HANDOFF.md`.
 - Confirm the public support route is monitored and the privacy policy URL opens correctly.

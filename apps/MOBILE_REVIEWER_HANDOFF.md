@@ -34,6 +34,22 @@ Store reviewer credentials should be supplied inside App Store Connect and Googl
 - Workspace: test club workspace
 - Required data: at least one linked child, one matchday record, one message, and one open parent poll
 
+## App access instructions
+
+Use these instructions in App Store Connect and Google Play Console where the store asks how reviewers can access the app.
+
+### Coach app access
+
+This app is restricted to authorised club staff. Reviewers should sign in with the supplied test coach account. No signup, payment, purchase, subscription, or invite flow is available inside the mobile app. The supplied test account already has staff access to a test club workspace.
+
+The test coach account should be able to open Matchday Mode, view players, submit a quick assessment, open sessions, enable notifications on a real device, and use biometric unlock when supported by the device.
+
+### Parents app access
+
+This app is restricted to linked parents and guardians. Reviewers should sign in with the supplied test parent account. No signup, payment, purchase, subscription, club admin, or invite flow is available inside the mobile app. The supplied test account is already linked to at least one child in a test club workspace.
+
+The test parent account should be able to view linked child context, matchday updates, club messages, parent polls, notification settings, and biometric unlock when supported by the device.
+
 ## Apple review notes draft
 
 This app requires login because it is used by authorised football club users connected to an existing Football Player workspace.
@@ -46,6 +62,8 @@ Push notifications require a real iOS device. Biometric unlock appears only when
 
 This review build uses the test database.
 
+App access: restricted login. Use the supplied test account. The app has no in-app signup, purchase, subscription, or billing flow.
+
 ## Google Play review notes draft
 
 This app requires login because it is used by authorised football club users connected to an existing Football Player workspace.
@@ -57,6 +75,8 @@ Payments are handled outside the mobile app and are not available in this app. T
 Push notifications require a real Android device. Biometric unlock appears only when the device supports enrolled screen lock or biometric security.
 
 This review build uses the test database.
+
+App access: restricted login. Use the supplied test account. The app has no in-app signup, purchase, subscription, or billing flow.
 
 ## Screenshot checklist
 

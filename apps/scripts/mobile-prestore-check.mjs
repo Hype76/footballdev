@@ -244,6 +244,10 @@ if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   assertIncludes(reviewerHandoff, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Payments are handled outside the mobile app', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'This review build uses the test database.', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'App access instructions', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'This app is restricted to authorised club staff.', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'This app is restricted to linked parents and guardians.', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'The app has no in-app signup, purchase, subscription, or billing flow.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Screenshot checklist', 'Mobile reviewer handoff')
 }
 
