@@ -76,6 +76,16 @@ npm run build:ios:store-test
 npm run build:android:store-test
 ```
 
+## Submit commands
+
+Run only after store records, reviewer credentials, screenshots, reviewer notes, and device QA are complete.
+
+```bash
+cd apps/coach-mobile
+npm run submit:ios:store-test
+npm run submit:android:store-test
+```
+
 ## Reviewer notes
 
 - Login is required.
