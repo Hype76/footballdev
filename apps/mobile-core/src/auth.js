@@ -1,8 +1,10 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { AppState } from 'react-native'
-import { authenticateWithBiometrics, getBiometricEnabled } from './biometrics'
+import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } from './biometrics'
+import { getMobileRuntimeConfig } from './config'
+import { revokeNativePushDevice } from './notifications'
 import { fetchMobileProfile } from './profile'
-import { isSupabaseConfigured, mobileConfigError, supabase } from './supabase'
+import { getAccessToken, isSupabaseConfigured, mobileConfigError, supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
@@ -107,7 +109,7 @@ export function AuthProvider({ appRole, children }) {
     }
   }, [session?.user])
 
-  async function signIn(email, password) {
+  const signIn = useCallback(async (email, password) => {
     setAuthError('')
     setIsLocked(false)
     const { error } = await supabase.auth.signInWithPassword({
@@ -119,24 +121,45 @@ export function AuthProvider({ appRole, children }) {
       setAuthError(error.message || 'Login failed.')
       throw error
     }
-  }
+  }, [])
 
-  async function signOut() {
+  const signOut = useCallback(async () => {
     setIsLocked(false)
     setUser(null)
+
+    try {
+      const accessToken = await getAccessToken()
+      const config = getMobileRuntimeConfig(appRole)
+
+      if (accessToken && config.apiBaseUrl) {
+        await revokeNativePushDevice({
+          accessToken,
+          apiBaseUrl: config.apiBaseUrl,
+        })
+      }
+    } catch (error) {
+      console.warn(error)
+    }
+
+    try {
+      await setBiometricEnabled(false)
+    } catch (error) {
+      console.warn(error)
+    }
+
     const { error } = await supabase.auth.signOut()
 
     if (error) {
       setAuthError(error.message || 'Sign out failed.')
       throw error
     }
-  }
+  }, [appRole])
 
-  async function unlockWithBiometrics() {
+  const unlockWithBiometrics = useCallback(async () => {
     setAuthError('')
     await authenticateWithBiometrics()
     setIsLocked(false)
-  }
+  }, [])
 
   const value = useMemo(() => ({
     appRole,
@@ -149,7 +172,7 @@ export function AuthProvider({ appRole, children }) {
     signOut,
     unlockWithBiometrics,
     user,
-  }), [appRole, authError, isLoading, isLocked, isProfileLoading, session, user])
+  }), [appRole, authError, isLoading, isLocked, isProfileLoading, session, signIn, signOut, unlockWithBiometrics, user])
 
   return createElement(AuthContext.Provider, { value }, children)
 }

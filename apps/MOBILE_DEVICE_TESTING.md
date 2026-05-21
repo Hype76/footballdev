@@ -62,6 +62,7 @@ npm run build:ios:store-test
 - Disable notifications in both apps, then enable them again.
 - Confirm biometric unlock can be enabled where supported.
 - With biometric unlock enabled, send each app to the background, reopen it, and confirm the unlock screen appears.
+- Sign out, then confirm notifications and biometric unlock are no longer enabled for that signed-out session.
 
 ## iPhone install test
 
@@ -79,6 +80,7 @@ npm run build:ios:store-test
 - Disable notifications in both apps, then enable them again.
 - Confirm Face ID or Touch ID unlock can be enabled where supported.
 - With biometric unlock enabled, send each app to the background, reopen it, and confirm the unlock screen appears.
+- Sign out, then confirm notifications and biometric unlock are no longer enabled for that signed-out session.
 
 ## Notification test matrix
 
