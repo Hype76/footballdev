@@ -615,6 +615,8 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'Verify privacy wording matches `MOBILE_PRIVACY_QUESTIONNAIRE.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify the public support route `https://footballplayer.online/` is monitored before submission.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.', 'Mobile pre-store QA')
+  assertNotIncludes(preStoreQa, 'Privacy questionnaire draft', 'Mobile pre-store QA')
+  assertNotIncludes(preStoreQa, 'Reviewer handoff draft', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'npm run mobile:config', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'npm run build:android:internal', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'npm run build:ios:store-test', 'Mobile pre-store QA')
@@ -662,6 +664,11 @@ if (existsSync(join(repoRoot, screenshotPlanPath))) {
   assertIncludes(screenshotPlan, 'Use PNG or JPEG files only.', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'Coach App Shots', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'Parents App Shots', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'coach-ios-07-settings.png', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'coach-android-07-settings.png', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'parents-ios-07-settings.png', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'parents-android-07-settings.png', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'Keep all rejected or alternate screenshots outside the final upload folder so the wrong app or platform image is not selected during submission.', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'No billing, checkout, subscription, Stripe, or bulk email screens are shown.', 'Mobile screenshot plan')
 }
 

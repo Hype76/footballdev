@@ -63,14 +63,49 @@ Use this order:
 
 ## File Naming
 
-Use clear names before upload so the two apps do not get mixed up:
+Use clear names before upload so the two apps do not get mixed up.
+
+Coach iOS:
 
 - `coach-ios-01-login.png`
 - `coach-ios-02-home.png`
+- `coach-ios-03-matchday.png`
+- `coach-ios-04-goal-details.png`
+- `coach-ios-05-players.png`
+- `coach-ios-06-assessment.png`
+- `coach-ios-07-settings.png`
+
+Coach Android:
+
 - `coach-android-01-login.png`
+- `coach-android-02-home.png`
+- `coach-android-03-matchday.png`
+- `coach-android-04-goal-details.png`
+- `coach-android-05-players.png`
+- `coach-android-06-assessment.png`
+- `coach-android-07-settings.png`
+
+Parents iOS:
+
 - `parents-ios-01-login.png`
 - `parents-ios-02-home.png`
+- `parents-ios-03-matchday.png`
+- `parents-ios-04-messages.png`
+- `parents-ios-05-polls.png`
+- `parents-ios-06-child-switcher.png`
+- `parents-ios-07-settings.png`
+
+Parents Android:
+
 - `parents-android-01-login.png`
+- `parents-android-02-home.png`
+- `parents-android-03-matchday.png`
+- `parents-android-04-messages.png`
+- `parents-android-05-polls.png`
+- `parents-android-06-child-switcher.png`
+- `parents-android-07-settings.png`
+
+Keep all rejected or alternate screenshots outside the final upload folder so the wrong app or platform image is not selected during submission.
 
 ## Final Check
 

@@ -9,10 +9,10 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Coach app: `apps/coach-mobile`
 - Parent app: `apps/parent-mobile`
 - Shared code: `apps/mobile-core`
-- Privacy questionnaire draft: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
+- Privacy questionnaire: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - Environment runbook: `MOBILE_ENVIRONMENT_RUNBOOK.md`
 - Notification runbook: `MOBILE_NOTIFICATION_RUNBOOK.md`
-- Reviewer handoff draft: `MOBILE_REVIEWER_HANDOFF.md`
+- Reviewer handoff: `MOBILE_REVIEWER_HANDOFF.md`
 - Screenshot plan: `MOBILE_SCREENSHOT_PLAN.md`
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
 - Versioning guide: `MOBILE_VERSIONING.md`
