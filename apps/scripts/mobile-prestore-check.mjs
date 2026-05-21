@@ -496,6 +496,7 @@ assertIncludes(mobileUi, 'Show all ${poll.options.length} options', 'Mobile poll
 assertIncludes(mobileUi, 'Poll closed', 'Mobile parent poll UI')
 assertIncludes(mobileUi, 'Answer sent', 'Mobile parent poll UI')
 assertIncludes(mobileUi, 'const canVote = isOpen && !hasAnswer', 'Mobile parent poll UI')
+assertIncludes(mobileUi, "const canVolunteerScorer = ['scheduled', 'scorer_request', 'live'].includes(match.status)", 'Mobile parent scorer UI')
 assertIncludes(mobileUi, 'export function OverviewPanel', 'Mobile shared overview')
 assertIncludes(mobileUi, 'styles.statGrid', 'Mobile shared overview')
 assertIncludes(mobileUi, 'export function TabRail', 'Mobile shared tab rail')

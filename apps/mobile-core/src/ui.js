@@ -397,6 +397,7 @@ function getEventMeta(event) {
 
 export function MatchCard({ isBusy = false, match, onVolunteerScorer }) {
   const isLive = ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)
+  const canVolunteerScorer = ['scheduled', 'scorer_request', 'live'].includes(match.status)
   const statusLabel = String(match.status || 'scheduled').replace(/_/g, ' ')
   const latestCorrection = match.events?.find((event) => event.eventType === 'score_correction')
 
@@ -414,9 +415,9 @@ export function MatchCard({ isBusy = false, match, onVolunteerScorer }) {
         </View>
       ) : null}
       {match.venueName ? <Text style={styles.matchMeta}>{match.venueName}</Text> : null}
-      {onVolunteerScorer && !match.isScorer ? (
+      {onVolunteerScorer && !match.isScorer && (canVolunteerScorer || match.hasInterest) ? (
         <PrimaryButton
-          disabled={isBusy || match.hasInterest}
+          disabled={isBusy || match.hasInterest || !canVolunteerScorer}
           onPress={() => onVolunteerScorer(match)}
           variant={match.hasInterest ? 'secondary' : 'primary'}
         >

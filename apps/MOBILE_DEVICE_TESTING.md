@@ -95,6 +95,7 @@ npm run build:ios:store-test
 - Coach records Full Time, parent device receives a full time notification.
 - Coach uses Undo Last Goal, parent app shows a score correction.
 - Parent taps Volunteer As Scorer, coach device receives a scorer volunteer notification.
+- Parent cannot volunteer as scorer after the match is no longer available for scorer requests.
 - Staff sends a parent message immediately, parent device receives a message notification.
 - Staff schedules a parent message, parent device receives a notification only when it is sent.
 - Staff creates a parent poll, parent device receives a poll notification.
