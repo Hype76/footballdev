@@ -109,6 +109,8 @@ Keep all rejected or alternate screenshots outside the final upload folder so th
 
 ## Screenshot Evidence Folders
 
+Record final screenshot folder paths in a private evidence copy under `apps/mobile-release-evidence/`, not in tracked docs.
+
 Use separate folders for the final upload set:
 
 - `coach-ios-final`
@@ -126,5 +128,5 @@ Each folder should contain only the screenshots intended for that specific store
 - No live production data is visible.
 - No billing, checkout, subscription, Stripe, or bulk email screens are shown.
 - Support, privacy, and terms URLs match the store metadata.
-- Screenshot folders are recorded in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
+- Screenshot folders are recorded in a private evidence copy under `apps/mobile-release-evidence/`.
 - Screenshots were captured after the final visible app change.

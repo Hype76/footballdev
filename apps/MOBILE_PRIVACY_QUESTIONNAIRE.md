@@ -4,6 +4,8 @@ Use this when completing App Store Connect app privacy, Google Play Data Safety,
 
 This is a technical implementation summary, not legal advice. Check the answers against the published privacy policy and the real production configuration before submission.
 
+Record final store privacy answers in a private evidence copy under `apps/mobile-release-evidence/`, not in tracked docs.
+
 ## Applies to both apps
 
 - Apps require login.

@@ -719,6 +719,7 @@ if (existsSync(join(repoRoot, sharedPrivacyPath))) {
   const privacyQuestionnaire = read(sharedPrivacyPath)
   assertIncludes(privacyQuestionnaire, '# Football Player Mobile Privacy Questionnaire', 'Mobile privacy questionnaire')
   assertIncludes(privacyQuestionnaire, 'This is a technical implementation summary, not legal advice.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyQuestionnaire, 'Record final store privacy answers in a private evidence copy under `apps/mobile-release-evidence/`, not in tracked docs.', 'Mobile privacy questionnaire')
   assertIncludes(privacyQuestionnaire, 'Apps do not include in-app purchases.', 'Mobile privacy questionnaire')
   assertIncludes(privacyQuestionnaire, 'Apps do not collect precise location.', 'Mobile privacy questionnaire')
   assertIncludes(privacyQuestionnaire, 'Android builds explicitly block location, camera, microphone, contacts, media, and Bluetooth permissions.', 'Mobile privacy questionnaire')
@@ -859,7 +860,9 @@ if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   assertIncludes(reviewerHandoff, 'Do not commit real passwords', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Do not paste reviewer email addresses, passwords, one-time codes, or private account notes into this file.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'MOBILE_STORE_ACCOUNT_SETUP.md', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'MOBILE_STORE_RECORD_CHECKLIST.md', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'apps/mobile-release-evidence/', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Payments are handled outside the mobile app', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'This review build uses the test database.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'App access instructions', 'Mobile reviewer handoff')
@@ -876,6 +879,8 @@ if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   assertNotIncludes(reviewerHandoff, 'Google Play review notes draft', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Screenshot checklist', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Confirm reviewer credentials are entered only in App Store Connect and Google Play Console.', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'Confirm final screenshot folder paths are recorded in a private evidence copy under `apps/mobile-release-evidence/`.', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'Confirm store record links and reviewer credential locations are recorded only in the private evidence folder.', 'Mobile reviewer handoff')
   assertNoReviewerCredentialValues(reviewerHandoff, 'Mobile reviewer handoff')
 }
 
@@ -894,9 +899,10 @@ if (existsSync(join(repoRoot, screenshotPlanPath))) {
   assertIncludes(screenshotPlan, 'parents-android-07-settings.png', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'Keep all rejected or alternate screenshots outside the final upload folder so the wrong app or platform image is not selected during submission.', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, '## Screenshot Evidence Folders', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'Record final screenshot folder paths in a private evidence copy under `apps/mobile-release-evidence/`, not in tracked docs.', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'coach-ios-final', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'parents-android-final', 'Mobile screenshot plan')
-  assertIncludes(screenshotPlan, 'Screenshot folders are recorded in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'Screenshot folders are recorded in a private evidence copy under `apps/mobile-release-evidence/`.', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'No billing, checkout, subscription, Stripe, or bulk email screens are shown.', 'Mobile screenshot plan')
 }
 
@@ -965,6 +971,7 @@ if (existsSync(join(repoRoot, storeRecordChecklistPath))) {
   assertIncludes(storeRecordChecklist, 'apps/coach-mobile/STORE_METADATA.md', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'apps/parent-mobile/STORE_METADATA.md', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'old Player Feedback naming', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Reviewer credential locations are recorded only in the private evidence folder.', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'Store record links are recorded in a private evidence file under `apps/mobile-release-evidence/`.', 'Mobile store record checklist')
 }
 

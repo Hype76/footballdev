@@ -61,4 +61,5 @@ Use `apps/parent-mobile/STORE_METADATA.md`.
 - App access explains login-only restricted access with no in-app signup.
 - Privacy and data safety answers match `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
 - No live production data, private account emails, passwords, or build links were committed.
+- Reviewer credential locations are recorded only in the private evidence folder.
 - Store record links are recorded in a private evidence file under `apps/mobile-release-evidence/`.

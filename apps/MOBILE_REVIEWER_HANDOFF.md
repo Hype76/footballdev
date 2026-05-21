@@ -7,7 +7,9 @@ Use this as the working handoff for App Store Connect and Google Play review. Do
 - Coach app: Football Player Coach
 - Parents app: Football Player Parents
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
+- Store record checklist: `MOBILE_STORE_RECORD_CHECKLIST.md`
 - Screenshot plan: `MOBILE_SCREENSHOT_PLAN.md`
+- Private evidence folder: `apps/mobile-release-evidence/`
 - Database: test Supabase only
 - Billing: not available in either mobile app
 - Login: required for both apps
@@ -116,7 +118,7 @@ App access: restricted parent login. Use the supplied test parent account. The a
 
 Capture screenshots from real store builds or installed internal builds, not from the web export. Use `MOBILE_SCREENSHOT_PLAN.md` for device classes, naming, ordering, and test-data rules.
 
-Record the final screenshot folder paths in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` before uploading them to Apple or Google.
+Record the final screenshot folder paths in a private evidence copy under `apps/mobile-release-evidence/` before uploading them to Apple or Google.
 
 ### Coach app screenshots
 
@@ -146,5 +148,6 @@ Record the final screenshot folder paths in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md
 - Confirm both apps still use `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
 - Confirm the supplied review notes match the app being submitted.
 - Confirm the screenshots do not show real child, parent, coach, or club data.
-- Confirm final screenshot folder paths are recorded in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
+- Confirm final screenshot folder paths are recorded in a private evidence copy under `apps/mobile-release-evidence/`.
+- Confirm store record links and reviewer credential locations are recorded only in the private evidence folder.
 - Confirm privacy answers match `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
