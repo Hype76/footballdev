@@ -26,3 +26,16 @@ execFileSync('npx', ['eas-cli', 'project:init'], {
   stdio: 'inherit',
   shell: process.platform === 'win32',
 })
+
+const changedAppConfig = execFileSync('git', ['status', '--short', '--', app.appConfig], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+}).trim()
+
+if (changedAppConfig) {
+  console.error(`${app.expectedName} app config changed during EAS project setup.`)
+  console.error('Do not commit EAS project IDs into app.config.js. Revert that app config change and store EXPO_PUBLIC_EAS_PROJECT_ID in EAS only.')
+  process.exit(1)
+}
+
+console.log(`${app.expectedName} EAS project setup finished without tracked app config changes.`)

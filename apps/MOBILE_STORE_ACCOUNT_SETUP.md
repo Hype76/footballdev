@@ -50,6 +50,8 @@ After each project is created, add its project ID to EAS environment variables a
 
 If `eas project:init` offers to write a project ID into `app.config.js`, keep the app config env-driven and put the value in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID` instead.
 
+The guarded EAS setup commands fail if `app.config.js` is changed during project setup.
+
 Set these EAS environment variables for both apps:
 
 - `EXPO_PUBLIC_SUPABASE_ENV=test`

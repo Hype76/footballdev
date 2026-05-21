@@ -27,6 +27,8 @@ npm run mobile:eas:init:coach
 
 If EAS offers to write the project ID into `app.config.js`, do not keep that change. Set the project ID in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID`.
 
+The guarded setup command fails if `app.config.js` is changed during EAS project setup.
+
 List the EAS project environment values without exposing sensitive values:
 
 ```bash
@@ -48,6 +50,8 @@ npm run mobile:eas:init:parent
 ```
 
 If EAS offers to write the project ID into `app.config.js`, do not keep that change. Set the project ID in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID`.
+
+The guarded setup command fails if `app.config.js` is changed during EAS project setup.
 
 List the EAS project environment values without exposing sensitive values:
 

@@ -53,6 +53,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 
 - Run `npm run mobile:release-check` from the repo root and record the passing commit.
 - Create or confirm the two Expo EAS projects.
+- If EAS project setup changes `app.config.js`, revert that app config change and store `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS only.
 - Add EAS environment values for both apps with `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
 - Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`.
 - Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
