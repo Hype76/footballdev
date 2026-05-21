@@ -145,6 +145,33 @@ Security and deletion:
 - Clubs manage staff and parent access through the web platform.
 - Data deletion and subject requests should follow the published GDPR and data protection notice.
 
+## Store Console Answer Checklist
+
+Use this as the source checklist when completing App Store Connect and Google Play Console. If any answer changes, update this file before submission.
+
+- Login required: yes.
+- In-app purchases: no.
+- Third-party advertising: no.
+- Third-party advertising tracking: no.
+- Precise location collected: no.
+- Camera, microphone, photos, contacts, calendar, health, and Bluetooth access: no.
+- Push notifications: yes, only when the user enables notifications.
+- Biometric unlock: yes, only for local session unlock on supported devices.
+- Payment data collected in the mobile apps: no.
+- Reviewer build database: test Supabase only.
+- Data deletion route: published privacy and data protection process.
+
+App Store Connect notes:
+
+- Declare data linked to user identity for account email, account profile, club or parent access records, app activity needed for functionality, and push token when notifications are enabled.
+- Do not declare tracking unless a future analytics or advertising SDK is deliberately added and this questionnaire is revised.
+
+Google Play notes:
+
+- Declare data collection for app functionality, account management, club workflow operation, communication, and notifications.
+- Confirm data is transmitted over HTTPS.
+- Confirm users can request deletion through the published data protection process.
+
 ## Public policy URLs
 
 - Privacy and data protection: `https://footballplayer.online/gdpr`
