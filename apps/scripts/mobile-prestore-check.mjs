@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -116,6 +117,31 @@ function assertNoReviewerCredentialValues(content, label) {
     if (/^Password:/i.test(normalizedLine) && normalizedLine !== 'Password: add in store console only') {
       failures.push(`${label} line ${index + 1} must not contain a reviewer password value`)
     }
+  })
+}
+
+function assertNoTrackedMobilePrivateFiles() {
+  const trackedFiles = execSync('git ls-files apps', {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  })
+    .split(/\r?\n/)
+    .filter(Boolean)
+
+  const forbiddenTrackedFilePatterns = [
+    /(^|\/)\.env$/,
+    /\.(apk|aab|ipa|p8|mobileprovision|keystore|jks)$/i,
+    /(^|\/)GoogleService-Info\.plist$/i,
+    /(^|\/)google-services\.json$/i,
+    /(^|\/)credentials\.json$/i,
+  ]
+
+  trackedFiles.forEach((trackedFile) => {
+    forbiddenTrackedFilePatterns.forEach((pattern) => {
+      if (pattern.test(trackedFile)) {
+        failures.push(`Tracked mobile private file must be removed from git: ${trackedFile}`)
+      }
+    })
   })
 }
 
@@ -311,6 +337,7 @@ assertFile(storeAccountSetupPath, 'Mobile store account setup')
 assertFile(versioningPath, 'Mobile versioning guide')
 assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(rootPackagePath, 'Root package')
+assertNoTrackedMobilePrivateFiles()
 
 const mobileConfig = read('apps/mobile-core/src/config.js')
 const mobileHttp = read('apps/mobile-core/src/http.js')
@@ -357,6 +384,7 @@ if (existsSync(join(repoRoot, environmentRunbookPath))) {
   const environmentRunbook = read(environmentRunbookPath)
   assertIncludes(environmentRunbook, 'Do not commit real Supabase keys', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'Both mobile app `.gitignore` files must ignore native build artifacts and private credential files', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, '`npm run mobile:prestore` fails if a mobile `.env` file, native build artifact, or private store credential file is tracked by git.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'For TestFlight and Google internal builds, `EXPO_PUBLIC_API_BASE_URL` must point at the test API host, not localhost.', 'Mobile environment runbook')

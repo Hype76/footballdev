@@ -10,6 +10,8 @@ Both mobile app `.gitignore` files must ignore native build artifacts and privat
 
 Local `.env` files may be created beside each app, but must not be committed.
 
+`npm run mobile:prestore` fails if a mobile `.env` file, native build artifact, or private store credential file is tracked by git.
+
 Use each app's `.env.example` as the template:
 
 ```bash
