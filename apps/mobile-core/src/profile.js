@@ -176,7 +176,7 @@ async function fetchStaffProfile(authUser) {
     }
   }
 
-  throw new Error('This login is not linked to a staff mobile account.')
+  throw new Error('This login is not linked to a coach account.')
 }
 
 async function fetchParentProfile(authUser) {
@@ -194,7 +194,7 @@ async function fetchParentProfile(authUser) {
   const links = (data || []).map(normalizeParentLink)
 
   if (links.length === 0) {
-    throw new Error('This login does not have an active parent portal link.')
+    throw new Error('This login is not linked to a parent account.')
   }
 
   return normalizeParentProfile(authUser, links)

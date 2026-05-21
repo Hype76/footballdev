@@ -353,7 +353,7 @@ function CoachHome() {
   if (user.accountStatus === 'suspended' || user.clubStatus === 'suspended' || !user.hasActivePlanAccess) {
     return (
       <AccessScreen
-        message="This account does not currently have mobile coach access."
+        message="This account does not currently have coach app access."
         onSignOut={signOut}
         title="Access unavailable"
       />

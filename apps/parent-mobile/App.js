@@ -46,7 +46,7 @@ function LoginScreen() {
           <Image source={require('./assets/football-player-logo.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.kicker}>Parent App</Text>
           <Text style={styles.title}>Log in for child updates.</Text>
-          <Text style={styles.copy}>Use the parent portal login linked by your club.</Text>
+          <Text style={styles.copy}>Use the parent login linked by your club.</Text>
 
           <View style={styles.card}>
             <TextField label="Email" onChangeText={setEmail} placeholder="parent@example.com" value={email} />
