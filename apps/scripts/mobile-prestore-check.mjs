@@ -489,6 +489,8 @@ assertIncludes(mobileReleaseNext, 'Phase 2: Expo EAS Setup', 'Mobile release nex
 assertIncludes(mobileReleaseNext, 'Local readiness snapshot:', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'No Netlify deploy is required for mobile EAS or store setup.', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'Create or update the private evidence file with npm run mobile:evidence:init.', 'Mobile release next helper')
+assertIncludes(mobileReleaseNext, 'Sign in to Expo with npx eas-cli login if needed.', 'Mobile release next helper')
+assertIncludes(mobileReleaseNext, 'Verify the Expo account with npm run mobile:eas:whoami.', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'Make sure the working tree is clean before creating EAS projects or native builds.', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile release next helper')
