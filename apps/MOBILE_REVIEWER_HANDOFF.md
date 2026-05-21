@@ -2,6 +2,12 @@
 
 Use this as the working handoff for App Store Connect and Google Play review. Do not commit real passwords or private test account secrets.
 
+Run the local reviewer preflight before entering credentials in Apple or Google:
+
+```bash
+npm run mobile:reviewer:preflight
+```
+
 ## Review build status
 
 - Coach app: Football Player Coach
@@ -143,6 +149,7 @@ Record the final screenshot folder paths in a private evidence copy under `apps/
 ## Final submission checks
 
 - Confirm the reviewer accounts work immediately before submission.
+- Run `npm run mobile:reviewer:preflight` before entering credentials in Apple or Google.
 - Confirm reviewer credentials are entered only in App Store Connect and Google Play Console.
 - Confirm both apps still use `EXPO_PUBLIC_SUPABASE_ENV=test`.
 - Confirm both apps still use `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.

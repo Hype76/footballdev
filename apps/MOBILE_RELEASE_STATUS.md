@@ -46,6 +46,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Create Google Play Console records.
 - Complete `MOBILE_STORE_RECORD_CHECKLIST.md` for all four store records.
 - Create reviewer test accounts and supply credentials only inside store consoles.
+- Run `npm run mobile:reviewer:preflight` before entering credentials in Apple or Google.
 - Build real Android internal builds with the root mobile build commands.
 - Build real iOS TestFlight builds with the root mobile build commands.
 - Install builds on real Android and iOS devices.

@@ -166,6 +166,7 @@ npm run mobile:build:parent:android:store-test
 - Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.
 - Run `npm run mobile:screenshot:preflight` before final screenshot capture or upload.
 - Prepare reviewer credentials for both apps.
+- Run `npm run mobile:reviewer:preflight` before entering credentials in Apple or Google.
 - Set `MOBILE_SUBMISSION_CONFIRMED=true` only for the final submit command after all private release evidence is complete.
 - Run `npm run mobile:submit:preflight` before setting `MOBILE_SUBMISSION_CONFIRMED=true`.
 - Verify store records match the current app identities:

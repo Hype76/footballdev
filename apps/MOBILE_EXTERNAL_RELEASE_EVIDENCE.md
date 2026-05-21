@@ -21,6 +21,7 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 - Branch or commit:
 - Coach app version:
 - Parents app version:
+- `npm run mobile:reviewer:preflight` result:
 - Test Supabase project confirmed:
 - Live Supabase disabled:
 - `npm run mobile:release-check` result:
@@ -134,6 +135,7 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 - Parents App Store Connect record:
 - Coach reviewer credentials entered in App Store Connect only:
 - Parents reviewer credentials entered in App Store Connect only:
+- Reviewer credential locations recorded only in private evidence:
 - Privacy answers copied from `MOBILE_PRIVACY_QUESTIONNAIRE.md`:
 - Review notes copied from `MOBILE_REVIEWER_HANDOFF.md`:
 
@@ -143,6 +145,7 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 - Parents Google Play record:
 - Coach reviewer credentials entered in Google Play Console only:
 - Parents reviewer credentials entered in Google Play Console only:
+- Reviewer credential locations recorded only in private evidence:
 - Data Safety answers copied from `MOBILE_PRIVACY_QUESTIONNAIRE.md`:
 - Review notes copied from `MOBILE_REVIEWER_HANDOFF.md`:
 

@@ -60,6 +60,7 @@ const mobileConfigCheckPath = 'apps/scripts/mobile-config-check.mjs'
 const mobileBuildGuardPath = 'apps/scripts/mobile-build-guard.mjs'
 const mobileBuildPreflightPath = 'apps/scripts/mobile-build-preflight.mjs'
 const mobilePreflightPath = 'apps/scripts/mobile-preflight.mjs'
+const mobileReviewerPreflightPath = 'apps/scripts/mobile-reviewer-preflight.mjs'
 const mobileScreenshotPreflightPath = 'apps/scripts/mobile-screenshot-preflight.mjs'
 const mobileSubmitGuardPath = 'apps/scripts/mobile-submit-guard.mjs'
 const mobileSubmitPreflightPath = 'apps/scripts/mobile-submit-preflight.mjs'
@@ -395,6 +396,7 @@ assertFile(mobileConfigCheckPath, 'Mobile config check')
 assertFile(mobileBuildGuardPath, 'Mobile build guard')
 assertFile(mobileBuildPreflightPath, 'Mobile build preflight helper')
 assertFile(mobilePreflightPath, 'Mobile release preflight helper')
+assertFile(mobileReviewerPreflightPath, 'Mobile reviewer preflight helper')
 assertFile(mobileScreenshotPreflightPath, 'Mobile screenshot preflight helper')
 assertFile(mobileSubmitGuardPath, 'Mobile submit guard')
 assertFile(mobileSubmitPreflightPath, 'Mobile submit preflight helper')
@@ -411,6 +413,7 @@ const mobileConfigCheck = existsSync(join(repoRoot, mobileConfigCheckPath)) ? re
 const mobileBuildGuard = existsSync(join(repoRoot, mobileBuildGuardPath)) ? read(mobileBuildGuardPath) : ''
 const mobileBuildPreflight = existsSync(join(repoRoot, mobileBuildPreflightPath)) ? read(mobileBuildPreflightPath) : ''
 const mobilePreflight = existsSync(join(repoRoot, mobilePreflightPath)) ? read(mobilePreflightPath) : ''
+const mobileReviewerPreflight = existsSync(join(repoRoot, mobileReviewerPreflightPath)) ? read(mobileReviewerPreflightPath) : ''
 const mobileScreenshotPreflight = existsSync(join(repoRoot, mobileScreenshotPreflightPath)) ? read(mobileScreenshotPreflightPath) : ''
 const mobileSubmitGuard = existsSync(join(repoRoot, mobileSubmitGuardPath)) ? read(mobileSubmitGuardPath) : ''
 const mobileSubmitPreflight = existsSync(join(repoRoot, mobileSubmitPreflightPath)) ? read(mobileSubmitPreflightPath) : ''
@@ -444,9 +447,15 @@ assertIncludes(mobilePreflight, 'Football Player Mobile Release Preflight', 'Mob
 assertIncludes(mobilePreflight, 'This command does not call EAS, Apple, Google, Netlify, Supabase, or any live service.', 'Mobile release preflight helper')
 assertIncludes(mobilePreflight, "['npm', ['run', 'mobile:next']]", 'Mobile release preflight helper')
 assertIncludes(mobilePreflight, "['npm', ['run', 'mobile:build:preflight']]", 'Mobile release preflight helper')
+assertIncludes(mobilePreflight, "['npm', ['run', 'mobile:reviewer:preflight']]", 'Mobile release preflight helper')
 assertIncludes(mobilePreflight, "['npm', ['run', 'mobile:store:preflight']]", 'Mobile release preflight helper')
 assertIncludes(mobilePreflight, "['npm', ['run', 'mobile:screenshot:preflight']]", 'Mobile release preflight helper')
 assertIncludes(mobilePreflight, "['npm', ['run', 'mobile:submit:preflight']]", 'Mobile release preflight helper')
+assertIncludes(mobileReviewerPreflight, 'Football Player Mobile Reviewer Preflight', 'Mobile reviewer preflight helper')
+assertIncludes(mobileReviewerPreflight, 'This command does not call Apple, Google, EAS, Netlify, Supabase, or any live service.', 'Mobile reviewer preflight helper')
+assertIncludes(mobileReviewerPreflight, 'Enter reviewer credentials only in App Store Connect and Google Play Console.', 'Mobile reviewer preflight helper')
+assertIncludes(mobileReviewerPreflight, 'Parent account blocked from Coach app verified on a real build.', 'Mobile reviewer preflight helper')
+assertIncludes(mobileReviewerPreflight, 'Coach-only account blocked from Parents app verified on a real build.', 'Mobile reviewer preflight helper')
 assertIncludes(mobileScreenshotPreflight, 'Football Player Mobile Screenshot Preflight', 'Mobile screenshot preflight helper')
 assertIncludes(mobileScreenshotPreflight, 'This command does not call Apple, Google, EAS, Netlify, Supabase, or any live service.', 'Mobile screenshot preflight helper')
 assertIncludes(mobileScreenshotPreflight, 'coach-ios-final', 'Mobile screenshot preflight helper')
@@ -732,6 +741,9 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   if (rootPackage.scripts?.['mobile:build:preflight'] !== 'node apps/scripts/mobile-build-preflight.mjs') {
     failures.push('Root package must include mobile:build:preflight script')
   }
+  if (rootPackage.scripts?.['mobile:reviewer:preflight'] !== 'node apps/scripts/mobile-reviewer-preflight.mjs') {
+    failures.push('Root package must include mobile:reviewer:preflight script')
+  }
   if (rootPackage.scripts?.['mobile:screenshot:preflight'] !== 'node apps/scripts/mobile-screenshot-preflight.mjs') {
     failures.push('Root package must include mobile:screenshot:preflight script')
   }
@@ -924,6 +936,7 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'Verify the public support route `https://footballplayer.online/` is monitored before submission.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Run `npm run mobile:screenshot:preflight` before final screenshot capture or upload.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Run `npm run mobile:reviewer:preflight` before entering credentials in Apple or Google.', 'Mobile pre-store QA')
   assertNotIncludes(preStoreQa, 'Privacy questionnaire draft', 'Mobile pre-store QA')
   assertNotIncludes(preStoreQa, 'Reviewer handoff draft', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'npm run mobile:config', 'Mobile pre-store QA')
@@ -944,6 +957,7 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
 if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   const reviewerHandoff = read(reviewerHandoffPath)
   assertIncludes(reviewerHandoff, 'Do not commit real passwords', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'npm run mobile:reviewer:preflight', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Do not paste reviewer email addresses, passwords, one-time codes, or private account notes into this file.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'MOBILE_STORE_ACCOUNT_SETUP.md', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'MOBILE_STORE_RECORD_CHECKLIST.md', 'Mobile reviewer handoff')
@@ -965,6 +979,7 @@ if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   assertNotIncludes(reviewerHandoff, 'Google Play review notes draft', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Screenshot checklist', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Confirm reviewer credentials are entered only in App Store Connect and Google Play Console.', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'Run `npm run mobile:reviewer:preflight` before entering credentials in Apple or Google.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Confirm final screenshot folder paths are recorded in a private evidence copy under `apps/mobile-release-evidence/`.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Confirm store record links and reviewer credential locations are recorded only in the private evidence folder.', 'Mobile reviewer handoff')
   assertNoReviewerCredentialValues(reviewerHandoff, 'Mobile reviewer handoff')
@@ -1122,6 +1137,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Shared mobile device controls now cover push notification registration, push notification opt out, device notification state, and biometric setting changes.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared Expo config now owns native permissions, notification plugin setup, biometric permission text, runtime version policy, and test database defaults for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Run `npm run mobile:reviewer:preflight` before entering credentials in Apple or Google.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Build real Android internal builds with the root mobile build commands.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for native build commands after EAS values are verified.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Run `npm run mobile:build:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.', 'Mobile release status')
@@ -1179,6 +1195,8 @@ if (existsSync(join(repoRoot, externalEvidencePath))) {
   assertIncludes(externalEvidence, '# Football Player Mobile External Release Evidence', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, 'Use this template outside git', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, 'Do not commit a completed copy of this file', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, '`npm run mobile:reviewer:preflight` result:', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, 'Reviewer credential locations recorded only in private evidence:', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, 'apps/mobile-release-evidence/', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## EAS Projects', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## Native Builds', 'Mobile external release evidence template')
