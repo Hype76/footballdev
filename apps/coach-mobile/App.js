@@ -2,7 +2,7 @@ import 'react-native-url-polyfill/auto'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, AppState, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { AppState, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import {
@@ -17,8 +17,8 @@ import {
   updateCoachMatchStatus,
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
-import { colors, screen } from '../mobile-core/src/theme'
-import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { colors } from '../mobile-core/src/theme'
+import { AccessScreen, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -295,26 +295,23 @@ function CoachHome() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <MobileScreen
+      refreshControl={(
+        <RefreshControl
+          colors={[colors.accent]}
+          onRefresh={handleRefresh}
+          refreshing={isRefreshing}
+          tintColor={colors.accent}
+        />
+      )}
+    >
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={(
-          <RefreshControl
-            colors={[colors.accent]}
-            onRefresh={handleRefresh}
-            refreshing={isRefreshing}
-            tintColor={colors.accent}
-          />
-        )}
-      >
-        <View style={styles.shell}>
-          <Image source={require('./assets/football-player-logo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.kicker}>{user.clubName}</Text>
-          <Text style={styles.title}>Hi {user.displayName || user.name}.</Text>
-          <Text style={styles.copy}>
-            {selectedMobileUser.activeTeamName ? `${selectedMobileUser.activeTeamName} is selected.` : 'All available teams are selected.'}
-          </Text>
+      <ScreenHeader
+        copy={selectedMobileUser.activeTeamName ? `${selectedMobileUser.activeTeamName} is selected.` : 'All available teams are selected.'}
+        kicker={user.clubName}
+        logoSource={require('./assets/football-player-logo.png')}
+        title={`Hi ${user.displayName || user.name}.`}
+      />
 
           {teamOptions.length > 1 ? (
             <TeamSelector
@@ -340,10 +337,7 @@ function CoachHome() {
           <StatusBanner message={statusMessage} onDismiss={() => setStatusMessage('')} />
 
           {isLoadingSummary ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.accent} />
-              <Text style={styles.item}>Loading workspace summary...</Text>
-            </View>
+            <LoadingRow message="Loading workspace summary..." />
           ) : (
             <OverviewPanel
               isOpen={showOverview}
@@ -398,9 +392,7 @@ function CoachHome() {
             />
           ) : null}
           <LegalFooter />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    </MobileScreen>
   )
 }
 
@@ -453,9 +445,7 @@ function MatchdayPanel({ activeActionId, matches, onAddDetailedGoal, onAddGoal, 
       ))}
     </View>
   ) : (
-    <View style={styles.card}>
-      <Text style={styles.item}>No matchday fixtures are available yet.</Text>
-    </View>
+    <EmptyState message="No matchday fixtures are available yet." />
   )
 }
 
@@ -660,9 +650,7 @@ function PlayersPanel({ players }) {
       {players.map((player) => <PlayerCard key={player.id} player={player} />)}
     </View>
   ) : (
-    <View style={styles.card}>
-      <Text style={styles.item}>No players are available yet.</Text>
-    </View>
+    <EmptyState message="No players are available yet." />
   )
 }
 
@@ -672,9 +660,7 @@ function SessionsPanel({ sessions }) {
       {sessions.map((session) => <SessionCard key={session.id} session={session} />)}
     </View>
   ) : (
-    <View style={styles.card}>
-      <Text style={styles.item}>No sessions are available yet.</Text>
-    </View>
+    <EmptyState message="No sessions are available yet." />
   )
 }
 
@@ -736,9 +722,7 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
 
   if (players.length === 0) {
     return (
-      <View style={styles.card}>
-        <Text style={styles.item}>No players are available for assessment yet.</Text>
-      </View>
+      <EmptyState message="No players are available for assessment yet." />
     )
   }
 
@@ -851,20 +835,10 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 12,
   },
-  copy: {
-    color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
-  },
   correctionHint: {
     color: colors.muted,
     fontSize: 12,
     fontWeight: '800',
-  },
-  loadingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
   },
   list: {
     gap: 12,
@@ -966,29 +940,5 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     width: '100%',
-  },
-  logo: {
-    height: 70,
-    width: 70,
-  },
-  safeArea: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    padding: screen.padding,
-  },
-  shell: {
-    alignSelf: 'center',
-    gap: 18,
-    maxWidth: screen.maxWidth,
-    width: '100%',
-  },
-  title: {
-    color: colors.text,
-    fontSize: 34,
-    fontWeight: '900',
-    lineHeight: 38,
   },
 })

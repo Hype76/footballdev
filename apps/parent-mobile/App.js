@@ -2,7 +2,7 @@ import 'react-native-url-polyfill/auto'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, AppState, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { AppState, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import {
@@ -15,8 +15,8 @@ import {
   volunteerAsMatchScorer,
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
-import { colors, screen } from '../mobile-core/src/theme'
-import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TabRail } from '../mobile-core/src/ui'
+import { colors } from '../mobile-core/src/theme'
+import { AccessScreen, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, ScreenHeader, StatusBanner, TabRail } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -285,24 +285,23 @@ function ParentHome() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <MobileScreen
+      refreshControl={(
+        <RefreshControl
+          colors={[colors.accent]}
+          onRefresh={handleRefresh}
+          refreshing={isRefreshing}
+          tintColor={colors.accent}
+        />
+      )}
+    >
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={(
-          <RefreshControl
-            colors={[colors.accent]}
-            onRefresh={handleRefresh}
-            refreshing={isRefreshing}
-            tintColor={colors.accent}
-          />
-        )}
-      >
-        <View style={styles.shell}>
-          <Image source={require('./assets/football-player-logo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.kicker}>{selectedLink?.clubName || user.clubName}</Text>
-          <Text style={styles.title}>{selectedLink?.playerName || 'Child'} updates.</Text>
-          <Text style={styles.copy}>Live match alerts, messages, and polls will appear here.</Text>
+      <ScreenHeader
+        copy="Live match alerts, messages, and polls will appear here."
+        kicker={selectedLink?.clubName || user.clubName}
+        logoSource={require('./assets/football-player-logo.png')}
+        title={`${selectedLink?.playerName || 'Child'} updates.`}
+      />
 
           <TabRail
             activeTab={activeTab}
@@ -332,10 +331,7 @@ function ParentHome() {
           </View>
 
           {isLoadingSummary ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.accent} />
-              <Text style={styles.item}>Loading parent summary...</Text>
-            </View>
+            <LoadingRow message="Loading parent summary..." />
           ) : (
             <OverviewPanel
               isOpen={showOverview}
@@ -383,9 +379,7 @@ function ParentHome() {
             />
           ) : null}
           <LegalFooter />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    </MobileScreen>
   )
 }
 
@@ -428,9 +422,7 @@ function MatchdayPanel({ activeActionId, matches, onRefresh, onVolunteerScorer }
       ))}
     </View>
   ) : (
-    <View style={styles.card}>
-      <Text style={styles.item}>No matchday updates are available right now.</Text>
-    </View>
+    <EmptyState message="No matchday updates are available right now." />
   )
 }
 
@@ -447,9 +439,7 @@ function MessagesPanel({ activeActionId, messages, onMarkRead }) {
       ))}
     </View>
   ) : (
-    <View style={styles.card}>
-      <Text style={styles.item}>No messages have been shared yet.</Text>
-    </View>
+    <EmptyState message="No messages have been shared yet." />
   )
 }
 
@@ -467,9 +457,7 @@ function PollsPanel({ activeActionId, onVote, polls }) {
       ))}
     </View>
   ) : (
-    <View style={styles.card}>
-      <Text style={styles.item}>No parent polls are open right now.</Text>
-    </View>
+    <EmptyState message="No parent polls are open right now." />
   )
 }
 
@@ -548,16 +536,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  copy: {
-    color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  loadingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-  },
   list: {
     gap: 12,
   },
@@ -565,29 +543,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 15,
     lineHeight: 22,
-  },
-  logo: {
-    height: 70,
-    width: 70,
-  },
-  safeArea: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    padding: screen.padding,
-  },
-  shell: {
-    alignSelf: 'center',
-    gap: 18,
-    maxWidth: screen.maxWidth,
-    width: '100%',
-  },
-  title: {
-    color: colors.text,
-    fontSize: 34,
-    fontWeight: '900',
-    lineHeight: 38,
   },
 })
