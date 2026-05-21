@@ -107,6 +107,8 @@ npx eas-cli build --profile store-test --platform android
 - Coach app lets club-wide roles view all teams.
 - Parent app shows linked children and respects the selected child.
 - Parent app keeps matchday, messages, polls, and notification registration scoped to the selected child.
+- Shared mobile UI renders consistently across both apps for login, headers, tabs, overview, cards, lists, settings, choice controls, and segmented controls.
+- Shared mobile device controls behave consistently across both apps for notifications and biometric unlock.
 - Pull-to-refresh reloads Coach matchday, player, session, and assessment data.
 - Pull-to-refresh reloads Parents matchday, message, and poll data.
 - Reopening either app refreshes the current selected data without requiring sign out.

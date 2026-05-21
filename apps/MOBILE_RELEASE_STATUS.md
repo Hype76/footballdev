@@ -14,6 +14,8 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Biometric unlock support is implemented where the device supports enrolled security.
 - Coach app supports matchday, players, quick assessments, sessions, team switching, and club-wide All Teams for eligible roles.
 - Parents app supports linked child switching, matchday updates, messages, polls, and scorer volunteer actions.
+- Shared mobile UI now covers login, fallback screens, screen chrome, overview, tab rail, settings, layout panels, lists, choice controls, and segmented controls.
+- Shared mobile device controls now cover push notification registration, push notification opt out, device notification state, and biometric setting changes.
 - Android sensitive permissions that are not used are explicitly blocked.
 - Store metadata, privacy questionnaire, environment runbook, notification runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
 - EAS remote app versioning and store-test auto-increment are configured for both apps.
