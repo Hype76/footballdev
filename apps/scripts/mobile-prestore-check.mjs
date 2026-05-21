@@ -38,6 +38,7 @@ const forbiddenSourcePatterns = [
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
+const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
 const rootPackagePath = 'package.json'
 
 function read(relativePath) {
@@ -145,6 +146,7 @@ for (const app of apps) {
 
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
+assertFile(storeAccountSetupPath, 'Mobile store account setup')
 assertFile(rootPackagePath, 'Root package')
 
 const mobileConfig = read('apps/mobile-core/src/config.js')
@@ -181,9 +183,19 @@ if (existsSync(join(repoRoot, sharedPrivacyPath))) {
 if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   const reviewerHandoff = read(reviewerHandoffPath)
   assertIncludes(reviewerHandoff, 'Do not commit real passwords', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'MOBILE_STORE_ACCOUNT_SETUP.md', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Payments are handled outside the mobile app', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'This review build uses the test database.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Screenshot checklist', 'Mobile reviewer handoff')
+}
+
+if (existsSync(join(repoRoot, storeAccountSetupPath))) {
+  const storeSetup = read(storeAccountSetupPath)
+  assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'com.footballplayer.parents', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'Do not commit private keys', 'Mobile store account setup')
 }
 
 if (failures.length > 0) {

@@ -11,6 +11,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Shared code: `apps/mobile-core`
 - Privacy questionnaire draft: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - Reviewer handoff draft: `MOBILE_REVIEWER_HANDOFF.md`
+- Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
 - Test database only until live release approval is given.
 
 ## Required secrets
@@ -104,6 +105,7 @@ npx eas-cli build --profile store-test --platform android
 ## Remaining app-store readiness work
 
 - Run `npm run mobile:release-check` immediately before creating native builds.
+- Complete `MOBILE_STORE_ACCOUNT_SETUP.md`.
 - Create Expo EAS projects for both apps.
 - Add real EAS project IDs to each app environment.
 - Build real Android internal test builds.

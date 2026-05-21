@@ -6,6 +6,7 @@ Use this as the working handoff for App Store Connect and Google Play review. Do
 
 - Coach app: Football Player Coach
 - Parents app: Football Player Parents
+- Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
 - Database: test Supabase only
 - Billing: not available in either mobile app
 - Login: required for both apps
