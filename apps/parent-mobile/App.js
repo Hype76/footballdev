@@ -1,7 +1,7 @@
 import 'react-native-url-polyfill/auto'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
@@ -66,6 +66,7 @@ function ParentHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('matchday')
+  const [selectedLinkId, setSelectedLinkId] = useState('')
   const [messages, setMessages] = useState([])
   const [polls, setPolls] = useState([])
   const [summary, setSummary] = useState(null)
@@ -77,9 +78,18 @@ function ParentHome() {
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
-  const selectedLink = Array.isArray(user?.parentPortalLinks)
-    ? user.parentPortalLinks.find((link) => link.id === user.selectedParentLinkId) || user.parentPortalLinks[0]
-    : null
+  const parentLinks = useMemo(
+    () => (Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []),
+    [user?.parentPortalLinks],
+  )
+  const selectedLink = parentLinks.find((link) => link.id === selectedLinkId)
+    || parentLinks.find((link) => link.id === user?.selectedParentLinkId)
+    || parentLinks[0]
+    || null
+  const selectedMobileUser = useMemo(
+    () => (user ? { ...user, selectedParentLinkId: selectedLink?.id || '' } : user),
+    [selectedLink?.id, user],
+  )
   const unreadMessageCount = messages.filter((message) => !message.readAt).length
   const unansweredPollCount = polls.filter((poll) => {
     const selectedOptionIds = Array.isArray(poll.currentOptionIds) ? poll.currentOptionIds : []
@@ -90,17 +100,20 @@ function ParentHome() {
     let isMounted = true
 
     async function loadSummary() {
-      if (!user?.id) {
+      if (!selectedMobileUser?.id) {
         setIsLoadingSummary(false)
         return
       }
 
+      setIsLoadingSummary(true)
+      setStatusMessage('')
+
       try {
         const [nextSummary, nextMatches, nextMessages, nextPolls] = await Promise.all([
-          getParentHomeSummary(user),
-          getParentMatchDays(user),
-          getParentMessages(user),
-          getParentPolls(user),
+          getParentHomeSummary(selectedMobileUser),
+          getParentMatchDays(selectedMobileUser),
+          getParentMessages(selectedMobileUser),
+          getParentPolls(selectedMobileUser),
         ])
 
         if (isMounted) {
@@ -127,7 +140,13 @@ function ParentHome() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [selectedMobileUser])
+
+  useEffect(() => {
+    if (selectedLink?.id && selectedLinkId !== selectedLink.id) {
+      setSelectedLinkId(selectedLink.id)
+    }
+  }, [selectedLink?.id, selectedLinkId])
 
   useEffect(() => {
     let isMounted = true
@@ -213,10 +232,10 @@ function ParentHome() {
 
   async function refreshParentData() {
     const [nextSummary, nextMatches, nextMessages, nextPolls] = await Promise.all([
-      getParentHomeSummary(user),
-      getParentMatchDays(user),
-      getParentMessages(user),
-      getParentPolls(user),
+      getParentHomeSummary(selectedMobileUser),
+      getParentMatchDays(selectedMobileUser),
+      getParentMessages(selectedMobileUser),
+      getParentPolls(selectedMobileUser),
     ])
 
     setSummary(nextSummary)
@@ -245,7 +264,7 @@ function ParentHome() {
     setStatusMessage('')
 
     try {
-      await volunteerAsMatchScorer(user, match.id)
+      await volunteerAsMatchScorer(selectedMobileUser, match.id)
       await refreshParentData()
       setStatusMessage('Your scorer interest has been sent.')
     } catch (error) {
@@ -261,7 +280,7 @@ function ParentHome() {
     setStatusMessage('')
 
     try {
-      await markParentMessageRead(user, message.id)
+      await markParentMessageRead(selectedMobileUser, message.id)
       await refreshParentData()
       setStatusMessage('Message marked as read.')
     } catch (error) {
@@ -277,7 +296,7 @@ function ParentHome() {
     setStatusMessage('')
 
     try {
-      await submitParentPollVote(user, poll.id, option.id)
+      await submitParentPollVote(selectedMobileUser, poll.id, option.id)
       await refreshParentData()
       setStatusMessage('Your poll answer has been saved.')
     } catch (error) {
@@ -326,6 +345,13 @@ function ParentHome() {
             <Text style={styles.cardTitle}>Linked child</Text>
             <Text style={styles.item}>{selectedLink?.playerName || 'No child selected'}</Text>
             <Text style={styles.item}>{selectedLink?.teamName || 'Team not set'}</Text>
+            {parentLinks.length > 1 ? (
+              <ChildSelector
+                links={parentLinks}
+                onSelect={setSelectedLinkId}
+                selectedLinkId={selectedLink?.id || ''}
+              />
+            ) : null}
           </View>
 
           {isLoadingSummary ? (
@@ -407,6 +433,29 @@ function TabRail({ activeTab, onChange, tabs }) {
           </View>
         </Pressable>
       ))}
+    </View>
+  )
+}
+
+function ChildSelector({ links, onSelect, selectedLinkId }) {
+  return (
+    <View style={styles.childSelector}>
+      {links.map((link) => {
+        const isActive = link.id === selectedLinkId
+
+        return (
+          <Pressable
+            key={link.id}
+            onPress={() => onSelect(link.id)}
+            style={[styles.childButton, isActive ? styles.childButtonActive : null]}
+          >
+            <Text style={[styles.childName, isActive ? styles.childNameActive : null]}>{link.playerName}</Text>
+            {link.teamName ? (
+              <Text style={[styles.childMeta, isActive ? styles.childMetaActive : null]}>{link.teamName}</Text>
+            ) : null}
+          </Pressable>
+        )
+      })}
     </View>
   )
 }
@@ -573,6 +622,40 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 18,
     fontWeight: '800',
+  },
+  childButton: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 3,
+    minHeight: 54,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  childButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  childMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  childMetaActive: {
+    color: '#000000',
+  },
+  childName: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  childNameActive: {
+    color: '#000000',
+  },
+  childSelector: {
+    gap: 8,
+    marginTop: 4,
   },
   error: {
     color: '#ffb4b4',
