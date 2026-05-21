@@ -411,6 +411,10 @@ assertIncludes(mobileUi, 'Copyright 2026 Football Player.', 'Mobile legal footer
 
 apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
+  assertIncludes(appSource, 'RefreshControl', `${app.name} pull-to-refresh`)
+  assertIncludes(appSource, 'refreshControl={(', `${app.name} pull-to-refresh`)
+  assertIncludes(appSource, 'onRefresh={handleRefresh}', `${app.name} pull-to-refresh`)
+  assertIncludes(appSource, 'tintColor={colors.accent}', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'Connection ready', `${app.name} settings status`)
   assertIncludes(appSource, 'Connection needs setup', `${app.name} settings status`)
   assertIncludes(appSource, app.restrictedAccessCopy, `${app.name} login copy`)
