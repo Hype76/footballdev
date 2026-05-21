@@ -15,6 +15,7 @@
     "mobile:release-check": "node apps/scripts/mobile-release-check.mjs",
     "mobile:next": "node apps/scripts/mobile-release-next.mjs",
     "mobile:build:preflight": "node apps/scripts/mobile-build-preflight.mjs",
+    "mobile:screenshot:preflight": "node apps/scripts/mobile-screenshot-preflight.mjs",
     "mobile:store:preflight": "node apps/scripts/mobile-store-preflight.mjs",
     "mobile:submit:preflight": "node apps/scripts/mobile-submit-preflight.mjs",
     "mobile:eas:init:coach": "node apps/scripts/mobile-eas-init-guard.mjs coach",

@@ -8,6 +8,7 @@ const checks = [
   ['npm', ['run', 'mobile:next']],
   ['npm', ['run', 'mobile:build:preflight']],
   ['npm', ['run', 'mobile:store:preflight']],
+  ['npm', ['run', 'mobile:screenshot:preflight']],
   ['npm', ['run', 'mobile:submit:preflight']],
 ]
 

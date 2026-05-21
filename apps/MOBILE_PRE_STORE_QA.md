@@ -164,6 +164,7 @@ npm run mobile:build:parent:android:store-test
 - Record external QA evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Prepare store screenshots for both apps from `MOBILE_SCREENSHOT_PLAN.md`.
 - Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.
+- Run `npm run mobile:screenshot:preflight` before final screenshot capture or upload.
 - Prepare reviewer credentials for both apps.
 - Set `MOBILE_SUBMISSION_CONFIRMED=true` only for the final submit command after all private release evidence is complete.
 - Run `npm run mobile:submit:preflight` before setting `MOBILE_SUBMISSION_CONFIRMED=true`.

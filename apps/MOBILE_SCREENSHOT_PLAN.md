@@ -4,6 +4,12 @@ Use this plan when preparing App Store Connect and Google Play screenshots for t
 
 Screenshots must come from real store builds, TestFlight builds, or Google internal builds. Do not use web export screenshots for store submission.
 
+Run the local screenshot preflight before final capture or upload:
+
+```bash
+npm run mobile:screenshot:preflight
+```
+
 ## Data rules
 
 - Use test database data only.

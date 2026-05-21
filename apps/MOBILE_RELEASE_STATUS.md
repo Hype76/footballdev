@@ -74,6 +74,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Install all four builds on real devices.
 - Complete `MOBILE_DEVICE_TESTING.md`, with push notification evidence from `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Capture screenshots from the real builds using `MOBILE_SCREENSHOT_PLAN.md`.
+- Run `npm run mobile:screenshot:preflight` before final screenshot capture or upload.
 - Run `npm run mobile:release-check` again immediately before final store submission.
 - Run `npm run mobile:submit:preflight` before setting `MOBILE_SUBMISSION_CONFIRMED=true`.
 - Submit with the root mobile submit commands only after device QA, notification QA, screenshots, reviewer notes, store records, reviewer credentials, and private release evidence are complete.
