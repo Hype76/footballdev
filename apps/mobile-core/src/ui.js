@@ -288,6 +288,73 @@ export function StatusBanner({ message, onDismiss }) {
   )
 }
 
+export function MobileSettingsPanel({
+  biometricAvailable,
+  biometricEnabled,
+  config,
+  isRegisteringPush,
+  isUpdatingBiometrics,
+  lastUpdatedAt,
+  notificationCopy,
+  notificationEnabled,
+  onDisableNotifications,
+  onEnableNotifications,
+  onSignOut,
+  onToggleBiometrics,
+}) {
+  return (
+    <View style={styles.settingsList}>
+      <View style={styles.simpleCard}>
+        <Text style={styles.simpleTitle}>Notifications</Text>
+        <Text style={styles.simpleBody}>{notificationCopy}</Text>
+        <PrimaryButton loading={isRegisteringPush} onPress={onEnableNotifications}>
+          {notificationEnabled ? 'Refresh notifications' : 'Enable notifications'}
+        </PrimaryButton>
+        {notificationEnabled ? (
+          <PrimaryButton loading={isRegisteringPush} onPress={onDisableNotifications} variant="secondary">
+            Disable notifications
+          </PrimaryButton>
+        ) : null}
+      </View>
+
+      <View style={styles.simpleCard}>
+        <Text style={styles.simpleTitle}>Biometric unlock</Text>
+        <Text style={styles.simpleBody}>
+          {biometricAvailable ? 'Use your device security when reopening the app.' : 'No enrolled biometric security is available on this device.'}
+        </Text>
+        <PrimaryButton
+          disabled={!biometricAvailable}
+          loading={isUpdatingBiometrics}
+          onPress={onToggleBiometrics}
+          variant="secondary"
+        >
+          {biometricEnabled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
+        </PrimaryButton>
+      </View>
+
+      <View style={styles.simpleCard}>
+        <Text style={styles.simpleTitle}>App access</Text>
+        <Text style={styles.simpleBody}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
+        {lastUpdatedAt ? <Text style={styles.simpleBody}>Updated {formatLastUpdated(lastUpdatedAt)}</Text> : null}
+        <PrimaryButton onPress={onSignOut} variant="secondary">Sign out</PrimaryButton>
+      </View>
+    </View>
+  )
+}
+
+function formatLastUpdated(value) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export function TabRail({ activeTab, onChange, tabBasis = '30%', tabs }) {
   return (
     <View style={styles.tabRail}>
@@ -489,6 +556,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 17,
     fontWeight: '900',
+  },
+  settingsList: {
+    gap: 12,
   },
   stepper: {
     gap: 8,

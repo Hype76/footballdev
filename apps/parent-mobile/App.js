@@ -18,7 +18,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { LegalFooter, MatchCard, MessageCard, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { LegalFooter, MatchCard, MessageCard, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -493,7 +493,7 @@ function ParentHome() {
             <PollsPanel activeActionId={activeActionId} onVote={handlePollVote} polls={polls} />
           ) : null}
           {activeTab === 'settings' ? (
-            <SettingsPanel
+            <MobileSettingsPanel
               biometricAvailable={biometricAvailable}
               biometricEnabled={biometricEnabled}
               config={config}
@@ -599,73 +599,6 @@ function PollsPanel({ activeActionId, onVote, polls }) {
       <Text style={styles.item}>No parent polls are open right now.</Text>
     </View>
   )
-}
-
-function SettingsPanel({
-  biometricAvailable,
-  biometricEnabled,
-  config,
-  isRegisteringPush,
-  isUpdatingBiometrics,
-  lastUpdatedAt,
-  notificationCopy,
-  notificationEnabled,
-  onDisableNotifications,
-  onEnableNotifications,
-  onSignOut,
-  onToggleBiometrics,
-}) {
-  return (
-    <View style={styles.list}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Notifications</Text>
-        <Text style={styles.item}>{notificationCopy}</Text>
-        <PrimaryButton loading={isRegisteringPush} onPress={onEnableNotifications}>
-          {notificationEnabled ? 'Refresh notifications' : 'Enable notifications'}
-        </PrimaryButton>
-        {notificationEnabled ? (
-          <PrimaryButton loading={isRegisteringPush} onPress={onDisableNotifications} variant="secondary">
-            Disable notifications
-          </PrimaryButton>
-        ) : null}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Biometric unlock</Text>
-        <Text style={styles.item}>
-          {biometricAvailable ? 'Use your device security when reopening the app.' : 'No enrolled biometric security is available on this device.'}
-        </Text>
-        <PrimaryButton
-          disabled={!biometricAvailable}
-          loading={isUpdatingBiometrics}
-          onPress={onToggleBiometrics}
-          variant="secondary"
-        >
-          {biometricEnabled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
-        </PrimaryButton>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>App access</Text>
-        <Text style={styles.item}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
-        {lastUpdatedAt ? <Text style={styles.item}>Updated {formatLastUpdated(lastUpdatedAt)}</Text> : null}
-        <PrimaryButton onPress={onSignOut} variant="secondary">Sign out</PrimaryButton>
-      </View>
-    </View>
-  )
-}
-
-function formatLastUpdated(value) {
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return ''
-  }
-
-  return date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function LoadingScreen({ message }) {
