@@ -52,7 +52,7 @@ function LoginScreen() {
             <TextField label="Email" onChangeText={setEmail} placeholder="parent@example.com" value={email} />
             <TextField label="Password" onChangeText={setPassword} placeholder="Password" secureTextEntry value={password} />
             {authError ? <Text style={styles.error}>{authError}</Text> : null}
-            <PrimaryButton loading={isSubmitting} onPress={handleLogin}>Log In</PrimaryButton>
+            <PrimaryButton loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
           </View>
 
           <Text style={styles.meta}>Restricted parent access.</Text>
@@ -417,20 +417,20 @@ function ParentHome() {
             <Text style={styles.item}>
               {notificationState?.isRegistered
                 ? 'Alerts are enabled on this device for the selected child.'
-                : notificationState?.message || 'Enable native alerts for matchday goals, full time, messages, and polls.'}
+                : notificationState?.message || 'Enable alerts for matchday goals, full time, messages, and polls.'}
             </Text>
             <PrimaryButton loading={isRegisteringPush} onPress={enableNotifications}>
-              {notificationState?.isRegistered ? 'Refresh Notifications' : 'Enable Notifications'}
+              {notificationState?.isRegistered ? 'Refresh notifications' : 'Enable notifications'}
             </PrimaryButton>
             {notificationState?.isRegistered ? (
               <PrimaryButton loading={isRegisteringPush} onPress={disableNotifications} variant="secondary">
-                Disable Notifications
+                Disable notifications
               </PrimaryButton>
             ) : null}
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Biometric Unlock</Text>
+            <Text style={styles.cardTitle}>Biometric unlock</Text>
             <Text style={styles.item}>
               {biometricAvailable ? 'Use your device security when reopening the app.' : 'No enrolled biometric security is available on this device.'}
             </Text>
@@ -440,13 +440,13 @@ function ParentHome() {
               onPress={toggleBiometrics}
               variant="secondary"
             >
-              {biometricEnabled ? 'Disable Biometric Unlock' : 'Enable Biometric Unlock'}
+              {biometricEnabled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
             </PrimaryButton>
           </View>
 
           {statusMessage ? <Text style={styles.notice}>{statusMessage}</Text> : null}
 
-          <PrimaryButton onPress={signOut} variant="secondary">Sign Out</PrimaryButton>
+          <PrimaryButton onPress={signOut} variant="secondary">Sign out</PrimaryButton>
           <Text style={styles.meta}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
           <LegalFooter />
         </View>
@@ -577,7 +577,7 @@ function AccessScreen({ message, onSignOut, title }) {
       <View style={styles.centered}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.copy}>{message}</Text>
-        <PrimaryButton onPress={onSignOut} variant="secondary">Sign Out</PrimaryButton>
+        <PrimaryButton onPress={onSignOut} variant="secondary">Sign out</PrimaryButton>
       </View>
     </SafeAreaView>
   )

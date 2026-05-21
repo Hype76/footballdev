@@ -54,7 +54,7 @@ function LoginScreen() {
             <TextField label="Email" onChangeText={setEmail} placeholder="coach@example.com" value={email} />
             <TextField label="Password" onChangeText={setPassword} placeholder="Password" secureTextEntry value={password} />
             {authError ? <Text style={styles.error}>{authError}</Text> : null}
-            <PrimaryButton loading={isSubmitting} onPress={handleLogin}>Log In</PrimaryButton>
+            <PrimaryButton loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
           </View>
 
           <Text style={styles.meta}>Restricted club access.</Text>
@@ -436,17 +436,17 @@ function CoachHome() {
                 : notificationState?.message || 'Enable coach alerts for this device.'}
             </Text>
             <PrimaryButton loading={isRegisteringPush} onPress={enableNotifications}>
-              {notificationState?.isRegistered ? 'Refresh Notifications' : 'Enable Notifications'}
+              {notificationState?.isRegistered ? 'Refresh notifications' : 'Enable notifications'}
             </PrimaryButton>
             {notificationState?.isRegistered ? (
               <PrimaryButton loading={isRegisteringPush} onPress={disableNotifications} variant="secondary">
-                Disable Notifications
+                Disable notifications
               </PrimaryButton>
             ) : null}
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Biometric Unlock</Text>
+            <Text style={styles.cardTitle}>Biometric unlock</Text>
             <Text style={styles.item}>
               {biometricAvailable ? 'Use your device security when reopening the app.' : 'No enrolled biometric security is available on this device.'}
             </Text>
@@ -456,13 +456,13 @@ function CoachHome() {
               onPress={toggleBiometrics}
               variant="secondary"
             >
-              {biometricEnabled ? 'Disable Biometric Unlock' : 'Enable Biometric Unlock'}
+              {biometricEnabled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
             </PrimaryButton>
           </View>
 
           {statusMessage ? <Text style={styles.notice}>{statusMessage}</Text> : null}
 
-          <PrimaryButton onPress={signOut} variant="secondary">Sign Out</PrimaryButton>
+          <PrimaryButton onPress={signOut} variant="secondary">Sign out</PrimaryButton>
           <Text style={styles.meta}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
           <LegalFooter />
         </View>
@@ -861,7 +861,7 @@ function AccessScreen({ message, onSignOut, title }) {
       <View style={styles.centered}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.copy}>{message}</Text>
-        <PrimaryButton onPress={onSignOut} variant="secondary">Sign Out</PrimaryButton>
+        <PrimaryButton onPress={onSignOut} variant="secondary">Sign out</PrimaryButton>
       </View>
     </SafeAreaView>
   )
