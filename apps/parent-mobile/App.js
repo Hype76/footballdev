@@ -15,6 +15,7 @@ import {
   volunteerAsMatchScorer,
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
+import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { colors } from '../mobile-core/src/theme'
 import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, ListStack, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, Panel, PollCard, PrimaryButton, ScreenHeader, StatusBanner, TabRail } from '../mobile-core/src/ui'
 
@@ -53,16 +54,16 @@ function ParentHome() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [showOverview, setShowOverview] = useState(false)
   const parentLinks = useMemo(
-    () => (Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []),
-    [user?.parentPortalLinks],
+    () => getParentPortalLinks(user),
+    [user],
   )
-  const selectedLink = parentLinks.find((link) => link.id === selectedLinkId)
-    || parentLinks.find((link) => link.id === user?.selectedParentLinkId)
-    || parentLinks[0]
-    || null
+  const selectedLink = useMemo(
+    () => getSelectedParentLink(user, selectedLinkId),
+    [selectedLinkId, user],
+  )
   const selectedMobileUser = useMemo(
-    () => (user ? { ...user, selectedParentLinkId: selectedLink?.id || '' } : user),
-    [selectedLink?.id, user],
+    () => withSelectedParentLink(user, selectedLink),
+    [selectedLink, user],
   )
   const unreadMessageCount = messages.filter((message) => !message.readAt).length
   const unansweredPollCount = polls.filter((poll) => {

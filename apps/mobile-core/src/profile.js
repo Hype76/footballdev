@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getSelectedParentLink } from './parentLinks'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -126,7 +127,7 @@ function normalizeParentLink(row) {
 }
 
 function normalizeParentProfile(authUser, links) {
-  const selectedLink = links[0]
+  const selectedLink = getSelectedParentLink({ parentPortalLinks: links })
 
   return {
     accountStatus: 'active',

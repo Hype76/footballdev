@@ -1,6 +1,7 @@
 import { getMobileRuntimeConfig } from './config'
 import { isAssessmentScoreField } from './assessment'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
+import { getParentPortalLinks, getSelectedParentLink } from './parentLinks'
 import { getAccessToken, supabase } from './supabase'
 
 function normalizeText(value) {
@@ -9,12 +10,6 @@ function normalizeText(value) {
 
 function normalizeCount(value) {
   return Number(value || 0)
-}
-
-function getSelectedParentLink(user) {
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-
-  return links.find((link) => link.id === user?.selectedParentLinkId) || links[0] || null
 }
 
 async function sendMatchDayPushNotification({ eventId = '', matchDayId, type }) {
@@ -812,7 +807,7 @@ export async function volunteerAsMatchScorer(user, matchId) {
 }
 
 export async function getParentHomeSummary(user) {
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
+  const links = getParentPortalLinks(user)
   const selectedLink = getSelectedParentLink(user)
 
   if (!selectedLink?.id) {
