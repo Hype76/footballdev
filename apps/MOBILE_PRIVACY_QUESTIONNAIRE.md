@@ -16,6 +16,7 @@ This is not legal advice. Confirm final answers against the live privacy policy 
 - Apps may use device biometric APIs for local session unlock when the user enables biometric unlock.
 - Apps do not collect precise location.
 - Apps do not access contacts, photos, camera, microphone, health data, calendar, or Bluetooth.
+- Android builds explicitly block location, camera, microphone, contacts, media, and Bluetooth permissions.
 - Apps do not include public social networking or public chat.
 
 ## Data linked to user identity

@@ -66,6 +66,7 @@ npx eas-cli build --profile store-test --platform android
 - No billing, checkout, subscription management, or Stripe controls are present in either app.
 - Subscription management remains on the desktop web platform.
 - Reviewer notes must explain that payments are handled outside the mobile app.
+- Android blocked permissions must remain aligned with the privacy questionnaire.
 - Coach app is for club staff only.
 - Parents app is for linked parent and family access only.
 - Privacy answers should be checked against `MOBILE_PRIVACY_QUESTIONNAIRE.md`.

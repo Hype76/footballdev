@@ -38,6 +38,16 @@ module.exports = {
     android: {
       package: 'com.footballplayer.coach',
       versionCode: 1,
+      blockedPermissions: [
+        'android.permission.ACCESS_COARSE_LOCATION',
+        'android.permission.ACCESS_FINE_LOCATION',
+        'android.permission.BLUETOOTH',
+        'android.permission.CAMERA',
+        'android.permission.READ_CONTACTS',
+        'android.permission.READ_MEDIA_IMAGES',
+        'android.permission.READ_MEDIA_VIDEO',
+        'android.permission.RECORD_AUDIO',
+      ],
       permissions: [
         'POST_NOTIFICATIONS',
         'USE_BIOMETRIC',
