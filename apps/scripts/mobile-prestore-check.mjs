@@ -19,6 +19,7 @@ const apps = [
     name: 'Coach',
     packageJson: 'apps/coach-mobile/package.json',
     packageName: 'com.footballplayer.coach',
+    readme: 'apps/coach-mobile/README.md',
     scheme: 'footballplayercoach',
     slug: 'football-player-coach',
     sourceRoots: ['apps/coach-mobile/App.js', 'apps/mobile-core/src'],
@@ -38,6 +39,7 @@ const apps = [
     name: 'Parents',
     packageJson: 'apps/parent-mobile/package.json',
     packageName: 'com.footballplayer.parents',
+    readme: 'apps/parent-mobile/README.md',
     scheme: 'footballplayerparents',
     slug: 'football-player-parents',
     sourceRoots: ['apps/parent-mobile/App.js', 'apps/mobile-core/src'],
@@ -158,6 +160,7 @@ for (const app of apps) {
   assertFile(app.metadata, `${app.name} store metadata`)
   assertFile(app.metroConfig, `${app.name} Metro config`)
   assertFile(app.packageJson, `${app.name} package`)
+  assertFile(app.readme, `${app.name} README`)
   assertFile(app.submissionChecklist, `${app.name} store submission checklist`)
 
   if (existsSync(join(repoRoot, app.appConfig))) {
@@ -265,6 +268,17 @@ for (const app of apps) {
     assertIncludes(checklist, '../MOBILE_VERSIONING.md', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'EXPO_PUBLIC_SUPABASE_ENV=test', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', `${app.name} store submission checklist`)
+  }
+
+  if (existsSync(join(repoRoot, app.readme))) {
+    const readme = read(app.readme)
+    assertIncludes(readme, '../MOBILE_ENVIRONMENT_RUNBOOK.md', `${app.name} README`)
+    assertIncludes(readme, '../MOBILE_NOTIFICATION_RUNBOOK.md', `${app.name} README`)
+    assertIncludes(readme, '../MOBILE_SCREENSHOT_PLAN.md', `${app.name} README`)
+    assertIncludes(readme, '../MOBILE_VERSIONING.md', `${app.name} README`)
+    assertIncludes(readme, '../MOBILE_REVIEWER_HANDOFF.md', `${app.name} README`)
+    assertIncludes(readme, 'EXPO_PUBLIC_SUPABASE_ENV=test', `${app.name} README`)
+    assertIncludes(readme, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', `${app.name} README`)
   }
 
   app.sourceRoots.forEach((sourceRoot) => scanSource(sourceRoot, app.name))
