@@ -17,6 +17,7 @@ export async function sendExpoPushMessages(messages) {
     return {
       sent: 0,
       failed: 0,
+      invalidTokens: [],
     }
   }
 
@@ -36,16 +37,21 @@ export async function sendExpoPushMessages(messages) {
       return {
         sent: 0,
         failed: chunk.length,
+        invalidTokens: [],
         result,
       }
     }
 
     const tickets = Array.isArray(result.data) ? result.data : []
     const failed = tickets.filter((ticket) => ticket.status === 'error').length
+    const invalidTokens = tickets
+      .map((ticket, index) => ticket.details?.error === 'DeviceNotRegistered' ? chunk[index]?.to : '')
+      .filter(Boolean)
 
     return {
       sent: Math.max(chunk.length - failed, 0),
       failed,
+      invalidTokens,
       result,
     }
   }))
@@ -54,7 +60,8 @@ export async function sendExpoPushMessages(messages) {
     (summary, result) => ({
       sent: summary.sent + result.sent,
       failed: summary.failed + result.failed,
+      invalidTokens: [...summary.invalidTokens, ...(result.invalidTokens || [])],
     }),
-    { sent: 0, failed: 0 },
+    { sent: 0, failed: 0, invalidTokens: [] },
   )
 }

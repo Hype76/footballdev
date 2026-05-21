@@ -304,6 +304,27 @@ async function markSubscriptionRevoked(subscriptionId) {
     .eq('id', subscriptionId)
 }
 
+async function revokeMobileDeviceTokens(deviceTokens) {
+  const tokens = [...new Set(deviceTokens.map(normalizeText).filter(Boolean))]
+
+  if (tokens.length === 0) {
+    return
+  }
+
+  const { error } = await supabaseAdmin
+    .from('mobile_push_devices')
+    .update({
+      notification_enabled: false,
+      status: 'revoked',
+      updated_at: new Date().toISOString(),
+    })
+    .in('device_token', tokens)
+
+  if (error) {
+    console.error('Mobile push device revoke failed', error)
+  }
+}
+
 async function sendToSubscription(subscription, payload) {
   try {
     await webpush.sendNotification(
@@ -439,6 +460,7 @@ export async function handler(event) {
       data: nativePayload.data,
       sound: 'default',
     })))
+    await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
 
     await logNotificationEvents({
       channel: 'mobile_push',

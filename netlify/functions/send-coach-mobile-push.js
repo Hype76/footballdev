@@ -214,6 +214,27 @@ async function logNotificationEvents({ devices, match, payload, status }) {
   }
 }
 
+async function revokeMobileDeviceTokens(deviceTokens) {
+  const tokens = [...new Set(deviceTokens.map(normalizeText).filter(Boolean))]
+
+  if (tokens.length === 0) {
+    return
+  }
+
+  const { error } = await supabaseAdmin
+    .from('mobile_push_devices')
+    .update({
+      notification_enabled: false,
+      status: 'revoked',
+      updated_at: new Date().toISOString(),
+    })
+    .in('device_token', tokens)
+
+  if (error) {
+    console.error('Coach mobile push device revoke failed', error)
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed')
@@ -246,6 +267,7 @@ export async function handler(event) {
       title: payload.title,
       to: device.device_token,
     })))
+    await revokeMobileDeviceTokens(pushResult.invalidTokens || [])
 
     await logNotificationEvents({
       devices,

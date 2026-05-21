@@ -13,6 +13,7 @@ Native push must be tested on real iOS and Android devices. Simulators, emulator
 - Notification disable sends a DELETE request to `/.netlify/functions/register-mobile-push-device`.
 - Notification taps route users back to the relevant app area.
 - App badge count is cleared when notification setup runs.
+- Expo tickets that report `DeviceNotRegistered` revoke the matching mobile device token so future sends do not keep retrying stale devices.
 
 ## Server Setup
 
@@ -63,5 +64,6 @@ Before store submission, confirm:
 - Android notification channel name is visible as Matchday alerts.
 - iOS and Android notification taps open the right app area.
 - `notification_events` records sent or failed outcomes.
+- Stale or uninstalled-device tokens are marked revoked in `mobile_push_devices` after Expo reports `DeviceNotRegistered`.
 - Parent notifications stay scoped to the selected linked child.
 - Coach notifications stay scoped to the relevant club and team.
