@@ -17,10 +17,12 @@ Both apps use Expo EAS remote app versioning:
 - `npm run mobile:prestore` checks that each app config version matches its package version.
 - `npm run mobile:prestore` checks that the initial native build numbers remain at `1` while EAS remote versioning handles store-test increments.
 - `npm run mobile:prestore` checks that EAS development, internal, and store-test profiles keep the expected distribution settings.
+- `npm run mobile:prestore` checks that shared native config stays in `apps/mobile-core/appConfig.cjs`.
 
 ## Release Rules
 
 - Keep both apps on `EXPO_PUBLIC_SUPABASE_ENV=test` until live release approval is explicit.
+- Keep native permission, notification, biometric, runtime version, and test database defaults in `apps/mobile-core/appConfig.cjs`.
 - Do not manually bump `ios.buildNumber` or `android.versionCode` for normal EAS builds.
 - Let EAS auto-increment store-test builds.
 - Bump `expo.version` only when the user-facing app release version changes.

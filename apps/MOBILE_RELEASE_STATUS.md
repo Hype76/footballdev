@@ -7,6 +7,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Coach Expo app exists at `apps/coach-mobile`.
 - Parents Expo app exists at `apps/parent-mobile`.
 - Shared mobile code exists at `apps/mobile-core`.
+- Shared Expo native app config exists at `apps/mobile-core/appConfig.cjs`.
 - Both apps are locked to test Supabase by default.
 - Live Supabase is blocked unless explicitly enabled.
 - Billing, checkout, subscription management, Stripe controls, and bulk email are excluded from mobile source.
@@ -16,6 +17,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Parents app supports linked child switching, matchday updates, messages, polls, and scorer volunteer actions.
 - Shared mobile UI now covers login, fallback screens, screen chrome, overview, tab rail, settings, layout panels, lists, choice controls, and segmented controls.
 - Shared mobile device controls now cover push notification registration, push notification opt out, device notification state, and biometric setting changes.
+- Shared Expo config now owns native permissions, notification plugin setup, biometric permission text, runtime version policy, and test database defaults for both apps.
 - Android sensitive permissions that are not used are explicitly blocked.
 - Store metadata, privacy questionnaire, environment runbook, notification runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
 - EAS remote app versioning and store-test auto-increment are configured for both apps.

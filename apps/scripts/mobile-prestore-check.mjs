@@ -640,7 +640,9 @@ if (existsSync(join(repoRoot, versioningPath))) {
   assertIncludes(versioning, '`npm run mobile:prestore` checks that each app config version matches its package version.', 'Mobile versioning guide')
   assertIncludes(versioning, '`npm run mobile:prestore` checks that the initial native build numbers remain at `1` while EAS remote versioning handles store-test increments.', 'Mobile versioning guide')
   assertIncludes(versioning, '`npm run mobile:prestore` checks that EAS development, internal, and store-test profiles keep the expected distribution settings.', 'Mobile versioning guide')
+  assertIncludes(versioning, '`npm run mobile:prestore` checks that shared native config stays in `apps/mobile-core/appConfig.cjs`.', 'Mobile versioning guide')
   assertIncludes(versioning, 'Keep both apps on `EXPO_PUBLIC_SUPABASE_ENV=test` until live release approval is explicit.', 'Mobile versioning guide')
+  assertIncludes(versioning, 'Keep native permission, notification, biometric, runtime version, and test database defaults in `apps/mobile-core/appConfig.cjs`.', 'Mobile versioning guide')
   assertIncludes(versioning, 'Let EAS auto-increment store-test builds.', 'Mobile versioning guide')
 }
 
@@ -669,8 +671,10 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'EAS remote app versioning and store-test auto-increment are configured for both apps.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Shared Expo native app config exists at `apps/mobile-core/appConfig.cjs`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared mobile UI now covers login, fallback screens, screen chrome, overview, tab rail, settings, layout panels, lists, choice controls, and segmented controls.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared mobile device controls now cover push notification registration, push notification opt out, device notification state, and biometric setting changes.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Shared Expo config now owns native permissions, notification plugin setup, biometric permission text, runtime version policy, and test database defaults for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
