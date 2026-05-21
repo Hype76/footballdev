@@ -148,6 +148,12 @@ for (const app of apps) {
     if (appPackage.scripts?.doctor !== 'npx expo-doctor') {
       failures.push(`${app.name} package must run Expo Doctor through npx`)
     }
+    if (appPackage.scripts?.['submit:android:store-test'] !== 'npx eas-cli submit --profile store-test --platform android') {
+      failures.push(`${app.name} package must include Android store-test submit script`)
+    }
+    if (appPackage.scripts?.['submit:ios:store-test'] !== 'npx eas-cli submit --profile store-test --platform ios') {
+      failures.push(`${app.name} package must include iOS store-test submit script`)
+    }
     if (appPackage.dependencies?.['@expo/metro-config'] || appPackage.devDependencies?.['@expo/metro-config']) {
       failures.push(`${app.name} package must not install @expo/metro-config directly`)
     }
@@ -227,6 +233,8 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile store account setup')
   assertIncludes(storeSetup, 'Do not put real Supabase keys, EAS project IDs, or production API URLs in `.env.example`.', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'npm run submit:ios:store-test', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'npm run submit:android:store-test', 'Mobile store account setup')
   assertIncludes(storeSetup, 'Do not commit private keys', 'Mobile store account setup')
 }
 

@@ -12,7 +12,9 @@
     "build:android:internal": "npx eas-cli build --profile internal --platform android",
     "build:android:store-test": "npx eas-cli build --profile store-test --platform android",
     "build:ios:store-test": "npx eas-cli build --profile store-test --platform ios",
-    "export:web": "expo export --platform web --output-dir dist-web-check"
+    "export:web": "expo export --platform web --output-dir dist-web-check",
+    "submit:android:store-test": "npx eas-cli submit --profile store-test --platform android",
+    "submit:ios:store-test": "npx eas-cli submit --profile store-test --platform ios"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

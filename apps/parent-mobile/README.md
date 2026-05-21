@@ -41,6 +41,8 @@ npm run export:web
 npm run build:android:internal
 npm run build:ios:store-test
 npm run build:android:store-test
+npm run submit:ios:store-test
+npm run submit:android:store-test
 ```
 
 ## Store readiness

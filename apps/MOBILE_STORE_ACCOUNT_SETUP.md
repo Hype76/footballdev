@@ -107,6 +107,14 @@ npx eas-cli build --profile store-test --platform ios
 npx eas-cli build --profile store-test --platform android
 ```
 
+Submit Coach after store records, credentials, screenshots, reviewer notes, and device QA are complete:
+
+```bash
+cd apps/coach-mobile
+npm run submit:ios:store-test
+npm run submit:android:store-test
+```
+
 Build Parents:
 
 ```bash
@@ -114,6 +122,14 @@ cd apps/parent-mobile
 npx eas-cli build --profile internal --platform android
 npx eas-cli build --profile store-test --platform ios
 npx eas-cli build --profile store-test --platform android
+```
+
+Submit Parents after store records, credentials, screenshots, reviewer notes, and device QA are complete:
+
+```bash
+cd apps/parent-mobile
+npm run submit:ios:store-test
+npm run submit:android:store-test
 ```
 
 ## Submission gate
