@@ -90,6 +90,19 @@ npm run build:ios:store-test
 - Staff schedules a parent message, parent device receives a notification only when it is sent.
 - Staff creates a parent poll, parent device receives a poll notification.
 
+## Evidence log
+
+Record this outside the repo for each test run:
+
+- Build IDs for Coach iOS, Coach Android, Parents iOS, and Parents Android.
+- Device model, operating system version, and app version for each installed build.
+- Test account role used for each app.
+- Pass or fail result for login, refresh, foreground reload, notifications, biometric unlock, and role restriction checks.
+- `mobile_push_devices` rows created or revoked during the run.
+- `notification_events` rows for each push test, including failed outcomes.
+- Screenshot folder path used for store captures.
+- Any failure notes, retest date, and fixed build ID.
+
 ## Pass criteria
 
 - Both apps install on Android and iPhone.
@@ -101,5 +114,6 @@ npm run build:ios:store-test
 - Native push registration succeeds in both apps.
 - Native push opt out succeeds in both apps.
 - Notification events are recorded in `notification_events`.
+- Evidence log is complete for the tested builds.
 - Apps remain on test Supabase.
 - No mobile billing, checkout, subscription management, or bulk email controls are visible.

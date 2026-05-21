@@ -605,6 +605,15 @@ if (existsSync(join(repoRoot, notificationRunbookPath))) {
   assertIncludes(notificationRunbook, 'Stale or uninstalled-device tokens are marked revoked in `mobile_push_devices` after Expo reports `DeviceNotRegistered`.', 'Mobile notification runbook')
 }
 
+if (existsSync(join(repoRoot, 'apps/MOBILE_DEVICE_TESTING.md'))) {
+  const deviceTesting = read('apps/MOBILE_DEVICE_TESTING.md')
+  assertIncludes(deviceTesting, '## Evidence log', 'Mobile device testing')
+  assertIncludes(deviceTesting, 'Build IDs for Coach iOS, Coach Android, Parents iOS, and Parents Android.', 'Mobile device testing')
+  assertIncludes(deviceTesting, '`mobile_push_devices` rows created or revoked during the run.', 'Mobile device testing')
+  assertIncludes(deviceTesting, '`notification_events` rows for each push test, including failed outcomes.', 'Mobile device testing')
+  assertIncludes(deviceTesting, 'Evidence log is complete for the tested builds.', 'Mobile device testing')
+}
+
 if (existsSync(join(repoRoot, preStoreQaPath))) {
   const preStoreQa = read(preStoreQaPath)
   assertIncludes(preStoreQa, 'Football Player Coach', 'Mobile pre-store QA')
