@@ -421,6 +421,8 @@ apps.forEach((app) => {
   assertIncludes(appSource, "nextState === 'active'", `${app.name} foreground refresh`)
   assertIncludes(appSource, 'lastUpdatedAt', `${app.name} freshness indicator`)
   assertIncludes(appSource, 'Updated {formatLastUpdated(lastUpdatedAt)}', `${app.name} freshness indicator`)
+  assertIncludes(appSource, 'showOverview', `${app.name} progressive overview`)
+  assertIncludes(appSource, 'OverviewPanel', `${app.name} progressive overview`)
   assertIncludes(appSource, 'Connection ready', `${app.name} settings status`)
   assertIncludes(appSource, 'Connection needs setup', `${app.name} settings status`)
   assertIncludes(appSource, app.restrictedAccessCopy, `${app.name} login copy`)
