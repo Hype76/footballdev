@@ -16,17 +16,22 @@ export function getMobileRuntimeConfig(appRole) {
   const allowLiveSupabase = normalize(extra.allowLiveSupabase || process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false') === 'true'
   const apiBaseUrl = normalize(extra.apiBaseUrl || process.env.EXPO_PUBLIC_API_BASE_URL)
   const easProjectId = normalize(extra.easProjectId || process.env.EXPO_PUBLIC_EAS_PROJECT_ID)
-
-  if (supabaseEnvironment === 'live' && !allowLiveSupabase) {
-    throw new Error('Live Supabase is blocked for mobile until explicitly approved.')
-  }
+  const isConfigured = Boolean(supabaseUrl && supabasePublishableKey)
+  const isLiveBlocked = supabaseEnvironment === 'live' && !allowLiveSupabase
+  const configError = isLiveBlocked
+    ? 'Live Supabase is blocked for mobile until explicitly approved.'
+    : !isConfigured
+      ? 'Supabase mobile environment variables are missing.'
+      : ''
 
   return {
     apiBaseUrl,
     appRole,
+    configError,
     easProjectId,
-    isConfigured: Boolean(supabaseUrl && supabasePublishableKey),
-    isLiveBlocked: supabaseEnvironment === 'live' && !allowLiveSupabase,
+    isConfigured,
+    isLiveBlocked,
+    isUsable: isConfigured && !isLiveBlocked,
     supabaseEnvironment,
     supabasePublishableKey,
     supabaseUrl,

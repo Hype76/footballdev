@@ -4,11 +4,12 @@ import { getMobileRuntimeConfig } from './config'
 
 const config = getMobileRuntimeConfig('shared')
 
-export const isSupabaseConfigured = config.isConfigured
+export const mobileConfigError = config.configError
+export const isSupabaseConfigured = config.isUsable
 
 export const supabase = createClient(
-  config.supabaseUrl || 'https://placeholder.supabase.co',
-  config.supabasePublishableKey || 'placeholder-key',
+  config.isUsable ? config.supabaseUrl : 'https://placeholder.supabase.co',
+  config.isUsable ? config.supabasePublishableKey : 'placeholder-key',
   {
     auth: {
       autoRefreshToken: true,

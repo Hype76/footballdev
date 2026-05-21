@@ -120,6 +120,11 @@ assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
 assertFile(rootPackagePath, 'Root package')
 
+const mobileConfig = read('apps/mobile-core/src/config.js')
+const mobileSupabase = read('apps/mobile-core/src/supabase.js')
+assertIncludes(mobileConfig, 'isUsable: isConfigured && !isLiveBlocked', 'Mobile runtime config')
+assertIncludes(mobileSupabase, 'config.isUsable ? config.supabaseUrl', 'Mobile Supabase client')
+
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))
   if (rootPackage.scripts?.['mobile:export:web'] !== 'node apps/scripts/mobile-export-web-check.mjs') {

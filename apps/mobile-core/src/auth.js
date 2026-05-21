@@ -1,7 +1,7 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { authenticateWithBiometrics, getBiometricEnabled } from './biometrics'
 import { fetchMobileProfile } from './profile'
-import { isSupabaseConfigured, supabase } from './supabase'
+import { isSupabaseConfigured, mobileConfigError, supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
@@ -39,7 +39,7 @@ export function AuthProvider({ appRole, children }) {
 
     async function bootstrap() {
       if (!isSupabaseConfigured) {
-        setAuthError('Supabase mobile environment variables are missing.')
+        setAuthError(mobileConfigError || 'Supabase mobile environment variables are missing.')
         setIsLoading(false)
         return
       }
