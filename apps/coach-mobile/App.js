@@ -436,6 +436,7 @@ function CoachHome() {
               { key: 'players', label: 'Players' },
               { key: 'assess', label: 'Assess' },
               { key: 'sessions', label: 'Sessions' },
+              { key: 'settings', label: 'Settings' },
             ]}
           />
 
@@ -476,42 +477,24 @@ function CoachHome() {
             />
           ) : null}
           {activeTab === 'sessions' ? <SessionsPanel sessions={sessions} /> : null}
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Notifications</Text>
-            <Text style={styles.item}>
-              {notificationState?.isRegistered
+          {activeTab === 'settings' ? (
+            <SettingsPanel
+              biometricAvailable={biometricAvailable}
+              biometricEnabled={biometricEnabled}
+              config={config}
+              isRegisteringPush={isRegisteringPush}
+              isUpdatingBiometrics={isUpdatingBiometrics}
+              lastUpdatedAt={lastUpdatedAt}
+              notificationCopy={notificationState?.isRegistered
                 ? 'Coach alerts are enabled on this device.'
                 : notificationState?.message || 'Enable coach alerts for this device.'}
-            </Text>
-            <PrimaryButton loading={isRegisteringPush} onPress={enableNotifications}>
-              {notificationState?.isRegistered ? 'Refresh notifications' : 'Enable notifications'}
-            </PrimaryButton>
-            {notificationState?.isRegistered ? (
-              <PrimaryButton loading={isRegisteringPush} onPress={disableNotifications} variant="secondary">
-                Disable notifications
-              </PrimaryButton>
-            ) : null}
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Biometric unlock</Text>
-            <Text style={styles.item}>
-              {biometricAvailable ? 'Use your device security when reopening the app.' : 'No enrolled biometric security is available on this device.'}
-            </Text>
-            <PrimaryButton
-              disabled={!biometricAvailable}
-              loading={isUpdatingBiometrics}
-              onPress={toggleBiometrics}
-              variant="secondary"
-            >
-              {biometricEnabled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
-            </PrimaryButton>
-          </View>
-
-          <PrimaryButton onPress={signOut} variant="secondary">Sign out</PrimaryButton>
-          <Text style={styles.meta}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
-          {lastUpdatedAt ? <Text style={styles.meta}>Updated {formatLastUpdated(lastUpdatedAt)}</Text> : null}
+              notificationEnabled={Boolean(notificationState?.isRegistered)}
+              onDisableNotifications={disableNotifications}
+              onEnableNotifications={enableNotifications}
+              onSignOut={signOut}
+              onToggleBiometrics={toggleBiometrics}
+            />
+          ) : null}
           <LegalFooter />
         </View>
       </ScrollView>
@@ -782,6 +765,60 @@ function SessionsPanel({ sessions }) {
   ) : (
     <View style={styles.card}>
       <Text style={styles.item}>No sessions are available yet.</Text>
+    </View>
+  )
+}
+
+function SettingsPanel({
+  biometricAvailable,
+  biometricEnabled,
+  config,
+  isRegisteringPush,
+  isUpdatingBiometrics,
+  lastUpdatedAt,
+  notificationCopy,
+  notificationEnabled,
+  onDisableNotifications,
+  onEnableNotifications,
+  onSignOut,
+  onToggleBiometrics,
+}) {
+  return (
+    <View style={styles.list}>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Notifications</Text>
+        <Text style={styles.item}>{notificationCopy}</Text>
+        <PrimaryButton loading={isRegisteringPush} onPress={onEnableNotifications}>
+          {notificationEnabled ? 'Refresh notifications' : 'Enable notifications'}
+        </PrimaryButton>
+        {notificationEnabled ? (
+          <PrimaryButton loading={isRegisteringPush} onPress={onDisableNotifications} variant="secondary">
+            Disable notifications
+          </PrimaryButton>
+        ) : null}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Biometric unlock</Text>
+        <Text style={styles.item}>
+          {biometricAvailable ? 'Use your device security when reopening the app.' : 'No enrolled biometric security is available on this device.'}
+        </Text>
+        <PrimaryButton
+          disabled={!biometricAvailable}
+          loading={isUpdatingBiometrics}
+          onPress={onToggleBiometrics}
+          variant="secondary"
+        >
+          {biometricEnabled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
+        </PrimaryButton>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>App access</Text>
+        <Text style={styles.item}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
+        {lastUpdatedAt ? <Text style={styles.item}>Updated {formatLastUpdated(lastUpdatedAt)}</Text> : null}
+        <PrimaryButton onPress={onSignOut} variant="secondary">Sign out</PrimaryButton>
+      </View>
     </View>
   )
 }
@@ -1177,7 +1214,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
-    flex: 1,
+    flexBasis: '30%',
+    flexGrow: 1,
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: 10,
@@ -1185,6 +1223,7 @@ const styles = StyleSheet.create({
   },
   tabRail: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   tabText: {
