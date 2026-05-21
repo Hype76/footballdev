@@ -23,27 +23,37 @@ export function PrimaryButton({ children, disabled = false, loading = false, onP
 }
 
 export function TextField({
+  autoComplete,
   autoCapitalize = 'none',
+  blurOnSubmit,
   keyboardType = 'default',
   label,
   multiline = false,
   onChangeText,
+  onSubmitEditing,
   placeholder,
+  returnKeyType,
   secureTextEntry = false,
+  textContentType,
   value,
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        autoComplete={autoComplete}
         autoCapitalize={autoCapitalize}
+        blurOnSubmit={blurOnSubmit}
         keyboardType={keyboardType}
         multiline={multiline}
         onChangeText={onChangeText}
+        onSubmitEditing={onSubmitEditing}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
+        returnKeyType={returnKeyType}
         secureTextEntry={secureTextEntry}
         style={[styles.input, multiline ? styles.multilineInput : null]}
+        textContentType={textContentType}
         value={value}
       />
     </View>

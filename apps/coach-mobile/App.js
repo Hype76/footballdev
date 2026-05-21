@@ -29,12 +29,17 @@ function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const canSubmit = Boolean(email.trim() && password)
 
   async function handleLogin() {
+    if (!canSubmit || isSubmitting) {
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      await signIn(email, password)
+      await signIn(email.trim(), password)
     } finally {
       setIsSubmitting(false)
     }
@@ -51,10 +56,29 @@ function LoginScreen() {
           <Text style={styles.copy}>Use the same staff login you use on the website.</Text>
 
           <View style={styles.card}>
-            <TextField label="Email" onChangeText={setEmail} placeholder="coach@example.com" value={email} />
-            <TextField label="Password" onChangeText={setPassword} placeholder="Password" secureTextEntry value={password} />
+            <TextField
+              autoComplete="email"
+              keyboardType="email-address"
+              label="Email"
+              onChangeText={setEmail}
+              placeholder="coach@example.com"
+              returnKeyType="next"
+              textContentType="username"
+              value={email}
+            />
+            <TextField
+              autoComplete="current-password"
+              label="Password"
+              onChangeText={setPassword}
+              onSubmitEditing={handleLogin}
+              placeholder="Password"
+              returnKeyType="done"
+              secureTextEntry
+              textContentType="password"
+              value={password}
+            />
             {authError ? <Text style={styles.error}>{authError}</Text> : null}
-            <PrimaryButton loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
+            <PrimaryButton disabled={!canSubmit} loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
           </View>
 
           <Text style={styles.meta}>Restricted club access.</Text>
