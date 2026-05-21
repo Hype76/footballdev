@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertEasLogin } from './mobile-eas-auth.mjs'
 import { mobileApps } from './mobile-apps.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -26,6 +27,8 @@ if (!buildConfirmed) {
   console.error('Then rerun with MOBILE_NATIVE_BUILD_CONFIRMED=true.')
   process.exit(1)
 }
+
+assertEasLogin()
 
 console.log(`Running mobile release gate before ${app.expectedName} ${profile} ${platform} build.`)
 execFileSync('npm', ['run', 'mobile:release-check'], {

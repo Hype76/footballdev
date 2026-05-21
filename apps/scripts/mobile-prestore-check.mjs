@@ -68,6 +68,8 @@ const mobileStorePreflightPath = 'apps/scripts/mobile-store-preflight.mjs'
 const mobileReleaseNextPath = 'apps/scripts/mobile-release-next.mjs'
 const mobileEasInitGuardPath = 'apps/scripts/mobile-eas-init-guard.mjs'
 const mobileEasEnvListGuardPath = 'apps/scripts/mobile-eas-env-list-guard.mjs'
+const mobileEasAuthPath = 'apps/scripts/mobile-eas-auth.mjs'
+const mobileEasAuthCheckPath = 'apps/scripts/mobile-eas-auth-check.mjs'
 const mobileEvidenceInitPath = 'apps/scripts/mobile-evidence-init.mjs'
 
 function read(relativePath) {
@@ -404,6 +406,8 @@ assertFile(mobileStorePreflightPath, 'Mobile store record preflight helper')
 assertFile(mobileReleaseNextPath, 'Mobile release next helper')
 assertFile(mobileEasInitGuardPath, 'Mobile EAS init guard')
 assertFile(mobileEasEnvListGuardPath, 'Mobile EAS env list guard')
+assertFile(mobileEasAuthPath, 'Mobile EAS auth helper')
+assertFile(mobileEasAuthCheckPath, 'Mobile EAS auth check')
 assertFile(mobileEvidenceInitPath, 'Mobile release evidence initializer')
 assertNoTrackedMobilePrivateFiles()
 
@@ -421,6 +425,8 @@ const mobileStorePreflight = existsSync(join(repoRoot, mobileStorePreflightPath)
 const mobileReleaseNext = existsSync(join(repoRoot, mobileReleaseNextPath)) ? read(mobileReleaseNextPath) : ''
 const mobileEasInitGuard = existsSync(join(repoRoot, mobileEasInitGuardPath)) ? read(mobileEasInitGuardPath) : ''
 const mobileEasEnvListGuard = existsSync(join(repoRoot, mobileEasEnvListGuardPath)) ? read(mobileEasEnvListGuardPath) : ''
+const mobileEasAuth = existsSync(join(repoRoot, mobileEasAuthPath)) ? read(mobileEasAuthPath) : ''
+const mobileEasAuthCheck = existsSync(join(repoRoot, mobileEasAuthCheckPath)) ? read(mobileEasAuthCheckPath) : ''
 const mobileEvidenceInit = existsSync(join(repoRoot, mobileEvidenceInitPath)) ? read(mobileEvidenceInitPath) : ''
 
 assertIncludes(rootGitignore, 'apps/mobile-release-evidence/', 'Root gitignore')
@@ -435,6 +441,7 @@ assertIncludes(mobileConfigCheck, 'must not point at a local development host', 
 assertIncludes(mobileBuildGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'MOBILE_NATIVE_BUILD_CONFIRMED', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, 'EAS setup and test environment values are confirmed', 'Mobile build guard')
+assertIncludes(mobileBuildGuard, 'assertEasLogin()', 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'build'", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'--profile', profile", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'--platform', platform", 'Mobile build guard')
@@ -464,6 +471,7 @@ assertIncludes(mobileScreenshotPreflight, 'Use test database data only.', 'Mobil
 assertIncludes(mobileSubmitGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, 'MOBILE_SUBMISSION_CONFIRMED', 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, 'final external QA is confirmed', 'Mobile submit guard')
+assertIncludes(mobileSubmitGuard, 'assertEasLogin()', 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'submit'", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'--profile', 'store-test'", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'--platform', platform", 'Mobile submit guard')
@@ -490,16 +498,21 @@ assertIncludes(mobileReleaseNext, 'npm run mobile:eas:init:parent', 'Mobile rele
 assertIncludes(mobileReleaseNext, 'npm run mobile:eas:env:coach', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'npm run mobile:eas:env:parent', 'Mobile release next helper')
 assertIncludes(mobileEasInitGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile EAS init guard')
+assertIncludes(mobileEasInitGuard, 'assertEasLogin()', 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, "'project:init'", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, 'EXPO_PUBLIC_EAS_PROJECT_ID in EAS only', 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, "git', ['status', '--short', '--', app.appConfig]", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, 'app config changed during EAS project setup', 'Mobile EAS init guard')
 assertIncludes(mobileEasEnvListGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile EAS env list guard')
+assertIncludes(mobileEasEnvListGuard, 'assertEasLogin()', 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, "'env:list'", 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, "'--scope', 'project'", 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'This command does not request sensitive values.', 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'Required profile values before native builds:', 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'Do not set MOBILE_NATIVE_BUILD_CONFIRMED=true until internal and store-test match those values.', 'Mobile EAS env list guard')
+assertIncludes(mobileEasAuth, 'Expo EAS login is required before this mobile external command can run.', 'Mobile EAS auth helper')
+assertIncludes(mobileEasAuth, 'npx eas-cli login', 'Mobile EAS auth helper')
+assertIncludes(mobileEasAuthCheck, 'Expo EAS login check passed.', 'Mobile EAS auth check')
 assertIncludes(mobileEvidenceInit, "process.argv.includes('--check')", 'Mobile release evidence initializer')
 assertIncludes(mobileEvidenceInit, 'apps/mobile-release-evidence', 'Mobile release evidence initializer')
 assertIncludes(mobileEvidenceInit, 'MOBILE_EXTERNAL_RELEASE_EVIDENCE.md', 'Mobile release evidence initializer')
@@ -765,6 +778,9 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   if (rootPackage.scripts?.['mobile:eas:init:parent'] !== 'node apps/scripts/mobile-eas-init-guard.mjs parent') {
     failures.push('Root package must include guarded Parents EAS init script')
   }
+  if (rootPackage.scripts?.['mobile:eas:whoami'] !== 'node apps/scripts/mobile-eas-auth-check.mjs') {
+    failures.push('Root package must include EAS auth check script')
+  }
   if (rootPackage.scripts?.['mobile:eas:env:coach'] !== 'node apps/scripts/mobile-eas-env-list-guard.mjs coach') {
     failures.push('Root package must include guarded Coach EAS env list script')
   }
@@ -851,6 +867,7 @@ if (existsSync(join(repoRoot, easSetupChecklistPath))) {
   assertIncludes(easSetupChecklist, 'Football Player Coach', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'Football Player Parents', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'Run `npm run mobile:next` and confirm the working tree is clean before external setup.', 'Mobile EAS setup checklist')
+  assertIncludes(easSetupChecklist, 'Verify Expo login with `npm run mobile:eas:whoami`.', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'com.footballplayer.coach', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'com.footballplayer.parents', 'Mobile EAS setup checklist')
   assertIncludes(easSetupChecklist, 'EXPO_PUBLIC_EAS_PROJECT_ID', 'Mobile EAS setup checklist')
@@ -1118,6 +1135,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'npm run mobile:release-check', 'Mobile release status')
   assertIncludes(releaseStatus, '`npm run mobile:preflight` is available for local read-only release readiness checks.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Run `npm run mobile:preflight` before external EAS, Apple, or Google work.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Run `npm run mobile:eas:whoami` and sign in with `npx eas-cli login` if it reports that Expo EAS is not logged in.', 'Mobile release status')
   assertIncludes(releaseStatus, 'For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Focused Apple and Google store record checklist is present at `MOBILE_STORE_RECORD_CHECKLIST.md`.', 'Mobile release status')

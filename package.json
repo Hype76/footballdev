@@ -21,6 +21,7 @@
     "mobile:submit:preflight": "node apps/scripts/mobile-submit-preflight.mjs",
     "mobile:eas:init:coach": "node apps/scripts/mobile-eas-init-guard.mjs coach",
     "mobile:eas:init:parent": "node apps/scripts/mobile-eas-init-guard.mjs parent",
+    "mobile:eas:whoami": "node apps/scripts/mobile-eas-auth-check.mjs",
     "mobile:eas:env:coach": "node apps/scripts/mobile-eas-env-list-guard.mjs coach",
     "mobile:eas:env:parent": "node apps/scripts/mobile-eas-env-list-guard.mjs parent",
     "mobile:evidence:init": "node apps/scripts/mobile-evidence-init.mjs",

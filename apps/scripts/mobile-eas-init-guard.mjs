@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertEasLogin } from './mobile-eas-auth.mjs'
 import { mobileApps } from './mobile-apps.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -11,6 +12,8 @@ if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
   process.exit(1)
 }
+
+assertEasLogin()
 
 console.log(`Running mobile release gate before ${app.expectedName} EAS project setup.`)
 execFileSync('npm', ['run', 'mobile:release-check'], {

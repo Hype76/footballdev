@@ -60,6 +60,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Run `npm run mobile:release-check` from the repo root and record the passing commit.
 - Run `npm run mobile:preflight` before external EAS, Apple, or Google work.
 - Run `npm run mobile:next` and confirm the local readiness snapshot is clean before external setup.
+- Run `npm run mobile:eas:whoami` and sign in with `npx eas-cli login` if it reports that Expo EAS is not logged in.
 - Create or confirm the two Expo EAS projects.
 - If EAS project setup changes `app.config.js`, revert that app config change and store `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS only.
 - Add EAS environment values for both apps with `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
