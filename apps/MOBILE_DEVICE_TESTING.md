@@ -101,9 +101,11 @@ npm run build:ios:store-test
 - Parent taps Volunteer As Scorer, coach device receives a scorer volunteer notification.
 - Parent cannot volunteer as scorer after the match is no longer available for scorer requests.
 - Staff sends a parent message immediately, parent device receives a message notification.
+- Parent message notification taps open the Messages tab, including case-insensitive route payloads.
 - Parent can mark a valid unread message as read and cannot mark an invalid message.
 - Staff schedules a parent message, parent device receives a notification only when it is sent.
 - Staff creates a parent poll, parent device receives a poll notification.
+- Parent poll notification taps open the Polls tab, including case-insensitive route payloads.
 - Parent sees a clear unavailable state if a poll has no answer options.
 - Parent answers an open poll once and then sees the answer as sent.
 - Parent cannot answer a closed poll.

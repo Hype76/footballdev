@@ -1,13 +1,13 @@
 export function getTabForNotificationRoute(appRole, route) {
   const normalizedRole = String(appRole || '').trim()
-  const normalizedRoute = String(route || '').trim()
+  const normalizedRoute = String(route || '').trim().toLowerCase()
 
   if (normalizedRole === 'parent') {
-    if (normalizedRoute === 'messages') {
+    if (['message', 'messages', 'parent-message', 'parent-messages'].includes(normalizedRoute)) {
       return 'messages'
     }
 
-    if (normalizedRoute === 'polls') {
+    if (['poll', 'polls', 'parent-poll', 'parent-polls'].includes(normalizedRoute)) {
       return 'polls'
     }
 

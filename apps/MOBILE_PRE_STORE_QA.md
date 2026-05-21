@@ -105,6 +105,7 @@ npm run build:android:store-test
 - Scheduled parent message sends parent push when it is actually sent.
 - Parent poll creation sends parent push.
 - Notification taps open the relevant mobile app area.
+- Notification route handling is case-insensitive and supports message, poll, and matchday aliases.
 
 ## App workflow QA
 
