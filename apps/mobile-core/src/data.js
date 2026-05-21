@@ -10,6 +10,12 @@ function normalizeCount(value) {
   return Number(value || 0)
 }
 
+function getSelectedParentLink(user) {
+  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
+
+  return links.find((link) => link.id === user?.selectedParentLinkId) || links[0] || null
+}
+
 async function sendMatchDayPushNotification({ eventId = '', matchDayId, type }) {
   const config = getMobileRuntimeConfig('coach')
   const accessToken = await getAccessToken()
@@ -687,8 +693,7 @@ export async function submitCoachAssessment(user, player, assessment, fields = [
 }
 
 export async function getParentMatchDays(user) {
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-  const selectedLink = links.find((link) => link.id === user?.selectedParentLinkId) || links[0]
+  const selectedLink = getSelectedParentLink(user)
 
   if (!selectedLink?.id) {
     return []
@@ -706,8 +711,7 @@ export async function getParentMatchDays(user) {
 }
 
 export async function getParentMessages(user) {
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-  const selectedLink = links.find((link) => link.id === user?.selectedParentLinkId) || links[0]
+  const selectedLink = getSelectedParentLink(user)
 
   if (!selectedLink?.id) {
     return []
@@ -725,8 +729,7 @@ export async function getParentMessages(user) {
 }
 
 export async function getParentPolls(user) {
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-  const selectedLink = links.find((link) => link.id === user?.selectedParentLinkId) || links[0]
+  const selectedLink = getSelectedParentLink(user)
 
   if (!selectedLink?.id) {
     return []
@@ -744,8 +747,7 @@ export async function getParentPolls(user) {
 }
 
 export async function markParentMessageRead(user, messageId) {
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-  const selectedLink = links.find((link) => link.id === user?.selectedParentLinkId) || links[0]
+  const selectedLink = getSelectedParentLink(user)
   const normalizedMessageId = normalizeText(messageId)
 
   if (!selectedLink?.id || !normalizedMessageId) {
@@ -765,8 +767,7 @@ export async function markParentMessageRead(user, messageId) {
 }
 
 export async function submitParentPollVote(user, pollId, optionId) {
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-  const selectedLink = links.find((link) => link.id === user?.selectedParentLinkId) || links[0]
+  const selectedLink = getSelectedParentLink(user)
   const normalizedPollId = normalizeText(pollId)
   const normalizedOptionId = normalizeText(optionId)
 
@@ -788,8 +789,7 @@ export async function submitParentPollVote(user, pollId, optionId) {
 }
 
 export async function volunteerAsMatchScorer(user, matchId) {
-  const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-  const selectedLink = links.find((link) => link.id === user?.selectedParentLinkId) || links[0]
+  const selectedLink = getSelectedParentLink(user)
   const normalizedMatchId = normalizeText(matchId)
 
   if (!selectedLink?.id || !normalizedMatchId) {
@@ -816,7 +816,7 @@ export async function volunteerAsMatchScorer(user, matchId) {
 
 export async function getParentHomeSummary(user) {
   const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
-  const selectedLink = links.find((link) => link.id === user?.selectedParentLinkId) || links[0]
+  const selectedLink = getSelectedParentLink(user)
 
   if (!selectedLink?.id) {
     return {
