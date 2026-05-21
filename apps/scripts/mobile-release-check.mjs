@@ -7,6 +7,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const checks = [
   ['npm', ['run', 'lint']],
   ['npm', ['run', 'build']],
+  ['npm', ['run', 'mobile:config']],
   ['npm', ['run', 'mobile:prestore']],
   ['npm', ['run', 'mobile:doctor']],
   ['npm', ['run', 'mobile:export:web']],

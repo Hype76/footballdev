@@ -50,6 +50,7 @@ const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const rootPackagePath = 'package.json'
 const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
 const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
+const mobileConfigCheckPath = 'apps/scripts/mobile-config-check.mjs'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -351,6 +352,7 @@ assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(rootPackagePath, 'Root package')
 assertFile(sharedAppConfigPath, 'Mobile shared app config')
 assertFile(mobileAppsRegistryPath, 'Mobile app registry')
+assertFile(mobileConfigCheckPath, 'Mobile config check')
 assertNoTrackedMobilePrivateFiles()
 
 const mobileAppsRegistry = existsSync(join(repoRoot, mobileAppsRegistryPath)) ? read(mobileAppsRegistryPath) : ''
@@ -536,6 +538,9 @@ assertIncludes(coachAppSource, 'resetAssessmentFieldValues(fields, currentValues
 
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))
+  if (rootPackage.scripts?.['mobile:config'] !== 'node apps/scripts/mobile-config-check.mjs') {
+    failures.push('Root package must include mobile:config script')
+  }
   if (rootPackage.scripts?.['mobile:doctor'] !== 'node apps/scripts/mobile-doctor-check.mjs') {
     failures.push('Root package must include mobile:doctor script')
   }
