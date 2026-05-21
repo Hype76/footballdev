@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, AppState, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
-import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import {
   getParentHomeSummary,
@@ -15,8 +14,7 @@ import {
   submitParentPollVote,
   volunteerAsMatchScorer,
 } from '../mobile-core/src/data'
-import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
-import { getAccessToken } from '../mobile-core/src/supabase'
+import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { colors, screen } from '../mobile-core/src/theme'
 import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TabRail } from '../mobile-core/src/ui'
 
@@ -54,11 +52,6 @@ function ParentHome() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [showOverview, setShowOverview] = useState(false)
-  const [biometricEnabled, setBiometricEnabledState] = useState(false)
-  const [biometricAvailable, setBiometricAvailable] = useState(false)
-  const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
-  const [isRegisteringPush, setIsRegisteringPush] = useState(false)
-  const [notificationState, setNotificationState] = useState(null)
   const parentLinks = useMemo(
     () => (Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []),
     [user?.parentPortalLinks],
@@ -76,6 +69,24 @@ function ParentHome() {
     const selectedOptionIds = Array.isArray(poll.currentOptionIds) ? poll.currentOptionIds : []
     return poll.status === 'open' && !poll.currentOptionId && selectedOptionIds.length === 0
   }).length
+  const {
+    biometricAvailable,
+    biometricEnabled,
+    disableNotifications,
+    enableNotifications,
+    isRegisteringPush,
+    isUpdatingBiometrics,
+    notificationState,
+    toggleBiometrics,
+  } = useMobileDeviceControls({
+    apiBaseUrl: config.apiBaseUrl,
+    appRole: 'parent',
+    easProjectId: config.easProjectId,
+    notificationDisabledMessage: 'Parent notifications are disabled on this device.',
+    notificationEnabledMessage: 'Parent notifications are enabled on this device.',
+    onStatusMessage: setStatusMessage,
+    parentLinkId: selectedLink?.id || '',
+  })
 
   const refreshParentData = useCallback(async () => {
     const [nextSummary, nextMatches, nextMessages, nextPolls] = await Promise.all([
@@ -91,10 +102,6 @@ function ParentHome() {
     setPolls(nextPolls)
     setLastUpdatedAt(new Date().toISOString())
   }, [selectedMobileUser])
-
-  useEffect(() => {
-    void initializeMobileNotifications()
-  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -150,34 +157,6 @@ function ParentHome() {
   }, [selectedLink?.id, selectedLinkId])
 
   useEffect(() => {
-    let isMounted = true
-
-    async function loadDeviceSettings() {
-      try {
-        const [availability, enabled, nextNotificationState] = await Promise.all([
-          getBiometricAvailability(),
-          getBiometricEnabled(),
-          getNativeNotificationDeviceState(),
-        ])
-
-        if (isMounted) {
-          setBiometricAvailable(availability.available)
-          setBiometricEnabledState(enabled)
-          setNotificationState(nextNotificationState)
-        }
-      } catch (error) {
-        console.error(error)
-      }
-    }
-
-    void loadDeviceSettings()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  useEffect(() => {
     const route = lastNotificationResponse?.notification?.request?.content?.data?.route
 
     if (route === 'messages') {
@@ -208,65 +187,6 @@ function ParentHome() {
       subscription.remove()
     }
   }, [refreshParentData, selectedMobileUser?.id])
-
-  async function enableNotifications() {
-    setIsRegisteringPush(true)
-    setStatusMessage('')
-
-    try {
-      const accessToken = await getAccessToken()
-      await registerNativePushDevice({
-        accessToken,
-        apiBaseUrl: config.apiBaseUrl,
-        appRole: 'parent',
-        easProjectId: config.easProjectId,
-        parentLinkId: selectedLink?.id || '',
-      })
-      setNotificationState(await getNativeNotificationDeviceState())
-      setStatusMessage('Parent notifications are enabled on this device.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Notifications could not be enabled.')
-    } finally {
-      setIsRegisteringPush(false)
-    }
-  }
-
-  async function disableNotifications() {
-    setIsRegisteringPush(true)
-    setStatusMessage('')
-
-    try {
-      const accessToken = await getAccessToken()
-      await revokeNativePushDevice({
-        accessToken,
-        apiBaseUrl: config.apiBaseUrl,
-      })
-      setNotificationState(await getNativeNotificationDeviceState())
-      setStatusMessage('Parent notifications are disabled on this device.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Notifications could not be disabled.')
-    } finally {
-      setIsRegisteringPush(false)
-    }
-  }
-
-  async function toggleBiometrics() {
-    setIsUpdatingBiometrics(true)
-    setStatusMessage('')
-
-    try {
-      const nextEnabled = await setBiometricEnabled(!biometricEnabled)
-      setBiometricEnabledState(nextEnabled)
-      setStatusMessage(nextEnabled ? 'Biometric unlock is enabled.' : 'Biometric unlock is disabled.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Biometric setting could not be updated.')
-    } finally {
-      setIsUpdatingBiometrics(false)
-    }
-  }
 
   async function handleManualRefresh() {
     setActiveActionId('refresh:parent')

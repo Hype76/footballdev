@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, AppState, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
-import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import {
   addCoachMatchGoal,
@@ -17,8 +16,7 @@ import {
   undoCoachLastMatchGoal,
   updateCoachMatchStatus,
 } from '../mobile-core/src/data'
-import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
-import { getAccessToken } from '../mobile-core/src/supabase'
+import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { colors, screen } from '../mobile-core/src/theme'
 import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
@@ -57,11 +55,6 @@ function CoachHome() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [showOverview, setShowOverview] = useState(false)
-  const [biometricEnabled, setBiometricEnabledState] = useState(false)
-  const [biometricAvailable, setBiometricAvailable] = useState(false)
-  const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
-  const [isRegisteringPush, setIsRegisteringPush] = useState(false)
-  const [notificationState, setNotificationState] = useState(null)
   const teamOptions = useMemo(
     () => (Array.isArray(user?.teamOptions) ? user.teamOptions : []),
     [user?.teamOptions],
@@ -81,6 +74,24 @@ function CoachHome() {
       : user,
     [selectedTeam?.id, selectedTeam?.name, user],
   )
+  const {
+    biometricAvailable,
+    biometricEnabled,
+    disableNotifications,
+    enableNotifications,
+    isRegisteringPush,
+    isUpdatingBiometrics,
+    notificationState,
+    toggleBiometrics,
+  } = useMobileDeviceControls({
+    apiBaseUrl: config.apiBaseUrl,
+    appRole: 'coach',
+    easProjectId: config.easProjectId,
+    notificationDisabledMessage: 'Coach notifications are disabled on this device.',
+    notificationEnabledMessage: 'Coach notifications are enabled on this device.',
+    onStatusMessage: setStatusMessage,
+    teamId: selectedMobileUser?.activeTeamId || '',
+  })
 
   const refreshCoachData = useCallback(async () => {
     const [nextSummary, nextMatches, nextPlayers, nextSessions, nextFields] = await Promise.all([
@@ -98,10 +109,6 @@ function CoachHome() {
     setAssessmentFields(nextFields)
     setLastUpdatedAt(new Date().toISOString())
   }, [selectedMobileUser])
-
-  useEffect(() => {
-    void initializeMobileNotifications()
-  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -159,34 +166,6 @@ function CoachHome() {
   }, [selectedTeam?.id, selectedTeamId])
 
   useEffect(() => {
-    let isMounted = true
-
-    async function loadDeviceSettings() {
-      try {
-        const [availability, enabled, nextNotificationState] = await Promise.all([
-          getBiometricAvailability(),
-          getBiometricEnabled(),
-          getNativeNotificationDeviceState(),
-        ])
-
-        if (isMounted) {
-          setBiometricAvailable(availability.available)
-          setBiometricEnabledState(enabled)
-          setNotificationState(nextNotificationState)
-        }
-      } catch (error) {
-        console.error(error)
-      }
-    }
-
-    void loadDeviceSettings()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  useEffect(() => {
     const route = lastNotificationResponse?.notification?.request?.content?.data?.route
 
     if (route === 'matchday') {
@@ -207,65 +186,6 @@ function CoachHome() {
       subscription.remove()
     }
   }, [refreshCoachData, selectedMobileUser?.clubId])
-
-  async function enableNotifications() {
-    setIsRegisteringPush(true)
-    setStatusMessage('')
-
-    try {
-      const accessToken = await getAccessToken()
-      await registerNativePushDevice({
-        accessToken,
-        apiBaseUrl: config.apiBaseUrl,
-        appRole: 'coach',
-        easProjectId: config.easProjectId,
-        teamId: selectedMobileUser?.activeTeamId || '',
-      })
-      setNotificationState(await getNativeNotificationDeviceState())
-      setStatusMessage('Coach notifications are enabled on this device.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Notifications could not be enabled.')
-    } finally {
-      setIsRegisteringPush(false)
-    }
-  }
-
-  async function disableNotifications() {
-    setIsRegisteringPush(true)
-    setStatusMessage('')
-
-    try {
-      const accessToken = await getAccessToken()
-      await revokeNativePushDevice({
-        accessToken,
-        apiBaseUrl: config.apiBaseUrl,
-      })
-      setNotificationState(await getNativeNotificationDeviceState())
-      setStatusMessage('Coach notifications are disabled on this device.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Notifications could not be disabled.')
-    } finally {
-      setIsRegisteringPush(false)
-    }
-  }
-
-  async function toggleBiometrics() {
-    setIsUpdatingBiometrics(true)
-    setStatusMessage('')
-
-    try {
-      const nextEnabled = await setBiometricEnabled(!biometricEnabled)
-      setBiometricEnabledState(nextEnabled)
-      setStatusMessage(nextEnabled ? 'Biometric unlock is enabled.' : 'Biometric unlock is disabled.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Biometric setting could not be updated.')
-    } finally {
-      setIsUpdatingBiometrics(false)
-    }
-  }
 
   async function handleRefresh() {
     if (!selectedMobileUser?.clubId) {
