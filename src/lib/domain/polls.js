@@ -3,6 +3,7 @@ import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js
 import { blockDemoMutation } from './demo-guards.js'
 import { createAuditLog } from './audit.js'
 import { getEntryUserEmail, getEntryUserId, getEntryUserName } from './core-normalizers.js'
+import { sendParentMobilePushNotification } from '../push-notifications.js'
 
 export const POLL_AUDIENCE_OPTIONS = [
   { value: 'parents', label: 'Parent poll' },
@@ -218,6 +219,12 @@ export async function createPoll({ user, poll }) {
 
   clearViewCaches()
   invalidateMemoryCacheByPrefix('polls:')
+  if (audience === 'parents') {
+    await sendParentMobilePushNotification({
+      id: data.id,
+      type: 'parent_poll',
+    })
+  }
   await createAuditLog({
     user,
     action: 'poll_created',

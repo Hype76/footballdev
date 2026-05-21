@@ -20,6 +20,7 @@ import {
 } from '../lib/email-templates.js'
 import { isDemoUser } from '../lib/demo.js'
 import { sendParentEmail } from '../lib/email-builder.js'
+import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import {
   createFeatureUpgradeMessage,
   createLimitUpgradeMessage,
@@ -1065,7 +1066,7 @@ export function CreateEvaluationPage() {
                 }
               : null,
           })))
-          await createCommunicationLog({
+          const communicationLog = await createCommunicationLog({
             user,
             playerId: savedEvaluation?.playerId || evaluation.playerId,
             evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
@@ -1085,6 +1086,12 @@ export function CreateEvaluationPage() {
               pdfHtml: isPdfAttachmentApproved ? emailJobs[0]?.payload?.pdfHtml || '' : '',
             },
           })
+          if (!isScheduledSend && communicationLog?.id) {
+            await sendParentMobilePushNotification({
+              id: communicationLog.id,
+              type: 'parent_message',
+            })
+          }
           showToast({ title: isScheduledSend ? 'Email scheduled' : 'Email sent successfully' })
         } catch (emailError) {
           console.error('Email failed', emailError)

@@ -22,6 +22,7 @@ import {
   normalizeEmailTemplateAudience,
 } from '../lib/email-templates.js'
 import { sendParentEmail, sendParentPortalInvite } from '../lib/email-builder.js'
+import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import { isDemoUser } from '../lib/demo.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
@@ -773,7 +774,7 @@ export function PlayerProfile() {
       showToast({ title: isScheduledSend ? 'Email scheduled' : 'Email sent successfully' })
 
       const playerId = evaluation.playerId || primaryPlayer?.id
-      await createCommunicationLog({
+      const communicationLog = await createCommunicationLog({
         user,
         playerId,
         evaluationId: evaluation.isDirectEmail ? null : evaluation.id,
@@ -794,6 +795,13 @@ export function PlayerProfile() {
           pdfHtml: attachPdf ? payloads[0]?.payload?.pdfHtml || '' : '',
         },
       })
+
+      if (!isScheduledSend && communicationLog?.id) {
+        await sendParentMobilePushNotification({
+          id: communicationLog.id,
+          type: 'parent_message',
+        })
+      }
 
       if (playerId) {
         const nextActivity = await getPlayerCommunicationLogs({ user, playerId })

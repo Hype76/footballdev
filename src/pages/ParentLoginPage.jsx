@@ -3,6 +3,9 @@ import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { buildParentAppUrl, isParentPortalHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
+import { supabase } from '../lib/supabase-client.js'
+
+const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
 
 function getFriendlyLoginError(error) {
   const rawMessage = String(error?.message ?? '').trim()
@@ -16,7 +19,11 @@ function getFriendlyLoginError(error) {
     return 'Confirm your email address first, then log in here.'
   }
 
-  return rawMessage || 'Parent login failed.'
+  if (normalizedMessage.includes('auth session missing') || normalizedMessage.includes('session')) {
+    return 'Email or password is incorrect.'
+  }
+
+  return 'Parent login could not be completed. Check your details and try again.'
 }
 
 export function ParentLoginPage() {
@@ -51,6 +58,71 @@ export function ParentLoginPage() {
   const [password, setPassword] = useState('')
   const shouldClearExistingSession = initialParams.confirmed || initialParams.created
   const isParentHost = isParentPortalHost()
+
+  useEffect(() => {
+    if (!isParentHost) {
+      return undefined
+    }
+
+    const rawHash = String(window.location.hash ?? '').replace(/^#/, '')
+
+    if (!rawHash) {
+      return undefined
+    }
+
+    const hashParams = new URLSearchParams(rawHash)
+
+    if (hashParams.get('type') !== 'parent_portal_login') {
+      return undefined
+    }
+
+    const accessToken = hashParams.get('access_token') || ''
+    const refreshToken = hashParams.get('refresh_token') || ''
+    let isMounted = true
+
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+
+    if (!accessToken || !refreshToken) {
+      setErrorMessage('Parent login session was missing. Log in again.')
+      return undefined
+    }
+
+    const openParentSession = async () => {
+      setIsSubmitting(true)
+      setErrorMessage('')
+      setMessage('Opening parent portal...')
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')
+
+      try {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+
+        if (error) {
+          throw error
+        }
+
+        window.location.assign(buildParentAppUrl('/parent-portal'))
+      } catch (error) {
+        console.error(error)
+        if (isMounted) {
+          setErrorMessage(getFriendlyLoginError(error))
+          setMessage('')
+        }
+      } finally {
+        if (isMounted) {
+          setIsSubmitting(false)
+        }
+      }
+    }
+
+    void openParentSession()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isParentHost])
 
   useEffect(() => {
     if (isParentHost) {

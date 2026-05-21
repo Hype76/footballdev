@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 
 const navItems = [
@@ -7,7 +8,207 @@ const navItems = [
   ['/pricing', 'Pricing'],
 ]
 
+const mobileNavLabelStyle = {
+  lineHeight: 1,
+  whiteSpace: 'nowrap',
+}
+
+const emptyContactForm = {
+  email: '',
+  message: '',
+  name: '',
+  phone: '',
+}
+
+function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData, onCancel, onChange, onSubmit }) {
+  if (!isOpen) {
+    return null
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 px-4 py-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="contact-us-title"
+        className="relative w-full max-w-xl rounded-lg border border-white/10 bg-[#0b130d] p-5 shadow-2xl shadow-black/50 sm:p-6"
+      >
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          title={isSubmitting ? 'Please wait while your message is sent.' : 'Close this window'}
+          aria-label="Close this window"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          X
+        </button>
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Contact Us</p>
+        <h2 id="contact-us-title" className="mt-3 pr-12 text-2xl font-black tracking-tight text-white">Send Football Player a message</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-300">
+          Tell us what you need and we will reply as soon as possible.
+        </p>
+
+        <form className="mt-5 grid gap-4" onSubmit={onSubmit}>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-200">Name *</span>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={onChange}
+              required
+              autoComplete="name"
+              className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-200">Email *</span>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={onChange}
+              required
+              autoComplete="email"
+              className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-200">Phone Number</span>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={onChange}
+              autoComplete="tel"
+              className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-200">Message</span>
+            <textarea
+              name="message"
+              value={formData.message}
+              onChange={onChange}
+              rows={5}
+              className="min-h-32 w-full resize-y rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#d8ff2f]"
+            />
+          </label>
+
+          {errorMessage ? (
+            <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          {message ? (
+            <div className="rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
+              {message}
+            </div>
+          ) : null}
+
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              title={isSubmitting ? 'Please wait while your message is sent.' : undefined}
+              onClick={onCancel}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              title={isSubmitting ? 'Please wait while your message is sent.' : undefined}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? 'Sending...' : 'Send Message'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export function LoginHeader({ logo }) {
+  const [contactFormData, setContactFormData] = useState(emptyContactForm)
+  const [contactErrorMessage, setContactErrorMessage] = useState('')
+  const [contactMessage, setContactMessage] = useState('')
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false)
+  const [isContactSubmitting, setIsContactSubmitting] = useState(false)
+
+  const openContactModal = () => {
+    setContactErrorMessage('')
+    setContactMessage('')
+    setIsContactModalOpen(true)
+  }
+
+  const closeContactModal = () => {
+    if (isContactSubmitting) {
+      return
+    }
+
+    setIsContactModalOpen(false)
+  }
+
+  useEffect(() => {
+    const handleOpenContactModal = () => {
+      setContactErrorMessage('')
+      setContactMessage('')
+      setIsContactModalOpen(true)
+    }
+
+    window.addEventListener('football-player:open-contact', handleOpenContactModal)
+
+    return () => {
+      window.removeEventListener('football-player:open-contact', handleOpenContactModal)
+    }
+  }, [])
+
+  const handleContactChange = (event) => {
+    const { name, value } = event.target
+    setContactFormData((current) => ({
+      ...current,
+      [name]: value,
+    }))
+    setContactErrorMessage('')
+    setContactMessage('')
+  }
+
+  const handleContactSubmit = async (event) => {
+    event.preventDefault()
+    setIsContactSubmitting(true)
+    setContactErrorMessage('')
+    setContactMessage('')
+
+    try {
+      const response = await fetch('/.netlify/functions/send-contact-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...contactFormData,
+          sourcePath: `${window.location.pathname}${window.location.search}`,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Your message could not be sent.')
+      }
+
+      setContactFormData(emptyContactForm)
+      setContactMessage('Message sent. We will reply as soon as possible.')
+    } catch (error) {
+      console.error(error)
+      setContactErrorMessage(error.message || 'Your message could not be sent.')
+    } finally {
+      setIsContactSubmitting(false)
+    }
+  }
+
   return (
     <>
       <header className="border-b border-white/10 bg-[#061009]/90 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur sm:px-6 sm:py-4 lg:px-8">
@@ -22,6 +223,13 @@ export function LoginHeader({ logo }) {
             </div>
           </a>
           <div className="flex items-center gap-2 lg:order-3">
+            <button
+              type="button"
+              onClick={openContactModal}
+              className="hidden min-h-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-black text-white transition hover:bg-white/[0.1] sm:inline-flex"
+            >
+              Contact Us
+            </button>
             <a
               href="/sign-in"
               className="hidden min-h-11 items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f] px-4 py-3 text-sm font-black text-black transition hover:opacity-90 sm:inline-flex"
@@ -47,25 +255,42 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
-      <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-1 rounded-[1.5rem] border border-white/10 bg-black/78 p-2 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-6 lg:hidden">
-        <div className="grid w-full grid-cols-5 gap-1">
+      <nav className="fixed inset-x-1.5 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center rounded-[1.5rem] border border-white/10 bg-black/78 p-1 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-6 sm:p-1.5 lg:hidden">
+        <div className="grid w-full grid-cols-6 gap-px min-[390px]:gap-0.5">
           {navItems.map(([href, label]) => (
             <a
               key={href}
               href={href}
-              className="inline-flex min-h-12 items-center justify-center rounded-2xl px-2 py-2 text-center text-[11px] font-black text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[390px]:text-xs"
+              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-px py-2 text-center text-[8.5px] font-black leading-none text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[360px]:text-[9px] min-[390px]:px-0.5 min-[390px]:text-[9.5px] min-[430px]:text-[10.5px]"
             >
-              {label}
+              <span className="block" style={mobileNavLabelStyle}>{label}</span>
             </a>
           ))}
+          <button
+            type="button"
+            onClick={openContactModal}
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-px py-2 text-center text-[8.5px] font-black leading-none text-slate-200 transition hover:bg-white/[0.08] hover:text-white min-[360px]:text-[9px] min-[390px]:px-0.5 min-[390px]:text-[9.5px] min-[430px]:text-[10.5px]"
+          >
+            <span className="block" style={mobileNavLabelStyle}>Contact</span>
+          </button>
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#d8ff2f] px-2 py-2 text-center text-[11px] font-black text-black transition hover:opacity-90 min-[390px]:text-xs"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl bg-[#d8ff2f] px-px py-2 text-center text-[8.5px] font-black leading-none text-black transition hover:opacity-90 min-[360px]:text-[9px] min-[390px]:px-0.5 min-[390px]:text-[9.5px] min-[430px]:text-[10.5px]"
           >
-            Login
+            <span className="block" style={mobileNavLabelStyle}>Login</span>
           </a>
         </div>
       </nav>
+      <ContactUsModal
+        isOpen={isContactModalOpen}
+        isSubmitting={isContactSubmitting}
+        message={contactMessage}
+        errorMessage={contactErrorMessage}
+        formData={contactFormData}
+        onCancel={closeContactModal}
+        onChange={handleContactChange}
+        onSubmit={handleContactSubmit}
+      />
     </>
   )
 }

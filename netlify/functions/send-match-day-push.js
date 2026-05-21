@@ -1,6 +1,7 @@
 import process from 'node:process'
 import webpush from 'web-push'
 import { supabaseAdmin } from './_supabase.js'
+import { sendExpoPushMessages } from './_expo-push.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -130,10 +131,11 @@ function configureWebPush() {
   const subject = normalizeText(process.env.WEB_PUSH_SUBJECT) || 'mailto:support@footballplayer.online'
 
   if (!publicKey || !privateKey) {
-    throw Object.assign(new Error('Push notifications are not configured.'), { statusCode: 500 })
+    return false
   }
 
   webpush.setVapidDetails(subject, publicKey, privateKey)
+  return true
 }
 
 function getTeamName(match) {
@@ -154,13 +156,23 @@ function buildPayload({ match, type, event }) {
   const opponent = normalizeText(match.opponent) || 'Opponent'
   const scoreLine = `${teamName} ${getClubScore(match)}-${getOpponentScore(match)} ${opponent}`
   const eventScorer = normalizeText(event?.scorer_initials || event?.scorer_name)
+  const isOpponentGoal = normalizeText(event?.team_side) === 'opponent'
   const minute = event?.minute !== null && event?.minute !== undefined ? `${event.minute}' ` : ''
 
   if (type === 'goal') {
     return {
-      title: 'Goal!',
-      body: `${minute}${eventScorer || teamName} ${scoreLine}`,
+      title: isOpponentGoal ? 'Goal update' : 'Goal!',
+      body: isOpponentGoal ? `${minute}${scoreLine}` : `${minute}${eventScorer || teamName} ${scoreLine}`,
       tag: `match-day-${match.id}-goal-${event?.id || Date.now()}`,
+      renotify: true,
+    }
+  }
+
+  if (type === 'score_correction') {
+    return {
+      title: 'Score corrected',
+      body: scoreLine,
+      tag: `match-day-${match.id}-score-correction-${event?.id || Date.now()}`,
       renotify: true,
     }
   }
@@ -256,6 +268,32 @@ async function getSubscriptions({ match, targetParentLinkIds }) {
   return data ?? []
 }
 
+async function getMobileDevices({ match, targetParentLinkIds }) {
+  let query = supabaseAdmin
+    .from('mobile_push_devices')
+    .select('id, auth_user_id, device_token, parent_link_id')
+    .eq('club_id', match.club_id)
+    .eq('app_role', 'parent')
+    .eq('status', 'active')
+    .eq('notification_enabled', true)
+
+  if (match.team_id) {
+    query = query.eq('team_id', match.team_id)
+  }
+
+  if (targetParentLinkIds.length > 0) {
+    query = query.in('parent_link_id', targetParentLinkIds)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    throw error
+  }
+
+  return data ?? []
+}
+
 async function markSubscriptionRevoked(subscriptionId) {
   await supabaseAdmin
     .from('parent_push_subscriptions')
@@ -291,13 +329,40 @@ async function sendToSubscription(subscription, payload) {
   }
 }
 
+async function logNotificationEvents({ channel, devices, match, payload, status }) {
+  if (devices.length === 0) {
+    return
+  }
+
+  const now = new Date().toISOString()
+  const { error } = await supabaseAdmin
+    .from('notification_events')
+    .insert(devices.map((device) => ({
+      club_id: match.club_id,
+      team_id: match.team_id || null,
+      parent_link_id: device.parent_link_id || null,
+      target_auth_user_id: device.auth_user_id,
+      channel,
+      notification_type: normalizeText(payload.type) || 'match_day',
+      title: payload.title,
+      body: payload.body,
+      data: payload.data || {},
+      status,
+      sent_at: status === 'sent' ? now : null,
+    })))
+
+  if (error) {
+    console.error('Notification event log failed', error)
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed')
   }
 
   try {
-    configureWebPush()
+    const webPushConfigured = configureWebPush()
 
     const authUser = await getAuthUser(event)
     const profile = await getProfile(authUser)
@@ -341,20 +406,54 @@ export async function handler(event) {
       match,
       targetParentLinkIds,
     })
+    const mobileDevices = await getMobileDevices({
+      match,
+      targetParentLinkIds,
+    })
     const payload = {
       ...buildPayload({ match, type, event: eventRow }),
       url: '/parent-portal',
       icon: '/icons/icon-192.png',
       badge: '/icons/favicon-48.png',
     }
-    const results = await Promise.all(subscriptions.map((subscription) => sendToSubscription(subscription, payload)))
+    const results = webPushConfigured
+      ? await Promise.all(subscriptions.map((subscription) => sendToSubscription(subscription, payload)))
+      : []
     const sent = results.filter((result) => result.sent).length
     const revoked = results.filter((result) => result.revoked).length
+    const nativePayload = {
+      title: payload.title,
+      body: payload.body,
+      type,
+      data: {
+        app: 'parent',
+        route: 'parent-portal',
+        matchDayId: match.id,
+        type,
+      },
+    }
+    const mobileResult = await sendExpoPushMessages(mobileDevices.map((device) => ({
+      to: device.device_token,
+      title: nativePayload.title,
+      body: nativePayload.body,
+      data: nativePayload.data,
+      sound: 'default',
+    })))
+
+    await logNotificationEvents({
+      channel: 'mobile_push',
+      devices: mobileDevices,
+      match,
+      payload: nativePayload,
+      status: mobileResult.failed > 0 && mobileResult.sent === 0 ? 'failed' : 'sent',
+    })
 
     return jsonResponse(200, {
       success: true,
       sent,
       revoked,
+      mobileSent: mobileResult.sent,
+      mobileFailed: mobileResult.failed,
     })
   } catch (error) {
     console.error(error)

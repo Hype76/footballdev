@@ -7,6 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "mobile:doctor": "node apps/scripts/mobile-doctor-check.mjs",
+    "mobile:export:web": "node apps/scripts/mobile-export-web-check.mjs",
+    "mobile:prestore": "node apps/scripts/mobile-prestore-check.mjs",
+    "mobile:release-check": "node apps/scripts/mobile-release-check.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

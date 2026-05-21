@@ -1,0 +1,16 @@
+node_modules/
+.expo/
+dist/
+dist-web-check/
+.env
+.env.local
+*.apk
+*.aab
+*.ipa
+*.p8
+*.mobileprovision
+*.keystore
+*.jks
+GoogleService-Info.plist
+google-services.json
+credentials.json

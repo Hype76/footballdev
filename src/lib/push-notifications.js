@@ -186,3 +186,30 @@ export async function sendMatchDayPushNotification({ matchDayId, type, eventId =
     return null
   }
 }
+
+export async function sendParentMobilePushNotification({ id, type }) {
+  const token = await getAccessToken()
+
+  if (!token || !id || !type) {
+    return null
+  }
+
+  try {
+    const response = await fetch('/.netlify/functions/send-parent-mobile-push', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id,
+        type,
+      }),
+    })
+
+    return response.json().catch(() => null)
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}

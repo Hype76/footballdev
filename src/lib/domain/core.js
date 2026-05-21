@@ -1305,7 +1305,7 @@ export async function createCommunicationLog({
     return
   }
 
-  const { error } = await supabase.from('communication_logs').insert({
+  const { data, error } = await supabase.from('communication_logs').insert({
     club_id: user.clubId,
     player_id: playerId || null,
     evaluation_id: evaluationId || null,
@@ -1316,11 +1316,14 @@ export async function createCommunicationLog({
     action,
     recipient_email: String(recipientEmail ?? '').trim(),
     metadata: metadata && typeof metadata === 'object' ? metadata : {},
-  })
+  }).select('id').single()
 
   if (error) {
     console.error(error)
+    return null
   }
+
+  return data
 }
 
 export async function getPlayerCommunicationLogs({ user, playerId, limit = 50 } = {}) {

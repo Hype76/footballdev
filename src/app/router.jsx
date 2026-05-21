@@ -76,6 +76,7 @@ const PlatformFeedbackPage = lazyRoute(() => import('../pages/PlatformFeedbackPa
 const PollsPage = lazyRoute(() => import('../pages/PollsPage.jsx'), 'PollsPage')
 const PublicFeaturesPage = lazyRoute(() => import('../pages/PublicFeaturesPage.jsx'), 'PublicFeaturesPage')
 const PublicLandingPage = lazyRoute(() => import('../pages/PublicLandingPage.jsx'), 'PublicLandingPage')
+const PublicParentPortalLoginPage = lazyRoute(() => import('../pages/PublicParentPortalLoginPage.jsx'), 'PublicParentPortalLoginPage')
 const PublicParentsPage = lazyRoute(() => import('../pages/PublicParentsPage.jsx'), 'PublicParentsPage')
 const PublicPricingPage = lazyRoute(() => import('../pages/PublicPricingPage.jsx'), 'PublicPricingPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
@@ -818,6 +819,14 @@ export const router = createBrowserRouter([
         element: (
           <PageSuspense>
             <PublicParentsPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'portal',
+        element: (
+          <PageSuspense>
+            <PublicParentPortalLoginPage />
           </PageSuspense>
         ),
       },
