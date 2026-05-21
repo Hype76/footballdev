@@ -417,6 +417,8 @@ apps.forEach((app) => {
   assertIncludes(appSource, 'tintColor={colors.accent}', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'AppState.addEventListener', `${app.name} foreground refresh`)
   assertIncludes(appSource, "nextState === 'active'", `${app.name} foreground refresh`)
+  assertIncludes(appSource, 'lastUpdatedAt', `${app.name} freshness indicator`)
+  assertIncludes(appSource, 'Updated {formatLastUpdated(lastUpdatedAt)}', `${app.name} freshness indicator`)
   assertIncludes(appSource, 'Connection ready', `${app.name} settings status`)
   assertIncludes(appSource, 'Connection needs setup', `${app.name} settings status`)
   assertIncludes(appSource, app.restrictedAccessCopy, `${app.name} login copy`)

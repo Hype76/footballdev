@@ -76,6 +76,7 @@ function ParentHome() {
   const [activeActionId, setActiveActionId] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
@@ -111,6 +112,7 @@ function ParentHome() {
     setMatches(nextMatches)
     setMessages(nextMessages)
     setPolls(nextPolls)
+    setLastUpdatedAt(new Date().toISOString())
   }, [selectedMobileUser])
 
   useEffect(() => {
@@ -142,6 +144,7 @@ function ParentHome() {
           setMatches(nextMatches)
           setMessages(nextMessages)
           setPolls(nextPolls)
+          setLastUpdatedAt(new Date().toISOString())
         }
       } catch (error) {
         console.error(error)
@@ -492,6 +495,7 @@ function ParentHome() {
 
           <PrimaryButton onPress={signOut} variant="secondary">Sign out</PrimaryButton>
           <Text style={styles.meta}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
+          {lastUpdatedAt ? <Text style={styles.meta}>Updated {formatLastUpdated(lastUpdatedAt)}</Text> : null}
           <LegalFooter />
         </View>
       </ScrollView>
@@ -602,6 +606,19 @@ function PollsPanel({ activeActionId, onVote, polls }) {
       <Text style={styles.item}>No parent polls are open right now.</Text>
     </View>
   )
+}
+
+function formatLastUpdated(value) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function LoadingScreen({ message }) {

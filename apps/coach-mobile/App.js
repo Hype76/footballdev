@@ -79,6 +79,7 @@ function CoachHome() {
   const [activeActionId, setActiveActionId] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
@@ -118,6 +119,7 @@ function CoachHome() {
     setPlayers(nextPlayers)
     setSessions(nextSessions)
     setAssessmentFields(nextFields)
+    setLastUpdatedAt(new Date().toISOString())
   }, [selectedMobileUser])
 
   useEffect(() => {
@@ -151,6 +153,7 @@ function CoachHome() {
           setPlayers(nextPlayers)
           setSessions(nextSessions)
           setAssessmentFields(nextFields)
+          setLastUpdatedAt(new Date().toISOString())
         }
       } catch (error) {
         console.error(error)
@@ -508,6 +511,7 @@ function CoachHome() {
 
           <PrimaryButton onPress={signOut} variant="secondary">Sign out</PrimaryButton>
           <Text style={styles.meta}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
+          {lastUpdatedAt ? <Text style={styles.meta}>Updated {formatLastUpdated(lastUpdatedAt)}</Text> : null}
           <LegalFooter />
         </View>
       </ScrollView>
@@ -886,6 +890,19 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
 
 function isScoreField(type) {
   return ['score_1_5', 'score_1_10', 'number'].includes(String(type || '').trim())
+}
+
+function formatLastUpdated(value) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function LoadingScreen({ message }) {
