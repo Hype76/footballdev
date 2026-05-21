@@ -18,7 +18,7 @@ import {
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { colors } from '../mobile-core/src/theme'
-import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SegmentedControl, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -537,22 +537,14 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
       ) : null}
       {isDetailsOpen ? (
         <View style={styles.goalDetailsPanel}>
-          <View style={styles.segmentedControl}>
-            {[
+          <SegmentedControl
+            onChange={(value) => updateGoalDetails('teamSide', value)}
+            options={[
               { label: 'For', value: 'club' },
               { label: 'Against', value: 'opponent' },
-            ].map((option) => (
-              <Pressable
-                key={option.value}
-                onPress={() => updateGoalDetails('teamSide', option.value)}
-                style={[styles.segmentButton, goalDetails.teamSide === option.value ? styles.segmentButtonActive : null]}
-              >
-                <Text style={[styles.segmentText, goalDetails.teamSide === option.value ? styles.segmentTextActive : null]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+            ]}
+            selectedValue={goalDetails.teamSide}
+          />
           <TextField
             autoCapitalize="words"
             label="Scorer"
@@ -823,33 +815,5 @@ const styles = StyleSheet.create({
   },
   phaseGrid: {
     gap: 10,
-  },
-  segmentButton: {
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    flex: 1,
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  segmentButtonActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  segmentText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  segmentTextActive: {
-    color: '#000000',
   },
 })

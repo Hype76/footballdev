@@ -445,6 +445,8 @@ assertIncludes(mobileUi, 'export function LoadingRow', 'Mobile shared screen chr
 assertIncludes(mobileUi, 'export function EmptyState', 'Mobile shared empty state')
 assertIncludes(mobileUi, 'export function ChoiceGroup', 'Mobile shared choice controls')
 assertIncludes(mobileUi, 'styles.choiceButton', 'Mobile shared choice controls')
+assertIncludes(mobileUi, 'export function SegmentedControl', 'Mobile shared segmented controls')
+assertIncludes(mobileUi, 'styles.segmentButton', 'Mobile shared segmented controls')
 
 apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
@@ -478,6 +480,7 @@ apps.forEach((app) => {
 })
 
 const coachAppSource = read('apps/coach-mobile/App.js')
+assertIncludes(coachAppSource, 'SegmentedControl', 'Coach matchday segmented controls')
 assertIncludes(coachAppSource, 'canRecordGoal', 'Coach matchday guardrails')
 assertIncludes(coachAppSource, 'Start the match before adding goals.', 'Coach matchday guardrails')
 assertIncludes(coachAppSource, "disabled={!['live', 'second_half'].includes(match.status)}", 'Coach matchday guardrails')
