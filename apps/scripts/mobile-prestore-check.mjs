@@ -759,6 +759,10 @@ if (existsSync(join(repoRoot, screenshotPlanPath))) {
   assertIncludes(screenshotPlan, 'parents-ios-07-settings.png', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'parents-android-07-settings.png', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'Keep all rejected or alternate screenshots outside the final upload folder so the wrong app or platform image is not selected during submission.', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, '## Screenshot Evidence Folders', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'coach-ios-final', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'parents-android-final', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'Screenshot folders are recorded in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile screenshot plan')
   assertIncludes(screenshotPlan, 'No billing, checkout, subscription, Stripe, or bulk email screens are shown.', 'Mobile screenshot plan')
 }
 

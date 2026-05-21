@@ -107,6 +107,17 @@ Parents Android:
 
 Keep all rejected or alternate screenshots outside the final upload folder so the wrong app or platform image is not selected during submission.
 
+## Screenshot Evidence Folders
+
+Use separate folders for the final upload set:
+
+- `coach-ios-final`
+- `coach-android-final`
+- `parents-ios-final`
+- `parents-android-final`
+
+Each folder should contain only the screenshots intended for that specific store listing. Keep draft captures, failed captures, screenshots with private data, and screenshots from the wrong app outside these folders.
+
 ## Final Check
 
 - App name and screenshots match.
@@ -115,3 +126,5 @@ Keep all rejected or alternate screenshots outside the final upload folder so th
 - No live production data is visible.
 - No billing, checkout, subscription, Stripe, or bulk email screens are shown.
 - Support, privacy, and terms URLs match the store metadata.
+- Screenshot folders are recorded in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
+- Screenshots were captured after the final visible app change.

@@ -116,6 +116,8 @@ App access: restricted parent login. Use the supplied test parent account. The a
 
 Capture screenshots from real store builds or installed internal builds, not from the web export. Use `MOBILE_SCREENSHOT_PLAN.md` for device classes, naming, ordering, and test-data rules.
 
+Record the final screenshot folder paths in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` before uploading them to Apple or Google.
+
 ### Coach app screenshots
 
 - Login screen
@@ -144,4 +146,5 @@ Capture screenshots from real store builds or installed internal builds, not fro
 - Confirm both apps still use `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
 - Confirm the supplied review notes match the app being submitted.
 - Confirm the screenshots do not show real child, parent, coach, or club data.
+- Confirm final screenshot folder paths are recorded in `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Confirm privacy answers match `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
