@@ -12,6 +12,7 @@
     "mobile:config": "node apps/scripts/mobile-config-check.mjs",
     "mobile:prestore": "node apps/scripts/mobile-prestore-check.mjs",
     "mobile:release-check": "node apps/scripts/mobile-release-check.mjs",
+    "mobile:next": "node apps/scripts/mobile-release-next.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

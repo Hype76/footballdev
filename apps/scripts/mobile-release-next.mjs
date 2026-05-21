@@ -1,0 +1,39 @@
+import { mobileApps } from './mobile-apps.mjs'
+
+const phase = {
+  title: 'Phase 2: Expo EAS Setup',
+  status: 'external',
+  rule: 'Keep both apps on test Supabase until live release approval is explicit.',
+}
+
+console.log(`${phase.title}`)
+console.log(`Status: ${phase.status}`)
+console.log(phase.rule)
+console.log('')
+console.log('Before external setup:')
+console.log('- Run npm run mobile:release-check from the repo root.')
+console.log('- Confirm you are logged in to the correct Expo account.')
+console.log('- Do not commit EAS project IDs, Supabase keys, API URLs, Apple keys, Google service account files, provisioning profiles, passwords, or reviewer credentials.')
+console.log('')
+console.log('Create EAS projects:')
+
+mobileApps.forEach((app) => {
+  console.log(`- ${app.expectedName}`)
+  console.log(`  cd ${app.path}`)
+  console.log('  npx eas-cli project:init')
+  console.log('  Store EXPO_PUBLIC_EAS_PROJECT_ID in Expo EAS only.')
+})
+
+console.log('')
+console.log('Set these EAS values for each app and each reviewer build profile:')
+console.log('- EXPO_PUBLIC_SUPABASE_ENV=test')
+console.log('- EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false')
+console.log('- EXPO_PUBLIC_SUPABASE_URL set to the test Supabase project')
+console.log('- EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY set to the test Supabase project')
+console.log('- EXPO_PUBLIC_API_BASE_URL set to the HTTPS test API host')
+console.log('- EXPO_PUBLIC_EAS_PROJECT_ID set in EAS only')
+console.log('')
+console.log('After setup:')
+console.log('- Run npm run mobile:release-check again.')
+console.log('- Record external evidence outside git with apps/MOBILE_EXTERNAL_RELEASE_EVIDENCE.md.')
+console.log('- Do not start native builds until both EAS projects and test environment values are confirmed.')

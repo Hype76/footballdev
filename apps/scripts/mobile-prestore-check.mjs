@@ -56,6 +56,7 @@ const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
 const mobileConfigCheckPath = 'apps/scripts/mobile-config-check.mjs'
 const mobileBuildGuardPath = 'apps/scripts/mobile-build-guard.mjs'
 const mobileSubmitGuardPath = 'apps/scripts/mobile-submit-guard.mjs'
+const mobileReleaseNextPath = 'apps/scripts/mobile-release-next.mjs'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -369,12 +370,14 @@ assertFile(mobileAppsRegistryPath, 'Mobile app registry')
 assertFile(mobileConfigCheckPath, 'Mobile config check')
 assertFile(mobileBuildGuardPath, 'Mobile build guard')
 assertFile(mobileSubmitGuardPath, 'Mobile submit guard')
+assertFile(mobileReleaseNextPath, 'Mobile release next helper')
 assertNoTrackedMobilePrivateFiles()
 
 const mobileAppsRegistry = existsSync(join(repoRoot, mobileAppsRegistryPath)) ? read(mobileAppsRegistryPath) : ''
 const mobileConfigCheck = existsSync(join(repoRoot, mobileConfigCheckPath)) ? read(mobileConfigCheckPath) : ''
 const mobileBuildGuard = existsSync(join(repoRoot, mobileBuildGuardPath)) ? read(mobileBuildGuardPath) : ''
 const mobileSubmitGuard = existsSync(join(repoRoot, mobileSubmitGuardPath)) ? read(mobileSubmitGuardPath) : ''
+const mobileReleaseNext = existsSync(join(repoRoot, mobileReleaseNextPath)) ? read(mobileReleaseNextPath) : ''
 
 assertIncludes(mobileAppsRegistry, 'export const mobileApps', 'Mobile app registry')
 assertIncludes(mobileAppsRegistry, "path: 'apps/coach-mobile'", 'Mobile app registry')
@@ -390,6 +393,10 @@ assertIncludes(mobileSubmitGuard, "execFileSync('npm', ['run', 'mobile:release-c
 assertIncludes(mobileSubmitGuard, "'submit'", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'--profile', 'store-test'", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'--platform', platform", 'Mobile submit guard')
+assertIncludes(mobileReleaseNext, 'Phase 2: Expo EAS Setup', 'Mobile release next helper')
+assertIncludes(mobileReleaseNext, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile release next helper')
+assertIncludes(mobileReleaseNext, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile release next helper')
+assertIncludes(mobileReleaseNext, 'Do not start native builds until both EAS projects and test environment values are confirmed.', 'Mobile release next helper')
 
 const sharedAppConfig = existsSync(join(repoRoot, sharedAppConfigPath)) ? read(sharedAppConfigPath) : ''
 
@@ -615,6 +622,9 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   }
   if (rootPackage.scripts?.['mobile:release-check'] !== 'node apps/scripts/mobile-release-check.mjs') {
     failures.push('Root package must include mobile:release-check script')
+  }
+  if (rootPackage.scripts?.['mobile:next'] !== 'node apps/scripts/mobile-release-next.mjs') {
+    failures.push('Root package must include mobile:next script')
   }
 }
 
