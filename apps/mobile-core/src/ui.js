@@ -488,15 +488,20 @@ export function MessageCard({ isBusy = false, message, onMarkRead }) {
 export function PollCard({ activeOptionId = '', isBusy = false, onVote, poll }) {
   const [showAllOptions, setShowAllOptions] = useState(false)
   const visibleOptions = showAllOptions ? poll.options : poll.options.slice(0, 4)
+  const isOpen = poll.status === 'open'
+  const hasAnswer = Boolean(activeOptionId)
+  const canVote = isOpen && !hasAnswer
 
   return (
     <View style={styles.simpleCard}>
       <Text style={styles.simpleTitle}>{poll.title}</Text>
       {poll.description ? <Text style={styles.simpleBody}>{poll.description}</Text> : null}
+      {!isOpen ? <Text style={styles.simpleMeta}>Poll closed</Text> : null}
+      {isOpen && hasAnswer ? <Text style={styles.simpleMeta}>Answer sent</Text> : null}
       <View style={styles.optionList}>
         {visibleOptions.map((option) => (
           <Pressable
-            disabled={isBusy}
+            disabled={isBusy || !canVote}
             key={option.id}
             onPress={() => onVote?.(poll, option)}
             style={[styles.optionButton, activeOptionId === option.id ? styles.optionButtonActive : null]}

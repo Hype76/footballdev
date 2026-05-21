@@ -801,6 +801,21 @@ export async function submitParentPollVote(user, pollId, optionId) {
     throw new Error('Choose a poll answer before voting.')
   }
 
+  const { data: poll, error: pollError } = await supabase
+    .from('polls')
+    .select('id, status')
+    .eq('id', normalizedPollId)
+    .eq('club_id', selectedLink.clubId)
+    .maybeSingle()
+
+  if (pollError) {
+    throw pollError
+  }
+
+  if (!poll || poll.status !== 'open') {
+    throw new Error('This poll is closed.')
+  }
+
   const { data, error } = await supabase.rpc('submit_parent_portal_poll_vote', {
     option_id_value: normalizedOptionId,
     parent_link_id_value: selectedLink.id,

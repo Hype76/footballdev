@@ -98,6 +98,8 @@ npm run build:ios:store-test
 - Staff sends a parent message immediately, parent device receives a message notification.
 - Staff schedules a parent message, parent device receives a notification only when it is sent.
 - Staff creates a parent poll, parent device receives a poll notification.
+- Parent answers an open poll once and then sees the answer as sent.
+- Parent cannot answer a closed poll.
 
 ## Evidence log
 
