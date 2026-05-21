@@ -628,11 +628,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  error: {
-    color: '#ffb4b4',
-    fontSize: 14,
-    fontWeight: '800',
-  },
   copy: {
     color: colors.muted,
     fontSize: 16,
@@ -651,26 +646,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  notice: {
-    color: colors.accent,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  kicker: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0,
-    textTransform: 'uppercase',
-  },
   logo: {
     height: 70,
     width: 70,
-  },
-  meta: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '700',
   },
   safeArea: {
     backgroundColor: colors.background,
