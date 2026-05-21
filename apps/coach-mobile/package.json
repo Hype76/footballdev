@@ -9,9 +9,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "doctor": "npx expo-doctor",
-    "build:android:internal": "npx eas-cli build --profile internal --platform android",
-    "build:android:store-test": "npx eas-cli build --profile store-test --platform android",
-    "build:ios:store-test": "npx eas-cli build --profile store-test --platform ios",
+    "build:android:internal": "node ../scripts/mobile-build-guard.mjs coach internal android",
+    "build:android:store-test": "node ../scripts/mobile-build-guard.mjs coach store-test android",
+    "build:ios:store-test": "node ../scripts/mobile-build-guard.mjs coach store-test ios",
     "export:web": "expo export --platform web --output-dir dist-web-check",
     "submit:android:store-test": "node ../scripts/mobile-submit-guard.mjs coach android",
     "submit:ios:store-test": "node ../scripts/mobile-submit-guard.mjs coach ios"
