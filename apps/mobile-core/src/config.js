@@ -19,9 +19,9 @@ export function getMobileRuntimeConfig(appRole) {
   const isConfigured = Boolean(supabaseUrl && supabasePublishableKey)
   const isLiveBlocked = supabaseEnvironment === 'live' && !allowLiveSupabase
   const configError = isLiveBlocked
-    ? 'Live Supabase is blocked for mobile until explicitly approved.'
+    ? 'This app build is not ready for access yet.'
     : !isConfigured
-      ? 'Supabase mobile environment variables are missing.'
+      ? 'This app build is missing its connection setup.'
       : ''
 
   return {

@@ -39,7 +39,7 @@ export function AuthProvider({ appRole, children }) {
 
     async function bootstrap() {
       if (!isSupabaseConfigured) {
-        setAuthError(mobileConfigError || 'Supabase mobile environment variables are missing.')
+        setAuthError(mobileConfigError || 'This app build is missing its connection setup.')
         setIsLoading(false)
         return
       }
