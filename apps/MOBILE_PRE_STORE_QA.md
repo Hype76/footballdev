@@ -10,6 +10,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Parent app: `apps/parent-mobile`
 - Shared code: `apps/mobile-core`
 - Privacy questionnaire draft: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
+- Reviewer handoff draft: `MOBILE_REVIEWER_HANDOFF.md`
 - Test database only until live release approval is given.
 
 ## Required secrets
@@ -112,4 +113,5 @@ Do not switch either app to live Supabase until all of the following are true:
 - Google internal build passes Android QA.
 - Push notifications have been verified on physical iOS and Android devices.
 - Store screenshots and reviewer credentials are ready.
+- Reviewer notes have been prepared from `MOBILE_REVIEWER_HANDOFF.md`.
 - The live Supabase approval has been given explicitly.

@@ -33,6 +33,7 @@ const forbiddenSourcePatterns = [
 
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
+const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -115,6 +116,7 @@ for (const app of apps) {
 }
 
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
+assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
 
 if (existsSync(join(repoRoot, sharedPrivacyPath))) {
   const privacyDraft = read(sharedPrivacyPath)
@@ -123,6 +125,14 @@ if (existsSync(join(repoRoot, sharedPrivacyPath))) {
   assertIncludes(privacyDraft, 'Apps use Expo push notification services', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'https://footballplayer.online/gdpr', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'https://footballplayer.online/terms', 'Mobile privacy questionnaire')
+}
+
+if (existsSync(join(repoRoot, reviewerHandoffPath))) {
+  const reviewerHandoff = read(reviewerHandoffPath)
+  assertIncludes(reviewerHandoff, 'Do not commit real passwords', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'Payments are handled outside the mobile app', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'This review build uses the test database.', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'Screenshot checklist', 'Mobile reviewer handoff')
 }
 
 if (failures.length > 0) {
