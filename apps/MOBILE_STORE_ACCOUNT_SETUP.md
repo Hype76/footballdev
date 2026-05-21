@@ -51,6 +51,8 @@ Set these EAS environment variables for both apps:
 
 Keep both apps on test Supabase until live release approval is explicitly given.
 
+Use each app's `.env.example` as the local template. Do not put real Supabase keys, EAS project IDs, or production API URLs in `.env.example`.
+
 ## Apple App Store Connect setup
 
 Create two app records:

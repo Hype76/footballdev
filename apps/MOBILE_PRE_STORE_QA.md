@@ -108,6 +108,7 @@ npx eas-cli build --profile store-test --platform android
 - Complete `MOBILE_STORE_ACCOUNT_SETUP.md`.
 - Create Expo EAS projects for both apps.
 - Add real EAS project IDs to each app environment.
+- Keep `.env.example` files test-only and empty of real secrets.
 - Build real Android internal test builds.
 - Build real iOS TestFlight builds.
 - Run physical device push tests on iPhone and Android.

@@ -7,6 +7,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const apps = [
   {
     appConfig: 'apps/coach-mobile/app.config.js',
+    envExample: 'apps/coach-mobile/.env.example',
     notificationIcon: 'apps/coach-mobile/assets/notification-icon.png',
     easConfig: 'apps/coach-mobile/eas.json',
     metadata: 'apps/coach-mobile/STORE_METADATA.md',
@@ -17,6 +18,7 @@ const apps = [
   },
   {
     appConfig: 'apps/parent-mobile/app.config.js',
+    envExample: 'apps/parent-mobile/.env.example',
     notificationIcon: 'apps/parent-mobile/assets/notification-icon.png',
     easConfig: 'apps/parent-mobile/eas.json',
     metadata: 'apps/parent-mobile/STORE_METADATA.md',
@@ -90,6 +92,7 @@ function scanSource(relativePath, appName) {
 
 for (const app of apps) {
   assertFile(app.appConfig, `${app.name} app config`)
+  assertFile(app.envExample, `${app.name} env example`)
   assertFile(app.notificationIcon, `${app.name} notification icon`)
   assertFile(app.easConfig, `${app.name} EAS config`)
   assertFile(app.metadata, `${app.name} store metadata`)
@@ -107,6 +110,17 @@ for (const app of apps) {
     assertIncludes(appConfig, 'android.permission.CAMERA', `${app.name} Android blocked permissions`)
     assertIncludes(appConfig, 'android.permission.RECORD_AUDIO', `${app.name} Android blocked permissions`)
     assertIncludes(appConfig, 'android.permission.READ_CONTACTS', `${app.name} Android blocked permissions`)
+  }
+
+  if (existsSync(join(repoRoot, app.envExample))) {
+    const envExample = read(app.envExample)
+    assertIncludes(envExample, 'EXPO_PUBLIC_SUPABASE_ENV=test', `${app.name} env example`)
+    assertIncludes(envExample, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', `${app.name} env example`)
+    assertIncludes(envExample, 'EXPO_PUBLIC_SUPABASE_URL=', `${app.name} env example`)
+    assertIncludes(envExample, 'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=', `${app.name} env example`)
+    assertIncludes(envExample, 'EXPO_PUBLIC_EAS_PROJECT_ID=', `${app.name} env example`)
+    assertNotIncludes(envExample, 'EXPO_PUBLIC_SUPABASE_ENV=live', `${app.name} env example`)
+    assertNotIncludes(envExample, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=true', `${app.name} env example`)
   }
 
   if (existsSync(join(repoRoot, app.easConfig))) {
@@ -195,6 +209,7 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'com.footballplayer.parents', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'Do not put real Supabase keys, EAS project IDs, or production API URLs in `.env.example`.', 'Mobile store account setup')
   assertIncludes(storeSetup, 'Do not commit private keys', 'Mobile store account setup')
 }
 
