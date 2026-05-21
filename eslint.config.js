@@ -5,9 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'dev-dist', '.netlify']),
+  globalIgnores(['dist', 'dev-dist', '.netlify', 'apps/*-mobile/dist-web-check']),
   {
-    files: ['apps/mobile/app.config.js'],
+    files: ['apps/*-mobile/app.config.js', 'apps/*-mobile/metro.config.js'],
     languageOptions: {
       globals: globals.node,
       parserOptions: {
@@ -16,7 +16,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['apps/mobile/**/*.{js,jsx}'],
+    files: ['apps/*-mobile/**/*.{js,jsx}', 'apps/mobile-core/**/*.{js,jsx}'],
     languageOptions: {
       globals: {
         ...globals.browser,

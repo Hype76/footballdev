@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { authenticateWithBiometrics, getBiometricEnabled } from './biometrics'
 import { fetchMobileProfile } from './profile'
 import { isSupabaseConfigured, supabase } from './supabase'
@@ -13,7 +13,7 @@ export function AuthProvider({ appRole, children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
 
-  async function loadProfile(nextSession) {
+  const loadProfile = useCallback(async (nextSession) => {
     if (!nextSession?.user) {
       setUser(null)
       return
@@ -32,7 +32,7 @@ export function AuthProvider({ appRole, children }) {
     } finally {
       setIsProfileLoading(false)
     }
-  }
+  }, [appRole])
 
   useEffect(() => {
     let isMounted = true
@@ -84,7 +84,7 @@ export function AuthProvider({ appRole, children }) {
       isMounted = false
       data.subscription.unsubscribe()
     }
-  }, [appRole])
+  }, [appRole, loadProfile])
 
   async function signIn(email, password) {
     setAuthError('')
