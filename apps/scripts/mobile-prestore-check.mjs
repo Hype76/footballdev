@@ -68,6 +68,7 @@ const forbiddenMobileDependencyPatterns = [
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const environmentRunbookPath = 'apps/MOBILE_ENVIRONMENT_RUNBOOK.md'
+const notificationRunbookPath = 'apps/MOBILE_NOTIFICATION_RUNBOOK.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
 const screenshotPlanPath = 'apps/MOBILE_SCREENSHOT_PLAN.md'
 const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
@@ -234,6 +235,7 @@ for (const app of apps) {
 
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
 assertFile(environmentRunbookPath, 'Mobile environment runbook')
+assertFile(notificationRunbookPath, 'Mobile notification runbook')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
 assertFile(screenshotPlanPath, 'Mobile screenshot plan')
 assertFile(storeAccountSetupPath, 'Mobile store account setup')
@@ -243,11 +245,15 @@ assertFile(rootPackagePath, 'Root package')
 
 const mobileConfig = read('apps/mobile-core/src/config.js')
 const mobileHttp = read('apps/mobile-core/src/http.js')
+const mobileNotifications = read('apps/mobile-core/src/notifications.js')
 const mobileSupabase = read('apps/mobile-core/src/supabase.js')
 const mobileUi = read('apps/mobile-core/src/ui.js')
 assertIncludes(mobileConfig, 'isUsable: isConfigured && !isLiveBlocked', 'Mobile runtime config')
 assertIncludes(mobileHttp, 'fetchJsonWithTimeout', 'Mobile HTTP helper')
 assertIncludes(mobileHttp, 'The mobile API request timed out.', 'Mobile HTTP helper')
+assertIncludes(mobileNotifications, "const MATCHDAY_CHANNEL_ID = 'matchday'", 'Mobile notifications')
+assertIncludes(mobileNotifications, 'register-mobile-push-device', 'Mobile notifications')
+assertIncludes(mobileNotifications, 'Notifications.setBadgeCountAsync(0)', 'Mobile notifications')
 assertIncludes(mobileSupabase, 'config.isUsable ? config.supabaseUrl', 'Mobile Supabase client')
 assertIncludes(mobileUi, 'Powered by pulseslabs.online', 'Mobile legal footer')
 assertIncludes(mobileUi, 'Copyright 2026 Football Player.', 'Mobile legal footer')
@@ -287,6 +293,18 @@ if (existsSync(join(repoRoot, environmentRunbookPath))) {
   assertIncludes(environmentRunbook, 'Do not set live Supabase values for either mobile app until live release approval is explicitly given.', 'Mobile environment runbook')
 }
 
+if (existsSync(join(repoRoot, notificationRunbookPath))) {
+  const notificationRunbook = read(notificationRunbookPath)
+  assertIncludes(notificationRunbook, 'Native push must be tested on real iOS and Android devices.', 'Mobile notification runbook')
+  assertIncludes(notificationRunbook, 'Android uses the `matchday` notification channel.', 'Mobile notification runbook')
+  assertIncludes(notificationRunbook, 'register-mobile-push-device', 'Mobile notification runbook')
+  assertIncludes(notificationRunbook, 'send-match-day-push', 'Mobile notification runbook')
+  assertIncludes(notificationRunbook, 'send-coach-mobile-push', 'Mobile notification runbook')
+  assertIncludes(notificationRunbook, 'send-parent-mobile-push', 'Mobile notification runbook')
+  assertIncludes(notificationRunbook, 'mobile_push_devices', 'Mobile notification runbook')
+  assertIncludes(notificationRunbook, 'notification_events', 'Mobile notification runbook')
+}
+
 if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   const reviewerHandoff = read(reviewerHandoffPath)
   assertIncludes(reviewerHandoff, 'Do not commit real passwords', 'Mobile reviewer handoff')
@@ -322,6 +340,7 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   const storeSetup = read(storeAccountSetupPath)
   assertIncludes(storeSetup, 'MOBILE_RELEASE_STATUS.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_VERSIONING.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
@@ -339,9 +358,10 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'npm run mobile:release-check', 'Mobile release status')
   assertIncludes(releaseStatus, 'Both apps are locked to test Supabase by default.', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile release status')
+  assertIncludes(releaseStatus, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'EAS remote app versioning and store-test auto-increment are configured for both apps.', 'Mobile release status')
-  assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
   assertNotIncludes(releaseStatus, 'Confirm final support URL', 'Mobile release status')

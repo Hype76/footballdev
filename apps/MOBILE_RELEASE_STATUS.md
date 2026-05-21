@@ -15,7 +15,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Coach app supports matchday, players, quick assessments, sessions, team switching, and club-wide All Teams for eligible roles.
 - Parents app supports linked child switching, matchday updates, messages, polls, and scorer volunteer actions.
 - Android sensitive permissions that are not used are explicitly blocked.
-- Store metadata, privacy questionnaire, environment runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
+- Store metadata, privacy questionnaire, environment runbook, notification runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
 - EAS remote app versioning and store-test auto-increment are configured for both apps.
 - `npm run mobile:release-check` passes locally.
 
@@ -31,7 +31,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Build real Android internal builds.
 - Build real iOS TestFlight builds.
 - Install builds on real Android and iOS devices.
-- Verify push notifications on real Android and iOS devices.
+- Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Capture store screenshots using `MOBILE_SCREENSHOT_PLAN.md` and test data only.
 - Confirm the public support route is monitored and privacy wording still matches production before submission.
 

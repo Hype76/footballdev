@@ -11,6 +11,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Shared code: `apps/mobile-core`
 - Privacy questionnaire draft: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - Environment runbook: `MOBILE_ENVIRONMENT_RUNBOOK.md`
+- Notification runbook: `MOBILE_NOTIFICATION_RUNBOOK.md`
 - Reviewer handoff draft: `MOBILE_REVIEWER_HANDOFF.md`
 - Screenshot plan: `MOBILE_SCREENSHOT_PLAN.md`
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
@@ -89,6 +90,7 @@ npx eas-cli build --profile store-test --platform android
 - Coach app can register a device token.
 - Parent app can disable device notifications.
 - Coach app can disable device notifications.
+- Notification QA follows `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Coach goal sends parent push.
 - Coach half time sends parent push.
 - Coach full time sends parent push.
