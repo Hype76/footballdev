@@ -18,7 +18,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { LegalFooter, MatchCard, MessageCard, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TextField } from '../mobile-core/src/ui'
+import { LegalFooter, MatchCard, MessageCard, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -435,6 +435,7 @@ function ParentHome() {
           <TabRail
             activeTab={activeTab}
             onChange={setActiveTab}
+            tabBasis="42%"
             tabs={[
               { key: 'matchday', label: 'Matchday' },
               { key: 'messages', label: 'Messages', count: unreadMessageCount },
@@ -513,27 +514,6 @@ function ParentHome() {
         </View>
       </ScrollView>
     </SafeAreaView>
-  )
-}
-
-function TabRail({ activeTab, onChange, tabs }) {
-  return (
-    <View style={styles.tabRail}>
-      {tabs.map((tab) => (
-        <Pressable
-          key={tab.key}
-          onPress={() => onChange(tab.key)}
-          style={[styles.tabButton, activeTab === tab.key ? styles.activeTabButton : null]}
-        >
-          <View style={styles.tabContent}>
-            <Text style={[styles.tabText, activeTab === tab.key ? styles.activeTabText : null]}>{tab.label}</Text>
-            {tab.count > 0 ? (
-              <Text style={[styles.tabBadge, activeTab === tab.key ? styles.activeTabBadge : null]}>{tab.count}</Text>
-            ) : null}
-          </View>
-        </Pressable>
-      ))}
-    </View>
   )
 }
 
@@ -858,58 +838,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0,
     textTransform: 'uppercase',
-  },
-  activeTabButton: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  activeTabText: {
-    color: '#000000',
-  },
-  tabButton: {
-    alignItems: 'center',
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 999,
-    borderWidth: 1,
-    flexBasis: '42%',
-    flexGrow: 1,
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  tabContent: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-  },
-  tabRail: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tabBadge: {
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-    color: '#000000',
-    fontSize: 11,
-    fontWeight: '900',
-    minWidth: 20,
-    overflow: 'hidden',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    textAlign: 'center',
-  },
-  activeTabBadge: {
-    backgroundColor: '#000000',
-    color: colors.accent,
-  },
-  tabText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
   },
   logo: {
     height: 70,

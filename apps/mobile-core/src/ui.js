@@ -288,6 +288,31 @@ export function StatusBanner({ message, onDismiss }) {
   )
 }
 
+export function TabRail({ activeTab, onChange, tabBasis = '30%', tabs }) {
+  return (
+    <View style={styles.tabRail}>
+      {tabs.map((tab) => (
+        <Pressable
+          key={tab.key}
+          onPress={() => onChange(tab.key)}
+          style={[
+            styles.tabButton,
+            { flexBasis: tabBasis },
+            activeTab === tab.key ? styles.activeTabButton : null,
+          ]}
+        >
+          <View style={styles.tabContent}>
+            <Text style={[styles.tabText, activeTab === tab.key ? styles.activeTabText : null]}>{tab.label}</Text>
+            {tab.count > 0 ? (
+              <Text style={[styles.tabBadge, activeTab === tab.key ? styles.activeTabBadge : null]}>{tab.count}</Text>
+            ) : null}
+          </View>
+        </Pressable>
+      ))}
+    </View>
+  )
+}
+
 export function LegalFooter() {
   return (
     <View style={styles.legalFooter}>
@@ -597,6 +622,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     textTransform: 'uppercase',
+  },
+  activeTabBadge: {
+    backgroundColor: '#000000',
+    color: colors.accent,
+  },
+  activeTabButton: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  activeTabText: {
+    color: '#000000',
+  },
+  tabBadge: {
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    color: '#000000',
+    fontSize: 11,
+    fontWeight: '900',
+    minWidth: 20,
+    overflow: 'hidden',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    textAlign: 'center',
+  },
+  tabButton: {
+    alignItems: 'center',
+    backgroundColor: colors.panel,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexGrow: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  tabContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+  },
+  tabRail: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tabText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '900',
   },
   optionList: {
     gap: 8,

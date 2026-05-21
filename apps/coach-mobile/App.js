@@ -20,7 +20,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { LegalFooter, MatchCard, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatusBanner, TextField } from '../mobile-core/src/ui'
+import { LegalFooter, MatchCard, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -529,22 +529,6 @@ function CoachHome() {
         </View>
       </ScrollView>
     </SafeAreaView>
-  )
-}
-
-function TabRail({ activeTab, onChange, tabs }) {
-  return (
-    <View style={styles.tabRail}>
-      {tabs.map((tab) => (
-        <Pressable
-          key={tab.key}
-          onPress={() => onChange(tab.key)}
-          style={[styles.tabButton, activeTab === tab.key ? styles.activeTabButton : null]}
-        >
-          <Text style={[styles.tabText, activeTab === tab.key ? styles.activeTabText : null]}>{tab.label}</Text>
-        </Pressable>
-      ))}
-    </View>
   )
 }
 
@@ -1222,13 +1206,6 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     color: '#000000',
   },
-  activeTabButton: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  activeTabText: {
-    color: '#000000',
-  },
   teamButton: {
     backgroundColor: colors.card,
     borderColor: colors.border,
@@ -1262,29 +1239,6 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     width: '100%',
-  },
-  tabButton: {
-    alignItems: 'center',
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 999,
-    borderWidth: 1,
-    flexBasis: '30%',
-    flexGrow: 1,
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  tabRail: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tabText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
   },
   logo: {
     height: 70,
