@@ -452,6 +452,8 @@ assertIncludes(mobileBuildGuard, 'loadMobileLocalEnv(repoRoot, app.path)', 'Mobi
 assertIncludes(mobileBuildGuard, "'build'", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'--profile', profile", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'--platform', platform", 'Mobile build guard')
+assertIncludes(mobileBuildGuard, "'--non-interactive'", 'Mobile build guard')
+assertIncludes(mobileBuildGuard, "'--no-wait'", 'Mobile build guard')
 assertIncludes(mobileBuildPreflight, 'Football Player Mobile Build Preflight', 'Mobile build preflight helper')
 assertIncludes(mobileBuildPreflight, 'This command does not call EAS, Netlify, Supabase, Apple, Google, or any live service.', 'Mobile build preflight helper')
 assertIncludes(mobileBuildPreflight, 'MOBILE_NATIVE_BUILD_CONFIRMED=true', 'Mobile build preflight helper')

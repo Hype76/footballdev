@@ -39,7 +39,7 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 })
 
 console.log(`Release gate passed. Starting EAS build for ${app.expectedName} ${profile} ${platform}.`)
-execFileSync('npx', ['eas-cli', 'build', '--profile', profile, '--platform', platform], {
+execFileSync('npx', ['eas-cli', 'build', '--profile', profile, '--platform', platform, '--non-interactive', '--no-wait'], {
   cwd: resolve(repoRoot, app.path),
   env: {
     ...process.env,
