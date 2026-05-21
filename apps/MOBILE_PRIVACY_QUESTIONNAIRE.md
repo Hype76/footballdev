@@ -99,6 +99,7 @@ Likely purposes:
 Tracking:
 
 - No third-party advertising tracking is intended.
+- Mobile pre-store checks block common analytics and advertising SDK packages unless the privacy questionnaire is deliberately revised.
 - Confirm no production analytics or marketing SDK has been added before submission.
 
 ## Google Play Data Safety draft

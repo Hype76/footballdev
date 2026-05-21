@@ -42,6 +42,17 @@ const forbiddenBrandPatterns = [
   /playerfeedback/i,
 ]
 
+const forbiddenMobileDependencyPatterns = [
+  /analytics/i,
+  /amplitude/i,
+  /appsflyer/i,
+  /facebook/i,
+  /firebase/i,
+  /mixpanel/i,
+  /segment/i,
+  /sentry/i,
+]
+
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const environmentRunbookPath = 'apps/MOBILE_ENVIRONMENT_RUNBOOK.md'
@@ -105,6 +116,22 @@ function scanSource(relativePath, appName) {
   })
 }
 
+function scanPackageDependencies(packageJson, appName) {
+  const dependencies = {
+    ...(packageJson.dependencies || {}),
+    ...(packageJson.devDependencies || {}),
+    ...(packageJson.optionalDependencies || {}),
+  }
+
+  Object.keys(dependencies).forEach((dependencyName) => {
+    forbiddenMobileDependencyPatterns.forEach((pattern) => {
+      if (pattern.test(dependencyName)) {
+        failures.push(`${appName} package contains privacy-sensitive dependency ${dependencyName}. Revise the mobile privacy questionnaire before allowing it.`)
+      }
+    })
+  })
+}
+
 for (const app of apps) {
   assertFile(app.appConfig, `${app.name} app config`)
   assertFile(app.envExample, `${app.name} env example`)
@@ -150,6 +177,8 @@ for (const app of apps) {
 
   if (existsSync(join(repoRoot, app.packageJson))) {
     const appPackage = JSON.parse(read(app.packageJson))
+    scanPackageDependencies(appPackage, app.name)
+
     if (appPackage.scripts?.doctor !== 'npx expo-doctor') {
       failures.push(`${app.name} package must run Expo Doctor through npx`)
     }
@@ -225,6 +254,7 @@ if (existsSync(join(repoRoot, sharedPrivacyPath))) {
   assertIncludes(privacyDraft, 'https://footballplayer.online/gdpr', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'https://footballplayer.online/terms', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'Website and support URL: `https://footballplayer.online/`', 'Mobile privacy questionnaire')
+  assertIncludes(privacyDraft, 'Mobile pre-store checks block common analytics and advertising SDK packages unless the privacy questionnaire is deliberately revised.', 'Mobile privacy questionnaire')
   assertNotIncludes(privacyDraft, 'provisional support URL', 'Mobile privacy questionnaire')
 }
 
