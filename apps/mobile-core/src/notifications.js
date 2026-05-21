@@ -114,7 +114,7 @@ export async function registerNativePushDevice({
   const deviceToken = normalize(tokenResult.data)
 
   if (!deviceToken) {
-    throw new Error('Expo push token could not be created.')
+    throw new Error('Notifications could not be prepared on this device.')
   }
 
   const { ok, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, '.netlify/functions/register-mobile-push-device'), {
@@ -135,7 +135,7 @@ export async function registerNativePushDevice({
   })
 
   if (!ok || result.success === false) {
-    throw new Error(result.message || 'Mobile notifications could not be enabled.')
+    throw new Error(result.message || 'Notifications could not be enabled.')
   }
 
   await setStoredDeviceToken(deviceToken)
@@ -174,7 +174,7 @@ export async function revokeNativePushDevice({ accessToken, apiBaseUrl }) {
   })
 
   if (!ok || result.success === false) {
-    throw new Error(result.message || 'Mobile notifications could not be disabled.')
+    throw new Error(result.message || 'Notifications could not be disabled.')
   }
 
   await setStoredDeviceToken('')
