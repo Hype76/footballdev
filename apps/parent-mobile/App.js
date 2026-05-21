@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppState, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { useMobileActionRunner } from '../mobile-core/src/actions'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import {
@@ -54,6 +55,7 @@ function ParentHome() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [showOverview, setShowOverview] = useState(false)
+  const runAction = useMobileActionRunner({ setActiveActionId, setStatusMessage })
   const parentLinks = useMemo(
     () => getParentPortalLinks(user),
     [user],
@@ -182,18 +184,12 @@ function ParentHome() {
   }, [refreshParentData, selectedMobileUser?.id])
 
   async function handleManualRefresh() {
-    setActiveActionId('refresh:parent')
-    setStatusMessage('')
-
-    try {
+    await runAction('refresh:parent', async () => {
       await refreshParentData()
-      setStatusMessage('Latest updates loaded.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Latest updates could not be loaded.')
-    } finally {
-      setActiveActionId('')
-    }
+    }, {
+      errorMessage: 'Latest updates could not be loaded.',
+      successMessage: 'Latest updates loaded.',
+    })
   }
 
   async function handleRefresh() {
@@ -216,51 +212,33 @@ function ParentHome() {
   }
 
   async function handleVolunteerScorer(match) {
-    setActiveActionId(`scorer:${match.id}`)
-    setStatusMessage('')
-
-    try {
+    await runAction(`scorer:${match.id}`, async () => {
       await volunteerAsMatchScorer(selectedMobileUser, match.id)
       await refreshParentData()
-      setStatusMessage('Your scorer interest has been sent.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Scorer interest could not be sent.')
-    } finally {
-      setActiveActionId('')
-    }
+    }, {
+      errorMessage: 'Scorer interest could not be sent.',
+      successMessage: 'Your scorer interest has been sent.',
+    })
   }
 
   async function handleMarkMessageRead(message) {
-    setActiveActionId(`message:${message.id}`)
-    setStatusMessage('')
-
-    try {
+    await runAction(`message:${message.id}`, async () => {
       await markParentMessageRead(selectedMobileUser, message.id)
       await refreshParentData()
-      setStatusMessage('Message marked as read.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Message could not be marked as read.')
-    } finally {
-      setActiveActionId('')
-    }
+    }, {
+      errorMessage: 'Message could not be marked as read.',
+      successMessage: 'Message marked as read.',
+    })
   }
 
   async function handlePollVote(poll, option) {
-    setActiveActionId(`poll:${poll.id}:${option.id}`)
-    setStatusMessage('')
-
-    try {
+    await runAction(`poll:${poll.id}:${option.id}`, async () => {
       await submitParentPollVote(selectedMobileUser, poll.id, option.id)
       await refreshParentData()
-      setStatusMessage('Your poll answer has been saved.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Poll answer could not be saved.')
-    } finally {
-      setActiveActionId('')
-    }
+    }, {
+      errorMessage: 'Poll answer could not be saved.',
+      successMessage: 'Your poll answer has been saved.',
+    })
   }
 
   if (isProfileLoading) {

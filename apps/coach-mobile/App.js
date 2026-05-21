@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppState, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { useMobileActionRunner } from '../mobile-core/src/actions'
 import { createAssessmentFieldValues, getAssessmentFieldMax, isAssessmentScoreField, resetAssessmentFieldValues } from '../mobile-core/src/assessment'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
@@ -57,6 +58,7 @@ function CoachHome() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [showOverview, setShowOverview] = useState(false)
+  const runAction = useMobileActionRunner({ setActiveActionId, setStatusMessage })
   const teamOptions = useMemo(
     () => (Array.isArray(user?.teamOptions) ? user.teamOptions : []),
     [user?.teamOptions],
@@ -210,67 +212,43 @@ function CoachHome() {
   }
 
   async function handleMatchStatus(match, status) {
-    setActiveActionId(`status:${match.id}:${status}`)
-    setStatusMessage('')
-
-    try {
+    await runAction(`status:${match.id}:${status}`, async () => {
       await updateCoachMatchStatus(selectedMobileUser, match, status)
       await refreshCoachData()
-      setStatusMessage(`Match changed to ${status.replace(/_/g, ' ')}.`)
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Match status could not be updated.')
-    } finally {
-      setActiveActionId('')
-    }
+    }, {
+      errorMessage: 'Match status could not be updated.',
+      successMessage: `Match changed to ${status.replace(/_/g, ' ')}.`,
+    })
   }
 
   async function handleAddGoal(match, teamSide) {
-    setActiveActionId(`goal:${match.id}:${teamSide}`)
-    setStatusMessage('')
-
-    try {
+    await runAction(`goal:${match.id}:${teamSide}`, async () => {
       await addCoachMatchGoal(selectedMobileUser, match, teamSide)
       await refreshCoachData()
-      setStatusMessage(teamSide === 'club' ? 'Goal added for your team.' : 'Goal added for opponent.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Goal could not be added.')
-    } finally {
-      setActiveActionId('')
-    }
+    }, {
+      errorMessage: 'Goal could not be added.',
+      successMessage: teamSide === 'club' ? 'Goal added for your team.' : 'Goal added for opponent.',
+    })
   }
 
   async function handleAddDetailedGoal(match, teamSide, goalDetails) {
-    setActiveActionId(`goal-details:${match.id}:${teamSide}`)
-    setStatusMessage('')
-
-    try {
+    await runAction(`goal-details:${match.id}:${teamSide}`, async () => {
       await addCoachMatchGoal(selectedMobileUser, match, teamSide, goalDetails)
       await refreshCoachData()
-      setStatusMessage(teamSide === 'club' ? 'Goal details saved for your team.' : 'Opponent goal details saved.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Goal details could not be saved.')
-    } finally {
-      setActiveActionId('')
-    }
+    }, {
+      errorMessage: 'Goal details could not be saved.',
+      successMessage: teamSide === 'club' ? 'Goal details saved for your team.' : 'Opponent goal details saved.',
+    })
   }
 
   async function handleUndoGoal(match) {
-    setActiveActionId(`undo-goal:${match.id}`)
-    setStatusMessage('')
-
-    try {
+    await runAction(`undo-goal:${match.id}`, async () => {
       await undoCoachLastMatchGoal(selectedMobileUser, match)
       await refreshCoachData()
-      setStatusMessage('Last goal undone and score corrected.')
-    } catch (error) {
-      console.error(error)
-      setStatusMessage(error.message || 'Last goal could not be undone.')
-    } finally {
-      setActiveActionId('')
-    }
+    }, {
+      errorMessage: 'Last goal could not be undone.',
+      successMessage: 'Last goal undone and score corrected.',
+    })
   }
 
   if (isProfileLoading) {
