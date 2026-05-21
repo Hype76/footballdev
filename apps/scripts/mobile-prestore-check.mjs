@@ -90,6 +90,7 @@ const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
 const versioningPath = 'apps/MOBILE_VERSIONING.md'
 const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const rootPackagePath = 'package.json'
+const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -231,30 +232,12 @@ for (const app of apps) {
     assertIncludes(appConfig, `slug: '${app.slug}'`, `${app.name} app identity`)
     assertIncludes(appConfig, `scheme: '${app.scheme}'`, `${app.name} app identity`)
     assertIncludes(appConfig, `bundleIdentifier: '${app.bundleIdentifier}'`, `${app.name} iOS identity`)
-    assertIncludes(appConfig, `package: '${app.packageName}'`, `${app.name} Android identity`)
+    assertIncludes(appConfig, `packageName: '${app.packageName}'`, `${app.name} Android identity`)
     assertIncludes(appConfig, `appRole: '${app.appRole}'`, `${app.name} app role`)
     if (appPackageForVersion?.version) {
       assertIncludes(appConfig, `version: '${appPackageForVersion.version}'`, `${app.name} app version`)
     }
-    assertIncludes(appConfig, "policy: 'appVersion'", `${app.name} runtime version policy`)
-    assertIncludes(appConfig, "buildNumber: '1'", `${app.name} iOS build number`)
-    assertIncludes(appConfig, 'versionCode: 1', `${app.name} Android version code`)
-    assertIncludes(appConfig, "const supabaseEnvironment = process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test'", `${app.name} app config`)
-    assertIncludes(appConfig, "const allowLiveSupabase = process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false'", `${app.name} app config`)
-    assertIncludes(appConfig, 'ITSAppUsesNonExemptEncryption: false', `${app.name} iOS config`)
-    assertIncludes(appConfig, "icon: './assets/notification-icon.png'", `${app.name} notifications config`)
-    assertIncludes(appConfig, 'blockedPermissions', `${app.name} Android permissions config`)
-    assertIncludes(appConfig, 'android.permission.ACCESS_COARSE_LOCATION', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, 'android.permission.ACCESS_FINE_LOCATION', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, 'android.permission.BLUETOOTH', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, 'android.permission.CAMERA', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, 'android.permission.READ_CONTACTS', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, 'android.permission.READ_MEDIA_IMAGES', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, 'android.permission.READ_MEDIA_VIDEO', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, 'android.permission.RECORD_AUDIO', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, "'POST_NOTIFICATIONS'", `${app.name} Android allowed permissions`)
-    assertIncludes(appConfig, "'USE_BIOMETRIC'", `${app.name} Android allowed permissions`)
-    assertIncludes(appConfig, "'USE_FINGERPRINT'", `${app.name} Android allowed permissions`)
+    assertIncludes(appConfig, 'createMobileExpoConfig', `${app.name} shared app config`)
   }
 
   if (existsSync(join(repoRoot, app.envExample))) {
@@ -381,7 +364,30 @@ assertFile(storeAccountSetupPath, 'Mobile store account setup')
 assertFile(versioningPath, 'Mobile versioning guide')
 assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(rootPackagePath, 'Root package')
+assertFile(sharedAppConfigPath, 'Mobile shared app config')
 assertNoTrackedMobilePrivateFiles()
+
+const sharedAppConfig = existsSync(join(repoRoot, sharedAppConfigPath)) ? read(sharedAppConfigPath) : ''
+
+assertIncludes(sharedAppConfig, "policy: 'appVersion'", 'Mobile shared app config')
+assertIncludes(sharedAppConfig, "buildNumber: '1'", 'Mobile shared app config')
+assertIncludes(sharedAppConfig, 'versionCode: 1', 'Mobile shared app config')
+assertIncludes(sharedAppConfig, "supabaseEnvironment: process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test'", 'Mobile shared app config')
+assertIncludes(sharedAppConfig, "allowLiveSupabase: process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false'", 'Mobile shared app config')
+assertIncludes(sharedAppConfig, 'ITSAppUsesNonExemptEncryption: false', 'Mobile shared app config')
+assertIncludes(sharedAppConfig, "icon: './assets/notification-icon.png'", 'Mobile shared app config')
+assertIncludes(sharedAppConfig, 'blockedPermissions', 'Mobile shared Android permissions')
+assertIncludes(sharedAppConfig, 'android.permission.ACCESS_COARSE_LOCATION', 'Mobile shared Android blocked permissions')
+assertIncludes(sharedAppConfig, 'android.permission.ACCESS_FINE_LOCATION', 'Mobile shared Android blocked permissions')
+assertIncludes(sharedAppConfig, 'android.permission.BLUETOOTH', 'Mobile shared Android blocked permissions')
+assertIncludes(sharedAppConfig, 'android.permission.CAMERA', 'Mobile shared Android blocked permissions')
+assertIncludes(sharedAppConfig, 'android.permission.READ_CONTACTS', 'Mobile shared Android blocked permissions')
+assertIncludes(sharedAppConfig, 'android.permission.READ_MEDIA_IMAGES', 'Mobile shared Android blocked permissions')
+assertIncludes(sharedAppConfig, 'android.permission.READ_MEDIA_VIDEO', 'Mobile shared Android blocked permissions')
+assertIncludes(sharedAppConfig, 'android.permission.RECORD_AUDIO', 'Mobile shared Android blocked permissions')
+assertIncludes(sharedAppConfig, "'POST_NOTIFICATIONS'", 'Mobile shared Android allowed permissions')
+assertIncludes(sharedAppConfig, "'USE_BIOMETRIC'", 'Mobile shared Android allowed permissions')
+assertIncludes(sharedAppConfig, "'USE_FINGERPRINT'", 'Mobile shared Android allowed permissions')
 
 const mobileConfig = read('apps/mobile-core/src/config.js')
 const mobileActions = read('apps/mobile-core/src/actions.js')
