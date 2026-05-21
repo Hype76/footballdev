@@ -18,7 +18,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { LegalFooter, MatchCard, MessageCard, PollCard, PrimaryButton, StatCard, StatusBanner, TextField } from '../mobile-core/src/ui'
+import { LegalFooter, MatchCard, MessageCard, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -621,25 +621,6 @@ function PollsPanel({ activeActionId, onVote, polls }) {
   )
 }
 
-function OverviewPanel({ isOpen, onToggle, stats, summary }) {
-  return (
-    <View style={styles.overviewPanel}>
-      <Pressable onPress={onToggle} style={styles.overviewButton}>
-        <View>
-          <Text style={styles.overviewLabel}>Overview</Text>
-          <Text style={styles.overviewSummary}>{summary}</Text>
-        </View>
-        <Text style={styles.overviewAction}>{isOpen ? 'Hide' : 'Show'}</Text>
-      </Pressable>
-      {isOpen ? (
-        <View style={styles.statGrid}>
-          {stats.map((stat) => <StatCard key={stat.label} label={stat.label} value={stat.value} />)}
-        </View>
-      ) : null}
-    </View>
-  )
-}
-
 function SettingsPanel({
   biometricAvailable,
   biometricEnabled,
@@ -861,37 +842,6 @@ const styles = StyleSheet.create({
   list: {
     gap: 12,
   },
-  overviewAction: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  overviewButton: {
-    alignItems: 'center',
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    minHeight: 58,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  overviewLabel: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  overviewPanel: {
-    gap: 12,
-  },
-  overviewSummary: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 3,
-  },
   item: {
     color: colors.muted,
     fontSize: 15,
@@ -908,11 +858,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0,
     textTransform: 'uppercase',
-  },
-  statGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
   },
   activeTabButton: {
     backgroundColor: colors.accent,

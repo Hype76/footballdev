@@ -410,6 +410,8 @@ assertIncludes(mobileUi, 'Powered by pulseslabs.online', 'Mobile legal footer')
 assertIncludes(mobileUi, 'Copyright 2026 Football Player.', 'Mobile legal footer')
 assertIncludes(mobileUi, 'visibleOptions', 'Mobile poll option access')
 assertIncludes(mobileUi, 'Show all ${poll.options.length} options', 'Mobile poll option access')
+assertIncludes(mobileUi, 'export function OverviewPanel', 'Mobile shared overview')
+assertIncludes(mobileUi, 'styles.statGrid', 'Mobile shared overview')
 
 apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
