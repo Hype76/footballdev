@@ -46,6 +46,7 @@ const preStoreQaPath = 'apps/MOBILE_PRE_STORE_QA.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
 const screenshotPlanPath = 'apps/MOBILE_SCREENSHOT_PLAN.md'
 const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
+const storeRecordChecklistPath = 'apps/MOBILE_STORE_RECORD_CHECKLIST.md'
 const versioningPath = 'apps/MOBILE_VERSIONING.md'
 const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const releasePhasesPath = 'apps/MOBILE_RELEASE_PHASES.md'
@@ -371,6 +372,7 @@ assertFile(preStoreQaPath, 'Mobile pre-store QA')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
 assertFile(screenshotPlanPath, 'Mobile screenshot plan')
 assertFile(storeAccountSetupPath, 'Mobile store account setup')
+assertFile(storeRecordChecklistPath, 'Mobile store record checklist')
 assertFile(versioningPath, 'Mobile versioning guide')
 assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(releasePhasesPath, 'Mobile release phases')
@@ -822,9 +824,11 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'com.footballplayer.coach', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Football Player Parents', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'com.footballplayer.parents', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Store record checklist: `MOBILE_STORE_RECORD_CHECKLIST.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify each store listing uses the current icons from the app assets.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'EAS setup: `MOBILE_EAS_SETUP_CHECKLIST.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Complete `MOBILE_STORE_RECORD_CHECKLIST.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Release phases: `MOBILE_RELEASE_PHASES.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'External evidence template: `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true` after EAS setup and test environment verification are complete.', 'Mobile pre-store QA')
@@ -919,6 +923,7 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'MOBILE_STORE_RECORD_CHECKLIST.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_EXTERNAL_RELEASE_EVIDENCE.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'apps/mobile-release-evidence/', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_VERSIONING.md', 'Mobile store account setup')
@@ -941,11 +946,34 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'Do not commit private keys', 'Mobile store account setup')
 }
 
+if (existsSync(join(repoRoot, storeRecordChecklistPath))) {
+  const storeRecordChecklist = read(storeRecordChecklistPath)
+  assertIncludes(storeRecordChecklist, '# Football Player Mobile Store Record Checklist', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'npm run mobile:evidence:init', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Apple App Store Connect: Football Player Coach', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Apple App Store Connect: Football Player Parents', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Google Play Console: Football Player Coach', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Google Play Console: Football Player Parents', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'com.footballplayer.coach', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'com.footballplayer.parents', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Pricing: Free.', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'In-app purchases: None.', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Reviewer credentials: enter only in Apple and Google consoles.', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'MOBILE_PRIVACY_QUESTIONNAIRE.md', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'MOBILE_REVIEWER_HANDOFF.md', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'apps/coach-mobile/STORE_METADATA.md', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'apps/parent-mobile/STORE_METADATA.md', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'old Player Feedback naming', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Store record links are recorded in a private evidence file under `apps/mobile-release-evidence/`.', 'Mobile store record checklist')
+}
+
 if (existsSync(join(repoRoot, releaseStatusPath))) {
   const releaseStatus = read(releaseStatusPath)
   assertIncludes(releaseStatus, 'npm run mobile:release-check', 'Mobile release status')
   assertIncludes(releaseStatus, 'For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Focused Apple and Google store record checklist is present at `MOBILE_STORE_RECORD_CHECKLIST.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'External release evidence template is present at `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Resolved Expo app config is checked by `npm run mobile:config`.', 'Mobile release status')
@@ -972,6 +1000,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'npm run mobile:eas:env:parent', 'Mobile release status')
   assertIncludes(releaseStatus, 'including the printed profile matrix', 'Mobile release status')
   assertIncludes(releaseStatus, 'Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Use `MOBILE_STORE_RECORD_CHECKLIST.md` while creating the four store records.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
   assertNotIncludes(releaseStatus, 'Confirm final support URL', 'Mobile release status')
 }

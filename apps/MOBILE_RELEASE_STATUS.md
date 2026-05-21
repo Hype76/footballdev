@@ -23,6 +23,7 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - Resolved Expo app config is checked by `npm run mobile:config`.
 - Android sensitive permissions that are not used are explicitly blocked.
 - Store metadata, privacy questionnaire, environment runbook, notification runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
+- Focused Apple and Google store record checklist is present at `MOBILE_STORE_RECORD_CHECKLIST.md`.
 - Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.
 - External release evidence template is present at `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.
@@ -40,6 +41,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Confirm EAS remote build numbers and version codes are ready for the next store submissions.
 - Create Apple App Store Connect records.
 - Create Google Play Console records.
+- Complete `MOBILE_STORE_RECORD_CHECKLIST.md` for all four store records.
 - Create reviewer test accounts and supply credentials only inside store consoles.
 - Build real Android internal builds with the root mobile build commands.
 - Build real iOS TestFlight builds with the root mobile build commands.
@@ -57,6 +59,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Add EAS environment values for both apps with `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
 - Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`, including the printed profile matrix.
 - Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
+- Use `MOBILE_STORE_RECORD_CHECKLIST.md` while creating the four store records.
 - Enter reviewer credentials only in App Store Connect and Google Play Console.
 - Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for native build commands after EAS values are verified.
 - Create one Android internal build and one iOS TestFlight build for each app with the root mobile build commands.

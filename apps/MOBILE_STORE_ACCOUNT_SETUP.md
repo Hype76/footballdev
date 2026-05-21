@@ -7,6 +7,7 @@ Use `MOBILE_ENVIRONMENT_RUNBOOK.md` when setting EAS and test API environment va
 Use `MOBILE_EAS_SETUP_CHECKLIST.md` when creating Expo EAS projects and setting app build environments.
 Use `MOBILE_NOTIFICATION_RUNBOOK.md` when testing native push notifications.
 Use `MOBILE_SCREENSHOT_PLAN.md` when preparing store screenshots.
+Use `MOBILE_STORE_RECORD_CHECKLIST.md` when creating Apple and Google store records.
 Use `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` when recording external QA and submission evidence inside the ignored `apps/mobile-release-evidence/` folder.
 Use `MOBILE_VERSIONING.md` before creating native builds.
 
@@ -84,6 +85,7 @@ For each app record:
 - Review notes: use `MOBILE_REVIEWER_HANDOFF.md`
 - Privacy answers: use `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - Screenshots: use `MOBILE_SCREENSHOT_PLAN.md`
+- Store record checklist: use `MOBILE_STORE_RECORD_CHECKLIST.md`
 
 ## Google Play Console setup
 
@@ -101,6 +103,7 @@ For each app record:
 - App access: restricted login, provide reviewer account in Play Console only
 - Review notes: use `MOBILE_REVIEWER_HANDOFF.md`
 - Screenshots: use `MOBILE_SCREENSHOT_PLAN.md`
+- Store record checklist: use `MOBILE_STORE_RECORD_CHECKLIST.md`
 
 ## Native build order
 
