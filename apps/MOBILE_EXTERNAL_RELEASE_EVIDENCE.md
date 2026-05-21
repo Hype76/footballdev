@@ -2,6 +2,10 @@
 
 Use this template outside git when recording real EAS, device, notification, screenshot, and store submission evidence.
 
+Recommended private folder: `apps/mobile-release-evidence/`.
+
+That folder is ignored by git. Store completed evidence copies, reviewer credential notes, build links, push token notes, and store submission records there.
+
 Do not commit a completed copy of this file if it contains reviewer credentials, private URLs, build links, device identifiers, account emails, push tokens, or personal data.
 
 ## Release Candidate

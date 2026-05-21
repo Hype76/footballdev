@@ -31,7 +31,7 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 
 ## Still external before store submission
 
-Complete these in order, and record the outcome in a private copy of `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
+Complete these in order, and record the outcome in a private copy of `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` inside `apps/mobile-release-evidence/`.
 
 - Create Expo EAS projects for both apps using `MOBILE_EAS_SETUP_CHECKLIST.md`.
 - Add each final `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS, not in git.

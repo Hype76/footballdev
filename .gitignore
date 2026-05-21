@@ -30,3 +30,8 @@ deno.lock
 
 # Local Supabase backups
 supabase/backups/
+
+# Mobile release private evidence
+apps/mobile-release-evidence/
+apps/*release-evidence-private*
+apps/*store-review-private*

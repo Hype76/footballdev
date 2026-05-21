@@ -51,6 +51,7 @@ const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const releasePhasesPath = 'apps/MOBILE_RELEASE_PHASES.md'
 const externalEvidencePath = 'apps/MOBILE_EXTERNAL_RELEASE_EVIDENCE.md'
 const rootPackagePath = 'package.json'
+const rootGitignorePath = '.gitignore'
 const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
 const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
 const mobileConfigCheckPath = 'apps/scripts/mobile-config-check.mjs'
@@ -365,6 +366,7 @@ assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(releasePhasesPath, 'Mobile release phases')
 assertFile(externalEvidencePath, 'Mobile external release evidence template')
 assertFile(rootPackagePath, 'Root package')
+assertFile(rootGitignorePath, 'Root gitignore')
 assertFile(sharedAppConfigPath, 'Mobile shared app config')
 assertFile(mobileAppsRegistryPath, 'Mobile app registry')
 assertFile(mobileConfigCheckPath, 'Mobile config check')
@@ -373,12 +375,16 @@ assertFile(mobileSubmitGuardPath, 'Mobile submit guard')
 assertFile(mobileReleaseNextPath, 'Mobile release next helper')
 assertNoTrackedMobilePrivateFiles()
 
+const rootGitignore = existsSync(join(repoRoot, rootGitignorePath)) ? read(rootGitignorePath) : ''
 const mobileAppsRegistry = existsSync(join(repoRoot, mobileAppsRegistryPath)) ? read(mobileAppsRegistryPath) : ''
 const mobileConfigCheck = existsSync(join(repoRoot, mobileConfigCheckPath)) ? read(mobileConfigCheckPath) : ''
 const mobileBuildGuard = existsSync(join(repoRoot, mobileBuildGuardPath)) ? read(mobileBuildGuardPath) : ''
 const mobileSubmitGuard = existsSync(join(repoRoot, mobileSubmitGuardPath)) ? read(mobileSubmitGuardPath) : ''
 const mobileReleaseNext = existsSync(join(repoRoot, mobileReleaseNextPath)) ? read(mobileReleaseNextPath) : ''
 
+assertIncludes(rootGitignore, 'apps/mobile-release-evidence/', 'Root gitignore')
+assertIncludes(rootGitignore, 'apps/*release-evidence-private*', 'Root gitignore')
+assertIncludes(rootGitignore, 'apps/*store-review-private*', 'Root gitignore')
 assertIncludes(mobileAppsRegistry, 'export const mobileApps', 'Mobile app registry')
 assertIncludes(mobileAppsRegistry, "path: 'apps/coach-mobile'", 'Mobile app registry')
 assertIncludes(mobileAppsRegistry, "path: 'apps/parent-mobile'", 'Mobile app registry')
@@ -816,6 +822,7 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_EXTERNAL_RELEASE_EVIDENCE.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'apps/mobile-release-evidence/', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_VERSIONING.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.parents', 'Mobile store account setup')
@@ -847,6 +854,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Shared Expo config now owns native permissions, notification plugin setup, biometric permission text, runtime version policy, and test database defaults for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Record external QA and submission evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'apps/mobile-release-evidence/', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
   assertIncludes(releaseStatus, '## Next external action checklist', 'Mobile release status')
   assertIncludes(releaseStatus, 'Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.', 'Mobile release status')
@@ -878,6 +886,7 @@ if (existsSync(join(repoRoot, externalEvidencePath))) {
   assertIncludes(externalEvidence, '# Football Player Mobile External Release Evidence', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, 'Use this template outside git', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, 'Do not commit a completed copy of this file', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, 'apps/mobile-release-evidence/', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## EAS Projects', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## Native Builds', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## Device QA', 'Mobile external release evidence template')
