@@ -600,6 +600,7 @@ function MatchdayPanel({ activeActionId, matches, onAddDetailedGoal, onAddGoal, 
 function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal, onStatusChange, onUndoGoal }) {
   const isFullTime = match.status === 'full_time'
   const canStart = ['scheduled', 'scorer_request'].includes(match.status)
+  const canRecordGoal = ['live', 'second_half', 'extra_time', 'penalties'].includes(match.status)
   const latestEvent = Array.isArray(match.events) ? match.events[0] : null
   const canUndoLastGoal = latestEvent?.eventType === 'goal'
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
@@ -646,14 +647,14 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
           </PrimaryButton>
         ) : null}
         <PrimaryButton
-          disabled={isFullTime}
+          disabled={!canRecordGoal || isFullTime}
           loading={activeActionId === `goal:${match.id}:club`}
           onPress={() => onAddGoal(match, 'club')}
         >
           Goal For
         </PrimaryButton>
         <PrimaryButton
-          disabled={isFullTime}
+          disabled={!canRecordGoal || isFullTime}
           loading={activeActionId === `goal:${match.id}:opponent`}
           onPress={() => onAddGoal(match, 'opponent')}
           variant="secondary"
@@ -661,10 +662,32 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
           Goal Against
         </PrimaryButton>
       </View>
+      {!canRecordGoal && !isFullTime ? <Text style={styles.correctionHint}>Start the match before adding goals.</Text> : null}
       <View style={styles.phaseGrid}>
-        <PhaseButton activeActionId={activeActionId} label="Half Time" match={match} onStatusChange={onStatusChange} status="half_time" />
-        <PhaseButton activeActionId={activeActionId} label="Second Half" match={match} onStatusChange={onStatusChange} status="second_half" />
-        <PhaseButton activeActionId={activeActionId} label="Full Time" match={match} onStatusChange={onStatusChange} status="full_time" />
+        <PhaseButton
+          activeActionId={activeActionId}
+          disabled={!['live', 'second_half'].includes(match.status)}
+          label="Half Time"
+          match={match}
+          onStatusChange={onStatusChange}
+          status="half_time"
+        />
+        <PhaseButton
+          activeActionId={activeActionId}
+          disabled={!['half_time', 'live'].includes(match.status)}
+          label="Second Half"
+          match={match}
+          onStatusChange={onStatusChange}
+          status="second_half"
+        />
+        <PhaseButton
+          activeActionId={activeActionId}
+          disabled={!['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)}
+          label="Full Time"
+          match={match}
+          onStatusChange={onStatusChange}
+          status="full_time"
+        />
       </View>
       <PrimaryButton
         disabled={!canUndoLastGoal}
@@ -744,7 +767,7 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
             value={goalDetails.notes}
           />
           <PrimaryButton
-            disabled={isFullTime}
+            disabled={!canRecordGoal || isFullTime}
             loading={activeActionId === `goal-details:${match.id}:${goalDetails.teamSide}`}
             onPress={submitDetailedGoal}
           >
@@ -756,10 +779,10 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
   )
 }
 
-function PhaseButton({ activeActionId, label, match, onStatusChange, status }) {
+function PhaseButton({ activeActionId, disabled = false, label, match, onStatusChange, status }) {
   return (
     <PrimaryButton
-      disabled={match.status === status}
+      disabled={disabled || match.status === status}
       loading={activeActionId === `status:${match.id}:${status}`}
       onPress={() => onStatusChange(match, status)}
       variant="secondary"

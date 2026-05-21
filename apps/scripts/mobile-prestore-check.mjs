@@ -443,6 +443,11 @@ apps.forEach((app) => {
   assertNotIncludes(appSource, 'API:', `${app.name} settings status`)
 })
 
+const coachAppSource = read('apps/coach-mobile/App.js')
+assertIncludes(coachAppSource, 'canRecordGoal', 'Coach matchday guardrails')
+assertIncludes(coachAppSource, 'Start the match before adding goals.', 'Coach matchday guardrails')
+assertIncludes(coachAppSource, "disabled={!['live', 'second_half'].includes(match.status)}", 'Coach matchday guardrails')
+
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))
   if (rootPackage.scripts?.['mobile:doctor'] !== 'node apps/scripts/mobile-doctor-check.mjs') {
