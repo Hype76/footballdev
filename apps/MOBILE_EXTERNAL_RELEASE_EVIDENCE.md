@@ -6,6 +6,12 @@ Recommended private folder: `apps/mobile-release-evidence/`.
 
 That folder is ignored by git. Store completed evidence copies, reviewer credential notes, build links, push token notes, and store submission records there.
 
+Create a private working copy with:
+
+```bash
+npm run mobile:evidence:init
+```
+
 Do not commit a completed copy of this file if it contains reviewer credentials, private URLs, build links, device identifiers, account emails, push tokens, or personal data.
 
 ## Release Candidate
