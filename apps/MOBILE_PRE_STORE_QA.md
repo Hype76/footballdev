@@ -17,6 +17,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Screenshot plan: `MOBILE_SCREENSHOT_PLAN.md`
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
 - Store record checklist: `MOBILE_STORE_RECORD_CHECKLIST.md`
+- Native identity checklist: `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`
 - Versioning guide: `MOBILE_VERSIONING.md`
 - Release status: `MOBILE_RELEASE_STATUS.md`
 - Release phases: `MOBILE_RELEASE_PHASES.md`
@@ -141,6 +142,7 @@ npm run mobile:build:parent:android:store-test
 - Run `npm run mobile:release-check` immediately before creating native builds.
 - Complete `MOBILE_STORE_ACCOUNT_SETUP.md`.
 - Complete `MOBILE_STORE_RECORD_CHECKLIST.md`.
+- Complete `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.
 - Check `MOBILE_ENVIRONMENT_RUNBOOK.md` before creating EAS builds.
 - Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.
 - Check `MOBILE_VERSIONING.md` before creating native builds.

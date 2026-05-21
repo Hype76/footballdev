@@ -47,6 +47,7 @@ const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
 const screenshotPlanPath = 'apps/MOBILE_SCREENSHOT_PLAN.md'
 const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
 const storeRecordChecklistPath = 'apps/MOBILE_STORE_RECORD_CHECKLIST.md'
+const nativeIdentityChecklistPath = 'apps/MOBILE_NATIVE_IDENTITY_CHECKLIST.md'
 const versioningPath = 'apps/MOBILE_VERSIONING.md'
 const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const releasePhasesPath = 'apps/MOBILE_RELEASE_PHASES.md'
@@ -185,9 +186,12 @@ function scanPackageDependencies(packageJson, appName) {
 
 for (const app of apps) {
   assertFile(app.appConfig, `${app.name} app config`)
+  assertFile(app.appIcon, `${app.name} app icon`)
+  assertFile(app.adaptiveIcon, `${app.name} adaptive icon`)
   assertFile(app.envExample, `${app.name} env example`)
   assertFile(app.gitignore, `${app.name} gitignore`)
   assertFile(app.notificationIcon, `${app.name} notification icon`)
+  assertFile(app.splashIcon, `${app.name} splash icon`)
   assertFile(app.easConfig, `${app.name} EAS config`)
   assertFile(app.metadata, `${app.name} store metadata`)
   assertFile(app.metroConfig, `${app.name} Metro config`)
@@ -377,6 +381,7 @@ assertFile(versioningPath, 'Mobile versioning guide')
 assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(releasePhasesPath, 'Mobile release phases')
 assertFile(externalEvidencePath, 'Mobile external release evidence template')
+assertFile(nativeIdentityChecklistPath, 'Mobile native identity checklist')
 assertFile(rootPackagePath, 'Root package')
 assertFile(rootGitignorePath, 'Root gitignore')
 assertFile(sharedAppConfigPath, 'Mobile shared app config')
@@ -836,10 +841,12 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'Football Player Parents', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'com.footballplayer.parents', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Store record checklist: `MOBILE_STORE_RECORD_CHECKLIST.md`', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Native identity checklist: `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Verify each store listing uses the current icons from the app assets.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'EAS setup: `MOBILE_EAS_SETUP_CHECKLIST.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Complete `MOBILE_STORE_RECORD_CHECKLIST.md`.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Complete `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Release phases: `MOBILE_RELEASE_PHASES.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'External evidence template: `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true` after EAS setup and test environment verification are complete.', 'Mobile pre-store QA')
@@ -942,6 +949,7 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'MOBILE_NOTIFICATION_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_STORE_RECORD_CHECKLIST.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'MOBILE_NATIVE_IDENTITY_CHECKLIST.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_EXTERNAL_RELEASE_EVIDENCE.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'apps/mobile-release-evidence/', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_VERSIONING.md', 'Mobile store account setup')
@@ -980,11 +988,41 @@ if (existsSync(join(repoRoot, storeRecordChecklistPath))) {
   assertIncludes(storeRecordChecklist, 'MOBILE_PRIVACY_QUESTIONNAIRE.md', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'MOBILE_REVIEWER_HANDOFF.md', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'MOBILE_NATIVE_IDENTITY_CHECKLIST.md', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'apps/coach-mobile/STORE_METADATA.md', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'apps/parent-mobile/STORE_METADATA.md', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'old Player Feedback naming', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'Icons, splash assets, notification icons, schemes, support URL, privacy URL, and terms URL match `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'Reviewer credential locations are recorded only in the private evidence folder.', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'Store record links are recorded in a private evidence file under `apps/mobile-release-evidence/`.', 'Mobile store record checklist')
+}
+
+if (existsSync(join(repoRoot, nativeIdentityChecklistPath))) {
+  const nativeIdentityChecklist = read(nativeIdentityChecklistPath)
+  assertIncludes(nativeIdentityChecklist, '# Football Player Mobile Native Identity Checklist', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'Football Player Coach', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'football-player-coach', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'footballplayercoach', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'com.footballplayer.coach', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'Football Player Parents', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'football-player-parents', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'footballplayerparents', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'com.footballplayer.parents', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/coach-mobile/assets/icon.png', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/coach-mobile/assets/adaptive-icon.png', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/coach-mobile/assets/splash-icon.png', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/coach-mobile/assets/notification-icon.png', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/parent-mobile/assets/icon.png', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/parent-mobile/assets/adaptive-icon.png', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/parent-mobile/assets/splash-icon.png', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/parent-mobile/assets/notification-icon.png', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'https://footballplayer.online/', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'https://footballplayer.online/gdpr', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'https://footballplayer.online/terms', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'Do not use old Player Feedback naming', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'Keep both apps on `EXPO_PUBLIC_SUPABASE_ENV=test`.', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'Keep both apps on `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.', 'Mobile native identity checklist')
+  assertIncludes(nativeIdentityChecklist, 'apps/mobile-release-evidence/', 'Mobile native identity checklist')
 }
 
 if (existsSync(join(repoRoot, releaseStatusPath))) {
@@ -993,6 +1031,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Focused Apple and Google store record checklist is present at `MOBILE_STORE_RECORD_CHECKLIST.md`.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Focused native identity checklist is present at `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'External release evidence template is present at `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Resolved Expo app config is checked by `npm run mobile:config`.', 'Mobile release status')
@@ -1015,6 +1054,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Record external QA and submission evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'apps/mobile-release-evidence/', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md` while checking app names, bundle IDs, package names, schemes, icons, splash assets, notification icons, and public URLs.', 'Mobile release status')
   assertIncludes(releaseStatus, '## Next external action checklist', 'Mobile release status')
   assertIncludes(releaseStatus, 'npm run mobile:eas:env:coach', 'Mobile release status')
   assertIncludes(releaseStatus, 'npm run mobile:eas:env:parent', 'Mobile release status')

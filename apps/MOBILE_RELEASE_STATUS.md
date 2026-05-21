@@ -24,6 +24,7 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - Android sensitive permissions that are not used are explicitly blocked.
 - Store metadata, privacy questionnaire, environment runbook, notification runbook, reviewer handoff, screenshot plan, store account setup, versioning guide, and device testing docs are present.
 - Focused Apple and Google store record checklist is present at `MOBILE_STORE_RECORD_CHECKLIST.md`.
+- Focused native identity checklist is present at `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.
 - Focused EAS setup checklist is present at `MOBILE_EAS_SETUP_CHECKLIST.md`.
 - External release evidence template is present at `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Mobile release phase tracker is present at `MOBILE_RELEASE_PHASES.md`.
@@ -61,6 +62,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`, including the printed profile matrix.
 - Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
 - Use `MOBILE_STORE_RECORD_CHECKLIST.md` while creating the four store records.
+- Use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md` while checking app names, bundle IDs, package names, schemes, icons, splash assets, notification icons, and public URLs.
 - Enter reviewer credentials only in App Store Connect and Google Play Console.
 - Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for native build commands after EAS values are verified.
 - Create one Android internal build and one iOS TestFlight build for each app with the root mobile build commands.

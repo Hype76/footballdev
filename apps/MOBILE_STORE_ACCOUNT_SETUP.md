@@ -8,6 +8,7 @@ Use `MOBILE_EAS_SETUP_CHECKLIST.md` when creating Expo EAS projects and setting 
 Use `MOBILE_NOTIFICATION_RUNBOOK.md` when testing native push notifications.
 Use `MOBILE_SCREENSHOT_PLAN.md` when preparing store screenshots.
 Use `MOBILE_STORE_RECORD_CHECKLIST.md` when creating Apple and Google store records.
+Use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md` when checking names, bundle IDs, package names, schemes, icons, splash assets, notification icons, and public URLs.
 Use `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` when recording external QA and submission evidence inside the ignored `apps/mobile-release-evidence/` folder.
 Use `MOBILE_VERSIONING.md` before creating native builds.
 
@@ -86,6 +87,7 @@ For each app record:
 - Privacy answers: use `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - Screenshots: use `MOBILE_SCREENSHOT_PLAN.md`
 - Store record checklist: use `MOBILE_STORE_RECORD_CHECKLIST.md`
+- Native identity checklist: use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`
 
 ## Google Play Console setup
 
@@ -104,6 +106,7 @@ For each app record:
 - Review notes: use `MOBILE_REVIEWER_HANDOFF.md`
 - Screenshots: use `MOBILE_SCREENSHOT_PLAN.md`
 - Store record checklist: use `MOBILE_STORE_RECORD_CHECKLIST.md`
+- Native identity checklist: use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`
 
 ## Native build order
 

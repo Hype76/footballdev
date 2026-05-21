@@ -29,6 +29,7 @@ Record completed store record links only in the ignored `apps/mobile-release-evi
 - Privacy answers: copy from `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
 - Review notes: copy from `MOBILE_REVIEWER_HANDOFF.md`.
 - Screenshots: capture later from real builds using `MOBILE_SCREENSHOT_PLAN.md`.
+- Native identity: check `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.
 - Support URL: `https://footballplayer.online/`.
 - Privacy URL: `https://footballplayer.online/gdpr`.
 - Terms URL: `https://footballplayer.online/terms`.
@@ -57,6 +58,7 @@ Use `apps/parent-mobile/STORE_METADATA.md`.
 
 - Store records use current app names, not old Player Feedback naming.
 - Bundle IDs and package names match `MOBILE_STORE_ACCOUNT_SETUP.md`.
+- Icons, splash assets, notification icons, schemes, support URL, privacy URL, and terms URL match `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.
 - Review notes explain that payments are handled outside the mobile app.
 - App access explains login-only restricted access with no in-app signup.
 - Privacy and data safety answers match `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
