@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Image, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from './theme'
 
 export function PrimaryButton({ children, disabled = false, loading = false, onPress, variant = 'primary' }) {
@@ -20,6 +20,60 @@ export function PrimaryButton({ children, disabled = false, loading = false, onP
         <Text style={[styles.buttonText, isSecondary ? styles.secondaryButtonText : null]}>{children}</Text>
       )}
     </Pressable>
+  )
+}
+
+export function LoadingScreen({ message }) {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.accent} />
+        <Text style={styles.simpleBody}>{message}</Text>
+      </View>
+    </SafeAreaView>
+  )
+}
+
+export function AccessScreen({ message, onSignOut, title }) {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.centered}>
+        <Text style={styles.screenTitle}>{title}</Text>
+        <Text style={styles.screenCopy}>{message}</Text>
+        <PrimaryButton onPress={onSignOut} variant="secondary">Sign out</PrimaryButton>
+      </View>
+    </SafeAreaView>
+  )
+}
+
+export function LockedScreen({ errorMessage, logoSource, onUnlock }) {
+  const [isUnlocking, setIsUnlocking] = useState(false)
+  const [message, setMessage] = useState(errorMessage || '')
+
+  async function handleUnlock() {
+    setIsUnlocking(true)
+    setMessage('')
+
+    try {
+      await onUnlock()
+    } catch (error) {
+      console.error(error)
+      setMessage(error.message || 'Unlock failed.')
+    } finally {
+      setIsUnlocking(false)
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.centered}>
+        <Image source={logoSource} style={styles.logo} resizeMode="contain" />
+        <Text style={styles.screenTitle}>Unlock app.</Text>
+        <Text style={styles.screenCopy}>Use your device security to continue.</Text>
+        {message ? <Text style={styles.error}>{message}</Text> : null}
+        <PrimaryButton loading={isUnlocking} onPress={handleUnlock}>Unlock</PrimaryButton>
+      </View>
+    </SafeAreaView>
   )
 }
 
@@ -406,6 +460,18 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.55,
   },
+  centered: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 18,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  error: {
+    color: '#ffb4b4',
+    fontSize: 14,
+    fontWeight: '800',
+  },
   field: {
     gap: 8,
   },
@@ -439,6 +505,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  logo: {
+    height: 70,
+    width: 70,
   },
   eventList: {
     gap: 8,
@@ -631,6 +701,23 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: colors.text,
+  },
+  screenCopy: {
+    color: colors.muted,
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  screenTitle: {
+    color: colors.text,
+    fontSize: 34,
+    fontWeight: '900',
+    lineHeight: 38,
+    textAlign: 'center',
+  },
+  safeArea: {
+    backgroundColor: colors.background,
+    flex: 1,
   },
   statCard: {
     backgroundColor: colors.panel,

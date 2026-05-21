@@ -20,7 +20,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { LegalFooter, MatchCard, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -919,29 +919,6 @@ function isScoreField(type) {
   return ['score_1_5', 'score_1_10', 'number'].includes(String(type || '').trim())
 }
 
-function LoadingScreen({ message }) {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.accent} />
-        <Text style={styles.item}>{message}</Text>
-      </View>
-    </SafeAreaView>
-  )
-}
-
-function AccessScreen({ message, onSignOut, title }) {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.centered}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.copy}>{message}</Text>
-        <PrimaryButton onPress={onSignOut} variant="secondary">Sign out</PrimaryButton>
-      </View>
-    </SafeAreaView>
-  )
-}
-
 function AppContent() {
   const { authError, isLoading, isLocked, session, unlockWithBiometrics } = useMobileAuth()
 
@@ -954,41 +931,10 @@ function AppContent() {
   }
 
   if (isLocked) {
-    return <LockedScreen errorMessage={authError} onUnlock={unlockWithBiometrics} />
+    return <LockedScreen errorMessage={authError} logoSource={require('./assets/football-player-logo.png')} onUnlock={unlockWithBiometrics} />
   }
 
   return <CoachHome />
-}
-
-function LockedScreen({ errorMessage, onUnlock }) {
-  const [isUnlocking, setIsUnlocking] = useState(false)
-  const [message, setMessage] = useState(errorMessage || '')
-
-  async function handleUnlock() {
-    setIsUnlocking(true)
-    setMessage('')
-
-    try {
-      await onUnlock()
-    } catch (error) {
-      console.error(error)
-      setMessage(error.message || 'Unlock failed.')
-    } finally {
-      setIsUnlocking(false)
-    }
-  }
-
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.centered}>
-        <Image source={require('./assets/football-player-logo.png')} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.title}>Unlock app.</Text>
-        <Text style={styles.copy}>Use your device security to continue.</Text>
-        {message ? <Text style={styles.error}>{message}</Text> : null}
-        <PrimaryButton loading={isUnlocking} onPress={handleUnlock}>Unlock</PrimaryButton>
-      </View>
-    </SafeAreaView>
-  )
 }
 
 export default function App() {
@@ -1020,16 +966,14 @@ const styles = StyleSheet.create({
   actionGrid: {
     gap: 10,
   },
-  centered: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 18,
-    justifyContent: 'center',
-    padding: screen.padding,
-  },
   cardTitle: {
     color: colors.text,
     fontSize: 18,
+    fontWeight: '800',
+  },
+  error: {
+    color: '#ffb4b4',
+    fontSize: 14,
     fontWeight: '800',
   },
   goalDetailsPanel: {
@@ -1039,11 +983,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
     padding: 12,
-  },
-  error: {
-    color: '#ffb4b4',
-    fontSize: 14,
-    fontWeight: '800',
   },
   copy: {
     color: colors.muted,
