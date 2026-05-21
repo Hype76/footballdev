@@ -225,12 +225,20 @@ for (const app of apps) {
 
   if (existsSync(join(repoRoot, app.appConfig))) {
     const appConfig = read(app.appConfig)
+    const appPackageForVersion = existsSync(join(repoRoot, app.packageJson)) ? JSON.parse(read(app.packageJson)) : null
+
     assertIncludes(appConfig, `name: '${app.expectedName}'`, `${app.name} app identity`)
     assertIncludes(appConfig, `slug: '${app.slug}'`, `${app.name} app identity`)
     assertIncludes(appConfig, `scheme: '${app.scheme}'`, `${app.name} app identity`)
     assertIncludes(appConfig, `bundleIdentifier: '${app.bundleIdentifier}'`, `${app.name} iOS identity`)
     assertIncludes(appConfig, `package: '${app.packageName}'`, `${app.name} Android identity`)
     assertIncludes(appConfig, `appRole: '${app.appRole}'`, `${app.name} app role`)
+    if (appPackageForVersion?.version) {
+      assertIncludes(appConfig, `version: '${appPackageForVersion.version}'`, `${app.name} app version`)
+    }
+    assertIncludes(appConfig, "policy: 'appVersion'", `${app.name} runtime version policy`)
+    assertIncludes(appConfig, "buildNumber: '1'", `${app.name} iOS build number`)
+    assertIncludes(appConfig, 'versionCode: 1', `${app.name} Android version code`)
     assertIncludes(appConfig, "const supabaseEnvironment = process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test'", `${app.name} app config`)
     assertIncludes(appConfig, "const allowLiveSupabase = process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false'", `${app.name} app config`)
     assertIncludes(appConfig, 'ITSAppUsesNonExemptEncryption: false', `${app.name} iOS config`)
@@ -286,6 +294,10 @@ for (const app of apps) {
     assertIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "test"', `${app.name} EAS config`)
     assertIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "false"', `${app.name} EAS config`)
     assertIncludes(easConfig, '"appVersionSource": "remote"', `${app.name} EAS config`)
+    assertIncludes(easConfig, '"developmentClient": true', `${app.name} EAS development profile`)
+    assertIncludes(easConfig, '"distribution": "internal"', `${app.name} EAS internal profile`)
+    assertIncludes(easConfig, '"buildType": "apk"', `${app.name} EAS Android internal profile`)
+    assertIncludes(easConfig, '"distribution": "store"', `${app.name} EAS store-test profile`)
     assertIncludes(easConfig, '"autoIncrement": true', `${app.name} EAS config`)
     assertNotIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "live"', `${app.name} EAS config`)
     assertNotIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS config`)
@@ -587,6 +599,9 @@ if (existsSync(join(repoRoot, versioningPath))) {
   const versioning = read(versioningPath)
   assertIncludes(versioning, 'cli.appVersionSource` is `remote`', 'Mobile versioning guide')
   assertIncludes(versioning, 'The `store-test` profile has `autoIncrement` enabled.', 'Mobile versioning guide')
+  assertIncludes(versioning, '`npm run mobile:prestore` checks that each app config version matches its package version.', 'Mobile versioning guide')
+  assertIncludes(versioning, '`npm run mobile:prestore` checks that the initial native build numbers remain at `1` while EAS remote versioning handles store-test increments.', 'Mobile versioning guide')
+  assertIncludes(versioning, '`npm run mobile:prestore` checks that EAS development, internal, and store-test profiles keep the expected distribution settings.', 'Mobile versioning guide')
   assertIncludes(versioning, 'Keep both apps on `EXPO_PUBLIC_SUPABASE_ENV=test` until live release approval is explicit.', 'Mobile versioning guide')
   assertIncludes(versioning, 'Let EAS auto-increment store-test builds.', 'Mobile versioning guide')
 }

@@ -14,6 +14,9 @@ Both apps use Expo EAS remote app versioning:
 - `cli.appVersionSource` is `remote`.
 - The `store-test` profile has `autoIncrement` enabled.
 - Store and TestFlight builds should be created through EAS, not by manually editing native project files.
+- `npm run mobile:prestore` checks that each app config version matches its package version.
+- `npm run mobile:prestore` checks that the initial native build numbers remain at `1` while EAS remote versioning handles store-test increments.
+- `npm run mobile:prestore` checks that EAS development, internal, and store-test profiles keep the expected distribution settings.
 
 ## Release Rules
 
