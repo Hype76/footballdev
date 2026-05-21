@@ -28,6 +28,12 @@ console.log('- EXPO_PUBLIC_SUPABASE_URL')
 console.log('- EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
 console.log('- EXPO_PUBLIC_API_BASE_URL')
 console.log('- EXPO_PUBLIC_EAS_PROJECT_ID')
+console.log('')
+console.log('Required profile values before native builds:')
+console.log('- development: EXPO_PUBLIC_SUPABASE_ENV=test, EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false, API URL can be test or local dev.')
+console.log('- internal: EXPO_PUBLIC_SUPABASE_ENV=test, EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false, API URL must be HTTPS test.')
+console.log('- store-test: EXPO_PUBLIC_SUPABASE_ENV=test, EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false, API URL must be HTTPS test.')
+console.log('Do not set MOBILE_NATIVE_BUILD_CONFIRMED=true until internal and store-test match those values.')
 
 execFileSync('npx', ['eas-cli', 'env:list', '--scope', 'project', '--format', 'long'], {
   cwd: resolve(repoRoot, app.path),

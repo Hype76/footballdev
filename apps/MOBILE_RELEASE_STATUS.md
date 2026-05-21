@@ -55,7 +55,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Create or confirm the two Expo EAS projects.
 - If EAS project setup changes `app.config.js`, revert that app config change and store `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS only.
 - Add EAS environment values for both apps with `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
-- Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`.
+- Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`, including the printed profile matrix.
 - Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
 - Enter reviewer credentials only in App Store Connect and Google Play Console.
 - Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for native build commands after EAS values are verified.

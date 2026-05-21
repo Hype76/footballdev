@@ -104,6 +104,8 @@ npm run mobile:eas:env:coach
 npm run mobile:eas:env:parent
 ```
 
+The guarded env list commands print the required `development`, `internal`, and `store-test` profile values before listing EAS values.
+
 ## After EAS Project Setup
 
 - Run `npm run mobile:release-check` again.

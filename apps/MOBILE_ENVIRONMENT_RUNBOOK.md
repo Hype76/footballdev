@@ -55,6 +55,8 @@ npm run mobile:eas:env:coach
 npm run mobile:eas:env:parent
 ```
 
+The guarded env list commands print the expected profile values before listing remote EAS values.
+
 ## Netlify Test Environment
 
 Set these in the test Netlify environment used by the mobile apps:
