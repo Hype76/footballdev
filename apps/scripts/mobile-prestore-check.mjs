@@ -819,6 +819,7 @@ if (existsSync(join(repoRoot, 'apps/MOBILE_DEVICE_TESTING.md'))) {
   assertIncludes(deviceTesting, 'The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true`.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Record this in a private evidence copy under `apps/mobile-release-evidence/` for each test run.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Build IDs for Coach iOS, Coach Android, Parents iOS, and Parents Android.', 'Mobile device testing')
+  assertIncludes(deviceTesting, 'EAS remote build numbers and version codes for every tested build.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Role restriction evidence for parent account blocked from Coach and coach-only account blocked from Parents.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Notification tap result for matchday, message, and poll routes.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'npm run mobile:build:coach:android:internal', 'Mobile device testing')
@@ -924,11 +925,13 @@ if (existsSync(join(repoRoot, versioningPath))) {
   assertIncludes(versioning, '`npm run mobile:prestore` checks that the initial native build numbers remain at `1` while EAS remote versioning handles store-test increments.', 'Mobile versioning guide')
   assertIncludes(versioning, '`npm run mobile:prestore` checks that EAS development, internal, and store-test profiles keep the expected distribution settings.', 'Mobile versioning guide')
   assertIncludes(versioning, '`npm run mobile:prestore` checks that shared native config stays in `apps/mobile-core/appConfig.cjs`.', 'Mobile versioning guide')
+  assertIncludes(versioning, 'Record remote EAS build numbers, App Store Connect build numbers, and Google Play version codes in a private evidence copy under `apps/mobile-release-evidence/`, not in tracked docs.', 'Mobile versioning guide')
   assertIncludes(versioning, 'Keep both apps on `EXPO_PUBLIC_SUPABASE_ENV=test` until live release approval is explicit.', 'Mobile versioning guide')
   assertIncludes(versioning, 'Keep native permission, notification, biometric, runtime version, and test database defaults in `apps/mobile-core/appConfig.cjs`.', 'Mobile versioning guide')
   assertIncludes(versioning, 'Let EAS auto-increment store-test builds.', 'Mobile versioning guide')
   assertIncludes(versioning, 'npm run mobile:build:coach:ios:store-test', 'Mobile versioning guide')
   assertIncludes(versioning, 'npm run mobile:build:parent:android:store-test', 'Mobile versioning guide')
+  assertIncludes(versioning, 'EAS remote build number and version code evidence has been recorded in the private evidence file.', 'Mobile versioning guide')
 }
 
 if (existsSync(join(repoRoot, storeAccountSetupPath))) {
@@ -999,6 +1002,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps using `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'If EAS project setup changes `app.config.js`, revert that app config change and store `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS only.', 'Mobile release status')
   assertIncludes(releaseStatus, 'EAS remote app versioning and store-test auto-increment are configured for both apps.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Record EAS remote build numbers and version codes in the private evidence file.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared Expo native app config exists at `apps/mobile-core/appConfig.cjs`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared mobile UI now covers login, fallback screens, screen chrome, overview, tab rail, settings, layout panels, lists, choice controls, and segmented controls.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Shared mobile device controls now cover push notification registration, push notification opt out, device notification state, and biometric setting changes.', 'Mobile release status')
@@ -1052,6 +1056,8 @@ if (existsSync(join(repoRoot, externalEvidencePath))) {
   assertIncludes(externalEvidence, 'apps/mobile-release-evidence/', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## EAS Projects', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## Native Builds', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, 'Android internal version code', 'Mobile external release evidence template')
+  assertIncludes(externalEvidence, 'iOS TestFlight build number', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## Device QA', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## Notification Evidence', 'Mobile external release evidence template')
   assertIncludes(externalEvidence, '## Screenshot Evidence', 'Mobile external release evidence template')

@@ -48,15 +48,19 @@ Do not commit a completed copy of this file if it contains reviewer credentials,
 ### Coach
 
 - Android internal build ID:
+- Android internal version code:
 - Android install result:
 - iOS TestFlight build ID:
+- iOS TestFlight build number:
 - iOS install result:
 
 ### Parents
 
 - Android internal build ID:
+- Android internal version code:
 - Android install result:
 - iOS TestFlight build ID:
+- iOS TestFlight build number:
 - iOS install result:
 
 ## Device QA

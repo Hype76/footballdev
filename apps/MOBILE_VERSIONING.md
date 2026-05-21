@@ -20,6 +20,8 @@ Both apps use Expo EAS remote app versioning:
 - `npm run mobile:prestore` checks that EAS development, internal, and store-test profiles keep the expected distribution settings.
 - `npm run mobile:prestore` checks that shared native config stays in `apps/mobile-core/appConfig.cjs`.
 
+Record remote EAS build numbers, App Store Connect build numbers, and Google Play version codes in a private evidence copy under `apps/mobile-release-evidence/`, not in tracked docs.
+
 ## Release Rules
 
 - Keep both apps on `EXPO_PUBLIC_SUPABASE_ENV=test` until live release approval is explicit.
@@ -56,4 +58,5 @@ npm run mobile:build:parent:android:store-test
 - Google Play version code is higher than the previous submitted Coach build.
 - App Store Connect build number is higher than the previous submitted Parents build.
 - Google Play version code is higher than the previous submitted Parents build.
+- EAS remote build number and version code evidence has been recorded in the private evidence file.
 - Both app records still point at the test database until live release approval is explicit.

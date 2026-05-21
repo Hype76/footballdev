@@ -117,6 +117,7 @@ npm run mobile:build:parent:ios:store-test
 Record this in a private evidence copy under `apps/mobile-release-evidence/` for each test run. Create the copy with `npm run mobile:evidence:init`.
 
 - Build IDs for Coach iOS, Coach Android, Parents iOS, and Parents Android.
+- EAS remote build numbers and version codes for every tested build.
 - Device model, operating system version, and app version for each installed build.
 - Test account role used for each app.
 - Pass or fail result for login, refresh, foreground reload, notifications, biometric unlock, and role restriction checks.

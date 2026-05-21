@@ -39,6 +39,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Add each final `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS, not in git.
 - Add test Supabase and test Netlify API environment values in EAS using `MOBILE_ENVIRONMENT_RUNBOOK.md`.
 - Confirm EAS remote build numbers and version codes are ready for the next store submissions.
+- Record EAS remote build numbers and version codes in the private evidence file.
 - Create Apple App Store Connect records.
 - Create Google Play Console records.
 - Complete `MOBILE_STORE_RECORD_CHECKLIST.md` for all four store records.
