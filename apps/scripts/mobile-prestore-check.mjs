@@ -54,6 +54,7 @@ const rootPackagePath = 'package.json'
 const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
 const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
 const mobileConfigCheckPath = 'apps/scripts/mobile-config-check.mjs'
+const mobileSubmitGuardPath = 'apps/scripts/mobile-submit-guard.mjs'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -270,11 +271,11 @@ for (const app of apps) {
     if (appPackage.scripts?.['export:web'] !== 'expo export --platform web --output-dir dist-web-check') {
       failures.push(`${app.name} package must include mobile web export script`)
     }
-    if (appPackage.scripts?.['submit:android:store-test'] !== 'npx eas-cli submit --profile store-test --platform android') {
-      failures.push(`${app.name} package must include Android store-test submit script`)
+    if (appPackage.scripts?.['submit:android:store-test'] !== `node ../scripts/mobile-submit-guard.mjs ${app.appRole} android`) {
+      failures.push(`${app.name} package must include guarded Android store-test submit script`)
     }
-    if (appPackage.scripts?.['submit:ios:store-test'] !== 'npx eas-cli submit --profile store-test --platform ios') {
-      failures.push(`${app.name} package must include iOS store-test submit script`)
+    if (appPackage.scripts?.['submit:ios:store-test'] !== `node ../scripts/mobile-submit-guard.mjs ${app.appRole} ios`) {
+      failures.push(`${app.name} package must include guarded iOS store-test submit script`)
     }
     if (appPackage.dependencies?.['@expo/metro-config'] || appPackage.devDependencies?.['@expo/metro-config']) {
       failures.push(`${app.name} package must not install @expo/metro-config directly`)
@@ -365,10 +366,12 @@ assertFile(rootPackagePath, 'Root package')
 assertFile(sharedAppConfigPath, 'Mobile shared app config')
 assertFile(mobileAppsRegistryPath, 'Mobile app registry')
 assertFile(mobileConfigCheckPath, 'Mobile config check')
+assertFile(mobileSubmitGuardPath, 'Mobile submit guard')
 assertNoTrackedMobilePrivateFiles()
 
 const mobileAppsRegistry = existsSync(join(repoRoot, mobileAppsRegistryPath)) ? read(mobileAppsRegistryPath) : ''
 const mobileConfigCheck = existsSync(join(repoRoot, mobileConfigCheckPath)) ? read(mobileConfigCheckPath) : ''
+const mobileSubmitGuard = existsSync(join(repoRoot, mobileSubmitGuardPath)) ? read(mobileSubmitGuardPath) : ''
 
 assertIncludes(mobileAppsRegistry, 'export const mobileApps', 'Mobile app registry')
 assertIncludes(mobileAppsRegistry, "path: 'apps/coach-mobile'", 'Mobile app registry')
@@ -376,6 +379,10 @@ assertIncludes(mobileAppsRegistry, "path: 'apps/parent-mobile'", 'Mobile app reg
 assertIncludes(mobileConfigCheck, 'assertStoreSafeApiBaseUrl', 'Mobile config check')
 assertIncludes(mobileConfigCheck, 'must use https for release checks when set', 'Mobile config check')
 assertIncludes(mobileConfigCheck, 'must not point at a local development host', 'Mobile config check')
+assertIncludes(mobileSubmitGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile submit guard')
+assertIncludes(mobileSubmitGuard, "'submit'", 'Mobile submit guard')
+assertIncludes(mobileSubmitGuard, "'--profile', 'store-test'", 'Mobile submit guard')
+assertIncludes(mobileSubmitGuard, "'--platform', platform", 'Mobile submit guard')
 
 const sharedAppConfig = existsSync(join(repoRoot, sharedAppConfigPath)) ? read(sharedAppConfigPath) : ''
 

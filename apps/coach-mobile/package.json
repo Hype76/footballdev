@@ -13,8 +13,8 @@
     "build:android:store-test": "npx eas-cli build --profile store-test --platform android",
     "build:ios:store-test": "npx eas-cli build --profile store-test --platform ios",
     "export:web": "expo export --platform web --output-dir dist-web-check",
-    "submit:android:store-test": "npx eas-cli submit --profile store-test --platform android",
-    "submit:ios:store-test": "npx eas-cli submit --profile store-test --platform ios"
+    "submit:android:store-test": "node ../scripts/mobile-submit-guard.mjs coach android",
+    "submit:ios:store-test": "node ../scripts/mobile-submit-guard.mjs coach ios"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
