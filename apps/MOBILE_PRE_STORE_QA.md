@@ -110,6 +110,7 @@ npm run build:android:store-test
 
 - Coach app shows assigned teams and respects the selected team.
 - Coach app lets club-wide roles view all teams.
+- Coach quick assessment blocks missing required answers and invalid score values.
 - Parent app shows linked children and respects the selected child.
 - Parent app keeps matchday, messages, polls, and notification registration scoped to the selected child.
 - Shared mobile UI renders consistently across both apps for login, headers, tabs, overview, cards, lists, settings, choice controls, and segmented controls.

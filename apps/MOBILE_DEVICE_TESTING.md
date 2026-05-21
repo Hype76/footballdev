@@ -57,6 +57,8 @@ npm run build:ios:store-test
 - Pull down to refresh the Coach home screen and confirm the latest matchday and player data reloads.
 - Pull down to refresh the Parents home screen and confirm the latest matchday, messages, and polls reload.
 - Send each app to the background, reopen it, and confirm the current data refreshes without signing out.
+- In Coach, save a quick assessment with valid required answers.
+- In Coach, try saving a quick assessment with a missing required answer and confirm it is blocked.
 - Enable notifications in both apps.
 - Confirm Android notification permission is granted.
 - Disable notifications in both apps, then enable them again.

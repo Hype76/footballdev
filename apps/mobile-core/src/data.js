@@ -638,15 +638,32 @@ export async function submitCoachAssessment(user, player, assessment, fields = [
     const value = fieldValues[field.id] ?? ''
 
     if (isAssessmentScoreField(field.type)) {
-      const numericValue = Math.max(Number(value || 0), 0)
-      formResponses[field.label] = numericValue
-      if (numericValue > 0) {
-        scores[field.label] = numericValue
+      const numericValue = Number(value)
+      const maxScore = field.type === 'score_1_10' ? 10 : 5
+
+      if (!Number.isFinite(numericValue)) {
+        throw new Error(`${field.label} must be a number.`)
+      }
+
+      if (field.required && numericValue <= 0) {
+        throw new Error(`${field.label} is required.`)
+      }
+
+      const boundedValue = Math.max(Math.min(Math.round(numericValue), maxScore), 0)
+      formResponses[field.label] = boundedValue
+      if (boundedValue > 0) {
+        scores[field.label] = boundedValue
       }
       return
     }
 
-    formResponses[field.label] = normalizeText(value)
+    const textValue = normalizeText(value)
+
+    if (field.required && !textValue) {
+      throw new Error(`${field.label} is required.`)
+    }
+
+    formResponses[field.label] = textValue
   })
 
   const scoreValues = Object.values(scores)
