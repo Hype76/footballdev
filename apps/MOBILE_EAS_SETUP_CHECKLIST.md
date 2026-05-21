@@ -19,11 +19,10 @@ Do not commit EAS project IDs, Supabase keys, API URLs for private environments,
 - Android package: `com.footballplayer.coach`
 - Scheme: `footballplayercoach`
 
-Create the project from the app folder:
+Create the project through the guarded root command:
 
 ```bash
-cd apps/coach-mobile
-npx eas-cli project:init
+npm run mobile:eas:init:coach
 ```
 
 If EAS offers to write the project ID into `app.config.js`, do not keep that change. Set the project ID in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID`.
@@ -36,11 +35,10 @@ If EAS offers to write the project ID into `app.config.js`, do not keep that cha
 - Android package: `com.footballplayer.parents`
 - Scheme: `footballplayerparents`
 
-Create the project from the app folder:
+Create the project through the guarded root command:
 
 ```bash
-cd apps/parent-mobile
-npx eas-cli project:init
+npm run mobile:eas:init:parent
 ```
 
 If EAS offers to write the project ID into `app.config.js`, do not keep that change. Set the project ID in EAS as `EXPO_PUBLIC_EAS_PROJECT_ID`.

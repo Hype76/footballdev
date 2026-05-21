@@ -6,6 +6,11 @@ const phase = {
   rule: 'Keep both apps on test Supabase until live release approval is explicit.',
 }
 
+const easInitCommands = {
+  coach: 'npm run mobile:eas:init:coach',
+  parent: 'npm run mobile:eas:init:parent',
+}
+
 console.log(`${phase.title}`)
 console.log(`Status: ${phase.status}`)
 console.log(phase.rule)
@@ -19,8 +24,7 @@ console.log('Create EAS projects:')
 
 mobileApps.forEach((app) => {
   console.log(`- ${app.expectedName}`)
-  console.log(`  cd ${app.path}`)
-  console.log('  npx eas-cli project:init')
+  console.log(`  ${easInitCommands[app.appRole]}`)
   console.log('  Store EXPO_PUBLIC_EAS_PROJECT_ID in Expo EAS only.')
 })
 

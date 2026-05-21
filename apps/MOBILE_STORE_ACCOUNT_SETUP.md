@@ -39,13 +39,11 @@ Use `MOBILE_VERSIONING.md` before creating native builds.
 Create one EAS project per app from inside each app folder.
 
 ```bash
-cd apps/coach-mobile
-npx eas-cli project:init
+npm run mobile:eas:init:coach
 ```
 
 ```bash
-cd apps/parent-mobile
-npx eas-cli project:init
+npm run mobile:eas:init:parent
 ```
 
 After each project is created, add its project ID to EAS environment variables as `EXPO_PUBLIC_EAS_PROJECT_ID`.
