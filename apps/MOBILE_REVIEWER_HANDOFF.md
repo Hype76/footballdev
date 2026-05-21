@@ -7,6 +7,7 @@ Use this as the working handoff for App Store Connect and Google Play review. Do
 - Coach app: Football Player Coach
 - Parents app: Football Player Parents
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
+- Screenshot plan: `MOBILE_SCREENSHOT_PLAN.md`
 - Database: test Supabase only
 - Billing: not available in either mobile app
 - Login: required for both apps
@@ -59,7 +60,7 @@ This review build uses the test database.
 
 ## Screenshot checklist
 
-Capture screenshots from real store builds or installed internal builds, not from the web export.
+Capture screenshots from real store builds or installed internal builds, not from the web export. Use `MOBILE_SCREENSHOT_PLAN.md` for device classes, naming, ordering, and test-data rules.
 
 ### Coach app screenshots
 

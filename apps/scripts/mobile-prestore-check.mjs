@@ -45,6 +45,7 @@ const forbiddenBrandPatterns = [
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
+const screenshotPlanPath = 'apps/MOBILE_SCREENSHOT_PLAN.md'
 const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
 const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const rootPackagePath = 'package.json'
@@ -180,6 +181,7 @@ for (const app of apps) {
 
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
+assertFile(screenshotPlanPath, 'Mobile screenshot plan')
 assertFile(storeAccountSetupPath, 'Mobile store account setup')
 assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(rootPackagePath, 'Root package')
@@ -224,14 +226,25 @@ if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   const reviewerHandoff = read(reviewerHandoffPath)
   assertIncludes(reviewerHandoff, 'Do not commit real passwords', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'MOBILE_STORE_ACCOUNT_SETUP.md', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Payments are handled outside the mobile app', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'This review build uses the test database.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Screenshot checklist', 'Mobile reviewer handoff')
 }
 
+if (existsSync(join(repoRoot, screenshotPlanPath))) {
+  const screenshotPlan = read(screenshotPlanPath)
+  assertIncludes(screenshotPlan, 'Screenshots must come from real store builds, TestFlight builds, or Google internal builds.', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'Use test database data only.', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'Coach App Shots', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'Parents App Shots', 'Mobile screenshot plan')
+  assertIncludes(screenshotPlan, 'No billing, checkout, subscription, Stripe, or bulk email screens are shown.', 'Mobile screenshot plan')
+}
+
 if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   const storeSetup = read(storeAccountSetupPath)
   assertIncludes(storeSetup, 'MOBILE_RELEASE_STATUS.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.parents', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile store account setup')
@@ -248,6 +261,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Both apps are locked to test Supabase by default.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
   assertNotIncludes(releaseStatus, 'Confirm final support URL', 'Mobile release status')
 }

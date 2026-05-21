@@ -11,6 +11,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Shared code: `apps/mobile-core`
 - Privacy questionnaire draft: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - Reviewer handoff draft: `MOBILE_REVIEWER_HANDOFF.md`
+- Screenshot plan: `MOBILE_SCREENSHOT_PLAN.md`
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
 - Release status: `MOBILE_RELEASE_STATUS.md`
 - Test database only until live release approval is given.
@@ -113,7 +114,7 @@ npx eas-cli build --profile store-test --platform android
 - Build real Android internal test builds.
 - Build real iOS TestFlight builds.
 - Run physical device push tests on iPhone and Android.
-- Prepare store screenshots for both apps.
+- Prepare store screenshots for both apps from `MOBILE_SCREENSHOT_PLAN.md`.
 - Prepare reviewer credentials for both apps.
 - Confirm final app names, icons, bundle identifiers, package names, privacy wording, and support URLs.
 - Confirm final live release approval before changing any mobile Supabase setting to live.
@@ -125,6 +126,6 @@ Do not switch either app to live Supabase until all of the following are true:
 - TestFlight build passes iPhone QA.
 - Google internal build passes Android QA.
 - Push notifications have been verified on physical iOS and Android devices.
-- Store screenshots and reviewer credentials are ready.
+- Store screenshots from `MOBILE_SCREENSHOT_PLAN.md` and reviewer credentials are ready.
 - Reviewer notes have been prepared from `MOBILE_REVIEWER_HANDOFF.md`.
 - The live Supabase approval has been given explicitly.

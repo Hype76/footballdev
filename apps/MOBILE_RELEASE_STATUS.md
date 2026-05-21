@@ -15,7 +15,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Coach app supports matchday, players, quick assessments, sessions, team switching, and club-wide All Teams for eligible roles.
 - Parents app supports linked child switching, matchday updates, messages, polls, and scorer volunteer actions.
 - Android sensitive permissions that are not used are explicitly blocked.
-- Store metadata, privacy questionnaire, reviewer handoff, store account setup, and device testing docs are present.
+- Store metadata, privacy questionnaire, reviewer handoff, screenshot plan, store account setup, and device testing docs are present.
 - `npm run mobile:release-check` passes locally.
 
 ## Still external before store submission
@@ -30,7 +30,7 @@ This records the current state of the Coach and Parents mobile app rebuild.
 - Build real iOS TestFlight builds.
 - Install builds on real Android and iOS devices.
 - Verify push notifications on real Android and iOS devices.
-- Capture store screenshots using test data only.
+- Capture store screenshots using `MOBILE_SCREENSHOT_PLAN.md` and test data only.
 - Confirm the public support route is monitored and privacy wording still matches production before submission.
 
 ## Release gate
@@ -41,7 +41,7 @@ Do not submit either app until all of these are true:
 - Android internal QA passes on a real device.
 - iOS TestFlight QA passes on a real device.
 - Push notification flows pass on both platforms.
-- Store screenshots show test data only.
+- Store screenshots follow `MOBILE_SCREENSHOT_PLAN.md` and show test data only.
 - Reviewer credentials work immediately before submission.
 - Review notes explain that payments are handled outside the mobile app.
 - Both apps remain on `EXPO_PUBLIC_SUPABASE_ENV=test`.

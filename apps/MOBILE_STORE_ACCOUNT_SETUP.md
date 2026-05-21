@@ -3,6 +3,7 @@
 Use this when creating the Expo, Apple, and Google records for the two mobile apps. Do not commit private keys, passwords, API keys, provisioning profiles, or service account files.
 
 See `MOBILE_RELEASE_STATUS.md` for the current done and remaining release state.
+Use `MOBILE_SCREENSHOT_PLAN.md` when preparing store screenshots.
 
 ## Apps
 
@@ -71,7 +72,7 @@ For each app record:
 - Payments or subscription management in app: No
 - Review notes: use `MOBILE_REVIEWER_HANDOFF.md`
 - Privacy answers: use `MOBILE_PRIVACY_QUESTIONNAIRE.md`
-- Screenshots: use the screenshot list in `MOBILE_REVIEWER_HANDOFF.md`
+- Screenshots: use `MOBILE_SCREENSHOT_PLAN.md`
 
 ## Google Play Console setup
 
@@ -88,7 +89,7 @@ For each app record:
 - Data Safety: use `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - App access: restricted login, provide reviewer account in Play Console only
 - Review notes: use `MOBILE_REVIEWER_HANDOFF.md`
-- Screenshots: use the screenshot list in `MOBILE_REVIEWER_HANDOFF.md`
+- Screenshots: use `MOBILE_SCREENSHOT_PLAN.md`
 
 ## Native build order
 
