@@ -163,6 +163,9 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   if (rootPackage.scripts?.['mobile:export:web'] !== 'node apps/scripts/mobile-export-web-check.mjs') {
     failures.push('Root package must include mobile:export:web script')
   }
+  if (rootPackage.scripts?.['mobile:release-check'] !== 'node apps/scripts/mobile-release-check.mjs') {
+    failures.push('Root package must include mobile:release-check script')
+  }
 }
 
 if (existsSync(join(repoRoot, sharedPrivacyPath))) {

@@ -31,6 +31,12 @@ npm run start
 ## Checks
 
 ```bash
+npm run mobile:release-check
+```
+
+From this app folder:
+
+```bash
 npm run export:web
 npm run build:android:internal
 npm run build:ios:store-test

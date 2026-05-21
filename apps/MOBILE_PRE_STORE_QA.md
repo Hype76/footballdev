@@ -41,7 +41,13 @@ Set these in the Netlify test environment:
 
 ## Build checks
 
-Run from the repo root:
+Run the full local release check from the repo root:
+
+```bash
+npm run mobile:release-check
+```
+
+Or run the checks individually:
 
 ```bash
 npm run lint
@@ -97,6 +103,7 @@ npx eas-cli build --profile store-test --platform android
 
 ## Remaining app-store readiness work
 
+- Run `npm run mobile:release-check` immediately before creating native builds.
 - Create Expo EAS projects for both apps.
 - Add real EAS project IDs to each app environment.
 - Build real Android internal test builds.
