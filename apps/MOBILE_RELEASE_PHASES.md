@@ -51,10 +51,10 @@ Status: external after EAS setup.
 Exit criteria: Coach and Parents each have one Android internal build and one iOS TestFlight build created from a commit that passed `npm run mobile:release-check`.
 
 - Run `npm run mobile:release-check` immediately before builds.
-- Build Coach Android internal build.
-- Build Coach iOS TestFlight build.
-- Build Parents Android internal build.
-- Build Parents iOS TestFlight build.
+- Build Coach Android internal build with `npm run mobile:build:coach:android:internal`.
+- Build Coach iOS TestFlight build with `npm run mobile:build:coach:ios:store-test`.
+- Build Parents Android internal build with `npm run mobile:build:parent:android:internal`.
+- Build Parents iOS TestFlight build with `npm run mobile:build:parent:ios:store-test`.
 - Confirm remote EAS build numbers and version codes are valid for store submission.
 
 ## Phase 5: Real Device QA
@@ -81,8 +81,10 @@ Exit criteria: screenshots are captured from real builds with test data only, re
 - Confirm screenshots show test data only.
 - Confirm reviewer credentials work immediately before submission.
 - Run `npm run mobile:release-check` one final time.
-- Submit Coach to Apple and Google.
-- Submit Parents to Apple and Google.
+- Submit Coach to Apple with `npm run mobile:submit:coach:ios:store-test`.
+- Submit Coach to Google with `npm run mobile:submit:coach:android:store-test`.
+- Submit Parents to Apple with `npm run mobile:submit:parent:ios:store-test`.
+- Submit Parents to Google with `npm run mobile:submit:parent:android:store-test`.
 
 ## Live Database Gate
 

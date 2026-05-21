@@ -40,8 +40,8 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Create Apple App Store Connect records.
 - Create Google Play Console records.
 - Create reviewer test accounts and supply credentials only inside store consoles.
-- Build real Android internal builds.
-- Build real iOS TestFlight builds.
+- Build real Android internal builds with the root mobile build commands.
+- Build real iOS TestFlight builds with the root mobile build commands.
 - Install builds on real Android and iOS devices.
 - Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Record external QA and submission evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
@@ -56,11 +56,12 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`.
 - Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
 - Enter reviewer credentials only in App Store Connect and Google Play Console.
-- Create one Android internal build and one iOS TestFlight build for each app.
+- Create one Android internal build and one iOS TestFlight build for each app with the root mobile build commands.
 - Install all four builds on real devices.
 - Complete `MOBILE_DEVICE_TESTING.md`, with push notification evidence from `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Capture screenshots from the real builds using `MOBILE_SCREENSHOT_PLAN.md`.
 - Run `npm run mobile:release-check` again immediately before final store submission.
+- Submit with the root mobile submit commands only after device QA, screenshots, reviewer notes, and store records are complete.
 
 ## Release gate
 
