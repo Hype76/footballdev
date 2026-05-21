@@ -42,7 +42,9 @@ Set these in the Netlify test environment:
 Run from the repo root:
 
 ```bash
+npm run lint
 npm run build
+npm run mobile:prestore
 git diff --check
 ```
 
