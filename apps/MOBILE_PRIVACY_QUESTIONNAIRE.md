@@ -82,6 +82,30 @@ Purpose:
 - Health or fitness data.
 - Browsing history outside the app.
 
+## Native Permission Map
+
+Android permissions requested:
+
+- `POST_NOTIFICATIONS`
+- `USE_BIOMETRIC`
+- `USE_FINGERPRINT`
+
+Android permissions explicitly blocked:
+
+- `android.permission.ACCESS_COARSE_LOCATION`
+- `android.permission.ACCESS_FINE_LOCATION`
+- `android.permission.BLUETOOTH`
+- `android.permission.CAMERA`
+- `android.permission.READ_CONTACTS`
+- `android.permission.READ_MEDIA_IMAGES`
+- `android.permission.READ_MEDIA_VIDEO`
+- `android.permission.RECORD_AUDIO`
+
+iOS privacy usage text:
+
+- Face ID is used only to unlock a saved session when biometric login is enabled.
+- The apps do not request camera, microphone, photo library, contacts, Bluetooth, calendar, health, or location usage descriptions.
+
 ## Apple Privacy Labels
 
 Likely categories to review:
