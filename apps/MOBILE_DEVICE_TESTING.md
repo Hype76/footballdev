@@ -31,19 +31,15 @@ Use this runbook for physical iOS and Android QA before the PR is marked ready.
 ## Build Coach app
 
 ```bash
-cd apps/coach-mobile
-npm install
-npm run build:android:internal
-npm run build:ios:store-test
+npm run mobile:build:coach:android:internal
+npm run mobile:build:coach:ios:store-test
 ```
 
 ## Build Parents app
 
 ```bash
-cd apps/parent-mobile
-npm install
-npm run build:android:internal
-npm run build:ios:store-test
+npm run mobile:build:parent:android:internal
+npm run mobile:build:parent:ios:store-test
 ```
 
 ## Android install test

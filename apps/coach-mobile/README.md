@@ -35,13 +35,13 @@ npm run mobile:release-check
 npm run mobile:config
 ```
 
-From this app folder:
+From the repo root:
 
 ```bash
-npm run export:web
-npm run build:android:internal
-npm run build:ios:store-test
-npm run build:android:store-test
+npm run mobile:export:web
+npm run mobile:build:coach:android:internal
+npm run mobile:build:coach:ios:store-test
+npm run mobile:build:coach:android:store-test
 ```
 
 ## Submit
@@ -49,8 +49,8 @@ npm run build:android:store-test
 Run only after the store records, reviewer credentials, screenshots, reviewer notes, physical device QA, and `STORE_SUBMISSION_CHECKLIST.md` are complete.
 
 ```bash
-npm run submit:ios:store-test
-npm run submit:android:store-test
+npm run mobile:submit:coach:ios:store-test
+npm run mobile:submit:coach:android:store-test
 ```
 
 ## Store readiness

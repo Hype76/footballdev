@@ -68,12 +68,15 @@ npm run mobile:export:web
 git diff --check
 ```
 
-Run from each mobile app folder:
+Run native builds from the repo root:
 
 ```bash
-npm run build:android:internal
-npm run build:ios:store-test
-npm run build:android:store-test
+npm run mobile:build:coach:android:internal
+npm run mobile:build:coach:ios:store-test
+npm run mobile:build:coach:android:store-test
+npm run mobile:build:parent:android:internal
+npm run mobile:build:parent:ios:store-test
+npm run mobile:build:parent:android:store-test
 ```
 
 ## Store policy checks

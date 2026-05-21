@@ -38,18 +38,16 @@ Run from the repo root:
 npm run mobile:release-check
 ```
 
-Then build each app through its package scripts:
+Then build each app from the repo root:
 
 ```bash
-cd apps/coach-mobile
-npm run build:ios:store-test
-npm run build:android:store-test
+npm run mobile:build:coach:ios:store-test
+npm run mobile:build:coach:android:store-test
 ```
 
 ```bash
-cd apps/parent-mobile
-npm run build:ios:store-test
-npm run build:android:store-test
+npm run mobile:build:parent:ios:store-test
+npm run mobile:build:parent:android:store-test
 ```
 
 ## Submission Check
