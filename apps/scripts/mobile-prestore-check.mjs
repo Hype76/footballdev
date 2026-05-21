@@ -437,6 +437,7 @@ assertIncludes(mobileParentLinks, 'export function getSelectedParentLink', 'Mobi
 assertIncludes(mobileParentLinks, 'export function withSelectedParentLink', 'Mobile parent link selection')
 assertIncludes(mobileData, "import { getParentPortalLinks, getSelectedParentLink } from './parentLinks'", 'Mobile parent link selection')
 assertIncludes(mobileData, 'function normalizeGoalMinute', 'Mobile matchday data validation')
+assertIncludes(mobileData, "throw new Error('Choose a valid match status.')", 'Mobile matchday data validation')
 assertIncludes(mobileData, 'Goal minute must be a number.', 'Mobile matchday data validation')
 assertIncludes(mobileData, 'Math.min(Math.round(numericValue), 130)', 'Mobile matchday data validation')
 assertIncludes(mobileData, "throw new Error('This match is no longer open for goals.')", 'Mobile matchday data validation')

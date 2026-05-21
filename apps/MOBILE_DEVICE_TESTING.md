@@ -87,6 +87,7 @@ npm run build:ios:store-test
 ## Notification test matrix
 
 - Coach starts match, parent app still loads the live match.
+- Coach cannot save an invalid match status.
 - Coach records Goal For, parent device receives a goal notification.
 - Coach records a detailed goal with a valid minute, scorer, and assist.
 - Coach tries a non-numeric detailed goal minute and sees a validation message instead of saving invalid data.

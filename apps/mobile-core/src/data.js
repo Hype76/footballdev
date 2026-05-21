@@ -445,6 +445,12 @@ export async function updateCoachMatchStatus(user, match, status) {
   }
 
   const normalizedStatus = normalizeText(status)
+  const allowedStatuses = ['scheduled', 'scorer_request', 'live', 'half_time', 'second_half', 'extra_time', 'penalties', 'full_time', 'postponed', 'cancelled']
+
+  if (!allowedStatuses.includes(normalizedStatus)) {
+    throw new Error('Choose a valid match status.')
+  }
+
   const phaseStatuses = ['live', 'second_half', 'extra_time', 'penalties']
   const payload = {
     status: normalizedStatus,
