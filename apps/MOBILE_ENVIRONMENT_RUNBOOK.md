@@ -73,6 +73,7 @@ The mobile apps must call a test API environment while the apps remain locked to
 
 Check both apps:
 
+- Run `npm run mobile:build:preflight` and confirm the working tree is clean.
 - EAS project ID exists in EAS, not in git.
 - Supabase URL is the test project URL.
 - Supabase publishable key belongs to the test project.

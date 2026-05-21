@@ -58,6 +58,7 @@ const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
 const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
 const mobileConfigCheckPath = 'apps/scripts/mobile-config-check.mjs'
 const mobileBuildGuardPath = 'apps/scripts/mobile-build-guard.mjs'
+const mobileBuildPreflightPath = 'apps/scripts/mobile-build-preflight.mjs'
 const mobileSubmitGuardPath = 'apps/scripts/mobile-submit-guard.mjs'
 const mobileSubmitPreflightPath = 'apps/scripts/mobile-submit-preflight.mjs'
 const mobileReleaseNextPath = 'apps/scripts/mobile-release-next.mjs'
@@ -389,6 +390,7 @@ assertFile(sharedAppConfigPath, 'Mobile shared app config')
 assertFile(mobileAppsRegistryPath, 'Mobile app registry')
 assertFile(mobileConfigCheckPath, 'Mobile config check')
 assertFile(mobileBuildGuardPath, 'Mobile build guard')
+assertFile(mobileBuildPreflightPath, 'Mobile build preflight helper')
 assertFile(mobileSubmitGuardPath, 'Mobile submit guard')
 assertFile(mobileSubmitPreflightPath, 'Mobile submit preflight helper')
 assertFile(mobileReleaseNextPath, 'Mobile release next helper')
@@ -401,6 +403,7 @@ const rootGitignore = existsSync(join(repoRoot, rootGitignorePath)) ? read(rootG
 const mobileAppsRegistry = existsSync(join(repoRoot, mobileAppsRegistryPath)) ? read(mobileAppsRegistryPath) : ''
 const mobileConfigCheck = existsSync(join(repoRoot, mobileConfigCheckPath)) ? read(mobileConfigCheckPath) : ''
 const mobileBuildGuard = existsSync(join(repoRoot, mobileBuildGuardPath)) ? read(mobileBuildGuardPath) : ''
+const mobileBuildPreflight = existsSync(join(repoRoot, mobileBuildPreflightPath)) ? read(mobileBuildPreflightPath) : ''
 const mobileSubmitGuard = existsSync(join(repoRoot, mobileSubmitGuardPath)) ? read(mobileSubmitGuardPath) : ''
 const mobileSubmitPreflight = existsSync(join(repoRoot, mobileSubmitPreflightPath)) ? read(mobileSubmitPreflightPath) : ''
 const mobileReleaseNext = existsSync(join(repoRoot, mobileReleaseNextPath)) ? read(mobileReleaseNextPath) : ''
@@ -423,6 +426,11 @@ assertIncludes(mobileBuildGuard, 'EAS setup and test environment values are conf
 assertIncludes(mobileBuildGuard, "'build'", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'--profile', profile", 'Mobile build guard')
 assertIncludes(mobileBuildGuard, "'--platform', platform", 'Mobile build guard')
+assertIncludes(mobileBuildPreflight, 'Football Player Mobile Build Preflight', 'Mobile build preflight helper')
+assertIncludes(mobileBuildPreflight, 'This command does not call EAS, Netlify, Supabase, Apple, Google, or any live service.', 'Mobile build preflight helper')
+assertIncludes(mobileBuildPreflight, 'MOBILE_NATIVE_BUILD_CONFIRMED=true', 'Mobile build preflight helper')
+assertIncludes(mobileBuildPreflight, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile build preflight helper')
+assertIncludes(mobileBuildPreflight, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile build preflight helper')
 assertIncludes(mobileSubmitGuard, "execFileSync('npm', ['run', 'mobile:release-check']", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, 'MOBILE_SUBMISSION_CONFIRMED', 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, 'final external QA is confirmed', 'Mobile submit guard')
@@ -692,6 +700,9 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   if (rootPackage.scripts?.['mobile:next'] !== 'node apps/scripts/mobile-release-next.mjs') {
     failures.push('Root package must include mobile:next script')
   }
+  if (rootPackage.scripts?.['mobile:build:preflight'] !== 'node apps/scripts/mobile-build-preflight.mjs') {
+    failures.push('Root package must include mobile:build:preflight script')
+  }
   if (rootPackage.scripts?.['mobile:submit:preflight'] !== 'node apps/scripts/mobile-submit-preflight.mjs') {
     failures.push('Root package must include mobile:submit:preflight script')
   }
@@ -782,6 +793,7 @@ if (existsSync(join(repoRoot, environmentRunbookPath))) {
   assertIncludes(environmentRunbook, 'The guarded env list commands print the expected profile values before listing remote EAS values.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, '`internal` must use the HTTPS test API host.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, '`store-test` must use the HTTPS test API host.', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'Run `npm run mobile:build:preflight` and confirm the working tree is clean.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for the build command after the EAS project values have been verified.', 'Mobile environment runbook')
   assertIncludes(environmentRunbook, 'Do not set live Supabase values for either mobile app until live release approval is explicitly given.', 'Mobile environment runbook')
 }
@@ -836,6 +848,7 @@ if (existsSync(join(repoRoot, 'apps/MOBILE_DEVICE_TESTING.md'))) {
   assertIncludes(deviceTesting, 'Confirm this branch has passed `npm run mobile:release-check`.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Create or update the private release evidence file with `npm run mobile:evidence:init`.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Confirm EAS project setup matches `MOBILE_EAS_SETUP_CHECKLIST.md`.', 'Mobile device testing')
+  assertIncludes(deviceTesting, 'Run `npm run mobile:build:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only after EAS values and the HTTPS test API are verified.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true`.', 'Mobile device testing')
   assertIncludes(deviceTesting, 'Record this in a private evidence copy under `apps/mobile-release-evidence/` for each test run.', 'Mobile device testing')
@@ -863,6 +876,7 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Complete `MOBILE_STORE_RECORD_CHECKLIST.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Complete `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Run `npm run mobile:build:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Release phases: `MOBILE_RELEASE_PHASES.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'External evidence template: `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'The guarded build commands require `MOBILE_NATIVE_BUILD_CONFIRMED=true` after EAS setup and test environment verification are complete.', 'Mobile pre-store QA')
@@ -1067,6 +1081,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Build real Android internal builds with the root mobile build commands.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for native build commands after EAS values are verified.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Run `npm run mobile:build:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Submit with the root mobile submit commands only after device QA, notification QA, screenshots, reviewer notes, store records, reviewer credentials, and private release evidence are complete.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Set `MOBILE_SUBMISSION_CONFIRMED=true` only for the final submit command.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Run `npm run mobile:submit:preflight` before setting `MOBILE_SUBMISSION_CONFIRMED=true`.', 'Mobile release status')

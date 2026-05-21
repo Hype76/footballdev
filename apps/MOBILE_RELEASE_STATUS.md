@@ -66,6 +66,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md` while checking app names, bundle IDs, package names, schemes, icons, splash assets, notification icons, and public URLs.
 - Enter reviewer credentials only in App Store Connect and Google Play Console.
 - Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for native build commands after EAS values are verified.
+- Run `npm run mobile:build:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.
 - Create one Android internal build and one iOS TestFlight build for each app with the root mobile build commands.
 - Install all four builds on real devices.
 - Complete `MOBILE_DEVICE_TESTING.md`, with push notification evidence from `MOBILE_NOTIFICATION_RUNBOOK.md`.

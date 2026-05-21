@@ -146,6 +146,7 @@ npm run mobile:build:parent:android:store-test
 - Check `MOBILE_ENVIRONMENT_RUNBOOK.md` before creating EAS builds.
 - Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.
 - Check `MOBILE_VERSIONING.md` before creating native builds.
+- Run `npm run mobile:build:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.
 - Create Expo EAS projects for both apps.
 - Add real EAS project IDs to each app environment.
 - Set `MOBILE_NATIVE_BUILD_CONFIRMED=true` only for the build command after EAS values are verified.

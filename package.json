@@ -13,6 +13,7 @@
     "mobile:prestore": "node apps/scripts/mobile-prestore-check.mjs",
     "mobile:release-check": "node apps/scripts/mobile-release-check.mjs",
     "mobile:next": "node apps/scripts/mobile-release-next.mjs",
+    "mobile:build:preflight": "node apps/scripts/mobile-build-preflight.mjs",
     "mobile:submit:preflight": "node apps/scripts/mobile-submit-preflight.mjs",
     "mobile:eas:init:coach": "node apps/scripts/mobile-eas-init-guard.mjs coach",
     "mobile:eas:init:parent": "node apps/scripts/mobile-eas-init-guard.mjs parent",
