@@ -427,6 +427,11 @@ assertIncludes(mobileUi, 'export function AccessScreen', 'Mobile shared fallback
 assertIncludes(mobileUi, 'export function LockedScreen', 'Mobile shared fallback screens')
 assertIncludes(mobileUi, 'Sign out', 'Mobile shared fallback screens')
 assertIncludes(mobileUi, 'Unlock failed.', 'Mobile shared fallback screens')
+assertIncludes(mobileUi, 'export function MobileLoginScreen', 'Mobile shared login')
+assertIncludes(mobileUi, 'keyboardType="email-address"', 'Mobile shared login')
+assertIncludes(mobileUi, 'autoComplete="current-password"', 'Mobile shared login')
+assertIncludes(mobileUi, 'disabled={!canSubmit}', 'Mobile shared login')
+assertIncludes(mobileUi, 'Log in', 'Mobile shared login')
 
 apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
@@ -440,10 +445,7 @@ apps.forEach((app) => {
   assertIncludes(appSource, 'showOverview', `${app.name} progressive overview`)
   assertIncludes(appSource, 'OverviewPanel', `${app.name} progressive overview`)
   assertIncludes(appSource, app.restrictedAccessCopy, `${app.name} login copy`)
-  assertIncludes(appSource, 'Log in', `${app.name} button copy`)
-  assertIncludes(appSource, 'keyboardType="email-address"', `${app.name} login keyboard`)
-  assertIncludes(appSource, 'autoComplete="current-password"', `${app.name} login autofill`)
-  assertIncludes(appSource, 'disabled={!canSubmit}', `${app.name} login guard`)
+  assertIncludes(appSource, 'MobileLoginScreen', `${app.name} shared login`)
   assertNotIncludes(appSource, 'Test environment only.', `${app.name} login copy`)
   assertNotIncludes(appSource, 'Log In', `${app.name} button copy`)
   assertNotIncludes(appSource, 'Sign Out', `${app.name} button copy`)

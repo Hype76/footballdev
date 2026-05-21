@@ -20,72 +20,24 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
 function LoginScreen() {
   const { authError, signIn } = useMobileAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const canSubmit = Boolean(email.trim() && password)
-
-  async function handleLogin() {
-    if (!canSubmit || isSubmitting) {
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      await signIn(email.trim(), password)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.shell}>
-          <Image source={require('./assets/football-player-logo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.kicker}>Coach App</Text>
-          <Text style={styles.title}>Log in to your club.</Text>
-          <Text style={styles.copy}>Use the same staff login you use on the website.</Text>
-
-          <View style={styles.card}>
-            <TextField
-              autoComplete="email"
-              keyboardType="email-address"
-              label="Email"
-              onChangeText={setEmail}
-              placeholder="coach@example.com"
-              returnKeyType="next"
-              textContentType="username"
-              value={email}
-            />
-            <TextField
-              autoComplete="current-password"
-              label="Password"
-              onChangeText={setPassword}
-              onSubmitEditing={handleLogin}
-              placeholder="Password"
-              returnKeyType="done"
-              secureTextEntry
-              textContentType="password"
-              value={password}
-            />
-            {authError ? <Text style={styles.error}>{authError}</Text> : null}
-            <PrimaryButton disabled={!canSubmit} loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
-          </View>
-
-          <Text style={styles.meta}>Restricted club access.</Text>
-          <LegalFooter />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <MobileLoginScreen
+      authError={authError}
+      copy="Use the same staff login you use on the website."
+      emailPlaceholder="coach@example.com"
+      kicker="Coach App"
+      logoSource={require('./assets/football-player-logo.png')}
+      meta="Restricted club access."
+      signIn={signIn}
+      title="Log in to your club."
+    />
   )
 }
 

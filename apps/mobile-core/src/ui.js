@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActivityIndicator, Image, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from './theme'
 
 export function PrimaryButton({ children, disabled = false, loading = false, onPress, variant = 'primary' }) {
@@ -73,6 +73,79 @@ export function LockedScreen({ errorMessage, logoSource, onUnlock }) {
         {message ? <Text style={styles.error}>{message}</Text> : null}
         <PrimaryButton loading={isUnlocking} onPress={handleUnlock}>Unlock</PrimaryButton>
       </View>
+    </SafeAreaView>
+  )
+}
+
+export function MobileLoginScreen({
+  authError,
+  copy,
+  emailPlaceholder,
+  kicker,
+  logoSource,
+  meta,
+  signIn,
+  title,
+}) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const canSubmit = Boolean(email.trim() && password)
+
+  async function handleLogin() {
+    if (!canSubmit || isSubmitting) {
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      await signIn(email.trim(), password)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <NativeStatusBar barStyle="light-content" />
+      <ScrollView contentContainerStyle={styles.loginScroll}>
+        <View style={styles.loginShell}>
+          <Image source={logoSource} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.kicker}>{kicker}</Text>
+          <Text style={styles.screenTitle}>{title}</Text>
+          <Text style={styles.screenCopy}>{copy}</Text>
+
+          <View style={styles.simpleCard}>
+            <TextField
+              autoComplete="email"
+              keyboardType="email-address"
+              label="Email"
+              onChangeText={setEmail}
+              placeholder={emailPlaceholder}
+              returnKeyType="next"
+              textContentType="username"
+              value={email}
+            />
+            <TextField
+              autoComplete="current-password"
+              label="Password"
+              onChangeText={setPassword}
+              onSubmitEditing={handleLogin}
+              placeholder="Password"
+              returnKeyType="done"
+              secureTextEntry
+              textContentType="password"
+              value={password}
+            />
+            {authError ? <Text style={styles.error}>{authError}</Text> : null}
+            <PrimaryButton disabled={!canSubmit} loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
+          </View>
+
+          <Text style={styles.meta}>{meta}</Text>
+          <LegalFooter />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -495,6 +568,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
+  kicker: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+  },
   legalFooter: {
     alignItems: 'center',
     gap: 4,
@@ -509,6 +589,21 @@ const styles = StyleSheet.create({
   logo: {
     height: 70,
     width: 70,
+  },
+  loginScroll: {
+    flexGrow: 1,
+    padding: 20,
+  },
+  loginShell: {
+    alignSelf: 'center',
+    gap: 18,
+    maxWidth: 620,
+    width: '100%',
+  },
+  meta: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
   },
   eventList: {
     gap: 8,

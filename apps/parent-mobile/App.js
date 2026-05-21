@@ -18,72 +18,24 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { AccessScreen, LegalFooter, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, StatusBanner, TabRail } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
 function LoginScreen() {
   const { authError, signIn } = useMobileAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const canSubmit = Boolean(email.trim() && password)
-
-  async function handleLogin() {
-    if (!canSubmit || isSubmitting) {
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      await signIn(email.trim(), password)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.shell}>
-          <Image source={require('./assets/football-player-logo.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.kicker}>Parent App</Text>
-          <Text style={styles.title}>Log in for child updates.</Text>
-          <Text style={styles.copy}>Use the parent login linked by your club.</Text>
-
-          <View style={styles.card}>
-            <TextField
-              autoComplete="email"
-              keyboardType="email-address"
-              label="Email"
-              onChangeText={setEmail}
-              placeholder="parent@example.com"
-              returnKeyType="next"
-              textContentType="username"
-              value={email}
-            />
-            <TextField
-              autoComplete="current-password"
-              label="Password"
-              onChangeText={setPassword}
-              onSubmitEditing={handleLogin}
-              placeholder="Password"
-              returnKeyType="done"
-              secureTextEntry
-              textContentType="password"
-              value={password}
-            />
-            {authError ? <Text style={styles.error}>{authError}</Text> : null}
-            <PrimaryButton disabled={!canSubmit} loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
-          </View>
-
-          <Text style={styles.meta}>Restricted parent access.</Text>
-          <LegalFooter />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <MobileLoginScreen
+      authError={authError}
+      copy="Use the parent login linked by your club."
+      emailPlaceholder="parent@example.com"
+      kicker="Parent App"
+      logoSource={require('./assets/football-player-logo.png')}
+      meta="Restricted parent access."
+      signIn={signIn}
+      title="Log in for child updates."
+    />
   )
 }
 
