@@ -12,6 +12,8 @@ Use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md` when checking names, bundle IDs, packa
 Use `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md` when recording external QA and submission evidence inside the ignored `apps/mobile-release-evidence/` folder.
 Use `MOBILE_VERSIONING.md` before creating native builds.
 
+Run `npm run mobile:store:preflight` before creating or editing Apple and Google store records.
+
 ## Apps
 
 ### Coach app
@@ -88,6 +90,7 @@ For each app record:
 - Screenshots: use `MOBILE_SCREENSHOT_PLAN.md`
 - Store record checklist: use `MOBILE_STORE_RECORD_CHECKLIST.md`
 - Native identity checklist: use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`
+- Store record preflight: run `npm run mobile:store:preflight`
 
 ## Google Play Console setup
 
@@ -107,6 +110,7 @@ For each app record:
 - Screenshots: use `MOBILE_SCREENSHOT_PLAN.md`
 - Store record checklist: use `MOBILE_STORE_RECORD_CHECKLIST.md`
 - Native identity checklist: use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`
+- Store record preflight: run `npm run mobile:store:preflight`
 
 ## Native build order
 

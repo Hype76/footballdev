@@ -61,6 +61,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - If EAS project setup changes `app.config.js`, revert that app config change and store `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS only.
 - Add EAS environment values for both apps with `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
 - Verify EAS project values with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent`, including the printed profile matrix.
+- Run `npm run mobile:store:preflight` before creating or editing Apple and Google store records.
 - Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
 - Use `MOBILE_STORE_RECORD_CHECKLIST.md` while creating the four store records.
 - Use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md` while checking app names, bundle IDs, package names, schemes, icons, splash assets, notification icons, and public URLs.

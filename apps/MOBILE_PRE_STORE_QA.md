@@ -143,6 +143,7 @@ npm run mobile:build:parent:android:store-test
 - Complete `MOBILE_STORE_ACCOUNT_SETUP.md`.
 - Complete `MOBILE_STORE_RECORD_CHECKLIST.md`.
 - Complete `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.
+- Run `npm run mobile:store:preflight` before creating or editing Apple and Google store records.
 - Check `MOBILE_ENVIRONMENT_RUNBOOK.md` before creating EAS builds.
 - Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.
 - Check `MOBILE_VERSIONING.md` before creating native builds.

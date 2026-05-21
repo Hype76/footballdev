@@ -61,6 +61,7 @@ const mobileBuildGuardPath = 'apps/scripts/mobile-build-guard.mjs'
 const mobileBuildPreflightPath = 'apps/scripts/mobile-build-preflight.mjs'
 const mobileSubmitGuardPath = 'apps/scripts/mobile-submit-guard.mjs'
 const mobileSubmitPreflightPath = 'apps/scripts/mobile-submit-preflight.mjs'
+const mobileStorePreflightPath = 'apps/scripts/mobile-store-preflight.mjs'
 const mobileReleaseNextPath = 'apps/scripts/mobile-release-next.mjs'
 const mobileEasInitGuardPath = 'apps/scripts/mobile-eas-init-guard.mjs'
 const mobileEasEnvListGuardPath = 'apps/scripts/mobile-eas-env-list-guard.mjs'
@@ -393,6 +394,7 @@ assertFile(mobileBuildGuardPath, 'Mobile build guard')
 assertFile(mobileBuildPreflightPath, 'Mobile build preflight helper')
 assertFile(mobileSubmitGuardPath, 'Mobile submit guard')
 assertFile(mobileSubmitPreflightPath, 'Mobile submit preflight helper')
+assertFile(mobileStorePreflightPath, 'Mobile store record preflight helper')
 assertFile(mobileReleaseNextPath, 'Mobile release next helper')
 assertFile(mobileEasInitGuardPath, 'Mobile EAS init guard')
 assertFile(mobileEasEnvListGuardPath, 'Mobile EAS env list guard')
@@ -406,6 +408,7 @@ const mobileBuildGuard = existsSync(join(repoRoot, mobileBuildGuardPath)) ? read
 const mobileBuildPreflight = existsSync(join(repoRoot, mobileBuildPreflightPath)) ? read(mobileBuildPreflightPath) : ''
 const mobileSubmitGuard = existsSync(join(repoRoot, mobileSubmitGuardPath)) ? read(mobileSubmitGuardPath) : ''
 const mobileSubmitPreflight = existsSync(join(repoRoot, mobileSubmitPreflightPath)) ? read(mobileSubmitPreflightPath) : ''
+const mobileStorePreflight = existsSync(join(repoRoot, mobileStorePreflightPath)) ? read(mobileStorePreflightPath) : ''
 const mobileReleaseNext = existsSync(join(repoRoot, mobileReleaseNextPath)) ? read(mobileReleaseNextPath) : ''
 const mobileEasInitGuard = existsSync(join(repoRoot, mobileEasInitGuardPath)) ? read(mobileEasInitGuardPath) : ''
 const mobileEasEnvListGuard = existsSync(join(repoRoot, mobileEasEnvListGuardPath)) ? read(mobileEasEnvListGuardPath) : ''
@@ -442,6 +445,11 @@ assertIncludes(mobileSubmitPreflight, 'This command does not call EAS, Apple, Go
 assertIncludes(mobileSubmitPreflight, 'MOBILE_SUBMISSION_CONFIRMED=true', 'Mobile submit preflight helper')
 assertIncludes(mobileSubmitPreflight, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile submit preflight helper')
 assertIncludes(mobileSubmitPreflight, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile submit preflight helper')
+assertIncludes(mobileStorePreflight, 'Football Player Mobile Store Record Preflight', 'Mobile store record preflight helper')
+assertIncludes(mobileStorePreflight, 'This command does not call Apple, Google, EAS, Netlify, Supabase, or any live service.', 'Mobile store record preflight helper')
+assertIncludes(mobileStorePreflight, 'Apple App Store Connect', 'Mobile store record preflight helper')
+assertIncludes(mobileStorePreflight, 'Google Play Console', 'Mobile store record preflight helper')
+assertIncludes(mobileStorePreflight, 'Pricing: Free.', 'Mobile store record preflight helper')
 assertIncludes(mobileReleaseNext, 'Phase 2: Expo EAS Setup', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'Local readiness snapshot:', 'Mobile release next helper')
 assertIncludes(mobileReleaseNext, 'No Netlify deploy is required for mobile EAS or store setup.', 'Mobile release next helper')
@@ -706,6 +714,9 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   if (rootPackage.scripts?.['mobile:submit:preflight'] !== 'node apps/scripts/mobile-submit-preflight.mjs') {
     failures.push('Root package must include mobile:submit:preflight script')
   }
+  if (rootPackage.scripts?.['mobile:store:preflight'] !== 'node apps/scripts/mobile-store-preflight.mjs') {
+    failures.push('Root package must include mobile:store:preflight script')
+  }
   if (rootPackage.scripts?.['mobile:evidence:init'] !== 'node apps/scripts/mobile-evidence-init.mjs') {
     failures.push('Root package must include mobile:evidence:init script')
   }
@@ -876,6 +887,7 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
   assertIncludes(preStoreQa, 'Complete `MOBILE_EAS_SETUP_CHECKLIST.md` before creating EAS builds.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Complete `MOBILE_STORE_RECORD_CHECKLIST.md`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Complete `MOBILE_NATIVE_IDENTITY_CHECKLIST.md`.', 'Mobile pre-store QA')
+  assertIncludes(preStoreQa, 'Run `npm run mobile:store:preflight` before creating or editing Apple and Google store records.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Run `npm run mobile:build:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'Release phases: `MOBILE_RELEASE_PHASES.md`', 'Mobile pre-store QA')
   assertIncludes(preStoreQa, 'External evidence template: `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`', 'Mobile pre-store QA')
@@ -982,6 +994,7 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'MOBILE_STORE_RECORD_CHECKLIST.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_NATIVE_IDENTITY_CHECKLIST.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_EXTERNAL_RELEASE_EVIDENCE.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'Run `npm run mobile:store:preflight` before creating or editing Apple and Google store records.', 'Mobile store account setup')
   assertIncludes(storeSetup, 'apps/mobile-release-evidence/', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_VERSIONING.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
@@ -1008,6 +1021,7 @@ if (existsSync(join(repoRoot, storeRecordChecklistPath))) {
   const storeRecordChecklist = read(storeRecordChecklistPath)
   assertIncludes(storeRecordChecklist, '# Football Player Mobile Store Record Checklist', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'npm run mobile:evidence:init', 'Mobile store record checklist')
+  assertIncludes(storeRecordChecklist, 'npm run mobile:store:preflight', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'Apple App Store Connect: Football Player Coach', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'Apple App Store Connect: Football Player Parents', 'Mobile store record checklist')
   assertIncludes(storeRecordChecklist, 'Google Play Console: Football Player Coach', 'Mobile store record checklist')
@@ -1094,6 +1108,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'npm run mobile:eas:env:coach', 'Mobile release status')
   assertIncludes(releaseStatus, 'npm run mobile:eas:env:parent', 'Mobile release status')
   assertIncludes(releaseStatus, 'including the printed profile matrix', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Run `npm run mobile:store:preflight` before creating or editing Apple and Google store records.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Use `MOBILE_STORE_RECORD_CHECKLIST.md` while creating the four store records.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')

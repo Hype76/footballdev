@@ -8,6 +8,12 @@ Create or update the private release evidence file first:
 npm run mobile:evidence:init
 ```
 
+Run the local store record preflight before creating or editing Apple and Google records:
+
+```bash
+npm run mobile:store:preflight
+```
+
 Record completed store record links only in the ignored `apps/mobile-release-evidence/` folder.
 
 ## Records To Create
