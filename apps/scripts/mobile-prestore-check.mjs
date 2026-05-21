@@ -503,6 +503,8 @@ assertIncludes(mobileEasInitGuard, "execFileSync('npm', ['run', 'mobile:release-
 assertIncludes(mobileEasInitGuard, 'assertEasLogin()', 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, "'project:init'", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, "'--force'", 'Mobile EAS init guard')
+assertIncludes(mobileEasInitGuard, 'Cannot automatically write to dynamic config', 'Mobile EAS init guard')
+assertIncludes(mobileEasInitGuard, 'Dynamic app config is expected to read EXPO_PUBLIC_EAS_PROJECT_ID from EAS environment values.', 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, 'EXPO_PUBLIC_EAS_PROJECT_ID in EAS only', 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, "git', ['status', '--short', '--', app.appConfig]", 'Mobile EAS init guard')
 assertIncludes(mobileEasInitGuard, 'app config changed during EAS project setup', 'Mobile EAS init guard')
