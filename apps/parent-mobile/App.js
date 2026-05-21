@@ -19,7 +19,7 @@ import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { getTabForNotificationRoute } from '../mobile-core/src/routes'
 import { colors } from '../mobile-core/src/theme'
-import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, ListStack, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, Panel, PollCard, PrimaryButton, ScreenHeader, StatusBanner, TabRail } from '../mobile-core/src/ui'
+import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, ListStack, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, Panel, PollCard, PrimaryButton, RecoveryPanel, ScreenHeader, StatusBanner, TabRail } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -50,6 +50,7 @@ function ParentHome() {
   const [summary, setSummary] = useState(null)
   const [matches, setMatches] = useState([])
   const [statusMessage, setStatusMessage] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [activeActionId, setActiveActionId] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -105,6 +106,7 @@ function ParentHome() {
     setMessages(nextMessages)
     setPolls(nextPolls)
     setLastUpdatedAt(new Date().toISOString())
+    setLoadError('')
   }, [selectedMobileUser])
 
   useEffect(() => {
@@ -118,6 +120,7 @@ function ParentHome() {
 
       setIsLoadingSummary(true)
       setStatusMessage('')
+      setLoadError('')
 
       try {
         const [nextSummary, nextMatches, nextMessages, nextPolls] = await Promise.all([
@@ -138,7 +141,9 @@ function ParentHome() {
         console.error(error)
 
         if (isMounted) {
-          setStatusMessage(error.message || 'Parent summary could not be loaded.')
+          const message = error.message || 'Parent summary could not be loaded.'
+          setStatusMessage(message)
+          setLoadError(message)
         }
       } finally {
         if (isMounted) {
@@ -199,13 +204,16 @@ function ParentHome() {
 
     setIsRefreshing(true)
     setStatusMessage('')
+    setLoadError('')
 
     try {
       await refreshParentData()
       setStatusMessage('Latest updates loaded.')
     } catch (error) {
       console.error(error)
-      setStatusMessage(error.message || 'Latest updates could not be loaded.')
+      const message = error.message || 'Latest updates could not be loaded.'
+      setStatusMessage(message)
+      setLoadError(message)
     } finally {
       setIsRefreshing(false)
     }
@@ -287,6 +295,15 @@ function ParentHome() {
           />
 
           <StatusBanner message={statusMessage} onDismiss={() => setStatusMessage('')} />
+
+          {loadError ? (
+            <RecoveryPanel
+              isRetrying={isRefreshing}
+              message={loadError}
+              onRetry={handleRefresh}
+              title="Could not load parent data"
+            />
+          ) : null}
 
           <Panel>
             <Text style={styles.cardTitle}>Linked child</Text>

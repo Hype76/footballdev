@@ -21,7 +21,7 @@ import {
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { getTabForNotificationRoute } from '../mobile-core/src/routes'
 import { colors } from '../mobile-core/src/theme'
-import { AccessScreen, ChoiceGroup, EmptyState, HintText, LegalFooter, ListStack, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, Panel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SegmentedControl, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { AccessScreen, ChoiceGroup, EmptyState, HintText, LegalFooter, ListStack, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, Panel, PlayerCard, PrimaryButton, RecoveryPanel, ScoreStepper, ScreenHeader, SegmentedControl, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -53,6 +53,7 @@ function CoachHome() {
   const [summary, setSummary] = useState(null)
   const [matches, setMatches] = useState([])
   const [statusMessage, setStatusMessage] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [activeActionId, setActiveActionId] = useState('')
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -112,6 +113,7 @@ function CoachHome() {
     setSessions(nextSessions)
     setAssessmentFields(nextFields)
     setLastUpdatedAt(new Date().toISOString())
+    setLoadError('')
   }, [selectedMobileUser])
 
   useEffect(() => {
@@ -125,6 +127,7 @@ function CoachHome() {
 
       setIsLoadingSummary(true)
       setStatusMessage('')
+      setLoadError('')
 
       try {
         const [nextSummary, nextMatches, nextPlayers, nextSessions, nextFields] = await Promise.all([
@@ -147,7 +150,9 @@ function CoachHome() {
         console.error(error)
 
         if (isMounted) {
-          setStatusMessage(error.message || 'Coach summary could not be loaded.')
+          const message = error.message || 'Coach summary could not be loaded.'
+          setStatusMessage(message)
+          setLoadError(message)
         }
       } finally {
         if (isMounted) {
@@ -199,13 +204,16 @@ function CoachHome() {
 
     setIsRefreshing(true)
     setStatusMessage('')
+    setLoadError('')
 
     try {
       await refreshCoachData()
       setStatusMessage('Latest coach updates loaded.')
     } catch (error) {
       console.error(error)
-      setStatusMessage(error.message || 'Latest coach updates could not be loaded.')
+      const message = error.message || 'Latest coach updates could not be loaded.'
+      setStatusMessage(message)
+      setLoadError(message)
     } finally {
       setIsRefreshing(false)
     }
@@ -316,6 +324,15 @@ function CoachHome() {
           />
 
           <StatusBanner message={statusMessage} onDismiss={() => setStatusMessage('')} />
+
+          {loadError ? (
+            <RecoveryPanel
+              isRetrying={isRefreshing}
+              message={loadError}
+              onRetry={handleRefresh}
+              title="Could not load coach data"
+            />
+          ) : null}
 
           {isLoadingSummary ? (
             <LoadingRow message="Loading workspace summary..." />

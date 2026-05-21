@@ -61,6 +61,20 @@ export function EmptyState({ message }) {
   )
 }
 
+export function RecoveryPanel({ actionLabel = 'Try again', isRetrying = false, message, onRetry, title = 'Could not load latest data' }) {
+  return (
+    <View style={styles.recoveryPanel}>
+      <Text style={styles.simpleTitle}>{title}</Text>
+      <Text style={styles.simpleBody}>{message}</Text>
+      {onRetry ? (
+        <PrimaryButton loading={isRetrying} onPress={onRetry} variant="secondary">
+          {actionLabel}
+        </PrimaryButton>
+      ) : null}
+    </View>
+  )
+}
+
 export function Panel({ children, variant = 'panel' }) {
   return (
     <View style={variant === 'card' ? styles.cardPanel : styles.panel}>
@@ -905,6 +919,15 @@ const styles = StyleSheet.create({
   emptyState: {
     backgroundColor: colors.panel,
     borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+    width: '100%',
+  },
+  recoveryPanel: {
+    backgroundColor: 'rgba(255, 180, 180, 0.08)',
+    borderColor: 'rgba(255, 180, 180, 0.34)',
     borderRadius: 10,
     borderWidth: 1,
     gap: 10,
