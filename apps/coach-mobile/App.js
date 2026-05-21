@@ -1,7 +1,7 @@
 import 'react-native-url-polyfill/auto'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
@@ -68,6 +68,7 @@ function CoachHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('matchday')
+  const [selectedTeamId, setSelectedTeamId] = useState('')
   const [players, setPlayers] = useState([])
   const [sessions, setSessions] = useState([])
   const [assessmentFields, setAssessmentFields] = useState([])
@@ -80,23 +81,45 @@ function CoachHome() {
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
+  const teamOptions = useMemo(
+    () => (Array.isArray(user?.teamOptions) ? user.teamOptions : []),
+    [user?.teamOptions],
+  )
+  const canUseAllTeams = Number(user?.roleRank || 0) >= 50
+  const selectedTeam = teamOptions.find((team) => team.id === selectedTeamId)
+    || teamOptions.find((team) => team.id === user?.activeTeamId)
+    || (!canUseAllTeams ? teamOptions[0] : null)
+    || null
+  const selectedMobileUser = useMemo(
+    () => user
+      ? {
+          ...user,
+          activeTeamId: selectedTeam?.id || '',
+          activeTeamName: selectedTeam?.name || '',
+        }
+      : user,
+    [selectedTeam?.id, selectedTeam?.name, user],
+  )
 
   useEffect(() => {
     let isMounted = true
 
     async function loadSummary() {
-      if (!user?.clubId) {
+      if (!selectedMobileUser?.clubId) {
         setIsLoadingSummary(false)
         return
       }
 
+      setIsLoadingSummary(true)
+      setStatusMessage('')
+
       try {
         const [nextSummary, nextMatches, nextPlayers, nextSessions, nextFields] = await Promise.all([
-          getCoachHomeSummary(user),
-          getCoachMatchDays(user),
-          getCoachPlayers(user),
-          getCoachSessions(user),
-          getCoachAssessmentFields(user),
+          getCoachHomeSummary(selectedMobileUser),
+          getCoachMatchDays(selectedMobileUser),
+          getCoachPlayers(selectedMobileUser),
+          getCoachSessions(selectedMobileUser),
+          getCoachAssessmentFields(selectedMobileUser),
         ])
 
         if (isMounted) {
@@ -124,7 +147,13 @@ function CoachHome() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [selectedMobileUser])
+
+  useEffect(() => {
+    if (selectedTeam?.id && selectedTeamId !== selectedTeam.id) {
+      setSelectedTeamId(selectedTeam.id)
+    }
+  }, [selectedTeam?.id, selectedTeamId])
 
   useEffect(() => {
     let isMounted = true
@@ -171,7 +200,7 @@ function CoachHome() {
         apiBaseUrl: config.apiBaseUrl,
         appRole: 'coach',
         easProjectId: config.easProjectId,
-        teamId: user?.activeTeamId || '',
+        teamId: selectedMobileUser?.activeTeamId || '',
       })
       setStatusMessage('Coach notifications are enabled on this device.')
     } catch (error) {
@@ -200,11 +229,11 @@ function CoachHome() {
 
   async function refreshCoachData() {
     const [nextSummary, nextMatches, nextPlayers, nextSessions, nextFields] = await Promise.all([
-      getCoachHomeSummary(user),
-      getCoachMatchDays(user),
-      getCoachPlayers(user),
-      getCoachSessions(user),
-      getCoachAssessmentFields(user),
+      getCoachHomeSummary(selectedMobileUser),
+      getCoachMatchDays(selectedMobileUser),
+      getCoachPlayers(selectedMobileUser),
+      getCoachSessions(selectedMobileUser),
+      getCoachAssessmentFields(selectedMobileUser),
     ])
 
     setSummary(nextSummary)
@@ -219,7 +248,7 @@ function CoachHome() {
     setStatusMessage('')
 
     try {
-      await updateCoachMatchStatus(user, match, status)
+      await updateCoachMatchStatus(selectedMobileUser, match, status)
       await refreshCoachData()
       setStatusMessage(`Match changed to ${status.replace(/_/g, ' ')}.`)
     } catch (error) {
@@ -235,7 +264,7 @@ function CoachHome() {
     setStatusMessage('')
 
     try {
-      await addCoachMatchGoal(user, match, teamSide)
+      await addCoachMatchGoal(selectedMobileUser, match, teamSide)
       await refreshCoachData()
       setStatusMessage(teamSide === 'club' ? 'Goal added for your team.' : 'Goal added for opponent.')
     } catch (error) {
@@ -251,7 +280,7 @@ function CoachHome() {
     setStatusMessage('')
 
     try {
-      await addCoachMatchGoal(user, match, teamSide, goalDetails)
+      await addCoachMatchGoal(selectedMobileUser, match, teamSide, goalDetails)
       await refreshCoachData()
       setStatusMessage(teamSide === 'club' ? 'Goal details saved for your team.' : 'Opponent goal details saved.')
     } catch (error) {
@@ -267,7 +296,7 @@ function CoachHome() {
     setStatusMessage('')
 
     try {
-      await undoCoachLastMatchGoal(user, match)
+      await undoCoachLastMatchGoal(selectedMobileUser, match)
       await refreshCoachData()
       setStatusMessage('Last goal undone and score corrected.')
     } catch (error) {
@@ -310,7 +339,18 @@ function CoachHome() {
           <Image source={require('./assets/football-player-logo.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.kicker}>{user.clubName}</Text>
           <Text style={styles.title}>Hi {user.displayName || user.name}.</Text>
-          <Text style={styles.copy}>Your coach app is connected to the current test database.</Text>
+          <Text style={styles.copy}>
+            {selectedMobileUser.activeTeamName ? `${selectedMobileUser.activeTeamName} is selected.` : 'All available teams are selected.'}
+          </Text>
+
+          {teamOptions.length > 1 ? (
+            <TeamSelector
+              canUseAllTeams={canUseAllTeams}
+              onSelect={setSelectedTeamId}
+              selectedTeamId={selectedMobileUser.activeTeamId || ''}
+              teams={teamOptions}
+            />
+          ) : null}
 
           <TabRail
             activeTab={activeTab}
@@ -354,7 +394,7 @@ function CoachHome() {
               onStatusMessage={setStatusMessage}
               fields={assessmentFields}
               players={players}
-              user={user}
+              user={selectedMobileUser}
             />
           ) : null}
           {activeTab === 'sessions' ? <SessionsPanel sessions={sessions} /> : null}
@@ -404,6 +444,37 @@ function TabRail({ activeTab, onChange, tabs }) {
           <Text style={[styles.tabText, activeTab === tab.key ? styles.activeTabText : null]}>{tab.label}</Text>
         </Pressable>
       ))}
+    </View>
+  )
+}
+
+function TeamSelector({ canUseAllTeams, onSelect, selectedTeamId, teams }) {
+  return (
+    <View style={styles.teamSelectorCard}>
+      <Text style={styles.cardTitle}>Team view</Text>
+      <View style={styles.teamSelector}>
+        {canUseAllTeams ? (
+          <Pressable
+            onPress={() => onSelect('')}
+            style={[styles.teamButton, !selectedTeamId ? styles.teamButtonActive : null]}
+          >
+            <Text style={[styles.teamButtonText, !selectedTeamId ? styles.teamButtonTextActive : null]}>All Teams</Text>
+          </Pressable>
+        ) : null}
+        {teams.map((team) => {
+          const isActive = team.id === selectedTeamId
+
+          return (
+            <Pressable
+              key={team.id}
+              onPress={() => onSelect(team.id)}
+              style={[styles.teamButton, isActive ? styles.teamButtonActive : null]}
+            >
+              <Text style={[styles.teamButtonText, isActive ? styles.teamButtonTextActive : null]}>{team.name}</Text>
+            </Pressable>
+          )
+        })}
+      </View>
     </View>
   )
 }
@@ -965,6 +1036,40 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#000000',
+  },
+  teamButton: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  teamButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  teamButtonText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  teamButtonTextActive: {
+    color: '#000000',
+  },
+  teamSelector: {
+    gap: 8,
+  },
+  teamSelectorCard: {
+    backgroundColor: colors.panel,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+    width: '100%',
   },
   tabButton: {
     alignItems: 'center',

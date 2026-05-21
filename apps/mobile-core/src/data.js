@@ -267,11 +267,12 @@ export async function getCoachHomeSummary(user) {
     }
   }
 
+  const scopeToActiveTeam = (query) => user.activeTeamId ? query.eq('team_id', user.activeTeamId) : query
   const [activePlayers, sessions, teams, matches] = await Promise.all([
-    getTableCount('players', (query) => query.eq('club_id', user.clubId).neq('status', 'archived')),
-    getTableCount('assessment_sessions', (query) => query.eq('club_id', user.clubId)),
-    getTableCount('teams', (query) => query.eq('club_id', user.clubId)),
-    getTableCount('match_days', (query) => query.eq('club_id', user.clubId)),
+    getTableCount('players', (query) => scopeToActiveTeam(query.eq('club_id', user.clubId).neq('status', 'archived'))),
+    getTableCount('assessment_sessions', (query) => scopeToActiveTeam(query.eq('club_id', user.clubId))),
+    user.activeTeamId ? Promise.resolve(1) : getTableCount('teams', (query) => query.eq('club_id', user.clubId)),
+    getTableCount('match_days', (query) => scopeToActiveTeam(query.eq('club_id', user.clubId))),
   ])
 
   return {

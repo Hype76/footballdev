@@ -58,9 +58,53 @@ function normalizeStaffProfile(row) {
     role: normalizeText(row.role),
     roleLabel: normalizeText(row.role_label || row.role || 'User'),
     roleRank: Number(row.role_rank || 0),
+    teamOptions: [],
     testerAccessExpired: isPastDate(testerAccessExpiresAt),
     testerAccessExpiresAt,
   }
+}
+
+function normalizeTeamOption(row) {
+  const team = getRelatedRow(row, 'teams')
+
+  return {
+    id: normalizeText(team?.id || row.team_id || row.id),
+    name: normalizeText(team?.name || row.name || 'Team'),
+  }
+}
+
+async function fetchStaffTeamOptions(profile) {
+  if (!profile?.clubId) {
+    return []
+  }
+
+  const isClubWideRole = profile.roleRank >= 50
+
+  if (isClubWideRole) {
+    const { data, error } = await supabase
+      .from('teams')
+      .select('id, name')
+      .eq('club_id', profile.clubId)
+      .order('name', { ascending: true })
+
+    if (error) {
+      throw error
+    }
+
+    return (data || []).map(normalizeTeamOption).filter((team) => team.id)
+  }
+
+  const { data, error } = await supabase
+    .from('team_staff')
+    .select('team_id, teams:team_id (id, name)')
+    .eq('user_id', profile.id)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    throw error
+  }
+
+  return (data || []).map(normalizeTeamOption).filter((team) => team.id)
 }
 
 function normalizeParentLink(row) {
@@ -120,9 +164,15 @@ async function fetchStaffProfile(authUser) {
 
   if (data) {
     const profile = normalizeStaffProfile(data)
+    const teamOptions = await fetchStaffTeamOptions(profile)
+    const selectedTeam = teamOptions.length === 1 ? teamOptions[0] : null
+
     return {
       ...profile,
+      activeTeamId: selectedTeam?.id || '',
+      activeTeamName: selectedTeam?.name || '',
       hasActivePlanAccess: isPlanAccessActive(profile),
+      teamOptions,
     }
   }
 
