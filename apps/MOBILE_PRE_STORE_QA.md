@@ -10,6 +10,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Parent app: `apps/parent-mobile`
 - Shared code: `apps/mobile-core`
 - Privacy questionnaire draft: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
+- Environment runbook: `MOBILE_ENVIRONMENT_RUNBOOK.md`
 - Reviewer handoff draft: `MOBILE_REVIEWER_HANDOFF.md`
 - Screenshot plan: `MOBILE_SCREENSHOT_PLAN.md`
 - Store account setup: `MOBILE_STORE_ACCOUNT_SETUP.md`
@@ -109,6 +110,7 @@ npx eas-cli build --profile store-test --platform android
 
 - Run `npm run mobile:release-check` immediately before creating native builds.
 - Complete `MOBILE_STORE_ACCOUNT_SETUP.md`.
+- Check `MOBILE_ENVIRONMENT_RUNBOOK.md` before creating EAS builds.
 - Check `MOBILE_VERSIONING.md` before creating native builds.
 - Create Expo EAS projects for both apps.
 - Add real EAS project IDs to each app environment.

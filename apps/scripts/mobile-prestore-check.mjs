@@ -44,6 +44,7 @@ const forbiddenBrandPatterns = [
 
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
+const environmentRunbookPath = 'apps/MOBILE_ENVIRONMENT_RUNBOOK.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
 const screenshotPlanPath = 'apps/MOBILE_SCREENSHOT_PLAN.md'
 const storeAccountSetupPath = 'apps/MOBILE_STORE_ACCOUNT_SETUP.md'
@@ -183,6 +184,7 @@ for (const app of apps) {
 }
 
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
+assertFile(environmentRunbookPath, 'Mobile environment runbook')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
 assertFile(screenshotPlanPath, 'Mobile screenshot plan')
 assertFile(storeAccountSetupPath, 'Mobile store account setup')
@@ -226,6 +228,15 @@ if (existsSync(join(repoRoot, sharedPrivacyPath))) {
   assertNotIncludes(privacyDraft, 'provisional support URL', 'Mobile privacy questionnaire')
 }
 
+if (existsSync(join(repoRoot, environmentRunbookPath))) {
+  const environmentRunbook = read(environmentRunbookPath)
+  assertIncludes(environmentRunbook, 'Do not commit real Supabase keys', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'For TestFlight and Google internal builds, `EXPO_PUBLIC_API_BASE_URL` must point at the test API host, not localhost.', 'Mobile environment runbook')
+  assertIncludes(environmentRunbook, 'Do not set live Supabase values for either mobile app until live release approval is explicitly given.', 'Mobile environment runbook')
+}
+
 if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   const reviewerHandoff = read(reviewerHandoffPath)
   assertIncludes(reviewerHandoff, 'Do not commit real passwords', 'Mobile reviewer handoff')
@@ -256,6 +267,7 @@ if (existsSync(join(repoRoot, versioningPath))) {
 if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   const storeSetup = read(storeAccountSetupPath)
   assertIncludes(storeSetup, 'MOBILE_RELEASE_STATUS.md', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'MOBILE_VERSIONING.md', 'Mobile store account setup')
   assertIncludes(storeSetup, 'com.footballplayer.coach', 'Mobile store account setup')
@@ -272,6 +284,7 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   const releaseStatus = read(releaseStatusPath)
   assertIncludes(releaseStatus, 'npm run mobile:release-check', 'Mobile release status')
   assertIncludes(releaseStatus, 'Both apps are locked to test Supabase by default.', 'Mobile release status')
+  assertIncludes(releaseStatus, 'MOBILE_ENVIRONMENT_RUNBOOK.md', 'Mobile release status')
   assertIncludes(releaseStatus, 'Create Expo EAS projects for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'EAS remote app versioning and store-test auto-increment are configured for both apps.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices.', 'Mobile release status')

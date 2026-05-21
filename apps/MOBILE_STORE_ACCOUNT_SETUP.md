@@ -3,6 +3,7 @@
 Use this when creating the Expo, Apple, and Google records for the two mobile apps. Do not commit private keys, passwords, API keys, provisioning profiles, or service account files.
 
 See `MOBILE_RELEASE_STATUS.md` for the current done and remaining release state.
+Use `MOBILE_ENVIRONMENT_RUNBOOK.md` when setting EAS and test API environment values.
 Use `MOBILE_SCREENSHOT_PLAN.md` when preparing store screenshots.
 Use `MOBILE_VERSIONING.md` before creating native builds.
 
@@ -54,6 +55,8 @@ Set these EAS environment variables for both apps:
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `EXPO_PUBLIC_API_BASE_URL`
 - `EXPO_PUBLIC_EAS_PROJECT_ID`
+
+For TestFlight and Google internal builds, `EXPO_PUBLIC_API_BASE_URL` must point at the test API host, not localhost.
 
 Keep both apps on test Supabase until live release approval is explicitly given.
 
