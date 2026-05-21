@@ -22,6 +22,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Create an Apple App Store Connect app record.
 - Create a Google Play Console app record.
 - Confirm app icons and splash assets are final enough for review builds.
+- Confirm Android notification icon renders clearly in the status bar and notification drawer.
 - Confirm a real test parent account exists for reviewer login.
 - Confirm the parent account has at least one linked player with matchday data.
 - Confirm the linked player has at least one portal message and one open parent poll.

@@ -55,6 +55,7 @@ module.exports = {
         {
           color: '#d7ff2f',
           defaultChannel: 'matchday',
+          icon: './assets/notification-icon.png',
         },
       ],
       [

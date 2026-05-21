@@ -7,6 +7,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const apps = [
   {
     appConfig: 'apps/coach-mobile/app.config.js',
+    notificationIcon: 'apps/coach-mobile/assets/notification-icon.png',
     easConfig: 'apps/coach-mobile/eas.json',
     metadata: 'apps/coach-mobile/STORE_METADATA.md',
     name: 'Coach',
@@ -14,6 +15,7 @@ const apps = [
   },
   {
     appConfig: 'apps/parent-mobile/app.config.js',
+    notificationIcon: 'apps/parent-mobile/assets/notification-icon.png',
     easConfig: 'apps/parent-mobile/eas.json',
     metadata: 'apps/parent-mobile/STORE_METADATA.md',
     name: 'Parents',
@@ -81,6 +83,7 @@ function scanSource(relativePath, appName) {
 
 for (const app of apps) {
   assertFile(app.appConfig, `${app.name} app config`)
+  assertFile(app.notificationIcon, `${app.name} notification icon`)
   assertFile(app.easConfig, `${app.name} EAS config`)
   assertFile(app.metadata, `${app.name} store metadata`)
 
@@ -89,6 +92,7 @@ for (const app of apps) {
     assertIncludes(appConfig, "const supabaseEnvironment = process.env.EXPO_PUBLIC_SUPABASE_ENV || 'test'", `${app.name} app config`)
     assertIncludes(appConfig, "const allowLiveSupabase = process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false'", `${app.name} app config`)
     assertIncludes(appConfig, 'ITSAppUsesNonExemptEncryption: false', `${app.name} iOS config`)
+    assertIncludes(appConfig, "icon: './assets/notification-icon.png'", `${app.name} notifications config`)
   }
 
   if (existsSync(join(repoRoot, app.easConfig))) {
