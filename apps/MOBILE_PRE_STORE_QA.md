@@ -158,6 +158,7 @@ npm run mobile:build:parent:android:store-test
 - Confirm screenshot files meet the current Apple and Google size and format rules in `MOBILE_SCREENSHOT_PLAN.md`.
 - Prepare reviewer credentials for both apps.
 - Set `MOBILE_SUBMISSION_CONFIRMED=true` only for the final submit command after all private release evidence is complete.
+- Run `npm run mobile:submit:preflight` before setting `MOBILE_SUBMISSION_CONFIRMED=true`.
 - Verify store records match the current app identities:
   - Coach app name: `Football Player Coach`
   - Coach bundle ID and package name: `com.footballplayer.coach`

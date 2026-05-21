@@ -128,6 +128,12 @@ npm run mobile:build:coach:android:store-test
 
 Submit Coach after store records, credentials, screenshots, reviewer notes, device QA, notification QA, and private release evidence are complete.
 
+Run the local submit preflight before setting the final confirmation flag:
+
+```bash
+npm run mobile:submit:preflight
+```
+
 The guarded submit commands require `MOBILE_SUBMISSION_CONFIRMED=true`.
 
 ```bash
