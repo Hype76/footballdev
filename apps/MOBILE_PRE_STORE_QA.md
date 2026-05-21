@@ -117,6 +117,7 @@ npm run build:android:store-test
 - Coach quick assessment blocks missing required answers and invalid score values.
 - Parent app shows linked children and respects the selected child.
 - Parent app keeps matchday, messages, polls, and notification registration scoped to the selected child.
+- Parent message read actions require a valid selected child and message.
 - Parent matchday cards only show scorer volunteering while the match is available for scorer requests.
 - Parent poll cards disable voting after an answer is sent or when a poll is closed.
 - Shared mobile UI renders consistently across both apps for login, headers, tabs, overview, cards, lists, settings, choice controls, and segmented controls.

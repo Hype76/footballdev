@@ -808,7 +808,7 @@ export async function markParentMessageRead(user, messageId) {
   const normalizedMessageId = normalizeText(messageId)
 
   if (!selectedLink?.id || !normalizedMessageId) {
-    return ''
+    throw new Error('Choose a message before marking it as read.')
   }
 
   const { data, error } = await supabase.rpc('mark_parent_portal_message_read', {
