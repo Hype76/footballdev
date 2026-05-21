@@ -873,8 +873,10 @@ function SettingsPanel({
 function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [fieldValues, setFieldValues] = useState({})
+  const [showAllPlayers, setShowAllPlayers] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const selectedPlayer = players.find((player) => player.id === selectedPlayerId) || players[0]
+  const visiblePlayers = showAllPlayers ? players : players.slice(0, 8)
 
   useEffect(() => {
     if (!selectedPlayerId && players[0]?.id) {
@@ -937,7 +939,7 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
       <Text style={styles.cardTitle}>Quick Assessment</Text>
       <Text style={styles.item}>{selectedPlayer?.playerName || 'Choose player'}</Text>
       <View style={styles.playerPicker}>
-        {players.slice(0, 8).map((player) => (
+        {visiblePlayers.map((player) => (
           <Pressable
             key={player.id}
             onPress={() => setSelectedPlayerId(player.id)}
@@ -949,6 +951,11 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
           </Pressable>
         ))}
       </View>
+      {players.length > 8 ? (
+        <PrimaryButton onPress={() => setShowAllPlayers((currentValue) => !currentValue)} variant="secondary">
+          {showAllPlayers ? 'Show fewer players' : `Show all ${players.length} players`}
+        </PrimaryButton>
+      ) : null}
       {fields.map((field) => isScoreField(field.type) ? (
         <ScoreStepper
           key={field.id}

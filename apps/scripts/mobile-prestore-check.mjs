@@ -447,6 +447,8 @@ const coachAppSource = read('apps/coach-mobile/App.js')
 assertIncludes(coachAppSource, 'canRecordGoal', 'Coach matchday guardrails')
 assertIncludes(coachAppSource, 'Start the match before adding goals.', 'Coach matchday guardrails')
 assertIncludes(coachAppSource, "disabled={!['live', 'second_half'].includes(match.status)}", 'Coach matchday guardrails')
+assertIncludes(coachAppSource, 'visiblePlayers', 'Coach assessment player access')
+assertIncludes(coachAppSource, 'Show all ${players.length} players', 'Coach assessment player access')
 
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))
