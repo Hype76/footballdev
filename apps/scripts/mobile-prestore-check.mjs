@@ -34,6 +34,7 @@ const forbiddenSourcePatterns = [
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
+const rootPackagePath = 'package.json'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -117,6 +118,14 @@ for (const app of apps) {
 
 assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
 assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
+assertFile(rootPackagePath, 'Root package')
+
+if (existsSync(join(repoRoot, rootPackagePath))) {
+  const rootPackage = JSON.parse(read(rootPackagePath))
+  if (rootPackage.scripts?.['mobile:export:web'] !== 'node apps/scripts/mobile-export-web-check.mjs') {
+    failures.push('Root package must include mobile:export:web script')
+  }
+}
 
 if (existsSync(join(repoRoot, sharedPrivacyPath))) {
   const privacyDraft = read(sharedPrivacyPath)

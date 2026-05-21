@@ -47,13 +47,13 @@ Run from the repo root:
 npm run lint
 npm run build
 npm run mobile:prestore
+npm run mobile:export:web
 git diff --check
 ```
 
 Run from each mobile app folder:
 
 ```bash
-npm run export:web
 npx eas-cli build --profile internal --platform android
 npx eas-cli build --profile store-test --platform ios
 npx eas-cli build --profile store-test --platform android

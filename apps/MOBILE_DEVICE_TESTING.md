@@ -6,6 +6,8 @@ Use this runbook for physical iOS and Android QA before the PR is marked ready.
 
 - Confirm the PR deploy preview is green.
 - Confirm both apps use test Supabase only.
+- Run `npm run mobile:prestore` from the repo root.
+- Run `npm run mobile:export:web` from the repo root.
 - Confirm these EAS secrets exist for both apps:
   - `EXPO_PUBLIC_SUPABASE_ENV=test`
   - `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`
@@ -25,7 +27,6 @@ Use this runbook for physical iOS and Android QA before the PR is marked ready.
 ```bash
 cd apps/coach-mobile
 npm install
-npm run export:web
 npm run build:android:internal
 npm run build:ios:store-test
 ```
@@ -35,7 +36,6 @@ npm run build:ios:store-test
 ```bash
 cd apps/parent-mobile
 npm install
-npm run export:web
 npm run build:android:internal
 npm run build:ios:store-test
 ```
