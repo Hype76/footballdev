@@ -37,6 +37,11 @@ const forbiddenSourcePatterns = [
   /\bsubscribe\b/i,
 ]
 
+const forbiddenBrandPatterns = [
+  /Player Feedback/i,
+  /playerfeedback/i,
+]
+
 const failures = []
 const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 const reviewerHandoffPath = 'apps/MOBILE_REVIEWER_HANDOFF.md'
@@ -86,6 +91,12 @@ function scanSource(relativePath, appName) {
   forbiddenSourcePatterns.forEach((pattern) => {
     if (pattern.test(content)) {
       failures.push(`${appName} mobile source contains forbidden store-policy term ${pattern}: ${relativePath}`)
+    }
+  })
+
+  forbiddenBrandPatterns.forEach((pattern) => {
+    if (pattern.test(content)) {
+      failures.push(`${appName} mobile source contains old brand term ${pattern}: ${relativePath}`)
     }
   })
 }
@@ -166,10 +177,13 @@ assertFile(rootPackagePath, 'Root package')
 const mobileConfig = read('apps/mobile-core/src/config.js')
 const mobileHttp = read('apps/mobile-core/src/http.js')
 const mobileSupabase = read('apps/mobile-core/src/supabase.js')
+const mobileUi = read('apps/mobile-core/src/ui.js')
 assertIncludes(mobileConfig, 'isUsable: isConfigured && !isLiveBlocked', 'Mobile runtime config')
 assertIncludes(mobileHttp, 'fetchJsonWithTimeout', 'Mobile HTTP helper')
 assertIncludes(mobileHttp, 'The mobile API request timed out.', 'Mobile HTTP helper')
 assertIncludes(mobileSupabase, 'config.isUsable ? config.supabaseUrl', 'Mobile Supabase client')
+assertIncludes(mobileUi, 'Powered by pulseslabs.online', 'Mobile legal footer')
+assertIncludes(mobileUi, 'Copyright 2026 Football Player.', 'Mobile legal footer')
 
 if (existsSync(join(repoRoot, rootPackagePath))) {
   const rootPackage = JSON.parse(read(rootPackagePath))

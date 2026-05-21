@@ -233,6 +233,15 @@ export function PollCard({ activeOptionId = '', isBusy = false, onVote, poll }) 
   )
 }
 
+export function LegalFooter() {
+  return (
+    <View style={styles.legalFooter}>
+      <Text style={styles.legalFooterText}>Copyright 2026 Football Player.</Text>
+      <Text style={styles.legalFooterText}>Powered by pulseslabs.online</Text>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
@@ -272,6 +281,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: '800',
+  },
+  legalFooter: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+  },
+  legalFooterText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   eventList: {
     gap: 8,

@@ -18,7 +18,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { MatchCard, MessageCard, PollCard, PrimaryButton, StatCard, TextField } from '../mobile-core/src/ui'
+import { LegalFooter, MatchCard, MessageCard, PollCard, PrimaryButton, StatCard, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -56,6 +56,7 @@ function LoginScreen() {
           </View>
 
           <Text style={styles.meta}>Test environment only.</Text>
+          <LegalFooter />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -449,6 +450,7 @@ function ParentHome() {
           <Text style={styles.meta}>
             Supabase: {config.supabaseEnvironment || 'test'} | API: {config.apiBaseUrl || 'not set'}
           </Text>
+          <LegalFooter />
         </View>
       </ScrollView>
     </SafeAreaView>

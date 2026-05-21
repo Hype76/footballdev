@@ -20,7 +20,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { MatchCard, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatCard, TextField } from '../mobile-core/src/ui'
+import { LegalFooter, MatchCard, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatCard, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -58,6 +58,7 @@ function LoginScreen() {
           </View>
 
           <Text style={styles.meta}>Test environment only.</Text>
+          <LegalFooter />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -465,6 +466,7 @@ function CoachHome() {
           <Text style={styles.meta}>
             Supabase: {config.supabaseEnvironment || 'test'} | API: {config.apiBaseUrl || 'not set'}
           </Text>
+          <LegalFooter />
         </View>
       </ScrollView>
     </SafeAreaView>
