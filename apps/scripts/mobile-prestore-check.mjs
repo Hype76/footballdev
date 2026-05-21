@@ -234,10 +234,17 @@ for (const app of apps) {
     assertIncludes(appConfig, 'ITSAppUsesNonExemptEncryption: false', `${app.name} iOS config`)
     assertIncludes(appConfig, "icon: './assets/notification-icon.png'", `${app.name} notifications config`)
     assertIncludes(appConfig, 'blockedPermissions', `${app.name} Android permissions config`)
+    assertIncludes(appConfig, 'android.permission.ACCESS_COARSE_LOCATION', `${app.name} Android blocked permissions`)
     assertIncludes(appConfig, 'android.permission.ACCESS_FINE_LOCATION', `${app.name} Android blocked permissions`)
+    assertIncludes(appConfig, 'android.permission.BLUETOOTH', `${app.name} Android blocked permissions`)
     assertIncludes(appConfig, 'android.permission.CAMERA', `${app.name} Android blocked permissions`)
-    assertIncludes(appConfig, 'android.permission.RECORD_AUDIO', `${app.name} Android blocked permissions`)
     assertIncludes(appConfig, 'android.permission.READ_CONTACTS', `${app.name} Android blocked permissions`)
+    assertIncludes(appConfig, 'android.permission.READ_MEDIA_IMAGES', `${app.name} Android blocked permissions`)
+    assertIncludes(appConfig, 'android.permission.READ_MEDIA_VIDEO', `${app.name} Android blocked permissions`)
+    assertIncludes(appConfig, 'android.permission.RECORD_AUDIO', `${app.name} Android blocked permissions`)
+    assertIncludes(appConfig, "'POST_NOTIFICATIONS'", `${app.name} Android allowed permissions`)
+    assertIncludes(appConfig, "'USE_BIOMETRIC'", `${app.name} Android allowed permissions`)
+    assertIncludes(appConfig, "'USE_FINGERPRINT'", `${app.name} Android allowed permissions`)
   }
 
   if (existsSync(join(repoRoot, app.envExample))) {
@@ -403,6 +410,7 @@ if (existsSync(join(repoRoot, sharedPrivacyPath))) {
   assertIncludes(privacyDraft, 'Apps do not include in-app purchases.', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'Apps do not collect precise location.', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'Android builds explicitly block location, camera, microphone, contacts, media, and Bluetooth permissions.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyDraft, 'Android builds request only notification and biometric unlock permissions.', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'Apps use Expo push notification services', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'https://footballplayer.online/gdpr', 'Mobile privacy questionnaire')
   assertIncludes(privacyDraft, 'https://footballplayer.online/terms', 'Mobile privacy questionnaire')
