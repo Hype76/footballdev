@@ -439,6 +439,7 @@ assertIncludes(mobileData, "import { getParentPortalLinks, getSelectedParentLink
 assertIncludes(mobileData, 'function normalizeGoalMinute', 'Mobile matchday data validation')
 assertIncludes(mobileData, 'Goal minute must be a number.', 'Mobile matchday data validation')
 assertIncludes(mobileData, 'Math.min(Math.round(numericValue), 130)', 'Mobile matchday data validation')
+assertIncludes(mobileData, "throw new Error('This match is no longer open for goals.')", 'Mobile matchday data validation')
 assertIncludes(mobileData, 'throw new Error(`${field.label} is required.`)', 'Mobile assessment validation')
 assertIncludes(mobileData, 'throw new Error(`${field.label} must be a number.`)', 'Mobile assessment validation')
 assertIncludes(mobileData, 'Math.min(Math.round(numericValue), maxScore)', 'Mobile assessment validation')

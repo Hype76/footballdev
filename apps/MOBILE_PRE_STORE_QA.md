@@ -110,6 +110,7 @@ npm run build:android:store-test
 
 - Coach app shows assigned teams and respects the selected team.
 - Coach app lets club-wide roles view all teams.
+- Coach matchday goal recording is blocked after full time, postponed, or cancelled statuses.
 - Coach quick assessment blocks missing required answers and invalid score values.
 - Parent app shows linked children and respects the selected child.
 - Parent app keeps matchday, messages, polls, and notification registration scoped to the selected child.

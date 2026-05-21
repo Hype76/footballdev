@@ -482,6 +482,10 @@ export async function addCoachMatchGoal(user, match, teamSide = 'club', goalDeta
     throw new Error('Choose a match before adding a goal.')
   }
 
+  if (['full_time', 'postponed', 'cancelled'].includes(match.status)) {
+    throw new Error('This match is no longer open for goals.')
+  }
+
   const normalizedTeamSide = normalizeText(teamSide) === 'opponent' ? 'opponent' : 'club'
   const normalizedMinute = normalizeGoalMinute(goalDetails.minute)
   let nextHomeScore = Number(match.homeScore || 0)
