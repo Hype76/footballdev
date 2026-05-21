@@ -88,6 +88,7 @@ npm run build:ios:store-test
 
 - Coach starts match, parent app still loads the live match.
 - Coach cannot save an invalid match status.
+- Coach cannot skip straight to full time before the match has started.
 - Coach records Goal For, parent device receives a goal notification.
 - Coach records a detailed goal with a valid minute, scorer, and assist.
 - Coach tries a non-numeric detailed goal minute and sees a validation message instead of saving invalid data.

@@ -439,6 +439,19 @@ function normalizeGoalMinute(value) {
   return Math.max(Math.min(Math.round(numericValue), 130), 0)
 }
 
+function canApplyMobileMatchStatusTransition(currentStatus, nextStatus) {
+  const normalizedCurrentStatus = normalizeText(currentStatus) || 'scheduled'
+  const allowedPreviousStatuses = {
+    full_time: ['live', 'half_time', 'second_half', 'extra_time', 'penalties'],
+    half_time: ['live', 'second_half'],
+    live: ['scheduled', 'scorer_request', 'live'],
+    second_half: ['half_time', 'live'],
+  }
+  const allowedStatuses = allowedPreviousStatuses[nextStatus]
+
+  return !allowedStatuses || allowedStatuses.includes(normalizedCurrentStatus)
+}
+
 export async function updateCoachMatchStatus(user, match, status) {
   if (!user?.clubId || !match?.id) {
     throw new Error('Choose a match before updating it.')
@@ -449,6 +462,10 @@ export async function updateCoachMatchStatus(user, match, status) {
 
   if (!allowedStatuses.includes(normalizedStatus)) {
     throw new Error('Choose a valid match status.')
+  }
+
+  if (!canApplyMobileMatchStatusTransition(match.status, normalizedStatus)) {
+    throw new Error('This match cannot move to that status yet.')
   }
 
   const phaseStatuses = ['live', 'second_half', 'extra_time', 'penalties']
