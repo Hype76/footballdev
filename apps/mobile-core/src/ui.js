@@ -61,6 +61,22 @@ export function EmptyState({ message }) {
   )
 }
 
+export function Panel({ children, variant = 'panel' }) {
+  return (
+    <View style={variant === 'card' ? styles.cardPanel : styles.panel}>
+      {children}
+    </View>
+  )
+}
+
+export function ListStack({ children }) {
+  return <View style={styles.listStack}>{children}</View>
+}
+
+export function HintText({ children }) {
+  return <Text style={styles.hintText}>{children}</Text>
+}
+
 export function ChoiceGroup({ options, onChange, selectedValue, title }) {
   return (
     <View style={styles.choiceGroupCard}>
@@ -679,8 +695,21 @@ const styles = StyleSheet.create({
   choiceMetaActive: {
     color: '#000000',
   },
+  cardPanel: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12,
+  },
   field: {
     gap: 8,
+  },
+  hintText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '800',
   },
   input: {
     backgroundColor: colors.panel,
@@ -738,6 +767,9 @@ const styles = StyleSheet.create({
     gap: 18,
     maxWidth: 620,
     width: '100%',
+  },
+  listStack: {
+    gap: 12,
   },
   meta: {
     color: colors.muted,
@@ -842,6 +874,15 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '900',
     lineHeight: 38,
+  },
+  panel: {
+    backgroundColor: colors.panel,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+    width: '100%',
   },
   scoreText: {
     color: colors.text,

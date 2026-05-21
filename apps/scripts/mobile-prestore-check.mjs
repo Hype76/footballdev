@@ -447,6 +447,9 @@ assertIncludes(mobileUi, 'export function ChoiceGroup', 'Mobile shared choice co
 assertIncludes(mobileUi, 'styles.choiceButton', 'Mobile shared choice controls')
 assertIncludes(mobileUi, 'export function SegmentedControl', 'Mobile shared segmented controls')
 assertIncludes(mobileUi, 'styles.segmentButton', 'Mobile shared segmented controls')
+assertIncludes(mobileUi, 'export function Panel', 'Mobile shared layout primitives')
+assertIncludes(mobileUi, 'export function ListStack', 'Mobile shared layout primitives')
+assertIncludes(mobileUi, 'export function HintText', 'Mobile shared layout primitives')
 
 apps.forEach((app) => {
   const appSource = read(app.sourceRoots[0])
@@ -455,6 +458,8 @@ apps.forEach((app) => {
   assertIncludes(appSource, 'LoadingRow', `${app.name} shared loading state`)
   assertIncludes(appSource, 'EmptyState', `${app.name} shared empty state`)
   assertIncludes(appSource, 'ChoiceGroup', `${app.name} shared choice controls`)
+  assertIncludes(appSource, 'ListStack', `${app.name} shared layout primitives`)
+  assertIncludes(appSource, 'Panel', `${app.name} shared layout primitives`)
   assertIncludes(appSource, 'RefreshControl', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'refreshControl={(', `${app.name} pull-to-refresh`)
   assertIncludes(appSource, 'onRefresh={handleRefresh}', `${app.name} pull-to-refresh`)

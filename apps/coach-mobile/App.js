@@ -18,7 +18,7 @@ import {
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { colors } from '../mobile-core/src/theme'
-import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SegmentedControl, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
+import { AccessScreen, ChoiceGroup, EmptyState, HintText, LegalFooter, ListStack, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, Panel, PlayerCard, PrimaryButton, ScoreStepper, ScreenHeader, SegmentedControl, SessionCard, StatusBanner, TabRail, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -407,7 +407,7 @@ function TeamSelector({ canUseAllTeams, onSelect, selectedTeamId, teams }) {
 
 function MatchdayPanel({ activeActionId, matches, onAddDetailedGoal, onAddGoal, onStatusChange, onUndoGoal }) {
   return matches.length > 0 ? (
-    <View style={styles.list}>
+    <ListStack>
       {matches.map((match) => (
         <View key={match.id} style={styles.matchBlock}>
           <MatchCard match={match} />
@@ -421,7 +421,7 @@ function MatchdayPanel({ activeActionId, matches, onAddDetailedGoal, onAddGoal, 
           />
         </View>
       ))}
-    </View>
+    </ListStack>
   ) : (
     <EmptyState message="No matchday fixtures are available yet." />
   )
@@ -466,8 +466,8 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
   }
 
   return (
-    <View style={styles.actionCard}>
-      <View style={styles.actionGrid}>
+    <Panel variant="card">
+      <ListStack>
         {canStart ? (
           <PrimaryButton
             loading={activeActionId === `status:${match.id}:live`}
@@ -491,9 +491,9 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
         >
           Goal Against
         </PrimaryButton>
-      </View>
-      {!canRecordGoal && !isFullTime ? <Text style={styles.correctionHint}>Start the match before adding goals.</Text> : null}
-      <View style={styles.phaseGrid}>
+      </ListStack>
+      {!canRecordGoal && !isFullTime ? <HintText>Start the match before adding goals.</HintText> : null}
+      <ListStack>
         <PhaseButton
           activeActionId={activeActionId}
           disabled={!['live', 'second_half'].includes(match.status)}
@@ -518,7 +518,7 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
           onStatusChange={onStatusChange}
           status="full_time"
         />
-      </View>
+      </ListStack>
       <PrimaryButton
         disabled={!canUndoLastGoal}
         loading={activeActionId === `undo-goal:${match.id}`}
@@ -531,12 +531,12 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
         {isDetailsOpen ? 'Hide Goal Details' : 'Add Goal Details'}
       </PrimaryButton>
       {latestEvent ? (
-        <Text style={styles.correctionHint}>
+        <HintText>
           Latest event: {latestEvent.eventType === 'goal' ? 'goal' : 'score correction'}
-        </Text>
+        </HintText>
       ) : null}
       {isDetailsOpen ? (
-        <View style={styles.goalDetailsPanel}>
+        <Panel>
           <SegmentedControl
             onChange={(value) => updateGoalDetails('teamSide', value)}
             options={[
@@ -595,9 +595,9 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
           >
             Save Goal
           </PrimaryButton>
-        </View>
+        </Panel>
       ) : null}
-    </View>
+    </Panel>
   )
 }
 
@@ -616,9 +616,9 @@ function PhaseButton({ activeActionId, disabled = false, label, match, onStatusC
 
 function PlayersPanel({ players }) {
   return players.length > 0 ? (
-    <View style={styles.list}>
+    <ListStack>
       {players.map((player) => <PlayerCard key={player.id} player={player} />)}
-    </View>
+    </ListStack>
   ) : (
     <EmptyState message="No players are available yet." />
   )
@@ -626,9 +626,9 @@ function PlayersPanel({ players }) {
 
 function SessionsPanel({ sessions }) {
   return sessions.length > 0 ? (
-    <View style={styles.list}>
+    <ListStack>
       {sessions.map((session) => <SessionCard key={session.id} session={session} />)}
-    </View>
+    </ListStack>
   ) : (
     <EmptyState message="No sessions are available yet." />
   )
@@ -697,7 +697,7 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
   }
 
   return (
-    <View style={styles.card}>
+    <Panel>
       <Text style={styles.cardTitle}>Quick Assessment</Text>
       <Text style={styles.item}>{selectedPlayer?.playerName || 'Choose player'}</Text>
       <ChoiceGroup
@@ -729,7 +729,7 @@ function AssessPanel({ fields, onRefresh, onStatusMessage, players, user }) {
         />
       ))}
       <PrimaryButton loading={isSaving} onPress={handleSave}>Save Assessment</PrimaryButton>
-    </View>
+    </Panel>
   )
 }
 
@@ -764,46 +764,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 10,
-    padding: 16,
-    width: '100%',
-  },
-  actionCard: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 10,
-    padding: 12,
-  },
-  actionGrid: {
-    gap: 10,
-  },
   cardTitle: {
     color: colors.text,
     fontSize: 18,
     fontWeight: '800',
-  },
-  goalDetailsPanel: {
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 10,
-    padding: 12,
-  },
-  correctionHint: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  list: {
-    gap: 12,
   },
   matchBlock: {
     gap: 10,
@@ -812,8 +776,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 15,
     lineHeight: 22,
-  },
-  phaseGrid: {
-    gap: 10,
   },
 })

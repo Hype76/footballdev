@@ -16,7 +16,7 @@ import {
 } from '../mobile-core/src/data'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { colors } from '../mobile-core/src/theme'
-import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, PollCard, PrimaryButton, ScreenHeader, StatusBanner, TabRail } from '../mobile-core/src/ui'
+import { AccessScreen, ChoiceGroup, EmptyState, LegalFooter, ListStack, LoadingRow, LoadingScreen, LockedScreen, MatchCard, MessageCard, MobileLoginScreen, MobileScreen, MobileSettingsPanel, OverviewPanel, Panel, PollCard, PrimaryButton, ScreenHeader, StatusBanner, TabRail } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -317,7 +317,7 @@ function ParentHome() {
 
           <StatusBanner message={statusMessage} onDismiss={() => setStatusMessage('')} />
 
-          <View style={styles.card}>
+          <Panel>
             <Text style={styles.cardTitle}>Linked child</Text>
             <Text style={styles.item}>{selectedLink?.playerName || 'No child selected'}</Text>
             <Text style={styles.item}>{selectedLink?.teamName || 'Team not set'}</Text>
@@ -328,7 +328,7 @@ function ParentHome() {
                 selectedLinkId={selectedLink?.id || ''}
               />
             ) : null}
-          </View>
+          </Panel>
 
           {isLoadingSummary ? (
             <LoadingRow message="Loading parent summary..." />
@@ -399,7 +399,7 @@ function ChildSelector({ links, onSelect, selectedLinkId }) {
 
 function MatchdayPanel({ activeActionId, matches, onRefresh, onVolunteerScorer }) {
   return matches.length > 0 ? (
-    <View style={styles.list}>
+    <ListStack>
       <PrimaryButton loading={activeActionId === 'refresh:parent'} onPress={onRefresh} variant="secondary">
         Refresh Matchday
       </PrimaryButton>
@@ -411,7 +411,7 @@ function MatchdayPanel({ activeActionId, matches, onRefresh, onVolunteerScorer }
           onVolunteerScorer={onVolunteerScorer}
         />
       ))}
-    </View>
+    </ListStack>
   ) : (
     <EmptyState message="No matchday updates are available right now." />
   )
@@ -419,7 +419,7 @@ function MatchdayPanel({ activeActionId, matches, onRefresh, onVolunteerScorer }
 
 function MessagesPanel({ activeActionId, messages, onMarkRead }) {
   return messages.length > 0 ? (
-    <View style={styles.list}>
+    <ListStack>
       {messages.map((message) => (
         <MessageCard
           isBusy={activeActionId === `message:${message.id}`}
@@ -428,7 +428,7 @@ function MessagesPanel({ activeActionId, messages, onMarkRead }) {
           onMarkRead={onMarkRead}
         />
       ))}
-    </View>
+    </ListStack>
   ) : (
     <EmptyState message="No messages have been shared yet." />
   )
@@ -436,7 +436,7 @@ function MessagesPanel({ activeActionId, messages, onMarkRead }) {
 
 function PollsPanel({ activeActionId, onVote, polls }) {
   return polls.length > 0 ? (
-    <View style={styles.list}>
+    <ListStack>
       {polls.map((poll) => (
         <PollCard
           activeOptionId={poll.currentOptionId || poll.currentOptionIds?.[0] || ''}
@@ -446,7 +446,7 @@ function PollsPanel({ activeActionId, onVote, polls }) {
           poll={poll}
         />
       ))}
-    </View>
+    </ListStack>
   ) : (
     <EmptyState message="No parent polls are open right now." />
   )
@@ -479,22 +479,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.panel,
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 10,
-    padding: 16,
-    width: '100%',
-  },
   cardTitle: {
     color: colors.text,
     fontSize: 18,
     fontWeight: '800',
-  },
-  list: {
-    gap: 12,
   },
   item: {
     color: colors.muted,
