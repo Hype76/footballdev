@@ -17,7 +17,7 @@ import {
   undoCoachLastMatchGoal,
   updateCoachMatchStatus,
 } from '../mobile-core/src/data'
-import { registerNativePushDevice } from '../mobile-core/src/notifications'
+import { getNativeNotificationDeviceState, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
 import { MatchCard, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatCard, TextField } from '../mobile-core/src/ui'
@@ -81,6 +81,7 @@ function CoachHome() {
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
+  const [notificationState, setNotificationState] = useState(null)
   const teamOptions = useMemo(
     () => (Array.isArray(user?.teamOptions) ? user.teamOptions : []),
     [user?.teamOptions],
@@ -158,23 +159,25 @@ function CoachHome() {
   useEffect(() => {
     let isMounted = true
 
-    async function loadBiometrics() {
+    async function loadDeviceSettings() {
       try {
-        const [availability, enabled] = await Promise.all([
+        const [availability, enabled, nextNotificationState] = await Promise.all([
           getBiometricAvailability(),
           getBiometricEnabled(),
+          getNativeNotificationDeviceState(),
         ])
 
         if (isMounted) {
           setBiometricAvailable(availability.available)
           setBiometricEnabledState(enabled)
+          setNotificationState(nextNotificationState)
         }
       } catch (error) {
         console.error(error)
       }
     }
 
-    void loadBiometrics()
+    void loadDeviceSettings()
 
     return () => {
       isMounted = false
@@ -202,10 +205,31 @@ function CoachHome() {
         easProjectId: config.easProjectId,
         teamId: selectedMobileUser?.activeTeamId || '',
       })
+      setNotificationState(await getNativeNotificationDeviceState())
       setStatusMessage('Coach notifications are enabled on this device.')
     } catch (error) {
       console.error(error)
       setStatusMessage(error.message || 'Notifications could not be enabled.')
+    } finally {
+      setIsRegisteringPush(false)
+    }
+  }
+
+  async function disableNotifications() {
+    setIsRegisteringPush(true)
+    setStatusMessage('')
+
+    try {
+      const accessToken = await getAccessToken()
+      await revokeNativePushDevice({
+        accessToken,
+        apiBaseUrl: config.apiBaseUrl,
+      })
+      setNotificationState(await getNativeNotificationDeviceState())
+      setStatusMessage('Coach notifications are disabled on this device.')
+    } catch (error) {
+      console.error(error)
+      setStatusMessage(error.message || 'Notifications could not be disabled.')
     } finally {
       setIsRegisteringPush(false)
     }
@@ -401,8 +425,19 @@ function CoachHome() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Notifications</Text>
-            <Text style={styles.item}>Enable native coach alerts for this device.</Text>
-            <PrimaryButton loading={isRegisteringPush} onPress={enableNotifications}>Enable Notifications</PrimaryButton>
+            <Text style={styles.item}>
+              {notificationState?.isRegistered
+                ? 'Coach alerts are enabled on this device.'
+                : notificationState?.message || 'Enable native coach alerts for this device.'}
+            </Text>
+            <PrimaryButton loading={isRegisteringPush} onPress={enableNotifications}>
+              {notificationState?.isRegistered ? 'Refresh Notifications' : 'Enable Notifications'}
+            </PrimaryButton>
+            {notificationState?.isRegistered ? (
+              <PrimaryButton loading={isRegisteringPush} onPress={disableNotifications} variant="secondary">
+                Disable Notifications
+              </PrimaryButton>
+            ) : null}
           </View>
 
           <View style={styles.card}>

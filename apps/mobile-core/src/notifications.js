@@ -1,6 +1,9 @@
 import * as Device from 'expo-device'
 import * as Notifications from 'expo-notifications'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
+
+const MOBILE_PUSH_TOKEN_KEY = 'football-player:mobile-push-token'
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -13,6 +16,22 @@ Notifications.setNotificationHandler({
 
 function normalize(value) {
   return String(value ?? '').trim()
+}
+
+async function getStoredDeviceToken() {
+  return normalize(await AsyncStorage.getItem(MOBILE_PUSH_TOKEN_KEY))
+}
+
+async function setStoredDeviceToken(deviceToken) {
+  const normalizedToken = normalize(deviceToken)
+
+  if (!normalizedToken) {
+    await AsyncStorage.removeItem(MOBILE_PUSH_TOKEN_KEY)
+    return ''
+  }
+
+  await AsyncStorage.setItem(MOBILE_PUSH_TOKEN_KEY, normalizedToken)
+  return normalizedToken
 }
 
 export async function getNativeNotificationPermissionState() {
@@ -31,6 +50,17 @@ export async function getNativeNotificationPermissionState() {
     granted: permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL,
     message: permission.granted ? 'Notifications are enabled.' : 'Notifications are not enabled yet.',
     status: permission.status,
+  }
+}
+
+export async function getNativeNotificationDeviceState() {
+  const permission = await getNativeNotificationPermissionState()
+  const deviceToken = await getStoredDeviceToken()
+
+  return {
+    ...permission,
+    deviceToken,
+    isRegistered: Boolean(deviceToken),
   }
 }
 
@@ -91,8 +121,49 @@ export async function registerNativePushDevice({
     throw new Error(result.message || 'Mobile notifications could not be enabled.')
   }
 
+  await setStoredDeviceToken(deviceToken)
+
   return {
     deviceToken,
+    success: true,
+  }
+}
+
+export async function revokeNativePushDevice({ accessToken, apiBaseUrl }) {
+  if (!accessToken) {
+    throw new Error('Login is required before changing notifications.')
+  }
+
+  if (!apiBaseUrl) {
+    throw new Error('The mobile API base URL is not configured.')
+  }
+
+  const deviceToken = await getStoredDeviceToken()
+
+  if (!deviceToken) {
+    return {
+      skipped: true,
+      success: true,
+    }
+  }
+
+  const response = await fetch(`${apiBaseUrl}/.netlify/functions/register-mobile-push-device`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ deviceToken }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Mobile notifications could not be disabled.')
+  }
+
+  await setStoredDeviceToken('')
+
+  return {
     success: true,
   }
 }
