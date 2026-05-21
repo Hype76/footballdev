@@ -30,6 +30,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Confirm app icons and splash assets are final enough for review builds.
 - Confirm Android notification icon renders clearly in the status bar and notification drawer.
 - Confirm a real test parent account exists for reviewer login.
+- Keep reviewer email and password out of git. Add them only inside App Store Connect and Google Play Console.
 - Confirm the parent account has at least one linked player with matchday data.
 - Confirm the linked player has at least one portal message and one open parent poll.
 - Confirm store app access notes say this is a restricted-login parent app with no in-app signup.
@@ -93,6 +94,7 @@ npx eas-cli build --profile store-test --platform android
 - Build and install the iOS TestFlight build.
 - Capture final store screenshots from `../MOBILE_SCREENSHOT_PLAN.md`.
 - Supply reviewer credentials for the test parent account.
+- Do not paste reviewer credentials into repo files.
 - Add reviewer notes in App Store Connect and Google Play Console.
 - Add app access instructions from `../MOBILE_REVIEWER_HANDOFF.md`.
 - Confirm the public support route is monitored and the privacy policy URL opens correctly.

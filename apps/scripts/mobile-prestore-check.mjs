@@ -105,6 +105,20 @@ function assertNotIncludes(content, unexpected, label) {
   }
 }
 
+function assertNoReviewerCredentialValues(content, label) {
+  content.split(/\r?\n/).forEach((line, index) => {
+    const normalizedLine = line.trim().replace(/^-+\s*/, '')
+
+    if (/^Email:/i.test(normalizedLine) && normalizedLine !== 'Email: add in store console only') {
+      failures.push(`${label} line ${index + 1} must not contain a reviewer email value`)
+    }
+
+    if (/^Password:/i.test(normalizedLine) && normalizedLine !== 'Password: add in store console only') {
+      failures.push(`${label} line ${index + 1} must not contain a reviewer password value`)
+    }
+  })
+}
+
 function scanSource(relativePath, appName) {
   const fullPath = join(repoRoot, relativePath)
 
@@ -269,6 +283,8 @@ for (const app of apps) {
     assertIncludes(checklist, '../MOBILE_VERSIONING.md', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'EXPO_PUBLIC_SUPABASE_ENV=test', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', `${app.name} store submission checklist`)
+    assertIncludes(checklist, 'Keep reviewer email and password out of git. Add them only inside App Store Connect and Google Play Console.', `${app.name} store submission checklist`)
+    assertIncludes(checklist, 'Do not paste reviewer credentials into repo files.', `${app.name} store submission checklist`)
   }
 
   if (existsSync(join(repoRoot, app.readme))) {
@@ -375,6 +391,7 @@ if (existsSync(join(repoRoot, preStoreQaPath))) {
 if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   const reviewerHandoff = read(reviewerHandoffPath)
   assertIncludes(reviewerHandoff, 'Do not commit real passwords', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'Do not paste reviewer email addresses, passwords, one-time codes, or private account notes into this file.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'MOBILE_STORE_ACCOUNT_SETUP.md', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Payments are handled outside the mobile app', 'Mobile reviewer handoff')
@@ -384,6 +401,8 @@ if (existsSync(join(repoRoot, reviewerHandoffPath))) {
   assertIncludes(reviewerHandoff, 'This app is restricted to linked parents and guardians.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'The app has no in-app signup, purchase, subscription, or billing flow.', 'Mobile reviewer handoff')
   assertIncludes(reviewerHandoff, 'Screenshot checklist', 'Mobile reviewer handoff')
+  assertIncludes(reviewerHandoff, 'Confirm reviewer credentials are entered only in App Store Connect and Google Play Console.', 'Mobile reviewer handoff')
+  assertNoReviewerCredentialValues(reviewerHandoff, 'Mobile reviewer handoff')
 }
 
 if (existsSync(join(repoRoot, screenshotPlanPath))) {

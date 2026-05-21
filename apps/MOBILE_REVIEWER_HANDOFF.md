@@ -18,6 +18,8 @@ Use this as the working handoff for App Store Connect and Google Play review. Do
 
 Store reviewer credentials should be supplied inside App Store Connect and Google Play Console review notes, not in this repository.
 
+Do not paste reviewer email addresses, passwords, one-time codes, or private account notes into this file.
+
 ### Coach reviewer account
 
 - Email: add in store console only
@@ -105,6 +107,7 @@ Capture screenshots from real store builds or installed internal builds, not fro
 ## Final submission checks
 
 - Confirm the reviewer accounts work immediately before submission.
+- Confirm reviewer credentials are entered only in App Store Connect and Google Play Console.
 - Confirm both apps still use `EXPO_PUBLIC_SUPABASE_ENV=test`.
 - Confirm both apps still use `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
 - Confirm the supplied review notes match the app being submitted.
