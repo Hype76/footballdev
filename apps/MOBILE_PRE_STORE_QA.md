@@ -9,6 +9,7 @@ Use `MOBILE_DEVICE_TESTING.md` for the physical device test runbook.
 - Coach app: `apps/coach-mobile`
 - Parent app: `apps/parent-mobile`
 - Shared code: `apps/mobile-core`
+- Privacy questionnaire draft: `MOBILE_PRIVACY_QUESTIONNAIRE.md`
 - Test database only until live release approval is given.
 
 ## Required secrets
@@ -66,6 +67,7 @@ npx eas-cli build --profile store-test --platform android
 - Reviewer notes must explain that payments are handled outside the mobile app.
 - Coach app is for club staff only.
 - Parents app is for linked parent and family access only.
+- Privacy answers should be checked against `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
 
 ## Native notification QA
 

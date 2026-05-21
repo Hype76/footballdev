@@ -13,6 +13,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 ## Required before TestFlight or Google internal testing
 
 - Review `STORE_METADATA.md` and confirm final public copy.
+- Review `../MOBILE_PRIVACY_QUESTIONNAIRE.md` and confirm final privacy answers.
 - Create the Expo EAS project and set `EXPO_PUBLIC_EAS_PROJECT_ID`.
 - Add test Supabase URL and publishable key as EAS secrets.
 - Add the Netlify test API base URL as `EXPO_PUBLIC_API_BASE_URL`.

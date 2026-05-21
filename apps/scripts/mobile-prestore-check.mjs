@@ -30,6 +30,7 @@ const forbiddenSourcePatterns = [
 ]
 
 const failures = []
+const sharedPrivacyPath = 'apps/MOBILE_PRIVACY_QUESTIONNAIRE.md'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -107,6 +108,17 @@ for (const app of apps) {
   }
 
   app.sourceRoots.forEach((sourceRoot) => scanSource(sourceRoot, app.name))
+}
+
+assertFile(sharedPrivacyPath, 'Mobile privacy questionnaire')
+
+if (existsSync(join(repoRoot, sharedPrivacyPath))) {
+  const privacyDraft = read(sharedPrivacyPath)
+  assertIncludes(privacyDraft, 'Apps do not include in-app purchases.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyDraft, 'Apps do not collect precise location.', 'Mobile privacy questionnaire')
+  assertIncludes(privacyDraft, 'Apps use Expo push notification services', 'Mobile privacy questionnaire')
+  assertIncludes(privacyDraft, 'https://footballplayer.online/gdpr', 'Mobile privacy questionnaire')
+  assertIncludes(privacyDraft, 'https://footballplayer.online/terms', 'Mobile privacy questionnaire')
 }
 
 if (failures.length > 0) {
