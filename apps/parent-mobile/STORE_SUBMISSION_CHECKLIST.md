@@ -72,9 +72,9 @@ This app is test-only until the mobile release is explicitly approved for live S
 ```bash
 cd apps/parent-mobile
 npm install
-npx eas-cli build --profile internal --platform android
-npx eas-cli build --profile store-test --platform ios
-npx eas-cli build --profile store-test --platform android
+npm run build:android:internal
+npm run build:ios:store-test
+npm run build:android:store-test
 ```
 
 ## Reviewer notes
