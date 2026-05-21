@@ -86,6 +86,8 @@ npm run build:ios:store-test
 
 - Coach starts match, parent app still loads the live match.
 - Coach records Goal For, parent device receives a goal notification.
+- Coach records a detailed goal with a valid minute, scorer, and assist.
+- Coach tries a non-numeric detailed goal minute and sees a validation message instead of saving invalid data.
 - Coach records Goal Against, parent device receives a goal update notification.
 - Coach records Half Time, parent device receives a half time notification.
 - Coach records Full Time, parent device receives a full time notification.

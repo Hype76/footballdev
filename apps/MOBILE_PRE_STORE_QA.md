@@ -96,6 +96,7 @@ npm run build:android:store-test
 - Coach app can disable device notifications.
 - Notification QA follows `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Coach goal sends parent push.
+- Coach detailed goal minute input rejects non-numeric values.
 - Coach half time sends parent push.
 - Coach full time sends parent push.
 - Coach score correction sends parent push.

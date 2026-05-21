@@ -423,6 +423,22 @@ function getInitialsFromName(value) {
     .toUpperCase()
 }
 
+function normalizeGoalMinute(value) {
+  const normalizedValue = normalizeText(value)
+
+  if (!normalizedValue) {
+    return null
+  }
+
+  const numericValue = Number(normalizedValue)
+
+  if (!Number.isFinite(numericValue)) {
+    throw new Error('Goal minute must be a number.')
+  }
+
+  return Math.max(Math.min(Math.round(numericValue), 130), 0)
+}
+
 export async function updateCoachMatchStatus(user, match, status) {
   if (!user?.clubId || !match?.id) {
     throw new Error('Choose a match before updating it.')
@@ -467,6 +483,7 @@ export async function addCoachMatchGoal(user, match, teamSide = 'club', goalDeta
   }
 
   const normalizedTeamSide = normalizeText(teamSide) === 'opponent' ? 'opponent' : 'club'
+  const normalizedMinute = normalizeGoalMinute(goalDetails.minute)
   let nextHomeScore = Number(match.homeScore || 0)
   let nextAwayScore = Number(match.awayScore || 0)
 
@@ -510,7 +527,7 @@ export async function addCoachMatchGoal(user, match, teamSide = 'club', goalDeta
       assist_initials: getInitialsFromName(goalDetails.assistName),
       assist_name: normalizeText(goalDetails.assistName),
       assist_shirt_number: normalizeText(goalDetails.assistShirtNumber),
-      minute: goalDetails.minute ? Math.max(Number(goalDetails.minute), 0) : getCurrentMatchMinute(match),
+      minute: normalizedMinute ?? getCurrentMatchMinute(match),
       notes: normalizeText(goalDetails.notes),
       scorer_initials: getInitialsFromName(goalDetails.scorerName),
       scorer_name: normalizeText(goalDetails.scorerName),
