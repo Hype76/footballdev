@@ -2,53 +2,11 @@ import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mobileApps } from './mobile-apps.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-const apps = [
-  {
-    appConfig: 'apps/coach-mobile/app.config.js',
-    appRole: 'coach',
-    bundleIdentifier: 'com.footballplayer.coach',
-    envExample: 'apps/coach-mobile/.env.example',
-    gitignore: 'apps/coach-mobile/.gitignore',
-    notificationIcon: 'apps/coach-mobile/assets/notification-icon.png',
-    easConfig: 'apps/coach-mobile/eas.json',
-    expectedName: 'Football Player Coach',
-    metadata: 'apps/coach-mobile/STORE_METADATA.md',
-    metroConfig: 'apps/coach-mobile/metro.config.js',
-    name: 'Coach',
-    packageJson: 'apps/coach-mobile/package.json',
-    packageName: 'com.footballplayer.coach',
-    readme: 'apps/coach-mobile/README.md',
-    scheme: 'footballplayercoach',
-    slug: 'football-player-coach',
-    sourceRoots: ['apps/coach-mobile/App.js', 'apps/mobile-core/src'],
-    submissionChecklist: 'apps/coach-mobile/STORE_SUBMISSION_CHECKLIST.md',
-    restrictedAccessCopy: 'Restricted club access.',
-  },
-  {
-    appConfig: 'apps/parent-mobile/app.config.js',
-    appRole: 'parent',
-    bundleIdentifier: 'com.footballplayer.parents',
-    envExample: 'apps/parent-mobile/.env.example',
-    gitignore: 'apps/parent-mobile/.gitignore',
-    notificationIcon: 'apps/parent-mobile/assets/notification-icon.png',
-    easConfig: 'apps/parent-mobile/eas.json',
-    expectedName: 'Football Player Parents',
-    metadata: 'apps/parent-mobile/STORE_METADATA.md',
-    metroConfig: 'apps/parent-mobile/metro.config.js',
-    name: 'Parents',
-    packageJson: 'apps/parent-mobile/package.json',
-    packageName: 'com.footballplayer.parents',
-    readme: 'apps/parent-mobile/README.md',
-    scheme: 'footballplayerparents',
-    slug: 'football-player-parents',
-    sourceRoots: ['apps/parent-mobile/App.js', 'apps/mobile-core/src'],
-    submissionChecklist: 'apps/parent-mobile/STORE_SUBMISSION_CHECKLIST.md',
-    restrictedAccessCopy: 'Restricted parent access.',
-  },
-]
+const apps = mobileApps
 
 const forbiddenSourcePatterns = [
   /\bstripe\b/i,
@@ -91,6 +49,7 @@ const versioningPath = 'apps/MOBILE_VERSIONING.md'
 const releaseStatusPath = 'apps/MOBILE_RELEASE_STATUS.md'
 const rootPackagePath = 'package.json'
 const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
+const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), 'utf8')
@@ -391,7 +350,14 @@ assertFile(versioningPath, 'Mobile versioning guide')
 assertFile(releaseStatusPath, 'Mobile release status')
 assertFile(rootPackagePath, 'Root package')
 assertFile(sharedAppConfigPath, 'Mobile shared app config')
+assertFile(mobileAppsRegistryPath, 'Mobile app registry')
 assertNoTrackedMobilePrivateFiles()
+
+const mobileAppsRegistry = existsSync(join(repoRoot, mobileAppsRegistryPath)) ? read(mobileAppsRegistryPath) : ''
+
+assertIncludes(mobileAppsRegistry, 'export const mobileApps', 'Mobile app registry')
+assertIncludes(mobileAppsRegistry, "path: 'apps/coach-mobile'", 'Mobile app registry')
+assertIncludes(mobileAppsRegistry, "path: 'apps/parent-mobile'", 'Mobile app registry')
 
 const sharedAppConfig = existsSync(join(repoRoot, sharedAppConfigPath)) ? read(sharedAppConfigPath) : ''
 

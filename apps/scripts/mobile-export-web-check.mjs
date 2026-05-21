@@ -2,22 +2,12 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mobileApps } from './mobile-apps.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-const apps = [
-  {
-    label: 'Coach mobile',
-    cwd: join(repoRoot, 'apps/coach-mobile'),
-  },
-  {
-    label: 'Parents mobile',
-    cwd: join(repoRoot, 'apps/parent-mobile'),
-  },
-]
-
 function assertExportFile(app, relativePath) {
-  const filePath = join(app.cwd, 'dist-web-check', relativePath)
+  const filePath = join(repoRoot, app.path, 'dist-web-check', relativePath)
 
   if (!existsSync(filePath) || !statSync(filePath).isFile()) {
     console.error(`${app.label} web export is missing ${relativePath}.`)
@@ -26,7 +16,7 @@ function assertExportFile(app, relativePath) {
 }
 
 function assertExportDirectoryHasFiles(app, relativePath) {
-  const directoryPath = join(app.cwd, 'dist-web-check', relativePath)
+  const directoryPath = join(repoRoot, app.path, 'dist-web-check', relativePath)
 
   if (!existsSync(directoryPath) || !statSync(directoryPath).isDirectory()) {
     console.error(`${app.label} web export is missing ${relativePath}.`)
@@ -39,11 +29,11 @@ function assertExportDirectoryHasFiles(app, relativePath) {
   }
 }
 
-for (const app of apps) {
+for (const app of mobileApps) {
   console.log(`Running ${app.label} web export check...`)
 
   const result = spawnSync('npm', ['run', 'export:web'], {
-    cwd: app.cwd,
+    cwd: join(repoRoot, app.path),
     shell: process.platform === 'win32',
     stdio: 'inherit',
   })

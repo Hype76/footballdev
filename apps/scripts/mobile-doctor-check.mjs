@@ -1,25 +1,15 @@
 import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mobileApps } from './mobile-apps.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-const apps = [
-  {
-    label: 'Coach mobile',
-    cwd: join(repoRoot, 'apps/coach-mobile'),
-  },
-  {
-    label: 'Parents mobile',
-    cwd: join(repoRoot, 'apps/parent-mobile'),
-  },
-]
-
-for (const app of apps) {
+for (const app of mobileApps) {
   console.log(`Running ${app.label} Expo Doctor...`)
 
   const result = spawnSync('npm', ['run', 'doctor'], {
-    cwd: app.cwd,
+    cwd: join(repoRoot, app.path),
     shell: process.platform === 'win32',
     stdio: 'inherit',
   })
