@@ -9,6 +9,7 @@ Use this runbook for physical iOS and Android QA before the PR is marked ready.
 - Confirm EAS environment values match `MOBILE_ENVIRONMENT_RUNBOOK.md`.
 - Confirm notification checks follow `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Run `npm run mobile:release-check` from the repo root.
+- Run `npm run mobile:config` from the repo root.
 - Run `npm run mobile:prestore` from the repo root.
 - Run `npm run mobile:doctor` from the repo root.
 - Run `npm run mobile:export:web` from the repo root.

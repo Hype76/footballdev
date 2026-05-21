@@ -32,6 +32,7 @@ npm run start
 
 ```bash
 npm run mobile:release-check
+npm run mobile:config
 ```
 
 From this app folder:
