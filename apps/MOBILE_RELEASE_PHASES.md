@@ -50,16 +50,19 @@ Exit criteria: four store records exist, reviewer notes are entered, reviewer cr
 
 ## Phase 4: Native Builds
 
-Status: external after EAS setup.
+Status: partially complete externally on May 21 2026.
 
 Exit criteria: Coach and Parents each have one Android internal build and one iOS TestFlight build created from a commit that passed `npm run mobile:release-check`.
 
 - Run `npm run mobile:release-check` immediately before builds.
 - Run `npm run mobile:preflight` before setting `MOBILE_NATIVE_BUILD_CONFIRMED=true`.
-- Build Coach Android internal build with `npm run mobile:build:coach:android:internal`.
+- Build Coach Android internal build with `npm run mobile:build:coach:android:internal`. Complete.
 - Build Coach iOS TestFlight build with `npm run mobile:build:coach:ios:store-test`.
-- Build Parents Android internal build with `npm run mobile:build:parent:android:internal`.
+- Build Parents Android internal build with `npm run mobile:build:parent:android:internal`. Complete.
 - Build Parents iOS TestFlight build with `npm run mobile:build:parent:ios:store-test`.
+- Build Coach Android store-test AAB with `npm run mobile:build:coach:android:store-test`. Complete.
+- Build Parents Android store-test AAB with `npm run mobile:build:parent:android:store-test`. Complete.
+- Complete Apple distribution credential setup interactively in EAS before rerunning iOS builds.
 - Confirm remote EAS build numbers and version codes are valid for store submission.
 
 ## Phase 5: Real Device QA
