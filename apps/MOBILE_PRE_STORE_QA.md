@@ -113,6 +113,7 @@ npm run build:android:store-test
 - Coach matchday status changes are restricted to valid match statuses.
 - Coach matchday status changes follow the mobile match phase sequence.
 - Coach matchday goal recording is blocked after full time, postponed, or cancelled statuses.
+- Coach matchday score corrections are blocked on postponed or cancelled matches.
 - Coach quick assessment blocks missing required answers and invalid score values.
 - Parent app shows linked children and respects the selected child.
 - Parent app keeps matchday, messages, polls, and notification registration scoped to the selected child.

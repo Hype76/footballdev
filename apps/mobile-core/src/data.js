@@ -585,6 +585,10 @@ export async function undoCoachLastMatchGoal(user, match) {
     throw new Error('Choose a match before correcting the score.')
   }
 
+  if (['postponed', 'cancelled'].includes(match.status)) {
+    throw new Error('This match is no longer open for score corrections.')
+  }
+
   const latestEvent = Array.isArray(match.events) ? match.events[0] : null
 
   if (!latestEvent || latestEvent.eventType !== 'goal') {

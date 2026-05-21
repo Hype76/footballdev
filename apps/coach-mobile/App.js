@@ -436,7 +436,7 @@ function CoachMatchActions({ activeActionId, match, onAddDetailedGoal, onAddGoal
   const canStart = ['scheduled', 'scorer_request'].includes(match.status)
   const canRecordGoal = ['live', 'second_half', 'extra_time', 'penalties'].includes(match.status)
   const latestEvent = Array.isArray(match.events) ? match.events[0] : null
-  const canUndoLastGoal = latestEvent?.eventType === 'goal'
+  const canUndoLastGoal = latestEvent?.eventType === 'goal' && !['postponed', 'cancelled'].includes(match.status)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [goalDetails, setGoalDetails] = useState({
     assistName: '',

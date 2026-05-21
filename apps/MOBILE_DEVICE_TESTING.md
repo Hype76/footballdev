@@ -97,6 +97,7 @@ npm run build:ios:store-test
 - Coach records Half Time, parent device receives a half time notification.
 - Coach records Full Time, parent device receives a full time notification.
 - Coach uses Undo Last Goal, parent app shows a score correction.
+- Coach cannot use Undo Last Goal on postponed or cancelled matches.
 - Parent taps Volunteer As Scorer, coach device receives a scorer volunteer notification.
 - Parent cannot volunteer as scorer after the match is no longer available for scorer requests.
 - Staff sends a parent message immediately, parent device receives a message notification.
