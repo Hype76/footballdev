@@ -1,0 +1,70 @@
+# Football Player Coach Store Checklist
+
+This app is test-only until the mobile release is explicitly approved for live Supabase.
+
+## App identity
+
+- App name: Football Player Coach
+- iOS bundle identifier: com.footballplayer.coach
+- Android package: com.footballplayer.coach
+- Scheme: footballplayercoach
+- Billing, checkout, subscription management, and bulk email are not included.
+
+## Required before TestFlight or Google internal testing
+
+- Create the Expo EAS project and set `EXPO_PUBLIC_EAS_PROJECT_ID`.
+- Add test Supabase URL and publishable key as EAS secrets.
+- Add the Netlify test API base URL as `EXPO_PUBLIC_API_BASE_URL`.
+- Confirm `EXPO_PUBLIC_SUPABASE_ENV=test`.
+- Confirm `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
+- Create an Apple App Store Connect app record.
+- Create a Google Play Console app record.
+- Confirm app icons and splash assets are final enough for review builds.
+- Confirm a real test coach account exists for reviewer login.
+- Confirm the test coach account has access to at least one team, one player, one match, and one assessment form.
+
+## Native device QA
+
+- Login succeeds on a real iPhone.
+- Login succeeds on a real Android phone.
+- App blocks access for a parent account.
+- App blocks access when Supabase environment is set to live without explicit approval.
+- Notification permission prompt appears on a real device.
+- Coach device can register for notifications.
+- Biometric unlock can be enabled when the device supports it.
+- Biometric unlock does not appear as enabled when the device has no enrolled security.
+- Sign out clears the active session.
+
+## Coach workflow QA
+
+- Matchday list loads from test data.
+- Start match changes a scheduled match to live.
+- Goal For updates the score and parent devices receive a push.
+- Goal Against updates the score and parent devices receive a clear goal update.
+- Add Goal Details saves scorer, assist, minute, and note.
+- Undo Last Goal creates a score correction event and reverses the score.
+- Half Time sends a parent notification.
+- Second Half sends a parent notification.
+- Full Time sends a parent notification.
+- Player list loads.
+- Quick Assessment saves against the club form fields.
+- Sessions list loads.
+
+## Build commands
+
+```bash
+cd apps/coach-mobile
+npm install
+npx eas build --profile internal --platform android
+npx eas build --profile store-test --platform ios
+npx eas build --profile store-test --platform android
+```
+
+## Reviewer notes
+
+- Login is required.
+- Use the supplied test coach account.
+- Payments are handled outside the mobile app and are not available in this app.
+- Notifications require a real device.
+- Biometric login appears only when the phone supports enrolled biometrics.
+- This build uses the test database until the live release is explicitly approved.

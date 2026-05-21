@@ -3,6 +3,7 @@ import { markEmailLogFailed } from './_email-log-store.js'
 import { supabaseAdmin } from './_supabase.js'
 import { assertPlanFeature, getClubPlanProfile } from './_plan-gate.js'
 import { sendPreparedParentEmail } from './send-parent-email.js'
+import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -82,10 +83,10 @@ async function createSentCommunicationLog(row) {
   const log = row.payload?.communicationLog
 
   if (!log || typeof log !== 'object' || !log.clubId || !log.userId) {
-    return
+    return null
   }
 
-  const { error } = await supabaseAdmin.from('communication_logs').insert({
+  const { data, error } = await supabaseAdmin.from('communication_logs').insert({
     club_id: log.clubId,
     player_id: log.playerId || null,
     evaluation_id: log.evaluationId || null,
@@ -96,10 +97,33 @@ async function createSentCommunicationLog(row) {
     action: 'parent_email_sent',
     recipient_email: String(log.recipientEmail ?? row.to_email ?? '').trim(),
     metadata: log.metadata && typeof log.metadata === 'object' ? log.metadata : {},
-  })
+  }).select('id, club_id').single()
 
   if (error) {
     console.error('Scheduled email communication log failed', error)
+    return null
+  }
+
+  return data
+}
+
+async function sendScheduledParentPush(communicationLog) {
+  if (!communicationLog?.id || !communicationLog?.club_id) {
+    return
+  }
+
+  try {
+    await sendParentMobilePushById({
+      id: communicationLog.id,
+      profile: {
+        clubId: communicationLog.club_id,
+        role: 'system',
+        roleRank: 100,
+      },
+      type: 'parent_message',
+    })
+  } catch (error) {
+    console.error('Scheduled email parent mobile push failed', error)
   }
 }
 
@@ -127,7 +151,8 @@ async function sendScheduledEmail(row) {
       return 'duplicate'
     }
 
-    await createSentCommunicationLog(lockedRow)
+    const communicationLog = await createSentCommunicationLog(lockedRow)
+    await sendScheduledParentPush(communicationLog)
 
     return 'sent'
   } catch (error) {

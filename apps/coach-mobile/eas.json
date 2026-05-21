@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 15.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_ENV": "test",
+        "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "false"
+      }
+    },
+    "internal": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_ENV": "test",
+        "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "false"
+      }
+    },
+    "store-test": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_ENV": "test",
+        "EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "false"
+      }
+    }
+  },
+  "submit": {
+    "store-test": {}
+  }
+}

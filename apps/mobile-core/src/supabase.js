@@ -1,0 +1,25 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { createClient } from '@supabase/supabase-js'
+import { getMobileRuntimeConfig } from './config'
+
+const config = getMobileRuntimeConfig('shared')
+
+export const isSupabaseConfigured = config.isConfigured
+
+export const supabase = createClient(
+  config.supabaseUrl || 'https://placeholder.supabase.co',
+  config.supabasePublishableKey || 'placeholder-key',
+  {
+    auth: {
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      persistSession: true,
+      storage: AsyncStorage,
+    },
+  },
+)
+
+export async function getAccessToken() {
+  const { data } = await supabase.auth.getSession()
+  return data?.session?.access_token || ''
+}
