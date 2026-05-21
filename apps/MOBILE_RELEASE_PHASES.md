@@ -18,6 +18,8 @@ Status: complete in this branch.
 
 Status: external.
 
+Exit criteria: both app projects exist in Expo, each app has its own EAS project ID stored in EAS only, and both apps resolve test Supabase values for store-test builds.
+
 - Create one EAS project for Football Player Coach.
 - Create one EAS project for Football Player Parents.
 - Use `MOBILE_EAS_SETUP_CHECKLIST.md` for the app-by-app EAS setup steps.
@@ -30,6 +32,8 @@ Status: external.
 ## Phase 3: Apple And Google Store Records
 
 Status: external.
+
+Exit criteria: four store records exist, reviewer notes are entered, reviewer credentials are stored only inside the store consoles, and privacy answers match `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
 
 - Create the App Store Connect record for Football Player Coach.
 - Create the App Store Connect record for Football Player Parents.
@@ -44,6 +48,8 @@ Status: external.
 
 Status: external after EAS setup.
 
+Exit criteria: Coach and Parents each have one Android internal build and one iOS TestFlight build created from a commit that passed `npm run mobile:release-check`.
+
 - Run `npm run mobile:release-check` immediately before builds.
 - Build Coach Android internal build.
 - Build Coach iOS TestFlight build.
@@ -54,6 +60,8 @@ Status: external after EAS setup.
 ## Phase 5: Real Device QA
 
 Status: external after native builds.
+
+Exit criteria: both apps pass Android and iOS device testing, including login, refresh, biometric unlock where supported, and all required push notification flows.
 
 - Install Coach and Parents on real Android devices.
 - Install Coach and Parents on real iPhones through TestFlight.
@@ -66,6 +74,8 @@ Status: external after native builds.
 ## Phase 6: Screenshots And Final Store Submission
 
 Status: external after device QA.
+
+Exit criteria: screenshots are captured from real builds with test data only, reviewer credentials still work, and the final local release check passes.
 
 - Capture screenshots from real store or internal builds using `MOBILE_SCREENSHOT_PLAN.md`.
 - Confirm screenshots show test data only.

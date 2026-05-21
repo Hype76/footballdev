@@ -31,6 +31,8 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 
 ## Still external before store submission
 
+Complete these in order, and record the outcome in a private copy of `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
+
 - Create Expo EAS projects for both apps using `MOBILE_EAS_SETUP_CHECKLIST.md`.
 - Add each final `EXPO_PUBLIC_EAS_PROJECT_ID` in EAS, not in git.
 - Add test Supabase and test Netlify API environment values in EAS using `MOBILE_ENVIRONMENT_RUNBOOK.md`.
@@ -45,6 +47,19 @@ For phase ownership and remaining external work, use `MOBILE_RELEASE_PHASES.md`.
 - Record external QA and submission evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.
 - Capture store screenshots using `MOBILE_SCREENSHOT_PLAN.md` and test data only.
 - Confirm the public support route is monitored and privacy wording still matches production before submission.
+
+## Next external action checklist
+
+- Run `npm run mobile:release-check` from the repo root and record the passing commit.
+- Create or confirm the two Expo EAS projects.
+- Add EAS environment values for both apps with `EXPO_PUBLIC_SUPABASE_ENV=test` and `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.
+- Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
+- Enter reviewer credentials only in App Store Connect and Google Play Console.
+- Create one Android internal build and one iOS TestFlight build for each app.
+- Install all four builds on real devices.
+- Complete `MOBILE_DEVICE_TESTING.md`, with push notification evidence from `MOBILE_NOTIFICATION_RUNBOOK.md`.
+- Capture screenshots from the real builds using `MOBILE_SCREENSHOT_PLAN.md`.
+- Run `npm run mobile:release-check` again immediately before final store submission.
 
 ## Release gate
 

@@ -808,6 +808,8 @@ if (existsSync(join(repoRoot, releaseStatusPath))) {
   assertIncludes(releaseStatus, 'Verify push notifications on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Record external QA and submission evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release status')
   assertIncludes(releaseStatus, 'MOBILE_SCREENSHOT_PLAN.md', 'Mobile release status')
+  assertIncludes(releaseStatus, '## Next external action checklist', 'Mobile release status')
+  assertIncludes(releaseStatus, 'Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.', 'Mobile release status')
   assertIncludes(releaseStatus, 'Do not switch either mobile app to live Supabase until live release approval is explicitly given.', 'Mobile release status')
   assertNotIncludes(releaseStatus, 'Confirm final support URL', 'Mobile release status')
 }
@@ -817,12 +819,17 @@ if (existsSync(join(repoRoot, releasePhasesPath))) {
   assertIncludes(releasePhases, '## Phase 1: Local Repo Readiness', 'Mobile release phases')
   assertIncludes(releasePhases, 'Status: complete in this branch.', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 2: Expo EAS Setup', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Exit criteria: both app projects exist in Expo', 'Mobile release phases')
   assertIncludes(releasePhases, 'Use `MOBILE_EAS_SETUP_CHECKLIST.md` for the app-by-app EAS setup steps.', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 3: Apple And Google Store Records', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Exit criteria: four store records exist', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 4: Native Builds', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Exit criteria: Coach and Parents each have one Android internal build and one iOS TestFlight build', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 5: Real Device QA', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Exit criteria: both apps pass Android and iOS device testing', 'Mobile release phases')
   assertIncludes(releasePhases, 'Record release evidence using `MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', 'Mobile release phases')
   assertIncludes(releasePhases, '## Phase 6: Screenshots And Final Store Submission', 'Mobile release phases')
+  assertIncludes(releasePhases, 'Exit criteria: screenshots are captured from real builds with test data only', 'Mobile release phases')
   assertIncludes(releasePhases, 'Do not switch either app to live Supabase until live release approval is explicitly given.', 'Mobile release phases')
 }
 
