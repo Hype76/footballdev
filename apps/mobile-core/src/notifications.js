@@ -2,6 +2,7 @@ import * as Device from 'expo-device'
 import * as Notifications from 'expo-notifications'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
+import { fetchJsonWithTimeout, joinApiPath } from './http'
 
 const MOBILE_PUSH_TOKEN_KEY = 'football-player:mobile-push-token'
 const MATCHDAY_CHANNEL_ID = 'matchday'
@@ -116,7 +117,7 @@ export async function registerNativePushDevice({
     throw new Error('Expo push token could not be created.')
   }
 
-  const response = await fetch(`${apiBaseUrl}/.netlify/functions/register-mobile-push-device`, {
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, '.netlify/functions/register-mobile-push-device'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -132,9 +133,8 @@ export async function registerNativePushDevice({
       teamId,
     }),
   })
-  const result = await response.json().catch(() => ({}))
 
-  if (!response.ok || result.success === false) {
+  if (!ok || result.success === false) {
     throw new Error(result.message || 'Mobile notifications could not be enabled.')
   }
 
@@ -164,7 +164,7 @@ export async function revokeNativePushDevice({ accessToken, apiBaseUrl }) {
     }
   }
 
-  const response = await fetch(`${apiBaseUrl}/.netlify/functions/register-mobile-push-device`, {
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, '.netlify/functions/register-mobile-push-device'), {
     method: 'DELETE',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -172,9 +172,8 @@ export async function revokeNativePushDevice({ accessToken, apiBaseUrl }) {
     },
     body: JSON.stringify({ deviceToken }),
   })
-  const result = await response.json().catch(() => ({}))
 
-  if (!response.ok || result.success === false) {
+  if (!ok || result.success === false) {
     throw new Error(result.message || 'Mobile notifications could not be disabled.')
   }
 

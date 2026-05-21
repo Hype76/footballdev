@@ -121,8 +121,11 @@ assertFile(reviewerHandoffPath, 'Mobile reviewer handoff')
 assertFile(rootPackagePath, 'Root package')
 
 const mobileConfig = read('apps/mobile-core/src/config.js')
+const mobileHttp = read('apps/mobile-core/src/http.js')
 const mobileSupabase = read('apps/mobile-core/src/supabase.js')
 assertIncludes(mobileConfig, 'isUsable: isConfigured && !isLiveBlocked', 'Mobile runtime config')
+assertIncludes(mobileHttp, 'fetchJsonWithTimeout', 'Mobile HTTP helper')
+assertIncludes(mobileHttp, 'The mobile API request timed out.', 'Mobile HTTP helper')
 assertIncludes(mobileSupabase, 'config.isUsable ? config.supabaseUrl', 'Mobile Supabase client')
 
 if (existsSync(join(repoRoot, rootPackagePath))) {

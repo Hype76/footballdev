@@ -1,4 +1,5 @@
 import { getMobileRuntimeConfig } from './config'
+import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getAccessToken, supabase } from './supabase'
 
 function normalizeText(value) {
@@ -17,7 +18,7 @@ async function sendMatchDayPushNotification({ eventId = '', matchDayId, type }) 
     return { skipped: true }
   }
 
-  const response = await fetch(`${config.apiBaseUrl}/.netlify/functions/send-match-day-push`, {
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-match-day-push'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -29,9 +30,8 @@ async function sendMatchDayPushNotification({ eventId = '', matchDayId, type }) 
       type,
     }),
   })
-  const result = await response.json().catch(() => ({}))
 
-  if (!response.ok || result.success === false) {
+  if (!ok || result.success === false) {
     throw new Error(result.message || 'Matchday notification could not be sent.')
   }
 
@@ -59,7 +59,7 @@ async function sendCoachMobilePushNotificationSafely({ matchDayId, type }) {
       return { skipped: true }
     }
 
-    const response = await fetch(`${config.apiBaseUrl}/.netlify/functions/send-coach-mobile-push`, {
+    const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-coach-mobile-push'), {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -70,9 +70,8 @@ async function sendCoachMobilePushNotificationSafely({ matchDayId, type }) {
         type,
       }),
     })
-    const result = await response.json().catch(() => ({}))
 
-    if (!response.ok || result.success === false) {
+    if (!ok || result.success === false) {
       throw new Error(result.message || 'Coach notification could not be sent.')
     }
 
