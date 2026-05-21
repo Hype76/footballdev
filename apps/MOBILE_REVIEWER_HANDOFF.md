@@ -52,11 +52,13 @@ This app is restricted to linked parents and guardians. Reviewers should sign in
 
 The test parent account should be able to view linked child context, matchday updates, club messages, parent polls, notification settings, and biometric unlock when supported by the device.
 
-## Apple review notes draft
+## Apple Review Notes
 
-This app requires login because it is used by authorised football club users connected to an existing Football Player workspace.
+### Coach app
 
-Use the reviewer credentials supplied in this review note. The supplied account is connected to a test club workspace with sample teams, players, matchday data, messages, polls, and assessment records.
+Football Player Coach requires login because it is used by authorised football club staff connected to an existing Football Player workspace.
+
+Use the supplied test coach account. The supplied account is connected to a test club workspace with sample teams, players, matchday data, sessions, and assessment records.
 
 Payments are handled outside the mobile app and are not available in this app. The mobile app does not include checkout, in-app purchases, subscription management, club billing controls, or bulk email.
 
@@ -64,13 +66,29 @@ Push notifications require a real iOS device. Biometric unlock appears only when
 
 This review build uses the test database.
 
-App access: restricted login. Use the supplied test account. The app has no in-app signup, purchase, subscription, or billing flow.
+App access: restricted staff login. Use the supplied test coach account. The app has no in-app signup, purchase, subscription, or billing flow.
 
-## Google Play review notes draft
+### Parents app
 
-This app requires login because it is used by authorised football club users connected to an existing Football Player workspace.
+Football Player Parents requires login because it is used by parents and guardians linked to an existing Football Player workspace.
 
-Use the reviewer credentials supplied in this review note. The supplied account is connected to a test club workspace with sample teams, players, matchday data, messages, polls, and assessment records.
+Use the supplied test parent account. The supplied account is connected to at least one linked child in a test club workspace with matchday data, club messages, and an open parent poll.
+
+Payments are handled outside the mobile app and are not available in this app. The mobile app does not include checkout, in-app purchases, subscription management, club billing controls, staff workflows, club admin tools, or bulk email.
+
+Push notifications require a real iOS device. Biometric unlock appears only when the device supports enrolled Face ID or Touch ID.
+
+This review build uses the test database.
+
+App access: restricted parent login. Use the supplied test parent account. The app has no in-app signup, purchase, subscription, or billing flow.
+
+## Google Play Review Notes
+
+### Coach app
+
+Football Player Coach requires login because it is used by authorised football club staff connected to an existing Football Player workspace.
+
+Use the supplied test coach account. The supplied account is connected to a test club workspace with sample teams, players, matchday data, sessions, and assessment records.
 
 Payments are handled outside the mobile app and are not available in this app. The mobile app does not include checkout, in-app purchases, subscription management, club billing controls, or bulk email.
 
@@ -78,7 +96,21 @@ Push notifications require a real Android device. Biometric unlock appears only 
 
 This review build uses the test database.
 
-App access: restricted login. Use the supplied test account. The app has no in-app signup, purchase, subscription, or billing flow.
+App access: restricted staff login. Use the supplied test coach account. The app has no in-app signup, purchase, subscription, or billing flow.
+
+### Parents app
+
+Football Player Parents requires login because it is used by parents and guardians linked to an existing Football Player workspace.
+
+Use the supplied test parent account. The supplied account is connected to at least one linked child in a test club workspace with matchday data, club messages, and an open parent poll.
+
+Payments are handled outside the mobile app and are not available in this app. The mobile app does not include checkout, in-app purchases, subscription management, club billing controls, staff workflows, club admin tools, or bulk email.
+
+Push notifications require a real Android device. Biometric unlock appears only when the device supports enrolled screen lock or biometric security.
+
+This review build uses the test database.
+
+App access: restricted parent login. Use the supplied test parent account. The app has no in-app signup, purchase, subscription, or billing flow.
 
 ## Screenshot checklist
 
