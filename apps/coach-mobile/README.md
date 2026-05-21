@@ -41,6 +41,13 @@ npm run export:web
 npm run build:android:internal
 npm run build:ios:store-test
 npm run build:android:store-test
+```
+
+## Submit
+
+Run only after the store records, reviewer credentials, screenshots, reviewer notes, physical device QA, and `STORE_SUBMISSION_CHECKLIST.md` are complete.
+
+```bash
 npm run submit:ios:store-test
 npm run submit:android:store-test
 ```

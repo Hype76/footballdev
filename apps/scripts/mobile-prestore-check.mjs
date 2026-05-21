@@ -371,6 +371,10 @@ for (const app of apps) {
     assertIncludes(readme, '../MOBILE_REVIEWER_HANDOFF.md', `${app.name} README`)
     assertIncludes(readme, 'EXPO_PUBLIC_SUPABASE_ENV=test', `${app.name} README`)
     assertIncludes(readme, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', `${app.name} README`)
+    assertIncludes(readme, '## Submit', `${app.name} README`)
+    assertIncludes(readme, 'Run only after the store records, reviewer credentials, screenshots, reviewer notes, physical device QA, and `STORE_SUBMISSION_CHECKLIST.md` are complete.', `${app.name} README`)
+    assertIncludes(readme, 'npm run submit:ios:store-test', `${app.name} README`)
+    assertIncludes(readme, 'npm run submit:android:store-test', `${app.name} README`)
   }
 
   app.sourceRoots.forEach((sourceRoot) => scanSource(sourceRoot, app.name))
