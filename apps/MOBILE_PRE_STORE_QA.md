@@ -113,6 +113,7 @@ npm run build:android:store-test
 - Parent app keeps matchday, messages, polls, and notification registration scoped to the selected child.
 - Shared mobile UI renders consistently across both apps for login, headers, tabs, overview, cards, lists, settings, choice controls, and segmented controls.
 - Shared mobile device controls behave consistently across both apps for notifications and biometric unlock.
+- Biometric unlock locks the app again after the app is backgrounded and reopened.
 - Pull-to-refresh reloads Coach matchday, player, session, and assessment data.
 - Pull-to-refresh reloads Parents matchday, message, and poll data.
 - Reopening either app refreshes the current selected data without requiring sign out.

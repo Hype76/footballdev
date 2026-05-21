@@ -1,4 +1,5 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { AppState } from 'react-native'
 import { authenticateWithBiometrics, getBiometricEnabled } from './biometrics'
 import { fetchMobileProfile } from './profile'
 import { isSupabaseConfigured, mobileConfigError, supabase } from './supabase'
@@ -86,6 +87,26 @@ export function AuthProvider({ appRole, children }) {
     }
   }, [appRole, loadProfile])
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'background') {
+        return
+      }
+
+      void getBiometricEnabled().then((biometricEnabled) => {
+        if (biometricEnabled && session?.user) {
+          setIsLocked(true)
+        }
+      }).catch((error) => {
+        console.error(error)
+      })
+    })
+
+    return () => {
+      subscription.remove()
+    }
+  }, [session?.user])
+
   async function signIn(email, password) {
     setAuthError('')
     setIsLocked(false)
@@ -101,6 +122,8 @@ export function AuthProvider({ appRole, children }) {
   }
 
   async function signOut() {
+    setIsLocked(false)
+    setUser(null)
     const { error } = await supabase.auth.signOut()
 
     if (error) {

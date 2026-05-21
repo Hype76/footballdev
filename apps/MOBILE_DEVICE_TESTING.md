@@ -61,6 +61,7 @@ npm run build:ios:store-test
 - Confirm Android notification permission is granted.
 - Disable notifications in both apps, then enable them again.
 - Confirm biometric unlock can be enabled where supported.
+- With biometric unlock enabled, send each app to the background, reopen it, and confirm the unlock screen appears.
 
 ## iPhone install test
 
@@ -77,6 +78,7 @@ npm run build:ios:store-test
 - Confirm iOS notification permission is granted.
 - Disable notifications in both apps, then enable them again.
 - Confirm Face ID or Touch ID unlock can be enabled where supported.
+- With biometric unlock enabled, send each app to the background, reopen it, and confirm the unlock screen appears.
 
 ## Notification test matrix
 
