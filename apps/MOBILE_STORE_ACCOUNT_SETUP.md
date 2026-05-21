@@ -147,9 +147,9 @@ Do not submit either app until:
 - `npm run mobile:release-check` passes.
 - Android internal builds install on real devices.
 - TestFlight builds install on real iPhones.
-- Push notifications pass on real Android and iOS devices.
+- Push notifications pass on real Android and iOS devices using `MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Reviewer accounts have been tested immediately before submission.
-- Store screenshots contain only test data.
+- Store screenshots from `MOBILE_SCREENSHOT_PLAN.md` contain only test data.
 - Store review notes explain that payments are handled outside the mobile app.
 - Both apps still use `EXPO_PUBLIC_SUPABASE_ENV=test`.
 - Both apps still use `EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false`.

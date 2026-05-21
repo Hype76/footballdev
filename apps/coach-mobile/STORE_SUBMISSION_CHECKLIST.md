@@ -16,6 +16,10 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Review `../MOBILE_PRIVACY_QUESTIONNAIRE.md` and confirm final privacy answers.
 - Prepare reviewer notes and screenshot list from `../MOBILE_REVIEWER_HANDOFF.md`.
 - Complete store account setup from `../MOBILE_STORE_ACCOUNT_SETUP.md`.
+- Check EAS and API values against `../MOBILE_ENVIRONMENT_RUNBOOK.md`.
+- Check native push requirements against `../MOBILE_NOTIFICATION_RUNBOOK.md`.
+- Prepare screenshots from `../MOBILE_SCREENSHOT_PLAN.md`.
+- Check build numbering against `../MOBILE_VERSIONING.md`.
 - Create the Expo EAS project and set `EXPO_PUBLIC_EAS_PROJECT_ID`.
 - Add test Supabase URL and publishable key as EAS secrets.
 - Add the Netlify test API base URL as `EXPO_PUBLIC_API_BASE_URL`.
@@ -38,6 +42,7 @@ This app is test-only until the mobile release is explicitly approved for live S
 - Notification permission prompt appears on a real device.
 - Coach device can register for notifications.
 - Coach device can disable notifications and re-enable them.
+- Notification flows follow `../MOBILE_NOTIFICATION_RUNBOOK.md`.
 - Biometric unlock can be enabled when the device supports it.
 - Biometric unlock does not appear as enabled when the device has no enrolled security.
 - Sign out clears the active session.
@@ -85,7 +90,7 @@ npx eas-cli build --profile store-test --platform android
 - Add the final EAS project ID.
 - Build and install the Android internal build.
 - Build and install the iOS TestFlight build.
-- Capture final store screenshots.
+- Capture final store screenshots from `../MOBILE_SCREENSHOT_PLAN.md`.
 - Supply reviewer credentials for the test coach account.
 - Add reviewer notes in App Store Connect and Google Play Console.
 - Add app access instructions from `../MOBILE_REVIEWER_HANDOFF.md`.

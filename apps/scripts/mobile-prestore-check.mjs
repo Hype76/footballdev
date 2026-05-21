@@ -21,6 +21,7 @@ const apps = [
     scheme: 'footballplayercoach',
     slug: 'football-player-coach',
     sourceRoots: ['apps/coach-mobile/App.js', 'apps/mobile-core/src'],
+    submissionChecklist: 'apps/coach-mobile/STORE_SUBMISSION_CHECKLIST.md',
   },
   {
     appConfig: 'apps/parent-mobile/app.config.js',
@@ -38,6 +39,7 @@ const apps = [
     scheme: 'footballplayerparents',
     slug: 'football-player-parents',
     sourceRoots: ['apps/parent-mobile/App.js', 'apps/mobile-core/src'],
+    submissionChecklist: 'apps/parent-mobile/STORE_SUBMISSION_CHECKLIST.md',
   },
 ]
 
@@ -153,6 +155,7 @@ for (const app of apps) {
   assertFile(app.metadata, `${app.name} store metadata`)
   assertFile(app.metroConfig, `${app.name} Metro config`)
   assertFile(app.packageJson, `${app.name} package`)
+  assertFile(app.submissionChecklist, `${app.name} store submission checklist`)
 
   if (existsSync(join(repoRoot, app.appConfig))) {
     const appConfig = read(app.appConfig)
@@ -228,6 +231,16 @@ for (const app of apps) {
     assertIncludes(metadata, 'https://footballplayer.online/terms', `${app.name} metadata`)
     assertIncludes(metadata, 'Support: `https://footballplayer.online/`', `${app.name} metadata`)
     assertNotIncludes(metadata, 'Confirm final support URL', `${app.name} metadata`)
+  }
+
+  if (existsSync(join(repoRoot, app.submissionChecklist))) {
+    const checklist = read(app.submissionChecklist)
+    assertIncludes(checklist, '../MOBILE_ENVIRONMENT_RUNBOOK.md', `${app.name} store submission checklist`)
+    assertIncludes(checklist, '../MOBILE_NOTIFICATION_RUNBOOK.md', `${app.name} store submission checklist`)
+    assertIncludes(checklist, '../MOBILE_SCREENSHOT_PLAN.md', `${app.name} store submission checklist`)
+    assertIncludes(checklist, '../MOBILE_VERSIONING.md', `${app.name} store submission checklist`)
+    assertIncludes(checklist, 'EXPO_PUBLIC_SUPABASE_ENV=test', `${app.name} store submission checklist`)
+    assertIncludes(checklist, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', `${app.name} store submission checklist`)
   }
 
   app.sourceRoots.forEach((sourceRoot) => scanSource(sourceRoot, app.name))
