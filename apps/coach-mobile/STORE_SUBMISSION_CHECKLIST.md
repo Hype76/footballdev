@@ -71,11 +71,9 @@ This app is test-only until the mobile release is explicitly approved for live S
 ## Build commands
 
 ```bash
-cd apps/coach-mobile
-npm install
-npm run build:android:internal
-npm run build:ios:store-test
-npm run build:android:store-test
+npm run mobile:build:coach:android:internal
+npm run mobile:build:coach:ios:store-test
+npm run mobile:build:coach:android:store-test
 ```
 
 ## Submit commands
@@ -83,9 +81,8 @@ npm run build:android:store-test
 Run only after store records, reviewer credentials, screenshots, reviewer notes, and device QA are complete.
 
 ```bash
-cd apps/coach-mobile
-npm run submit:ios:store-test
-npm run submit:android:store-test
+npm run mobile:submit:coach:ios:store-test
+npm run mobile:submit:coach:android:store-test
 ```
 
 ## Reviewer notes

@@ -322,11 +322,11 @@ for (const app of apps) {
     assertIncludes(checklist, 'Keep reviewer email and password out of git. Add them only inside App Store Connect and Google Play Console.', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'Do not paste reviewer credentials into repo files.', `${app.name} store submission checklist`)
     assertIncludes(checklist, 'Record build IDs and device results in `../MOBILE_EXTERNAL_RELEASE_EVIDENCE.md`.', `${app.name} store submission checklist`)
-    assertIncludes(checklist, 'npm run build:android:internal', `${app.name} store submission checklist`)
-    assertIncludes(checklist, 'npm run build:ios:store-test', `${app.name} store submission checklist`)
-    assertIncludes(checklist, 'npm run build:android:store-test', `${app.name} store submission checklist`)
-    assertIncludes(checklist, 'npm run submit:ios:store-test', `${app.name} store submission checklist`)
-    assertIncludes(checklist, 'npm run submit:android:store-test', `${app.name} store submission checklist`)
+    assertIncludes(checklist, `npm run mobile:build:${app.appRole}:android:internal`, `${app.name} store submission checklist`)
+    assertIncludes(checklist, `npm run mobile:build:${app.appRole}:ios:store-test`, `${app.name} store submission checklist`)
+    assertIncludes(checklist, `npm run mobile:build:${app.appRole}:android:store-test`, `${app.name} store submission checklist`)
+    assertIncludes(checklist, `npm run mobile:submit:${app.appRole}:ios:store-test`, `${app.name} store submission checklist`)
+    assertIncludes(checklist, `npm run mobile:submit:${app.appRole}:android:store-test`, `${app.name} store submission checklist`)
     assertIncludes(checklist, 'Run only after store records, reviewer credentials, screenshots, reviewer notes, and device QA are complete.', `${app.name} store submission checklist`)
     assertNotIncludes(checklist, 'npx eas-cli build --profile internal --platform android', `${app.name} store submission checklist`)
     assertNotIncludes(checklist, 'npx eas-cli build --profile store-test --platform ios', `${app.name} store submission checklist`)
@@ -661,6 +661,26 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   if (rootPackage.scripts?.['mobile:eas:env:parent'] !== 'node apps/scripts/mobile-eas-env-list-guard.mjs parent') {
     failures.push('Root package must include guarded Parents EAS env list script')
   }
+
+  apps.forEach((app) => {
+    const role = app.appRole
+
+    if (rootPackage.scripts?.[`mobile:build:${role}:android:internal`] !== `npm --prefix ${app.path} run build:android:internal`) {
+      failures.push(`Root package must include guarded ${app.name} Android internal build wrapper`)
+    }
+    if (rootPackage.scripts?.[`mobile:build:${role}:android:store-test`] !== `npm --prefix ${app.path} run build:android:store-test`) {
+      failures.push(`Root package must include guarded ${app.name} Android store-test build wrapper`)
+    }
+    if (rootPackage.scripts?.[`mobile:build:${role}:ios:store-test`] !== `npm --prefix ${app.path} run build:ios:store-test`) {
+      failures.push(`Root package must include guarded ${app.name} iOS store-test build wrapper`)
+    }
+    if (rootPackage.scripts?.[`mobile:submit:${role}:android:store-test`] !== `npm --prefix ${app.path} run submit:android:store-test`) {
+      failures.push(`Root package must include guarded ${app.name} Android store-test submit wrapper`)
+    }
+    if (rootPackage.scripts?.[`mobile:submit:${role}:ios:store-test`] !== `npm --prefix ${app.path} run submit:ios:store-test`) {
+      failures.push(`Root package must include guarded ${app.name} iOS store-test submit wrapper`)
+    }
+  })
 }
 
 if (existsSync(join(repoRoot, sharedPrivacyPath))) {
@@ -867,8 +887,10 @@ if (existsSync(join(repoRoot, storeAccountSetupPath))) {
   assertIncludes(storeSetup, 'EXPO_PUBLIC_SUPABASE_ENV=test', 'Mobile store account setup')
   assertIncludes(storeSetup, 'EXPO_PUBLIC_ALLOW_LIVE_SUPABASE=false', 'Mobile store account setup')
   assertIncludes(storeSetup, 'Do not put real Supabase keys, EAS project IDs, or production API URLs in `.env.example`.', 'Mobile store account setup')
-  assertIncludes(storeSetup, 'npm run submit:ios:store-test', 'Mobile store account setup')
-  assertIncludes(storeSetup, 'npm run submit:android:store-test', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'npm run mobile:build:coach:android:internal', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'npm run mobile:build:parent:android:internal', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'npm run mobile:submit:coach:ios:store-test', 'Mobile store account setup')
+  assertIncludes(storeSetup, 'npm run mobile:submit:parent:android:store-test', 'Mobile store account setup')
   assertIncludes(storeSetup, 'Do not commit private keys', 'Mobile store account setup')
 }
 

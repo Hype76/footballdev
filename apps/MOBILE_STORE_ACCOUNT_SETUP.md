@@ -111,35 +111,31 @@ npm run mobile:release-check
 Build Coach:
 
 ```bash
-cd apps/coach-mobile
-npm run build:android:internal
-npm run build:ios:store-test
-npm run build:android:store-test
+npm run mobile:build:coach:android:internal
+npm run mobile:build:coach:ios:store-test
+npm run mobile:build:coach:android:store-test
 ```
 
 Submit Coach after store records, credentials, screenshots, reviewer notes, and device QA are complete:
 
 ```bash
-cd apps/coach-mobile
-npm run submit:ios:store-test
-npm run submit:android:store-test
+npm run mobile:submit:coach:ios:store-test
+npm run mobile:submit:coach:android:store-test
 ```
 
 Build Parents:
 
 ```bash
-cd apps/parent-mobile
-npm run build:android:internal
-npm run build:ios:store-test
-npm run build:android:store-test
+npm run mobile:build:parent:android:internal
+npm run mobile:build:parent:ios:store-test
+npm run mobile:build:parent:android:store-test
 ```
 
 Submit Parents after store records, credentials, screenshots, reviewer notes, and device QA are complete:
 
 ```bash
-cd apps/parent-mobile
-npm run submit:ios:store-test
-npm run submit:android:store-test
+npm run mobile:submit:parent:ios:store-test
+npm run mobile:submit:parent:android:store-test
 ```
 
 ## Submission gate

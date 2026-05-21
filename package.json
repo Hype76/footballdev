@@ -17,6 +17,16 @@
     "mobile:eas:init:parent": "node apps/scripts/mobile-eas-init-guard.mjs parent",
     "mobile:eas:env:coach": "node apps/scripts/mobile-eas-env-list-guard.mjs coach",
     "mobile:eas:env:parent": "node apps/scripts/mobile-eas-env-list-guard.mjs parent",
+    "mobile:build:coach:android:internal": "npm --prefix apps/coach-mobile run build:android:internal",
+    "mobile:build:coach:android:store-test": "npm --prefix apps/coach-mobile run build:android:store-test",
+    "mobile:build:coach:ios:store-test": "npm --prefix apps/coach-mobile run build:ios:store-test",
+    "mobile:build:parent:android:internal": "npm --prefix apps/parent-mobile run build:android:internal",
+    "mobile:build:parent:android:store-test": "npm --prefix apps/parent-mobile run build:android:store-test",
+    "mobile:build:parent:ios:store-test": "npm --prefix apps/parent-mobile run build:ios:store-test",
+    "mobile:submit:coach:android:store-test": "npm --prefix apps/coach-mobile run submit:android:store-test",
+    "mobile:submit:coach:ios:store-test": "npm --prefix apps/coach-mobile run submit:ios:store-test",
+    "mobile:submit:parent:android:store-test": "npm --prefix apps/parent-mobile run submit:android:store-test",
+    "mobile:submit:parent:ios:store-test": "npm --prefix apps/parent-mobile run submit:ios:store-test",
     "preview": "vite preview"
   },
   "dependencies": {
