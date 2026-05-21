@@ -20,7 +20,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { LegalFooter, MatchCard, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatCard, TextField } from '../mobile-core/src/ui'
+import { LegalFooter, MatchCard, PlayerCard, PrimaryButton, ScoreStepper, SessionCard, StatCard, StatusBanner, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -439,6 +439,8 @@ function CoachHome() {
             ]}
           />
 
+          <StatusBanner message={statusMessage} onDismiss={() => setStatusMessage('')} />
+
           {isLoadingSummary ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={colors.accent} />
@@ -506,8 +508,6 @@ function CoachHome() {
               {biometricEnabled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
             </PrimaryButton>
           </View>
-
-          {statusMessage ? <Text style={styles.notice}>{statusMessage}</Text> : null}
 
           <PrimaryButton onPress={signOut} variant="secondary">Sign out</PrimaryButton>
           <Text style={styles.meta}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>

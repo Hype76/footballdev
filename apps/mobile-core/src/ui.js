@@ -233,6 +233,23 @@ export function PollCard({ activeOptionId = '', isBusy = false, onVote, poll }) 
   )
 }
 
+export function StatusBanner({ message, onDismiss }) {
+  if (!message) {
+    return null
+  }
+
+  return (
+    <View style={styles.statusBanner}>
+      <Text style={styles.statusBannerText}>{message}</Text>
+      {onDismiss ? (
+        <Pressable onPress={onDismiss} style={styles.statusDismissButton}>
+          <Text style={styles.statusDismissText}>Clear</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  )
+}
+
 export function LegalFooter() {
   return (
     <View style={styles.legalFooter}>
@@ -469,6 +486,30 @@ const styles = StyleSheet.create({
   statValue: {
     color: colors.text,
     fontSize: 30,
+    fontWeight: '900',
+  },
+  statusBanner: {
+    backgroundColor: 'rgba(213, 255, 45, 0.12)',
+    borderColor: colors.accent,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  statusBannerText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  statusDismissButton: {
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  statusDismissText: {
+    color: colors.accent,
+    fontSize: 13,
     fontWeight: '900',
   },
   statusPill: {

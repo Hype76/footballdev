@@ -18,7 +18,7 @@ import {
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from '../mobile-core/src/notifications'
 import { getAccessToken } from '../mobile-core/src/supabase'
 import { colors, screen } from '../mobile-core/src/theme'
-import { LegalFooter, MatchCard, MessageCard, PollCard, PrimaryButton, StatCard, TextField } from '../mobile-core/src/ui'
+import { LegalFooter, MatchCard, MessageCard, PollCard, PrimaryButton, StatCard, StatusBanner, TextField } from '../mobile-core/src/ui'
 
 const config = getMobileRuntimeConfig('parent')
 
@@ -417,6 +417,8 @@ function ParentHome() {
             ]}
           />
 
+          <StatusBanner message={statusMessage} onDismiss={() => setStatusMessage('')} />
+
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Linked child</Text>
             <Text style={styles.item}>{selectedLink?.playerName || 'No child selected'}</Text>
@@ -490,8 +492,6 @@ function ParentHome() {
               {biometricEnabled ? 'Disable biometric unlock' : 'Enable biometric unlock'}
             </PrimaryButton>
           </View>
-
-          {statusMessage ? <Text style={styles.notice}>{statusMessage}</Text> : null}
 
           <PrimaryButton onPress={signOut} variant="secondary">Sign out</PrimaryButton>
           <Text style={styles.meta}>{config.isUsable ? 'Connection ready' : 'Connection needs setup'}</Text>
