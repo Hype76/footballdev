@@ -44,6 +44,7 @@ execFileSync('npx', ['eas-cli', 'build', '--profile', profile, '--platform', pla
   env: {
     ...process.env,
     ...loadMobileLocalEnv(repoRoot, app.path),
+    MOBILE_EAS_REMOTE_BUILD: 'true',
   },
   stdio: 'inherit',
   shell: process.platform === 'win32',

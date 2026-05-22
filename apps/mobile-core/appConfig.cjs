@@ -13,10 +13,20 @@ function getMobileEnvironment() {
 }
 
 function getAndroidGoogleServicesFile() {
-  const configuredPath = process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE || './google-services.json'
-  const resolvedPath = path.resolve(process.cwd(), configuredPath)
+  const configuredPath = process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE
 
-  return fs.existsSync(resolvedPath) ? configuredPath : ''
+  if (configuredPath) {
+    return configuredPath
+  }
+
+  if (process.env.MOBILE_EAS_REMOTE_BUILD === 'true') {
+    return ''
+  }
+
+  const localPath = './google-services.json'
+  const resolvedPath = path.resolve(process.cwd(), localPath)
+
+  return fs.existsSync(resolvedPath) ? localPath : ''
 }
 
 function createMobileExpoConfig({
