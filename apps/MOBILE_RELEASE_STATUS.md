@@ -48,7 +48,8 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - Confirm EAS remote build numbers and version codes are ready for the next store submissions.
 - Record EAS remote build numbers and version codes in the private evidence file.
 - Create Apple App Store Connect records.
-- Create Google Play Console records.
+- Apple App Store Connect records are created for Coach and Parents.
+- Google Play Console records are created for Coach and Parents.
 - Complete `MOBILE_STORE_RECORD_CHECKLIST.md` for all four store records.
 - Create reviewer test accounts and supply credentials only inside store consoles.
 - Run `npm run mobile:reviewer:preflight` before entering credentials in Apple or Google.
@@ -69,7 +70,7 @@ Complete these in order, and record the outcome in a private copy of `MOBILE_EXT
 - EAS projects and test-only EAS values are in place for both apps.
 - Verify EAS project values again with `npm run mobile:eas:env:coach` and `npm run mobile:eas:env:parent` if any environment value changes.
 - Run `npm run mobile:store:preflight` before creating or editing Apple and Google store records.
-- Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android.
+- Create the four store records: Coach iOS, Coach Android, Parents iOS, and Parents Android. Complete: Apple and Google Play records are created for Coach and Parents.
 - Use `MOBILE_STORE_RECORD_CHECKLIST.md` while creating the four store records.
 - Use `MOBILE_NATIVE_IDENTITY_CHECKLIST.md` while checking app names, bundle IDs, package names, schemes, icons, splash assets, notification icons, and public URLs.
 - Enter reviewer credentials only in App Store Connect and Google Play Console.

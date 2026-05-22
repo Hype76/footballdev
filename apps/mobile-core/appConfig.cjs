@@ -1,3 +1,6 @@
+const fs = require('fs')
+const path = require('path')
+
 function getMobileEnvironment() {
   return {
     allowLiveSupabase: process.env.EXPO_PUBLIC_ALLOW_LIVE_SUPABASE || 'false',
@@ -7,6 +10,13 @@ function getMobileEnvironment() {
     supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
   }
+}
+
+function getAndroidGoogleServicesFile() {
+  const configuredPath = process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE || './google-services.json'
+  const resolvedPath = path.resolve(process.cwd(), configuredPath)
+
+  return fs.existsSync(resolvedPath) ? configuredPath : ''
 }
 
 function createMobileExpoConfig({
@@ -21,6 +31,7 @@ function createMobileExpoConfig({
 }) {
   const environment = getMobileEnvironment()
   const faceIdPermission = `${name} uses Face ID to unlock your saved session when biometric login is enabled.`
+  const googleServicesFile = getAndroidGoogleServicesFile()
 
   return {
     expo: {
@@ -55,6 +66,7 @@ function createMobileExpoConfig({
       android: {
         package: packageName,
         versionCode: 1,
+        ...(googleServicesFile ? { googleServicesFile } : {}),
         blockedPermissions: [
           'android.permission.ACCESS_COARSE_LOCATION',
           'android.permission.ACCESS_FINE_LOCATION',

@@ -899,13 +899,27 @@ export async function getParentHomeSummary(user) {
     }
   }
 
+  const getMessageCount = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_parent_portal_email_messages', {
+        parent_link_id_value: selectedLink.id,
+      })
+
+      if (error) {
+        return 0
+      }
+
+      return Array.isArray(data) ? data.length : 0
+    } catch {
+      return 0
+    }
+  }
+
   const [matchResult, messageResult, pollCount] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', {
       parent_link_id_value: selectedLink.id,
     }),
-    supabase.rpc('get_parent_portal_email_messages', {
-      parent_link_id_value: selectedLink.id,
-    }).catch(() => ({ data: [] })),
+    getMessageCount(),
     getTableCount('polls', (query) => query.eq('club_id', selectedLink.clubId)).catch(() => 0),
   ])
 
@@ -917,7 +931,7 @@ export async function getParentHomeSummary(user) {
 
   return {
     linkedChildren: links.length,
-    messages: Array.isArray(messageResult.data) ? messageResult.data.length : 0,
+    messages: messageResult,
     polls: pollCount,
     upcomingMatches: matches.filter((match) => match.status !== 'full_time').length,
   }

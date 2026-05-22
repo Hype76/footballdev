@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Image, Platform, Pressable, SafeAreaView, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, screen } from './theme'
+
+const androidStatusBarPadding = Platform.OS === 'android' ? NativeStatusBar.currentHeight || 0 : 0
 
 export function PrimaryButton({ children, disabled = false, loading = false, onPress, variant = 'primary' }) {
   const isSecondary = variant === 'secondary'
@@ -25,7 +27,7 @@ export function PrimaryButton({ children, disabled = false, loading = false, onP
 
 export function MobileScreen({ children, refreshControl }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
       <ScrollView contentContainerStyle={styles.scroll} refreshControl={refreshControl}>
         <View style={styles.shell}>{children}</View>
       </ScrollView>
@@ -141,7 +143,7 @@ export function SegmentedControl({ options, onChange, selectedValue }) {
 
 export function LoadingScreen({ message }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
       <View style={styles.centered}>
         <ActivityIndicator color={colors.accent} />
         <Text style={styles.simpleBody}>{message}</Text>
@@ -152,7 +154,7 @@ export function LoadingScreen({ message }) {
 
 export function AccessScreen({ message, onSignOut, title }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
       <View style={styles.centered}>
         <Text style={styles.screenTitle}>{title}</Text>
         <Text style={styles.screenCopy}>{message}</Text>
@@ -181,7 +183,7 @@ export function LockedScreen({ errorMessage, logoSource, onUnlock }) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
       <View style={styles.centered}>
         <Image source={logoSource} style={styles.logo} resizeMode="contain" />
         <Text style={styles.screenTitle}>Unlock app.</Text>
@@ -205,6 +207,7 @@ export function MobileLoginScreen({
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const canSubmit = Boolean(email.trim() && password)
 
@@ -223,7 +226,7 @@ export function MobileLoginScreen({
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
       <NativeStatusBar barStyle="light-content" />
       <ScrollView contentContainerStyle={styles.loginScroll}>
         <View style={styles.loginShell}>
@@ -250,7 +253,9 @@ export function MobileLoginScreen({
               onSubmitEditing={handleLogin}
               placeholder="Password"
               returnKeyType="done"
-              secureTextEntry
+              rightActionLabel={showPassword ? 'Hide' : 'Show'}
+              onRightActionPress={() => setShowPassword((currentValue) => !currentValue)}
+              secureTextEntry={!showPassword}
               textContentType="password"
               value={password}
             />
@@ -274,8 +279,10 @@ export function TextField({
   label,
   multiline = false,
   onChangeText,
+  onRightActionPress,
   onSubmitEditing,
   placeholder,
+  rightActionLabel,
   returnKeyType,
   secureTextEntry = false,
   textContentType,
@@ -284,22 +291,33 @@ export function TextField({
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput
-        autoComplete={autoComplete}
-        autoCapitalize={autoCapitalize}
-        blurOnSubmit={blurOnSubmit}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        onChangeText={onChangeText}
-        onSubmitEditing={onSubmitEditing}
-        placeholder={placeholder}
-        placeholderTextColor={colors.muted}
-        returnKeyType={returnKeyType}
-        secureTextEntry={secureTextEntry}
-        style={[styles.input, multiline ? styles.multilineInput : null]}
-        textContentType={textContentType}
-        value={value}
-      />
+      <View style={rightActionLabel ? styles.inputRow : null}>
+        <TextInput
+          autoComplete={autoComplete}
+          autoCapitalize={autoCapitalize}
+          blurOnSubmit={blurOnSubmit}
+          keyboardType={keyboardType}
+          multiline={multiline}
+          onChangeText={onChangeText}
+          onSubmitEditing={onSubmitEditing}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          returnKeyType={returnKeyType}
+          secureTextEntry={secureTextEntry}
+          style={[
+            styles.input,
+            rightActionLabel ? styles.inputWithAction : null,
+            multiline ? styles.multilineInput : null,
+          ]}
+          textContentType={textContentType}
+          value={value}
+        />
+        {rightActionLabel ? (
+          <Pressable onPress={onRightActionPress} style={styles.inputAction}>
+            <Text style={styles.inputActionText}>{rightActionLabel}</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   )
 }
@@ -744,6 +762,31 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 14,
   },
+  inputAction: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    minHeight: 52,
+    paddingHorizontal: 14,
+  },
+  inputActionText: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  inputRow: {
+    alignItems: 'center',
+    backgroundColor: colors.panel,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  inputWithAction: {
+    borderWidth: 0,
+    flex: 1,
+  },
   multilineInput: {
     minHeight: 104,
     paddingTop: 14,
@@ -960,6 +1003,9 @@ const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,
+  },
+  androidSafeArea: {
+    paddingTop: androidStatusBarPadding,
   },
   scroll: {
     flexGrow: 1,

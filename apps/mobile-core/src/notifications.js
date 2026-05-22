@@ -21,6 +21,21 @@ function normalize(value) {
   return String(value ?? '').trim()
 }
 
+function getPushTokenErrorMessage(error) {
+  const message = normalize(error?.message)
+
+  if (
+    message.includes('Default FirebaseApp is not initialized')
+    || message.includes('FCM')
+    || message.includes('fcm')
+    || message.includes('google-services')
+  ) {
+    return 'Android notifications are not ready in this build yet.'
+  }
+
+  return message || 'Notifications could not be enabled.'
+}
+
 export async function initializeMobileNotifications() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(MATCHDAY_CHANNEL_ID, {
@@ -161,9 +176,15 @@ export async function registerNativePushDevice({
     throw new Error('Notification permission was not granted.')
   }
 
-  const tokenResult = await Notifications.getExpoPushTokenAsync(
-    easProjectId ? { projectId: easProjectId } : undefined,
-  )
+  let tokenResult
+
+  try {
+    tokenResult = await Notifications.getExpoPushTokenAsync(
+      easProjectId ? { projectId: easProjectId } : undefined,
+    )
+  } catch (error) {
+    throw new Error(getPushTokenErrorMessage(error))
+  }
   const deviceToken = normalize(tokenResult.data)
 
   if (!deviceToken) {

@@ -40,8 +40,10 @@ Exit criteria: four store records exist, reviewer notes are entered, reviewer cr
 
 - Create the App Store Connect record for Football Player Coach.
 - Create the App Store Connect record for Football Player Parents.
+- App Store Connect records are created for Football Player Coach and Football Player Parents.
 - Create the Google Play Console record for Football Player Coach.
 - Create the Google Play Console record for Football Player Parents.
+- Google Play Console records are created for Football Player Coach and Football Player Parents.
 - Run `npm run mobile:preflight` before creating or editing store records.
 - Add store metadata from each app's `STORE_METADATA.md`.
 - Add privacy answers from `MOBILE_PRIVACY_QUESTIONNAIRE.md`.
