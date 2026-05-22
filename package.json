@@ -6,6 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:live": "vite build --mode production",
+    "build:staging": "vite build --mode staging",
+    "postbuild": "node scripts/verify-web-build-env.mjs",
+    "verify:build-env": "node scripts/verify-web-build-env.mjs",
+    "deploy:live": "npm run build:live && npm run verify:build-env && netlify deploy --prod --dir=dist",
     "lint": "eslint .",
     "mobile:doctor": "node apps/scripts/mobile-doctor-check.mjs",
     "mobile:export:web": "node apps/scripts/mobile-export-web-check.mjs",
