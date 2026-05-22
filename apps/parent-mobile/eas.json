@@ -38,6 +38,12 @@
     }
   },
   "submit": {
-    "store-test": {}
+    "store-test": {
+      "android": {
+        "track": "alpha",
+        "releaseStatus": "draft",
+        "changesNotSentForReview": true
+      }
+    }
   }
 }
