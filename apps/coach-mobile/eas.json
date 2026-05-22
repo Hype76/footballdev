@@ -42,7 +42,8 @@
       "android": {
         "track": "alpha",
         "releaseStatus": "draft",
-        "changesNotSentForReview": true
+        "changesNotSentForReview": true,
+        "serviceAccountKeyPath": "../mobile-release-evidence/credentials/football-player-mobile-expo-play-submit-service-account.json"
       }
     }
   }
