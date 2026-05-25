@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useAuth } from '../lib/auth.js'
 import {
   canDownloadMessagePdf,
@@ -28,6 +26,7 @@ export function ParentMessagesPage() {
     ?? links[0]
   const hasUnreadMessages = messages.some((message) => !message.readAt)
   const unreadCount = messages.filter((message) => !message.readAt).length
+  const latestMessage = messages[0]
   const messageSummary = [
     {
       label: 'Linked children',
@@ -168,90 +167,152 @@ export function ParentMessagesPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Parent Portal"
-        title="Messages"
-        description="Emails sent by the club for your linked child appear here."
+      <ParentInboxHero
+        isLoading={isLoadingMessages}
+        latestMessage={latestMessage}
+        selectedLink={selectedLink}
+        summary={messageSummary}
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {messageSummary.map((item) => (
-          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoadingMessages ? '...' : item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="rounded-md border border-sky-200 bg-sky-50 p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Message rule</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-          This inbox shows club-sent emails for the selected child. It is a record of what was shared, not a replacement for staff conversations.
-        </p>
-      </section>
-
-      <SectionCard title="Messages" description="Select a child, then open any email to view the content and download a development PDF when one is available.">
-        {links.length > 1 ? (
-          <div className="mb-4">
-            <label htmlFor="parent-message-child" className="mb-2 block text-sm font-bold text-slate-950">
-              Child
-            </label>
-            <select
-              id="parent-message-child"
-              value={selectedLink?.id || ''}
-              onChange={(event) => setSelectedLinkId(event.target.value)}
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
-            >
-              {links.map((link) => (
-                <option key={link.id} value={link.id}>
-                  {link.playerName} | {link.teamName || 'No team'} | {link.clubName || 'No club'}
-                </option>
-              ))}
-            </select>
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent inbox</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Club messages for the selected child</h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+              Open club-sent emails, mark messages as read, and download development PDFs when the club shared one.
+            </p>
           </div>
-        ) : null}
 
-        {messages.length > 0 ? (
-          <div className="mb-3 flex justify-end">
+          {messages.length > 0 ? (
             <button
               type="button"
               onClick={() => void handleMarkAllMessagesRead()}
               disabled={isMarkingAllRead || !hasUnreadMessages}
-              className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 shadow-sm shadow-slate-200/70 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isMarkingAllRead ? 'Marking...' : hasUnreadMessages ? 'Mark all as read' : 'All read'}
             </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
-        {messageError ? (
-          <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            {messageError}
+        <div className="grid gap-5 bg-[#fbfdfb] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+          <aside className="space-y-4">
+            {links.length > 1 ? (
+              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
+                <label htmlFor="parent-message-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                  Child
+                </label>
+                <select
+                  id="parent-message-child"
+                  value={selectedLink?.id || ''}
+                  onChange={(event) => setSelectedLinkId(event.target.value)}
+                  className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                >
+                  {links.map((link) => (
+                    <option key={link.id} value={link.id}>
+                      {link.playerName} - {link.teamName || 'No team'} - {link.clubName || 'No club'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] p-4 shadow-sm shadow-emerald-100/70">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Inbox rule</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+                This is the club message record for the selected child. It should support conversations with staff, not replace them.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Selected child</p>
+              <p className="mt-2 text-lg font-black text-slate-950">{selectedLink?.playerName || 'No child selected'}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-600">{selectedLink?.teamName || 'No team'} / {selectedLink?.clubName || 'No club'}</p>
+            </div>
+          </aside>
+
+          <div className="min-w-0">
+            {messageError ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {messageError}
+              </p>
+            ) : isLoadingMessages ? (
+              <p className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-slate-600">
+                Loading messages...
+              </p>
+            ) : messages.length > 0 ? (
+              <div className="space-y-3">
+                {messages.map((message) => (
+                  <MessageCard
+                    key={message.id}
+                    isOpen={openMessageId === message.id}
+                    message={message}
+                    onDownloadPdf={() => void handleDownloadMessagePdf(message)}
+                    onToggle={() => void handleToggleMessage(message)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-5 text-sm font-semibold text-slate-600">
+                No emails have been shared in the parent portal for this child yet.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent portal</p>
+          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-slate-950 sm:text-5xl">
+            Read the club message record for {selectedLink?.playerName || 'your child'}.
+          </h1>
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+            This inbox shows the practical football updates staff have already sent: development notes, PDFs, team information, and parent actions.
           </p>
-        ) : isLoadingMessages ? (
-          <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-            Loading messages...
-          </p>
-        ) : messages.length > 0 ? (
-          <div className="space-y-3">
-            {messages.map((message) => (
-              <MessageCard
-                key={message.id}
-                isOpen={openMessageId === message.id}
-                message={message}
-                onDownloadPdf={() => void handleDownloadMessagePdf(message)}
-                onToggle={() => void handleToggleMessage(message)}
-              />
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {summary.map((item) => (
+              <InboxMetric key={item.label} isLoading={isLoading} {...item} />
             ))}
           </div>
-        ) : (
-          <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-            No emails have been shared in the parent portal for this child yet.
-          </p>
-        )}
-      </SectionCard>
-    </div>
+        </div>
+
+        <div className="grid content-between rounded-lg border border-slate-200 bg-[#f8fafc] p-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Latest message</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+              {latestMessage ? getMessageSubject(latestMessage) : 'No message yet'}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              {latestMessage ? formatMessageDate(latestMessage.createdAt) : 'Messages will appear here when the club shares them.'}
+            </p>
+          </div>
+          <div className="mt-5 rounded-lg border border-emerald-200 bg-white px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Next action</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
+              Open unread messages first. Download the PDF only when a development attachment exists.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function InboxMetric({ caption, isLoading, label, value }) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4 shadow-sm shadow-slate-200/60">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</p>
+      <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{caption}</p>
+    </article>
   )
 }
 
@@ -265,14 +326,14 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
   const isUnread = !message.readAt
 
   return (
-    <article className={`rounded-md border bg-white shadow-sm transition ${
+    <article className={`rounded-lg border bg-white shadow-sm shadow-slate-200/70 transition ${
       isUnread ? 'border-emerald-300' : 'border-slate-200'
     }`}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="block w-full px-4 py-4 text-left transition hover:bg-slate-50"
+        className="block w-full px-4 py-4 text-left transition hover:bg-[#f8fafc]"
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -280,21 +341,21 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
               {subject}
             </p>
             <p className="mt-1 text-xs font-semibold text-slate-500">
-              {formatMessageDate(message.createdAt)} | {message.senderName || message.senderEmail || 'Club staff'}
+              {formatMessageDate(message.createdAt)} / {message.senderName || message.senderEmail || 'Club staff'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {isUnread ? (
-              <span className="inline-flex w-fit rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
+              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-emerald-200 bg-[#f2fbf6] px-3 py-1 text-xs font-black text-emerald-800">
                 Unread
               </span>
             ) : null}
             {hasAttachment ? (
-              <span className="inline-flex w-fit rounded-sm border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
                 PDF attached
               </span>
             ) : null}
-            <span className="inline-flex w-fit rounded-sm border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
               {isOpen ? 'Hide email' : 'View email'}
             </span>
           </div>
@@ -322,7 +383,7 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
               <div className="mt-4 space-y-2">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Development details</p>
                 {assessmentFields.map((field) => (
-                  <div key={field.label} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div key={field.label} className="rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
                       {field.label}
                     </p>
@@ -339,7 +400,7 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
                 <button
                   type="button"
                   onClick={onDownloadPdf}
-                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
                 >
                   Download PDF
                 </button>
