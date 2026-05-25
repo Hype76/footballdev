@@ -75,7 +75,7 @@ export const clubNavigation = [
   {
     label: 'Development Fields',
     path: '/form-builder',
-    helper: 'Assessment setup',
+    helper: 'Record setup',
   },
   {
     label: 'Message Templates',

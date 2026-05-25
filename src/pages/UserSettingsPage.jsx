@@ -326,10 +326,10 @@ export function UserSettingsPage() {
           userOnboardingResetAt: new Date().toISOString(),
         })
       }
-      showToast({ title: 'Onboarding restarted', message: 'The setup checklist will open again.' })
+      showToast({ title: 'Setup checklist opened', message: 'The first-run checklist will show above the page.' })
     } catch (error) {
       console.error(error)
-      showToast({ title: 'Onboarding not restarted', message: error.message || 'Could not reset onboarding.', tone: 'error' })
+      showToast({ title: 'Setup checklist not opened', message: error.message || 'Could not reset setup.', tone: 'error' })
     } finally {
       setIsRestartingOnboarding(false)
     }
@@ -365,7 +365,7 @@ export function UserSettingsPage() {
     {
       label: 'Onboarding scope',
       value: onboardingScopeLabel,
-      caption: 'Restart setup guidance for the correct level.',
+      caption: 'Controls where the setup checklist is saved.',
     },
   ]
 
@@ -388,9 +388,9 @@ export function UserSettingsPage() {
       </section>
 
       <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm ">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Account rule</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Setup rule</p>
         <p className="mt-2 text-sm leading-6 text-slate-700">
-          Keep login details separate from club settings. Use this page for your identity, password, display preferences, and restarting setup help.
+          Use account settings for your login, password, display preferences, and reopening setup. Club information stays in Club Profile.
         </p>
       </section>
 
