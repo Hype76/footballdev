@@ -74,11 +74,11 @@ export function DisplaySettingsSection({
         <div className="mt-3 flex flex-wrap gap-3">
           <span
             aria-hidden="true"
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600"
           >
             Primary action
           </span>
-          <span className="inline-flex min-h-11 items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-slate-950">
+          <span className="inline-flex min-h-11 items-center justify-center rounded-md border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950">
             Accent state
           </span>
         </div>

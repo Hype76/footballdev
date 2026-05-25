@@ -37,7 +37,7 @@ export function LoginEmailSection({
                 ? 'Demo accounts cannot change login email.'
                 : undefined
           }
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSavingEmail ? 'Requesting...' : 'Update login email'}
         </button>

@@ -5,7 +5,6 @@ import { LoginEmailSection } from '../components/user-settings/LoginEmailSection
 import { PasswordSettingsSection } from '../components/user-settings/PasswordSettingsSection.jsx'
 import { WalkthroughSettingsSection } from '../components/user-settings/WalkthroughSettingsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
 import { canManageClubSettings, canManageTeamAppearance, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
@@ -23,6 +22,21 @@ import {
   saveThemePreferences,
 } from '../lib/theme.js'
 import { resetOnboarding } from '../lib/onboarding.js'
+
+const accountRules = [
+  {
+    label: 'Login stays personal',
+    body: 'Use this page for your own email, password, display name, and sender identity.',
+  },
+  {
+    label: 'Club data stays separate',
+    body: 'Club profile, teams, players, staff, and parent setup are managed in the football workspace tools.',
+  },
+  {
+    label: 'Setup can reopen',
+    body: 'Restart the first-run checklist when the workspace needs the operating rules shown again.',
+  },
+]
 
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
@@ -371,31 +385,46 @@ export function UserSettingsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="User Settings"
-        title={pageTitle}
-        description={pageDescription}
-      />
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Account control</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+              {pageTitle}
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              {pageDescription} Reopen setup from here when you need the first-run rules and checklist again.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {accountRules.map((rule) => (
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        {accountSummary.map((item) => (
-          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm ">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-            <p className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950">{item.value || 'Not set'}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm ">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Setup rule</p>
-        <p className="mt-2 text-sm leading-6 text-slate-700">
-          Use account settings for your login, password, display preferences, and reopening setup. Club information stays in Club Profile.
-        </p>
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Signed in context</p>
+              <p className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">{workspaceLabel}</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                Setup state is saved against this {onboardingScopeLabel}.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {accountSummary.map((item) => (
+                <AccountMetric key={item.label} label={item.label} value={item.value || 'Not set'} />
+              ))}
+              <AccountMetric label="Demo lock" value={isDemoSettings ? 'On' : 'Off'} />
+            </div>
+          </div>
+        </div>
       </section>
 
       {successMessage ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm shadow-slate-200/70">
           {successMessage}
         </div>
       ) : null}
@@ -474,6 +503,15 @@ export function UserSettingsPage() {
           />
         </div>
       </div>
+    </div>
+  )
+}
+
+function AccountMetric({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
 }
