@@ -11,11 +11,11 @@ export function DemoRequestModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 px-4 py-6">
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-2xl shadow-slate-950/20 sm:p-6"
+        className="relative w-full max-w-xl border border-slate-200 bg-white p-5 text-slate-950 sm:p-6"
       >
         <button
           type="button"
@@ -23,7 +23,7 @@ export function DemoRequestModal({
           disabled={isSubmitting}
           title={isSubmitting ? 'Please wait while your demo request is sent.' : 'Close this window'}
           aria-label="Close this window"
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center border border-slate-200 bg-slate-50 text-sm font-bold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           X
         </button>
@@ -42,7 +42,7 @@ export function DemoRequestModal({
               value={demoFormData.name}
               onChange={onChange}
               required
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <label className="block">
@@ -53,7 +53,7 @@ export function DemoRequestModal({
               value={demoFormData.email}
               onChange={onChange}
               required
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <label className="block">
@@ -63,7 +63,7 @@ export function DemoRequestModal({
               name="phone"
               value={demoFormData.phone}
               onChange={onChange}
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <label className="block">
@@ -74,7 +74,7 @@ export function DemoRequestModal({
               value={demoFormData.clubTeamName}
               onChange={onChange}
               required
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
 
@@ -84,7 +84,7 @@ export function DemoRequestModal({
               disabled={isSubmitting}
               title={isSubmitting ? 'Please wait while your demo request is sent.' : undefined}
               onClick={onCancel}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
@@ -92,7 +92,7 @@ export function DemoRequestModal({
               type="submit"
               disabled={isSubmitting}
               title={isSubmitting ? 'Please wait while your demo request is sent.' : undefined}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? 'Sending...' : 'Request Demo'}
             </button>

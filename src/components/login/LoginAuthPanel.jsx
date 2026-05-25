@@ -18,11 +18,11 @@ export function LoginAuthPanel({
 }) {
   return (
     <section ref={signupBoxRef} className="order-1 lg:order-2">
-      <div className="mx-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 text-slate-950 shadow-2xl shadow-slate-900/20 backdrop-blur sm:p-6">
-        <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 shadow-xl shadow-slate-900/20 sm:h-32 sm:w-32">
+      <div className="mx-auto w-full max-w-md border border-slate-200 bg-white p-5 text-slate-950 sm:p-6">
+        <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center overflow-hidden border border-slate-200 bg-slate-950 sm:h-32 sm:w-32">
           <img src={logo} alt="Football Player" className="h-full w-full object-contain p-2" />
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <div className="border border-emerald-200 bg-emerald-50 p-5">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">
             {mode === 'signup' ? 'Create account' : 'Secure login'}
           </p>
@@ -38,12 +38,12 @@ export function LoginAuthPanel({
           </p>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-100 p-1">
+        <div className="mt-5 grid grid-cols-2 border border-slate-200 bg-slate-100 p-1">
           <button
             type="button"
             onClick={() => onModeChange('login')}
             className={[
-              'min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
+              'min-h-11 px-4 py-3 text-sm font-bold transition',
               mode === 'login' ? 'bg-slate-950 text-white' : 'text-slate-600 hover:text-slate-950',
             ].join(' ')}
           >
@@ -53,7 +53,7 @@ export function LoginAuthPanel({
             type="button"
             onClick={() => onModeChange('signup')}
             className={[
-              'min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
+              'min-h-11 px-4 py-3 text-sm font-bold transition',
               mode === 'signup' ? 'bg-slate-950 text-white' : 'text-slate-600 hover:text-slate-950',
             ].join(' ')}
           >
@@ -72,7 +72,7 @@ export function LoginAuthPanel({
                 onChange={onChange}
                 required
                 placeholder="Your club or team name"
-                className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+                className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
               />
             </label>
           ) : null}
@@ -86,7 +86,7 @@ export function LoginAuthPanel({
                 value={formData.accessCode}
                 onChange={onChange}
                 placeholder="Optional code from Football Player"
-                className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm uppercase text-slate-950 outline-none transition placeholder:normal-case placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+                className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold uppercase text-slate-950 outline-none transition placeholder:normal-case placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
               />
               <span className="mt-2 block text-xs leading-5 text-slate-500">
                 Use this only if you have been given temporary tester access.
@@ -104,13 +104,13 @@ export function LoginAuthPanel({
               required
               autoComplete="email"
               placeholder="you@club.com"
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
 
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-slate-950">Password</span>
-            <div className="flex rounded-xl border border-slate-200 bg-slate-50 focus-within:border-emerald-500 focus-within:bg-white">
+            <div className="flex border border-slate-200 bg-slate-50 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 name="password"
@@ -119,12 +119,12 @@ export function LoginAuthPanel({
                 required
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 placeholder="Enter password"
-                className="min-h-12 min-w-0 flex-1 rounded-l-xl bg-transparent px-4 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400"
+                className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-slate-950 outline-none placeholder:text-slate-400"
               />
               <button
                 type="button"
                 onClick={onTogglePasswordVisibility}
-                className="min-h-12 rounded-r-xl px-4 py-3 text-sm font-bold text-emerald-700"
+                className="min-h-12 border-l border-slate-200 px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
               >
                 {isPasswordVisible ? 'Hide' : 'Show'}
               </button>
@@ -132,13 +132,13 @@ export function LoginAuthPanel({
           </label>
 
           {localError || authError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-900">
+            <div className="border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-900">
               {localError || authError}
             </div>
           ) : null}
 
           {localMessage ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+            <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
               {localMessage}
             </div>
           ) : null}
@@ -148,7 +148,7 @@ export function LoginAuthPanel({
               type="submit"
               disabled={isSubmitting}
               title={isSubmitting ? 'Please wait while your request is being checked.' : undefined}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 w-full items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
             </button>
@@ -159,7 +159,7 @@ export function LoginAuthPanel({
                   disabled={isSubmitting}
                   title={isSubmitting ? 'Please wait while your request is being checked.' : undefined}
                   onClick={onDemoLogin}
-                  className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-900 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 w-full items-center justify-center border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-900 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Open Demo Account
                 </button>
@@ -168,7 +168,7 @@ export function LoginAuthPanel({
                   disabled={isSubmitting}
                   title={isSubmitting ? 'Please wait while your request is being checked.' : undefined}
                   onClick={onPasswordReset}
-                  className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 w-full items-center justify-center border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Forgot password
                 </button>

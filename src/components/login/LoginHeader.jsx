@@ -28,12 +28,12 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 px-4 py-6">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="contact-us-title"
-        className="relative w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-2xl shadow-slate-950/20 sm:p-6"
+        className="relative w-full max-w-xl border border-slate-200 bg-white p-5 text-slate-950 sm:p-6"
       >
         <button
           type="button"
@@ -41,7 +41,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
           disabled={isSubmitting}
           title={isSubmitting ? 'Please wait while your message is sent.' : 'Close this window'}
           aria-label="Close this window"
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center border border-slate-200 bg-slate-50 text-sm font-bold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           X
         </button>
@@ -61,7 +61,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               onChange={onChange}
               required
               autoComplete="name"
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <label className="block">
@@ -73,7 +73,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               onChange={onChange}
               required
               autoComplete="email"
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <label className="block">
@@ -84,7 +84,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               value={formData.phone}
               onChange={onChange}
               autoComplete="tel"
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <label className="block">
@@ -94,18 +94,18 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               value={formData.message}
               onChange={onChange}
               rows={5}
-              className="min-h-32 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-32 w-full resize-y border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
 
           {errorMessage ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
               {errorMessage}
             </div>
           ) : null}
 
           {message ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
               {message}
             </div>
           ) : null}
@@ -116,7 +116,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               disabled={isSubmitting}
               title={isSubmitting ? 'Please wait while your message is sent.' : undefined}
               onClick={onCancel}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
@@ -124,7 +124,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               type="submit"
               disabled={isSubmitting}
               title={isSubmitting ? 'Please wait while your message is sent.' : undefined}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? 'Sending...' : 'Send Message'}
             </button>
@@ -213,10 +213,10 @@ export function LoginHeader({ logo }) {
 
   return (
     <>
-      <header className="border-b border-slate-200 bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-slate-950 shadow-sm shadow-slate-200/80 backdrop-blur sm:px-6 sm:py-4 lg:px-8">
+      <header className="border-b border-slate-200 bg-white px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-slate-950 sm:px-6 sm:py-4 lg:px-8">
         <div className="flex items-center justify-between gap-3">
           <a href="/" className="flex min-w-0 items-center gap-3 lg:order-1">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-950 shadow-lg shadow-slate-200/80 sm:h-16 sm:w-16">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-slate-950 sm:h-16 sm:w-16">
               <img src={logo} alt="Football Player" className="h-full w-full object-contain p-1" />
             </div>
             <div className="min-w-0">
@@ -228,19 +228,19 @@ export function LoginHeader({ logo }) {
             <button
               type="button"
               onClick={openContactModal}
-              className="hidden min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:bg-slate-50 sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:bg-slate-50 sm:inline-flex"
             >
               Contact Us
             </button>
             <a
               href="/sign-in"
-              className="hidden min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800 sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800 sm:inline-flex"
             >
               Login
             </a>
             <InstallAppButton
               wrapperClassName="lg:hidden"
-              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-800 sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
+              className="inline-flex min-h-10 items-center justify-center border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-800 sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
             />
           </div>
           <nav className="hidden items-center gap-1 lg:flex">
@@ -248,7 +248,7 @@ export function LoginHeader({ logo }) {
               <a
                 key={href}
                 href={href}
-                className="rounded-xl px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
+                className="px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
               >
                 {label}
               </a>
@@ -257,20 +257,20 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
-      <nav className="fixed inset-x-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center rounded-[1.5rem] border border-slate-200 bg-white/94 p-1.5 shadow-2xl shadow-slate-950/20 backdrop-blur-xl sm:inset-x-6 lg:hidden">
+      <nav className="fixed inset-x-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center border border-slate-200 bg-white p-1.5 sm:inset-x-6 lg:hidden">
         <div className="grid w-full grid-cols-5 gap-1">
           {navItems.map(([href, label]) => (
             <a
               key={href}
               href={href}
-              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl px-1 py-2 text-center text-[11px] font-black leading-none text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 min-[390px]:text-xs"
+              className="inline-flex min-h-12 min-w-0 items-center justify-center px-1 py-2 text-center text-[11px] font-black leading-none text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 min-[390px]:text-xs"
             >
               <span className="block" style={mobileNavLabelStyle}>{label}</span>
             </a>
           ))}
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-2xl bg-emerald-700 px-1 py-2 text-center text-[11px] font-black leading-none text-white transition hover:bg-emerald-800 min-[390px]:text-xs"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center bg-emerald-700 px-1 py-2 text-center text-[11px] font-black leading-none text-white transition hover:bg-emerald-800 min-[390px]:text-xs"
           >
             <span className="block" style={mobileNavLabelStyle}>Login</span>
           </a>

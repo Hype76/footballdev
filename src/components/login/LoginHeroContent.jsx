@@ -11,27 +11,27 @@ export function LoginHeroContent() {
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <a
           href="/features"
-          className="inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+          className="inline-flex min-h-12 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
         >
           Explore Features
         </a>
         <a
           href="/sign-in"
-          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 shadow-sm shadow-slate-200/80 transition hover:bg-slate-50"
+          className="inline-flex min-h-12 items-center justify-center border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50"
         >
           Login
         </a>
       </div>
       <div className="mt-8 grid max-w-2xl gap-3 min-[520px]:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-xl font-black text-slate-950 sm:text-2xl">Trials</p>
           <p className="mt-2 text-sm leading-6 text-slate-700">Keep trial notes, decisions, and outcomes in one place.</p>
         </div>
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+        <div className="border border-sky-200 bg-sky-50 p-4">
           <p className="text-xl font-black text-slate-950 sm:text-2xl">Teams</p>
           <p className="mt-2 text-sm leading-6 text-slate-700">Give staff the right access and keep every team on brand.</p>
         </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <div className="border border-amber-200 bg-amber-50 p-4">
           <p className="text-xl font-black text-slate-950 sm:text-2xl">Parents</p>
           <p className="mt-2 text-sm leading-6 text-slate-700">Keep parents updated without adding more work for coaches.</p>
         </div>
