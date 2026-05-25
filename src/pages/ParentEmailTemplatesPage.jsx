@@ -4,7 +4,6 @@ import { AvailableTemplateFieldsSection } from '../components/parent-email-templ
 import { TemplateAudienceTabs } from '../components/parent-email-templates/TemplateAudienceTabs.jsx'
 import { TemplateEditorSection } from '../components/parent-email-templates/TemplateEditorSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageParentEmailTemplates, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
@@ -16,6 +15,21 @@ import {
   getParentEmailTemplates,
   upsertParentEmailTemplate,
 } from '../lib/supabase.js'
+
+const templateRules = [
+  {
+    label: 'Audience stays separate',
+    body: 'Parent and player messages should not reuse copy without checking the audience.',
+  },
+  {
+    label: 'Approved fields only',
+    body: 'Use the listed merge fields so messages can be generated from real workspace data.',
+  },
+  {
+    label: 'Sections control use',
+    body: 'A template should only appear in the football workflow sections where it makes sense.',
+  },
+]
 
 export function ParentEmailTemplatesPage() {
   const { user } = useAuth()
@@ -210,23 +224,55 @@ export function ParentEmailTemplatesPage() {
     }
   }
 
+  const enabledTemplateCount = templates.filter((template) => template.isEnabled !== false).length
+  const customTemplateCount = templates.filter((template) => template.isCustom).length
+  const audienceLabel = audience === EMAIL_TEMPLATE_AUDIENCES.player ? 'player' : 'parent'
+
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Settings"
-        title="Email templates"
-        description="Create the templates used when sending parent or player emails. Saved templates stay with the team that created them."
-      />
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Message templates</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+              Prepare parent and player messages before match week gets busy.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Create the templates used when sending football updates. Saved templates stay with the team that created them.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {templateRules.map((rule) => (
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Template state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{enabledTemplateCount} enabled for {audienceLabel} emails</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {templates.length} templates are loaded for the current audience.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <TemplateMetric label="Loaded" value={templates.length} />
+              <TemplateMetric label="Enabled" value={enabledTemplateCount} />
+              <TemplateMetric label="Custom" value={customTemplateCount} />
+              <TemplateMetric label="Audience" value={audienceLabel} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              Keep templates practical, short, and specific to the update being sent.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {errorMessage ? <NoticeBanner title="Template action failed" message={errorMessage} /> : null}
       {message ? <NoticeBanner title="Template saved" message={message} tone="info" /> : null}
-
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-sm font-black text-emerald-950">Template rule</p>
-        <p className="mt-1 text-sm leading-6 text-emerald-900">
-          Templates are team level tools. Use only approved fields, choose the sections where a template is valid, and keep parent and player messages separate.
-        </p>
-      </div>
 
       <AvailableTemplateFieldsSection />
 
@@ -252,6 +298,15 @@ export function ParentEmailTemplatesPage() {
       {!hasPlanFeature(user, 'parentEmail') ? (
         <NoticeBanner title="Parent email unavailable" message={createFeatureUpgradeMessage('parentEmail')} tone="info" />
       ) : null}
+    </div>
+  )
+}
+
+function TemplateMetric({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
 }

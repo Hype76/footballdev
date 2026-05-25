@@ -3,12 +3,12 @@ import { EMAIL_TEMPLATE_FIELDS, EMAIL_TEMPLATE_SECTIONS } from '../../lib/email-
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
-const inputClass = 'min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
-const textareaClass = 'w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
-const panelClass = 'border border-slate-200 bg-white px-4 py-3'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50'
-const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
+const textareaClass = 'w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
+const panelClass = 'rounded-lg border border-slate-200 bg-slate-50 px-4 py-3'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50'
+const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-md border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
 
 export function TemplateEditorSection({
   audience,
@@ -133,16 +133,16 @@ export function TemplateEditorSection({
                   : `Save this default before it can be used for ${audience} emails.`
             }
           >
-            <div className="space-y-4">
-            <label className="flex min-h-11 items-center gap-3 border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950">
-              <input
-                type="checkbox"
-                checked={template.isEnabled !== false}
-                onChange={(event) => onTemplateChange(template.key, 'isEnabled', event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 accent-emerald-700"
-              />
-              <span>Available for this club</span>
-            </label>
+            <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+              <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950">
+                <input
+                  type="checkbox"
+                  checked={template.isEnabled !== false}
+                  onChange={(event) => onTemplateChange(template.key, 'isEnabled', event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 accent-emerald-700"
+                />
+                <span>Available for this club</span>
+              </label>
 
             {template.isCustom ? (
               <label className="block">
@@ -168,7 +168,7 @@ export function TemplateEditorSection({
                   return (
                     <label
                       key={section}
-                      className="flex min-h-10 items-center gap-2 border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950"
+                      className="flex min-h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-950"
                     >
                       <input
                         type="checkbox"
@@ -211,7 +211,7 @@ export function TemplateEditorSection({
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => insertFieldAtCursor(template, field.key)}
-                  className="inline-flex min-h-10 items-center justify-center border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:border-emerald-200 hover:bg-emerald-50"
                 >
                   {`Add {${field.key}}`}
                 </button>
@@ -226,7 +226,7 @@ export function TemplateEditorSection({
                 title={savingKey === template.key ? 'Please wait while this template is being saved.' : undefined}
                 className={`${primaryButtonClass} w-full sm:w-auto`}
               >
-                {savingKey === template.key ? 'Saving...' : 'Save Template'}
+                {savingKey === template.key ? 'Saving...' : 'Save template'}
               </button>
               {!template.isCustom ? (
                 <button
@@ -234,7 +234,7 @@ export function TemplateEditorSection({
                   onClick={() => onResetTemplate(template.key)}
                   className={`${secondaryButtonClass} w-full sm:w-auto`}
                 >
-                  Use Default
+                  Use default
                 </button>
               ) : null}
               {template.isCustom ? (
@@ -245,7 +245,7 @@ export function TemplateEditorSection({
                   title={deletingKey === template.key ? 'Please wait while this template is being deleted.' : undefined}
                   className={`${dangerButtonClass} w-full sm:w-auto`}
                 >
-                  {deletingKey === template.key ? 'Deleting...' : 'Delete Template'}
+                  {deletingKey === template.key ? 'Deleting...' : 'Delete template'}
                 </button>
               ) : null}
             </div>
@@ -260,7 +260,7 @@ export function TemplateEditorSection({
           onClick={onAddCustomTemplate}
           className={primaryButtonClass}
         >
-          Add Custom Template
+          Add custom template
         </button>
       </div>
     </div>
