@@ -19,24 +19,24 @@ import {
 
 const quickActions = [
   {
-    label: 'Run Training',
-    description: 'Open the session queue, mark work, and capture coach notes.',
+    label: 'Run today',
+    description: 'Open the active session, mark attendance, and record useful coach notes.',
     path: '/sessions/start',
     primary: true,
   },
   {
-    label: 'Check Availability',
-    description: 'Use polls and parent replies to know who is available.',
+    label: 'Check availability',
+    description: 'Use parent replies before choosing the training group or match squad.',
     path: '/polls',
   },
   {
-    label: 'Pick Squad',
-    description: 'Open match day and work from the players who can attend.',
+    label: 'Prepare match day',
+    description: 'Build the squad, capture scorers, minutes, and post-match notes.',
     path: '/match-day',
   },
   {
-    label: 'Add Development Note',
-    description: 'Record a useful player observation after training or a match.',
+    label: 'Add player note',
+    description: 'Record one practical observation while the session is still fresh.',
     path: '/assess-player/new',
   },
 ]
@@ -44,25 +44,25 @@ const quickActions = [
 const rhythmItems = [
   {
     label: 'Monday',
-    title: 'Follow up from the weekend',
+    title: 'Close the weekend',
     body: 'Check match notes, attendance gaps, and players who need a coach action.',
     path: '/players/current',
   },
   {
     label: 'Midweek',
-    title: 'Prepare training',
+    title: 'Run training',
     body: 'Create the session, confirm the squad, and keep parent updates in one place.',
     path: '/sessions/start',
   },
   {
     label: 'Friday',
-    title: 'Lock match availability',
+    title: 'Lock availability',
     body: 'Use polls, parent replies, and match day to confirm who can play.',
     path: '/polls',
   },
   {
     label: 'Weekend',
-    title: 'Run match day',
+    title: 'Record match day',
     body: 'Record score, scorers, notes, and player of the match for the team history.',
     path: '/match-day',
   },
@@ -199,29 +199,29 @@ export function CoachHomePage() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm shadow-slate-200/80">
-        <div className="grid min-h-[24rem] xl:grid-cols-[1.35fr_0.65fr]">
-          <div className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,#bbf7d0,transparent_35%),linear-gradient(135deg,#ffffff,#f0fdf4_48%,#eef6ff)] p-5 sm:p-8">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid min-h-[24rem] xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="relative overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#eefdf5_48%,#edf6ff_100%)] p-5 sm:p-8">
             <div className="max-w-3xl">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Club command centre</p>
-              <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
-                Run this football week from one screen.
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Club command</p>
+              <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+                Run the week, not the software.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-700">
-                Schedule the work, check availability, prepare match day, and keep parents moving without hunting through separate tools.
+                Start with the next football action: session, availability, match day, or player development. Everything else supports that flow.
               </p>
             </div>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:max-w-3xl">
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:max-w-4xl">
               {quickActions.map((action) => (
                 <Link
                   key={action.path}
                   to={action.path}
                   className={[
-                    'rounded-2xl border px-4 py-4 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
+                    'rounded-3xl border px-4 py-4 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
                     action.primary
                       ? 'border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-300'
-                      : 'border-white bg-white/85 text-slate-950 shadow-sm shadow-slate-200 hover:bg-white',
+                      : 'border-slate-200 bg-white/90 text-slate-950 shadow-sm shadow-slate-200 hover:bg-white',
                   ].join(' ')}
                 >
                   <span className="block text-base font-black">{action.label}</span>
@@ -233,10 +233,16 @@ export function CoachHomePage() {
             </div>
           </div>
 
-          <div className="grid content-start gap-3 border-t border-emerald-100 bg-white p-5 sm:grid-cols-3 xl:grid-cols-1 xl:border-l xl:border-t-0">
-            <CoachMetric label="Players" value={visiblePlayers.length} isLoading={isLoading} to="/players/current" actionLabel="Open squad" />
-            <CoachMetric label="Trial list" value={trialPlayerCount} isLoading={isLoading} to="/players/current?section=Trial" actionLabel="Review" />
-            <CoachMetric label="Squad list" value={squadPlayerCount} isLoading={isLoading} to="/players/current?section=Squad" actionLabel="Review" />
+          <div className="grid content-start gap-3 border-t border-slate-200 bg-slate-950 p-5 text-white sm:grid-cols-3 xl:grid-cols-1 xl:border-l xl:border-t-0">
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">Workspace state</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Use these numbers to decide where the club needs attention first.
+              </p>
+            </div>
+            <CoachMetric label="Players" value={visiblePlayers.length} isLoading={isLoading} to="/players/current" actionLabel="Open squad" inverse />
+            <CoachMetric label="Trial list" value={trialPlayerCount} isLoading={isLoading} to="/players/current?section=Trial" actionLabel="Review" inverse />
+            <CoachMetric label="Squad list" value={squadPlayerCount} isLoading={isLoading} to="/players/current?section=Squad" actionLabel="Review" inverse />
           </div>
         </div>
       </section>
@@ -246,7 +252,7 @@ export function CoachHomePage() {
           <Link
             key={item.label}
             to={item.path}
-            className="rounded-2xl border border-[var(--border-color)] bg-white p-5 shadow-sm shadow-slate-200/80 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
+            className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
           >
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{item.label}</p>
             <h2 className="mt-3 text-lg font-black text-slate-950">{item.title}</h2>
@@ -256,13 +262,13 @@ export function CoachHomePage() {
       </section>
 
       {errorMessage ? (
-        <div className="rounded-2xl border border-[var(--border-color)] bg-white px-4 py-3 text-sm text-[var(--text-muted)] shadow-sm">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 shadow-sm">
           {errorMessage}
         </div>
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <section className="rounded-3xl border border-[var(--border-color)] bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Training queue</p>
@@ -277,7 +283,7 @@ export function CoachHomePage() {
             </div>
             <Link
               to="/sessions/start"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
             >
               Open Session
             </Link>
@@ -291,7 +297,7 @@ export function CoachHomePage() {
 
           <div className="mt-5 space-y-3">
             {unassessedPlayers.slice(0, 4).map((player) => (
-              <div key={player.id} className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border-color)] bg-slate-50 px-4 py-3">
+              <div key={player.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black text-slate-950">{player.playerName}</p>
                   <p className="mt-1 text-xs text-slate-500">{player.section} | {player.team || 'No team'}</p>
@@ -305,14 +311,14 @@ export function CoachHomePage() {
               </div>
             ))}
             {!isLoading && unassessedPlayers.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-slate-50 px-4 py-5 text-sm text-slate-600">
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
                 No players are waiting in the current assessment queue.
               </div>
             ) : null}
           </div>
         </section>
 
-        <section className="rounded-3xl border border-[var(--border-color)] bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Match readiness</p>
           <div className="mt-4 grid gap-3">
             {[
@@ -323,7 +329,7 @@ export function CoachHomePage() {
               <Link
                 key={action.label}
                 to={action.path}
-                className="rounded-2xl border border-[var(--border-color)] bg-slate-50 px-4 py-4 text-slate-950 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4 text-slate-950 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <span className="block text-sm font-black">{action.label}</span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">{action.value}</span>
@@ -333,7 +339,7 @@ export function CoachHomePage() {
         </section>
       </div>
 
-      <section className="rounded-3xl border border-[var(--border-color)] bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Development</p>
@@ -341,14 +347,14 @@ export function CoachHomePage() {
           </div>
           <Link
             to="/assess-player/completed"
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--border-color)] bg-slate-50 px-4 py-3 text-sm font-black text-slate-950 transition hover:border-emerald-300 hover:bg-emerald-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-950 transition hover:border-emerald-300 hover:bg-emerald-50"
           >
             View All
           </Link>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {recentEvaluations.map((evaluation) => (
-            <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-2xl border border-[var(--border-color)] bg-slate-50 p-4">
+            <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <p className="truncate text-sm font-black text-slate-950">{evaluation.playerName}</p>
               <p className="mt-2 text-xs text-slate-500">{evaluation.team || user?.activeTeamName || 'Team'} | score {evaluation.averageScore ?? 'Not scored'}</p>
               <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
@@ -357,7 +363,7 @@ export function CoachHomePage() {
             </div>
           ))}
           {!isLoading && recentEvaluations.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-slate-50 px-4 py-5 text-sm text-slate-600 lg:col-span-3">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600 lg:col-span-3">
               Completed assessments will appear here.
             </div>
           ) : null}
@@ -367,13 +373,22 @@ export function CoachHomePage() {
   )
 }
 
-function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
+function CoachMetric({ actionLabel = 'Open', inverse = false, isLoading, label, to, value }) {
   const content = (
     <>
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</span>
-      <span className="mt-2 block text-3xl font-black text-slate-950">{isLoading ? '...' : value}</span>
+      <span className={['text-xs font-black uppercase tracking-[0.16em]', inverse ? 'text-emerald-300' : 'text-emerald-700'].join(' ')}>
+        {label}
+      </span>
+      <span className={['mt-2 block text-3xl font-black', inverse ? 'text-white' : 'text-slate-950'].join(' ')}>
+        {isLoading ? '...' : value}
+      </span>
       {to ? (
-        <span className="mt-4 inline-flex min-h-9 items-center justify-center rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white">
+        <span
+          className={[
+            'mt-4 inline-flex min-h-9 items-center justify-center rounded-2xl px-3 py-2 text-xs font-black',
+            inverse ? 'bg-white text-slate-950' : 'bg-slate-950 text-white',
+          ].join(' ')}
+        >
           {actionLabel}
         </span>
       ) : null}
@@ -385,7 +400,12 @@ function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
       <Link
         to={to}
         aria-label={`${actionLabel} ${label.toLowerCase()}`}
-        className="block rounded-2xl border border-[var(--border-color)] bg-slate-50 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className={[
+          'block rounded-3xl border px-4 py-4 text-left transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
+          inverse
+            ? 'border-white/10 bg-white/10 text-white hover:bg-white/15'
+            : 'border-slate-200 bg-slate-50 hover:border-emerald-300 hover:bg-emerald-50',
+        ].join(' ')}
       >
         {content}
       </Link>
@@ -393,7 +413,7 @@ function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--border-color)] bg-slate-50 px-4 py-4">
+    <div className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
       {content}
     </div>
   )
