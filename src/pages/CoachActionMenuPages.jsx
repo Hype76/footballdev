@@ -113,13 +113,13 @@ export function AssessmentsMenuPage() {
       actions={[
         {
           label: 'New development note',
-          description: 'Assess one player or add a structured coaching observation.',
+          description: 'Record one player observation with structured football fields.',
           path: '/assess-player/new',
           primary: true,
         },
         {
           label: 'Development history',
-          description: 'Review completed assessments, coach notes, scores, and progress over time.',
+          description: 'Review completed development records, coach notes, scores, and progress over time.',
           path: '/assess-player/completed',
         },
       ]}

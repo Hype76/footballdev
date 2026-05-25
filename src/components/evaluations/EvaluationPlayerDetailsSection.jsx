@@ -28,7 +28,7 @@ export function EvaluationPlayerDetailsSection({
   return (
     <SectionCard
       title="Player details"
-      description="Core details stay consistent while the club-configured assessment fields adapt below."
+      description="Choose the exact player and team before scoring. This keeps development history, parent messages, and match-day records aligned."
     >
       <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label className="block min-w-0">
@@ -66,8 +66,8 @@ export function EvaluationPlayerDetailsSection({
           </select>
           <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
             {canManageUsers(user)
-              ? 'Managers and admins can assess against any club team.'
-              : 'Choose the team this assessment should sit under. Session selection is optional.'}
+              ? 'Managers and admins can record development notes against any club team.'
+              : 'Choose the team this player record should sit under. Session selection is optional.'}
           </p>
         </label>
 
@@ -154,7 +154,7 @@ export function EvaluationPlayerDetailsSection({
             </div>
           )}
           <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-            Selected {contactNounPlural} are used for {contactNoun} email templates.
+            Selected {contactNounPlural} are used only when this record is sent with a {contactNoun} email template.
           </p>
         </div>
 

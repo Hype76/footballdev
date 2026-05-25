@@ -9,16 +9,16 @@ export function ConfiguredFieldsSection({
 }) {
   return (
     <SectionCard
-      title="Configured fields"
+      title="Development fields"
       description={
         isFallbackFields
-          ? 'No club-specific form fields were found, so the default assessment fields were loaded.'
-          : 'These enabled fields come from Assessment Fields and are saved as form responses.'
+          ? 'No club-specific form fields were found, so the default development fields were loaded.'
+          : 'These enabled fields come from Development Form and are saved as coach responses.'
       }
     >
       {enabledFields.length === 0 ? (
-        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
-          No assessment fields are enabled for this club. Enable fields in Assessment Fields first.
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
+          No development fields are enabled for this club. Enable fields in Development Form first.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

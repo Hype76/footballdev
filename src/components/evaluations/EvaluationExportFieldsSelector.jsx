@@ -46,7 +46,7 @@ export function EvaluationExportFieldsSelector({
             resetDrag()
           }}
           className={[
-            'inline-flex min-h-10 items-center justify-center rounded-md border px-3 py-2 text-xs font-bold transition',
+            'inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-xs font-bold transition',
             isDragLocked
               ? 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
               : 'border-emerald-300 bg-emerald-50 text-emerald-900',
@@ -105,7 +105,7 @@ export function EvaluationExportFieldsSelector({
                 onReorderExportField(sourceLabel, itemLabel, responseItems)
               }}
               className={[
-                'flex min-h-11 items-start gap-3 rounded-md border bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition',
+                'flex min-h-11 items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition',
                 isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
                 draggedLabel === itemLabel ? 'opacity-60' : '',
                 dragOverLabel === itemLabel

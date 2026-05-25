@@ -225,7 +225,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
         makeStep({
           id: 'players',
           title: 'Add players',
-          rule: 'Parent links, sessions, match day, and assessments all start from player records.',
+          rule: 'Parent links, sessions, match day, and development records all start from player records.',
           detail: 'Add one player or import the first squad.',
           href: '/add-player',
           actionLabel: 'Add player',
@@ -294,7 +294,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
         makeStep({
           id: 'players',
           title: 'Review players',
-          rule: 'Coach notes, assessments, and parent summaries attach to player records.',
+          rule: 'Coach notes, development records, and parent summaries attach to player records.',
           detail: 'Open the current players list before starting session work.',
           href: '/players/current',
           actionLabel: 'Open players',
@@ -303,7 +303,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
         makeStep({
           id: 'session',
           title: 'Open or create session',
-          rule: 'A session gives attendance, notes, and assessments a real football context.',
+          rule: 'A session gives attendance, notes, and development records a real football context.',
           detail: 'Open the next training session or create one.',
           href: '/sessions/start',
           actionLabel: 'Open sessions',
@@ -313,7 +313,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
           id: 'first-note',
           title: 'Add first player note',
           rule: 'Private coach notes stay staff-only unless shared through parent-facing tools.',
-          detail: 'Record one practical observation or complete one assessment.',
+          detail: 'Record one practical observation or complete one development record.',
           href: '/assess-player/new',
           actionLabel: 'Add note',
           complete: snapshot.evaluations > 0 || hasCompletedStep(user, scope, 'first-note'),

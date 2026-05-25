@@ -353,7 +353,7 @@ export function CreateEvaluationPage() {
       try {
         const nextEvaluations = await withRequestTimeout(
           () => getEvaluations({ user, playerName }),
-          'Could not load previous assessments.',
+          'Could not load previous development records.',
         )
 
         if (!isMounted) {
@@ -406,7 +406,7 @@ export function CreateEvaluationPage() {
       }
 
       try {
-        const nextEvaluations = await withRequestTimeout(() => getEvaluations({ user }), 'Could not load assessment.')
+        const nextEvaluations = await withRequestTimeout(() => getEvaluations({ user }), 'Could not load development record.')
         const targetEvaluation = nextEvaluations.find((evaluation) => String(evaluation.id) === editingEvaluationId)
 
         if (!isMounted) {
@@ -414,7 +414,7 @@ export function CreateEvaluationPage() {
         }
 
         if (!targetEvaluation) {
-          setActionErrorMessage('This assessment could not be found. It may have been removed or you may not have access.')
+          setActionErrorMessage('This development record could not be found. It may have been removed or you may not have access.')
           setEditingEvaluation(null)
           return
         }
@@ -446,7 +446,7 @@ export function CreateEvaluationPage() {
         console.error(error)
 
         if (isMounted) {
-          setActionErrorMessage('This assessment could not be loaded for editing. Try again in a moment.')
+          setActionErrorMessage('This development record could not be loaded for editing. Try again in a moment.')
           setEditingEvaluation(null)
         }
       }
@@ -489,7 +489,7 @@ export function CreateEvaluationPage() {
         })
         setIsFallbackFields(isFallback)
         setDataRefreshNotice((current) =>
-          current.startsWith('Live form fields') || current.startsWith('Default assessment fields')
+          current.startsWith('Live form fields') || current.startsWith('Default development fields')
             ? ''
             : current,
         )
@@ -506,7 +506,7 @@ export function CreateEvaluationPage() {
             setDynamicFields(fallbackFields)
             setResponseValues(createEmptyResponseValues(fallbackFields))
             setIsFallbackFields(true)
-            setDataRefreshNotice('Default assessment fields are in use because the saved club form could not be loaded.')
+            setDataRefreshNotice('Default development fields are in use because the saved club form could not be loaded.')
           } else {
             setDataRefreshNotice('Live form fields could not be refreshed. The last available form setup is still shown.')
           }
@@ -702,8 +702,8 @@ export function CreateEvaluationPage() {
   const selectedParentEmail = formatParentContactEmails(selectedParentContacts, formData.parentEmail)
   const isDemoAccount = isDemoUser(user)
   const noTeamsMessage = canManageUsers(user)
-    ? 'No teams exist for this club yet. Create a team first, then assessments can be assigned correctly.'
-    : 'No teams exist for this club yet. Ask a manager to create a team before adding assessments.'
+    ? 'No teams exist for this club yet. Create a team first, then development records can be assigned correctly.'
+    : 'No teams exist for this club yet. Ask a manager to create a team before adding development records.'
 
   useEffect(() => {
     setHasApprovedDefaultTemplate(false)
@@ -795,7 +795,7 @@ export function CreateEvaluationPage() {
         })
 
         if (!navigator.onLine) {
-          setOfflineStatusMessage('Offline - this assessment is being saved locally.')
+          setOfflineStatusMessage('Offline. This development record is being saved locally.')
         }
       } catch (error) {
         console.error('Offline draft save failed', error)
@@ -960,14 +960,14 @@ export function CreateEvaluationPage() {
     event.preventDefault()
 
     if (!user?.clubId && !isPlatformOwner) {
-      console.error('Assessment submit failed: missing club ID for current user.')
+      console.error('Development record submit failed: missing club ID for current user.')
       setActionErrorMessage('Your account is missing a club assignment.')
       return
     }
 
     if (!String(formData.team ?? '').trim()) {
-      console.error('Assessment submit failed: no team selected.')
-      setActionErrorMessage('Select a team before submitting the assessment.')
+      console.error('Development record submit failed: no team selected.')
+      setActionErrorMessage('Select a team before submitting the development record.')
       return
     }
 
@@ -988,14 +988,14 @@ export function CreateEvaluationPage() {
         const monthlyEvaluationCount = getCurrentMonthEvaluationCount(allEvaluations)
 
         if (!isWithinPlanLimit(user, 'monthlyEvaluations', monthlyEvaluationCount)) {
-          throw new Error(createLimitUpgradeMessage(user, 'monthlyEvaluations', 'Monthly assessments'))
+          throw new Error(createLimitUpgradeMessage(user, 'monthlyEvaluations', 'Monthly development records'))
         }
       }
 
       if (!navigator.onLine) {
         saveDraft(createOfflineEvaluationDraft({ data: evaluation, editingEvaluation, id: offlineDraftId, user }))
-        setOfflineStatusMessage('Saved offline - this assessment will sync when the connection returns.')
-        showToast({ title: 'Saved offline', message: 'This assessment will sync when you are back online.' })
+        setOfflineStatusMessage('Saved offline. This development record will sync when the connection returns.')
+        showToast({ title: 'Saved offline', message: 'This development record will sync when you are back online.' })
         setIsSaved(true)
         return
       }
@@ -1110,7 +1110,7 @@ export function CreateEvaluationPage() {
           console.error('Email failed', emailError)
           showToast({
             title: 'Email not sent',
-            message: emailError.message || 'This assessment was saved, but the email could not be sent right now.',
+            message: emailError.message || 'This development record was saved, but the email could not be sent right now.',
             tone: 'error',
           })
         }
@@ -1160,8 +1160,8 @@ export function CreateEvaluationPage() {
       setIsSaved(true)
       setOfflineStatusMessage('')
       showToast({
-        title: editingEvaluation ? 'Assessment updated' : 'Assessment saved',
-        message: `${normalizedPlayerName} assessment has been saved.`,
+        title: editingEvaluation ? 'Development record updated' : 'Development record saved',
+        message: `${normalizedPlayerName} development record has been saved.`,
       })
       setNextAssessmentReminderTarget({
         evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
@@ -1171,7 +1171,7 @@ export function CreateEvaluationPage() {
         section: formData.section,
       })
     } catch (error) {
-      console.error('Assessment submit failed', error)
+      console.error('Development record submit failed', error)
       setIsSaved(false)
 
       if (isNetworkError(error)) {
@@ -1182,15 +1182,15 @@ export function CreateEvaluationPage() {
             id: offlineDraftId,
             user,
           }))
-          setOfflineStatusMessage('Saved offline - this assessment will sync when the connection returns.')
-          showToast({ title: 'Saved offline', message: 'This assessment will sync when you are back online.' })
+          setOfflineStatusMessage('Saved offline. This development record will sync when the connection returns.')
+          showToast({ title: 'Saved offline', message: 'This development record will sync when you are back online.' })
           return
         } catch (draftError) {
           console.error('Offline draft queue failed', draftError)
         }
       }
 
-      setActionErrorMessage('This assessment could not be saved right now. Check the player details and try again.')
+      setActionErrorMessage('This development record could not be saved right now. Check the player details and try again.')
     } finally {
       setIsSendingParentEmail(false)
       setIsSubmitting(false)
@@ -1249,7 +1249,7 @@ export function CreateEvaluationPage() {
       })
       showToast({
         title: 'Reminder saved',
-        message: `Next assessment reminder set for ${nextAssessmentReminderDate}.`,
+        message: `Next development reminder set for ${nextAssessmentReminderDate}.`,
       })
       setNextAssessmentReminderTarget(null)
       setNextAssessmentReminderDate('')
@@ -1257,7 +1257,7 @@ export function CreateEvaluationPage() {
       console.error(error)
       showToast({
         title: 'Reminder not saved',
-        message: error.message || 'The assessment was saved, but the reminder could not be saved.',
+        message: error.message || 'The development record was saved, but the reminder could not be saved.',
         tone: 'error',
       })
     } finally {
@@ -1291,8 +1291,8 @@ export function CreateEvaluationPage() {
 
       <ConfirmModal
         isOpen={isPreviousScoresConfirmOpen}
-        title="Previous assessment found"
-        message="This player already has assessment history. Do you want to open the previous scores while completing this assessment?"
+        title="Previous development record found"
+        message="This player already has development history. Do you want to open the previous scores while completing this record?"
         cancelLabel="Keep Closed"
         confirmLabel="Show Previous Scores"
         onCancel={handleHidePreviousScores}
@@ -1303,8 +1303,8 @@ export function CreateEvaluationPage() {
       <ConfirmModal
         isOpen={Boolean(nextAssessmentReminderTarget)}
         isBusy={isSavingNextAssessmentReminder}
-        title="Set next assessment reminder"
-        message="Do you want to set a reminder for the next assessment?"
+        title="Set next development reminder"
+        message="Do you want to set a reminder for the next development record?"
         cancelLabel="Not Now"
         confirmLabel="Save Reminder"
         confirmDisabled={!nextAssessmentReminderDate}
@@ -1331,14 +1331,14 @@ export function CreateEvaluationPage() {
 
       <div className={isPrintingBlankView ? 'no-print' : ''}>
         <PageHeader
-          eyebrow="Assessment"
-          title="Assess player"
-          description="Capture a trial or squad assessment, choose what to include, and save it when ready."
+          eyebrow="Development record"
+          title="Record the football detail while it is still fresh."
+          description="Select the player, score only the useful fields, and decide whether this stays internal or goes to parents after saving."
         />
 
         {isSaved ? (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
-            Assessment saved
+            Development record saved
           </div>
         ) : null}
 
@@ -1358,9 +1358,9 @@ export function CreateEvaluationPage() {
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-950">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-bold">Assessment link was adjusted</p>
+                <p className="font-bold">Development link was adjusted</p>
                 <p className="mt-1 leading-6 text-slate-600">
-                  The link had missing or unknown assessment details, so the form is using the nearest valid options.
+                  The link had missing or unknown development details, so the form is using the nearest valid options.
                 </p>
               </div>
               <button

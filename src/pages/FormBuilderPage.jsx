@@ -123,7 +123,7 @@ export function FormBuilderPage() {
       const nextFields = await getConfiguredFormFields({ user })
       syncFields(nextFields)
       setSuccessMessage(nextFields.length > 0 ? 'Form fields loaded successfully.' : 'Default form is ready to be configured.')
-      showToast({ title: 'Fields refreshed', message: 'Assessment fields are up to date.' })
+      showToast({ title: 'Fields refreshed', message: 'Development form fields are up to date.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not load the form fields for this club.')
@@ -158,7 +158,7 @@ export function FormBuilderPage() {
     {
       label: 'Enabled now',
       value: enabledFieldsCount,
-      caption: 'Only enabled fields appear when coaches complete assessments.',
+      caption: 'Only enabled fields appear when coaches create development records.',
       tone: 'amber',
     },
   ]
@@ -240,7 +240,7 @@ export function FormBuilderPage() {
     try {
       await reorderFormFields(normalizedFields, user)
       setSuccessMessage('Field order updated.')
-      showToast({ title: 'Field order saved', message: 'Assessment field order has been updated.' })
+      showToast({ title: 'Field order saved', message: 'Development form field order has been updated.' })
     } catch (error) {
       console.error(error)
       setFields(previousFields)
@@ -438,9 +438,9 @@ export function FormBuilderPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
-        eyebrow="Assessment Fields"
-        title="Configure assessment fields"
-        description="Default fields can be enabled or disabled. Custom fields can also be edited, reordered, or removed."
+        eyebrow="Development form"
+        title="Build the football record coaches will actually complete."
+        description="Choose the fields that matter for player development, parent updates, and squad decisions. Keep the form short enough to use after training."
       />
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -448,7 +448,7 @@ export function FormBuilderPage() {
           <article
             key={item.label}
             className={[
-              'rounded-md border bg-white p-5 shadow-sm',
+              'rounded-lg border bg-white p-5 shadow-sm',
               item.tone === 'emerald' ? 'border-emerald-200' : '',
               item.tone === 'sky' ? 'border-sky-200' : '',
               item.tone === 'amber' ? 'border-amber-200' : '',
@@ -461,15 +461,15 @@ export function FormBuilderPage() {
         ))}
       </section>
 
-      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Setup rule</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-          Build the form coaches should use this week. Keep it short enough to complete pitch-side, then add custom fields only when a decision or parent report needs that data.
+      <section className="rounded-lg border border-lime-200 bg-lime-50 p-5 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Form rule</p>
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
+          Build the form coaches should use this week. Add custom fields only when a football decision or parent report needs that data.
         </p>
       </section>
 
-      {errorMessage ? <NoticeBanner title="Assessment fields action failed" message={errorMessage} /> : null}
-      {successMessage ? <NoticeBanner title="Assessment fields updated" message={successMessage} tone="info" /> : null}
+      {errorMessage ? <NoticeBanner title="Development form action failed" message={errorMessage} /> : null}
+      {successMessage ? <NoticeBanner title="Development form updated" message={successMessage} tone="info" /> : null}
 
       <DefaultFormSection
         defaultTemplateFields={defaultTemplateFields}
@@ -511,7 +511,7 @@ export function FormBuilderPage() {
         isOpen={Boolean(fieldDeleteTarget)}
         isBusy={isSaving}
         title="Delete form field"
-        message="This removes the custom field from the club form. Existing saved assessments keep their historic responses."
+        message="This removes the custom field from the club form. Existing saved development records keep their historic responses."
         items={[
           `Field: ${fieldDeleteTarget?.label || 'Selected field'}`,
           `Type: ${fieldDeleteTarget ? getFieldTypeLabel(fieldDeleteTarget.type) : 'Unknown type'}`,

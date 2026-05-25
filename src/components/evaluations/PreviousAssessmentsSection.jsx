@@ -12,19 +12,19 @@ export function PreviousAssessmentsSection({
 
   return (
     <SectionCard
-      title="Previous assessments"
-      description="Use this while assessing an existing player. These notes are for reference only and are not added to the new assessment."
+      title="Previous development records"
+      description="Use this while recording an existing player. These notes are for reference only and are not added to the new record."
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-semibold leading-6 text-slate-600">
-          {previousEvaluations.length} previous assessment{previousEvaluations.length === 1 ? '' : 's'} found for this player.
+          {previousEvaluations.length} previous development record{previousEvaluations.length === 1 ? '' : 's'} found for this player.
         </p>
         <button
           type="button"
           onClick={onToggle}
-          className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
         >
-          {isOpen ? 'Hide Previous Assessments' : 'View Previous Assessments'}
+          {isOpen ? 'Hide Previous Records' : 'View Previous Records'}
         </button>
       </div>
       {isOpen ? (
@@ -42,7 +42,7 @@ function PreviousAssessmentCard({ evaluation }) {
   const previousAssessmentItems = buildPreviousAssessmentItems(evaluation)
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="font-black text-slate-950">{evaluation.date || 'No date entered'}</p>
         <p className="text-sm font-black text-emerald-700">
@@ -58,14 +58,14 @@ function PreviousAssessmentCard({ evaluation }) {
       <div className="mt-3 grid gap-2 md:grid-cols-2">
         {previousAssessmentItems.length > 0 ? (
           previousAssessmentItems.map((item) => (
-            <div key={item.label} className="rounded-md border border-slate-200 bg-white px-3 py-2">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">{item.label}</p>
+            <div key={item.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-800">{item.label}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-600">{item.value}</p>
             </div>
           ))
         ) : (
-          <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 md:col-span-2">
-            No assessment details were entered.
+          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 md:col-span-2">
+            No development details were entered.
           </div>
         )}
       </div>
