@@ -1,5 +1,4 @@
 import { InfoCard, PlanCard, QuickLinks, VideoGuideGrid } from '../components/information/InformationCards.jsx'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import {
   canManageFormFields,
@@ -13,6 +12,36 @@ import {
 import { getPlanLimit, getPlanName, hasPlanFeature } from '../lib/plans.js'
 import { formatLimit, onboardingVideoGuides, planGuides, platformAdminGuide } from '../lib/information-guides.js'
 import { getRoleQuickLinks } from '../lib/role-quick-links.js'
+
+const guideRules = [
+  {
+    label: 'Start with the next job',
+    body: 'Use the links and videos to complete a real football task, not to browse a generic help centre.',
+  },
+  {
+    label: 'Access depends on role',
+    body: 'The guide only shows the tools this account can use inside the current club and plan.',
+  },
+  {
+    label: 'Plan limits matter',
+    body: 'Use the access panel before adding players, staff, messages, or development records.',
+  },
+]
+
+const platformRules = [
+  {
+    label: 'Keep platform separate',
+    body: 'Platform administration should not edit club player content unless support work requires it.',
+  },
+  {
+    label: 'Use billing deliberately',
+    body: 'Promotions, comped plans, and tier changes affect real club access.',
+  },
+  {
+    label: 'Check the right workspace',
+    body: 'Confirm the club context before changing platform settings or access.',
+  },
+]
 
 function getVisibleVideoGuides(user, access) {
   if (isSuperAdmin(user)) {
@@ -63,10 +92,17 @@ export function InformationPage() {
   if (isSuperAdmin(user)) {
     return (
       <div className="space-y-5 sm:space-y-6">
-        <PageHeader
-          eyebrow="Information"
-          title="Platform guide"
-          description="Current operating notes for platform administration."
+        <GuideHero
+          eyebrow="Platform guide"
+          title="Run platform support without mixing it into club football records."
+          description="Use this as the control surface for administration rules, walkthroughs, billing tools, and common platform destinations."
+          metrics={[
+            { label: 'Role', value: getRoleLabel(user) },
+            { label: 'Guides', value: visibleVideoGuides.length },
+            { label: 'Links', value: quickLinks.length },
+            { label: 'Mode', value: 'Platform' },
+          ]}
+          rules={platformRules}
         />
 
         <SectionCard title="Platform responsibilities" description="Keep platform administration separate from club player content.">
@@ -107,16 +143,23 @@ export function InformationPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Information"
-        title="Football Player guide"
-        description={`Signed in as ${getRoleLabel(user)} on the ${currentPlanName} plan.`}
+      <GuideHero
+        eyebrow="Workspace guide"
+        title="Find the next football action for this role and plan."
+        description={`Signed in as ${getRoleLabel(user)} on the ${currentPlanName} plan. Use this page to understand available tools, plan limits, and the fastest route back into setup work.`}
+        metrics={[
+          { label: 'Plan', value: currentPlanName },
+          { label: 'Role', value: getRoleLabel(user) },
+          { label: 'Videos', value: visibleVideoGuides.length },
+          { label: 'Links', value: quickLinks.length },
+        ]}
+        rules={guideRules}
       />
 
       {isDemoAccount(user) ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-4">
-          <p className="text-sm font-black text-emerald-950">Demo workspace</p>
-          <p className="mt-2 text-sm leading-6 text-emerald-900">
+        <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-200/70">
+          <p className="text-sm font-black text-slate-950">Demo workspace</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
             Demo users can explore the workspace and billing page. Destructive actions and account setting changes are blocked.
           </p>
         </div>
@@ -146,6 +189,54 @@ export function InformationPage() {
       <SectionCard title="Quick links" description="Common places to go next.">
         <QuickLinks links={quickLinks} />
       </SectionCard>
+    </div>
+  )
+}
+
+function GuideHero({ description, eyebrow, metrics, rules, title }) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
+          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+            {title}
+          </h1>
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">{description}</p>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {rules.map((rule) => (
+              <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Current guide state</p>
+            <p className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">{metrics[0]?.value || 'Not set'}</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              The guide adapts to the account, role, plan, and workspace context.
+            </p>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            {metrics.map((metric) => (
+              <GuideMetric key={metric.label} label={metric.label} value={metric.value} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function GuideMetric({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
 }

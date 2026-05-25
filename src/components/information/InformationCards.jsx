@@ -31,7 +31,7 @@ export function PlanCard({ plan, isCurrent }) {
           <p className="mt-2 text-sm leading-6 text-slate-600">{plan.summary}</p>
         </div>
         {isCurrent ? (
-          <span className="inline-flex w-fit rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-800">
+          <span className="inline-flex w-fit rounded-lg border border-emerald-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
             Current
           </span>
         ) : null}
@@ -69,7 +69,7 @@ export function QuickLinks({ links }) {
           className={[
             'inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-3 text-sm font-bold transition',
             link.primary
-              ? 'bg-emerald-700 text-white hover:bg-emerald-800'
+              ? 'bg-emerald-700 text-white hover:bg-emerald-600'
               : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50',
           ].join(' ')}
         >
