@@ -74,7 +74,7 @@ export function CurrentFieldsSection({
     <SectionCard
       title="Current fields"
       tourId="current-fields-section"
-      description="Switch between default fields and custom fields so the form setup stays clear."
+      description="Review the live structure, edit custom fields, and keep field order practical for coaches."
     >
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
@@ -119,7 +119,7 @@ export function CurrentFieldsSection({
             'inline-flex min-h-11 items-center justify-center rounded-md border px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60',
             isDragLocked
               ? 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
-              : 'border-emerald-300 bg-emerald-50 text-emerald-900',
+              : 'border-emerald-300 bg-emerald-50 text-emerald-700',
           ].join(' ')}
         >
           {isDragLocked ? 'Unlock drag' : 'Lock drag'}
@@ -252,7 +252,7 @@ function FormFieldCard({
         onDropField(sourceFieldId, field.id)
       }}
       className={[
-        'rounded-md border bg-white p-4 shadow-sm transition',
+        'rounded-lg border bg-slate-50 p-4 transition',
         isSaving || isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
         isDragging ? 'opacity-60' : '',
         isDragOver ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-slate-200',
@@ -369,7 +369,7 @@ function FormFieldCard({
                 disabled={isSaving}
                 title={savingDisabledReason}
                 onClick={() => onSaveField(field)}
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save
               </button>

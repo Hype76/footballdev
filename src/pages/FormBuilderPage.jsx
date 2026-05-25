@@ -6,7 +6,6 @@ import { DefaultFormSection } from '../components/form-builder/DefaultFormSectio
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageFormFields, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
@@ -31,6 +30,21 @@ import {
   updateFormField,
   writeViewCache,
 } from '../lib/supabase.js'
+
+const developmentFormRules = [
+  {
+    label: 'Short form wins',
+    body: 'Only keep fields coaches can complete after training or a match.',
+  },
+  {
+    label: 'Decision data only',
+    body: 'Add a field when it changes a football decision or improves a parent update.',
+  },
+  {
+    label: 'Enabled fields go live',
+    body: 'Disabled fields stay out of new development records until the club is ready.',
+  },
+]
 
 export function FormBuilderPage() {
   const { user } = useAuth()
@@ -142,26 +156,6 @@ export function FormBuilderPage() {
   const paginatedFields = getPaginatedItems(visibleFields, fieldPage, FIELD_PAGE_SIZE)
   const canUseCustomFields = hasPlanFeature(user, 'customFormFields')
   const enabledFieldsCount = fields.filter((field) => field.isEnabled).length
-  const formRules = [
-    {
-      label: 'Default fields',
-      value: defaultFields.length,
-      caption: 'Club baseline fields can be reordered and switched on or off.',
-      tone: 'emerald',
-    },
-    {
-      label: 'Custom fields',
-      value: customFields.length,
-      caption: canUseCustomFields ? 'Club-specific fields can be added, edited, and removed.' : 'Upgrade required before custom fields can be added.',
-      tone: 'sky',
-    },
-    {
-      label: 'Enabled now',
-      value: enabledFieldsCount,
-      caption: 'Only enabled fields appear when coaches create development records.',
-      tone: 'amber',
-    },
-  ]
 
   const handleFormChange = (event) => {
     const { name, value, type, checked } = event.target
@@ -437,35 +431,45 @@ export function FormBuilderPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Development form"
-        title="Build the football record coaches will actually complete."
-        description="Choose the fields that matter for player development, parent updates, and squad decisions. Keep the form short enough to use after training."
-      />
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Development form</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+              Build the football record coaches will actually complete.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Choose the fields that matter for player development, parent updates, and squad decisions. Keep the form short enough to use after training.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {developmentFormRules.map((rule) => (
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {formRules.map((item) => (
-          <article
-            key={item.label}
-            className={[
-              'rounded-lg border bg-white p-5 shadow-sm',
-              item.tone === 'emerald' ? 'border-emerald-200' : '',
-              item.tone === 'sky' ? 'border-sky-200' : '',
-              item.tone === 'amber' ? 'border-amber-200' : '',
-            ].join(' ')}
-          >
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="rounded-lg border border-lime-200 bg-lime-50 p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Form rule</p>
-        <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-          Build the form coaches should use this week. Add custom fields only when a football decision or parent report needs that data.
-        </p>
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Form state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{enabledFieldsCount} fields live for coaches</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {defaultFields.length} default fields and {customFields.length} custom fields are configured for this club.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <FormMetric label="Default" value={defaultFields.length} />
+              <FormMetric label="Custom" value={customFields.length} />
+              <FormMetric label="Enabled" value={enabledFieldsCount} />
+              <FormMetric label="Total" value={fields.length} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              {canUseCustomFields ? 'Custom development fields are available.' : createFeatureUpgradeMessage('customFormFields')}
+            </p>
+          </div>
+        </div>
       </section>
 
       {errorMessage ? <NoticeBanner title="Development form action failed" message={errorMessage} /> : null}
@@ -521,6 +525,15 @@ export function FormBuilderPage() {
         requirePassword
         onConfirm={(password) => void confirmDeleteField(password)}
       />
+    </div>
+  )
+}
+
+function FormMetric({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
 }

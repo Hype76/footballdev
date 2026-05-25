@@ -13,12 +13,12 @@ export function DefaultFormSection({
     <SectionCard
       title="Default form"
       tourId="default-form-section"
-      description="Every club starts from this template. These fields become your editable default form once loaded."
+      description="Load the baseline football development fields, then switch off anything your coaches will not use."
     >
       <div className="space-y-4">
         <div className="grid gap-3 md:grid-cols-2">
           {defaultTemplateFields.map((field) => (
-            <div key={field.id} className="rounded-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div key={field.id} className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-sm font-bold text-slate-950">{field.label}</p>
               <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{getFieldTypeLabel(field.type)}</p>
             </div>
