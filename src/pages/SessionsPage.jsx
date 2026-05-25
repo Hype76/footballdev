@@ -859,18 +859,18 @@ export function SessionsPage({ setupOpen = false }) {
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
 
       {requestedSessionMissing ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-primary)]">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-slate-950 shadow-sm shadow-slate-200/80">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-semibold">Session link could not be opened</p>
-              <p className="mt-1 leading-6 text-[var(--text-muted)]">
+              <p className="font-black">Session link could not be opened</p>
+              <p className="mt-1 leading-6 text-slate-700">
                 The session in this link was not found, so the current available session is shown instead.
               </p>
             </div>
             <button
               type="button"
               onClick={clearRequestedSession}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-amber-100"
             >
               Clear session link
             </button>
@@ -879,18 +879,18 @@ export function SessionsPage({ setupOpen = false }) {
       ) : null}
 
       {completedSessionId ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-primary)]">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-slate-950 shadow-sm shadow-slate-200/80">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-semibold">Session assessments completed</p>
-              <p className="mt-1 text-[var(--text-muted)]">
+              <p className="font-black">Session assessments completed</p>
+              <p className="mt-1 text-slate-700">
                 {completedCount > 0 ? `${completedCount} player assessments were completed.` : 'All queued assessments were completed.'}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setSearchParams({})}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-emerald-100"
             >
               Dismiss
             </button>
