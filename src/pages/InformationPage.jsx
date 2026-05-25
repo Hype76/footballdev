@@ -28,7 +28,7 @@ function getVisibleVideoGuides(user, access) {
       return access.canUseStaffManagement
     }
 
-    if (guide.key === 'assessment-fields') {
+    if (guide.key === 'development-fields') {
       return access.canUseAssessmentFields
     }
 
@@ -127,7 +127,7 @@ export function InformationPage() {
           <InfoCard title="Plan">{currentPlanName}</InfoCard>
           <InfoCard title="Role">{getRoleLabel(user)}</InfoCard>
           <InfoCard title="Players">{formatLimit(getPlanLimit(user, 'players'))}</InfoCard>
-          <InfoCard title="Monthly assessments">{formatLimit(getPlanLimit(user, 'monthlyEvaluations'))}</InfoCard>
+          <InfoCard title="Monthly development records">{formatLimit(getPlanLimit(user, 'monthlyEvaluations'))}</InfoCard>
         </div>
       </SectionCard>
 

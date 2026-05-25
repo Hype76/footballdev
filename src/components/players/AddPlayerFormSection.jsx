@@ -30,7 +30,7 @@ export function AddPlayerFormSection({
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Player details</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Create the football record</h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-              {canAddMorePlayers ? 'Add the player once, then use their profile for assessments, parent links, and match day work.' : playerLimitMessage}
+              {canAddMorePlayers ? 'Add the player once, then use their profile for development records, parent links, and match day work.' : playerLimitMessage}
             </p>
           </div>
           <span className="inline-flex min-h-10 w-fit items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">

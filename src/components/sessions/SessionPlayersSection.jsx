@@ -28,7 +28,7 @@ export function SessionPlayersSection({
   deletingVoiceNoteId,
 }) {
   const assessAllDisabledReason = selectedSessionLocked
-    ? 'This session is completed, so assessments cannot be started from here.'
+    ? 'This session is completed, so development records cannot be started from here.'
     : undefined
   const clearSessionDisabledReason = isSaving
     ? 'Please wait while this session is being updated.'
@@ -47,7 +47,7 @@ export function SessionPlayersSection({
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Session players</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Run the live player queue</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Coaches can record quick notes during the game or training, then start every assessment in sequence.
+              Coaches can record quick notes during the game or training, then complete each development record in sequence.
             </p>
           </div>
           {selectedSessionId ? (
@@ -76,8 +76,8 @@ export function SessionPlayersSection({
           {selectedSessionCompleted ? (
             <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-600">
               {canCompleteSessions
-                ? 'This session has been completed. Managers can still correct notes or assessments if needed.'
-                : 'This session has been completed. Notes and assessments are kept for review. The session is no longer editable.'}
+                ? 'This session has been completed. Managers can still correct notes or development records if needed.'
+                : 'This session has been completed. Notes and development records are kept for review. The session is no longer editable.'}
             </div>
           ) : null}
 
@@ -106,7 +106,7 @@ export function SessionPlayersSection({
                 title={assessAllDisabledReason}
                 className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {completedPlayerNames.length > 0 ? 'Continue assessments' : 'Assess all'}
+                {completedPlayerNames.length > 0 ? 'Continue records' : 'Record all'}
               </button>
               <button
                 type="button"
@@ -261,7 +261,7 @@ function SessionPlayerCard({
         ? 'Save this player before recording a voice note.'
         : undefined
   const assessPlayerDisabledReason = selectedSessionLocked
-    ? 'This session is completed, so this player cannot be assessed from here.'
+    ? 'This session is completed, so this player cannot be recorded from here.'
     : undefined
 
   return (
@@ -272,7 +272,7 @@ function SessionPlayerCard({
           <p className="mt-1 text-sm text-slate-600">{player.section} | {player.team || 'No team'}</p>
           {completedPlayerNames.includes(normalizeProgressName(player.playerName)) ? (
             <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
-              Assessment completed
+              Development record completed
             </p>
           ) : null}
         </div>
@@ -308,7 +308,7 @@ function SessionPlayerCard({
             onClick={() => onAssessPlayer(player)}
             className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Assess player
+            Record player
           </button>
         </div>
       </div>

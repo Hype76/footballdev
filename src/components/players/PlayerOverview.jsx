@@ -51,7 +51,7 @@ export function PlayerOverview({
           </div>
         </div>
         <div className="rounded-md border border-slate-200 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Total assessments</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Total records</p>
           <p className="mt-3 text-2xl font-semibold text-slate-950">{evaluationCount}</p>
         </div>
         <div className="rounded-md border border-slate-200 bg-white p-5">
@@ -68,11 +68,11 @@ export function PlayerOverview({
 
       <SectionCard
         title="Rating trend"
-        description="Shows how the player's assessment scores are moving over time."
+        description="Shows how the player's development scores are moving over time."
       >
         {ratingTrend.length === 0 ? (
           <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
-            No scored assessments yet.
+            No scored development records yet.
           </div>
         ) : (
           <div className="space-y-5">

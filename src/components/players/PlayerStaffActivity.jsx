@@ -265,7 +265,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
 
           {assessmentFields.length > 0 ? (
             <div className="mt-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Assessment details</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Development details</p>
               {assessmentFields.map((field) => (
                 <div key={field.label} className="rounded-md border border-slate-200 bg-white px-3 py-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">

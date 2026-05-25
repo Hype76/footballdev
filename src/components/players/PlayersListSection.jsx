@@ -21,9 +21,9 @@ export function PlayersListSection({
 }) {
   const emptyMessage =
     viewFilter === 'evaluated'
-      ? 'No players with completed assessments found.'
+      ? 'No players with completed development records found.'
       : viewFilter === 'scored'
-        ? 'No players with scored assessments found.'
+        ? 'No players with scored development records found.'
         : 'No players found.'
 
   return (

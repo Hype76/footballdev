@@ -1,24 +1,24 @@
 import { formatPrice, formatPriceLabel, getPromotionSummary, pricingPlans } from '../../lib/login-pricing.js'
 
 const capabilityCards = [
-  ['Create player assessments', 'Score technical, tactical, physical, and attitude areas using your own club form.'],
+  ['Create player development records', 'Score technical, tactical, physical, and attitude areas using your own club form.'],
   ['Send parent reports', 'Turn coach notes into professional parent-ready feedback, with or without scores.'],
   ['Manage trialists and squad players', 'Keep trial players separate from squad players while retaining full history.'],
-  ['Organise sessions', 'Create training and match sessions, then assess players from the session list.'],
+  ['Organise sessions', 'Create training and match sessions, then record players from the session list.'],
   ['Manage teams and staff', 'Assign coaches to teams and keep access controlled by role.'],
   ['Use it on mobile', 'Coaches can open it on phones, tablets, and desktops, with installable app support.'],
 ]
 
 const workflowCards = [
   ['Trial nights', 'Add trialists, collect coach ratings, choose invite back, no place offered, or offer place, then send the right parent message.'],
-  ['Training sessions', 'Build a session list, add players during the session, and complete assessments when coaches are ready.'],
-  ['Squad reviews', 'Review previous assessments, track progress over time, and keep private staff notes away from parent emails.'],
+  ['Training sessions', 'Build a session list, add players during the session, and complete development records when coaches are ready.'],
+  ['Squad reviews', 'Review previous development records, track progress over time, and keep private staff notes away from parent emails.'],
   ['Match days', 'Keep match feedback linked to the correct session and player history.'],
 ]
 
 const trustCards = [
   ['Club accounts', 'Each club has its own workspace, teams, staff roles, player records, and settings.'],
-  ['Professional output', 'Reports and emails use clean wording, club branding, and selected assessment fields.'],
+  ['Professional output', 'Reports and emails use clean wording, club branding, and selected development fields.'],
   ['No more lost notes', 'Player history, actions, and activity logs stay connected to the right club and team.'],
   ['Easy onboarding', 'Start small with one team, then add more staff, teams, and custom forms when needed.'],
 ]

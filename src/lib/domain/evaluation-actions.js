@@ -55,7 +55,7 @@ export async function createEvaluation(data) {
       user: evaluationUser,
       clubId: data.clubId,
       limitName: 'monthlyEvaluations',
-      label: 'Monthly assessments',
+      label: 'Monthly development records',
       currentCount: monthlyEvaluationCount,
     })
   }
@@ -207,7 +207,7 @@ export async function deleteEvaluation({ user, evaluationId }) {
   await blockDemoMutation(user)
 
   if (!user?.id || user.role !== 'super_admin' && Number(user.roleRank ?? 0) < 50) {
-    throw new Error('Only managers and above can delete assessments.')
+    throw new Error('Only managers and above can delete development records.')
   }
 
   let query = supabase.from('evaluations').delete().eq('id', evaluationId)
@@ -226,7 +226,7 @@ export async function deleteEvaluation({ user, evaluationId }) {
   const deletedEvaluation = deletedRows?.[0] ? normalizeEvaluationRow(deletedRows[0]) : null
 
   if (!deletedEvaluation) {
-    throw new Error('No assessment was deleted. Check permissions or refresh the page.')
+    throw new Error('No development record was deleted. Check permissions or refresh the page.')
   }
 
   if (user?.clubId) {

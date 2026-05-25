@@ -24,11 +24,11 @@ export function PlayerStatsCards({
       tone: 'border-sky-300 bg-sky-50 text-sky-900',
     },
     {
-      label: 'Assessments',
+      label: 'Development records',
       value: totalEvaluations,
-      detail: `${evaluatedPlayerCount} players have assessment history.`,
+      detail: `${evaluatedPlayerCount} players have development history.`,
       to: '/assess-player/completed',
-      action: 'Review assessments',
+      action: 'Review records',
       tone: 'border-emerald-300 bg-emerald-50 text-emerald-900',
     },
   ]

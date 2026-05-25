@@ -24,7 +24,7 @@ export function OpenSessionsSection({
         <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Saved sessions</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Open existing sessions</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Reopen any saved session to continue notes, add players, or carry on assessments.
+          Reopen any saved session to continue notes, add players, or carry on development records.
         </p>
       </div>
 

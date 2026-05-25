@@ -11,7 +11,7 @@ const rights = [
 
 const dataTypes = [
   ['Account data', 'Name, email address, role, club, team access, login identity, and account status.'],
-  ['Player data', 'Player names, team details, assessment results, coach notes, parent contact details, and archive status.'],
+  ['Player data', 'Player names, team details, development results, coach notes, parent contact details, and archive status.'],
   ['Communication data', 'Parent email history, template use, sender identity, recipient details, and audit records.'],
   ['Voice notes', 'Coach voice recordings and related metadata, kept for short term match or training follow-up.'],
   ['Technical data', 'Security logs, device information, session data, and service diagnostics needed to operate the platform.'],
@@ -48,7 +48,7 @@ export function GdprPage() {
           <section className={sectionClass}>
             <h2 className="text-2xl font-black">Who controls the data</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              Each club controls the player, parent, coach, team, assessment, and communication data it adds to the platform. Football Player provides the software used to store, secure, and process that data for the club.
+              Each club controls the player, parent, coach, team, development, and communication data it adds to the platform. Football Player provides the software used to store, secure, and process that data for the club.
             </p>
           </section>
 
@@ -67,7 +67,7 @@ export function GdprPage() {
           <section className={sectionClass}>
             <h2 className="text-2xl font-black">Why data is used</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              Data is used to run club workspaces, manage staff access, create player assessments, send parent feedback, keep audit records, protect accounts, support billing, and maintain service reliability. Clubs should only add information that is relevant to football development, safeguarding responsibilities, communications, and platform administration.
+              Data is used to run club workspaces, manage staff access, create player development records, send parent feedback, keep audit records, protect accounts, support billing, and maintain service reliability. Clubs should only add information that is relevant to football development, safeguarding responsibilities, communications, and platform administration.
             </p>
           </section>
 

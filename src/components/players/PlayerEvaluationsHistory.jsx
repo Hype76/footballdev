@@ -46,8 +46,8 @@ export function PlayerEvaluationsHistory({
 }) {
   return (
     <SectionCard
-      title="Past assessments"
-      description="History is scoped by club and role, with sharing actions available on each assessment."
+      title="Past development records"
+      description="History is scoped by club and role, with sharing actions available on each record."
     >
       {isLoading ? (
         <div className="rounded-md border border-slate-200 bg-slate-50 px-6 py-10 text-center text-sm font-medium text-slate-600">
@@ -58,7 +58,7 @@ export function PlayerEvaluationsHistory({
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Player History</p>
           <p className="mt-3 text-xl font-semibold text-slate-950">No history for this player yet</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            Once assessments are saved for this player, the full review trail will appear here.
+            Once development records are saved for this player, the full review trail will appear here.
           </p>
         </div>
       ) : (

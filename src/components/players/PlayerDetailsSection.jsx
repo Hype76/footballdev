@@ -40,7 +40,7 @@ export function PlayerDetailsSection({
     >
       {profilePlayers.length === 0 ? (
         <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-          No saved player details yet. This profile was created from assessment history.
+          No saved player details yet. This profile was created from development history.
         </div>
       ) : (
         <div className="space-y-4">

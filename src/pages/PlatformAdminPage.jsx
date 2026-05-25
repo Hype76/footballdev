@@ -805,7 +805,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           `${clubDeleteTarget?.userCount ?? 0} adult users`,
           `${clubDeleteTarget?.teamCount ?? 0} teams`,
           `${clubDeleteTarget?.playerCount ?? 0} player records`,
-          `${clubDeleteTarget?.evaluationCount ?? 0} assessments`,
+          `${clubDeleteTarget?.evaluationCount ?? 0} development records`,
           'Club settings and related workspace data',
         ]}
         confirmLabel="Delete Club"

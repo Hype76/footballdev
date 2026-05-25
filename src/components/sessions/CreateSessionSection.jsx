@@ -16,7 +16,7 @@ export function CreateSessionSection({
     <SectionCard
       title="Create session"
       tourId="create-session-section"
-      description="Use a date only. Times are not required for assessments."
+      description="Use a date only. Times are not required for development records."
     >
       {isLoading ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">

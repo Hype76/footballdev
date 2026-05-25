@@ -265,7 +265,7 @@ export async function deleteAssessmentSession({ user, sessionId }) {
   })
 
   if (hasLinkedAssessment) {
-    throw new Error('This session has assessments and cannot be deleted.')
+    throw new Error('This session has development records and cannot be deleted.')
   }
 
   const { data, error } = await supabase

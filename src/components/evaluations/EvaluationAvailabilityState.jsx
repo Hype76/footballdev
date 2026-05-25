@@ -15,11 +15,11 @@ export function EvaluationAvailabilityState({
     return (
       <SectionCard
         title="Platform account"
-        description="Super admins oversee the platform. Assessments must be created from a club user account."
+        description="Super admins oversee the platform. Development records must be created from a club user account."
       >
         <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold leading-6 text-slate-600">
           Use this account to manage clubs, users, and the wider workspace. Switch into a club-linked account to
-          assess players.
+          record player development.
         </div>
       </SectionCard>
     )
@@ -27,7 +27,7 @@ export function EvaluationAvailabilityState({
 
   if (isLoadingFields) {
     return (
-      <SectionCard title="Form" description="Loading the configured assessment fields for this club.">
+      <SectionCard title="Form" description="Loading the configured development fields for this club.">
         <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
           Loading form fields...
         </div>
@@ -69,7 +69,7 @@ export function EvaluationAvailabilityState({
     return (
       <SectionCard
         title="No teams available"
-        description="Assessments now use real club teams so staff can be routed and filtered correctly."
+        description="Development records use real club teams so staff can be routed and filtered correctly."
       >
         <div className="space-y-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold leading-6 text-slate-600">
           <p>{noTeamsMessage}</p>

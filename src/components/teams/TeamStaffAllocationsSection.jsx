@@ -127,7 +127,7 @@ function TeamList({
               </span>
               <span className="mt-2 grid gap-2 text-xs font-semibold text-slate-600 sm:grid-cols-2">
                 <span>{stats.playerCount} players</span>
-                <span>{stats.assessmentCount} assessments</span>
+                <span>{stats.assessmentCount} development records</span>
               </span>
             </button>
           )

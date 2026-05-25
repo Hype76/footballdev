@@ -5,8 +5,8 @@ import { LoginHeader } from '../components/login/LoginHeader.jsx'
 const featureGroups = [
   {
     title: 'Player development records',
-    copy: 'Keep trial notes, squad history, positions, assessment scores, and coach decisions tied to the player profile.',
-    points: ['Custom assessment forms', 'Trial and squad status', 'Previous assessment history'],
+    copy: 'Keep trial notes, squad history, positions, development scores, and coach decisions tied to the player profile.',
+    points: ['Custom development forms', 'Trial and squad status', 'Previous development history'],
   },
   {
     title: 'Team and staff control',
@@ -15,7 +15,7 @@ const featureGroups = [
   },
   {
     title: 'Sessions and match days',
-    copy: 'Build session lists, assess from the pitch, track match day scoring, and keep updates attached to the correct team.',
+    copy: 'Build session lists, record from the pitch, track match day scoring, and keep updates attached to the correct team.',
     points: ['Training session workflows', 'Match day live updates', 'Coach friendly mobile views'],
   },
   {

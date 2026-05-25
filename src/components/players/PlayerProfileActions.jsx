@@ -15,7 +15,7 @@ export function PlayerProfileActions({
         to={`/assess-player/new?player=${encodeURIComponent(playerName)}&team=${encodeURIComponent(lastTeam)}&section=${encodeURIComponent(lastSection)}`}
         className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
       >
-        Add New Assessment
+        Add Development Record
       </Link>
       {canDeletePlayer(user) ? (
         <button

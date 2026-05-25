@@ -18,7 +18,7 @@ export function RecentlyAddedPlayersSection({
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Recently added</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Check the latest records</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              Open a player profile to edit details, add parent links, or start an assessment.
+              Open a player profile to edit details, add parent links, or start a development record.
             </p>
           </div>
           <span className="inline-flex min-h-10 w-fit items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">

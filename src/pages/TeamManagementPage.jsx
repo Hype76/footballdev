@@ -94,7 +94,7 @@ export function TeamManagementPage() {
           withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
-          withRequestTimeout(() => getEvaluations({ user }), 'Could not load assessments.'),
+          withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.'),
         ])
 
         const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []

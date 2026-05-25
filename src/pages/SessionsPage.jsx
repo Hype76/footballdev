@@ -130,9 +130,9 @@ export function SessionsPage({ setupOpen = false }) {
     [evaluations, selectedSession],
   )
   const deleteSessionDisabledReason = selectedSession?.isHistorical
-    ? 'This is an assessment history group. It cannot be deleted as a session.'
+    ? 'This is a development history group. It cannot be deleted as a session.'
     : selectedSessionAssessmentCount > 0
-      ? 'Sessions with assessments cannot be deleted.'
+      ? 'Sessions with development records cannot be deleted.'
       : ''
   const completedPlayerNames = useMemo(() => {
     const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
@@ -564,7 +564,7 @@ export function SessionsPage({ setupOpen = false }) {
     }
 
     if (selectedSessionAssessmentCount > 0) {
-      setErrorMessage('This session has assessments and cannot be deleted.')
+      setErrorMessage('This session has development records and cannot be deleted.')
       return
     }
 
@@ -712,13 +712,13 @@ export function SessionsPage({ setupOpen = false }) {
       setErrorMessage(
         sessionPlayers.length === 0
           ? 'Add players to the session before using Assess All.'
-          : 'All players in this session have already been assessed.',
+          : 'All players in this session already have development records.',
       )
       return
     }
 
     if (selectedSessionLocked) {
-      setErrorMessage('This session has been completed and can no longer be assessed.')
+      setErrorMessage('This session has been completed and can no longer start development records.')
       return
     }
 
@@ -855,13 +855,13 @@ export function SessionsPage({ setupOpen = false }) {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Training control</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Run the next session from the queue.</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Create the session, attach the right footballers, then keep this screen open while coaches record attendance, notes, and assessments.
+              Create the session, attach the right footballers, then keep this screen open while coaches record attendance, notes, and development records.
             </p>
           </div>
           <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Session rule</p>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              One session equals one real training or match block. Add players before assessment so coach notes stay tied to the right football context.
+              One session equals one real training or match block. Add players before recording development detail so coach notes stay tied to the right football context.
             </p>
           </div>
         </div>
@@ -893,9 +893,9 @@ export function SessionsPage({ setupOpen = false }) {
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-slate-950 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-black">Session assessments completed</p>
+              <p className="font-black">Session development records completed</p>
               <p className="mt-1 text-slate-700">
-                {completedCount > 0 ? `${completedCount} player assessments were completed.` : 'All queued assessments were completed.'}
+                {completedCount > 0 ? `${completedCount} player development records were completed.` : 'All queued development records were completed.'}
               </p>
             </div>
             <button
@@ -1046,11 +1046,11 @@ export function SessionsPage({ setupOpen = false }) {
         isOpen={Boolean(deleteSessionTarget)}
         isBusy={isSaving}
         title="Delete session"
-        message="This removes the session and the player list. Sessions with assessments cannot be deleted."
+        message="This removes the session and the player list. Sessions with development records cannot be deleted."
         items={[
           `Session: ${deleteSessionTarget?.session?.title || deleteSessionTarget?.session?.team || 'Selected session'}`,
           `Players in session: ${deleteSessionTarget?.playerCount ?? 0}`,
-          `Assessments linked: ${deleteSessionTarget?.assessmentCount ?? 0}`,
+          `Development records linked: ${deleteSessionTarget?.assessmentCount ?? 0}`,
         ]}
         confirmLabel="Delete session"
         onCancel={() => setDeleteSessionTarget(null)}
@@ -1090,14 +1090,14 @@ function MatchdayFocus({
   const hasSession = Boolean(selectedSession)
   const hasPlayers = sessionPlayers.length > 0
   const progressLabel = hasPlayers
-    ? `${assessedPlayerCount} of ${sessionPlayers.length} assessed`
+    ? `${assessedPlayerCount} of ${sessionPlayers.length} recorded`
     : 'No players added yet'
   const nextActionLabel = !hasSession
     ? 'Set up session'
     : !hasPlayers
       ? 'Add players'
       : unassessedPlayerCount > 0
-        ? assessedPlayerCount > 0 ? 'Continue assessments' : 'Start assessments'
+        ? assessedPlayerCount > 0 ? 'Continue records' : 'Start records'
         : 'Review completed session'
 
   const handleSetupScroll = () => {
@@ -1139,7 +1139,7 @@ function MatchdayFocus({
                 isLoading
                   ? 'Please wait while the session loads.'
                   : selectedSessionLocked
-                    ? 'This session is completed, so assessments cannot be started from here.'
+                    ? 'This session is completed, so development records cannot be started from here.'
                     : undefined
               }
               className="inline-flex min-h-14 items-center justify-center rounded-lg bg-emerald-800 px-5 py-4 text-base font-black text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"

@@ -53,7 +53,7 @@ export function getPlatformDashboardStats(stats) {
       detail: `${platformTotals.archivedPlayers ?? 0} archived`,
     },
     {
-      label: 'Assessments',
+      label: 'Development records',
       value: platformTotals.evaluations ?? 0,
       caption: 'Saved player reports',
       detail: `${platformTotals.recentEvaluations ?? 0} in the last 7 days`,

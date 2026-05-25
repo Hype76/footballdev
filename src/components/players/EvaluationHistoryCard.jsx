@@ -44,7 +44,7 @@ export function EvaluationHistoryCard({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const deleteAssessmentDisabledReason =
-    isDeletingEvaluationId === evaluation.id ? 'Please wait while this assessment is being deleted.' : undefined
+    isDeletingEvaluationId === evaluation.id ? 'Please wait while this development record is being deleted.' : undefined
   const reassignSelectDisabledReason =
     availablePlayers.length === 0 ? 'Add another player before this report can be moved.' : undefined
   const reassignDisabledReason = isReassigningId === evaluation.id
@@ -55,7 +55,7 @@ export function EvaluationHistoryCard({
   const emailParentsDisabledReason = emailSendingId === evaluation.id
     ? 'Please wait while the email is being sent.'
     : !canShare
-      ? 'You can only email assessments you are allowed to view or edit.'
+      ? 'You can only email development records you are allowed to view or edit.'
       : !hasPlanFeature(user, 'parentEmail')
         ? 'Parent email is not included in this plan.'
         : availableEmailTemplates.length === 0
@@ -64,7 +64,7 @@ export function EvaluationHistoryCard({
   const testEmailDisabledReason = emailSendingId === `test:${evaluation.id}`
     ? 'Please wait while the test email is being sent.'
     : !canShare
-      ? 'You can only send tests for assessments you are allowed to view or edit.'
+      ? 'You can only send tests for development records you are allowed to view or edit.'
       : !user?.email
         ? 'Your account email is not available, so the test cannot be sent.'
         : !hasPlanFeature(user, 'parentEmail')
@@ -115,12 +115,12 @@ export function EvaluationHistoryCard({
               title={deleteAssessmentDisabledReason}
               className="inline-flex min-h-11 items-center justify-center rounded-md border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isDeletingEvaluationId === evaluation.id ? 'Deleting...' : 'Delete Assessment'}
+              {isDeletingEvaluationId === evaluation.id ? 'Deleting...' : 'Delete Record'}
             </button>
           ) : null}
         </div>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-          Deleting an old assessment removes it from this player history and average score calculations.
+          Deleting an old development record removes it from this player history and average score calculations.
         </p>
         <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="block">
@@ -233,7 +233,7 @@ export function EvaluationHistoryCard({
             onClick={() => onEditEvaluation(evaluation)}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Edit Assessment
+            Edit Record
           </button>
         ) : null}
       </div>
@@ -356,7 +356,7 @@ function EvaluationExportFields({
       <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-950">Assessment details to include</p>
+            <p className="text-sm font-semibold text-slate-950">Development details to include</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
               Choose what goes into the parent email. This choice is saved in this browser for {playerName}.
             </p>
@@ -390,7 +390,7 @@ function EvaluationExportFields({
           />
         ) : (
           <p className="mt-4 rounded-md border border-dashed border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600">
-            No assessment responses above zero were entered for this assessment.
+            No development responses above zero were entered for this record.
           </p>
         )}
 

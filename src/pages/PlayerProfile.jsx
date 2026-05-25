@@ -646,8 +646,8 @@ export function PlayerProfile() {
         clubContactEmail: user.clubContactEmail,
         playerName: routePlayerName,
         responses,
-        subject: `Test assessment copy for ${routePlayerName}`,
-        emailBody: `This is a test copy of the saved assessment for ${routePlayerName}. It was sent only to your signed-in account.`,
+        subject: `Test development record copy for ${routePlayerName}`,
+        emailBody: `This is a test copy of the saved development record for ${routePlayerName}. It was sent only to your signed-in account.`,
         pdfHtml: buildAssessmentPdfHtml({
           clubName,
           playerName: routePlayerName,
@@ -1046,7 +1046,7 @@ export function PlayerProfile() {
       })
       clearViewCaches()
       writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
-      showToast({ title: 'Assessment moved', message: 'The report has been moved to the selected player.' })
+      showToast({ title: 'Development record moved', message: 'The report has been moved to the selected player.' })
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not move this report to the selected player.')
@@ -1100,17 +1100,17 @@ export function PlayerProfile() {
 
   const handleCreateMergedEvaluation = async () => {
     if (!canMergeEvaluations) {
-      setErrorMessage('Only managers and above can merge assessments.')
+      setErrorMessage('Only managers and above can merge development records.')
       return
     }
 
     if (mergeSelectedEvaluations.length < 2) {
-      setErrorMessage('Select at least two assessments to merge.')
+      setErrorMessage('Select at least two development records to merge.')
       return
     }
 
     if (!mergeCoreSource) {
-      setErrorMessage('Choose a source assessment for the main details.')
+      setErrorMessage('Choose a source development record for the main details.')
       return
     }
 
@@ -1145,10 +1145,10 @@ export function PlayerProfile() {
       setMergeFieldSources({})
       clearViewCaches()
       writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
-      showToast({ title: 'Merged assessment saved', message: 'The selected assessments have been merged.' })
+      showToast({ title: 'Merged development record saved', message: 'The selected records have been merged.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not create the merged assessment.')
+      setErrorMessage(error.message || 'Could not create the merged development record.')
     } finally {
       setIsMergingEvaluations(false)
     }
@@ -1156,7 +1156,7 @@ export function PlayerProfile() {
 
   const handleDeleteEvaluation = async (evaluation) => {
     if (!canDeleteEvaluations) {
-      setErrorMessage('Only managers and above can delete old assessments.')
+      setErrorMessage('Only managers and above can delete old development records.')
       return
     }
 
@@ -1187,10 +1187,10 @@ export function PlayerProfile() {
       )
       clearViewCaches()
       writeViewCache(cacheKey, buildPlayerProfileCachePayload({ evaluations: nextEvaluations, players, allPlayers }))
-      showToast({ title: 'Assessment deleted', message: 'The assessment has been removed.' })
+      showToast({ title: 'Development record deleted', message: 'The development record has been removed.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Could not delete this assessment.')
+      setErrorMessage(error.message || 'Could not delete this development record.')
     } finally {
       setIsDeletingEvaluationId('')
       setEvaluationDeleteTarget(null)
@@ -1458,7 +1458,7 @@ export function PlayerProfile() {
       <PageHeader
         eyebrow="Player Profile"
         title={routePlayerName}
-        description="Review the assessment history for this player with club-scoped visibility."
+        description="Review the development history for this player with club-scoped visibility."
       />
 
       {errorMessage ? (

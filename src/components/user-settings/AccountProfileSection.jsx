@@ -25,7 +25,7 @@ export function AccountProfileSection({
   return (
     <SectionCard
       title="Account profile"
-      description="This is how your name appears inside assessments and the workspace."
+      description="This is how your name appears inside development records and the workspace."
       tourId="account-profile-settings"
     >
       <form className="space-y-4" onSubmit={onSubmit}>

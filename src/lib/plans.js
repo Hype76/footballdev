@@ -114,8 +114,8 @@ const FEATURE_UPGRADE_COPY = {
     action: 'use custom branding',
   },
   customFormFields: {
-    label: 'Custom assessment fields',
-    action: 'change assessment fields',
+    label: 'Custom development fields',
+    action: 'change development fields',
   },
   parentEmail: {
     label: 'Parent and player email',

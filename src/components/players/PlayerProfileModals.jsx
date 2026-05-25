@@ -50,15 +50,15 @@ export function PlayerProfileModals({
       <ConfirmModal
         isOpen={Boolean(evaluationDeleteTarget)}
         isBusy={Boolean(isDeletingEvaluationId)}
-        title="Delete assessment"
-        message="This removes the assessment from the player history and average score calculations."
+        title="Delete development record"
+        message="This removes the development record from the player history and average score calculations."
         items={[
           `Player: ${evaluationDeleteTarget?.playerName || routePlayerName}`,
           `Date: ${evaluationDeleteTarget?.date || 'No date entered'}`,
           `Session: ${evaluationDeleteTarget?.session || 'No session entered'}`,
           `Team: ${evaluationDeleteTarget?.team || 'No team entered'}`,
         ]}
-        confirmLabel="Delete Assessment"
+        confirmLabel="Delete record"
         onCancel={onCancelDeleteEvaluation}
         requirePassword
         onConfirm={onConfirmDeleteEvaluation}
@@ -67,15 +67,15 @@ export function PlayerProfileModals({
       <ConfirmModal
         isOpen={Boolean(reassignConfirmTarget)}
         isBusy={Boolean(isReassigningId)}
-        title="Move assessment"
+        title="Move development record"
         message="Use this when a report was saved against the wrong player."
         itemsTitle="This will change:"
         items={[
           `From player: ${routePlayerName}`,
           `To player: ${reassignConfirmTarget?.targetPlayer?.playerName || 'Selected player'}`,
-          `Assessment date: ${reassignConfirmTarget?.evaluation?.date || 'No date entered'}`,
+          `Record date: ${reassignConfirmTarget?.evaluation?.date || 'No date entered'}`,
         ]}
-        confirmLabel="Move Assessment"
+        confirmLabel="Move record"
         onCancel={onCancelReassign}
         onConfirm={onConfirmReassign}
       />
@@ -83,15 +83,15 @@ export function PlayerProfileModals({
       <ConfirmModal
         isOpen={isMergeConfirmOpen}
         isBusy={isMergingEvaluations}
-        title="Create merged assessment"
-        message="This creates a new merged assessment. Source reports stay in history."
+        title="Create merged development record"
+        message="This creates a new merged development record. Source reports stay in history."
         itemsTitle="This will create:"
         items={[
           `Player: ${routePlayerName}`,
-          `${mergeSelectedEvaluations.length} selected assessments merged into one new assessment`,
-          'Original assessments will stay unchanged',
+          `${mergeSelectedEvaluations.length} selected records merged into one new development record`,
+          'Original records will stay unchanged',
         ]}
-        confirmLabel="Create Merged Assessment"
+        confirmLabel="Create merged record"
         onCancel={onCancelMerge}
         onConfirm={onConfirmMerge}
       />
@@ -100,11 +100,11 @@ export function PlayerProfileModals({
         isOpen={Boolean(playerDeleteTarget)}
         isBusy={isDeleting}
         title="Delete player"
-        message="This moves the player into archived players. Their saved assessments stay available for record keeping."
+        message="This moves the player into archived players. Their saved development records stay available for record keeping."
         items={[
           `Player: ${playerDeleteTarget?.playerName || routePlayerName}`,
           `${playerDeleteTarget?.playerCount ?? players.length} player record entries moved to archive`,
-          `${playerDeleteTarget?.evaluationCount ?? evaluations.length} saved assessments kept in history`,
+          `${playerDeleteTarget?.evaluationCount ?? evaluations.length} saved development records kept in history`,
         ]}
         itemsTitle="This will archive:"
         confirmLabel="Archive Player"
@@ -134,7 +134,7 @@ export function PlayerProfileModals({
           `Team: ${emailConfirmTarget?.payloads?.[0]?.payload?.team || 'No team entered'}`,
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
           `Attachment: ${canAttachPdf && isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`,
-          `Assessment fields: ${canAttachAssessmentFields && isAssessmentFieldsApproved ? `${fieldCount} attached` : 'Not attached'}`,
+          `Development fields: ${canAttachAssessmentFields && isAssessmentFieldsApproved ? `${fieldCount} attached` : 'Not attached'}`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}
         confirmLabel={emailSendMode === 'scheduled' ? 'Schedule Email' : 'Send Now'}
@@ -195,9 +195,9 @@ export function PlayerProfileModals({
               className="mt-1 h-4 w-4 rounded border-slate-200 accent-emerald-700"
             />
             <span>
-              <span className="block text-sm font-semibold text-slate-950">Attach assessment fields</span>
+              <span className="block text-sm font-semibold text-slate-950">Attach development fields</span>
               <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">
-                Include the selected assessment fields in the email body.
+                Include the selected development fields in the email body.
               </span>
             </span>
           </label>
@@ -211,9 +211,9 @@ export function PlayerProfileModals({
               className="mt-1 h-4 w-4 rounded border-slate-200 accent-emerald-700"
             />
             <span>
-              <span className="block text-sm font-semibold text-slate-950">Attach assessment PDF</span>
+              <span className="block text-sm font-semibold text-slate-950">Attach development PDF</span>
               <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">
-                Include the selected assessment details as a PDF attachment.
+                Include the selected development details as a PDF attachment.
               </span>
             </span>
           </label>
@@ -228,7 +228,7 @@ export function PlayerProfileModals({
         items={[
           `Player: ${noPlaceArchiveTarget?.playerName || routePlayerName}`,
           `${noPlaceArchiveTarget?.playerCount ?? players.length} player record entries moved to archive`,
-          `${noPlaceArchiveTarget?.evaluationCount ?? evaluations.length} saved assessments kept in history`,
+          `${noPlaceArchiveTarget?.evaluationCount ?? evaluations.length} saved development records kept in history`,
         ]}
         itemsTitle="If you continue:"
         confirmLabel="Archive Player"

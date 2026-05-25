@@ -141,7 +141,7 @@ export function CoachHomePage() {
         const [sessionsResult, playersResult, evaluationsResult] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
-          withRequestTimeout(() => getEvaluations({ user }), 'Could not load assessments.'),
+          withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.'),
         ])
 
         if (!isMounted) {
@@ -284,8 +284,8 @@ export function CoachHomePage() {
           <div className="px-5 py-5 sm:px-6">
             <div className="grid gap-3 sm:grid-cols-3">
               <CoachMetric label="In queue" value={sessionPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Open" />
-              <CoachMetric label="Assessed" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" />
-              <CoachMetric label="To assess" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" />
+              <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" />
+              <CoachMetric label="To record" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" />
             </div>
 
             <div className="mt-5 space-y-3">
@@ -299,13 +299,13 @@ export function CoachHomePage() {
                     to="/sessions/start"
                     className="shrink-0 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-50 hover:text-slate-950"
                   >
-                    Assess
+                    Record
                   </Link>
                 </div>
               ))}
               {!isLoading && unassessedPlayers.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
-                  No players are waiting in the current assessment queue.
+                  No players are waiting in the current development queue.
                 </div>
               ) : null}
             </div>
@@ -377,7 +377,7 @@ export function CoachHomePage() {
           ))}
           {!isLoading && recentEvaluations.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600 lg:col-span-3">
-              Completed assessments will appear here.
+              Completed development records will appear here.
             </div>
           ) : null}
         </div>

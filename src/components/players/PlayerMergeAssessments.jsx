@@ -20,8 +20,8 @@ export function PlayerMergeAssessments({
 }) {
   return (
     <SectionCard
-      title="Merge assessments"
-      description="Managers can create one combined assessment from selected reports. Original reports stay in history."
+      title="Merge development records"
+      description="Managers can create one combined development record from selected reports. Original reports stay in history."
     >
       <div className="space-y-5">
         <div className="grid gap-3 md:grid-cols-2">
@@ -69,7 +69,7 @@ export function PlayerMergeAssessments({
             <div>
               <p className="text-sm font-semibold text-slate-950">Choose report detail sources</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                Pick which assessment supplies non-score details such as parents, session, date, comments, and status.
+                Pick which record supplies non-score details such as parents, session, date, comments, and status.
               </p>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {mergeDetailFields.map((field) => {
@@ -104,7 +104,7 @@ export function PlayerMergeAssessments({
             <div>
               <p className="text-sm font-semibold text-slate-950">Choose field sources</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                Pick which assessment should supply each score or text field.
+                Pick which record should supply each score or text field.
               </p>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {mergeFieldLabels.map((label) => (
@@ -149,17 +149,17 @@ export function PlayerMergeAssessments({
               <button
                 type="button"
                 disabled={isMergingEvaluations}
-                title={isMergingEvaluations ? 'Please wait while the merged assessment is being saved.' : undefined}
+                title={isMergingEvaluations ? 'Please wait while the merged development record is being saved.' : undefined}
                 onClick={onCreateMergedEvaluation}
                 className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isMergingEvaluations ? 'Saving...' : 'Save Merged Assessment'}
+                {isMergingEvaluations ? 'Saving...' : 'Save Merged Record'}
               </button>
             </div>
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
-            Select at least two assessments to build a merged report.
+            Select at least two development records to build a merged report.
           </div>
         )}
       </div>

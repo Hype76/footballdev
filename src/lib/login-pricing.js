@@ -4,13 +4,13 @@ export const pricingPlans = [
     price: 'Free',
     priceLabel: 'No card needed',
     description: 'For one coach running a small team with the core tools.',
-    features: ['1 team', '1 staff login', '5 players', '10 assessments per month', 'Parent Portal', 'Match Day fully unlocked', 'Basic assessment form'],
+    features: ['1 team', '1 staff login', '5 players', '10 development records per month', 'Parent Portal', 'Match Day fully unlocked', 'Basic development form'],
   },
   {
     name: 'Single Team',
     price: 9.99,
     description: 'For one team that needs parent updates and more complete reporting.',
-    features: ['Individual +', '2 weeks trial included', 'Cancel anytime', '3 staff logins', '20 players', 'Unlimited assessments', 'Parent email sending', 'PDF reports and attachments', 'Custom assessment fields', 'Basic logo branding'],
+    features: ['Individual +', '2 weeks trial included', 'Cancel anytime', '3 staff logins', '20 players', 'Unlimited development records', 'Parent email sending', 'PDF reports and attachments', 'Custom development fields', 'Basic logo branding'],
   },
   {
     name: 'Small Club',

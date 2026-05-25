@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.png'
 
 const terms = [
-  ['Use of the service', 'Football Player is provided for football clubs and authorised staff to manage assessments, notes, communications, teams, and related administration. Users must keep access details secure and use the service only for legitimate club purposes.'],
+  ['Use of the service', 'Football Player is provided for football clubs and authorised staff to manage development records, notes, communications, teams, and related administration. Users must keep access details secure and use the service only for legitimate club purposes.'],
   ['Club responsibility', 'Each club is responsible for the accuracy, fairness, and lawful use of the data it enters. Clubs must make sure staff have permission to access player, parent, and team information.'],
   ['Parent communications', 'Email tools are provided to support club communication. Clubs are responsible for checking message content, recipient details, and sender details before sending.'],
   ['Voice notes', 'Voice notes are for short term coaching context. They must not include unnecessary sensitive information and are scheduled for deletion after 2 weeks.'],

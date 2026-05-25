@@ -191,7 +191,7 @@ export function ParentMessagesPage() {
         </p>
       </section>
 
-      <SectionCard title="Messages" description="Select a child, then open any email to view the content and download an assessment PDF when one is available.">
+      <SectionCard title="Messages" description="Select a child, then open any email to view the content and download a development PDF when one is available.">
         {links.length > 1 ? (
           <div className="mb-4">
             <label htmlFor="parent-message-child" className="mb-2 block text-sm font-bold text-slate-950">
@@ -320,7 +320,7 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
 
             {assessmentFields.length > 0 ? (
               <div className="mt-4 space-y-2">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Assessment details</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Development details</p>
                 {assessmentFields.map((field) => (
                   <div key={field.label} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
