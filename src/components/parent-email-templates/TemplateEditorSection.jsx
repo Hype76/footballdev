@@ -3,12 +3,12 @@ import { EMAIL_TEMPLATE_FIELDS, EMAIL_TEMPLATE_SECTIONS } from '../../lib/email-
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
-const inputClass = 'min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white'
-const textareaClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white'
-const panelClass = 'rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50'
-const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
+const textareaClass = 'w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
+const panelClass = 'border border-slate-200 bg-white px-4 py-3'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50'
+const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
 
 export function TemplateEditorSection({
   audience,
@@ -97,7 +97,7 @@ export function TemplateEditorSection({
   if (isLoading) {
     return (
       <SectionCard title="Templates" description="Loading club templates.">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-600">
+        <div className="border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
           Loading templates...
         </div>
       </SectionCard>
@@ -134,7 +134,7 @@ export function TemplateEditorSection({
             }
           >
             <div className="space-y-4">
-            <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950">
               <input
                 type="checkbox"
                 checked={template.isEnabled !== false}
@@ -168,7 +168,7 @@ export function TemplateEditorSection({
                   return (
                     <label
                       key={section}
-                      className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950"
+                      className="flex min-h-10 items-center gap-2 border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950"
                     >
                       <input
                         type="checkbox"
@@ -211,7 +211,7 @@ export function TemplateEditorSection({
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => insertFieldAtCursor(template, field.key)}
-                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm transition hover:bg-slate-50"
+                  className="inline-flex min-h-10 items-center justify-center border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
                 >
                   {`Add {${field.key}}`}
                 </button>
