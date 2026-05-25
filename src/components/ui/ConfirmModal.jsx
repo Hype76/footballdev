@@ -79,13 +79,17 @@ export function ConfirmModal({
         : requireReason && !reason.trim()
           ? 'Enter a reason before confirming.'
           : undefined
+  const isDestructiveAction = /delete|remove|suspend|revoke/i.test(confirmLabel)
+  const confirmButtonClass = isDestructiveAction
+    ? 'inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+    : 'inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/70 px-4 py-6">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"
-        className="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-2xl sm:p-6"
+        className="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/20 sm:p-6"
       >
         <button
           type="button"
@@ -93,16 +97,16 @@ export function ConfirmModal({
           disabled={isBusy}
           title={isBusy ? 'Please wait while this action finishes.' : 'Close this window'}
           aria-label="Close this window"
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold text-slate-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           X
         </button>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Please confirm</p>
-        <h2 className="mt-3 pr-12 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h2>
-        {message ? <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{message}</p> : null}
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Please confirm</p>
+        <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-slate-950">{title}</h2>
+        {message ? <p className="mt-3 text-sm leading-6 text-slate-600">{message}</p> : null}
         {items.length > 0 ? (
-          <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">{itemsTitle}</p>
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-black text-slate-950">{itemsTitle}</p>
             <ul
               className={
                 hasCompactItems
@@ -111,13 +115,13 @@ export function ConfirmModal({
               }
             >
               {itemRows.map((item) => (
-                <li key={item.key} className="min-w-0 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
+                <li key={item.key} className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2">
                   {item.label ? (
-                    <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                    <span className="block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
                       {item.label}
                     </span>
                   ) : null}
-                  <span className="mt-1 block min-w-0 break-words text-sm leading-6 text-[var(--text-muted)]">
+                  <span className="mt-1 block min-w-0 break-words text-sm leading-6 text-slate-600">
                     {item.value}
                   </span>
                 </li>
@@ -128,33 +132,33 @@ export function ConfirmModal({
         {children ? <div className="mt-4">{children}</div> : null}
         {requireReason ? (
           <label className="mt-4 block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{reasonLabel}</span>
+            <span className="mb-2 block text-sm font-bold text-slate-950">{reasonLabel}</span>
             <textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder={reasonPlaceholder}
               rows={4}
-              className="min-h-28 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+              className="min-h-28 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
             />
           </label>
         ) : null}
         {requirePassword ? (
           <label className="mt-4 block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+            <span className="mb-2 block text-sm font-bold text-slate-950">
               Enter your password to confirm
             </span>
-            <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
+            <div className="flex rounded-xl border border-slate-200 bg-slate-50 focus-within:border-emerald-500 focus-within:bg-white">
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
-                className="min-h-11 min-w-0 flex-1 rounded-l-2xl bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                className="min-h-11 min-w-0 flex-1 rounded-l-xl bg-transparent px-4 py-3 text-sm text-slate-950 outline-none"
               />
               <button
                 type="button"
                 onClick={() => setIsPasswordVisible((current) => !current)}
-                className="min-h-11 rounded-r-2xl px-4 py-3 text-sm font-semibold text-[var(--text-secondary)]"
+                className="min-h-11 rounded-r-xl px-4 py-3 text-sm font-bold text-slate-600"
               >
                 {isPasswordVisible ? 'Hide' : 'Show'}
               </button>
@@ -167,7 +171,7 @@ export function ConfirmModal({
             onClick={handleCancel}
             disabled={isBusy}
             title={cancelDisabledReason}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
           </button>
@@ -176,7 +180,7 @@ export function ConfirmModal({
             onClick={handleConfirm}
             disabled={isBusy || confirmDisabled || (requirePassword && !password.trim()) || (requireReason && !reason.trim())}
             title={confirmDisabledReason}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className={confirmButtonClass}
           >
             {isBusy ? 'Working...' : confirmLabel}
           </button>
