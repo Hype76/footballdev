@@ -141,6 +141,27 @@ export function FormBuilderPage() {
   const visibleFields = fieldGroup === 'default' ? defaultFields : customFields
   const paginatedFields = getPaginatedItems(visibleFields, fieldPage, FIELD_PAGE_SIZE)
   const canUseCustomFields = hasPlanFeature(user, 'customFormFields')
+  const enabledFieldsCount = fields.filter((field) => field.isEnabled).length
+  const formRules = [
+    {
+      label: 'Default fields',
+      value: defaultFields.length,
+      caption: 'Club baseline fields can be reordered and switched on or off.',
+      tone: 'emerald',
+    },
+    {
+      label: 'Custom fields',
+      value: customFields.length,
+      caption: canUseCustomFields ? 'Club-specific fields can be added, edited, and removed.' : 'Upgrade required before custom fields can be added.',
+      tone: 'sky',
+    },
+    {
+      label: 'Enabled now',
+      value: enabledFieldsCount,
+      caption: 'Only enabled fields appear when coaches complete assessments.',
+      tone: 'amber',
+    },
+  ]
 
   const handleFormChange = (event) => {
     const { name, value, type, checked } = event.target
@@ -421,6 +442,31 @@ export function FormBuilderPage() {
         title="Configure assessment fields"
         description="Default fields can be enabled or disabled. Custom fields can also be edited, reordered, or removed."
       />
+
+      <section className="grid gap-4 md:grid-cols-3">
+        {formRules.map((item) => (
+          <article
+            key={item.label}
+            className={[
+              'rounded-2xl border bg-white p-5 shadow-sm shadow-slate-200/80',
+              item.tone === 'emerald' ? 'border-emerald-200' : '',
+              item.tone === 'sky' ? 'border-sky-200' : '',
+              item.tone === 'amber' ? 'border-amber-200' : '',
+            ].join(' ')}
+          >
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{item.value}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Setup rule</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          Build the form coaches should use this week. Keep it short enough to complete pitch-side, then add custom fields only when a decision or parent report needs that data.
+        </p>
+      </section>
 
       {errorMessage ? <NoticeBanner title="Assessment fields action failed" message={errorMessage} /> : null}
       {successMessage ? <NoticeBanner title="Assessment fields updated" message={successMessage} tone="info" /> : null}

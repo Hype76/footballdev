@@ -123,6 +123,23 @@ export function ActivityLogPage() {
     () => getPaginatedItems(backups, backupPage, BACKUP_PAGE_SIZE),
     [backupPage, backups],
   )
+  const activitySummary = [
+    {
+      label: 'Events visible',
+      value: filteredLogs.length,
+      caption: selectedActorId || selectedAction ? 'After the current filters.' : 'Allowed by your role and plan.',
+    },
+    {
+      label: 'Users found',
+      value: actorOptions.length,
+      caption: 'Actors with activity in the loaded window.',
+    },
+    {
+      label: 'Event types',
+      value: actionOptions.length,
+      caption: 'Different actions recorded for this workspace.',
+    },
+  ]
 
   if (!canViewActivityLog(user)) {
     return (
@@ -156,8 +173,25 @@ export function ActivityLogPage() {
         description="Review page visits, key clicks, and important record changes for accountability."
       />
 
+      <section className="grid gap-4 md:grid-cols-3">
+        {activitySummary.map((item) => (
+          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : item.value}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm shadow-slate-200/80">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Audit rule</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          Use this page to answer who changed what, when it happened, and whether the action was inside the user role boundary. It is not a coach performance report.
+        </p>
+      </section>
+
       {errorMessage ? (
-        <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
           {errorMessage}
         </div>
       ) : null}

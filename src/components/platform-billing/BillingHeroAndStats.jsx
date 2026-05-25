@@ -1,26 +1,25 @@
 export function BillingHeroAndStats({ billingStats, isLoading }) {
   return (
     <>
-      <section className="relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-8">
-        <div className="pointer-events-none absolute -right-24 top-0 h-56 w-56 rounded-full bg-[var(--accent)] opacity-15 blur-3xl" />
-        <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm shadow-slate-200/80 sm:p-8">
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--accent)]">Billing control centre</p>
-            <h2 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] sm:text-4xl">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Billing control centre</p>
+            <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
               Manage public promotions, tester access, and checkout discounts.
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-muted)] sm:text-base">
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-700 sm:text-base">
               Keep paid plans clean while giving testers temporary access without asking for a payment card.
             </p>
           </div>
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]/80 p-5 backdrop-blur">
+          <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm shadow-slate-200/80">
             <div className="flex items-center gap-3">
-              <span className="h-3 w-3 rounded-full bg-[var(--accent)] shadow-[0_0_24px_var(--accent)] animate-pulse" />
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
+              <span className="h-3 w-3 rounded-full bg-emerald-600" />
+              <p className="text-sm font-bold text-slate-950">
                 {isLoading ? 'Refreshing billing data' : 'Billing data loaded'}
               </p>
             </div>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+            <p className="mt-3 text-sm leading-6 text-slate-600">
               Stripe coupons and tester access codes are managed from this page.
             </p>
           </div>
@@ -31,12 +30,11 @@ export function BillingHeroAndStats({ billingStats, isLoading }) {
         {billingStats.map((item) => (
           <div
             key={item.label}
-            className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 transition hover:border-emerald-300"
           >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
-            <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text-primary)]">{item.value}</p>
-            <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{item.value}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">{item.caption}</p>
           </div>
         ))}
       </div>

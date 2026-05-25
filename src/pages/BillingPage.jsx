@@ -117,6 +117,23 @@ export function BillingPage() {
   )
   const visibleClub = clubBilling || fallbackClub
   const testerAccessExpired = Boolean(user?.testerAccessExpired)
+  const planSummary = [
+    {
+      label: 'Current tier',
+      value: getPlanName(visibleClub),
+      caption: 'Controls limits and available workspace tools.',
+    },
+    {
+      label: 'Plan state',
+      value: testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus),
+      caption: 'This is the access state enforced for the club.',
+    },
+    {
+      label: 'Next billing date',
+      value: formatDate(visibleClub?.currentPeriodEnd),
+      caption: 'Shown when subscription data is available.',
+    },
+  ]
 
   const handleChoosePlan = async (planName) => {
     setIsCheckoutLoading(planName)
@@ -165,6 +182,23 @@ export function BillingPage() {
         title="Billing and plan"
         description="Review your current tier, subscription status, renewal date, and recent invoices."
       />
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        {planSummary.map((item) => (
+          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950">{isLoading ? 'Loading...' : item.value}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Billing rule</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          Billing changes control access for the whole club. Review the tier, confirm the status, then use checkout only when the club is ready to move from tester access to paid access.
+        </p>
+      </section>
 
       {errorMessage ? (
         <NoticeBanner

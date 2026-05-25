@@ -84,10 +84,10 @@ export function CurrentFieldsSection({
             onPageChange(1)
           }}
           className={[
-            'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
+            'inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-3 text-sm font-bold transition',
             fieldGroup === 'default'
-              ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-              : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+              ? 'bg-emerald-700 text-white'
+              : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50',
           ].join(' ')}
         >
           Default Fields ({defaultFields.length})
@@ -99,10 +99,10 @@ export function CurrentFieldsSection({
             onPageChange(1)
           }}
           className={[
-            'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition',
+            'inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-3 text-sm font-bold transition',
             fieldGroup === 'custom'
-              ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-              : 'border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+              ? 'bg-emerald-700 text-white'
+              : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50',
           ].join(' ')}
         >
           Custom Fields ({customFields.length})
@@ -116,10 +116,10 @@ export function CurrentFieldsSection({
             setDragOverFieldId('')
           }}
           className={[
-            'inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
+            'inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60',
             isDragLocked
-              ? 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
-              : 'border-[var(--accent)] bg-[var(--panel-soft)] text-[var(--text-primary)]',
+              ? 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
+              : 'border-emerald-300 bg-emerald-50 text-emerald-900',
           ].join(' ')}
         >
           {isDragLocked ? 'Unlock drag' : 'Lock drag'}
@@ -127,15 +127,15 @@ export function CurrentFieldsSection({
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
           Loading fields...
         </div>
       ) : fields.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
           No fields found for this club.
         </div>
       ) : visibleFields.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
           {fieldGroup === 'default'
             ? 'No default fields are configured yet. Load the default form to start.'
             : 'No custom fields have been added yet.'}
@@ -252,42 +252,42 @@ function FormFieldCard({
         onDropField(sourceFieldId, field.id)
       }}
       className={[
-        'rounded-lg border bg-[var(--panel-alt)] p-4 transition',
+        'rounded-2xl border bg-white p-4 shadow-sm shadow-slate-200/80 transition',
         isSaving || isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
         isDragging ? 'opacity-60' : '',
-        isDragOver ? 'border-[var(--accent)] ring-2 ring-[var(--accent)] ring-opacity-40' : 'border-[var(--border-color)]',
+        isDragOver ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-slate-200',
       ].join(' ')}
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="grid gap-4 md:grid-cols-2">
           {field.isDefault ? (
             <>
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Label</p>
-                <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{field.label}</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Label</p>
+                <p className="mt-2 text-sm font-bold text-slate-950">{field.label}</p>
               </div>
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Type</p>
-                <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{getFieldTypeLabel(field.type)}</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Type</p>
+                <p className="mt-2 text-sm font-bold text-slate-950">{getFieldTypeLabel(field.type)}</p>
               </div>
             </>
           ) : (
             <>
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Label</span>
+                <span className="mb-2 block text-sm font-bold text-slate-950">Label</span>
                 <input
                   type="text"
                   value={draft.label}
                   onChange={(event) => onDraftChange(field.id, 'label', event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Type</span>
+                <span className="mb-2 block text-sm font-bold text-slate-950">Type</span>
                 <select
                   value={draft.type}
                   onChange={(event) => onDraftChange(field.id, 'type', event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
                 >
                   {FIELD_TYPE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -299,30 +299,30 @@ function FormFieldCard({
 
               {draft.type === 'select' ? (
                 <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Options</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-950">Options</span>
                   <input
                     type="text"
                     value={draft.options}
                     onChange={(event) => onDraftChange(field.id, 'options', event.target.value)}
                     placeholder="Option A, Option B, Option C"
-                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
                   />
                 </label>
               ) : null}
 
               {isScoreType(draft.type) ? (
-                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 md:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Score options</p>
-                  <p className="mt-2 text-sm text-[var(--text-muted)]">{createScoreOptions(draft.type).join(', ')}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 md:col-span-2">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Score options</p>
+                  <p className="mt-2 text-sm text-slate-600">{createScoreOptions(draft.type).join(', ')}</p>
                 </div>
               ) : null}
 
-              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+              <label className="inline-flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">
                 <input
                   type="checkbox"
                   checked={draft.required}
                   onChange={(event) => onDraftChange(field.id, 'required', event.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--border-color)] bg-[var(--panel-bg)]"
+                  className="h-4 w-4 rounded border-slate-300 bg-white"
                 />
                 <span>Required field</span>
               </label>
@@ -336,7 +336,7 @@ function FormFieldCard({
             disabled={isSaving || fieldIndex === 0}
             title={moveUpDisabledReason}
             onClick={() => onMoveField(field.id, -1)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Move up
           </button>
@@ -345,7 +345,7 @@ function FormFieldCard({
             disabled={isSaving || fieldIndex === fieldsCount - 1}
             title={moveDownDisabledReason}
             onClick={() => onMoveField(field.id, 1)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Move down
           </button>
@@ -354,12 +354,12 @@ function FormFieldCard({
             disabled={isSaving}
             title={savingDisabledReason}
             onClick={() => onToggleEnabled(field)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {draft.isEnabled ? 'Disable' : 'Enable'}
           </button>
           {field.isDefault ? (
-            <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-muted)]">
+            <div className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
               Default field
             </div>
           ) : (
@@ -369,7 +369,7 @@ function FormFieldCard({
                 disabled={isSaving}
                 title={savingDisabledReason}
                 onClick={() => onSaveField(field)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save
               </button>
@@ -378,7 +378,7 @@ function FormFieldCard({
                 disabled={isSaving}
                 title={savingDisabledReason}
                 onClick={() => onDeleteField(field.id)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Delete
               </button>
@@ -387,10 +387,10 @@ function FormFieldCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-        <span>{field.isDefault ? 'Default' : 'Custom'}</span>
-        <span>{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
-        <span>{draft.required ? 'Required' : 'Optional'}</span>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{field.isDefault ? 'Default' : 'Custom'}</span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{draft.required ? 'Required' : 'Optional'}</span>
       </div>
     </div>
   )

@@ -351,6 +351,23 @@ export function UserSettingsPage() {
       : user?.clubName || 'No club assigned'
   const onboardingScope = getOnboardingScope()
   const onboardingScopeLabel = onboardingScope === 'workspace' ? 'workspace' : 'account'
+  const accountSummary = [
+    {
+      label: 'Workspace',
+      value: workspaceLabel,
+      caption: isParentSettings ? 'Parent portal access.' : 'The account context currently in use.',
+    },
+    {
+      label: 'Role',
+      value: user?.roleLabel || user?.role || 'Not assigned',
+      caption: 'Controls which tools and records you can use.',
+    },
+    {
+      label: 'Onboarding scope',
+      value: onboardingScopeLabel,
+      caption: 'Restart setup guidance for the correct level.',
+    },
+  ]
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -360,8 +377,25 @@ export function UserSettingsPage() {
         description={pageDescription}
       />
 
+      <section className="grid gap-4 lg:grid-cols-3">
+        {accountSummary.map((item) => (
+          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950">{item.value || 'Not set'}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Account rule</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          Keep login details separate from club settings. Use this page for your identity, password, display preferences, and restarting setup help.
+        </p>
+      </section>
+
       {successMessage ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
           {successMessage}
         </div>
       ) : null}

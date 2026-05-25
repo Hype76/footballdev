@@ -15,11 +15,11 @@ export function BackupJournalSection({
       description="Core record changes are copied automatically so platform admins have a fallback trail."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
           Loading backups...
         </div>
       ) : backups.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
           No backup entries have been recorded yet.
         </div>
       ) : (
@@ -27,18 +27,18 @@ export function BackupJournalSection({
           {paginatedBackups.items.map((backup) => (
             <article
               key={backup.id}
-              className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4"
+              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80"
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                  <p className="text-sm font-black text-slate-950">
                     {formatActivityAction(backup.operation)} {formatActivityAction(backup.tableName)}
                   </p>
-                  <p className="mt-1 break-words text-sm text-[var(--text-muted)]">
+                  <p className="mt-1 break-words text-sm text-slate-600">
                     Record: {backup.recordId || 'No record ID'}
                   </p>
                 </div>
-                <p className="shrink-0 text-sm font-medium text-[var(--text-muted)]">{formatActivityDateTime(backup.createdAt)}</p>
+                <p className="shrink-0 text-sm font-bold text-slate-500">{formatActivityDateTime(backup.createdAt)}</p>
               </div>
             </article>
           ))}
