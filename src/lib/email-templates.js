@@ -75,7 +75,7 @@ export const PARENT_EMAIL_TEMPLATES = [
   { key: 'offer', label: 'Offer Place' },
 ]
 
-export const ASSESSMENT_EMAIL_TEMPLATE = { key: 'assessment', label: 'Send Assessment' }
+export const ASSESSMENT_EMAIL_TEMPLATE = { key: 'assessment', label: 'Send Development Record' }
 
 export const EMAIL_TEMPLATE_AUDIENCES = {
   parent: 'parent',
@@ -169,7 +169,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
   },
   {
     key: 'assessment',
-    label: 'Send Assessment',
+    label: 'Send Development Record',
     sectionAvailability: ['Squad', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Football Player for {playerFirstName}',
     body: [
@@ -179,7 +179,7 @@ export const DEFAULT_PARENT_EMAIL_TEMPLATES = [
       '',
       '{summary}',
       '',
-      'The assessment details are included below and attached as a PDF for your records.',
+      'The development details are included below and attached as a PDF for your records.',
       '',
       'If you have any questions, please reply to this email.',
       '',
@@ -254,7 +254,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
   },
   {
     key: 'assessment',
-    label: 'Send Assessment',
+    label: 'Send Development Record',
     sectionAvailability: ['Squad', DIRECT_EMAIL_TEMPLATE_SECTION],
     subject: 'Football Player for {playerFirstName}',
     body: [
@@ -264,7 +264,7 @@ export const DEFAULT_PLAYER_EMAIL_TEMPLATES = [
       '',
       '{summary}',
       '',
-      'The assessment details are included below and attached as a PDF for your records.',
+      'The development details are included below and attached as a PDF for your records.',
       '',
       'If you have any questions, please reply to this email.',
       '',
@@ -473,7 +473,7 @@ export function buildParentEmailTemplate({
       '',
       `Please find the latest feedback report for ${resolvedPlayerFirstName}.`,
       '',
-      'The assessment details are included below and attached as a PDF for your records.',
+      'The development details are included below and attached as a PDF for your records.',
       '',
       'If you have any questions, please reply to this email.',
       '',

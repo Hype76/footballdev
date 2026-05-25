@@ -78,7 +78,7 @@ function formatSessionForDisplay(session) {
 
 function buildResponseMarkup(responseItems) {
   if (responseItems.length === 0) {
-    return '<p style="margin: 0; color: #64705f; font-size: 14px;">No selected assessment details were included.</p>'
+    return '<p style="margin: 0; color: #64705f; font-size: 14px;">No selected development details were included.</p>'
   }
 
   return `
@@ -162,7 +162,7 @@ export function buildEmailHtml({
 
   return `
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 760px; margin: 0 auto;">
-      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Assessment report</p>
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Development report</p>
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; margin: 0 0 22px;">
         <tbody>
           <tr>
@@ -206,7 +206,7 @@ export function buildEmailHtml({
       }
 
       <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 12px; margin: 0 0 20px;">
-        <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Assessment responses</p>
+        <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Development responses</p>
         ${buildResponseMarkup(responseItems)}
       </div>
 

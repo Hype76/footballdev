@@ -12,7 +12,7 @@ export const primaryNavigation = [
   {
     label: 'Development',
     path: '/assess-player',
-    helper: 'Assessments and notes',
+    helper: 'Records and notes',
   },
   {
     label: 'Messages',

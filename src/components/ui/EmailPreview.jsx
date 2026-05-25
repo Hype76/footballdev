@@ -87,7 +87,7 @@ export function EmailPreview({
         <div className="section flex flex-col gap-4 border-b border-[#e7ece3] pb-5 sm:gap-6 sm:pb-6 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">
-              {showEmailTemplate ? 'Parent Email Template' : 'Assessment Preview'}
+              {showEmailTemplate ? 'Parent Email Template' : 'Development Preview'}
             </p>
 
             <div className="mt-4">
@@ -137,7 +137,7 @@ export function EmailPreview({
 
         {showScoring ? (
           <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Assessment Responses</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Development Responses</p>
 
             {visibleResponseItems.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">No responses provided.</p>
@@ -161,13 +161,13 @@ export function EmailPreview({
               {emailBody ? (
                 <div dangerouslySetInnerHTML={{ __html: sharedEmailHtml }} />
               ) : (
-                <p className="p-4">No parent email template is available for this assessment yet.</p>
+                <p className="p-4">No parent email template is available for this development record yet.</p>
               )}
             </div>
           </div>
         ) : (
           <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Assessment Responses</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Development Responses</p>
 
             {visibleResponseItems.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">No selected text fields were provided.</p>

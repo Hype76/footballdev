@@ -40,12 +40,12 @@ export function getRoleQuickLinks(user) {
     links.push(
       { label: 'Sessions', path: '/sessions', primary: links.length === 0 },
       { label: 'Players', path: '/players' },
-      { label: 'Assessments', path: '/assess-player' },
+      { label: 'Development', path: '/assess-player' },
     )
   }
 
   if (canManageFormFields(user) && hasPlanFeature(user, 'customFormFields')) {
-    links.push({ label: 'Assessment Fields', path: '/form-builder' })
+    links.push({ label: 'Development Fields', path: '/form-builder' })
   }
 
   if (canManageParentEmailTemplates(user) && hasPlanFeature(user, 'parentEmail')) {

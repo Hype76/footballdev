@@ -25,7 +25,7 @@ function buildResponseItems(responseItems = []) {
   const exportableResponseItems = responseItems.filter((item) => isExportableResponseValue(item?.value))
 
   if (!exportableResponseItems.length) {
-    return '<p style="margin: 14px 0 0; color: #64748b; font-size: 13px;">No assessment fields were selected.</p>'
+    return '<p style="margin: 14px 0 0; color: #64748b; font-size: 13px;">No development fields were selected.</p>'
   }
 
   return exportableResponseItems
@@ -53,11 +53,11 @@ export function buildAssessmentPdfHtml({
     <section style="box-sizing: border-box; width: 760px; padding: 22px; background: #ffffff; color: #0f172a; font-family: Arial, sans-serif;">
       <div style="display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #e7ece3; padding-bottom: 14px;">
         <div style="min-width: 0;">
-          <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">Assessment PDF</p>
+          <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">Development PDF</p>
           ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(clubName)}" style="display: block; max-width: 120px; max-height: 56px; margin-top: 10px; object-fit: contain;" />` : ''}
           <h1 style="margin: 10px 0 0; color: #0f172a; font-size: 20px; line-height: 1.15;">${escapeHtml(clubName || 'Club')}</h1>
         </div>
-        <div style="align-self: flex-start; border-radius: 12px; background: #eef3ea; color: #4f6552; padding: 9px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;">${escapeHtml(section || 'Assessment')}</div>
+        <div style="align-self: flex-start; border-radius: 12px; background: #eef3ea; color: #4f6552; padding: 9px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;">${escapeHtml(section || 'Development')}</div>
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
@@ -78,7 +78,7 @@ export function buildAssessmentPdfHtml({
       </div>
 
       <div style="margin-top: 16px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
-        <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Assessment Responses</p>
+        <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Development Responses</p>
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px;">
           ${buildResponseItems(responseItems)}
         </div>

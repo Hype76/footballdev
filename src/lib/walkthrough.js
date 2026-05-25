@@ -128,12 +128,12 @@ export const WALKTHROUGHS = {
       {
         target: 'open-sessions-section',
         title: 'Open saved sessions',
-        body: 'Reopen existing sessions to continue notes, add players, or carry on assessments later.',
+        body: 'Reopen existing sessions to continue notes, add players, or carry on development records later.',
       },
       {
         target: 'session-players-section',
         title: 'Session players',
-        body: 'Use the selected session panel to add players, record voice notes, and start assessment work.',
+        body: 'Use the selected session panel to add players, record voice notes, and start development work.',
       },
     ],
   },
@@ -146,7 +146,7 @@ export const WALKTHROUGHS = {
       {
         target: 'players-list-section',
         title: 'Player history',
-        body: 'Open a player profile to review assessments, parent details, notes, actions, and long-term development history.',
+        body: 'Open a player profile to review development records, parent details, notes, actions, and long-term history.',
       },
     ],
   },
@@ -171,7 +171,7 @@ export const WALKTHROUGHS = {
       {
         target: 'create-team-section',
         title: 'Create teams',
-        body: 'Create the teams that players, sessions, and assessments will sit inside. Club profile and logo settings are handled in Club Settings.',
+        body: 'Create the teams that players, sessions, and development records will sit inside. Club profile and logo settings are handled in Club Settings.',
       },
       {
         target: 'create-staff-section',
@@ -221,18 +221,18 @@ export const WALKTHROUGHS = {
     steps: [
       {
         target: 'page-header',
-        title: 'Assessment fields',
-        body: 'This Club area controls the assessment fields used across the club. Team admins use the fields that club admins make available.',
+        title: 'Development fields',
+        body: 'This Club area controls the development fields used across the club. Team admins use the fields that club admins make available.',
       },
       {
         target: 'default-form-section',
         title: 'Default form',
-        body: 'Load the starting assessment form if the club does not have fields yet.',
+        body: 'Load the starting development form if the club does not have fields yet.',
       },
       {
         target: 'current-fields-section',
         title: 'Current fields',
-        body: 'Enable, disable, reorder, and edit the fields coaches will see during assessments.',
+        body: 'Enable, disable, reorder, and edit the fields coaches will see during development records.',
       },
       {
         target: 'add-field-section',
@@ -363,7 +363,7 @@ export const WALKTHROUGHS = {
       {
         target: 'sidebar-club-section',
         title: 'Club section',
-        body: 'Use this sidebar section for club-wide tools: settings, user access, assessment fields, email templates, activity log, and billing.',
+        body: 'Use this sidebar section for club-wide tools: settings, user access, development fields, email templates, activity log, and billing.',
       },
     ],
   },

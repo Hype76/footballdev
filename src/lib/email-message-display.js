@@ -78,7 +78,7 @@ function buildFallbackMessagePdfHtml(message, assessmentFields) {
       <h1 style="margin: 0 0 8px; font-size: 26px; line-height: 1.25;">${escapeHtml(subject)}</h1>
       <p style="margin: 0 0 22px; color: #5a6b5b; font-size: 13px;">${escapeHtml([playerName, team, club].filter(Boolean).join(' | '))}</p>
       ${body ? `<div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 16px; margin: 0 0 22px; font-size: 14px;">${formatLines(body)}</div>` : ''}
-      <h2 style="margin: 0 0 12px; font-size: 18px;">Assessment details</h2>
+      <h2 style="margin: 0 0 12px; font-size: 18px;">Development details</h2>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         ${assessmentFields.map((field) => `
           <div style="border: 1px solid #e7ece3; border-radius: 10px; background: #fbfcf9; padding: 10px 12px;">

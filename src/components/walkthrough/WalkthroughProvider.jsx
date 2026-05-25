@@ -20,7 +20,7 @@ function getRoleStep(user) {
   }
 
   if (Number(user?.roleRank ?? 0) >= 50) {
-    return 'Check team access, sessions, players, and assessment settings.'
+    return 'Check team access, sessions, players, and development settings.'
   }
 
   return 'Start with Add Player, Sessions, and Players for your active team.'

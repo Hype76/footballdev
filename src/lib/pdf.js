@@ -267,7 +267,7 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
     <section style="box-sizing: border-box; width: 760px; padding: 22px; background: #ffffff; color: #0f172a; font-family: Arial, sans-serif;">
       <div style="display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #e7ece3; padding-bottom: 14px;">
         <div style="min-width: 0;">
-          <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">${showEmailTemplate ? 'Parent Email Template' : 'Assessment PDF'}</p>
+          <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">${showEmailTemplate ? 'Parent Email Template' : 'Development PDF'}</p>
           <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(previewProps.clubName)}" style="display: block; max-width: 120px; max-height: 56px; margin-top: 10px; object-fit: contain;" />
           <h1 style="margin: 8px 0 0; color: #0f172a; font-size: 20px; line-height: 1.15;">${escapeHtml(previewProps.clubName || 'Club Name')}</h1>
         </div>
@@ -309,7 +309,7 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
         showScoring
           ? `
             <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
-              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Assessment Responses</p>
+              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Development Responses</p>
               <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px;">
                 ${buildResponseItemsMarkup(responseItems)}
               </div>
@@ -319,12 +319,12 @@ function buildPdfMarkup({ previewProps, mode, logoUrl }) {
             ? `
             <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 14px;">
               <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Parent Message</p>
-              <p style="margin: 10px 0 0; color: #334155; font-size: 12px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(previewProps.emailBody || 'No parent email template is available for this assessment yet.')}</p>
+              <p style="margin: 10px 0 0; color: #334155; font-size: 12px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(previewProps.emailBody || 'No parent email template is available for this development record yet.')}</p>
             </div>
           `
             : `
             <div style="margin-top: 14px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
-              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Assessment Responses</p>
+              <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Development Responses</p>
               <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px;">
                 ${buildResponseItemsMarkup(responseItems).replace('No responses provided.', 'No selected text fields were provided.')}
               </div>

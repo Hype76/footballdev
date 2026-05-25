@@ -1217,7 +1217,7 @@ export const router = createBrowserRouter([
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'Create Assessment',
+                      title: 'Create Development Record',
                     },
                   },
                   {
@@ -1228,7 +1228,7 @@ export const router = createBrowserRouter([
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'Assessments',
+                      title: 'Development',
                     },
                   },
                   {
@@ -1239,7 +1239,7 @@ export const router = createBrowserRouter([
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'New Assessment',
+                      title: 'New Development Record',
                     },
                   },
                   {
@@ -1248,14 +1248,14 @@ export const router = createBrowserRouter([
                       <PageSuspense>
                         <PlayersPage
                           defaultView="evaluated"
-                          headerDescription="Review players who already have completed assessments, then open a profile for the full history."
-                          headerEyebrow="Assessments"
-                          headerTitle="Completed assessments"
+                          headerDescription="Review players who already have completed development records, then open a profile for the full history."
+                          headerEyebrow="Development"
+                          headerTitle="Completed development records"
                         />
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'Completed Assessments',
+                      title: 'Completed Development Records',
                     },
                   },
                   {
@@ -1266,7 +1266,7 @@ export const router = createBrowserRouter([
                       </PageSuspense>
                     ),
                     handle: {
-                      title: 'Create Assessment',
+                      title: 'Create Development Record',
                     },
                   },
                   {
@@ -1359,7 +1359,7 @@ export const router = createBrowserRouter([
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Assessment Fields',
+                  title: 'Development Fields',
                 },
               },
             ],
