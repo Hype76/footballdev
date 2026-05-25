@@ -73,12 +73,12 @@ export function SectionCard({
   return (
     <section
       data-tour-id={tourId}
-      className="min-w-0 scroll-mt-28 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6 lg:p-7"
+      className="min-w-0 scroll-mt-28 overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
     >
-      <div className="sticky top-[4.25rem] z-10 -mx-2 flex flex-col gap-4 rounded-2xl bg-white/95 px-2 py-2 backdrop-blur sm:flex-row sm:items-start sm:justify-between lg:top-[5rem]">
+      <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div className="min-w-0">
           <h3 className="text-2xl font-black tracking-tight text-slate-950">{title}</h3>
-          {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
+          {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{description}</p> : null}
         </div>
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           {actions ? <div className="w-full sm:w-auto">{actions}</div> : null}
@@ -87,14 +87,14 @@ export function SectionCard({
             onClick={handleToggle}
             aria-controls={contentId}
             aria-expanded={isOpen}
-            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-800 transition hover:bg-white"
+            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-800 transition hover:bg-slate-100"
           >
             {isOpen ? 'Collapse' : 'Expand'}
           </button>
         </div>
       </div>
       {isOpen ? (
-        <div id={contentId} className="mt-4 sm:mt-6">
+        <div id={contentId} className="px-5 py-5 sm:px-6">
           {children}
         </div>
       ) : null}
