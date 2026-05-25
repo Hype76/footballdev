@@ -34,8 +34,8 @@ export function TeamStaffAllocationsSection({
   teamPageSize,
 }) {
   return (
-    <section className="border border-slate-200 bg-white p-5 sm:p-6" data-tour-id="team-staff-section">
-      <div className="mb-5">
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70" data-tour-id="team-staff-section">
+      <div className="border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Step 3</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Control team access</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -43,15 +43,15 @@ export function TeamStaffAllocationsSection({
         </p>
       </div>
       {isLoading ? (
-        <div className="border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
+        <div className="m-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600 sm:m-6">
           Loading teams...
         </div>
       ) : teamAssignments.length === 0 ? (
-        <div className="border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
+        <div className="m-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600 sm:m-6">
           No teams created yet.
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[minmax(220px,360px)_minmax(0,1fr)]">
+        <div className="grid gap-4 p-5 sm:p-6 xl:grid-cols-[minmax(220px,360px)_minmax(0,1fr)]">
           <TeamList
             onSelectedTeamChange={onSelectedTeamChange}
             onTeamPageChange={onTeamPageChange}
@@ -102,7 +102,7 @@ function TeamList({
   teamPageSize,
 }) {
   return (
-    <div className="border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <p className="text-sm font-black text-slate-950">Club teams</p>
       <p className="mt-1 text-sm leading-6 text-slate-600">Choose a team to manage its staff access.</p>
       <div className="mt-4 space-y-2">
@@ -115,10 +115,10 @@ function TeamList({
               type="button"
               onClick={() => onSelectedTeamChange(team.id)}
               className={[
-                'w-full border px-4 py-3 text-left transition',
+                'w-full rounded-lg border px-4 py-3 text-left transition',
                 selectedTeam?.id === team.id
-                  ? 'border-emerald-300 bg-emerald-50'
-                  : 'border-slate-200 bg-white hover:bg-emerald-50',
+                  ? 'border-emerald-300 bg-emerald-50 shadow-sm shadow-emerald-100'
+                  : 'border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50',
               ].join(' ')}
             >
               <span className="block text-sm font-black text-slate-950">{team.name}</span>
@@ -164,7 +164,7 @@ function SelectedTeamPanel({
   teamNameDrafts,
 }) {
   return (
-    <div className="border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
@@ -244,7 +244,7 @@ function AddExistingStaffPanel({
   staffToAddId,
 }) {
   return (
-    <div className="mt-5 border border-slate-200 bg-white p-4">
+    <div className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
       <p className="text-sm font-black text-slate-950">Add existing staff</p>
       <p className="mt-1 text-sm leading-6 text-slate-600">
         Search club staff, then add the selected person to this team.
@@ -285,7 +285,7 @@ function AddExistingStaffPanel({
                 : undefined
           }
           onClick={() => void onAddExistingStaff()}
-          className="inline-flex min-h-12 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Add To Team
         </button>
@@ -315,7 +315,7 @@ function AllocatedStaffList({
           {paginatedSelectedTeamStaff.items.map((member) => (
             <div
               key={member.id}
-              className="border border-slate-200 bg-white p-4"
+              className="rounded-lg border border-slate-200 bg-white p-4"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">

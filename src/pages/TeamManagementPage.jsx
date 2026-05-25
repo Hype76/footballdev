@@ -42,6 +42,21 @@ import {
 } from '../lib/supabase.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 
+const teamSetupRules = [
+  {
+    label: 'Team owns context',
+    body: 'Players, sessions, staff access, and match day records should all point to the right team.',
+  },
+  {
+    label: 'Staff get scoped access',
+    body: 'Give coaches access only to the squads they actually work with.',
+  },
+  {
+    label: 'Create before intake',
+    body: 'Create teams first so player records, parent invites, and development notes land in the right place.',
+  },
+]
+
 export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
   const { showToast } = useToast()
@@ -258,6 +273,7 @@ export function TeamManagementPage() {
     () => new Set(assignments.map((assignment) => assignment.userId).filter(Boolean)).size,
     [assignments],
   )
+  const unallocatedStaffCount = Math.max(0, users.length - allocatedStaffCount)
   const playerTotal = useMemo(
     () => Object.values(teamStats).reduce((total, stats) => total + Number(stats?.playerCount ?? 0), 0),
     [teamStats],
@@ -614,44 +630,51 @@ export function TeamManagementPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white p-5 shadow-sm shadow-emerald-900/5 sm:p-6">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Team setup</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Team command</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
               Build the club structure before the season gets busy.
             </h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-700">
-              Teams decide where players, staff access, sessions, and match day records live. Create each age group or squad, then give coaches only the access they need.
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Teams decide where players, staff access, sessions, and match day records live. Create each squad, then give coaches only the access they need.
             </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <TeamSetupMetric label="Teams" value={teams.length} />
-              <TeamSetupMetric label="Staff allocated" value={allocatedStaffCount} />
-              <TeamSetupMetric label="Players placed" value={playerTotal} />
-            </div>
-          </div>
-          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Setup order</p>
-            <div className="mt-4 grid gap-3">
-              {[
-                ['1', 'Create the team'],
-                ['2', 'Invite or allocate staff'],
-                ['3', 'Add players to that team'],
-              ].map(([step, label]) => (
-                <div key={step} className="flex items-center gap-3 rounded-lg border border-lime-200 bg-white px-4 py-3">
-                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-slate-950 text-sm font-black text-white">
-                    {step}
-                  </span>
-                  <span className="text-sm font-black text-slate-950">{label}</span>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {teamSetupRules.map((rule) => (
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Setup state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{teams.length} teams configured</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {allocatedStaffCount} staff accounts are allocated to at least one team.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <TeamSetupMetric label="Teams" value={teams.length} />
+              <TeamSetupMetric label="Staff" value={users.length} />
+              <TeamSetupMetric label="Allocated" value={allocatedStaffCount} />
+              <TeamSetupMetric label="Players" value={playerTotal} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              {unallocatedStaffCount > 0
+                ? `${unallocatedStaffCount} staff accounts still need team scope.`
+                : 'Every visible staff account has team scope or is ready to review.'}
+            </p>
           </div>
         </div>
       </section>
 
       {message ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
           {message}
         </div>
       ) : null}
@@ -737,8 +760,8 @@ export function TeamManagementPage() {
 
 function TeamSetupMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">{label}</p>
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
       <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
