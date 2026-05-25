@@ -17,6 +17,9 @@ export function ActiveUsersSection({
   paginatedMembers,
   user,
 }) {
+  const buttonClass =
+    'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
+
   return (
     <SectionCard
       title="Active users"
@@ -24,11 +27,11 @@ export function ActiveUsersSection({
       description="Existing users are listed here only where your role and team access allows."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
           Loading active users...
         </div>
       ) : members.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
           No active users found for this club.
         </div>
       ) : (
@@ -36,15 +39,15 @@ export function ActiveUsersSection({
           {paginatedMembers.items.map((member) => (
             <div
               key={member.id}
-              className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4"
+              className="rounded-lg border border-slate-200 bg-white px-4 py-4"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{member.email}</p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">{member.name || 'No display name yet'}</p>
+                  <p className="break-words text-sm font-semibold text-slate-950">{member.email}</p>
+                  <p className="mt-1 text-sm text-slate-600">{member.name || 'No display name yet'}</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="rounded-full border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                  <div className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
                     {getRoleLabel(member)}
                   </div>
                   {canRemoveClubUser(user, member) ? (
@@ -53,7 +56,7 @@ export function ActiveUsersSection({
                       disabled={isSaving}
                       title={isSaving ? 'Please wait while user access is being updated.' : undefined}
                       onClick={() => onRemoveMember(member)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Remove
                     </button>
@@ -63,14 +66,14 @@ export function ActiveUsersSection({
               {canUpdateClubUserName(user, member) ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                   <label className="block">
-                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
                       Display name
                     </span>
                     <input
                       type="text"
                       value={nameDrafts[member.id] ?? ''}
                       onChange={(event) => onNameDraftChange(member.id, event.target.value)}
-                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                     />
                   </label>
                   <button
@@ -84,7 +87,7 @@ export function ActiveUsersSection({
                           : undefined
                     }
                     onClick={() => onUpdateMemberName(member)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className={buttonClass}
                   >
                     Save name
                   </button>

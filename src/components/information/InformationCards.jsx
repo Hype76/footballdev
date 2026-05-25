@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 export function InfoCard({ title, children }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <h3 className="text-base font-black text-slate-950">{title}</h3>
       <div className="mt-2 text-sm leading-6 text-slate-600">{children}</div>
     </div>
@@ -14,7 +14,7 @@ function DetailList({ items }) {
   return (
     <div className="mt-4 space-y-2">
       {items.map((item) => (
-        <div key={item} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+        <div key={item} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
           <p className="text-sm leading-6 text-slate-700">{item}</p>
         </div>
       ))}
@@ -24,14 +24,14 @@ function DetailList({ items }) {
 
 export function PlanCard({ plan, isCurrent }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-black text-slate-950">{plan.label}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">{plan.summary}</p>
         </div>
         {isCurrent ? (
-          <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-800">
+          <span className="inline-flex w-fit rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-800">
             Current
           </span>
         ) : null}
@@ -43,7 +43,7 @@ export function PlanCard({ plan, isCurrent }) {
 
 export function RoleCard({ guide }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
       <h3 className="text-lg font-black text-slate-950">{guide.label}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-600">{guide.summary}</p>
       <DetailList items={guide.capabilities} />
@@ -54,7 +54,7 @@ export function RoleCard({ guide }) {
 export function QuickLinks({ links }) {
   if (!links.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
         No quick links are available for this role yet.
       </div>
     )
@@ -67,7 +67,7 @@ export function QuickLinks({ links }) {
           key={link.path}
           to={link.path}
           className={[
-            'inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition',
+            'inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-3 text-sm font-bold transition',
             link.primary
               ? 'bg-emerald-700 text-white hover:bg-emerald-800'
               : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50',
@@ -111,7 +111,7 @@ function VideoMedia({ guide }) {
 
 export function VideoGuideCard({ guide }) {
   return (
-    <article className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+    <article className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
       <div className="bg-slate-950">
         <VideoMedia guide={guide} />
       </div>
@@ -121,7 +121,7 @@ export function VideoGuideCard({ guide }) {
             <h3 className="text-base font-black text-slate-950">{guide.title}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">{guide.caption}</p>
           </div>
-          <span className="inline-flex w-fit shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
+          <span className="inline-flex w-fit shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
             {guide.duration}
           </span>
         </div>
@@ -134,7 +134,7 @@ export function VideoGuideCard({ guide }) {
 export function VideoGuideGrid({ guides }) {
   if (!guides.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
         No video walkthroughs are available for this role yet.
       </div>
     )
