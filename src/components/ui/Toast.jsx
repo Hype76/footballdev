@@ -48,11 +48,11 @@ export function ToastProvider({ children }) {
 function ToastMessage({ toast, onDismiss }) {
   const toneClassName =
     toast.tone === 'error'
-      ? 'border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-text)]'
-      : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)]'
+      ? 'border-red-200 bg-red-50 text-red-800'
+      : 'border-emerald-200 bg-white text-slate-950'
 
   return (
-    <div className={`rounded-lg border px-4 py-3 shadow-lg shadow-black/20 ${toneClassName}`}>
+    <div className={`rounded-lg border px-4 py-3 ${toneClassName}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold">{toast.title}</p>

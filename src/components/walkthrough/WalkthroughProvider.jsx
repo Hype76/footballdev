@@ -46,7 +46,7 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
   }
 
   return (
-    <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-5">
+    <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Next best action</p>
@@ -58,7 +58,7 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
             nextAction.path ? (
               <Link
                 to={nextAction.path}
-                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
               >
                 {nextAction.label}
               </Link>
@@ -66,7 +66,7 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
               <button
                 type="button"
                 onClick={() => focusStepTarget(nextAction.target)}
-                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
               >
                 {nextAction.label}
               </button>
@@ -75,20 +75,20 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
           <button
             type="button"
             onClick={onComplete}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
           >
             Done
           </button>
           <button
             type="button"
             onClick={() => onDisable(true)}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
           >
             Hide tips
           </button>
         </div>
       </div>
-      <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50">
+      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-sm font-bold text-slate-950">
           View setup tips
           <span className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">{steps.length} steps</span>
@@ -99,7 +99,7 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
               key={`${activeWalkthrough.key}-${step.title}`}
               type="button"
               onClick={() => focusStepTarget(step.target)}
-              className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 focus:border-emerald-500 focus:outline-none"
+              className="rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 focus:border-emerald-500 focus:outline-none"
             >
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Step {index + 1}</p>
               <h3 className="mt-2 text-sm font-bold text-slate-950">{step.title}</h3>

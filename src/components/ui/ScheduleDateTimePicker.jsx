@@ -49,6 +49,10 @@ export function ScheduleDateTimePicker({
   value,
   onChange,
 }) {
+  const inputClass =
+    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
+  const compactInputClass =
+    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-center text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
   const parts = parseDateTimeValue(value)
   const fallbackTime = getDefaultTimeParts()
   const date = parts.date || ''
@@ -98,7 +102,7 @@ export function ScheduleDateTimePicker({
             type="date"
             value={date}
             onChange={handleDateChange}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className={inputClass}
           />
         </label>
         <label className="block">
@@ -106,7 +110,7 @@ export function ScheduleDateTimePicker({
           <select
             value={hour}
             onChange={handleHourChange}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+            className={compactInputClass}
           >
             <option value="">HH</option>
             {HOUR_OPTIONS.map((option) => (
@@ -119,7 +123,7 @@ export function ScheduleDateTimePicker({
           <select
             value={minute}
             onChange={handleMinuteChange}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+            className={compactInputClass}
           >
             <option value="">MM</option>
             {MINUTE_OPTIONS.map((option) => (
@@ -138,7 +142,7 @@ export function ScheduleDateTimePicker({
               hour: option.hour,
               minute: option.minute,
             })}
-            className="inline-flex min-h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
           >
             {option.label}
           </button>

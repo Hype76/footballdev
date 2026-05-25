@@ -83,7 +83,7 @@ export function EmailPreview({
 
   return (
     <div className="print-container">
-      <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-[var(--border-color)] bg-white p-3 shadow-sm shadow-slate-200/40 sm:rounded-lg sm:p-6 lg:p-8">
+      <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-slate-200 bg-white p-3 sm:p-6 lg:p-8">
         <div className="section flex flex-col gap-4 border-b border-[#e7ece3] pb-5 sm:gap-6 sm:pb-6 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">

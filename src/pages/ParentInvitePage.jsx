@@ -37,8 +37,7 @@ async function withTimeout(promise, message, timeoutMs = 15000) {
 function ParentShell({ children }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 text-slate-950">
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)]" />
-      <div className="relative w-full max-w-xl rounded-md border border-slate-200 bg-white p-5 shadow-lg shadow-slate-950/10 sm:p-6">
+      <div className="w-full max-w-xl rounded-md border border-slate-200 bg-white p-5 sm:p-6">
         {children}
       </div>
     </main>

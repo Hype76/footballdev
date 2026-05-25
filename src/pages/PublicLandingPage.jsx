@@ -9,8 +9,8 @@ export function PublicLandingPage() {
       <div className="absolute inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-white/80" />
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-white/30" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-transparent to-white/40" />
+        <div className="absolute inset-0 bg-white/45" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-slate-50/80" />
       </div>
 
       <div className="relative flex min-h-dvh w-full flex-col">

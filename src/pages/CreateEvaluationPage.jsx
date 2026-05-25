@@ -1324,7 +1324,7 @@ export function CreateEvaluationPage() {
             type="date"
             value={nextAssessmentReminderDate}
             onChange={(event) => setNextAssessmentReminderDate(event.target.value)}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </label>
       </ConfirmModal>
@@ -1337,7 +1337,7 @@ export function CreateEvaluationPage() {
         />
 
         {isSaved ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
             Assessment saved
           </div>
         ) : null}
@@ -1355,7 +1355,7 @@ export function CreateEvaluationPage() {
 
         {dataRefreshNotice ? <NoticeBanner title="Using available club data" message={dataRefreshNotice} tone="info" /> : null}
         {hasInvalidAssessmentSection || hasIncompleteSessionAssessmentLink ? (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-950">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-950">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-bold">Assessment link was adjusted</p>
@@ -1366,7 +1366,7 @@ export function CreateEvaluationPage() {
               <button
                 type="button"
                 onClick={clearAssessmentLinkState}
-                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
               >
                 Clear link details
               </button>

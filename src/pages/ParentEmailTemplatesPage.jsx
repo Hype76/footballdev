@@ -221,7 +221,7 @@ export function ParentEmailTemplatesPage() {
       {errorMessage ? <NoticeBanner title="Template action failed" message={errorMessage} /> : null}
       {message ? <NoticeBanner title="Template saved" message={message} tone="info" /> : null}
 
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
         <p className="text-sm font-black text-emerald-950">Template rule</p>
         <p className="mt-1 text-sm leading-6 text-emerald-900">
           Templates are team level tools. Use only approved fields, choose the sections where a template is valid, and keep parent and player messages separate.

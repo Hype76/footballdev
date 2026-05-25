@@ -13,16 +13,14 @@ const terms = [
 ]
 
 export function TermsPage() {
+  const sectionClass = 'rounded-lg border border-slate-200 bg-white p-5 sm:p-6'
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)]" />
-      </div>
-
-      <div className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/login" className="flex items-center gap-3">
-            <img src={fallbackLogo} alt="Football Player" className="h-11 w-11 rounded-xl bg-slate-950 object-contain p-1" />
+            <img src={fallbackLogo} alt="Football Player" className="h-11 w-11 rounded-lg bg-slate-950 object-contain p-1" />
             <span className="text-lg font-black tracking-tight">Football Player</span>
           </Link>
           <nav className="flex flex-wrap gap-3 text-sm font-bold text-slate-600">
@@ -42,13 +40,13 @@ export function TermsPage() {
 
         <div className="grid gap-4">
           {terms.map(([title, copy]) => (
-            <section key={title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
+            <section key={title} className={sectionClass}>
               <h2 className="text-2xl font-black">{title}</h2>
               <p className="mt-3 text-sm leading-7 text-slate-600">{copy}</p>
             </section>
           ))}
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
+          <section className={sectionClass}>
             <h2 className="text-2xl font-black">Support and disputes</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
               Clubs should raise operational issues through their workspace administrator. Any legal, billing, or data protection issue should be raised promptly so it can be reviewed and handled fairly.

@@ -114,7 +114,7 @@ export function InformationPage() {
       />
 
       {isDemoAccount(user) ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-4">
           <p className="text-sm font-black text-emerald-950">Demo workspace</p>
           <p className="mt-2 text-sm leading-6 text-emerald-900">
             Demo users can explore the workspace and billing page. Destructive actions and account setting changes are blocked.
