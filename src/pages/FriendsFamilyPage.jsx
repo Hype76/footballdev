@@ -22,6 +22,23 @@ export function FriendsFamilyPage() {
   const [isLoadingFamilyLinks, setIsLoadingFamilyLinks] = useState(false)
   const [revokeLinkId, setRevokeLinkId] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId) ?? links[0]
+  const familySummary = [
+    {
+      label: 'Linked children',
+      value: links.length,
+      caption: 'Children available to this parent account.',
+    },
+    {
+      label: 'Accepted access',
+      value: familyLinks.length,
+      caption: 'Family members who can currently open this child.',
+    },
+    {
+      label: 'Selected child',
+      value: selectedLink?.playerName || 'Not selected',
+      caption: selectedLink?.teamName || 'Choose a child before sharing.',
+    },
+  ]
 
   useEffect(() => {
     let isCurrent = true
@@ -124,19 +141,36 @@ export function FriendsFamilyPage() {
         description="Create a share link for family access. The link only opens parent portal access for the selected child."
       />
 
+      <section className="grid gap-4 md:grid-cols-3">
+        {familySummary.map((item) => (
+          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-3 break-words text-3xl font-black tracking-tight text-slate-950">{isLoadingFamilyLinks ? '...' : item.value}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Sharing rule</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          Share one child at a time. A family link opens only the selected child, and access can be revoked from this page.
+        </p>
+      </section>
+
       {errorMessage ? <NoticeBanner title="Family link not created" message={errorMessage} /> : null}
 
       <SectionCard title="Share access" description="Links are created one at a time so you control what child is shared.">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Child</span>
+            <span className="mb-2 block text-sm font-bold text-slate-950">Child</span>
             <select
               value={selectedLinkId}
               onChange={(event) => {
                 setSelectedLinkId(event.target.value)
                 setShareUrl('')
               }}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
             >
               {links.map((link) => (
                 <option key={link.id} value={link.id}>
@@ -150,20 +184,20 @@ export function FriendsFamilyPage() {
             onClick={handleCreateLink}
             disabled={isCreating || !selectedLink}
             title={isCreating ? 'Please wait while the family link is created.' : !selectedLink ? 'No child link is available.' : undefined}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isCreating ? 'Creating...' : 'Create Share Link'}
           </button>
         </div>
 
         {shareUrl ? (
-          <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">Share this link</p>
-            <p className="mt-2 break-all text-sm text-[var(--text-muted)]">{shareUrl}</p>
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-black text-slate-950">Share this link</p>
+            <p className="mt-2 break-all text-sm text-slate-600">{shareUrl}</p>
             <button
               type="button"
               onClick={handleCopy}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
             >
               Copy Link
             </button>
@@ -176,7 +210,7 @@ export function FriendsFamilyPage() {
         description="These people can currently open the selected child in the parent portal."
       >
         {isLoadingFamilyLinks ? (
-          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm text-[var(--text-muted)]">
+          <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
             Loading Friends and Family access...
           </p>
         ) : familyLinks.length > 0 ? (
@@ -184,13 +218,13 @@ export function FriendsFamilyPage() {
             {familyLinks.map((familyLink) => (
               <div
                 key={familyLink.id}
-                className="flex flex-col gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="break-all text-sm font-semibold text-[var(--text-primary)]">
+                  <p className="break-all text-sm font-black text-slate-950">
                     {familyLink.email || 'Email not recorded'}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  <p className="mt-1 text-xs text-slate-500">
                     Accepted {familyLink.acceptedAt ? new Date(familyLink.acceptedAt).toLocaleString() : 'date not recorded'}
                   </p>
                 </div>
@@ -198,7 +232,7 @@ export function FriendsFamilyPage() {
                   type="button"
                   onClick={() => handleRevokeFamilyLink(familyLink)}
                   disabled={revokeLinkId === familyLink.id}
-                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-400/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {revokeLinkId === familyLink.id ? 'Removing...' : 'Revoke Access'}
                 </button>
@@ -206,7 +240,7 @@ export function FriendsFamilyPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-sm text-[var(--text-muted)]">
+          <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
             No Friends and Family access has been accepted for this child yet.
           </p>
         )}

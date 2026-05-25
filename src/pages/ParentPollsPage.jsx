@@ -48,6 +48,24 @@ export function ParentPollsPage() {
       ?? links[0],
     [links, selectedLinkId, user?.selectedParentLinkId],
   )
+  const answeredPollCount = polls.filter((poll) => getSelectedOptionIds(poll).length > 0).length
+  const pollSummary = [
+    {
+      label: 'Linked children',
+      value: links.length,
+      caption: 'Children this parent account can view.',
+    },
+    {
+      label: 'Open polls',
+      value: polls.length,
+      caption: 'Questions shared by the club.',
+    },
+    {
+      label: 'Answered',
+      value: answeredPollCount,
+      caption: 'Polls where this account has replied.',
+    },
+  ]
 
   async function loadPolls() {
     if (!selectedLink?.id) {
@@ -130,17 +148,34 @@ export function ParentPollsPage() {
         description="Answer quick polls shared by the club for your linked child."
       />
 
+      <section className="grid gap-4 md:grid-cols-3">
+        {pollSummary.map((item) => (
+          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoadingPolls ? '...' : item.value}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm shadow-slate-200/80">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Poll rule</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          Polls are controlled by the club. Some allow one answer, some allow multiple answers, and some lock your response after voting.
+        </p>
+      </section>
+
       <SectionCard title="Polls" description="Select a child, then choose an answer for each open poll.">
         {links.length > 1 ? (
           <div className="mb-4">
-            <label htmlFor="parent-poll-child" className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+            <label htmlFor="parent-poll-child" className="mb-2 block text-sm font-bold text-slate-950">
               Child
             </label>
             <select
               id="parent-poll-child"
               value={selectedLink?.id || ''}
               onChange={(event) => setSelectedLinkId(event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
             >
               {links.map((link) => (
                 <option key={link.id} value={link.id}>
@@ -154,7 +189,7 @@ export function ParentPollsPage() {
         {errorMessage ? (
           <NoticeBanner title="Poll action failed" message={errorMessage} />
         ) : isLoadingPolls ? (
-          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             Loading polls...
           </p>
         ) : polls.length > 0 ? (
@@ -170,7 +205,7 @@ export function ParentPollsPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             No parent polls are open for this child right now.
           </p>
         )}
@@ -190,31 +225,31 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
   const selectedPlayerId = String(selectedLink?.playerId ?? '').trim()
 
   return (
-    <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+          <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
             {poll.pollType === 'time' ? 'Time poll' : poll.pollType === 'awards' ? 'Awards poll' : 'Text poll'}
           </span>
           {poll.allowMultiple ? (
-            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+            <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
               {poll.maxChoices ? `Choose up to ${poll.maxChoices}` : 'Choose more than one'}
             </span>
           ) : null}
           {poll.allowOwnChildVotes === false ? (
-            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+            <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
               Own child not available
             </span>
           ) : null}
           {poll.allowVoteChanges === false ? (
-            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+            <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
               Vote locked after choice
             </span>
           ) : null}
         </div>
-        <h4 className="text-lg font-semibold text-[var(--text-primary)]">{poll.title}</h4>
-        {poll.description ? <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-muted)]">{poll.description}</p> : null}
-        <p className="text-xs text-[var(--text-muted)]">
+        <h4 className="text-lg font-black text-slate-950">{poll.title}</h4>
+        {poll.description ? <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">{poll.description}</p> : null}
+        <p className="text-xs text-slate-500">
           {isVoteLocked ? 'Your answer has been saved and cannot be changed.' : hasVoted ? 'Your answer has been saved. You can change it while the poll is open.' : poll.allowMultiple && poll.maxChoices ? `Choose up to ${poll.maxChoices} answers.` : poll.allowMultiple ? 'Choose one or more answers.' : 'Choose one answer.'}
         </p>
       </div>
@@ -234,18 +269,18 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
               key={option.id}
               className={`rounded-lg border p-3 ${
                 isOwnChildOption
-                  ? 'border-[var(--border-color)] bg-[var(--panel-soft)] opacity-60'
-                  : 'border-[var(--border-color)] bg-[var(--panel-bg)]'
+                  ? 'border-slate-200 bg-slate-100 opacity-60'
+                  : 'border-slate-200 bg-slate-50'
               }`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{option.label}</p>
+                  <p className="text-sm font-bold text-slate-950">{option.label}</p>
                   {isOwnChildOption ? (
-                    <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">Own child not available for this poll</p>
+                    <p className="mt-1 text-xs font-bold text-slate-500">Own child not available for this poll</p>
                   ) : null}
                   {shouldShowVotes ? (
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">{count} votes | {percent}%</p>
+                    <p className="mt-1 text-xs text-slate-500">{count} votes | {percent}%</p>
                   ) : null}
                 </div>
                 <button
@@ -254,16 +289,16 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
                   disabled={isDisabled}
                   className={`inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     isSelected
-                      ? 'border border-[var(--accent)] bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                      : 'border border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+                      ? 'border border-emerald-700 bg-emerald-700 text-white'
+                      : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
                   }`}
                 >
                   {isOwnChildOption ? 'Unavailable' : isVoteLocked && isSelected ? 'Locked' : isSelected ? 'Selected' : 'Vote'}
                 </button>
               </div>
               {shouldShowVotes ? (
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--panel-alt)]">
-                  <div className="h-full rounded-full bg-[var(--button-primary)]" style={{ width: `${percent}%` }} />
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-emerald-700" style={{ width: `${percent}%` }} />
                 </div>
               ) : null}
             </div>
