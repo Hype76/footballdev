@@ -9,6 +9,9 @@ export function CreateSessionSection({
   onSubmit,
   teams,
 }) {
+  const inputClass =
+    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
+
   return (
     <SectionCard
       title="Create session"
@@ -16,11 +19,11 @@ export function CreateSessionSection({
       description="Use a date only. Times are not required for assessments."
     >
       {isLoading ? (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
           Loading session setup...
         </div>
       ) : teams.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
           No teams are available yet. Create a team first, then sessions can be planned.
         </div>
       ) : (
@@ -32,7 +35,7 @@ export function CreateSessionSection({
               value={form.teamId}
               onChange={onChange}
               required
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className={inputClass}
             >
               <option value="">Select team</option>
               {teams.map((team) => (
@@ -50,7 +53,7 @@ export function CreateSessionSection({
               value={form.sessionType}
               onChange={onChange}
               required
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className={inputClass}
             >
               <option value="">Select session type</option>
               <option value="training">Training</option>
@@ -67,7 +70,7 @@ export function CreateSessionSection({
                 value={form.opponent}
                 onChange={onChange}
                 placeholder="Opposition team"
-                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+                className={inputClass}
               />
             </label>
           ) : null}
@@ -80,7 +83,7 @@ export function CreateSessionSection({
               value={form.sessionDate}
               onChange={onChange}
               required
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className={inputClass}
             />
           </label>
 
@@ -90,7 +93,7 @@ export function CreateSessionSection({
               name="section"
               value={form.section}
               onChange={onChange}
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className={inputClass}
             >
               {EVALUATION_SECTIONS.map((section) => (
                 <option key={section} value={section}>
@@ -105,7 +108,7 @@ export function CreateSessionSection({
               type="submit"
               disabled={isSaving}
               title={isSaving ? 'Please wait while this session is being created.' : undefined}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? 'Saving...' : 'Create Session'}
             </button>

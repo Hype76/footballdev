@@ -17,6 +17,8 @@ export function ResetPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const inputClass =
+    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -55,9 +57,9 @@ export function ResetPasswordPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 text-slate-950 sm:px-6">
-      <section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white px-6 py-8 shadow-2xl shadow-slate-950/10 sm:px-10 sm:py-10">
+      <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white px-6 py-8 sm:px-10 sm:py-10">
         <div className="flex items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-950">
             <img src={fallbackLogo} alt="Football Player" className="h-full w-full object-cover" />
           </div>
           <div>
@@ -80,7 +82,7 @@ export function ResetPasswordPage() {
               onChange={handleChange}
               required
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className={inputClass}
             />
           </label>
 
@@ -93,11 +95,11 @@ export function ResetPasswordPage() {
               onChange={handleChange}
               required
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className={inputClass}
             />
           </label>
 
-          <label className="inline-flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">
+          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800">
             <input
               type="checkbox"
               checked={isPasswordVisible}
@@ -108,13 +110,13 @@ export function ResetPasswordPage() {
           </label>
 
           {errorMessage ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {errorMessage}
             </div>
           ) : null}
 
           {message ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
               {message}
             </div>
           ) : null}
@@ -123,7 +125,7 @@ export function ResetPasswordPage() {
             type="submit"
             disabled={isSubmitting}
             title={isSubmitting ? 'Please wait while your password is being updated.' : undefined}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Updating...' : 'Update Password'}
           </button>

@@ -142,7 +142,7 @@ export function PublicPricingPage() {
               Start with one team, then scale into a full club workspace with staff roles, branding, parent communication, and audit logs.
             </p>
           </div>
-          <div className="grid w-full grid-cols-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm shadow-slate-200/80 sm:max-w-xs">
+          <div className="grid w-full grid-cols-2 rounded-lg border border-slate-200 bg-white p-1 sm:max-w-xs">
             {[
               ['monthly', 'Monthly'],
               ['annual', 'Annual'],
@@ -162,10 +162,10 @@ export function PublicPricingPage() {
           </div>
         </div>
 
-        {errorMessage ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{errorMessage}</div> : null}
-        {message ? <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</div> : null}
+        {errorMessage ? <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{errorMessage}</div> : null}
+        {message ? <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</div> : null}
         {livePromotion && !paymentsDisabled ? (
-          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-800">
+          <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-800">
             Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
           </div>
         ) : null}
@@ -176,9 +176,9 @@ export function PublicPricingPage() {
             const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
 
             return (
-              <article key={plan.name} className="relative flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+              <article key={plan.name} className="relative flex flex-col rounded-lg border border-slate-200 bg-white p-5">
                 {plan.name === 'Small Club' ? (
-                  <span className="absolute right-4 top-4 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 sm:right-5 sm:top-5">
+                  <span className="absolute right-4 top-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 sm:right-5 sm:top-5">
                     Popular
                   </span>
                 ) : null}
@@ -194,7 +194,7 @@ export function PublicPricingPage() {
                 <ul className="mt-6 grow space-y-3">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex gap-3 text-sm leading-6 text-slate-700">
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-sm bg-emerald-600" />
                       <span>{feature}</span>
                     </li>
                   ))}

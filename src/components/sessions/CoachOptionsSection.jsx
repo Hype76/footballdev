@@ -23,6 +23,8 @@ export function CoachOptionsSection({
   selectedSessionLocked,
   sessions,
 }) {
+  const inputClass =
+    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
   const addAllDisabledReason = isSaving
     ? 'Please wait while the session is being updated.'
     : selectedSessionLocked
@@ -44,7 +46,7 @@ export function CoachOptionsSection({
       description="Select any saved session and add more players to its list when needed."
     >
       {sessions.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
           No sessions created yet.
         </div>
       ) : (
@@ -55,7 +57,7 @@ export function CoachOptionsSection({
               <select
                 value={selectedSessionId}
                 onChange={(event) => onOpenSession(event.target.value)}
-                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+                className={inputClass}
               >
                 {combinedSessions.map((session) => (
                   <option key={session.id} value={session.id}>
@@ -71,7 +73,7 @@ export function CoachOptionsSection({
                 name="section"
                 value={activePlayerSection}
                 onChange={onSectionChange}
-                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+                className={inputClass}
               >
                 {EVALUATION_SECTIONS.map((section) => (
                   <option key={section} value={section}>
@@ -82,7 +84,7 @@ export function CoachOptionsSection({
             </label>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
             Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
             {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
               <span className="mt-2 block text-xs font-bold text-emerald-700">
@@ -95,7 +97,7 @@ export function CoachOptionsSection({
             {paginatedPlayers.items.map((player) => (
               <label
                 key={player.id}
-                className="flex min-h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950"
+                className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-950"
               >
                 <input
                   type="checkbox"
@@ -115,7 +117,7 @@ export function CoachOptionsSection({
           />
 
           {filteredPlayers.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
               No {String(activePlayerSection || 'selected').toLowerCase()} players are available for {activePlayerTeam || 'this team'}.
             </div>
           ) : null}
@@ -126,7 +128,7 @@ export function CoachOptionsSection({
               disabled={isSaving || filteredPlayers.length === 0 || selectedSessionLocked}
               title={addAllDisabledReason}
               onClick={() => void onImportPlayers('all')}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add All {activePlayerSection} Players
             </button>
@@ -135,7 +137,7 @@ export function CoachOptionsSection({
               disabled={isSaving || selectedPlayerIds.length === 0 || selectedSessionLocked}
               title={addSelectedDisabledReason}
               onClick={() => void onImportPlayers('selected')}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add Selected Players
             </button>
