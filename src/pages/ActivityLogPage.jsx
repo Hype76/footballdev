@@ -2,11 +2,25 @@ import { useEffect, useMemo, useState } from 'react'
 import { BackupJournalSection } from '../components/activity/BackupJournalSection.jsx'
 import { RecentActivitySection } from '../components/activity/RecentActivitySection.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { canViewActivityLog, isSuperAdmin, useAuth } from '../lib/auth.js'
 import { BACKUP_PAGE_SIZE, LOG_PAGE_SIZE, formatActivityAction } from '../lib/activity-log-utils.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import { getAuditLogs, getRecordBackups, withRequestTimeout } from '../lib/supabase.js'
+
+const activityRules = [
+  {
+    label: 'Trace the decision',
+    body: 'Use actor, action, and record context to understand what changed in the football workspace.',
+  },
+  {
+    label: 'Respect role boundaries',
+    body: 'Managers only see activity inside their allowed scope. Platform admins see the full trail.',
+  },
+  {
+    label: 'Use it for accountability',
+    body: 'This is a club operations record, not a coach performance report.',
+  },
+]
 
 export function ActivityLogPage() {
   const { user } = useAuth()
@@ -144,9 +158,8 @@ export function ActivityLogPage() {
   if (!canViewActivityLog(user)) {
     return (
       <div className="space-y-5 sm:space-y-6">
-        <PageHeader
-          eyebrow="Activity"
-          title="Activity log"
+        <ActivityAccessState
+          title="Activity log unavailable"
           description="You do not have access to the activity log."
         />
       </div>
@@ -156,9 +169,8 @@ export function ActivityLogPage() {
   if (!canUseAuditLogs) {
     return (
       <div className="space-y-5 sm:space-y-6">
-        <PageHeader
-          eyebrow="Activity"
-          title="Activity log"
+        <ActivityAccessState
+          title="Activity log unavailable"
           description={createFeatureUpgradeMessage('auditLogs')}
         />
       </div>
@@ -167,27 +179,44 @@ export function ActivityLogPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Activity"
-        title="Activity log"
-        description="Review page visits, key clicks, and important record changes for accountability."
-      />
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Activity control</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+              See who changed the football workspace and when it happened.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Review important record changes, filter by user or action, and keep club operations accountable.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {activityRules.map((rule) => (
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {activitySummary.map((item) => (
-          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm ">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : item.value}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="rounded-md border border-sky-200 bg-sky-50 p-5 shadow-sm ">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Audit rule</p>
-        <p className="mt-2 text-sm leading-6 text-slate-700">
-          Use this page to answer who changed what, when it happened, and whether the action was inside the user role boundary. It is not a coach performance report.
-        </p>
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Loaded window</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                {isLoading ? 'Loading activity' : `${filteredLogs.length} events visible`}
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {selectedActorId || selectedAction ? 'Filters are applied to the loaded audit window.' : 'Results follow your role and plan access.'}
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {activitySummary.map((item) => (
+                <ActivityMetric key={item.label} label={item.label} value={isLoading ? '...' : item.value} />
+              ))}
+              <ActivityMetric label="Backups" value={isLoading ? '...' : backups.length} />
+            </div>
+          </div>
+        </div>
       </section>
 
       {errorMessage ? (
@@ -226,6 +255,25 @@ export function ActivityLogPage() {
           paginatedBackups={paginatedBackups}
         />
       ) : null}
+    </div>
+  )
+}
+
+function ActivityAccessState({ title, description }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white px-5 py-6 shadow-sm shadow-slate-200/80 sm:px-6">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Activity control</p>
+      <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950">{title}</h1>
+      <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{description}</p>
+    </section>
+  )
+}
+
+function ActivityMetric({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
 }

@@ -12,14 +12,14 @@ export function BackupJournalSection({
   return (
     <SectionCard
       title="Backup journal"
-      description="Core record changes are copied automatically so platform admins have a fallback trail."
+      description="Platform admins can inspect the fallback record trail for core data changes."
     >
       {isLoading ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
           Loading backups...
         </div>
       ) : backups.length === 0 ? (
-        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
           No backup entries have been recorded yet.
         </div>
       ) : (
@@ -27,14 +27,14 @@ export function BackupJournalSection({
           {paginatedBackups.items.map((backup) => (
             <article
               key={backup.id}
-              className="rounded-md border border-slate-200 bg-white p-4 shadow-sm "
+              className="rounded-lg border border-slate-200 bg-slate-50 p-4"
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                   <p className="text-sm font-black text-slate-950">
                     {formatActivityAction(backup.operation)} {formatActivityAction(backup.tableName)}
                   </p>
-                  <p className="mt-1 break-words text-sm text-slate-600">
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-600">
                     Record: {backup.recordId || 'No record ID'}
                   </p>
                 </div>

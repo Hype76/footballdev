@@ -31,5 +31,5 @@ export function formatActivityMetadata(metadata) {
   return Object.entries(metadata)
     .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
     .map(([key, value]) => `${formatActivityAction(key)}: ${String(value)}`)
-    .join(' | ')
+    .join(', ')
 }
