@@ -7,7 +7,7 @@ export function CreateTeamSection({
   teamLimitMessage,
 }) {
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6" data-tour-id="create-team-section">
+    <section className="border border-slate-200 bg-white p-5 sm:p-6" data-tour-id="create-team-section">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Step 1</p>
@@ -29,14 +29,14 @@ export function CreateTeamSection({
             onChange={(event) => onTeamNameChange(event.target.value)}
             placeholder="U12 Blue"
             required
-            className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+            className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
           />
         </label>
         <button
           type="submit"
           disabled={isSaving || !canCreateMoreTeams}
           title={canCreateMoreTeams ? undefined : teamLimitMessage}
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
         >
           Add team
         </button>

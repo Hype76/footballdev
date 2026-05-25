@@ -614,35 +614,35 @@ export function TeamManagementPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <div className="bg-[linear-gradient(135deg,#ffffff_0%,#eefdf5_50%,#edf6ff_100%)] p-5 sm:p-8">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Team setup</p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+      <section className="border border-slate-200 bg-white p-5 sm:p-6">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Team setup</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
               Build the football structure first.
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-700">
+            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-700">
               Teams decide where players, staff access, sessions, and match day records live. Create the squad group, then give staff only the access they need.
             </p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <TeamSetupMetric label="Teams" value={teams.length} />
               <TeamSetupMetric label="Staff allocated" value={allocatedStaffCount} />
               <TeamSetupMetric label="Players placed" value={playerTotal} />
             </div>
           </div>
-          <div className="border-t border-slate-200 bg-slate-950 p-5 text-white xl:border-l xl:border-t-0">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">Setup order</p>
+          <div className="border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Setup order</p>
             <div className="mt-4 grid gap-3">
               {[
                 ['1', 'Create the team'],
                 ['2', 'Invite or allocate staff'],
                 ['3', 'Add players to that team'],
               ].map(([step, label]) => (
-                <div key={step} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/10 px-4 py-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-sm font-black text-slate-950">
+                <div key={step} className="flex items-center gap-3 border border-slate-200 bg-white px-4 py-3">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-slate-950 text-sm font-black text-white">
                     {step}
                   </span>
-                  <span className="text-sm font-black">{label}</span>
+                  <span className="text-sm font-black text-slate-950">{label}</span>
                 </div>
               ))}
             </div>
@@ -651,7 +651,7 @@ export function TeamManagementPage() {
       </section>
 
       {message ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
+        <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
           {message}
         </div>
       ) : null}
@@ -737,9 +737,9 @@ export function TeamManagementPage() {
 
 function TeamSetupMetric({ label, value }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm shadow-slate-200/70">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</p>
-      <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
+    <div className="border border-slate-200 bg-slate-50 px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
 }
