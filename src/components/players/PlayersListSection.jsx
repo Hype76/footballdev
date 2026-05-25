@@ -1,7 +1,6 @@
 import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageUtils.js'
 import { Pagination } from '../ui/Pagination.jsx'
-import { SectionCard } from '../ui/SectionCard.jsx'
 
 export function PlayersListSection({
   actionLoadingKey,
@@ -20,30 +19,51 @@ export function PlayersListSection({
   urlSection,
   viewFilter,
 }) {
+  const emptyMessage =
+    viewFilter === 'evaluated'
+      ? 'No players with completed assessments found.'
+      : viewFilter === 'scored'
+        ? 'No players with scored assessments found.'
+        : 'No players found.'
+
   return (
-    <SectionCard
-      title="All players"
-      tourId="players-list-section"
-      description="Use filters to find a player quickly, then open their profile for full history and rating trends."
+    <section
+      data-tour-id="players-list-section"
+      className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Player register</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Find, check, and act on players</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              Use the register as the source of truth for footballers. Search first, filter by section, then open a profile before making squad decisions.
+            </p>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
+            {filteredPlayers.length} matching players
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 border-b border-slate-200 px-5 py-5 sm:px-6 md:grid-cols-2 lg:grid-cols-3">
         <label className="block md:col-span-2">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Search</span>
+          <span className="mb-2 block text-sm font-black text-slate-900">Search player register</span>
           <input
             type="search"
             value={searchTerm}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search player or team"
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            placeholder="Search by player, team, or position"
+            className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
+          <span className="mb-2 block text-sm font-black text-slate-900">Football section</span>
           <select
             value={urlSection}
             onChange={(event) => onFilterChange({ section: event.target.value })}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           >
             <option value="All">All</option>
             {EVALUATION_SECTIONS.map((section) => (
@@ -55,61 +75,55 @@ export function PlayersListSection({
         </label>
       </div>
 
-      {isLoading ? (
-        <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-          Loading players...
-        </div>
-      ) : filteredPlayers.length === 0 ? (
-        <div className="mt-5 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
-          {viewFilter === 'evaluated'
-            ? 'No players with completed assessments found.'
-            : viewFilter === 'scored'
-              ? 'No players with scored assessments found.'
-              : 'No players found.'}
-        </div>
-      ) : (
-        <div className="mt-5 grid gap-3">
+      <div className="px-5 py-5 sm:px-6">
+        {isLoading ? (
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-sm font-bold text-slate-600">
+            Loading player register...
+          </div>
+        ) : filteredPlayers.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm font-bold text-slate-600">
+            {emptyMessage}
+          </div>
+        ) : (
+          <div className="grid gap-3">
           {paginatedPlayers.items.map((player) => {
             const isSquadPlayer = String(player.section ?? '').toLowerCase() === 'squad'
             const sectionBadgeClass = isSquadPlayer
               ? 'border-sky-200 bg-sky-50 text-sky-800'
               : 'border-amber-200 bg-amber-50 text-amber-800'
             const cardClass = isSquadPlayer
-              ? 'border-sky-200 bg-white hover:bg-sky-50'
-              : 'border-amber-200 bg-white hover:bg-amber-50'
-            const stripeClass = isSquadPlayer ? 'bg-sky-500' : 'bg-amber-400'
+              ? 'border-sky-200 bg-white'
+              : 'border-amber-200 bg-white'
+            const stripeClass = isSquadPlayer ? 'bg-sky-500' : 'bg-amber-500'
 
             return (
               <div
                 key={getPlayerKey(player.playerName)}
                 className={[
-                  'relative overflow-hidden rounded-2xl border p-4 shadow-sm shadow-slate-200/80 transition',
+                  'relative overflow-hidden rounded-md border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md',
                   cardClass,
                 ].join(' ')}
               >
-                <div className={['absolute inset-y-0 left-0 w-1.5', stripeClass].join(' ')} />
+                <div className={['absolute inset-y-0 left-0 w-1', stripeClass].join(' ')} />
                 <button
                   type="button"
                   onClick={() => onOpenPlayer(player)}
-                  className="w-full text-left"
+                  className="w-full px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
                 >
-                  <div className="grid gap-4 lg:grid-cols-6 lg:items-center">
-                    <div className="md:col-span-2">
-                      <div className="grid max-w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,9.5rem)_max-content] sm:items-center">
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(7rem,1fr))] xl:items-center">
+                    <div>
+                      <div className="flex max-w-full flex-col gap-2 sm:flex-row sm:items-center">
                         <p
-                          className="min-w-0 truncate text-base font-black text-slate-950"
+                          className="min-w-0 truncate text-lg font-black text-slate-950"
                           title={player.playerName}
                         >
                           {player.playerName}
                         </p>
-                        <span className={['inline-flex min-h-7 w-32 items-center justify-center rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em]', sectionBadgeClass].join(' ')}>
+                        <span className={['inline-flex min-h-7 w-fit items-center rounded-md border px-3 py-1 text-xs font-black uppercase tracking-[0.12em]', sectionBadgeClass].join(' ')}>
                           {isSquadPlayer ? 'Squad player' : 'Trial player'}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-slate-600">{player.team || 'No team entered'}</p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Shirt number: {player.shirtNumber || 'Not entered'}
-                      </p>
+                      <p className="mt-2 text-sm font-bold text-slate-700">{player.team || 'No team entered'}</p>
                       <p className="mt-1 text-sm text-slate-600">
                         {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
                       </p>
@@ -136,16 +150,16 @@ export function PlayersListSection({
                     </div>
                   </div>
                 </button>
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:flex-wrap sm:justify-end">
                   {isSquadPlayer ? (
                     <button
                       type="button"
                       disabled={actionLoadingKey === `${player.playerId}:move-to-trial`}
                       title={actionLoadingKey === `${player.playerId}:move-to-trial` ? 'Please wait while this player is being moved to trial.' : undefined}
                       onClick={(event) => void onMovePlayerToTrial(event, player)}
-                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {actionLoadingKey === `${player.playerId}:move-to-trial` ? 'Moving...' : 'Move to Trial'}
+                      {actionLoadingKey === `${player.playerId}:move-to-trial` ? 'Moving...' : 'Move to trial'}
                     </button>
                   ) : null}
                   <button
@@ -153,16 +167,16 @@ export function PlayersListSection({
                     disabled={actionLoadingKey === `${player.playerId}:archive`}
                     title={actionLoadingKey === `${player.playerId}:archive` ? 'Please wait while this player is being archived.' : undefined}
                     onClick={(event) => onArchivePlayer(event, player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-800 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {actionLoadingKey === `${player.playerId}:archive` ? 'Archiving...' : 'Archive'}
                   </button>
                   <button
                     type="button"
                     onClick={() => onOpenPlayer(player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
                   >
-                    Open Profile
+                    Open profile
                   </button>
                 </div>
               </div>
@@ -174,8 +188,9 @@ export function PlayersListSection({
             pageSize={pageSize}
             totalItems={filteredPlayers.length}
           />
-        </div>
-      )}
-    </SectionCard>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }

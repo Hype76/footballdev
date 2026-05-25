@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { ArchivePlayerModal } from '../components/players/ArchivePlayerModal.jsx'
 import { PlayersListSection } from '../components/players/PlayersListSection.jsx'
@@ -304,12 +303,22 @@ export function PlayersPage({
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow={headerEyebrow}
-        title={headerTitle}
-        description={headerDescription}
-      />
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{headerEyebrow}</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{headerTitle}</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{headerDescription}</p>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Register rule</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
+              Keep every footballer in Trial or Squad, then open their profile for assessments, parent links, and match day readiness.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
       {!isValidViewFilter || !isValidSectionFilter ? (
