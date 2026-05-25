@@ -34,7 +34,7 @@ export function PlatformAccountManagementSection({
           <select
             value={selectedClubId}
             onChange={(event) => onSelectedClubChange(event.target.value)}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
           >
             <option value="All">All clubs</option>
             {(stats?.clubs ?? []).map((club) => (
@@ -47,11 +47,11 @@ export function PlatformAccountManagementSection({
       </div>
 
       {isLoading ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+        <div className="border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
           Loading platform stats...
         </div>
       ) : visibleClubs.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+        <div className="border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
           No clubs found yet.
         </div>
       ) : (
@@ -94,7 +94,7 @@ function ClubAccountCard({
   updatingUserId,
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+    <div className="border border-slate-200 bg-white p-5">
       <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
         <ClubSummary
           club={club}
@@ -150,7 +150,7 @@ function ClubSummary({
             disabled={updatingClubId === club.id}
             title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planKey', event.target.value)}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white disabled:opacity-60"
+            className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
           >
             {PLAN_OPTIONS.map((plan) => (
               <option key={plan.key} value={plan.key}>
@@ -166,7 +166,7 @@ function ClubSummary({
             disabled={updatingClubId === club.id}
             title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planStatus', event.target.value)}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white disabled:opacity-60"
+            className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
           >
             <option value="active">Active</option>
             <option value="trialing">Trialing</option>
@@ -174,7 +174,7 @@ function ClubSummary({
             <option value="cancelled">Cancelled</option>
           </select>
         </label>
-        <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950 md:mt-7">
+        <label className="flex min-h-11 items-center gap-3 border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950 md:mt-7">
           <input
             type="checkbox"
             checked={Boolean(club.isPlanComped)}
@@ -198,7 +198,7 @@ function ClubSummary({
           disabled={updatingClubId === club.id}
           title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onToggleClubStatus(club)}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {club.status === 'suspended' ? 'Reactivate' : 'Suspend'}
         </button>
@@ -207,7 +207,7 @@ function ClubSummary({
           disabled={updatingClubId === club.id}
           title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onDeleteClub(club)}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Delete
         </button>
@@ -229,7 +229,7 @@ function ClubMetricGrid({ club }) {
   return (
     <div className="grid w-full gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 2xl:max-w-[620px]">
       {metrics.map(([label, value]) => (
-        <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <div key={label} className="border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
           <p className="mt-2 font-black text-slate-950">{value}</p>
         </div>
@@ -247,7 +247,7 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
           <p className="text-sm text-slate-600">No users found.</p>
         ) : (
           club.users.map((member) => (
-            <div key={member.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div key={member.id} className="border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
                   <p className="break-words text-sm font-black text-slate-950">
@@ -255,7 +255,7 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
                   </p>
                   <p className="mt-1 break-words text-sm text-slate-600">{member.email}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-600">
+                    <span className="rounded-sm border border-slate-200 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-600">
                       {member.roleLabel}
                     </span>
                     <StatusPill status={member.status} />
@@ -273,7 +273,7 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
                         member.status === 'suspended' ? 'reactivate' : 'suspend',
                       )
                     }
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {member.status === 'suspended' ? 'Reactivate' : 'Suspend'}
                   </button>
@@ -282,7 +282,7 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
                     disabled={updatingUserId === member.id}
                     title={updatingUserId === member.id ? 'Please wait while this user is being updated.' : undefined}
                     onClick={() => void onAccountAction(club, member, 'delete')}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Delete
                   </button>
@@ -307,7 +307,7 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
           club.teams.map((team) => (
             <div
               key={team.id}
-              className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <span className="text-sm font-black text-slate-950">{team.name}</span>
               <button
@@ -315,7 +315,7 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
                 disabled={updatingTeamId === team.id}
                 title={updatingTeamId === team.id ? 'Please wait while this team is being deleted.' : undefined}
                 onClick={() => void onDeleteTeam(club, team)}
-                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Delete Team
               </button>
@@ -328,7 +328,7 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
           <p className="text-sm text-slate-600">No role data found.</p>
         ) : (
           club.roleCounts.map((role) => (
-            <div key={role.label} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div key={role.label} className="border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-sm font-black text-slate-950">{role.label}</p>
               <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
                 {role.count} users

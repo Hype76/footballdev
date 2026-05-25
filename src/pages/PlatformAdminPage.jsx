@@ -647,7 +647,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       ) : null}
 
       {successMessage ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+        <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
           {successMessage}
         </div>
       ) : null}

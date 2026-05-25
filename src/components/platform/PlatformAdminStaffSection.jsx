@@ -25,7 +25,7 @@ export function PlatformAdminStaffSection({
               value={form.name}
               onChange={(event) => onChange('name', event.target.value)}
               placeholder="Staff member name"
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+              className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <label className="block">
@@ -36,7 +36,7 @@ export function PlatformAdminStaffSection({
               onChange={(event) => onChange('email', event.target.value)}
               required
               placeholder="admin@example.com"
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+              className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <label className="block">
@@ -49,14 +49,14 @@ export function PlatformAdminStaffSection({
               minLength={8}
               autoComplete="new-password"
               placeholder="At least 8 characters"
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
+              className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
           <button
             type="submit"
             disabled={isSaving}
             title={isSaving ? 'Please wait while this platform admin is being saved.' : undefined}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving ? 'Saving...' : 'Add Platform Admin'}
           </button>
@@ -69,7 +69,7 @@ export function PlatformAdminStaffSection({
           <p className="text-sm font-black text-slate-950">Current platform admins</p>
           <div className="mt-3 space-y-2">
             {platformAdmins.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+              <p className="border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
                 No platform admins found.
               </p>
             ) : (
@@ -77,7 +77,7 @@ export function PlatformAdminStaffSection({
                 const isCurrentUser = String(admin.id) === String(currentUserId)
 
                   return (
-                <div key={admin.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm shadow-slate-200/80">
+                <div key={admin.id} className="border border-slate-200 bg-white px-4 py-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="break-words text-sm font-black text-slate-950">
@@ -98,7 +98,7 @@ export function PlatformAdminStaffSection({
                               : 'Delete platform admin'
                         }
                         onClick={() => onDelete(admin)}
-                        className="inline-flex min-h-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex min-h-9 items-center justify-center border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {deletingAdminId === admin.id ? 'Deleting...' : 'Delete'}
                       </button>
