@@ -15,7 +15,7 @@ export function PendingAllocationsSection({
     <SectionCard
       title="Pending allocations"
       tourId="pending-allocations-section"
-      description="Invited or pre-assigned emails will receive the saved role when they sign in."
+      description="Invited emails receive the saved role when they sign in. Remove stale invites before sending new ones."
     >
       {isLoading ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
@@ -30,12 +30,12 @@ export function PendingAllocationsSection({
           {paginatedInvites.items.map((invite) => (
             <div
               key={invite.id}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-4"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="break-words text-sm font-semibold text-slate-950">{invite.email}</p>
-                  <p className="mt-1 text-sm text-slate-600">{invite.roleLabel}</p>
+                  <p className="mt-1 text-sm font-semibold text-emerald-700">{invite.roleLabel}</p>
                 </div>
                 <button
                   type="button"

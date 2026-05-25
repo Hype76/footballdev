@@ -24,7 +24,7 @@ export function ActiveUsersSection({
     <SectionCard
       title="Active users"
       tourId="active-users-section"
-      description="Existing users are listed here only where your role and team access allows."
+      description="Review who already has workspace access and keep display names readable for staff records."
     >
       {isLoading ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
@@ -39,7 +39,7 @@ export function ActiveUsersSection({
           {paginatedMembers.items.map((member) => (
             <div
               key={member.id}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-4"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -47,7 +47,7 @@ export function ActiveUsersSection({
                   <p className="mt-1 text-sm text-slate-600">{member.name || 'No display name yet'}</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
                     {getRoleLabel(member)}
                   </div>
                   {canRemoveClubUser(user, member) ? (
@@ -66,7 +66,7 @@ export function ActiveUsersSection({
               {canUpdateClubUserName(user, member) ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                   <label className="block">
-                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                    <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-600">
                       Display name
                     </span>
                     <input
