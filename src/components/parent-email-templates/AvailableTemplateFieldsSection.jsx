@@ -9,9 +9,9 @@ export function AvailableTemplateFieldsSection() {
     >
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {EMAIL_TEMPLATE_FIELDS.map((field) => (
-          <div key={field.key} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">{field.label}</p>
-            <p className="mt-1 font-mono text-xs text-[var(--text-secondary)]">{`{${field.key}}`}</p>
+          <div key={field.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-sm font-bold text-slate-950">{field.label}</p>
+            <p className="mt-1 font-mono text-xs font-semibold text-emerald-700">{`{${field.key}}`}</p>
           </div>
         ))}
       </div>

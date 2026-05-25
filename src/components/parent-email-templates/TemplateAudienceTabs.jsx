@@ -11,10 +11,10 @@ export function TemplateAudienceTabs({ audience, onAudienceChange }) {
           key={item.key}
           type="button"
           onClick={() => onAudienceChange(item.key)}
-          className={`inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold transition ${
+          className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-3 text-sm font-bold transition ${
             audience === item.key
-              ? 'border-[var(--accent)] bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-              : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+              ? 'border-emerald-700 bg-emerald-700 text-white shadow-sm'
+              : 'border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50'
           }`}
         >
           {item.label}

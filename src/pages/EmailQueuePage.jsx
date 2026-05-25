@@ -48,6 +48,12 @@ function createEditDraft(item) {
   }
 }
 
+const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
+const inputClass = 'min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white'
+const primaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
+const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+
 export function EmailQueuePage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -65,6 +71,8 @@ export function EmailQueuePage() {
     () => [...queue].sort((first, second) => new Date(first.scheduledAt).getTime() - new Date(second.scheduledAt).getTime()),
     [queue],
   )
+  const failedCount = useMemo(() => sortedQueue.filter((item) => item.lastError).length, [sortedQueue])
+  const attachedCount = useMemo(() => sortedQueue.filter((item) => item.hasAttachment).length, [sortedQueue])
 
   useEffect(() => {
     let isMounted = true
@@ -205,39 +213,59 @@ export function EmailQueuePage() {
 
       {errorMessage ? <NoticeBanner title="Email queue action failed" message={errorMessage} /> : null}
 
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Scheduled', value: sortedQueue.length },
+          { label: 'With PDFs', value: attachedCount },
+          { label: 'Failed', value: failedCount },
+        ].map((item) => (
+          <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">{item.label}</p>
+            <p className="mt-2 text-3xl font-black text-slate-950">{item.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <p className="text-sm font-black text-emerald-950">Queue rule</p>
+        <p className="mt-1 text-sm leading-6 text-emerald-900">
+          Scheduled emails sit here until their send time. Open an item to edit it, send it immediately, or delete it before it leaves the queue.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         {isLoading ? (
-          <p className="text-sm text-[var(--text-muted)]">Loading email queue...</p>
+          <p className="text-sm font-medium text-slate-600">Loading email queue...</p>
         ) : sortedQueue.length === 0 ? (
-          <p className="text-sm text-[var(--text-muted)]">No scheduled emails are waiting to send.</p>
+          <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600">No scheduled emails are waiting to send.</p>
         ) : (
           <div className="space-y-3">
             {sortedQueue.map((item) => (
-              <div key={item.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                      <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-emerald-800">
                         {item.status}
                       </span>
                       {item.hasAttachment ? (
-                        <span className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">
+                        <span className="rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-600">
                           PDF attached
                         </span>
                       ) : null}
                     </div>
-                    <h2 className="mt-3 break-words text-lg font-semibold text-[var(--text-primary)]">{item.subject}</h2>
-                    <p className="mt-2 break-words text-sm leading-6 text-[var(--text-muted)]">To: {item.toEmail}</p>
-                    <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">Send time: {formatDateTime(item.scheduledAt)}</p>
-                    {item.playerName ? <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">Player: {item.playerName}</p> : null}
-                    {item.lastError ? <p className="mt-2 text-sm font-semibold text-[var(--danger-text)]">{item.lastError}</p> : null}
+                    <h2 className="mt-3 break-words text-lg font-black text-slate-950">{item.subject}</h2>
+                    <p className="mt-2 break-words text-sm leading-6 text-slate-600">To: {item.toEmail}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">Send time: {formatDateTime(item.scheduledAt)}</p>
+                    {item.playerName ? <p className="mt-1 text-sm leading-6 text-slate-600">Player: {item.playerName}</p> : null}
+                    {item.lastError ? <p className="mt-2 text-sm font-bold text-red-700">{item.lastError}</p> : null}
                   </div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
                     <button
                       type="button"
                       onClick={() => openEditor(item)}
                       disabled={Boolean(busyId)}
-                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className={secondaryButtonClass}
                     >
                       Open
                     </button>
@@ -245,7 +273,7 @@ export function EmailQueuePage() {
                       type="button"
                       onClick={() => setSendNowTarget(item)}
                       disabled={Boolean(busyId)}
-                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={primaryButtonClass}
                     >
                       Send Now
                     </button>
@@ -253,7 +281,7 @@ export function EmailQueuePage() {
                       type="button"
                       onClick={() => setDeleteTarget(item)}
                       disabled={Boolean(busyId)}
-                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-2 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={dangerButtonClass}
                     >
                       Delete
                     </button>
@@ -278,19 +306,19 @@ export function EmailQueuePage() {
       >
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Recipients</span>
+            <span className={labelClass}>Recipients</span>
             <input
               value={editDraft.toEmail}
               onChange={(event) => setEditDraft((current) => ({ ...current, toEmail: event.target.value }))}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className={inputClass}
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Subject</span>
+            <span className={labelClass}>Subject</span>
             <input
               value={editDraft.subject}
               onChange={(event) => setEditDraft((current) => ({ ...current, subject: event.target.value }))}
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className={inputClass}
             />
           </label>
           <ScheduleDateTimePicker
@@ -298,15 +326,15 @@ export function EmailQueuePage() {
             onChange={(scheduledAt) => setEditDraft((current) => ({ ...current, scheduledAt }))}
           />
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email HTML</span>
+            <span className={labelClass}>Email HTML</span>
             <textarea
               value={editDraft.html}
               onChange={(event) => setEditDraft((current) => ({ ...current, html: event.target.value }))}
               rows={8}
-              className="min-h-40 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 font-mono text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-40 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
             />
           </label>
-          <div className="rounded-lg border border-[var(--border-color)] bg-white p-4 text-black">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm">
             <div dangerouslySetInnerHTML={{ __html: editDraft.html }} />
           </div>
         </div>

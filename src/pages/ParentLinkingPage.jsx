@@ -32,6 +32,12 @@ function isSquadPlayer(player) {
   return String(player?.section ?? '').trim().toLowerCase() === 'squad'
 }
 
+const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
+const inputClass = 'min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
+const emptyStateClass = 'rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600'
+
 export function ParentLinkingPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -50,6 +56,7 @@ export function ParentLinkingPage() {
     [players, selectedPlayerId],
   )
   const selectedContacts = useMemo(() => getPlayerContacts(selectedPlayer), [selectedPlayer])
+  const activeLinks = useMemo(() => links.filter((link) => link.status !== 'revoked'), [links])
 
   useEffect(() => {
     let isMounted = true
@@ -243,6 +250,26 @@ export function ParentLinkingPage() {
 
       {errorMessage ? <NoticeBanner title="Parent linking not completed" message={errorMessage} /> : null}
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Squad players', value: players.length },
+          { label: 'Selected contacts', value: selectedContactIds.length },
+          { label: 'Active links', value: activeLinks.length },
+        ].map((item) => (
+          <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">{item.label}</p>
+            <p className="mt-2 text-3xl font-black text-slate-950">{item.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <p className="text-sm font-black text-emerald-950">Parent portal rule</p>
+        <p className="mt-1 text-sm leading-6 text-emerald-900">
+          Parent access is only created for squad players. Select the exact parent emails that should receive access, then revoke links here when access needs to stop.
+        </p>
+      </div>
+
       <SectionCard
         title="Send parent invites"
         description="Choose one squad player and select parents, or invite every squad parent email in your current team."
@@ -252,29 +279,29 @@ export function ParentLinkingPage() {
             onClick={handleInviteAll}
             disabled={isLoading || isSending || players.length === 0}
             title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'No squad players are available for this team.' : undefined}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className={`${primaryButtonClass} w-full sm:w-auto`}
           >
             {isSending ? 'Sending...' : 'Send Invite To All'}
           </button>
         }
       >
         {isLoading ? (
-          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600">
             Loading parent linking...
           </p>
         ) : players.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className={emptyStateClass}>
             No squad players are available for parent portal links yet.
           </p>
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
             <div className="space-y-4">
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player</span>
+                <span className={labelClass}>Player</span>
                 <select
                   value={selectedPlayerId}
                   onChange={(event) => setSelectedPlayerId(event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className={inputClass}
                 >
                   {players.map((player) => (
                     <option key={player.id} value={player.id}>
@@ -284,16 +311,16 @@ export function ParentLinkingPage() {
                 </select>
               </label>
 
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">Parent emails</p>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">Only selected emails will receive this player invite.</p>
+                    <p className="text-sm font-black text-slate-950">Parent emails</p>
+                    <p className="mt-1 text-sm text-slate-600">Only selected emails will receive this player invite.</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setSelectedContactIds(selectedContacts.map((contact) => contact.id))}
-                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)]"
+                    className={secondaryButtonClass}
                   >
                     Select All
                   </button>
@@ -301,7 +328,7 @@ export function ParentLinkingPage() {
 
                 <div className="mt-4 space-y-2">
                   {selectedContacts.length > 0 ? selectedContacts.map((contact) => (
-                    <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]">
+                    <label key={contact.id} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 transition hover:bg-white">
                       <input
                         type="checkbox"
                         checked={selectedContactIds.includes(contact.id)}
@@ -312,15 +339,15 @@ export function ParentLinkingPage() {
                               : [...current, contact.id],
                           )
                         }
-                        className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                        className="mt-1 h-4 w-4 accent-emerald-700"
                       />
                       <span>
-                        <span className="block font-semibold">{contact.name || 'Parent'}</span>
-                        <span className="block text-xs text-[var(--text-muted)]">{contact.email}</span>
+                        <span className="block font-bold">{contact.name || 'Parent'}</span>
+                        <span className="block text-xs font-medium text-slate-600">{contact.email}</span>
                       </span>
                     </label>
                   )) : (
-                    <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
+                    <p className={emptyStateClass}>
                       This player does not have parent emails saved yet.
                     </p>
                   )}
@@ -331,36 +358,36 @@ export function ParentLinkingPage() {
                   onClick={handleSendSelected}
                   disabled={isSending || selectedContactIds.length === 0}
                   title={selectedContactIds.length === 0 ? 'Select at least one parent email first.' : isSending ? 'Please wait while the invite is sent.' : undefined}
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  className={`${primaryButtonClass} mt-4 w-full sm:w-auto`}
                 >
                   {isSending ? 'Sending...' : 'Send Selected Invites'}
                 </button>
               </div>
             </div>
 
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Existing links for this player</p>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-black text-slate-950">Existing links for this player</p>
               <div className="mt-4 space-y-2">
                 {links.length > 0 ? links.map((link) => (
-                  <div key={link.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+                  <div key={link.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
-                        <p className="break-words text-sm font-semibold text-[var(--text-primary)]">{link.email || 'Link only'}</p>
-                        <p className="mt-1 text-xs text-[var(--text-muted)]">{link.status} | {link.linkType}</p>
+                        <p className="break-words text-sm font-bold text-slate-950">{link.email || 'Link only'}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-600">{link.status} | {link.linkType}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setRevokeTarget(link)}
                         disabled={isSending || isRevokingLink || link.status === 'revoked'}
                         title={link.status === 'revoked' ? 'This parent access has already been removed.' : undefined}
-                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-xs font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Remove Access
                       </button>
                     </div>
                   </div>
                 )) : (
-                  <p className="text-sm text-[var(--text-muted)]">No parent links created for this player yet.</p>
+                  <p className="text-sm font-medium text-slate-600">No parent links created for this player yet.</p>
                 )}
               </div>
             </div>
