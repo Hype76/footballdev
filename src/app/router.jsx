@@ -129,15 +129,54 @@ function RouteContentSkeleton() {
   )
 }
 
-function RouteGateState({ title, message }) {
+function RouteGateState({ title, message, actions = null }) {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Workspace</p>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{message}</p>
+        {actions ? <div className="mt-6 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
       </div>
     </div>
+  )
+}
+
+function AccountDetailsUnavailableState({ message }) {
+  const { signOut } = useAuth()
+
+  const handleSignInAgain = async () => {
+    try {
+      await signOut()
+    } finally {
+      window.sessionStorage.clear()
+      window.location.assign(isParentHost() ? '/parent-login' : '/sign-in')
+    }
+  }
+
+  return (
+    <RouteGateState
+      title="Account details unavailable"
+      message={message || 'Your login session is active, but this staging workspace could not find a matching account profile. Retry once, or sign in again with a staging test account.'}
+      actions={(
+        <>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+          >
+            Retry
+          </button>
+          <button
+            type="button"
+            onClick={handleSignInAgain}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+          >
+            Sign In Again
+          </button>
+        </>
+      )}
+    />
   )
 }
 
@@ -277,12 +316,7 @@ function useWorkspaceRouteGate({
 
   if (!user) {
     return {
-      element: (
-        <RouteGateState
-          title="Account details unavailable"
-          message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-        />
-      ),
+      element: <AccountDetailsUnavailableState message={authError} />,
       user: null,
     }
   }
@@ -397,12 +431,7 @@ function WorkspaceHome() {
   }
 
   if (!user) {
-    return (
-      <RouteGateState
-        title="Account details unavailable"
-        message={authError || 'Your access profile could not be loaded yet. Try again in a moment.'}
-      />
-    )
+    return <AccountDetailsUnavailableState message={authError} />
   }
 
   if (isSuperAdmin(user)) {
