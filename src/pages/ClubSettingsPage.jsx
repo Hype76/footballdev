@@ -22,6 +22,21 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
+const clubSettingsRules = [
+  {
+    label: 'Identity first',
+    body: 'Set the club name and logo before parent invites so every shared screen looks official.',
+  },
+  {
+    label: 'Contacts are shared',
+    body: 'The contact email and phone are used by staff and parent-facing previews.',
+  },
+  {
+    label: 'Logo is controlled',
+    body: 'Only club admins with branding access can update the badge.',
+  },
+]
+
 export function ClubSettingsPage() {
   const { updateCurrentClubDetails, user } = useAuth()
   const { showToast } = useToast()
@@ -276,37 +291,67 @@ export function ClubSettingsPage() {
   }
 
   const resolvedLogoUrl = formData.logoUrl || fallbackLogo
+  const hasContacts = Boolean(String(formData.contactEmail || formData.contactPhone || '').trim())
+  const identityChecksComplete = [Boolean(String(formData.name || '').trim()), hasContacts, Boolean(formData.logoUrl)].filter(Boolean).length
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white p-5 shadow-sm shadow-emerald-900/5 sm:p-6">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-end">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Club settings</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Club identity</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
               Keep the club identity consistent everywhere.
             </h1>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-700">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
               These details appear across staff screens, parent previews, emails, and shared football records.
             </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {clubSettingsRules.map((rule) => (
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Club rule</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              Set the club name, contacts, and logo before inviting parents so every message looks official.
+
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Setup state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{identityChecksComplete} of 3 identity checks ready</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                Club name, contacts, and badge are the first setup details parents and staff will see.
+              </p>
+            </div>
+            <div className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-950">
+                  <img src={resolvedLogoUrl} alt="" className="h-full w-full object-contain p-1" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-black text-slate-950">{formData.name || user?.clubName || 'Club name not set'}</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-slate-600">
+                    {formData.contactEmail || formData.contactPhone || 'Add a contact before inviting parents'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              {canChangeClubLogo ? 'Logo changes are available for this account.' : 'Logo changes are restricted for this account.'}
             </p>
           </div>
         </div>
       </section>
 
       {isSaved ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
           Saved successfully
         </div>
       ) : null}
 
       {uploadSuccessMessage ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
           {uploadSuccessMessage}
         </div>
       ) : null}

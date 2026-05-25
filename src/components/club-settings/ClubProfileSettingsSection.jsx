@@ -25,7 +25,7 @@ export function ClubProfileSettingsSection({
   return (
     <SectionCard
       title="Club profile"
-      description="These details are used in the topbar and parent-facing preview."
+      description="Update the shared identity used by staff views, parent previews, and outgoing messages."
       tourId="club-profile-settings"
     >
       {isLoading ? (
@@ -34,9 +34,12 @@ export function ClubProfileSettingsSection({
         </div>
       ) : (
         <div className="grid gap-5 xl:grid-cols-[0.72fr_1fr]">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Logo preview</p>
-            <div className="mt-4 flex min-h-48 items-center justify-center overflow-hidden rounded-md border border-dashed border-slate-300 bg-white p-4">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Badge control</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              Use the same badge parents already recognise from match day and club communication.
+            </p>
+            <div className="mt-4 flex min-h-56 items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-white p-4">
               <img src={resolvedLogoUrl} alt={formData.name || 'Club logo'} className="max-h-40 w-auto object-contain" />
             </div>
 
@@ -60,7 +63,7 @@ export function ClubProfileSettingsSection({
                   onClick={onLogoUpload}
                   disabled={isUploading || !selectedLogoFile}
                   title={uploadDisabledReason}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:border-emerald-200 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isUploading ? 'Uploading...' : 'Upload Logo'}
                 </button>
@@ -72,9 +75,17 @@ export function ClubProfileSettingsSection({
             )}
           </div>
 
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+          <form className="rounded-lg border border-slate-200 bg-white p-5" onSubmit={onSubmit}>
+            <div className="mb-5">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Shared details</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                Keep this short and practical. These values appear where parents need to trust the club source.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-950">Club Name</span>
+              <span className="mb-2 block text-sm font-bold text-slate-950">Club name</span>
               <input
                 type="text"
                 name="name"
@@ -86,7 +97,7 @@ export function ClubProfileSettingsSection({
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-950">Contact Email</span>
+              <span className="mb-2 block text-sm font-bold text-slate-950">Contact email</span>
               <input
                 type="email"
                 name="contactEmail"
@@ -97,7 +108,7 @@ export function ClubProfileSettingsSection({
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-950">Contact Phone</span>
+              <span className="mb-2 block text-sm font-bold text-slate-950">Contact phone</span>
               <input
                 type="text"
                 name="contactPhone"
@@ -106,13 +117,14 @@ export function ClubProfileSettingsSection({
                 className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
               />
             </label>
+            </div>
 
-            <div className="md:col-span-2">
+            <div className="mt-5">
               <button
                 type="submit"
                 disabled={isSaving}
                 title={saveDisabledReason}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {isSaving ? 'Saving...' : 'Save changes'}
               </button>
