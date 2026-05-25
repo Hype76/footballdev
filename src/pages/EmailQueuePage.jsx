@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { ScheduleDateTimePicker } from '../components/ui/ScheduleDateTimePicker.jsx'
@@ -49,10 +48,25 @@ function createEditDraft(item) {
 }
 
 const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
-const inputClass = 'min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
-const primaryButtonClass = 'inline-flex min-h-10 items-center justify-center bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
-const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
+const primaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
+const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+
+const queueRules = [
+  {
+    label: 'Check failed sends first',
+    body: 'A failed parent or player email needs fixing before more messages are sent.',
+  },
+  {
+    label: 'Send time is a decision',
+    body: 'Change the schedule if the message should wait until after training or match day.',
+  },
+  {
+    label: 'Delete only before release',
+    body: 'Deleting removes the email from the holding queue before it reaches the recipient.',
+  },
+]
 
 export function EmailQueuePage() {
   const { user } = useAuth()
@@ -73,6 +87,8 @@ export function EmailQueuePage() {
   )
   const failedCount = useMemo(() => sortedQueue.filter((item) => item.lastError).length, [sortedQueue])
   const attachedCount = useMemo(() => sortedQueue.filter((item) => item.hasAttachment).length, [sortedQueue])
+  const readyCount = useMemo(() => sortedQueue.filter((item) => !item.lastError).length, [sortedQueue])
+  const nextQueuedEmail = sortedQueue[0] || null
 
   useEffect(() => {
     let isMounted = true
@@ -205,58 +221,86 @@ export function EmailQueuePage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Coach Mode"
-        title="Email queue"
-        description="Review scheduled emails before they send. Queued emails can be edited, sent now, or deleted."
-      />
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Communication queue</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+              Hold parent and player emails until they are ready to leave.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Review scheduled football messages before send time. Fix failures, change timing, send now, or delete a message before it leaves the club workspace.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {queueRules.map((rule) => (
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Next send</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                {nextQueuedEmail ? formatDateTime(nextQueuedEmail.scheduledAt) : 'Nothing queued'}
+              </p>
+              <p className="mt-2 break-words text-sm font-semibold leading-6 text-slate-600">
+                {nextQueuedEmail ? nextQueuedEmail.subject : 'Scheduled parent and player emails will appear here before they are sent.'}
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <QueueMetric label="Scheduled" value={sortedQueue.length} />
+              <QueueMetric label="Ready" value={readyCount} />
+              <QueueMetric label="With PDFs" value={attachedCount} />
+              <QueueMetric label="Failed" value={failedCount} tone={failedCount > 0 ? 'danger' : 'default'} />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {errorMessage ? <NoticeBanner title="Email queue action failed" message={errorMessage} /> : null}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        {[
-          { label: 'Scheduled', value: sortedQueue.length },
-          { label: 'With PDFs', value: attachedCount },
-          { label: 'Failed', value: failedCount },
-        ].map((item) => (
-          <div key={item.label} className="border border-slate-200 bg-white p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">{item.label}</p>
-            <p className="mt-2 text-3xl font-black text-slate-950">{item.value}</p>
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
+        <div className="mb-4 flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Holding queue</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Scheduled messages</h2>
           </div>
-        ))}
-      </div>
-
-      <div className="border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-sm font-black text-emerald-950">Queue rule</p>
-        <p className="mt-1 text-sm leading-6 text-emerald-900">
-          Scheduled emails sit here until their send time. Open an item to edit it, send it immediately, or delete it before it leaves the queue.
-        </p>
-      </div>
-
-      <div className="border border-slate-200 bg-white p-4 sm:p-5">
+          <p className="text-sm font-semibold leading-6 text-slate-600">
+            {sortedQueue.length} emails waiting for club approval or send time.
+          </p>
+        </div>
         {isLoading ? (
-          <p className="text-sm font-medium text-slate-600">Loading email queue...</p>
+          <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">Loading email queue...</p>
         ) : sortedQueue.length === 0 ? (
-          <p className="border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">No scheduled emails are waiting to send.</p>
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8">
+            <p className="text-lg font-black text-slate-950">No emails are waiting to send.</p>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+              Queue items appear after a coach schedules a parent or player email from a football workflow.
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
             {sortedQueue.map((item) => (
-              <div key={item.id} className="border border-slate-200 bg-slate-50 p-4">
+              <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-emerald-800">
+                      <span className="rounded-md border border-emerald-200 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">
                         {item.status}
                       </span>
                       {item.hasAttachment ? (
-                        <span className="rounded-sm border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-600">
+                        <span className="rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-600">
                           PDF attached
                         </span>
                       ) : null}
                     </div>
                     <h2 className="mt-3 break-words text-lg font-black text-slate-950">{item.subject}</h2>
-                    <p className="mt-2 break-words text-sm leading-6 text-slate-600">To: {item.toEmail}</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">Send time: {formatDateTime(item.scheduledAt)}</p>
+                    <p className="mt-2 break-words text-sm font-semibold leading-6 text-slate-600">To: {item.toEmail}</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Send time: {formatDateTime(item.scheduledAt)}</p>
                     {item.playerName ? <p className="mt-1 text-sm leading-6 text-slate-600">Player: {item.playerName}</p> : null}
                     {item.lastError ? <p className="mt-2 text-sm font-bold text-red-700">{item.lastError}</p> : null}
                   </div>
@@ -275,7 +319,7 @@ export function EmailQueuePage() {
                       disabled={Boolean(busyId)}
                       className={primaryButtonClass}
                     >
-                      Send Now
+                      Send now
                     </button>
                     <button
                       type="button"
@@ -298,7 +342,7 @@ export function EmailQueuePage() {
         isBusy={busyId === editingItem?.id}
         title="Queued email"
         message="Review and edit this email before its scheduled send time."
-        confirmLabel="Save Changes"
+        confirmLabel="Save changes"
         confirmDisabled={!editDraft.toEmail || !editDraft.subject || !editDraft.scheduledAt}
         onCancel={closeEditor}
         onClose={closeEditor}
@@ -331,10 +375,10 @@ export function EmailQueuePage() {
               value={editDraft.html}
               onChange={(event) => setEditDraft((current) => ({ ...current, html: event.target.value }))}
               rows={8}
-              className="min-h-40 w-full border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className="min-h-40 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
-          <div className="border border-slate-200 bg-white p-4 text-black">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 text-black">
             <div dangerouslySetInnerHTML={{ __html: editDraft.html }} />
           </div>
         </div>
@@ -346,7 +390,7 @@ export function EmailQueuePage() {
         title="Delete queued email"
         message="This removes the email from the holding queue and it will not be sent."
         items={[deleteTarget?.subject || 'Queued email', deleteTarget?.toEmail || 'No recipient']}
-        confirmLabel="Delete Email"
+        confirmLabel="Delete email"
         onCancel={() => setDeleteTarget(null)}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void confirmDelete()}
@@ -358,7 +402,7 @@ export function EmailQueuePage() {
         title="Send queued email now"
         message="This sends the queued email immediately and removes it from the queue."
         items={[sendNowTarget?.subject || 'Queued email', sendNowTarget?.toEmail || 'No recipient']}
-        confirmLabel="Send Now"
+        confirmLabel="Send now"
         onCancel={() => setSendNowTarget(null)}
         onClose={() => setSendNowTarget(null)}
         onConfirm={() => void confirmSendNow()}
@@ -367,6 +411,17 @@ export function EmailQueuePage() {
       {!hasPlanFeature(user, 'parentEmail') ? (
         <NoticeBanner title="Email queue unavailable" message={createFeatureUpgradeMessage('parentEmail')} tone="info" />
       ) : null}
+    </div>
+  )
+}
+
+function QueueMetric({ label, value, tone = 'default' }) {
+  const valueClass = tone === 'danger' ? 'text-red-700' : 'text-slate-950'
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className={`mt-2 break-words text-2xl font-black ${valueClass}`}>{value}</p>
     </div>
   )
 }
