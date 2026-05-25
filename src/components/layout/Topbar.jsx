@@ -97,13 +97,13 @@ export function Topbar({ title, onMenuClick }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[var(--border-color)] bg-[var(--app-bg)]/95 px-3 py-2 backdrop-blur sm:px-4 md:px-5 lg:px-8">
-      <div className="mx-auto flex max-w-6xl flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <header className="sticky top-0 z-20 border-b border-[var(--border-color)] bg-white/92 px-4 py-3 backdrop-blur sm:px-6 md:px-8 xl:px-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] lg:hidden"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border-color)] bg-white text-[var(--text-primary)] shadow-sm lg:hidden"
             aria-label="Open navigation"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -111,22 +111,22 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/20 sm:h-14 sm:w-14">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-white shadow-sm shadow-slate-200 sm:h-14 sm:w-14">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
           </div>
 
           <div className="min-w-0">
-            <p className="truncate text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-secondary)]">
+            <p className="truncate text-xs font-black uppercase tracking-[0.24em] text-[var(--text-secondary)]">
               {clubLabel}
             </p>
-            <h2 className="mt-1 truncate text-lg font-semibold tracking-tight text-[var(--text-primary)] sm:text-2xl">
+            <h2 className="mt-1 truncate text-xl font-black tracking-tight text-[var(--text-primary)] sm:text-3xl">
               {title}
             </h2>
-            <p className="mt-1 truncate text-xs font-medium text-[var(--text-muted)]">{workspaceContext}</p>
+            <p className="mt-1 truncate text-sm font-semibold text-[var(--text-muted)]">{workspaceContext}</p>
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 lg:w-auto lg:min-w-[34rem] xl:min-w-[38rem]">
+        <div className="grid w-full gap-2 rounded-2xl border border-[var(--border-color)] bg-white p-2 shadow-sm shadow-slate-200/80 lg:w-auto lg:min-w-[34rem] xl:min-w-[38rem]">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
             {isDemoUser(displayUser) ? (
               <label className="col-span-2 grid gap-1 md:col-span-1">
@@ -136,7 +136,7 @@ export function Topbar({ title, onMenuClick }) {
                 <select
                   value={demoRoleKey || ''}
                   onChange={(event) => setDemoRolePreview(event.target.value)}
-                  className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 rounded-xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-bold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
                 >
                   <option value="">Default role</option>
                   {DEMO_ROLE_OPTIONS.map((role) => (
@@ -157,7 +157,7 @@ export function Topbar({ title, onMenuClick }) {
                   onChange={handleTeamChange}
                   disabled={isSwitchingTeam}
                   title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
-                  className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 rounded-xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-bold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
                   {hasParentPortalAccess ? <option value="__parent_portal__">Parent Portal</option> : null}
@@ -184,7 +184,7 @@ export function Topbar({ title, onMenuClick }) {
             />
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-sm font-bold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
             >
               My Settings
             </Link>
@@ -193,7 +193,7 @@ export function Topbar({ title, onMenuClick }) {
               onClick={handleSignOut}
               disabled={isSigningOut}
               title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-xl border border-[var(--border-color)] bg-slate-950 px-3 py-3 text-sm font-bold leading-none text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>

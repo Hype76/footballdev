@@ -380,16 +380,18 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(20rem,calc(100vw-1rem))] max-w-72 flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-4 py-5 transition sm:px-5 sm:py-6 lg:fixed lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(21rem,calc(100vw-1rem))] max-w-80 flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-4 py-5 shadow-2xl shadow-slate-200/70 transition sm:px-5 sm:py-6 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-slate-200">
               <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Club OS</p>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--text-secondary)]">Club OS</p>
+            <h2 className="mt-2 truncate text-lg font-black tracking-tight text-[var(--text-primary)]">{clubLabel}</h2>
+            <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Football operations workspace</p>
           </div>
 
           <button
@@ -404,25 +406,25 @@ export function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        <nav className="mt-7 space-y-2 pb-4">
-          <div className="rounded-lg border border-[var(--accent)] bg-[var(--panel-bg)] p-3">
-            <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-              Weekly operations
+        <nav className="mt-7 space-y-3 pb-4">
+          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white p-3 shadow-sm shadow-emerald-100">
+            <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
+              This week
             </p>
-            <p className="px-2 pt-1 text-xs leading-5 text-[var(--text-muted)]">
-              Calendar, players, parents, and match day in one flow.
+            <p className="px-2 pt-1 text-xs leading-5 text-slate-600">
+              Schedule, squads, parents, match day.
             </p>
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 grid gap-2">
               <NavLink
                 to="/coach"
                 data-tour-id="sidebar-coach-home"
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
-                    'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                    'block min-h-12 rounded-xl px-4 py-3 text-base font-black transition',
                     isActive
-                      ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                      : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                      ? 'bg-slate-950 text-white shadow-sm'
+                      : 'bg-white text-slate-900 shadow-sm shadow-slate-100 hover:bg-emerald-50',
                   ].join(' ')
                 }
               >
@@ -439,10 +441,10 @@ export function Sidebar({ isOpen, onClose }) {
                     onClick={onClose}
                     className={({ isActive }) =>
                       [
-                        'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
+                        'block min-h-12 rounded-xl px-4 py-3 text-base font-black transition',
                         isActive
-                          ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                          : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
+                          ? 'bg-slate-950 text-white shadow-sm'
+                          : 'bg-white text-slate-900 shadow-sm shadow-slate-100 hover:bg-emerald-50',
                       ].join(' ')
                     }
                   >
@@ -458,8 +460,8 @@ export function Sidebar({ isOpen, onClose }) {
           </div>
 
           {teamNavigationItems.length > 0 ? (
-            <details className="group rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-2 text-sm font-semibold text-[var(--text-primary)]">
+            <details className="group rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm shadow-slate-200/70">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl px-2 text-sm font-black text-[var(--text-primary)]">
               Player and team tools
                 <span className="text-xs text-[var(--text-muted)] group-open:hidden">Show</span>
                 <span className="hidden text-xs text-[var(--text-muted)] group-open:inline">Hide</span>
@@ -476,9 +478,9 @@ export function Sidebar({ isOpen, onClose }) {
                       onClick={onClose}
                       className={({ isActive }) =>
                         [
-                          'block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
+                          'block min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
                           isActive
-                            ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                            ? 'bg-[var(--sidebar-active-bg)] text-emerald-950'
                             : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
                         ].join(' ')
                       }
@@ -498,10 +500,10 @@ export function Sidebar({ isOpen, onClose }) {
 
         {clubNavigationItems.length > 0 ? (
           <details
-            className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3"
+            className="mt-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm shadow-slate-200/70"
             data-tour-id="sidebar-club-section"
           >
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-2 text-sm font-semibold text-[var(--text-primary)]">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl px-2 text-sm font-black text-[var(--text-primary)]">
               {clubNavigationLabel} control
               <span className="text-xs text-[var(--text-muted)]">Admin</span>
             </summary>
@@ -518,9 +520,9 @@ export function Sidebar({ isOpen, onClose }) {
                   onClick={onClose}
                   className={({ isActive }) =>
                     [
-                      'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
+                      'mt-2 block min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
                       isActive
-                        ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                        ? 'bg-[var(--sidebar-active-bg)] text-emerald-950'
                         : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
                     ].join(' ')
                   }
@@ -607,8 +609,8 @@ export function Sidebar({ isOpen, onClose }) {
         ) : null}
 
         <div className="mt-auto pt-4">
-          <div className="mb-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-            <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+          <div className="mb-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm shadow-slate-200/70">
+            <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]">
               Information
             </p>
             <NavLink
@@ -616,10 +618,10 @@ export function Sidebar({ isOpen, onClose }) {
               data-tour-id="sidebar-information"
               onClick={onClose}
               className={({ isActive }) =>
-                [
-                  'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
+                  [
+                  'mt-2 block min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
                   isActive
-                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                    ? 'bg-[var(--sidebar-active-bg)] text-emerald-950'
                     : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
                 ].join(' ')
               }
@@ -628,8 +630,8 @@ export function Sidebar({ isOpen, onClose }) {
             </NavLink>
           </div>
           {!isSuperAdmin(displayUser) && canAccessPlatformFeedback ? (
-            <div className="mb-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-              <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+            <div className="mb-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm shadow-slate-200/70">
+              <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]">
                 Platform feedback
               </p>
               <NavLink
@@ -638,9 +640,9 @@ export function Sidebar({ isOpen, onClose }) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
-                    'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
+                    'mt-2 block min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
                     isActive
-                      ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
+                      ? 'bg-[var(--sidebar-active-bg)] text-emerald-950'
                       : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
                   ].join(' ')
                 }
@@ -652,7 +654,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-bold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
           >
             Sign out
           </button>

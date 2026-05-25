@@ -46,7 +46,7 @@ function StepStatus({ complete }) {
         'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold',
         complete
           ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-          : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)]',
+          : 'border-slate-300 bg-white text-slate-500',
       ].join(' ')}
       aria-label={complete ? 'Complete' : 'Not complete'}
     >
@@ -224,19 +224,19 @@ export function OnboardingProvider({ children }) {
                   'rounded-lg border p-4',
                   step.complete
                     ? 'border-emerald-100 bg-emerald-50/70'
-                    : 'border-[var(--border-color)] bg-[var(--panel-bg)]',
+                    : 'border-slate-200 bg-white',
                 ].join(' ')}
               >
                 <div className="flex gap-3">
                   <StepStatus complete={step.complete} />
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{step.rule}</p>
-                    <p className="mt-2 text-sm leading-6 text-[var(--text-primary)]">{step.detail}</p>
+                    <h3 className="text-sm font-bold text-slate-950">{step.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{step.rule}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-900">{step.detail}</p>
                     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                       <Link
                         to={step.href}
-                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-bold text-[var(--text-primary)] transition hover:border-emerald-300 hover:bg-emerald-50"
+                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:bg-emerald-50"
                       >
                         {step.actionLabel}
                       </Link>
@@ -257,13 +257,13 @@ export function OnboardingProvider({ children }) {
           </div>
 
           <div className="flex flex-col gap-2 border-t border-[var(--border-color)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <p className="text-sm text-[var(--text-muted)]">
+            <p className="text-sm text-slate-600">
               Onboarding uses real workspace data where possible. Manual steps are for rules or choices the system cannot infer.
             </p>
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-bold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
             >
               Reset setup
             </button>

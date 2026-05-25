@@ -17,20 +17,20 @@
 
 @layer base {
   :root {
-    --app-bg: #f7fafc;
+    --app-bg: #f3f7fb;
     --shell-card: #ffffff;
     --panel-bg: #ffffff;
-    --panel-alt: #f8fafc;
-    --panel-soft: #eef6f1;
+    --panel-alt: #f8fbff;
+    --panel-soft: #edf7f2;
     --sidebar-bg: #ffffff;
-    --sidebar-active-bg: #dcfce7;
-    --border-color: #d8e3dd;
+    --sidebar-active-bg: #dff8ec;
+    --border-color: #d9e5ee;
     --text-primary: #0f172a;
-    --text-muted: #4b5563;
+    --text-muted: #526171;
     --text-secondary: #047857;
-    --accent: #16a34a;
+    --accent: #00a86b;
     --accent-text: #ffffff;
-    --accent-soft: #dcfce7;
+    --accent-soft: #dcf8ea;
     --button-primary: #047857;
     --button-primary-gradient: linear-gradient(135deg, var(--button-primary), color-mix(in srgb, var(--button-primary) 72%, white));
     --button-primary-text: #ffffff;
@@ -48,21 +48,21 @@
   }
 
   body.theme-dark {
-    --app-bg: #08111f;
-    --shell-card: #0f1a2a;
-    --panel-bg: #111c2d;
-    --panel-alt: #152238;
-    --panel-soft: #1d2b44;
-    --sidebar-bg: #0b1626;
-    --sidebar-active-bg: #123323;
-    --border-color: #27364d;
+    --app-bg: #0f172a;
+    --shell-card: #172033;
+    --panel-bg: #172033;
+    --panel-alt: #1d2a40;
+    --panel-soft: #233149;
+    --sidebar-bg: #121c2d;
+    --sidebar-active-bg: #184132;
+    --border-color: #314158;
     --text-primary: #f8fafc;
-    --text-muted: #a8b3c7;
-    --text-secondary: #6ee7b7;
-    --accent: #34d399;
+    --text-muted: #c2cada;
+    --text-secondary: #86efac;
+    --accent: #4ade80;
     --accent-text: #052e16;
-    --accent-soft: #0f3b2c;
-    --button-primary: #34d399;
+    --accent-soft: #173f2c;
+    --button-primary: #16a34a;
     --button-primary-gradient: linear-gradient(135deg, var(--button-primary), color-mix(in srgb, var(--button-primary) 72%, white));
     --button-primary-text: #0a0f08;
     --danger-border: #5a2a33;

@@ -35,6 +35,7 @@ export function Layout() {
     () => (themeMode === 'system' ? systemTheme : themeMode),
     [systemTheme, themeMode],
   )
+  const effectiveTheme = import.meta.env.MODE === 'staging' ? 'light' : resolvedTheme
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -93,13 +94,13 @@ export function Layout() {
       'button-style-solid',
       'button-style-gradient',
     )
-    document.body.classList.add(resolvedTheme === 'dark' ? 'theme-dark' : 'theme-light')
+    document.body.classList.add(effectiveTheme === 'dark' ? 'theme-dark' : 'theme-light')
     document.body.classList.add(`accent-${themeAccent}`)
     document.body.classList.add(`button-style-${themeButtonStyle}`)
     window.localStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode)
     window.localStorage.setItem(THEME_ACCENT_STORAGE_KEY, themeAccent)
     window.localStorage.setItem(THEME_BUTTON_STYLE_STORAGE_KEY, themeButtonStyle)
-  }, [resolvedTheme, themeAccent, themeButtonStyle, themeMode])
+  }, [effectiveTheme, themeAccent, themeButtonStyle, themeMode])
 
   useEffect(() => {
     const legacyTheme = window.localStorage.getItem('app-theme')
@@ -218,20 +219,20 @@ export function Layout() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
+      <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-72">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-80">
           <Topbar
             title={activeTitle}
             onMenuClick={() => setIsSidebarOpen(true)}
           />
 
-          <main className="flex-1 px-0 py-0 sm:px-4 sm:py-4 md:px-5 md:py-5 xl:px-8">
-            <div className="mx-auto w-full max-w-6xl">
+          <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-10">
+            <div className="mx-auto w-full max-w-7xl">
               <OnboardingProvider>
-                <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:border sm:p-4 md:p-5">
-                  {needsAccessModeSelection ? (
+                {needsAccessModeSelection ? (
+                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--shell-card)] p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Access"
                       title="How do you want to open this account?"
@@ -241,7 +242,9 @@ export function Layout() {
                       options={accessModeOptions}
                       onSelect={handleAccessModeSelect}
                     />
-                  ) : needsClubSelection ? (
+                  </div>
+                ) : needsClubSelection ? (
+                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--shell-card)] p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Club"
                       title="Which club do you want to open?"
@@ -255,7 +258,9 @@ export function Layout() {
                       }))}
                       onSelect={handleClubSelect}
                     />
-                  ) : needsTeamSelection ? (
+                  </div>
+                ) : needsTeamSelection ? (
+                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--shell-card)] p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Team"
                       title="Which team do you want to work with?"
@@ -269,10 +274,10 @@ export function Layout() {
                       }))}
                       onSelect={handleTeamSelect}
                     />
-                  ) : (
-                    <Outlet />
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <Outlet />
+                )}
               </OnboardingProvider>
             </div>
           </main>
