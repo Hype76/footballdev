@@ -47,9 +47,9 @@ const EMPTY_GOAL_FORM = {
 
 const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
 const smallLabelClass = 'mb-1 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500'
-const inputClass = 'min-h-11 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60'
-const compactInputClass = 'min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60'
+const compactInputClass = 'min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60'
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
@@ -457,19 +457,19 @@ export function MatchDayPage() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Match control</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Match day</h1>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Match control</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Control fixtures before, during, and after full time.</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Create the fixture, request parent scorers, choose the volunteer, then keep score, goals, and match notes tied to the club record.
+              Create the fixture, request parent help when needed, choose the scorer, then keep score, goals, and match notes tied to the club record.
             </p>
           </div>
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Match rule</p>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              Staff own the fixture and result. Parents can help with live scoring only after staff select them.
+              Staff own the fixture and result. Parents can help with live scoring only when a staff member selects them.
             </p>
           </div>
         </div>
@@ -479,17 +479,17 @@ export function MatchDayPage() {
 
       <section className="grid gap-3 md:grid-cols-3">
         {matchDaySummary.map((item) => (
-          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
+          <article key={item.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">{item.label}</p>
             <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : item.value}</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
           </article>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Fixture setup</p>
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Fixture setup</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Create match day</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             Set up the match and publish a scorer request to the parent portal.
@@ -607,7 +607,7 @@ export function MatchDayPage() {
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <input
                 type="checkbox"
                 checked={form.enableMotmPoll}
@@ -642,9 +642,9 @@ export function MatchDayPage() {
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Live board</p>
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Live board</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Live and upcoming matches</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             Select scorers, update the score, and add goals with scorer and assist details.
@@ -652,7 +652,7 @@ export function MatchDayPage() {
         </div>
         <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
+          <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
             Loading match day...
           </p>
         ) : activeMatches.length > 0 ? (
@@ -684,17 +684,17 @@ export function MatchDayPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
+          <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
             No live or upcoming matches have been created yet.
           </p>
         )}
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-4 border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-4 border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Results archive</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Results archive</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Previous games</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
               Review completed results. Reset the list when a new season starts.
@@ -704,7 +704,7 @@ export function MatchDayPage() {
             type="button"
             onClick={handleResetPrevious}
             disabled={isSaving || previousMatches.length === 0}
-            className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             Reset previous games
           </button>
@@ -717,7 +717,7 @@ export function MatchDayPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
+          <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
             No previous games are showing.
           </p>
         )}
