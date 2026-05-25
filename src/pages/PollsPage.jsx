@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManagePolls, useAuth } from '../lib/auth.js'
 import {
@@ -35,11 +33,11 @@ const EMPTY_FORM = {
 }
 
 const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
-const inputClass = 'min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
-const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600'
+const inputClass = 'min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+const emptyStateClass = 'rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600'
 
 function getOptionId(index) {
   return `option-${index + 1}`
@@ -393,15 +391,27 @@ export function PollsPage() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Polls"
-        title="Polls"
-        description="Create text, time, or awards polls for parent portal users or team staff."
-      />
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Availability control</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Polls</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+              Create parent or staff polls for one football decision at a time: availability, session times, player awards, or team admin choices.
+            </p>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Poll rule</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
+              Pick the audience first, set the voting rules before publishing, then close the poll when the football decision is made.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {successMessage ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
           {successMessage}
         </div>
       ) : null}
@@ -415,22 +425,23 @@ export function PollsPage() {
           { label: 'Staff polls', value: staffPollCount },
           { label: 'Visible now', value: visiblePolls.length },
         ].map((item) => (
-          <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">{item.label}</p>
+          <div key={item.label} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{item.label}</p>
             <p className="mt-2 text-3xl font-black text-slate-950">{item.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-sm font-black text-emerald-950">Poll rule</p>
-        <p className="mt-1 text-sm leading-6 text-emerald-900">
-          Polls are for one clear decision at a time. Choose the audience, set the voting rules before publishing, and close the poll when the decision is made.
-        </p>
-      </div>
-
-      <SectionCard title="Create poll" description="Choose a quick poll type, configure the options, and publish it.">
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Create request</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Create poll</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Choose the poll type, configure the options, and publish it to the right football audience.
+          </p>
+        </div>
         <form className="space-y-4" onSubmit={handleCreatePoll}>
+          <div className="space-y-4 px-5 py-5 sm:px-6">
           <div>
             <p className={labelClass}>Poll type</p>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -439,7 +450,7 @@ export function PollsPage() {
                   key={option.value}
                   type="button"
                   onClick={() => handlePollTypeChange(option.value)}
-                  className={`min-h-11 rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                  className={`min-h-11 rounded-md border px-4 py-3 text-sm font-black transition ${
                     form.pollType === option.value
                       ? 'border-emerald-700 bg-emerald-700 text-white shadow-sm'
                       : 'border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-slate-50'
@@ -506,13 +517,13 @@ export function PollsPage() {
             <textarea
               value={form.description}
               onChange={(event) => updateForm({ description: event.target.value })}
-              className="min-h-24 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               placeholder="Description optional"
             />
           </label>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
               <input
                 type="checkbox"
                 checked={form.allowMultiple}
@@ -525,7 +536,7 @@ export function PollsPage() {
               Multiple choice
             </label>
             {form.allowMultiple ? (
-              <label className="block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <label className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                 <span className="mb-1 block text-sm font-bold text-slate-950">Number of choices</span>
                 <input
                   type="number"
@@ -533,12 +544,12 @@ export function PollsPage() {
                   max={Math.max(buildOptionsForSubmit(form).length, 1)}
                   value={form.maxChoices}
                   onChange={(event) => updateForm({ maxChoices: event.target.value })}
-                  className="min-h-9 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-500"
+                  className="min-h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-600"
                   placeholder="No limit"
                 />
               </label>
             ) : null}
-            <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
               <input
                 type="checkbox"
                 checked={form.hideVotes}
@@ -547,7 +558,7 @@ export function PollsPage() {
               />
               Hide votes
             </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
               <input
                 type="checkbox"
                 checked={form.allowComments}
@@ -556,7 +567,7 @@ export function PollsPage() {
               />
               Allow comments
             </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
               <input
                 type="checkbox"
                 checked={form.allowVoteChanges}
@@ -566,7 +577,7 @@ export function PollsPage() {
               Allow choice change
             </label>
             {form.audience === 'parents' ? (
-              <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+              <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
                 <input
                   type="checkbox"
                   checked={form.allowOwnChildVotes}
@@ -597,26 +608,32 @@ export function PollsPage() {
           >
             {isSaving ? 'Creating...' : 'Create poll'}
           </button>
+          </div>
         </form>
-      </SectionCard>
+      </section>
 
-      <SectionCard
-        title="Poll board"
-        description="Review active and closed polls, answer staff polls, and see response totals."
-        actions={(
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-4 border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Decision board</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Poll board</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              Review active and closed polls, answer staff polls, and see response totals.
+            </p>
+          </div>
           <select
             value={audienceFilter}
             onChange={(event) => setAudienceFilter(event.target.value)}
-            className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-950 outline-none transition focus:border-emerald-500"
+            className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-950 outline-none transition focus:border-emerald-600"
           >
             <option value="all">All polls</option>
             <option value="parents">Parent polls</option>
             <option value="staff">Team staff polls</option>
           </select>
-        )}
-      >
+        </div>
+        <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600">
+          <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
             Loading polls...
           </p>
         ) : visiblePolls.length > 0 ? (
@@ -639,7 +656,8 @@ export function PollsPage() {
             No polls have been created yet.
           </p>
         )}
-      </SectionCard>
+        </div>
+      </section>
     </div>
   )
 }
@@ -673,7 +691,7 @@ function PollOptionsEditor({
           <select
             value={selectedPlayerId}
             onChange={(event) => setSelectedPlayerId(event.target.value)}
-            className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className="min-h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           >
             <option value="">Select a player</option>
             {awardPlayers.map((player) => (
@@ -693,7 +711,7 @@ function PollOptionsEditor({
         </div>
         <div className="mt-3 space-y-2">
           {form.options.length > 0 ? form.options.map((option, index) => (
-            <div key={option.id || `${option.label}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <div key={option.id || `${option.label}-${index}`} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
               <span className="min-w-0 break-words text-sm font-bold text-slate-950">{option.label}</span>
               <button
                 type="button"
@@ -732,7 +750,7 @@ function PollOptionsEditor({
               type={form.pollType === 'time' ? 'datetime-local' : 'text'}
               value={option}
               onChange={(event) => onOptionChange(index, event.target.value)}
-              className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               placeholder={`Option ${index + 1}`}
             />
             <button
@@ -759,36 +777,36 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
   const isClosed = poll.status === 'closed'
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+            <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
               {isStaffPoll ? 'Team staff' : 'Parent portal'}
             </span>
-            <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+            <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
               {poll.pollType === 'time' ? 'Time poll' : poll.pollType === 'awards' ? 'Awards poll' : 'Text poll'}
             </span>
             {poll.allowMultiple ? (
-              <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
                 {poll.maxChoices ? `Up to ${poll.maxChoices} choices` : 'Multiple choice'}
               </span>
             ) : null}
             {!isStaffPoll && poll.allowOwnChildVotes === false ? (
-              <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
                 Own child blocked
               </span>
             ) : null}
             {poll.allowVoteChanges === false ? (
-              <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
                 Vote locked after choice
               </span>
             ) : null}
-            <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-bold ${isClosed ? 'border-slate-200 bg-slate-100 text-slate-600' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+            <span className={`inline-flex w-fit rounded-md border px-3 py-1 text-xs font-bold ${isClosed ? 'border-slate-200 bg-slate-100 text-slate-600' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
               {isClosed ? 'Closed' : 'Open'}
             </span>
             {poll.teamName ? (
-              <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
                 {poll.teamName}
               </span>
             ) : null}
@@ -828,7 +846,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
           const isSelected = ownOptionIds.includes(option.id)
 
           return (
-            <div key={option.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div key={option.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-950">{option.label}</p>
@@ -839,7 +857,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
                     type="button"
                     onClick={() => onVote(poll, option.id)}
                     disabled={isBusy}
-                    className={`inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                       isSelected
                         ? 'border border-emerald-700 bg-emerald-700 text-white'
                         : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
@@ -849,8 +867,8 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
                   </button>
                 ) : null}
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full rounded-full bg-emerald-600" style={{ width: `${percent}%` }} />
+              <div className="mt-3 h-2 overflow-hidden rounded-md bg-slate-200">
+                <div className="h-full rounded-md bg-emerald-600" style={{ width: `${percent}%` }} />
               </div>
             </div>
           )
