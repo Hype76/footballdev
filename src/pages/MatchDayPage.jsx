@@ -47,6 +47,12 @@ const EMPTY_GOAL_FORM = {
   notes: '',
 }
 
+const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
+const smallLabelClass = 'mb-1 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500'
+const inputClass = 'min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60'
+const compactInputClass = 'min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
+
 function confirmMatchDayAction(message) {
   return window.confirm(message)
 }
@@ -136,6 +142,31 @@ export function MatchDayPage() {
 
   const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
+  const liveMatches = useMemo(
+    () => activeMatches.filter((match) => !['scheduled', 'scorer_request'].includes(match.status)).length,
+    [activeMatches],
+  )
+  const scorerRequests = useMemo(
+    () => activeMatches.filter((match) => match.status === 'scorer_request').length,
+    [activeMatches],
+  )
+  const matchDaySummary = [
+    {
+      label: 'Live now',
+      value: liveMatches,
+      caption: 'Matches currently being updated for parents.',
+    },
+    {
+      label: 'Scorer requests',
+      value: scorerRequests,
+      caption: 'Fixtures waiting for parent volunteers.',
+    },
+    {
+      label: 'Previous games',
+      value: previousMatches.length,
+      caption: 'Completed results retained for review.',
+    },
+  ]
   const squadPlayers = useMemo(
     () =>
       players
@@ -436,25 +467,42 @@ export function MatchDayPage() {
 
       {errorMessage ? <NoticeBanner title="Match Day action failed" message={errorMessage} /> : null}
 
+      <section className="grid gap-4 md:grid-cols-3">
+        {matchDaySummary.map((item) => (
+          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : item.value}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Match Day rule</p>
+        <p className="mt-2 text-sm leading-6 text-slate-700">
+          Create the fixture before parents can volunteer. Staff choose the scorer, staff own the result, and parents only see the updates that are published.
+        </p>
+      </section>
+
       <SectionCard title="Create Match Day" description="Set up the match and publish a scorer request to the parent portal.">
         <form className="space-y-4" onSubmit={handleCreateMatch}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Opponent</span>
+              <span className={labelClass}>Opponent</span>
               <input
                 value={form.opponent}
                 onChange={(event) => updateForm({ opponent: event.target.value })}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={inputClass}
                 required
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
+              <span className={labelClass}>Team</span>
               <select
                 value={form.teamId}
                 onChange={(event) => updateForm({ teamId: event.target.value })}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={inputClass}
               >
                 <option value="">Current or all teams</option>
                 {teams.map((team) => (
@@ -464,31 +512,31 @@ export function MatchDayPage() {
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Date</span>
+              <span className={labelClass}>Date</span>
               <input
                 type="date"
                 value={form.matchDate}
                 onChange={(event) => updateForm({ matchDate: event.target.value })}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={inputClass}
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Kick off</span>
+              <span className={labelClass}>Kick off</span>
               <input
                 type="time"
                 value={form.kickoffTime}
                 onChange={(event) => updateForm({ kickoffTime: event.target.value })}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={inputClass}
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Home or away</span>
+              <span className={labelClass}>Home or away</span>
               <select
                 value={form.homeAway}
                 onChange={(event) => updateForm({ homeAway: event.target.value })}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={inputClass}
               >
                 {MATCH_DAY_HOME_AWAY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -497,11 +545,11 @@ export function MatchDayPage() {
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Reuse location</span>
+              <span className={labelClass}>Reuse location</span>
               <select
                 value=""
                 onChange={(event) => applyLocation(event.target.value)}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={inputClass}
               >
                 <option value="">Choose saved location</option>
                 {locations.map((location) => (
@@ -511,55 +559,55 @@ export function MatchDayPage() {
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Venue</span>
+              <span className={labelClass}>Venue</span>
               <input
                 value={form.venueName}
                 onChange={(event) => updateForm({ venueName: event.target.value })}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={inputClass}
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Address</span>
+              <span className={labelClass}>Address</span>
               <input
                 value={form.venueAddress}
                 onChange={(event) => updateForm({ venueAddress: event.target.value })}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={inputClass}
               />
             </label>
           </div>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Scorer request message</span>
+            <span className={labelClass}>Scorer request message</span>
             <textarea
               value={form.scorerRequestMessage}
               onChange={(event) => updateForm({ scorerRequestMessage: event.target.value })}
-              className="min-h-24 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={`${inputClass} min-h-24`}
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Match notes</span>
+            <span className={labelClass}>Match notes</span>
             <textarea
               value={form.notes}
               onChange={(event) => updateForm({ notes: event.target.value })}
-              className="min-h-24 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={`${inputClass} min-h-24`}
             />
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2">
+            <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <input
                 type="checkbox"
                 checked={form.enableMotmPoll}
                 onChange={(event) => updateForm({ enableMotmPoll: event.target.checked })}
-                className="h-4 w-4 accent-[var(--accent)]"
+                className="h-4 w-4 accent-emerald-700"
               />
-              <span className="text-sm font-semibold text-[var(--text-primary)]">Create Player of the Match poll at full time</span>
+              <span className="text-sm font-bold text-slate-950">Create Player of the Match poll at full time</span>
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Poll expiry hours</span>
+              <span className={labelClass}>Poll expiry hours</span>
               <input
                 type="number"
                 min="1"
@@ -567,7 +615,7 @@ export function MatchDayPage() {
                 value={form.motmPollExpiryHours}
                 onChange={(event) => updateForm({ motmPollExpiryHours: event.target.value })}
                 disabled={!form.enableMotmPoll}
-                className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                className={inputClass}
               />
             </label>
           </div>
@@ -575,7 +623,7 @@ export function MatchDayPage() {
           <button
             type="submit"
             disabled={isSaving}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className={`${primaryButtonClass} w-full sm:w-auto`}
           >
             {isSaving ? 'Creating...' : 'Create Match Day'}
           </button>
@@ -587,7 +635,7 @@ export function MatchDayPage() {
         description="Select scorers, update the score, and add goals with scorer and assist details."
       >
         {isLoading ? (
-          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             Loading Match Day...
           </p>
         ) : activeMatches.length > 0 ? (
@@ -619,7 +667,7 @@ export function MatchDayPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             No live or upcoming matches have been created yet.
           </p>
         )}
@@ -633,7 +681,7 @@ export function MatchDayPage() {
             type="button"
             onClick={handleResetPrevious}
             disabled={isSaving || previousMatches.length === 0}
-            className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             Reset previous games
           </button>
@@ -646,7 +694,7 @@ export function MatchDayPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             No previous games are showing.
           </p>
         )}
@@ -673,80 +721,81 @@ function MatchDayCard({
 }) {
   const isBusy = activeMatchId === match.id
   const selectedParentLinkIds = new Set(match.scorerAssignments.map((assignment) => String(assignment.parentLinkId)))
+  const currentMinute = getCurrentMatchMinute(match)
 
   return (
-    <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+            <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
               {match.status.replace(/_/g, ' ')}
             </span>
-            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+            <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
               {match.homeAway}
             </span>
             {match.teamName ? (
-              <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
                 {match.teamName}
               </span>
             ) : null}
           </div>
-          <h4 className="mt-3 text-lg font-semibold text-[var(--text-primary)]">{match.teamName || 'Our team'} v {match.opponent}</h4>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">{formatMatchDate(match)}</p>
-          {match.venueName ? <p className="mt-1 text-sm text-[var(--text-muted)]">{match.venueName}</p> : null}
-          {match.notes ? <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--text-muted)]">{match.notes}</p> : null}
+          <h4 className="mt-3 text-lg font-black text-slate-950">{match.teamName || 'Our team'} v {match.opponent}</h4>
+          <p className="mt-1 text-sm text-slate-600">{formatMatchDate(match)}</p>
+          {match.venueName ? <p className="mt-1 text-sm text-slate-600">{match.venueName}</p> : null}
+          {match.notes ? <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{match.notes}</p> : null}
         </div>
 
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Live score</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Live score</p>
+          <p className="mt-2 text-4xl font-black text-slate-950">
             {getClubScore(match)} - {getOpponentScore(match)}
           </p>
-          {getCurrentMatchMinute(match) ? (
-            <p className="mt-2 text-sm font-semibold text-[var(--text-secondary)]">{getCurrentMatchMinute(match)} min</p>
+          {currentMinute ? (
+            <p className="mt-2 text-sm font-bold text-slate-500">{currentMinute} min</p>
           ) : null}
         </div>
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-          <h5 className="text-sm font-semibold text-[var(--text-primary)]">Score and status</h5>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <h5 className="text-sm font-black text-slate-950">Score and status</h5>
           {match.status === 'scheduled' || match.status === 'scorer_request' ? (
             <button
               type="button"
               onClick={() => onStatusChange(match, 'live')}
               disabled={isBusy}
-              className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Start match
             </button>
           ) : null}
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Home</span>
+              <span className={smallLabelClass}>Home</span>
               <input
                 type="number"
                 min="0"
                 value={scoreDraft.homeScore}
                 onChange={(event) => onScoreDraftChange({ homeScore: event.target.value })}
-                className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={compactInputClass}
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Away</span>
+              <span className={smallLabelClass}>Away</span>
               <input
                 type="number"
                 min="0"
                 value={scoreDraft.awayScore}
                 onChange={(event) => onScoreDraftChange({ awayScore: event.target.value })}
-                className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className={compactInputClass}
               />
             </label>
             <button
               type="button"
               onClick={() => onScoreSave(match)}
               disabled={isBusy}
-              className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Save score
             </button>
@@ -761,8 +810,8 @@ function MatchDayCard({
                 disabled={isBusy}
                 className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   match.status === option.value
-                    ? 'border-[var(--accent)] bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                    : 'border-[var(--border-color)] bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+                    ? 'border-emerald-700 bg-emerald-700 text-white'
+                    : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
                 }`}
               >
                 {option.label}
@@ -771,28 +820,28 @@ function MatchDayCard({
           </div>
         </div>
 
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-          <h5 className="text-sm font-semibold text-[var(--text-primary)]">Parent scorer requests</h5>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <h5 className="text-sm font-black text-slate-950">Parent scorer requests</h5>
           {match.scorerInterests.length > 0 ? (
             <div className="mt-3 space-y-2">
               {match.scorerInterests.map((interest) => {
                 const isSelected = selectedParentLinkIds.has(String(interest.parentLinkId))
 
                 return (
-                  <div key={interest.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3">
+                  <div key={interest.id} className="rounded-2xl border border-slate-200 bg-white p-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[var(--text-primary)]">{interest.parentEmail || interest.parentName || 'Parent'}</p>
-                        <p className="mt-1 text-xs text-[var(--text-muted)]">
+                        <p className="text-sm font-black text-slate-950">{interest.parentEmail || interest.parentName || 'Parent'}</p>
+                        <p className="mt-1 text-xs text-slate-500">
                           {interest.playerName ? `Linked to ${interest.playerName}` : 'Parent portal volunteer'}
                         </p>
-                        {interest.message ? <p className="mt-2 text-sm text-[var(--text-muted)]">{interest.message}</p> : null}
+                        {interest.message ? <p className="mt-2 text-sm text-slate-600">{interest.message}</p> : null}
                       </div>
                       <button
                         type="button"
                         onClick={() => onSelectScorer(match, interest)}
                         disabled={isBusy || isSelected}
-                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isSelected ? 'Selected' : 'Select scorer'}
                       </button>
@@ -802,33 +851,33 @@ function MatchDayCard({
               })}
             </div>
           ) : (
-            <p className="mt-3 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+            <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-600">
               No parents have volunteered yet.
             </p>
           )}
         </div>
       </div>
 
-      <form className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4" onSubmit={(event) => onAddGoal(event, match)}>
-        <h5 className="text-sm font-semibold text-[var(--text-primary)]">Add goal</h5>
+      <form className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4" onSubmit={(event) => onAddGoal(event, match)}>
+        <h5 className="text-sm font-black text-slate-950">Add goal</h5>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Team</span>
+            <span className={smallLabelClass}>Team</span>
             <select
               value={goalForm.teamSide}
               onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })}
-              className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={compactInputClass}
             >
               <option value="club">Our team</option>
               <option value="opponent">Opponent</option>
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Scorer player</span>
+            <span className={smallLabelClass}>Scorer player</span>
             <select
               value=""
               onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)}
-              className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={compactInputClass}
             >
               <option value="">Choose player</option>
               {players.map((player) => (
@@ -837,27 +886,27 @@ function MatchDayCard({
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Scorer name</span>
+            <span className={smallLabelClass}>Scorer name</span>
             <input
               value={goalForm.scorerName}
               onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })}
-              className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={compactInputClass}
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Scorer shirt</span>
+            <span className={smallLabelClass}>Scorer shirt</span>
             <input
               value={goalForm.scorerShirtNumber}
               onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })}
-              className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={compactInputClass}
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Assist player</span>
+            <span className={smallLabelClass}>Assist player</span>
             <select
               value=""
               onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)}
-              className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={compactInputClass}
             >
               <option value="">Choose player</option>
               {players.map((player) => (
@@ -866,25 +915,25 @@ function MatchDayCard({
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Assist name</span>
+            <span className={smallLabelClass}>Assist name</span>
             <input
               value={goalForm.assistName}
               onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })}
-              className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={compactInputClass}
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Assist shirt</span>
+            <span className={smallLabelClass}>Assist shirt</span>
             <input
               value={goalForm.assistShirtNumber}
               onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })}
-              className="min-h-10 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className={compactInputClass}
             />
           </label>
           <button
             type="submit"
             disabled={isBusy}
-            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Add goal
           </button>
@@ -894,11 +943,11 @@ function MatchDayCard({
       {match.events.length > 0 ? (
         <div className="mt-4 space-y-2">
           {match.events.slice(0, 6).map((event) => (
-            <div key={event.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
+            <div key={event.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-black text-slate-950">
                 {event.eventType === 'goal' ? 'Goal' : 'Update'} | {event.homeScore} - {event.awayScore}
               </p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
+              <p className="mt-1 text-xs text-slate-500">
                 {event.minute !== null ? `${event.minute} min | ` : ''}
                 {event.scorerInitials || event.scorerName || 'Score update'}
                 {event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}

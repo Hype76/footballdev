@@ -54,24 +54,24 @@ export function PreviousGameCard({ match, onOpen }) {
     <button
       type="button"
       onClick={() => onOpen(match)}
-      className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-left transition hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+      className="block w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm shadow-slate-200/80 transition hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{formatPreviousMatchDate(match)}</p>
-      <h4 className="mt-2 text-base font-semibold text-[var(--text-primary)]">{match.teamName || 'Our team'} v {match.opponent}</h4>
-      <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{formatPreviousMatchDate(match)}</p>
+      <h4 className="mt-2 text-base font-black text-slate-950">{match.teamName || 'Our team'} v {match.opponent}</h4>
+      <p className="mt-2 text-3xl font-black text-slate-950">
         {getClubScore(match)} - {getOpponentScore(match)}
       </p>
       {goals.length > 0 ? (
         <div className="mt-3 space-y-2">
           {goals.slice(0, 4).map((event) => (
-            <p key={event.id} className="text-xs text-[var(--text-muted)]">{formatGoalLine(event)}</p>
+            <p key={event.id} className="text-xs text-slate-600">{formatGoalLine(event)}</p>
           ))}
           {goals.length > 4 ? (
-            <p className="text-xs font-semibold text-[var(--text-secondary)]">View {goals.length - 4} more</p>
+            <p className="text-xs font-bold text-slate-500">View {goals.length - 4} more</p>
           ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-xs text-[var(--text-muted)]">{match.status.replace(/_/g, ' ')}</p>
+        <p className="mt-3 text-xs text-slate-600">{match.status.replace(/_/g, ' ')}</p>
       )}
     </button>
   )
@@ -85,61 +85,61 @@ export function PreviousGameDetailModal({ match, onClose }) {
   const goals = getGoalEvents(match)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-3 py-4 sm:items-center" role="dialog" aria-modal="true" aria-label="Previous game details">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 shadow-xl sm:p-5">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 px-3 py-4 sm:items-center" role="dialog" aria-modal="true" aria-label="Previous game details">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-xl sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{formatPreviousMatchDate(match)}</p>
-            <h3 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{match.teamName || 'Our team'} v {match.opponent}</h3>
-            <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{formatPreviousMatchDate(match)}</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">{match.teamName || 'Our team'} v {match.opponent}</h3>
+            <p className="mt-2 text-4xl font-black text-slate-950">
               {getClubScore(match)} - {getOpponentScore(match)}
             </p>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">{match.status.replace(/_/g, ' ')}</p>
+            <p className="mt-1 text-sm text-slate-600">{match.status.replace(/_/g, ' ')}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
           >
             Close
           </button>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Venue</p>
-            <p className="mt-2 text-sm text-[var(--text-primary)]">{match.venueName || 'Venue not set'}</p>
-            {match.venueAddress ? <p className="mt-1 text-sm text-[var(--text-muted)]">{match.venueAddress}</p> : null}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Venue</p>
+            <p className="mt-2 text-sm font-bold text-slate-950">{match.venueName || 'Venue not set'}</p>
+            {match.venueAddress ? <p className="mt-1 text-sm text-slate-600">{match.venueAddress}</p> : null}
           </div>
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Result</p>
-            <p className="mt-2 text-sm text-[var(--text-primary)]">{match.homeAway} game</p>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">{goals.length} {goals.length === 1 ? 'goal recorded' : 'goals recorded'}</p>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Result</p>
+            <p className="mt-2 text-sm font-bold text-slate-950">{match.homeAway} game</p>
+            <p className="mt-1 text-sm text-slate-600">{goals.length} {goals.length === 1 ? 'goal recorded' : 'goals recorded'}</p>
           </div>
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-semibold text-[var(--text-primary)]">Goal details</h4>
+          <h4 className="text-sm font-black text-slate-950">Goal details</h4>
           {goals.length > 0 ? (
             <div className="mt-3 space-y-2">
               {goals.map((event) => (
-                <div key={event.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{formatGoalLine(event)}</p>
-                  {event.notes ? <p className="mt-1 text-xs text-[var(--text-muted)]">{event.notes}</p> : null}
+                <div key={event.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-sm font-bold text-slate-950">{formatGoalLine(event)}</p>
+                  {event.notes ? <p className="mt-1 text-xs text-slate-600">{event.notes}</p> : null}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-3 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+            <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
               No goals were recorded for this match.
             </p>
           )}
         </div>
 
         {match.notes ? (
-          <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Notes</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--text-muted)]">{match.notes}</p>
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Notes</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{match.notes}</p>
           </div>
         ) : null}
       </div>
