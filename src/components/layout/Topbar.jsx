@@ -102,9 +102,9 @@ export function Topbar({ title, onMenuClick }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-emerald-100 bg-white/95 px-4 py-3 shadow-sm shadow-emerald-900/5 sm:px-6 md:px-8 xl:px-10">
-      <div className="mx-auto flex max-w-[78rem] flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
+    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm shadow-slate-200/80 sm:px-6 md:px-8 xl:px-12">
+      <div className="mx-auto flex max-w-[92rem] flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
@@ -116,7 +116,7 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-950 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-950 shadow-sm">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
           </div>
 
@@ -125,7 +125,7 @@ export function Topbar({ title, onMenuClick }) {
               <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">
                 {clubLabel}
               </p>
-              <span className="rounded-md bg-lime-100 px-2 py-1 text-[11px] font-black text-lime-950 ring-1 ring-lime-200">
+              <span className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-black text-emerald-900 ring-1 ring-emerald-100">
                 {workspaceContext}
               </span>
               <span className="rounded-md bg-sky-50 px-2 py-1 text-[11px] font-black text-sky-800 ring-1 ring-sky-100">
@@ -135,11 +135,11 @@ export function Topbar({ title, onMenuClick }) {
             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
               {title}
             </h1>
-            <p className="mt-1 text-sm font-semibold text-slate-600">{userLabel} | {roleLabel} | {teamLabel}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-600">{userLabel} / {roleLabel} / {teamLabel}</p>
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-slate-200 bg-[#f7fafc] p-2 shadow-sm 2xl:w-auto 2xl:min-w-[38rem]">
+        <div className="grid w-full gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 shadow-sm 2xl:w-auto 2xl:min-w-[38rem]">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
             {isDemoUser(displayUser) ? (
               <label className="col-span-2 grid gap-1 md:col-span-1">

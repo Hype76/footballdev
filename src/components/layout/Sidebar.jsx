@@ -28,23 +28,23 @@ import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
 
 const navIcons = {
-  '/activity-log': 'Log',
-  '/add-player': 'New',
-  '/archived-players': 'Old',
-  '/assess-player': 'Dev',
-  '/billing': 'Pay',
-  '/club-settings': 'Club',
-  '/email-queue': 'Msg',
-  '/end-season-stats': 'Rpt',
-  '/form-builder': 'Form',
-  '/match-day': 'Game',
-  '/parent-email-templates': 'Copy',
-  '/parent-linking': 'Link',
-  '/players': 'Squad',
-  '/polls': 'Reply',
-  '/sessions': 'Week',
-  '/teams': 'Team',
-  '/user-access': 'Staff',
+  '/activity-log': 'AL',
+  '/add-player': 'AP',
+  '/archived-players': 'AR',
+  '/assess-player': 'DR',
+  '/billing': 'PL',
+  '/club-settings': 'CP',
+  '/email-queue': 'MQ',
+  '/end-season-stats': 'SR',
+  '/form-builder': 'DF',
+  '/match-day': 'MD',
+  '/parent-email-templates': 'MT',
+  '/parent-linking': 'PI',
+  '/players': 'PL',
+  '/polls': 'AV',
+  '/sessions': 'CA',
+  '/teams': 'TM',
+  '/user-access': 'SA',
 }
 
 function getSidebarTourId(path) {
@@ -60,7 +60,7 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
 
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <span className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-md bg-white text-[10px] font-black tracking-tight text-slate-700 shadow-sm ring-1 ring-slate-200">
+      <span className="inline-flex h-8 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[10px] font-black tracking-tight text-slate-700 shadow-sm ring-1 ring-slate-200">
         {getNavIcon(item.path)}
       </span>
       <span className="min-w-0 flex-1">
@@ -304,14 +304,14 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(17rem,calc(100vw-1rem))] max-w-[17rem] flex-col overflow-y-auto border-r border-emerald-100 bg-white px-3 py-4 shadow-2xl shadow-slate-300/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(18.5rem,calc(100vw-1rem))] max-w-[18.5rem] flex-col overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 shadow-2xl shadow-slate-300/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-emerald-100 pb-4">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-950 shadow-sm">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-950 shadow-sm">
                 <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
               </div>
               <div className="min-w-0">
@@ -321,7 +321,7 @@ export function Sidebar({ isOpen, onClose }) {
                 <h2 className="mt-1 truncate text-base font-black tracking-tight text-slate-950">{clubLabel}</h2>
               </div>
             </div>
-            <p className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-950">
+            <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-700">
               {isParentPortal ? 'Fixtures, replies, and club messages in one place.' : 'Football first: week plan, squad, parents, staff, and match day.'}
             </p>
           </div>
@@ -337,12 +337,12 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
 
         <nav className="mt-4 space-y-3 pb-4">
-          <section className="rounded-lg border border-emerald-200 bg-[#f2fbf6] p-2">
+          <section className="rounded-lg border border-slate-200 bg-slate-50 p-2">
             <div className="flex items-center justify-between px-2">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
                 {isParentPortal ? 'Family view' : 'Match week'}
               </p>
-              <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-emerald-800 ring-1 ring-emerald-100">
+              <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-emerald-700 ring-1 ring-slate-200">
                 Active
               </span>
             </div>
@@ -357,8 +357,8 @@ export function Sidebar({ isOpen, onClose }) {
                     [
                       'block rounded-md px-3 py-3 transition',
                       isActive
-                        ? 'bg-slate-950 text-white shadow-sm shadow-slate-300'
-                        : 'bg-white text-slate-800 shadow-sm hover:bg-lime-50 hover:text-slate-950',
+                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
+                        : 'bg-white text-slate-800 shadow-sm hover:bg-emerald-50 hover:text-slate-950',
                     ].join(' ')
                   }
                 >
@@ -487,7 +487,7 @@ function DisabledNavItem({ item }) {
       title={item.disabledMessage}
       className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-left opacity-70"
     >
-      <span className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-md bg-white text-[10px] font-black text-slate-500 ring-1 ring-slate-200">
+      <span className="inline-flex h-8 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[10px] font-black text-slate-500 ring-1 ring-slate-200">
         {getNavIcon(item.path)}
       </span>
       <span className="min-w-0">

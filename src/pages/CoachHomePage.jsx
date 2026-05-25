@@ -19,23 +19,23 @@ import {
 
 const quickActions = [
   {
-    label: 'Run today',
-    description: 'Open the active session, mark attendance, and record useful coach notes.',
+    label: 'Run session',
+    description: 'Open the active queue, mark attendance, and add useful coach notes.',
     path: '/sessions/start',
     primary: true,
   },
   {
-    label: 'Check availability',
+    label: 'Availability',
     description: 'Use parent replies before choosing the training group or match squad.',
     path: '/polls',
   },
   {
-    label: 'Prepare match day',
+    label: 'Match day',
     description: 'Build the squad, capture scorers, minutes, and post-match notes.',
     path: '/match-day',
   },
   {
-    label: 'Add player note',
+    label: 'Player note',
     description: 'Record one practical observation while the session is still fresh.',
     path: '/assess-player/new',
   },
@@ -130,6 +130,36 @@ export function CoachHomePage() {
   const visiblePlayers = players.length > 0 ? players : sessionPlayers
   const trialPlayerCount = visiblePlayers.filter((player) => player.section === 'Trial').length
   const squadPlayerCount = visiblePlayers.filter((player) => player.section === 'Squad').length
+  const readinessItems = useMemo(() => [
+    {
+      label: 'Squad base',
+      state: visiblePlayers.length > 0 ? 'Ready' : 'Missing',
+      detail: visiblePlayers.length > 0 ? `${visiblePlayers.length} players available.` : 'Add players before sessions, match day, or parent links.',
+      path: visiblePlayers.length > 0 ? '/players/current' : '/add-player',
+      tone: visiblePlayers.length > 0 ? 'good' : 'risk',
+    },
+    {
+      label: 'Session queue',
+      state: activeSession ? 'Ready' : 'Missing',
+      detail: activeSession ? `${sessionPlayers.length} players linked to the active session.` : 'Create the next training or match session.',
+      path: '/sessions/start',
+      tone: activeSession ? 'good' : 'risk',
+    },
+    {
+      label: 'Coach records',
+      state: completedNames.length > 0 ? 'Moving' : 'Empty',
+      detail: completedNames.length > 0 ? `${completedNames.length} records linked to the current queue.` : 'Add the first player note from a real session.',
+      path: '/assess-player/new',
+      tone: completedNames.length > 0 ? 'good' : 'watch',
+    },
+    {
+      label: 'Weekend control',
+      state: 'Check',
+      detail: 'Confirm availability before publishing match day details.',
+      path: '/polls',
+      tone: 'watch',
+    },
+  ], [activeSession, completedNames.length, sessionPlayers.length, visiblePlayers.length])
 
   useEffect(() => {
     let isMounted = true
@@ -198,43 +228,77 @@ export function CoachHomePage() {
   }, [cacheKey, cachedValue, user])
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-end">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Club control room</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-              Start with the football job that matters today.
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Football operating room</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+              Run the week from one match-ready board.
             </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              This screen is a working board for coaches and club admins. Sessions, squad checks, parent replies, and match day stay visible so staff know the next action.
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Start with the next real football action: build the squad, run the session, record the note, or confirm match day. No generic dashboard noise.
             </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {quickActions.map((action) => (
+                <Link
+                  key={action.path}
+                  to={action.path}
+                  className={[
+                    'rounded-lg border px-4 py-4 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
+                    action.primary
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-slate-200 bg-slate-50 text-slate-950 hover:border-emerald-300 hover:bg-emerald-50',
+                  ].join(' ')}
+                >
+                  <span className="block text-sm font-black">{action.label}</span>
+                  <span className={['mt-2 block text-xs leading-5', action.primary ? 'text-emerald-50' : 'text-slate-600'].join(' ')}>
+                    {action.description}
+                  </span>
+                </Link>
+              ))}
+            </div>
           </div>
-          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Today rule</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              If there is a session, open the queue first. If there is a match, confirm availability before match day.
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Today rule</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+                Session first. Availability before match day.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <CoachMetric label="Players" value={visiblePlayers.length} isLoading={isLoading} to="/players/current" actionLabel="Open" compact />
+              <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" compact />
+              <CoachMetric label="Waiting" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" compact />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              The board uses live workspace data where possible, then pushes staff to the next useful action.
             </p>
           </div>
         </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {quickActions.map((action) => (
+        {readinessItems.map((item) => (
           <Link
-            key={action.path}
-            to={action.path}
+            key={item.label}
+            to={item.path}
             className={[
-              'rounded-lg border p-5 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
-              action.primary
-                ? 'border-emerald-800 bg-emerald-800 text-white'
-                : 'border-slate-200 bg-white text-slate-950 hover:border-emerald-300 hover:bg-lime-50',
+              'rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
+              item.tone === 'good' ? 'hover:border-emerald-300 hover:bg-emerald-50' : 'hover:border-amber-300 hover:bg-amber-50',
             ].join(' ')}
           >
-            <span className="block text-base font-black">{action.label}</span>
-            <span className={['mt-2 block text-sm leading-6', action.primary ? 'text-emerald-50' : 'text-slate-600'].join(' ')}>
-              {action.description}
+            <span className="flex items-center justify-between gap-3">
+              <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</span>
+              <span className={[
+                'rounded-md px-2 py-1 text-[11px] font-black',
+                item.tone === 'good' ? 'bg-emerald-100 text-emerald-900' : item.tone === 'risk' ? 'bg-rose-100 text-rose-900' : 'bg-amber-100 text-amber-950',
+              ].join(' ')}
+              >
+                {item.state}
+              </span>
             </span>
+            <span className="mt-3 block text-sm font-semibold leading-6 text-slate-700">{item.detail}</span>
           </Link>
         ))}
       </section>
@@ -245,21 +309,9 @@ export function CoachHomePage() {
         </div>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 shadow-sm xl:col-span-2">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-800">Workspace state</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            These numbers decide what staff should open first.
-          </p>
-        </div>
-        <CoachMetric label="Players" value={visiblePlayers.length} isLoading={isLoading} to="/players/current" actionLabel="Open squad" />
-        <CoachMetric label="Trial list" value={trialPlayerCount} isLoading={isLoading} to="/players/current?section=Trial" actionLabel="Review" />
-        <CoachMetric label="Squad list" value={squadPlayerCount} isLoading={isLoading} to="/players/current?section=Squad" actionLabel="Review" />
-      </section>
-
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
+          <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Training queue</p>
@@ -274,7 +326,7 @@ export function CoachHomePage() {
               </div>
               <Link
                 to="/sessions/start"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
               >
                 Open session
               </Link>
@@ -282,10 +334,12 @@ export function CoachHomePage() {
           </div>
 
           <div className="px-5 py-5 sm:px-6">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-5">
               <CoachMetric label="In queue" value={sessionPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Open" />
               <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" />
               <CoachMetric label="To record" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" />
+              <CoachMetric label="Trial" value={trialPlayerCount} isLoading={isLoading} to="/players/current?section=Trial" actionLabel="Review" />
+              <CoachMetric label="Squad" value={squadPlayerCount} isLoading={isLoading} to="/players/current?section=Squad" actionLabel="Review" />
             </div>
 
             <div className="mt-5 space-y-3">
@@ -293,7 +347,7 @@ export function CoachHomePage() {
                 <div key={player.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-slate-950">{player.playerName}</p>
-                    <p className="mt-1 text-xs text-slate-500">{player.section} | {player.team || 'No team'}</p>
+                    <p className="mt-1 text-xs text-slate-500">{player.section} / {player.team || 'No team'}</p>
                   </div>
                   <Link
                     to="/sessions/start"
@@ -313,7 +367,7 @@ export function CoachHomePage() {
         </section>
 
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
+          <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Match readiness</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Before the weekend</h2>
           </div>
@@ -326,7 +380,7 @@ export function CoachHomePage() {
               <Link
                 key={action.label}
                 to={action.path}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-slate-950 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-lime-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-slate-950 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <span className="block text-sm font-black">{action.label}</span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">{action.value}</span>
@@ -341,7 +395,7 @@ export function CoachHomePage() {
           <Link
             key={item.label}
             to={item.path}
-            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-lime-50"
+            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50"
           >
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{item.label}</p>
             <h2 className="mt-3 text-lg font-black text-slate-950">{item.title}</h2>
@@ -351,7 +405,7 @@ export function CoachHomePage() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
+        <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Development</p>
@@ -369,7 +423,7 @@ export function CoachHomePage() {
           {recentEvaluations.map((evaluation) => (
             <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="truncate text-sm font-black text-slate-950">{evaluation.playerName}</p>
-              <p className="mt-2 text-xs text-slate-500">{evaluation.team || user?.activeTeamName || 'Team'} | score {evaluation.averageScore ?? 'Not scored'}</p>
+              <p className="mt-2 text-xs text-slate-500">{evaluation.team || user?.activeTeamName || 'Team'} / score {evaluation.averageScore ?? 'Not scored'}</p>
               <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
                 {getEvaluationSummary(evaluation)}
               </p>
@@ -386,13 +440,15 @@ export function CoachHomePage() {
   )
 }
 
-function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
+function CoachMetric({ actionLabel = 'Open', compact = false, isLoading, label, to, value }) {
   const content = (
     <>
       <span className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</span>
-      <span className="mt-2 block text-3xl font-black text-slate-950">{isLoading ? '...' : value}</span>
+      <span className={['mt-2 block font-black text-slate-950', compact ? 'text-2xl' : 'text-3xl'].join(' ')}>
+        {isLoading ? '...' : value}
+      </span>
       {to ? (
-        <span className="mt-4 inline-flex min-h-9 items-center justify-center rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white">
+        <span className={['inline-flex items-center justify-center rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white', compact ? 'mt-3 min-h-8' : 'mt-4 min-h-9'].join(' ')}>
           {actionLabel}
         </span>
       ) : null}
@@ -404,7 +460,7 @@ function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
       <Link
         to={to}
         aria-label={`${actionLabel} ${label.toLowerCase()}`}
-        className="block rounded-lg border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-lime-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className={['block rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500', compact ? 'px-3 py-3' : 'px-4 py-4'].join(' ')}
       >
         {content}
       </Link>
@@ -412,7 +468,7 @@ function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
+    <div className={['rounded-lg border border-slate-200 bg-white shadow-sm', compact ? 'px-3 py-3' : 'px-4 py-4'].join(' ')}>
       {content}
     </div>
   )
