@@ -20,7 +20,7 @@ export function PasswordSettingsSection({
       <form className="space-y-4" onSubmit={onSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">New password</span>
+            <span className="mb-2 block text-sm font-semibold text-slate-950">New password</span>
             <input
               type={showPassword ? 'text' : 'password'}
               value={passwordData.password}
@@ -29,12 +29,12 @@ export function PasswordSettingsSection({
               title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
               minLength={8}
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Confirm password</span>
+            <span className="mb-2 block text-sm font-semibold text-slate-950">Confirm password</span>
             <input
               type={showPassword ? 'text' : 'password'}
               value={passwordData.confirmPassword}
@@ -43,19 +43,19 @@ export function PasswordSettingsSection({
               title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
               minLength={8}
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </label>
         </div>
 
-        <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <label className="inline-flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-950">
           <input
             type="checkbox"
             checked={showPassword}
             onChange={(event) => onShowPasswordChange(event.target.checked)}
             disabled={isDemoSettings}
             title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
-            className="h-4 w-4 rounded border-[var(--border-color)]"
+            className="h-4 w-4 rounded border-slate-200"
           />
           <span>Show password</span>
         </label>
@@ -73,7 +73,7 @@ export function PasswordSettingsSection({
                     ? 'Enter and confirm your new password before saving.'
                     : undefined
             }
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSavingPassword ? 'Updating...' : 'Update password'}
           </button>
@@ -89,7 +89,7 @@ export function PasswordSettingsSection({
                   ? 'Demo accounts cannot reset password.'
                   : undefined
             }
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSendingReset ? 'Sending...' : 'Send reset email'}
           </button>

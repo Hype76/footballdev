@@ -379,7 +379,7 @@ export function UserSettingsPage() {
 
       <section className="grid gap-4 lg:grid-cols-3">
         {accountSummary.map((item) => (
-          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm ">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
             <p className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950">{item.value || 'Not set'}</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
@@ -387,7 +387,7 @@ export function UserSettingsPage() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80">
+      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm ">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Account rule</p>
         <p className="mt-2 text-sm leading-6 text-slate-700">
           Keep login details separate from club settings. Use this page for your identity, password, display preferences, and restarting setup help.
@@ -395,7 +395,7 @@ export function UserSettingsPage() {
       </section>
 
       {successMessage ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
           {successMessage}
         </div>
       ) : null}

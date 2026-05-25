@@ -30,65 +30,65 @@ export function AccountProfileSection({
     >
       <form className="space-y-4" onSubmit={onSubmit}>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Username</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Username</span>
           <input
             type="text"
             value={username}
             onChange={(event) => onUsernameChange(event.target.value)}
             required
             autoComplete="nickname"
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </label>
 
         {!showEmailIdentity ? (
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Display Name</span>
+            <span className="mb-2 block text-sm font-semibold text-slate-950">Display Name</span>
             <input
               type="text"
               value={displayName}
               onChange={(event) => onDisplayNameChange(event.target.value)}
               required
               autoComplete="name"
-              className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
         ) : null}
 
         {showEmailIdentity ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">Parent email identity</p>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+          <div className="rounded-md border border-slate-200 bg-white p-4">
+            <p className="text-sm font-semibold text-slate-950">Parent email identity</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
               Emails will be sent from feedback@footballplayer.online. Parent replies will go to your reply-to email.
             </p>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Display Name</span>
+              <span className="mb-2 block text-sm font-semibold text-slate-950">Display Name</span>
               <input
                 type="text"
                 value={displayName}
                 onChange={(event) => onDisplayNameChange(event.target.value)}
                 required
                 autoComplete="name"
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team Name</span>
+              <span className="mb-2 block text-sm font-semibold text-slate-950">Team Name</span>
               <input
                 type="text"
                 value={emailTeamName}
                 onChange={(event) => onEmailTeamNameChange(event.target.value)}
                 required
                 placeholder="U12"
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Club Name</span>
+              <span className="mb-2 block text-sm font-semibold text-slate-950">Club Name</span>
               <input
                 type="text"
                 value={emailClubName}
@@ -100,17 +100,17 @@ export function AccountProfileSection({
                 required
                 disabled={!canEditEmailClubName}
                 placeholder="Cambourne FC"
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
               />
               {!canEditEmailClubName ? (
-                <span className="mt-2 block text-xs leading-5 text-[var(--text-muted)]">
+                <span className="mt-2 block text-xs leading-5 text-slate-600">
                   Only the top role for this plan can change the club name used in sender details.
                 </span>
               ) : null}
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Reply-to Email</span>
+              <span className="mb-2 block text-sm font-semibold text-slate-950">Reply-to Email</span>
               <input
                 type="email"
                 value={replyToEmail}
@@ -118,14 +118,14 @@ export function AccountProfileSection({
                 required
                 autoComplete="email"
                 placeholder="coach@club.com"
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               />
             </label>
           </div>
 
-          <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Sender preview</p>
-            <p className="mt-2 break-words text-sm font-medium text-[var(--text-primary)]">
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Sender preview</p>
+            <p className="mt-2 break-words text-sm font-medium text-slate-950">
               {senderPreview} &lt;feedback@footballplayer.online&gt;
             </p>
           </div>
@@ -133,22 +133,22 @@ export function AccountProfileSection({
         ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Email</p>
-            <p className="mt-2 break-words text-sm font-medium text-[var(--text-primary)]">
+          <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Email</p>
+            <p className="mt-2 break-words text-sm font-medium text-slate-950">
               {user?.email || authUser?.email || 'No email found'}
             </p>
           </div>
 
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Role</p>
-            <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">{getRoleLabel(user)}</p>
+          <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Role</p>
+            <p className="mt-2 text-sm font-medium text-slate-950">{getRoleLabel(user)}</p>
           </div>
         </div>
 
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Workspace</p>
-          <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Workspace</p>
+          <p className="mt-2 text-sm font-medium text-slate-950">
             {workspaceLabel || (user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'No club assigned')}
           </p>
         </div>
@@ -163,7 +163,7 @@ export function AccountProfileSection({
                 ? 'Demo accounts cannot change account details.'
                 : undefined
           }
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isSavingProfile ? 'Saving...' : 'Save account'}
         </button>

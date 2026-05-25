@@ -16,11 +16,11 @@ export function WalkthroughSettingsSection({
           type="button"
           onClick={onRestart}
           disabled={isRestarting}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 sm:w-auto"
         >
           {isRestarting ? 'Restarting...' : 'Restart onboarding'}
         </button>
-        <p className="text-xs leading-5 text-[var(--text-muted)]">
+        <p className="text-xs leading-5 text-slate-600">
           This reopens the {scopeLabel} setup checklist and clears skipped onboarding for your current role.
         </p>
       </div>

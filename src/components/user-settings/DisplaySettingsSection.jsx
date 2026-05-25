@@ -19,13 +19,13 @@ export function DisplaySettingsSection({
     >
       <div className="grid gap-4 md:grid-cols-3">
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Theme</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Theme</span>
           <select
             value={themeMode}
             onChange={(event) => onThemeModeChange(event.target.value)}
             disabled={!canUseThemes}
             title={!canUseThemes ? createFeatureUpgradeMessage('themes') : undefined}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           >
             {themeModeOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -36,13 +36,13 @@ export function DisplaySettingsSection({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Accent colour</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Accent colour</span>
           <select
             value={themeAccent}
             onChange={(event) => onThemeAccentChange(event.target.value)}
             disabled={!canUseThemes}
             title={!canUseThemes ? createFeatureUpgradeMessage('themes') : undefined}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           >
             {themeAccentOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -53,13 +53,13 @@ export function DisplaySettingsSection({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Button style</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Button style</span>
           <select
             value={themeButtonStyle}
             onChange={(event) => onThemeButtonStyleChange(event.target.value)}
             disabled={!canUseThemes}
             title={!canUseThemes ? createFeatureUpgradeMessage('themes') : undefined}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           >
             {themeButtonStyleOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -69,22 +69,22 @@ export function DisplaySettingsSection({
           </select>
         </label>
       </div>
-      <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Preview</p>
+      <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Preview</p>
         <div className="mt-3 flex flex-wrap gap-3">
           <span
             aria-hidden="true"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
           >
             Primary action
           </span>
-          <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+          <span className="inline-flex min-h-11 items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-slate-950">
             Accent state
           </span>
         </div>
       </div>
       {!canUseThemes ? (
-        <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">{createFeatureUpgradeMessage('themes')}</p>
+        <p className="mt-3 text-xs leading-5 text-slate-600">{createFeatureUpgradeMessage('themes')}</p>
       ) : null}
     </SectionCard>
   )

@@ -287,13 +287,13 @@ export function ClubSettingsPage() {
       />
 
       {isSaved ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950">
           Saved successfully
         </div>
       ) : null}
 
       {uploadSuccessMessage ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950">
           {uploadSuccessMessage}
         </div>
       ) : null}

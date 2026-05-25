@@ -15,7 +15,7 @@ export function LoginEmailSection({
     >
       <form className="space-y-4" onSubmit={onSubmit}>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">New login email</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">New login email</span>
           <input
             type="email"
             value={email}
@@ -24,7 +24,7 @@ export function LoginEmailSection({
             title={isDemoSettings ? 'Demo accounts cannot change login email.' : undefined}
             required
             autoComplete="email"
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
           />
         </label>
         <button
@@ -37,7 +37,7 @@ export function LoginEmailSection({
                 ? 'Demo accounts cannot change login email.'
                 : undefined
           }
-          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSavingEmail ? 'Requesting...' : 'Update login email'}
         </button>
