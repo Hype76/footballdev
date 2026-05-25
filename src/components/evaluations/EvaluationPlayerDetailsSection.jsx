@@ -27,6 +27,7 @@ export function EvaluationPlayerDetailsSection({
 
   return (
     <SectionCard
+      storageKey="development-record-player-details-v2"
       title="Player details"
       description="Choose the exact player and team before scoring. This keeps development history, parent messages, and match-day records aligned."
     >

@@ -12,6 +12,7 @@ export function PreviousAssessmentsSection({
 
   return (
     <SectionCard
+      storageKey="development-record-previous-records-v2"
       title="Previous development records"
       description="Use this while recording an existing player. These notes are for reference only and are not added to the new record."
     >

@@ -48,6 +48,7 @@ export function SubmitExportSection({
 
   return (
     <SectionCard
+      storageKey="development-record-submit-v2"
       title="Submit and export"
       description="Save the record first. Parent email and PDF output are optional and should only include useful football detail."
     >

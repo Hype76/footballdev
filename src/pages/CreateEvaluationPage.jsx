@@ -86,6 +86,126 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
+function getReadyState(isReady) {
+  return isReady
+    ? {
+        label: 'Ready',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+        dotClassName: 'bg-emerald-600',
+      }
+    : {
+        label: 'Missing',
+        className: 'border-amber-200 bg-amber-50 text-amber-900',
+        dotClassName: 'bg-amber-500',
+      }
+}
+
+function RecordReadinessItem({ isReady, label, value }) {
+  const state = getReadyState(isReady)
+
+  return (
+    <div className={`rounded-lg border px-4 py-3 ${state.className}`}>
+      <div className="flex items-start gap-3">
+        <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${state.dotClassName}`} />
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.14em]">{state.label}</p>
+          <p className="mt-1 text-sm font-black">{label}</p>
+          <p className="mt-1 text-sm font-semibold leading-5 opacity-80">{value}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DevelopmentRecordCommandPanel({
+  averageScore,
+  contactNounPlural,
+  enabledFieldCount,
+  formData,
+  isEmailEnabled,
+  isPdfAttachmentApproved,
+  previousEvaluationCount,
+  selectedContactCount,
+  selectedResponseCount,
+}) {
+  const selectedPlayerName = normalizePlayerName(formData.playerName)
+  const selectedTeam = String(formData.team ?? '').trim()
+  const selectedSession = formatSessionForDisplay(formData.session)
+  const hasPlayer = Boolean(selectedPlayerName)
+  const hasTeam = Boolean(selectedTeam)
+  const hasFields = enabledFieldCount > 0
+  const hasShareChoice = isEmailEnabled || isPdfAttachmentApproved
+  const nextAction = !hasTeam
+    ? 'Pick the team first.'
+    : !hasPlayer
+      ? 'Pick the player.'
+      : !hasFields
+        ? 'Enable development fields for this club.'
+        : selectedResponseCount === 0
+          ? 'Complete the useful football fields.'
+          : 'Save the development record.'
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="grid gap-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-white to-sky-50 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Record workspace</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Build one clear football record.</h3>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-700">
+            Work top to bottom: player, football detail, then sharing choice. Save internal notes first unless the parent output is ready.
+          </p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Next action</p>
+          <p className="mt-2 text-lg font-black text-slate-950">{nextAction}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 px-5 py-5 md:grid-cols-2 xl:grid-cols-4">
+        <RecordReadinessItem
+          isReady={hasTeam}
+          label="Team"
+          value={hasTeam ? selectedTeam : 'Required before saving.'}
+        />
+        <RecordReadinessItem
+          isReady={hasPlayer}
+          label="Player"
+          value={hasPlayer ? selectedPlayerName : 'Required before saving.'}
+        />
+        <RecordReadinessItem
+          isReady={hasFields}
+          label="Development fields"
+          value={hasFields ? `${enabledFieldCount} field${enabledFieldCount === 1 ? '' : 's'} available.` : 'No enabled fields found.'}
+        />
+        <RecordReadinessItem
+          isReady={selectedResponseCount > 0}
+          label="Football detail"
+          value={
+            selectedResponseCount > 0
+              ? `${selectedResponseCount} response${selectedResponseCount === 1 ? '' : 's'} entered. Score ${averageScore !== null ? averageScore.toFixed(1) : 'not scored'}.`
+              : 'Nothing has been recorded yet.'
+          }
+        />
+      </div>
+
+      <div className="grid gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 md:grid-cols-3">
+        <p>
+          Session: <span className="font-black text-slate-950">{selectedSession}</span>
+        </p>
+        <p>
+          Previous records: <span className="font-black text-slate-950">{previousEvaluationCount}</span>
+        </p>
+        <p>
+          Output: <span className="font-black text-slate-950">{hasShareChoice ? `${isEmailEnabled ? 'Email' : ''}${isEmailEnabled && isPdfAttachmentApproved ? ' and ' : ''}${isPdfAttachmentApproved ? 'PDF' : ''}` : 'Internal only'}</span>
+        </p>
+        <p className="md:col-span-3">
+          Recipients: <span className="font-black text-slate-950">{selectedContactCount} selected {contactNounPlural}</span>
+        </p>
+      </div>
+    </section>
+  )
+}
+
 export function CreateEvaluationPage() {
   const { user } = useAuth()
   const isPlatformOwner = isSuperAdmin(user)
@@ -1373,6 +1493,18 @@ export function CreateEvaluationPage() {
             </div>
           </div>
         ) : null}
+
+        <DevelopmentRecordCommandPanel
+          averageScore={averageScore}
+          contactNounPlural={contactNounPlural}
+          enabledFieldCount={enabledFields.length}
+          formData={formData}
+          isEmailEnabled={previewMode === 'email'}
+          isPdfAttachmentApproved={isPdfAttachmentApproved}
+          previousEvaluationCount={previousEvaluations.length}
+          selectedContactCount={selectedParentContacts.length}
+          selectedResponseCount={selectedResponseItems.length}
+        />
 
         <EvaluationAvailabilityState
           availableTeams={availableTeams}
