@@ -199,18 +199,18 @@ export function CoachHomePage() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Club command</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Club control room</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-              Run the football week from one screen.
+              Start with the football job that matters today.
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Start with the next real club action: session, availability, match day, or player development. The home screen should point staff into work, not make them hunt through menus.
+              This screen is a working board for coaches and club admins. Sessions, squad checks, parent replies, and match day stay visible so staff know the next action.
             </p>
           </div>
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Today rule</p>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
               If there is a session, open the queue first. If there is a match, confirm availability before match day.
@@ -225,10 +225,10 @@ export function CoachHomePage() {
             key={action.path}
             to={action.path}
             className={[
-              'rounded-md border p-5 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
+              'rounded-lg border p-5 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
               action.primary
-                ? 'border-emerald-700 bg-emerald-700 text-white'
-                : 'border-slate-200 bg-white text-slate-950 hover:border-emerald-300 hover:bg-emerald-50',
+                ? 'border-emerald-800 bg-emerald-800 text-white'
+                : 'border-slate-200 bg-white text-slate-950 hover:border-emerald-300 hover:bg-lime-50',
             ].join(' ')}
           >
             <span className="block text-base font-black">{action.label}</span>
@@ -240,14 +240,14 @@ export function CoachHomePage() {
       </section>
 
       {errorMessage ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900 shadow-sm">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900 shadow-sm">
           {errorMessage}
         </div>
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Workspace state</p>
+        <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 shadow-sm xl:col-span-2">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-800">Workspace state</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             These numbers decide what staff should open first.
           </p>
@@ -258,8 +258,8 @@ export function CoachHomePage() {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Training queue</p>
@@ -274,7 +274,7 @@ export function CoachHomePage() {
               </div>
               <Link
                 to="/sessions/start"
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
               >
                 Open session
               </Link>
@@ -290,21 +290,21 @@ export function CoachHomePage() {
 
             <div className="mt-5 space-y-3">
               {unassessedPlayers.slice(0, 4).map((player) => (
-                <div key={player.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                <div key={player.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-slate-950">{player.playerName}</p>
                     <p className="mt-1 text-xs text-slate-500">{player.section} | {player.team || 'No team'}</p>
                   </div>
                   <Link
                     to="/sessions/start"
-                    className="shrink-0 rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-50 hover:text-slate-950"
+                    className="shrink-0 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-50 hover:text-slate-950"
                   >
                     Assess
                   </Link>
                 </div>
               ))}
               {!isLoading && unassessedPlayers.length === 0 ? (
-                <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
                   No players are waiting in the current assessment queue.
                 </div>
               ) : null}
@@ -312,8 +312,8 @@ export function CoachHomePage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Match readiness</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Before the weekend</h2>
           </div>
@@ -326,7 +326,7 @@ export function CoachHomePage() {
               <Link
                 key={action.label}
                 to={action.path}
-                className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-slate-950 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-slate-950 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-lime-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <span className="block text-sm font-black">{action.label}</span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">{action.value}</span>
@@ -341,7 +341,7 @@ export function CoachHomePage() {
           <Link
             key={item.label}
             to={item.path}
-            className="rounded-md border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50"
+            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-lime-50"
           >
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{item.label}</p>
             <h2 className="mt-3 text-lg font-black text-slate-950">{item.title}</h2>
@@ -350,8 +350,8 @@ export function CoachHomePage() {
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Development</p>
@@ -359,7 +359,7 @@ export function CoachHomePage() {
             </div>
             <Link
               to="/assess-player/completed"
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:border-emerald-300 hover:bg-emerald-50"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:border-emerald-300 hover:bg-emerald-50"
             >
               View all
             </Link>
@@ -367,7 +367,7 @@ export function CoachHomePage() {
         </div>
         <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-3">
           {recentEvaluations.map((evaluation) => (
-            <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="truncate text-sm font-black text-slate-950">{evaluation.playerName}</p>
               <p className="mt-2 text-xs text-slate-500">{evaluation.team || user?.activeTeamName || 'Team'} | score {evaluation.averageScore ?? 'Not scored'}</p>
               <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
@@ -376,7 +376,7 @@ export function CoachHomePage() {
             </div>
           ))}
           {!isLoading && recentEvaluations.length === 0 ? (
-            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600 lg:col-span-3">
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600 lg:col-span-3">
               Completed assessments will appear here.
             </div>
           ) : null}
@@ -392,7 +392,7 @@ function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
       <span className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</span>
       <span className="mt-2 block text-3xl font-black text-slate-950">{isLoading ? '...' : value}</span>
       {to ? (
-        <span className="mt-4 inline-flex min-h-9 items-center justify-center rounded-md bg-slate-950 px-3 py-2 text-xs font-black text-white">
+        <span className="mt-4 inline-flex min-h-9 items-center justify-center rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white">
           {actionLabel}
         </span>
       ) : null}
@@ -404,7 +404,7 @@ function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
       <Link
         to={to}
         aria-label={`${actionLabel} ${label.toLowerCase()}`}
-        className="block rounded-md border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="block rounded-lg border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-lime-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
       >
         {content}
       </Link>
@@ -412,7 +412,7 @@ function CoachMetric({ actionLabel = 'Open', isLoading, label, to, value }) {
   }
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-4 py-4 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
       {content}
     </div>
   )

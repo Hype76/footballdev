@@ -43,10 +43,10 @@ function StepMarker({ index, complete }) {
   return (
     <span
       className={[
-        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-xs font-black',
+        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-xs font-black',
         complete
-          ? 'border-emerald-200 bg-emerald-600 text-white'
-          : 'border-slate-200 bg-white text-slate-500',
+          ? 'border-emerald-700 bg-emerald-700 text-white'
+          : 'border-slate-300 bg-white text-slate-600',
       ].join(' ')}
       aria-label={complete ? 'Complete' : 'Not complete'}
     >
@@ -181,22 +181,22 @@ export function OnboardingProvider({ children }) {
   return (
     <>
       {shouldShowOnboarding ? (
-        <section className="mb-6 overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-emerald-50 px-5 py-5 sm:px-6">
+        <section className="mb-6 overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
+          <div className="border-b border-emerald-200 bg-[#e8fff1] px-5 py-5 sm:px-6">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">First run setup</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-800">First run setup</p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{plan.title}</h2>
                 <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-700">{plan.description}</p>
               </div>
-              <div className="rounded-md border border-emerald-200 bg-white p-4">
+              <div className="rounded-lg border border-emerald-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-slate-500">
                   <span>Progress</span>
                   <span>{progress.completedCount} of {progress.totalCount}</span>
                 </div>
                 <div className="mt-3 h-3 overflow-hidden rounded-md bg-slate-200">
                   <div
-                    className="h-full rounded-md bg-emerald-600 transition-all"
+                    className="h-full rounded-md bg-emerald-700 transition-all"
                     style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
                   />
                 </div>
@@ -209,28 +209,28 @@ export function OnboardingProvider({ children }) {
 
           <div className="grid gap-0 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1fr)]">
             <div className="border-b border-slate-200 bg-white p-5 sm:p-6 xl:border-b-0 xl:border-r">
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Next useful action</p>
+              <div className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Next useful action</p>
                 <h3 className="mt-2 text-lg font-black text-slate-950">{nextStep?.title}</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{nextStep?.detail}</p>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row xl:flex-col 2xl:flex-row">
                   <Link
                     to={nextStep?.href || plan.firstAction}
-                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
                   >
                     {nextStep?.actionLabel || 'Start setup'}
                   </Link>
                   <button
                     type="button"
                     onClick={handleDismiss}
-                    className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-slate-100"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-slate-100"
                   >
                     Skip for now
                   </button>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
                 <p className="text-sm font-black text-amber-950">Rules before features</p>
                 <p className="mt-1 text-sm leading-6 text-amber-900">
                   This setup asks for only the data needed to run football this week. Complete a real action, or mark it done when your club does not use that workflow.
@@ -245,7 +245,7 @@ export function OnboardingProvider({ children }) {
                   <article
                     key={step.id}
                     className={[
-                      'rounded-md border p-4 shadow-sm transition',
+                      'rounded-lg border p-4 shadow-sm transition',
                       step.complete
                         ? 'border-emerald-200 bg-emerald-50'
                         : 'border-slate-200 bg-white',
@@ -260,7 +260,7 @@ export function OnboardingProvider({ children }) {
                         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                           <Link
                             to={step.href}
-                            className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-md bg-slate-950 px-4 py-2 text-sm font-black text-white transition hover:bg-slate-800"
+                            className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg bg-slate-950 px-4 py-2 text-sm font-black text-white transition hover:bg-slate-800"
                           >
                             {step.actionLabel}
                           </Link>
@@ -268,7 +268,7 @@ export function OnboardingProvider({ children }) {
                             <button
                               type="button"
                               onClick={() => handleCompleteStep(step.id)}
-                              className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                              className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
                             >
                               Mark done
                             </button>
@@ -280,14 +280,14 @@ export function OnboardingProvider({ children }) {
                 ))}
               </div>
 
-              <div className="mt-4 flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-4 flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-semibold text-slate-600">
                   Reset brings the checklist back for testing or a fresh club launch.
                 </p>
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-100"
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-100"
                 >
                   Reset setup
                 </button>
