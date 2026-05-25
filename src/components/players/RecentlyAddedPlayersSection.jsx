@@ -10,9 +10,9 @@ export function RecentlyAddedPlayersSection({
 }) {
   return (
     <section
-      className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
+      className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
     >
-      <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+      <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Recently added</p>
@@ -41,12 +41,12 @@ export function RecentlyAddedPlayersSection({
             >
               <p className="text-base font-black text-slate-950">{player.playerName}</p>
               <p className="mt-2 text-sm font-bold text-slate-700">
-                {player.section} | {player.team || 'No team'}
+                {player.section} / {player.team || 'No team'}
               </p>
               <p className="mt-1 text-sm leading-5 text-slate-600">
                 {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
               </p>
-              <span className="mt-4 inline-flex min-h-9 items-center rounded-md bg-slate-950 px-3 text-xs font-black text-white transition group-hover:bg-emerald-700">
+              <span className="mt-4 inline-flex min-h-9 items-center rounded-md bg-emerald-600 px-3 text-xs font-black text-white transition group-hover:bg-emerald-700">
                 Open profile
               </span>
             </Link>

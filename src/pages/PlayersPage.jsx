@@ -20,6 +20,21 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
+const playerRegisterRules = [
+  {
+    label: 'One record per footballer',
+    body: 'Search before adding or editing so parents, teams, notes, and development history stay attached to one player.',
+  },
+  {
+    label: 'Trial is still active',
+    body: 'Trial players can be reviewed and developed. Move them to Squad only when the club has made that decision.',
+  },
+  {
+    label: 'Profile before action',
+    body: 'Open the profile when details matter. Archive, section moves, and records should follow the player history.',
+  },
+]
+
 export function PlayersPage({
   defaultView = 'all',
   headerDescription = 'Review every player in this workspace, then open a profile for detailed ratings and progress.',
@@ -203,6 +218,7 @@ export function PlayersPage({
   const evaluatedPlayerCount = playerRows.filter((player) => player.totalEvaluations > 0).length
   const trialPlayerCount = playerRows.filter((player) => player.section === 'Trial').length
   const squadPlayerCount = playerRows.filter((player) => player.section === 'Squad').length
+  const playersWithoutRecords = Math.max(0, playerRows.length - evaluatedPlayerCount)
 
   const updateListFilter = (nextFilters = {}) => {
     const params = new URLSearchParams()
@@ -303,18 +319,40 @@ export function PlayersPage({
   }
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">{headerEyebrow}</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{headerTitle}</h1>
-            <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{headerDescription}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{headerEyebrow}</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">{headerTitle}</h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">{headerDescription}</p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {playerRegisterRules.map((item) => (
+                <article key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.body}</p>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Register rule</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              Trial players are still footballers in the system. Move them into Squad only when the club has made that decision.
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Register state</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+                {playerRows.length} footballers tracked
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {filteredPlayers.length} match the current search and filters.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <PlayerMetric label="Trial" value={trialPlayerCount} isLoading={isLoading} />
+              <PlayerMetric label="Squad" value={squadPlayerCount} isLoading={isLoading} />
+              <PlayerMetric label="Records" value={totalEvaluations} isLoading={isLoading} />
+              <PlayerMetric label="No record" value={playersWithoutRecords} isLoading={isLoading} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              Use the register before sessions, parent invites, and match day so every football action points at the right player.
             </p>
           </div>
         </div>
@@ -341,7 +379,7 @@ export function PlayersPage({
         </div>
       ) : null}
       {message ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
           {message}
         </div>
       ) : null}
@@ -381,6 +419,15 @@ export function PlayersPage({
         onCancel={() => setArchiveTarget(null)}
         onConfirm={(reason) => void confirmArchivePlayer(reason)}
       />
+    </div>
+  )
+}
+
+function PlayerMetric({ isLoading, label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{isLoading ? '...' : value}</p>
     </div>
   )
 }

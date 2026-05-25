@@ -29,9 +29,9 @@ export function PlayersListSection({
   return (
     <section
       data-tour-id="players-list-section"
-      className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
+      className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
     >
-      <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+      <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Player register</p>
@@ -100,7 +100,7 @@ export function PlayersListSection({
               <div
                 key={getPlayerKey(player.playerName)}
                 className={[
-                  'relative overflow-hidden rounded-md border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md',
+                  'relative overflow-hidden rounded-lg border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md',
                   cardClass,
                 ].join(' ')}
               >
@@ -174,7 +174,7 @@ export function PlayersListSection({
                   <button
                     type="button"
                     onClick={() => onOpenPlayer(player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
                   >
                     Open profile
                   </button>

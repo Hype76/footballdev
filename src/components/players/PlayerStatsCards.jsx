@@ -29,7 +29,7 @@ export function PlayerStatsCards({
       detail: `${evaluatedPlayerCount} players have development history.`,
       to: '/assess-player/completed',
       action: 'Review records',
-      tone: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+      tone: 'border-emerald-300 bg-emerald-50 text-emerald-700',
     },
   ]
 
@@ -52,7 +52,7 @@ export function PlayerStatsCards({
             </span>
           </div>
           <p className="mt-3 min-h-10 text-sm leading-5 text-slate-600">{card.detail}</p>
-          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-4 py-2 text-sm font-black text-white transition group-hover:bg-emerald-700">
+          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-black text-white transition group-hover:bg-emerald-700">
             {card.action}
           </span>
         </Link>
