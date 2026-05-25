@@ -55,11 +55,11 @@ function ScoreInfo() {
         aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
         onBlur={() => setIsOpen(false)}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-black text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50 focus:border-emerald-500 focus:outline-none"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-slate-200 bg-white text-sm font-black text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 focus:outline-none"
       >
         i
       </button>
-      <span className={`pointer-events-none absolute right-0 top-12 z-20 w-80 rounded-2xl border border-slate-200 bg-white p-4 text-left text-xs leading-5 text-slate-700 shadow-xl shadow-slate-300/70 group-hover:block group-focus-within:block ${isOpen ? 'block' : 'hidden'}`}>
+      <span className={`pointer-events-none absolute right-0 top-12 z-20 w-80 rounded-md border border-slate-200 bg-white p-4 text-left text-xs leading-5 text-slate-700 shadow-lg shadow-slate-950/10 group-hover:block group-focus-within:block ${isOpen ? 'block' : 'hidden'}`}>
         <span className="mb-3 block text-sm font-black text-slate-950">Scoring guide</span>
         {SCORE_HELP.map((help, index) => (
           <span key={help.label} className="mt-2 block">
@@ -76,7 +76,7 @@ function ScoreInfo() {
 
 export function EvaluationFieldInput({ field, value, onChange }) {
   const sharedClassName =
-    'min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white'
+    'min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
 
   if (field.type === 'textarea') {
     return (
@@ -85,7 +85,7 @@ export function EvaluationFieldInput({ field, value, onChange }) {
         onChange={(event) => onChange(field.id, event.target.value)}
         required={field.required}
         rows="4"
-        className="min-h-32 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+        className="min-h-32 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
       />
     )
   }

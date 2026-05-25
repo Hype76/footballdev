@@ -38,7 +38,7 @@ export function EvaluationPlayerDetailsSection({
             value={formData.section}
             onChange={onFieldChange}
             required
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
           >
             {evaluationSections.map((section) => (
               <option key={section} value={section}>
@@ -55,7 +55,7 @@ export function EvaluationPlayerDetailsSection({
             value={formData.team}
             onChange={onFieldChange}
             required
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
           >
             <option value="">Select team</option>
             {availableTeams.map((team) => (
@@ -64,7 +64,7 @@ export function EvaluationPlayerDetailsSection({
               </option>
             ))}
           </select>
-          <p className="mt-2 text-xs leading-5 text-slate-500">
+          <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
             {canManageUsers(user)
               ? 'Managers and admins can assess against any club team.'
               : 'Choose the team this assessment should sit under. Session selection is optional.'}
@@ -79,7 +79,7 @@ export function EvaluationPlayerDetailsSection({
             onChange={onFieldChange}
             required
             disabled={playerOptions.length === 0}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="">
               {playerOptions.length === 0 ? `No ${selectedSection || 'matching'} players available` : 'Select player'}
@@ -99,7 +99,7 @@ export function EvaluationPlayerDetailsSection({
             name="coachName"
             value={formData.coachName}
             readOnly
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-emerald-50 px-4 py-3 text-sm text-slate-950 outline-none"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none"
           />
         </label>
 
@@ -110,7 +110,7 @@ export function EvaluationPlayerDetailsSection({
               {parentContacts.map((contact, index) => (
                 <label
                   key={`${contact.email || contact.name}-${index}`}
-                  className="flex min-h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950"
+                  className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950"
                 >
                   <input
                     type="checkbox"
@@ -136,7 +136,7 @@ export function EvaluationPlayerDetailsSection({
                   name="parentName"
                   value={formData.parentName}
                   onChange={onFieldChange}
-                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+                  className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
                 />
               </label>
               <label className="block min-w-0">
@@ -148,12 +148,12 @@ export function EvaluationPlayerDetailsSection({
                   name="parentEmail"
                   value={formData.parentEmail}
                   onChange={onFieldChange}
-                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+                  className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
                 />
               </label>
             </div>
           )}
-          <p className="mt-2 text-xs leading-5 text-slate-500">
+          <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
             Selected {contactNounPlural} are used for {contactNoun} email templates.
           </p>
         </div>
@@ -165,9 +165,9 @@ export function EvaluationPlayerDetailsSection({
             name="session"
             value={formatSessionForInput(formData.session)}
             onChange={onFieldChange}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
           />
-          <p className="mt-2 text-xs leading-5 text-slate-500">Current session: {readableSession}</p>
+          <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">Current session: {readableSession}</p>
         </label>
       </div>
     </SectionCard>

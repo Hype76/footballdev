@@ -38,7 +38,7 @@ export function AddFieldSection({
             value={fieldForm.label}
             onChange={onFormChange}
             required
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
           />
         </label>
 
@@ -48,7 +48,7 @@ export function AddFieldSection({
             name="type"
             value={fieldForm.type}
             onChange={onFormChange}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
           >
             {FIELD_TYPE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -67,19 +67,19 @@ export function AddFieldSection({
               value={fieldForm.options}
               onChange={onFormChange}
               placeholder="Option A, Option B, Option C"
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
+              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </label>
         ) : null}
 
         {isScoreType(fieldForm.type) ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 md:col-span-2">
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 md:col-span-2">
             <p className="text-sm font-bold text-slate-950">Score options</p>
-            <p className="mt-2 text-sm text-slate-600">{createScoreOptions(fieldForm.type).join(', ')}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">{createScoreOptions(fieldForm.type).join(', ')}</p>
           </div>
         ) : null}
 
-        <label className="inline-flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">
+        <label className="inline-flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">
           <input
             type="checkbox"
             name="required"
@@ -95,7 +95,7 @@ export function AddFieldSection({
             type="submit"
             disabled={isSaving || !canUseCustomFields}
             title={addFieldDisabledReason}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {isSaving ? 'Saving...' : 'Add field'}
           </button>

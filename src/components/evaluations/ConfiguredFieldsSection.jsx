@@ -17,7 +17,7 @@ export function ConfiguredFieldsSection({
       }
     >
       {enabledFields.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
           No assessment fields are enabled for this club. Enable fields in Assessment Fields first.
         </div>
       ) : (

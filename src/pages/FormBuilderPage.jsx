@@ -448,7 +448,7 @@ export function FormBuilderPage() {
           <article
             key={item.label}
             className={[
-              'rounded-2xl border bg-white p-5 shadow-sm shadow-slate-200/80',
+              'rounded-md border bg-white p-5 shadow-sm',
               item.tone === 'emerald' ? 'border-emerald-200' : '',
               item.tone === 'sky' ? 'border-sky-200' : '',
               item.tone === 'amber' ? 'border-amber-200' : '',
@@ -456,14 +456,14 @@ export function FormBuilderPage() {
           >
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
             <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{item.value}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.caption}</p>
           </article>
         ))}
       </section>
 
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80">
+      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Setup rule</p>
-        <p className="mt-2 text-sm leading-6 text-slate-700">
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
           Build the form coaches should use this week. Keep it short enough to complete pitch-side, then add custom fields only when a decision or parent report needs that data.
         </p>
       </section>
