@@ -35,7 +35,7 @@ function formatGoalLine(event) {
   const scorer = event.scorerInitials || event.scorerName || 'Player'
   const assist = event.assistInitials || event.assistName
   const score = Number.isFinite(Number(event.homeScore)) && Number.isFinite(Number(event.awayScore))
-    ? ` | ${event.homeScore} - ${event.awayScore}`
+    ? ` / ${event.homeScore} - ${event.awayScore}`
     : ''
 
   return [
@@ -43,7 +43,7 @@ function formatGoalLine(event) {
     `Goal: ${scorer}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}`,
     assist ? `Assist ${assist}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` : '',
     score,
-  ].filter(Boolean).join(' | ')
+  ].filter(Boolean).join(' / ')
 }
 
 export function PreviousGameCard({ match, onOpen }) {

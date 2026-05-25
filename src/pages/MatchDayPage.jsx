@@ -49,7 +49,22 @@ const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
 const smallLabelClass = 'mb-1 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500'
 const inputClass = 'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60'
 const compactInputClass = 'min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60'
+
+const matchRuleCards = [
+  {
+    label: 'Staff own the match',
+    body: 'Staff create the fixture, set the score, and decide when updates go to parents.',
+  },
+  {
+    label: 'Scorer is delegated',
+    body: 'Parents can help with live scoring only after a staff member selects them.',
+  },
+  {
+    label: 'Result stays recorded',
+    body: 'Full-time score, goals, assists, venue, and notes stay in the club record.',
+  },
+]
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
@@ -148,6 +163,14 @@ export function MatchDayPage() {
     () => activeMatches.filter((match) => match.status === 'scorer_request').length,
     [activeMatches],
   )
+  const upcomingMatches = useMemo(
+    () => activeMatches.filter((match) => ['scheduled', 'scorer_request'].includes(match.status)).length,
+    [activeMatches],
+  )
+  const goalCount = useMemo(
+    () => matches.reduce((total, match) => total + (Array.isArray(match.events) ? match.events.filter((event) => event.eventType === 'goal').length : 0), 0),
+    [matches],
+  )
   const matchDaySummary = [
     {
       label: 'Live now',
@@ -160,11 +183,17 @@ export function MatchDayPage() {
       caption: 'Fixtures waiting for parent volunteers.',
     },
     {
+      label: 'Upcoming',
+      value: upcomingMatches,
+      caption: 'Fixtures created but not live yet.',
+    },
+    {
       label: 'Previous games',
       value: previousMatches.length,
       caption: 'Completed results retained for review.',
     },
   ]
+  const nextMatch = activeMatches[0] || null
   const squadPlayers = useMemo(
     () =>
       players
@@ -456,20 +485,44 @@ export function MatchDayPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-end">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Match control</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Control fixtures before, during, and after full time.</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Create the fixture, request parent help when needed, choose the scorer, then keep score, goals, and match notes tied to the club record.
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Match command</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+              Control the fixture from request to result.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Match Day starts before kick off. Create the fixture, request a scorer, run the live board, then keep the final score and goal detail in one club record.
             </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {matchRuleCards.map((item) => (
+                <article key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.body}</p>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Match rule</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              Staff own the fixture and result. Parents can help with live scoring only when a staff member selects them.
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next fixture</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+                {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No fixture created'}
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {nextMatch ? formatMatchDate(nextMatch) : 'Create a match day to request a scorer and prepare the live board.'}
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <MatchMetric label="Live" value={liveMatches} isLoading={isLoading} />
+              <MatchMetric label="Requests" value={scorerRequests} isLoading={isLoading} />
+              <MatchMetric label="Upcoming" value={upcomingMatches} isLoading={isLoading} />
+              <MatchMetric label="Goals" value={goalCount} isLoading={isLoading} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              Keep one active fixture visible so staff and parent updates stay aligned.
             </p>
           </div>
         </div>
@@ -477,10 +530,10 @@ export function MatchDayPage() {
 
       {errorMessage ? <NoticeBanner title="Match Day action failed" message={errorMessage} /> : null}
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-4">
         {matchDaySummary.map((item) => (
           <article key={item.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">{item.label}</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
             <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : item.value}</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
           </article>
@@ -488,11 +541,11 @@ export function MatchDayPage() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Fixture setup</p>
+        <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Fixture setup</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Create match day</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Set up the match and publish a scorer request to the parent portal.
+            Create the match, prepare parent-facing details, and publish a scorer request when needed.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleCreateMatch}>
@@ -643,11 +696,11 @@ export function MatchDayPage() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Live board</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Live and upcoming matches</h2>
+        <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Live board</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Run live and upcoming matches</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Select scorers, update the score, and add goals with scorer and assist details.
+            Start the match, update the score, select parent scorers, and record goals with scorer and assist detail.
           </p>
         </div>
         <div className="px-5 py-5 sm:px-6">
@@ -692,9 +745,9 @@ export function MatchDayPage() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-4 border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <div className="grid gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Results archive</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Results archive</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Previous games</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
               Review completed results. Reset the list when a new season starts.
@@ -751,7 +804,7 @@ function MatchDayCard({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex w-fit rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
+            <span className="inline-flex w-fit rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
               {match.status.replace(/_/g, ' ')}
             </span>
             <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
@@ -788,7 +841,7 @@ function MatchDayCard({
               type="button"
               onClick={() => onStatusChange(match, 'live')}
               disabled={isBusy}
-              className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Start match
             </button>
@@ -818,7 +871,7 @@ function MatchDayCard({
               type="button"
               onClick={() => onScoreSave(match)}
               disabled={isBusy}
-              className="mt-auto inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-auto inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Save score
             </button>
@@ -956,7 +1009,7 @@ function MatchDayCard({
           <button
             type="submit"
             disabled={isBusy}
-            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-auto inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Add goal
           </button>
@@ -968,13 +1021,13 @@ function MatchDayCard({
           {match.events.slice(0, 6).map((event) => (
             <div key={event.id} className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-sm font-black text-slate-950">
-                {event.eventType === 'goal' ? 'Goal' : 'Update'} | {event.homeScore} - {event.awayScore}
+                {event.eventType === 'goal' ? 'Goal' : 'Update'} / {event.homeScore} - {event.awayScore}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {event.minute !== null ? `${event.minute} min | ` : ''}
+                {event.minute !== null ? `${event.minute} min / ` : ''}
                 {event.scorerInitials || event.scorerName || 'Score update'}
                 {event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}
-                {event.assistInitials || event.assistName ? ` | Assist ${event.assistInitials || event.assistName}` : ''}
+                {event.assistInitials || event.assistName ? ` / Assist ${event.assistInitials || event.assistName}` : ''}
                 {event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}
               </p>
             </div>
@@ -982,5 +1035,14 @@ function MatchDayCard({
         </div>
       ) : null}
     </article>
+  )
+}
+
+function MatchMetric({ isLoading, label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{isLoading ? '...' : value}</p>
+    </div>
   )
 }
