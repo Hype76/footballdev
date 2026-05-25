@@ -73,12 +73,12 @@ export function SectionCard({
   return (
     <section
       data-tour-id={tourId}
-      className="min-w-0 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:p-5 lg:p-6"
+      className="min-w-0 scroll-mt-28 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6 lg:p-7"
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="sticky top-[4.25rem] z-10 -mx-2 flex flex-col gap-4 rounded-2xl bg-white/95 px-2 py-2 backdrop-blur sm:flex-row sm:items-start sm:justify-between lg:top-[5rem]">
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{title}</h3>
-          {description ? <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{description}</p> : null}
+          <h3 className="text-2xl font-black tracking-tight text-slate-950">{title}</h3>
+          {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
         </div>
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           {actions ? <div className="w-full sm:w-auto">{actions}</div> : null}
@@ -87,7 +87,7 @@ export function SectionCard({
             onClick={handleToggle}
             aria-controls={contentId}
             aria-expanded={isOpen}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-800 transition hover:bg-white"
           >
             {isOpen ? 'Collapse' : 'Expand'}
           </button>

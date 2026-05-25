@@ -232,7 +232,7 @@ export function Layout() {
             <div className="mx-auto w-full max-w-7xl">
               <OnboardingProvider>
                 {needsAccessModeSelection ? (
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--shell-card)] p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Access"
                       title="How do you want to open this account?"
@@ -244,7 +244,7 @@ export function Layout() {
                     />
                   </div>
                 ) : needsClubSelection ? (
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--shell-card)] p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Club"
                       title="Which club do you want to open?"
@@ -260,7 +260,7 @@ export function Layout() {
                     />
                   </div>
                 ) : needsTeamSelection ? (
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--shell-card)] p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Team"
                       title="Which team do you want to work with?"
@@ -290,10 +290,10 @@ export function Layout() {
 function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, options, title }) {
   return (
     <div className="mx-auto max-w-3xl space-y-5 py-4 sm:py-8">
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 sm:p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">{eyebrow}</p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">{title}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{description}</p>
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">{eyebrow}</p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
       </div>
 
       <div className="space-y-3">
@@ -304,13 +304,13 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
             onClick={() => onSelect(option.id)}
             disabled={isLoading}
             title={isLoading ? 'Please wait while the workspace opens.' : undefined}
-            className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-h-16 w-full items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-emerald-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">{option.label}</span>
-              <span className="mt-1 block text-xs text-[var(--text-muted)]">{option.meta}</span>
+              <span className="block truncate text-sm font-black text-slate-950">{option.label}</span>
+              <span className="mt-1 block text-xs text-slate-500">{option.meta}</span>
             </span>
-            <span className="shrink-0 text-sm font-semibold text-[var(--text-secondary)]">
+            <span className="shrink-0 text-sm font-black text-emerald-700">
               {isLoading ? 'Opening...' : 'Open'}
             </span>
           </button>
@@ -318,7 +318,7 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-900">
           {error}
         </div>
       ) : null}

@@ -116,6 +116,8 @@ export function SessionsPage({ setupOpen = false }) {
     () => [...sessions, ...buildHistoricalSessionsFromEvaluations(evaluations, sessions)],
     [evaluations, sessions],
   )
+  const requestedSessionMissing =
+    Boolean(requestedSessionId) && !isLoading && !combinedSessions.some((session) => session.id === requestedSessionId)
   const selectedSession = combinedSessions.find((session) => session.id === selectedSessionId)
   const canCompleteSessions = Number(user?.roleRank ?? 0) >= 50
   const canDeleteSessions = Number(user?.roleRank ?? 0) >= 50
@@ -840,6 +842,12 @@ export function SessionsPage({ setupOpen = false }) {
     }
   }
 
+  const clearRequestedSession = () => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('sessionId')
+    setSearchParams(nextSearchParams)
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
@@ -849,6 +857,26 @@ export function SessionsPage({ setupOpen = false }) {
       />
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
+
+      {requestedSessionMissing ? (
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-primary)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Session link could not be opened</p>
+              <p className="mt-1 leading-6 text-[var(--text-muted)]">
+                The session in this link was not found, so the current available session is shown instead.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearRequestedSession}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            >
+              Clear session link
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {completedSessionId ? (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-primary)]">
@@ -919,11 +947,11 @@ export function SessionsPage({ setupOpen = false }) {
       <details
         id="session-setup"
         open={setupOpen || sessions.length === 0}
-        className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 sm:p-4"
+        className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/80 sm:p-4"
       >
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-2 text-base font-semibold text-[var(--text-primary)]">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-2 text-base font-black text-slate-950">
           Setup and session admin
-          <span className="text-sm text-[var(--text-muted)]">Create, switch, add players</span>
+          <span className="text-sm font-bold text-slate-500">Create, switch, add players</span>
         </summary>
         <div className="mt-4 space-y-4">
           <CreateSessionSection
@@ -1066,26 +1094,26 @@ function MatchdayFocus({
   }
 
   return (
-    <section className="rounded-lg border border-[var(--accent)] bg-[var(--panel-soft)] p-4 sm:p-5">
+    <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80 sm:p-6">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
             Sessions Mode
           </p>
-          <h3 className="mt-2 break-words text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+          <h3 className="mt-2 break-words text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
             {selectedSession?.title || selectedSession?.team || 'Get the next session ready'}
           </h3>
           <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold">
-            <span className="rounded-full bg-[var(--panel-bg)] px-3 py-1 text-[var(--text-primary)]">
+            <span className="rounded-full bg-white px-3 py-1 text-slate-950">
               {progressLabel}
             </span>
             {selectedSessionCompleted ? (
-              <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[var(--accent-text)]">Completed</span>
+              <span className="rounded-full bg-emerald-700 px-3 py-1 text-white">Completed</span>
             ) : (
-              <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[var(--accent-text)]">Open</span>
+              <span className="rounded-full bg-emerald-700 px-3 py-1 text-white">Open</span>
             )}
           </div>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
             Keep this screen open during training or a match. Add quick notes, then work through the assessment queue.
           </p>
         </div>
@@ -1103,7 +1131,7 @@ function MatchdayFocus({
                     ? 'This session is completed, so assessments cannot be started from here.'
                     : undefined
               }
-              className="inline-flex min-h-14 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-4 text-base font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-14 items-center justify-center rounded-xl bg-slate-950 px-5 py-4 text-base font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {nextActionLabel}
             </button>
@@ -1113,7 +1141,7 @@ function MatchdayFocus({
               onClick={handleSetupScroll}
               disabled={isLoading}
               title={isLoading ? 'Please wait while the session loads.' : undefined}
-              className="inline-flex min-h-14 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-4 text-base font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-14 items-center justify-center rounded-xl bg-slate-950 px-5 py-4 text-base font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {nextActionLabel}
             </button>
@@ -1122,7 +1150,7 @@ function MatchdayFocus({
             <button
               type="button"
               onClick={handleSetupScroll}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-emerald-200 bg-white px-5 py-3 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"
             >
               Session setup
             </button>

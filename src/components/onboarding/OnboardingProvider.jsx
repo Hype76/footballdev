@@ -180,25 +180,25 @@ export function OnboardingProvider({ children }) {
   return (
     <>
       {shouldShowOnboarding ? (
-        <section className="mb-4 overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-slate-900/5">
-          <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-4 sm:px-5">
+        <section className="mb-6 overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm shadow-slate-200/80">
+          <div className="border-b border-emerald-100 bg-emerald-50 px-5 py-5 sm:px-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">First run setup</p>
-                <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-950">{plan.title}</h2>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">First run setup</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{plan.title}</h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">{plan.description}</p>
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
                 <Link
                   to={plan.firstAction}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800"
                 >
                   Start setup
                 </Link>
                 <button
                   type="button"
                   onClick={handleDismiss}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-emerald-50"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"
                 >
                   Skip for now
                 </button>
@@ -216,12 +216,12 @@ export function OnboardingProvider({ children }) {
             </p>
           </div>
 
-          <div className="grid gap-3 p-4 sm:p-5 xl:grid-cols-2">
+          <div className="grid gap-3 p-5 sm:p-6 xl:grid-cols-2">
             {plan.steps.map((step) => (
               <article
                 key={step.id}
                 className={[
-                  'rounded-lg border p-4',
+                  'rounded-2xl border p-4',
                   step.complete
                     ? 'border-emerald-100 bg-emerald-50/70'
                     : 'border-slate-200 bg-white',
@@ -236,7 +236,7 @@ export function OnboardingProvider({ children }) {
                     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                       <Link
                         to={step.href}
-                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:bg-emerald-50"
+                        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
                       >
                         {step.actionLabel}
                       </Link>
@@ -244,7 +244,7 @@ export function OnboardingProvider({ children }) {
                         <button
                           type="button"
                           onClick={() => handleCompleteStep(step.id)}
-                          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                         >
                           Mark done
                         </button>
@@ -256,14 +256,14 @@ export function OnboardingProvider({ children }) {
             ))}
           </div>
 
-          <div className="flex flex-col gap-2 border-t border-[var(--border-color)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex flex-col gap-2 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-sm text-slate-600">
               Onboarding uses real workspace data where possible. Manual steps are for rules or choices the system cannot infer.
             </p>
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
+              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
             >
               Reset setup
             </button>
