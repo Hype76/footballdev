@@ -8,7 +8,7 @@ export function PublicParentPortalLoginPage() {
     <main className="min-h-screen bg-slate-50 pb-[max(5.5rem,env(safe-area-inset-bottom))] text-slate-950 lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:grid-cols-[0.75fr_1fr] lg:gap-8 lg:px-8 lg:py-16">
-        <div className="order-2 flex items-start justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6 lg:order-1">
+        <div className="order-2 flex items-start justify-center overflow-hidden rounded-md border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:order-1">
           <img
             src={parentPortalGoalPhoneImage}
             alt="Mobile phone showing a Football Player goal notification"
@@ -20,7 +20,7 @@ export function PublicParentPortalLoginPage() {
           <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
             Log in to your parent portal.
           </h1>
-          <p className="mt-5 text-base leading-7 text-slate-700 sm:mt-6 sm:text-lg sm:leading-8">
+          <p className="mt-5 text-base font-semibold leading-7 text-slate-700 sm:mt-6 sm:text-lg sm:leading-8">
             Open the account you confirmed by email to view your linked child, club messages, reports, and polls.
           </p>
           <div className="mt-6">
