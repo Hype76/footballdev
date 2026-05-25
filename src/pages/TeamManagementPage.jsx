@@ -614,15 +614,15 @@ export function TeamManagementPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="border border-slate-200 bg-white p-5 sm:p-6">
+      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white p-5 shadow-sm shadow-emerald-900/5 sm:p-6">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Team setup</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Team setup</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-              Build the football structure first.
+              Build the club structure before the season gets busy.
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-slate-700">
-              Teams decide where players, staff access, sessions, and match day records live. Create the squad group, then give staff only the access they need.
+              Teams decide where players, staff access, sessions, and match day records live. Create each age group or squad, then give coaches only the access they need.
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <TeamSetupMetric label="Teams" value={teams.length} />
@@ -630,15 +630,15 @@ export function TeamManagementPage() {
               <TeamSetupMetric label="Players placed" value={playerTotal} />
             </div>
           </div>
-          <div className="border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Setup order</p>
+          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Setup order</p>
             <div className="mt-4 grid gap-3">
               {[
                 ['1', 'Create the team'],
                 ['2', 'Invite or allocate staff'],
                 ['3', 'Add players to that team'],
               ].map(([step, label]) => (
-                <div key={step} className="flex items-center gap-3 border border-slate-200 bg-white px-4 py-3">
+                <div key={step} className="flex items-center gap-3 rounded-lg border border-lime-200 bg-white px-4 py-3">
                   <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-slate-950 text-sm font-black text-white">
                     {step}
                   </span>
@@ -651,7 +651,7 @@ export function TeamManagementPage() {
       </section>
 
       {message ? (
-        <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
           {message}
         </div>
       ) : null}
@@ -737,8 +737,8 @@ export function TeamManagementPage() {
 
 function TeamSetupMetric({ label, value }) {
   return (
-    <div className="border border-slate-200 bg-slate-50 px-4 py-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">{label}</p>
       <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
     </div>
   )

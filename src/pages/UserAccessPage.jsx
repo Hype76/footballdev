@@ -6,7 +6,6 @@ import { PendingAllocationsSection } from '../components/user-access/PendingAllo
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canAssignRole, canManageUsers, getRoleLabel, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
@@ -381,14 +380,28 @@ export function UserAccessPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="User Access"
-        title="Allocate club roles"
-        description="Add an email, assign a role, and keep your club access structure under control."
-      />
+      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white p-5 shadow-sm shadow-emerald-900/5 sm:p-6">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Staff access</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+              Give every coach the right view, no more.
+            </h1>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-700">
+              Invite staff by email, assign their club role, and keep access tidy as coaches move teams or leave the club.
+            </p>
+          </div>
+          <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-800">Access rule</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
+              Start with the lowest role that lets the coach do their job. Raise access only when they need club-wide control.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {message ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
           {message}
         </div>
       ) : null}

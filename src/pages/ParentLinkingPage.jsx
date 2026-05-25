@@ -31,10 +31,10 @@ function isSquadPlayer(player) {
 }
 
 const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
-const inputClass = 'min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
-const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600'
+const inputClass = 'min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-emerald-800 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+const emptyStateClass = 'rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600'
 
 export function ParentLinkingPage() {
   const { user } = useAuth()
@@ -240,17 +240,19 @@ export function ParentLinkingPage() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white p-5 shadow-sm shadow-emerald-900/5 sm:p-6">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent portal</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Parent linking</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Invite parents for squad players in your team, check who already has access, and remove links when access needs to stop.
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Parent access</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+              Give parents a clean match-day portal, not a staff login.
+            </h1>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-700">
+              Invite the exact parent emails attached to squad players, then remove links when access should stop.
             </p>
           </div>
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Linking rule</p>
+          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Parent portal rule</p>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
               Parent access is only created for squad players. Trial players stay out of the parent portal until they are moved into Squad.
             </p>
@@ -261,30 +263,23 @@ export function ParentLinkingPage() {
       {errorMessage ? <NoticeBanner title="Parent linking not completed" message={errorMessage} /> : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
-        {[
+        {[ 
           { label: 'Squad players', value: players.length },
           { label: 'Selected contacts', value: selectedContactIds.length },
           { label: 'Active links', value: activeLinks.length },
         ].map((item) => (
-          <div key={item.label} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">{item.label}</p>
+          <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-800">{item.label}</p>
             <p className="mt-2 text-3xl font-black text-slate-950">{item.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-sm font-black text-emerald-950">Parent portal rule</p>
-        <p className="mt-1 text-sm leading-6 text-emerald-900">
-          Parent access is only created for squad players. Select the exact parent emails that should receive access, then revoke links here when access needs to stop.
-        </p>
-      </div>
-
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent invites</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Parent invites</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Send and manage access</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 Choose one squad player and select parents, or invite every squad parent email in your current team.
@@ -304,7 +299,7 @@ export function ParentLinkingPage() {
 
         <div className="px-5 py-5 sm:px-6">
           {isLoading ? (
-            <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
+            <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
             Loading parent linking...
             </p>
           ) : players.length === 0 ? (
@@ -329,7 +324,7 @@ export function ParentLinkingPage() {
                 </select>
               </label>
 
-              <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-black text-slate-950">Parent emails</p>
@@ -346,7 +341,7 @@ export function ParentLinkingPage() {
 
                 <div className="mt-4 space-y-2">
                   {selectedContacts.length > 0 ? selectedContacts.map((contact) => (
-                    <label key={contact.id} className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 transition hover:bg-white">
+                    <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 transition hover:bg-white">
                       <input
                         type="checkbox"
                         checked={selectedContactIds.includes(contact.id)}
@@ -383,11 +378,11 @@ export function ParentLinkingPage() {
               </div>
             </div>
 
-            <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-sm font-black text-slate-950">Existing links for this player</p>
               <div className="mt-4 space-y-2">
                 {links.length > 0 ? links.map((link) => (
-                  <div key={link.id} className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div key={link.id} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="break-words text-sm font-bold text-slate-950">{link.email || 'Link only'}</p>
@@ -398,7 +393,7 @@ export function ParentLinkingPage() {
                         onClick={() => setRevokeTarget(link)}
                         disabled={isSending || isRevokingLink || link.status === 'revoked'}
                         title={link.status === 'revoked' ? 'This parent access has already been removed.' : undefined}
-                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Remove access
                       </button>

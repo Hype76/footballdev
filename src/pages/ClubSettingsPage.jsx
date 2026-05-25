@@ -3,7 +3,6 @@ import { Navigate } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { ClubProfileSettingsSection } from '../components/club-settings/ClubProfileSettingsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageClubLogo, canManageClubSettings, useAuth } from '../lib/auth.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
@@ -280,20 +279,34 @@ export function ClubSettingsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Club Settings"
-        title="Club details"
-        description="Update the shared club information shown across the workspace and parent-facing previews."
-      />
+      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white p-5 shadow-sm shadow-emerald-900/5 sm:p-6">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Club settings</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+              Keep the club identity consistent everywhere.
+            </h1>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-700">
+              These details appear across staff screens, parent previews, emails, and shared football records.
+            </p>
+          </div>
+          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Club rule</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
+              Set the club name, contacts, and logo before inviting parents so every message looks official.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {isSaved ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
           Saved successfully
         </div>
       ) : null}
 
       {uploadSuccessMessage ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-950">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
           {uploadSuccessMessage}
         </div>
       ) : null}
