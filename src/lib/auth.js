@@ -1,5 +1,5 @@
 import { createContext, createElement, useContext, useEffect, useRef, useState } from 'react'
-import { DEMO_ROLE_STORAGE_KEY, getDemoRole, isDemoUser } from './demo.js'
+import { DEMO_ROLE_STORAGE_KEY, getDemoRole, isDemoEmail, isDemoUser } from './demo.js'
 import { supabase } from './supabase-client.js'
 import {
   areUsersEquivalent,
@@ -253,7 +253,12 @@ export function AuthProvider({ children }) {
     return sessionData?.session?.access_token || ''
   }
 
-  const refreshPlatformAdminAccess = async () => {
+  const refreshPlatformAdminAccess = async (sessionUser = authUser) => {
+    if (isDemoEmail(sessionUser?.email)) {
+      setHasPlatformAdminAccess(false)
+      return false
+    }
+
     const accessToken = await getAccessToken()
 
     if (!accessToken) {
@@ -364,7 +369,7 @@ export function AuthProvider({ children }) {
         const { fetchUserProfile } = await loadAuthDataModule()
         const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
         const selectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
-        const hasPlatformAccess = await refreshPlatformAdminAccess()
+        const hasPlatformAccess = await refreshPlatformAdminAccess(nextSession.user)
 
         if (selectedAccessMode === 'platform_admin' && hasPlatformAccess) {
           const platformProfile = await openPlatformAdminProfile()
