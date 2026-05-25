@@ -14,30 +14,30 @@ export function CreateTesterCodeSection({
     >
       <form onSubmit={onCreateTesterCode} className="grid gap-4 xl:grid-cols-4">
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Label</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Label</span>
           <input
             value={testerCodeForm.label}
             onChange={(event) => onTesterCodeChange('label', event.target.value)}
             placeholder="Cambourne tester"
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Access code</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Access code</span>
           <input
             required
             value={testerCodeForm.code}
             onChange={(event) => onTesterCodeChange('code', event.target.value)}
             placeholder="TESTER-30"
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm uppercase text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm uppercase text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Plan level</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Plan level</span>
           <select
             value={testerCodeForm.planKey}
             onChange={(event) => onTesterCodeChange('planKey', event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           >
             {testerPlanOptions.map((plan) => (
               <option key={plan.key} value={plan.key}>
@@ -47,35 +47,35 @@ export function CreateTesterCodeSection({
           </select>
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Runs for days</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Runs for days</span>
           <input
             required
             type="number"
             min="1"
             value={testerCodeForm.expiresInDays}
             onChange={(event) => onTesterCodeChange('expiresInDays', event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Max uses</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Max uses</span>
           <input
             required
             type="number"
             min="1"
             value={testerCodeForm.maxUses}
             onChange={(event) => onTesterCodeChange('maxUses', event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </label>
         <label className="block xl:col-span-2">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Assigned email</span>
+          <span className="mb-2 block text-sm font-semibold text-slate-950">Assigned email</span>
           <input
             type="email"
             value={testerCodeForm.assignedEmail}
             onChange={(event) => onTesterCodeChange('assignedEmail', event.target.value)}
             placeholder="Optional. Leave blank for any email."
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
           />
         </label>
         <div className="xl:col-span-4">
@@ -83,7 +83,7 @@ export function CreateTesterCodeSection({
             type="submit"
             disabled={isSavingTesterCode}
             title={isSavingTesterCode ? 'Please wait while this tester code is being created.' : undefined}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {isSavingTesterCode ? 'Creating...' : 'Create Tester Code'}
           </button>

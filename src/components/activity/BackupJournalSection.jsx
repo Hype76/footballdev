@@ -15,11 +15,11 @@ export function BackupJournalSection({
       description="Core record changes are copied automatically so platform admins have a fallback trail."
     >
       {isLoading ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
           Loading backups...
         </div>
       ) : backups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
           No backup entries have been recorded yet.
         </div>
       ) : (
@@ -27,7 +27,7 @@ export function BackupJournalSection({
           {paginatedBackups.items.map((backup) => (
             <article
               key={backup.id}
-              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80"
+              className="rounded-md border border-slate-200 bg-white p-4 shadow-sm "
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">

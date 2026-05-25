@@ -175,7 +175,7 @@ export function ActivityLogPage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         {activitySummary.map((item) => (
-          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm ">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
             <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : item.value}</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
@@ -183,7 +183,7 @@ export function ActivityLogPage() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm shadow-slate-200/80">
+      <section className="rounded-md border border-sky-200 bg-sky-50 p-5 shadow-sm ">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Audit rule</p>
         <p className="mt-2 text-sm leading-6 text-slate-700">
           Use this page to answer who changed what, when it happened, and whether the action was inside the user role boundary. It is not a coach performance report.
@@ -191,7 +191,7 @@ export function ActivityLogPage() {
       </section>
 
       {errorMessage ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
           {errorMessage}
         </div>
       ) : null}

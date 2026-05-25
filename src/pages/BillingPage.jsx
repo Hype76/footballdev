@@ -185,7 +185,7 @@ export function BillingPage() {
 
       <section className="grid gap-4 lg:grid-cols-3">
         {planSummary.map((item) => (
-          <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
+          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm ">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
             <p className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950">{isLoading ? 'Loading...' : item.value}</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
@@ -193,7 +193,7 @@ export function BillingPage() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80">
+      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm ">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Billing rule</p>
         <p className="mt-2 text-sm leading-6 text-slate-700">
           Billing changes control access for the whole club. Review the tier, confirm the status, then use checkout only when the club is ready to move from tester access to paid access.
@@ -220,28 +220,28 @@ export function BillingPage() {
         description="Your club access is controlled by the tier shown here."
       >
         {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             Loading billing details...
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Tier</p>
-              <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{getPlanName(visibleClub)}</p>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Tier</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-950">{getPlanName(visibleClub)}</p>
             </div>
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Status</p>
-              <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Status</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-950">
                 {testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus)}
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Next billing date</p>
-              <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{formatDate(visibleClub?.currentPeriodEnd)}</p>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Next billing date</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-950">{formatDate(visibleClub?.currentPeriodEnd)}</p>
             </div>
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Last updated</p>
-              <p className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{formatDate(visibleClub?.planUpdatedAt)}</p>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Last updated</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-950">{formatDate(visibleClub?.planUpdatedAt)}</p>
             </div>
           </div>
         )}
@@ -260,7 +260,7 @@ export function BillingPage() {
                 disabled={Boolean(isCheckoutLoading)}
                 title={isCheckoutLoading ? 'Please wait while checkout opens.' : undefined}
                 onClick={() => void handleChoosePlan(planName)}
-                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-12 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCheckoutLoading === planName ? 'Opening checkout...' : `Choose ${planName}`}
               </button>
@@ -275,11 +275,11 @@ export function BillingPage() {
         description="Invoices appear here once billing has created them for this subscription."
       >
         {isLoading ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             Loading invoices...
           </div>
         ) : (billing?.invoices ?? []).length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             No invoices are available yet.
           </div>
         ) : (
@@ -287,15 +287,15 @@ export function BillingPage() {
             {billing.invoices.map((invoice) => (
               <div
                 key={invoice.id}
-                className="grid gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 md:grid-cols-[1fr_auto_auto]"
+                className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_auto_auto]"
               >
                 <div>
-                  <p className="font-semibold text-[var(--text-primary)]">{invoice.number}</p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  <p className="font-semibold text-slate-950">{invoice.number}</p>
+                  <p className="mt-1 text-sm text-slate-600">
                     {formatDate(invoice.createdAt)} | {getBillingStatusLabel(invoice.status)}
                   </p>
                 </div>
-                <p className="text-sm font-semibold text-[var(--text-primary)] md:self-center">
+                <p className="text-sm font-semibold text-slate-950 md:self-center">
                   {formatMoney(invoice.amountPaid || invoice.amountDue, invoice.currency)}
                 </p>
                 <div className="flex flex-col gap-2 sm:flex-row md:self-center">
@@ -304,7 +304,7 @@ export function BillingPage() {
                       href={invoice.hostedInvoiceUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                      className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
                     >
                       View
                     </a>
@@ -314,7 +314,7 @@ export function BillingPage() {
                       href={invoice.invoicePdf}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                      className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
                     >
                       Download
                     </a>
