@@ -4,7 +4,6 @@ import { RecentlyAddedPlayersSection } from '../components/players/RecentlyAdded
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
 import { sendParentPortalInvite } from '../lib/email-builder.js'
@@ -349,12 +348,24 @@ export function AddPlayerPage() {
   const preparedContacts = ensureContactsForType(playerForm.parentContacts, normalizedContactType, playerForm.playerName)
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Add Player"
-        title="Add player"
-        description="Create a Trial or Squad player record, assign the team, and add the right contact details."
-      />
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Player intake</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Add player</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+              Create one footballer record with a team, Trial or Squad status, positions, and the contacts needed for parent communication.
+            </p>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Intake rule</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
+              Start in Trial unless the player is already in the squad. Squad players with contact emails can be invited to the parent portal straight away.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {errorMessage ? (
         <NoticeBanner
@@ -364,7 +375,7 @@ export function AddPlayerPage() {
       ) : null}
 
       {message ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
           {message}
         </div>
       ) : null}
@@ -405,8 +416,8 @@ export function AddPlayerPage() {
           `Player: ${parentPortalInviteTarget?.playerName || 'Selected player'}`,
           `Team: ${parentPortalInviteTarget?.team || 'No team entered'}`,
         ]}
-        cancelLabel="Not Now"
-        confirmLabel="Send Parent Link"
+        cancelLabel="Not now"
+        confirmLabel="Send parent link"
         onCancel={() => setParentPortalInviteTarget(null)}
         onConfirm={() => void confirmSendParentPortalLink()}
       />
