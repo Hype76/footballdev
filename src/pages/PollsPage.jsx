@@ -34,10 +34,25 @@ const EMPTY_FORM = {
 
 const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
 const inputClass = 'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
 const emptyStateClass = 'rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600'
+
+const pollRuleCards = [
+  {
+    label: 'Audience first',
+    body: 'Pick parents or staff before writing the question so replies are sent to the right people.',
+  },
+  {
+    label: 'One decision',
+    body: 'Ask for one football answer at a time: available, not available, time choice, or award vote.',
+  },
+  {
+    label: 'Close when done',
+    body: 'Close the poll once the team decision is made so parents know the answer is final.',
+  },
+]
 
 function getOptionId(index) {
   return `option-${index + 1}`
@@ -148,6 +163,11 @@ export function PollsPage() {
   const openPollCount = useMemo(() => polls.filter((poll) => poll.status !== 'closed').length, [polls])
   const parentPollCount = useMemo(() => polls.filter((poll) => poll.audience === 'parents').length, [polls])
   const staffPollCount = useMemo(() => polls.filter((poll) => poll.audience === 'staff').length, [polls])
+  const closedPollCount = useMemo(() => polls.filter((poll) => poll.status === 'closed').length, [polls])
+  const responseCount = useMemo(
+    () => polls.reduce((total, poll) => total + getTotalVotes(poll), 0),
+    [polls],
+  )
 
   const awardPlayers = useMemo(
     () =>
@@ -391,20 +411,41 @@ export function PollsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-end">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Availability control</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Get a clear answer before team selection.</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Ask parents or staff one football question at a time: availability, session times, player awards, or match-day decisions.
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Availability control</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+              Get the answer before you pick the squad.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Use polls as football decisions, not generic surveys. Ask the right people, collect the reply, then close the loop before training or match day.
             </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {pollRuleCards.map((item) => (
+                <article key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.body}</p>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Poll rule</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              Pick the audience first, set the reply rules before publishing, then close the poll when the decision is made.
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Reply state</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+                {openPollCount} open / {responseCount} replies
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <DecisionMetric label="Parents" value={parentPollCount} isLoading={isLoading} />
+              <DecisionMetric label="Staff" value={staffPollCount} isLoading={isLoading} />
+              <DecisionMetric label="Closed" value={closedPollCount} isLoading={isLoading} />
+              <DecisionMetric label="Visible" value={visiblePolls.length} isLoading={isLoading} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              Keep open polls current. Old decisions should be closed or deleted so the club board stays readable.
             </p>
           </div>
         </div>
@@ -420,21 +461,22 @@ export function PollsPage() {
 
       <div className="grid gap-3 sm:grid-cols-4">
         {[
-          { label: 'Open polls', value: openPollCount },
-          { label: 'Parent polls', value: parentPollCount },
-          { label: 'Staff polls', value: staffPollCount },
-          { label: 'Visible now', value: visiblePolls.length },
+          { label: 'Open decisions', value: openPollCount, caption: 'Still waiting for replies or action.' },
+          { label: 'Parent route', value: parentPollCount, caption: 'Questions sent to parent portal.' },
+          { label: 'Staff route', value: staffPollCount, caption: 'Internal team staff decisions.' },
+          { label: 'Total replies', value: responseCount, caption: 'Responses across all poll types.' },
         ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">{item.label}</p>
-            <p className="mt-2 text-3xl font-black text-slate-950">{item.value}</p>
+          <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{item.label}</p>
+            <p className="mt-2 text-3xl font-black text-slate-950">{isLoading ? '...' : item.value}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
           </div>
         ))}
       </div>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Create request</p>
+        <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Create request</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Create a football decision</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             Choose the poll type, configure the options, and publish it to the right football audience.
@@ -452,8 +494,8 @@ export function PollsPage() {
                   onClick={() => handlePollTypeChange(option.value)}
                   className={`min-h-11 rounded-lg border px-4 py-3 text-sm font-black transition ${
                     form.pollType === option.value
-                      ? 'border-emerald-800 bg-emerald-800 text-white shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-lime-50'
+                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-emerald-50'
                   }`}
                 >
                   {option.label}
@@ -613,9 +655,9 @@ export function PollsPage() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-4 border-b border-slate-200 bg-[#f8fafc] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <div className="grid gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Decision board</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Decision board</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Poll board</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
               Review active and closed polls, answer staff polls, and see response totals.
@@ -658,6 +700,15 @@ export function PollsPage() {
         )}
         </div>
       </section>
+    </div>
+  )
+}
+
+function DecisionMetric({ isLoading, label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{isLoading ? '...' : value}</p>
     </div>
   )
 }
@@ -802,7 +853,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
                 Vote locked after choice
               </span>
             ) : null}
-            <span className={`inline-flex w-fit rounded-md border px-3 py-1 text-xs font-bold ${isClosed ? 'border-slate-200 bg-slate-100 text-slate-600' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+            <span className={`inline-flex w-fit rounded-md border px-3 py-1 text-xs font-bold ${isClosed ? 'border-slate-200 bg-slate-100 text-slate-600' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
               {isClosed ? 'Closed' : 'Open'}
             </span>
             {poll.teamName ? (
