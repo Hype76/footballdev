@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewBilling, useAuth } from '../lib/auth.js'
 import { formatUkDate } from '../lib/date-format.js'
@@ -49,6 +48,21 @@ function getBillingStatusLabel(status) {
 
   return normalizedStatus || 'Not available'
 }
+
+const billingRules = [
+  {
+    label: 'Club access changes here',
+    body: 'Plan changes affect every coach, team, player, and parent workflow in this club.',
+  },
+  {
+    label: 'Tester access is temporary',
+    body: 'Staging can use tester codes. Paid checkout is only needed when the club is ready to keep using the workspace.',
+  },
+  {
+    label: 'Invoices prove billing state',
+    body: 'Use invoices to confirm payment history after Stripe has created records for the subscription.',
+  },
+]
 
 export function BillingPage() {
   const { session, user } = useAuth()
@@ -177,27 +191,44 @@ export function BillingPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Billing"
-        title="Billing and plan"
-        description="Review your current tier, subscription status, renewal date, and recent invoices."
-      />
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Club access</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+              Keep the club plan clear before coaches and parents rely on it.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Review the current tier, subscription state, tester access, renewal date, and invoices that control this football workspace.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {billingRules.map((rule) => (
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        {planSummary.map((item) => (
-          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm ">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-            <p className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950">{isLoading ? 'Loading...' : item.value}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm ">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Billing rule</p>
-        <p className="mt-2 text-sm leading-6 text-slate-700">
-          Billing changes control access for the whole club. Review the tier, confirm the status, then use checkout only when the club is ready to move from tester access to paid access.
-        </p>
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Access state</p>
+              <p className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">
+                {isLoading ? 'Loading plan' : getPlanName(visibleClub)}
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {testerAccessExpired ? 'Tester access has ended for this club.' : 'This is the access currently enforced for the club.'}
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {planSummary.map((item) => (
+                <BillingMetric key={item.label} label={item.label} value={isLoading ? 'Loading...' : item.value} />
+              ))}
+              <BillingMetric label="Invoices" value={isLoading ? 'Loading...' : (billing?.invoices ?? []).length} />
+            </div>
+          </div>
+        </div>
       </section>
 
       {errorMessage ? (
@@ -260,7 +291,7 @@ export function BillingPage() {
                 disabled={Boolean(isCheckoutLoading)}
                 title={isCheckoutLoading ? 'Please wait while checkout opens.' : undefined}
                 onClick={() => void handleChoosePlan(planName)}
-                className="inline-flex min-h-12 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-12 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCheckoutLoading === planName ? 'Opening checkout...' : `Choose ${planName}`}
               </button>
@@ -292,7 +323,7 @@ export function BillingPage() {
                 <div>
                   <p className="font-semibold text-slate-950">{invoice.number}</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {formatDate(invoice.createdAt)} | {getBillingStatusLabel(invoice.status)}
+                    {formatDate(invoice.createdAt)}, {getBillingStatusLabel(invoice.status)}
                   </p>
                 </div>
                 <p className="text-sm font-semibold text-slate-950 md:self-center">
@@ -314,7 +345,7 @@ export function BillingPage() {
                       href={invoice.invoicePdf}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                      className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600"
                     >
                       Download
                     </a>
@@ -325,6 +356,15 @@ export function BillingPage() {
           </div>
         )}
       </SectionCard>
+    </div>
+  )
+}
+
+function BillingMetric({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
 }
