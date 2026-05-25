@@ -102,13 +102,13 @@ export function Topbar({ title, onMenuClick }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm shadow-slate-200/80 sm:px-6 md:px-8 xl:px-12">
-      <div className="mx-auto flex max-w-[92rem] flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm shadow-slate-200/80 backdrop-blur sm:px-6 md:px-8 xl:px-10">
+      <div className="mx-auto flex max-w-[96rem] flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm shadow-slate-200/70 lg:hidden"
             aria-label="Open navigation"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -116,7 +116,7 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-950 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-950 shadow-sm">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
           </div>
 
@@ -125,10 +125,10 @@ export function Topbar({ title, onMenuClick }) {
               <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">
                 {clubLabel}
               </p>
-              <span className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-black text-emerald-900 ring-1 ring-emerald-100">
+              <span className="rounded-md bg-[#f2fbf6] px-2 py-1 text-[11px] font-black text-emerald-900 ring-1 ring-emerald-200">
                 {workspaceContext}
               </span>
-              <span className="rounded-md bg-sky-50 px-2 py-1 text-[11px] font-black text-sky-800 ring-1 ring-sky-100">
+              <span className="rounded-md bg-[#eef6ff] px-2 py-1 text-[11px] font-black text-sky-800 ring-1 ring-sky-100">
                 {todayLabel}
               </span>
             </div>
@@ -139,7 +139,7 @@ export function Topbar({ title, onMenuClick }) {
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 shadow-sm 2xl:w-auto 2xl:min-w-[38rem]">
+        <div className="grid w-full gap-2 rounded-lg border border-slate-200 bg-[#f8fafc] p-2 shadow-sm shadow-slate-200/80 2xl:w-auto 2xl:min-w-[38rem]">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
             {isDemoUser(displayUser) ? (
               <label className="col-span-2 grid gap-1 md:col-span-1">
@@ -193,11 +193,11 @@ export function Topbar({ title, onMenuClick }) {
             ) : null}
             <InstallAppButton
               wrapperClassName="col-span-2 lg:hidden"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-700 px-3 py-3 text-sm font-black text-white"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-600 px-3 py-3 text-sm font-black text-white"
             />
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm font-black leading-none text-slate-950 transition hover:bg-slate-100"
+              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm font-black leading-none text-slate-950 shadow-sm shadow-slate-200/60 transition hover:bg-slate-100"
             >
               My Settings
             </Link>
@@ -206,7 +206,7 @@ export function Topbar({ title, onMenuClick }) {
               onClick={handleSignOut}
               disabled={isSigningOut}
               title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-slate-950 bg-slate-950 px-3 py-3 text-sm font-black leading-none text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-black leading-none text-slate-950 shadow-sm shadow-slate-200/60 transition hover:border-rose-200 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>

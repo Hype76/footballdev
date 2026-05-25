@@ -43,10 +43,10 @@ function StepMarker({ index, complete }) {
   return (
     <span
       className={[
-        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-xs font-black',
+        'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-xs font-black',
         complete
           ? 'border-emerald-600 bg-emerald-600 text-white'
-          : 'border-slate-300 bg-slate-50 text-slate-700',
+          : 'border-slate-300 bg-white text-slate-700',
       ].join(' ')}
       aria-label={complete ? 'Complete' : 'Not complete'}
     >
@@ -181,20 +181,25 @@ export function OnboardingProvider({ children }) {
   return (
     <>
       {shouldShowOnboarding ? (
-        <section className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
-          <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end">
+        <section className="mb-6 overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-slate-200/80">
+          <div className="border-b border-emerald-100 bg-[linear-gradient(135deg,#ffffff_0%,#f2fbf6_58%,#eef6ff_100%)] px-5 py-5 sm:px-6">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">First run setup</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{plan.title}</h2>
-                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-700">{plan.description}</p>
+                <h2 className="mt-2 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-slate-950 sm:text-5xl">{plan.title}</h2>
+                <p className="mt-3 max-w-3xl text-base font-semibold leading-7 text-slate-700">{plan.description}</p>
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <SetupRule title="Use real data" body="Create or confirm the football records the club needs this week." />
+                  <SetupRule title="Respect access" body="Only complete setup work this account is allowed to manage." />
+                  <SetupRule title="Keep it practical" body="Skip workflows the club does not use and reset setup later if needed." />
+                </div>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <div className="grid content-between rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
                 <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                  <span>Setup checks</span>
+                  <span>Launch checks</span>
                   <span>{progress.completedCount} of {progress.totalCount}</span>
                 </div>
-                <div className="mt-3 h-3 overflow-hidden rounded-md bg-white ring-1 ring-slate-200">
+                <div className="mt-4 h-3 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200">
                   <div
                     className="h-full rounded-md bg-emerald-600 transition-all"
                     style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
@@ -203,20 +208,24 @@ export function OnboardingProvider({ children }) {
                 <p className="mt-2 text-xs font-bold text-slate-600">
                   {isLoading ? 'Refreshing real workspace data.' : 'Checked against workspace data where possible.'}
                 </p>
+                <div className="mt-5 rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Next action</p>
+                  <p className="mt-1 text-lg font-black text-slate-950">{nextStep?.title}</p>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-0 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1fr)]">
+          <div className="grid gap-0 xl:grid-cols-[minmax(20rem,0.68fr)_minmax(0,1fr)]">
             <div className="border-b border-slate-200 bg-white p-5 sm:p-6 xl:border-b-0 xl:border-r">
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] p-4 shadow-sm shadow-emerald-100/70">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Next useful action</p>
                 <h3 className="mt-2 text-lg font-black text-slate-950">{nextStep?.title}</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{nextStep?.detail}</p>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row xl:flex-col 2xl:flex-row">
                   <Link
                     to={nextStep?.href || plan.firstAction}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-sm shadow-emerald-200 transition hover:bg-emerald-700"
                   >
                     {nextStep?.actionLabel || 'Start setup'}
                   </Link>
@@ -238,8 +247,7 @@ export function OnboardingProvider({ children }) {
               </div>
             </div>
 
-            <div className="p-4 sm:p-5">
-
+            <div className="bg-[#fbfdfb] p-4 sm:p-5">
               <div className="grid gap-3 lg:grid-cols-2">
                 {plan.steps.map((step, index) => (
                   <article
@@ -247,7 +255,7 @@ export function OnboardingProvider({ children }) {
                     className={[
                       'rounded-lg border p-4 shadow-sm transition',
                       step.complete
-                        ? 'border-emerald-200 bg-emerald-50'
+                        ? 'border-emerald-200 bg-[#f2fbf6]'
                         : 'border-slate-200 bg-white',
                     ].join(' ')}
                   >
@@ -260,7 +268,7 @@ export function OnboardingProvider({ children }) {
                         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                           <Link
                             to={step.href}
-                            className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-black text-white transition hover:bg-slate-800"
+                            className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700"
                           >
                             {step.actionLabel}
                           </Link>
@@ -280,7 +288,7 @@ export function OnboardingProvider({ children }) {
                 ))}
               </div>
 
-              <div className="mt-4 flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-4 flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm shadow-slate-200/70 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-semibold text-slate-600">
                   Reset brings the checklist back for testing or a fresh club launch.
                 </p>
@@ -304,5 +312,14 @@ export function OnboardingProvider({ children }) {
       ) : null}
       {children}
     </>
+  )
+}
+
+function SetupRule({ body, title }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white/85 px-4 py-4 shadow-sm shadow-slate-200/60">
+      <p className="text-sm font-black text-slate-950">{title}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{body}</p>
+    </div>
   )
 }

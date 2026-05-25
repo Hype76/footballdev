@@ -218,22 +218,22 @@ export function Layout() {
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f4f7f6] text-slate-950">
-      <div className="fixed inset-0 -z-10 bg-[#f4f7f6]" />
+    <div className="min-h-screen overflow-x-hidden bg-[#f7faf8] text-slate-950">
+      <div className="fixed inset-0 -z-10 bg-[linear-gradient(180deg,#f7faf8_0%,#eef7f2_42%,#f8fafc_100%)]" />
       <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-[18.5rem]">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-[20rem]">
           <Topbar
             title={activeTitle}
             onMenuClick={() => setIsSidebarOpen(true)}
           />
 
-          <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-12">
-            <div className="mx-auto w-full max-w-[92rem]">
+          <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-10">
+            <div className="mx-auto w-full max-w-[96rem]">
               <OnboardingProvider>
                 {needsAccessModeSelection ? (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Access"
                       title="How do you want to open this account?"
@@ -245,7 +245,7 @@ export function Layout() {
                     />
                   </div>
                 ) : needsClubSelection ? (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Club"
                       title="Which club do you want to open?"
@@ -261,7 +261,7 @@ export function Layout() {
                     />
                   </div>
                 ) : needsTeamSelection ? (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Team"
                       title="Which team do you want to work with?"
@@ -291,7 +291,7 @@ export function Layout() {
 function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, options, title }) {
   return (
     <div className="mx-auto max-w-3xl space-y-5 py-4 sm:py-8">
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">{eyebrow}</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{title}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
@@ -305,7 +305,7 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
             onClick={() => onSelect(option.id)}
             disabled={isLoading}
             title={isLoading ? 'Please wait while the workspace opens.' : undefined}
-            className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm shadow-slate-200/70 transition hover:border-emerald-300 hover:bg-[#f2fbf6] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="min-w-0">
               <span className="block truncate text-sm font-black text-slate-950">{option.label}</span>

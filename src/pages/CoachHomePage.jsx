@@ -289,9 +289,9 @@ export function CoachHomePage() {
             ].join(' ')}
           >
             <span className="flex items-center justify-between gap-3">
-              <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</span>
+              <span className="min-w-0 text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</span>
               <span className={[
-                'rounded-md px-2 py-1 text-[11px] font-black',
+                'shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-black',
                 item.tone === 'good' ? 'bg-emerald-100 text-emerald-900' : item.tone === 'risk' ? 'bg-rose-100 text-rose-900' : 'bg-amber-100 text-amber-950',
               ].join(' ')}
               >
