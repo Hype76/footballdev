@@ -13,7 +13,7 @@ export function PlayerProfileActions({
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
       <Link
         to={`/assess-player/new?player=${encodeURIComponent(playerName)}&team=${encodeURIComponent(lastTeam)}&section=${encodeURIComponent(lastSection)}`}
-        className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+        className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
       >
         Add New Assessment
       </Link>
@@ -23,7 +23,7 @@ export function PlayerProfileActions({
           disabled={isDeleting}
           title={isDeleting ? 'Please wait while this player is being deleted.' : undefined}
           onClick={onDeletePlayer}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isDeleting ? 'Deleting...' : 'Delete This Player'}
         </button>

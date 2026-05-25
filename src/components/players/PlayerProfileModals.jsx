@@ -151,28 +151,28 @@ export function PlayerProfileModals({
         }}
         onConfirm={onConfirmEmail}
       >
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-          <span className="block text-sm font-semibold text-[var(--text-primary)]">Send timing</span>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <span className="block text-sm font-semibold text-slate-950">Send timing</span>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+            <label className="flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950">
               <input
                 type="radio"
                 name="email-send-mode"
                 value="now"
                 checked={emailSendMode !== 'scheduled'}
                 onChange={() => onEmailSendModeChange('now')}
-                className="h-4 w-4 accent-[var(--accent)]"
+                className="h-4 w-4 accent-emerald-700"
               />
               Send now
             </label>
-            <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+            <label className="flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950">
               <input
                 type="radio"
                 name="email-send-mode"
                 value="scheduled"
                 checked={emailSendMode === 'scheduled'}
                 onChange={() => onEmailSendModeChange('scheduled')}
-                className="h-4 w-4 accent-[var(--accent)]"
+                className="h-4 w-4 accent-emerald-700"
               />
               Schedule
             </label>
@@ -187,32 +187,32 @@ export function PlayerProfileModals({
           ) : null}
         </div>
         {canAttachAssessmentFields ? (
-          <label className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
             <input
               type="checkbox"
               checked={Boolean(isAssessmentFieldsApproved)}
               onChange={(event) => onAssessmentFieldsApprovedChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+              className="mt-1 h-4 w-4 rounded border-slate-200 accent-emerald-700"
             />
             <span>
-              <span className="block text-sm font-semibold text-[var(--text-primary)]">Attach assessment fields</span>
-              <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+              <span className="block text-sm font-semibold text-slate-950">Attach assessment fields</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">
                 Include the selected assessment fields in the email body.
               </span>
             </span>
           </label>
         ) : null}
         {canAttachPdf ? (
-          <label className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+          <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
             <input
               type="checkbox"
               checked={Boolean(isPdfAttachmentApproved)}
               onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+              className="mt-1 h-4 w-4 rounded border-slate-200 accent-emerald-700"
             />
             <span>
-              <span className="block text-sm font-semibold text-[var(--text-primary)]">Attach assessment PDF</span>
-              <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+              <span className="block text-sm font-semibold text-slate-950">Attach assessment PDF</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">
                 Include the selected assessment details as a PDF attachment.
               </span>
             </span>

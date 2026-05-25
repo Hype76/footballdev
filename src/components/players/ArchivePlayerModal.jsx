@@ -36,7 +36,7 @@ export function ArchivePlayerModal({
           <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-slate-950">
             Move {player?.playerName || 'this player'} out of the active register
           </h2>
-          <p className="mt-3 text-sm leading-6 text-slate-700">
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">
             This removes the player from active lists, sessions, and normal selection. They can be restored from Archived Players later.
           </p>
         </div>
@@ -51,7 +51,7 @@ export function ArchivePlayerModal({
           X
         </button>
         <div className="px-5 py-5 sm:px-6">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
             <p className="font-black text-slate-950">{player?.playerName || 'Selected player'}</p>
             <p className="mt-1">{player?.team || 'No team entered'} | {player?.section || 'No section entered'}</p>
           </div>

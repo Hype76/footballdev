@@ -58,9 +58,9 @@ export function PlayerStaffActivity({
       description="Internal notes and staff actions stay inside the club workspace. They are not added to parent emails."
       defaultCollapsed
     >
-      <div className="mb-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">Staff notes and player activity</p>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
+      <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-4">
+        <p className="text-sm font-semibold text-slate-950">Staff notes and player activity</p>
+        <p className="mt-1 text-sm font-semibold text-slate-600">
           {staffNotes.length} staff {staffNotes.length === 1 ? 'note' : 'notes'} | {activityLogs.length} activity{' '}
           {activityLogs.length === 1 ? 'item' : 'items'}
         </p>
@@ -69,12 +69,12 @@ export function PlayerStaffActivity({
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div>
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Add internal note</span>
+              <span className="mb-2 block text-sm font-semibold text-slate-950">Add internal note</span>
               <textarea
                 value={noteDraft}
                 onChange={(event) => onNoteChange(event.target.value)}
                 rows={4}
-                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                 placeholder="Add a staff-only note for this player"
               />
             </label>
@@ -84,7 +84,7 @@ export function PlayerStaffActivity({
                 onClick={onSaveNote}
                 disabled={isSavingNote || isSavingVoiceNote || !noteDraft.trim() || !primaryPlayer?.id}
                 title={saveNoteDisabledReason}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingNote ? 'Saving...' : 'Save Note'}
               </button>
@@ -94,10 +94,10 @@ export function PlayerStaffActivity({
                 disabled={isSavingNote || isSavingVoiceNote || !primaryPlayer?.id}
                 aria-label={isRecordingVoiceNote ? 'Stop player voice note recording' : 'Record player voice note'}
                 title={voiceNoteDisabledReason || (isRecordingVoiceNote ? 'Stop recording' : 'Voice note')}
-                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   isRecordingVoiceNote
                     ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
-                    : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
+                    : 'border-slate-200 bg-white text-slate-950 hover:bg-slate-100'
                 }`}
               >
                 <MicIcon />
@@ -107,21 +107,21 @@ export function PlayerStaffActivity({
 
           <div className="mt-4 space-y-3">
             {staffNotes.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+              <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
                 No staff notes yet.
               </div>
             ) : (
               staffNotes.map((note) => (
-                <div key={note.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
+                <div key={note.id} className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{note.note}</p>
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-950">{note.note}</p>
                     {note.audioPath || note.audioUrl ? (
                       <button
                         type="button"
                         disabled={deletingNoteId === note.id}
                         title={deletingNoteId === note.id ? 'Please wait while this note is being deleted.' : undefined}
                         onClick={() => onDeleteNote(note)}
-                        className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-xs font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {deletingNoteId === note.id ? 'Deleting...' : 'Delete'}
                       </button>
@@ -133,11 +133,11 @@ export function PlayerStaffActivity({
                     </audio>
                   ) : null}
                   {note.audioPath || note.audioUrl ? (
-                    <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]">
+                    <p className="mt-2 text-xs font-semibold text-emerald-700">
                       Deletes {formatRetentionDate(note.audioExpiresAt)} | {getRetentionCountdownLabel(note.audioExpiresAt)}
                     </p>
                   ) : null}
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
                     {note.userName || note.userEmail || 'Staff'} | {formatActivityDate(note.createdAt)}
                   </p>
                 </div>
@@ -147,10 +147,10 @@ export function PlayerStaffActivity({
         </div>
 
         <div>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">Player activity</p>
+          <p className="text-sm font-semibold text-slate-950">Player activity</p>
           <div className="mt-3 space-y-3">
             {activityLogs.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+              <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
                 No player activity logged yet.
               </div>
             ) : (
@@ -194,13 +194,13 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
 
   if (!isEmail) {
     return (
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">{getActivityLabel(log)}</p>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
+      <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-sm font-semibold text-slate-950">{getActivityLabel(log)}</p>
+        <p className="mt-1 text-sm font-semibold text-slate-600">
           {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
         </p>
         {log.recipientEmail ? (
-          <p className="mt-1 break-words text-xs text-[var(--text-muted)]">Recipient: {log.recipientEmail}</p>
+          <p className="mt-1 break-words text-xs font-semibold text-slate-600">Recipient: {log.recipientEmail}</p>
         ) : null}
       </div>
     )
@@ -216,30 +216,30 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
   const templateName = getMessageTemplateName(log)
 
   return (
-    <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)]">
+    <article className="rounded-md border border-slate-200 bg-slate-50">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="block w-full px-4 py-3 text-left transition hover:bg-[var(--panel-soft)]"
+        className="block w-full px-4 py-3 text-left transition hover:bg-slate-100"
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">{subject}</p>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
+            <p className="text-sm font-semibold text-slate-950">{subject}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-600">
               {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
             </p>
             {log.recipientEmail ? (
-              <p className="mt-1 break-words text-xs text-[var(--text-muted)]">Recipient: {log.recipientEmail}</p>
+              <p className="mt-1 break-words text-xs font-semibold text-slate-600">Recipient: {log.recipientEmail}</p>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             {messageHasAttachment(log) ? (
-              <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              <span className="inline-flex w-fit rounded-sm border border-slate-200 px-3 py-1 text-xs font-semibold text-emerald-700">
                 PDF attached
               </span>
             ) : null}
-            <span className="inline-flex w-fit rounded-full border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+            <span className="inline-flex w-fit rounded-sm border border-slate-200 px-3 py-1 text-xs font-semibold text-emerald-700">
               {isOpen ? 'Hide email' : 'View email'}
             </span>
           </div>
@@ -247,31 +247,31 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
       </button>
 
       {isOpen ? (
-        <div className="border-t border-[var(--border-color)] px-4 py-4">
-          <div className="grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-2">
+        <div className="border-t border-slate-200 px-4 py-4">
+          <div className="grid gap-2 text-xs font-semibold text-slate-600 sm:grid-cols-2">
             {templateName ? <InfoLine label="Template" value={templateName} /> : null}
             {playerLabel ? <InfoLine label="Player" value={playerLabel} /> : null}
             {teamLabel ? <InfoLine label="Team" value={teamLabel} /> : null}
             {clubLabel ? <InfoLine label="Club" value={clubLabel} /> : null}
           </div>
 
-          <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3">
+          <div className="mt-4 rounded-md border border-slate-200 bg-white px-4 py-3">
             {body ? (
-              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-muted)]">{body}</p>
+              <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">{body}</p>
             ) : (
-              <p className="text-sm leading-6 text-[var(--text-muted)]">No email body was recorded for this message.</p>
+              <p className="text-sm font-semibold leading-6 text-slate-600">No email body was recorded for this message.</p>
             )}
           </div>
 
           {assessmentFields.length > 0 ? (
             <div className="mt-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Assessment details</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Assessment details</p>
               {assessmentFields.map((field) => (
-                <div key={field.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                <div key={field.label} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
                     {field.label}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-sm text-[var(--text-muted)]">
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-slate-600">
                     {String(field.value ?? '')}
                   </p>
                 </div>
@@ -286,12 +286,12 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
                   type="button"
                   onClick={onDownloadPdf}
                   disabled={isDownloading}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isDownloading ? 'Downloading...' : 'Download PDF'}
                 </button>
               ) : (
-                <p className="text-sm leading-6 text-[var(--text-muted)]">
+                <p className="text-sm font-semibold leading-6 text-slate-600">
                   A PDF was attached to this email, but the download source was not recorded for this older message.
                 </p>
               )}
@@ -299,7 +299,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
           ) : null}
 
           {downloadError ? (
-            <p className="mt-3 rounded-lg border border-red-500/30 bg-red-950/20 px-4 py-3 text-sm text-red-100">
+            <p className="mt-3 rounded-md border border-red-500/30 bg-red-950/20 px-4 py-3 text-sm text-red-100">
               {downloadError}
             </p>
           ) : null}
@@ -322,7 +322,7 @@ function buildActivityPdfFilename(log) {
 function InfoLine({ label, value }) {
   return (
     <p className="break-words">
-      <span className="font-semibold text-[var(--text-secondary)]">{label}: </span>
+      <span className="font-semibold text-emerald-700">{label}: </span>
       {value}
     </p>
   )

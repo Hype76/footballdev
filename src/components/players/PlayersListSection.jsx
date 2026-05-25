@@ -36,7 +36,7 @@ export function PlayersListSection({
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Player register</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Find, check, and act on players</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
               Use the register as the source of truth for footballers. Search first, filter by section, then open a profile before making squad decisions.
             </p>
           </div>
@@ -124,7 +124,7 @@ export function PlayersListSection({
                         </span>
                       </div>
                       <p className="mt-2 text-sm font-bold text-slate-700">{player.team || 'No team entered'}</p>
-                      <p className="mt-1 text-sm text-slate-600">
+                      <p className="mt-1 text-sm font-semibold text-slate-600">
                         {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
                       </p>
                     </div>

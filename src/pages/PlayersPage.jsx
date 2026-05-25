@@ -309,7 +309,7 @@ export function PlayersPage({
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{headerEyebrow}</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{headerTitle}</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{headerDescription}</p>
+            <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{headerDescription}</p>
           </div>
           <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Register rule</p>
@@ -322,7 +322,7 @@ export function PlayersPage({
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
       {!isValidViewFilter || !isValidSectionFilter ? (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-950">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-950">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-bold">Player filters were reset</p>
@@ -333,7 +333,7 @@ export function PlayersPage({
             <button
               type="button"
               onClick={clearInvalidFilters}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
             >
               Clear filters
             </button>
@@ -341,7 +341,7 @@ export function PlayersPage({
         </div>
       ) : null}
       {message ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
           {message}
         </div>
       ) : null}

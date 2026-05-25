@@ -25,7 +25,7 @@ export function ArchivedPlayersSection({
       description="Archived players are hidden from active player lists and are scheduled for deletion after 3 months."
     >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-medium text-[var(--text-muted)]">
+        <p className="text-sm font-medium text-slate-600">
           {selectedPlayerIds.length > 0
             ? `${selectedPlayerIds.length} selected`
             : `${players.length} archived player${players.length === 1 ? '' : 's'}`}
@@ -42,7 +42,7 @@ export function ArchivedPlayersSection({
                   : undefined
             }
             onClick={() => onDeleteModeOpen('selected')}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Delete selected
           </button>
@@ -57,7 +57,7 @@ export function ArchivedPlayersSection({
                   : undefined
             }
             onClick={() => onDeleteModeOpen('all')}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Clear all
           </button>
@@ -65,59 +65,59 @@ export function ArchivedPlayersSection({
       </div>
 
       <label className="block">
-        <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Search archived players</span>
+        <span className="mb-2 block text-sm font-semibold text-slate-950">Search archived players</span>
         <input
           type="search"
           value={searchTerm}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search player, team, or archive reason"
-          className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+          className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
         />
       </label>
 
       {isLoading ? (
-        <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
           Loading archived players...
         </div>
       ) : filteredPlayers.length === 0 ? (
-        <div className="mt-5 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-6 text-sm text-[var(--text-muted)]">
+        <div className="mt-5 rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
           No archived players found.
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
           {paginatedPlayers.items.map((player) => (
-            <div key={player.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+            <div key={player.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
               <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
                 <label className="flex items-start pt-1">
                   <input
                     type="checkbox"
                     checked={selectedPlayerIds.includes(player.id)}
                     onChange={() => onTogglePlayer(player.id)}
-                    className="h-5 w-5 rounded border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                    className="h-5 w-5 rounded border-slate-200 bg-white text-emerald-700 focus:ring-emerald-600"
                     aria-label={`Select ${player.playerName}`}
                   />
                 </label>
                 <div className="md:col-span-2">
-                  <p className="text-base font-semibold text-[var(--text-primary)]">{player.playerName}</p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  <p className="text-base font-semibold text-slate-950">{player.playerName}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-600">
                     {player.team || 'No team entered'} | {player.section || 'No section entered'}
                   </p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  <p className="mt-1 text-sm font-semibold text-slate-600">
                     {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Archived</p>
-                  <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatPlayerDate(player.archivedAt)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Archived</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">{formatPlayerDate(player.archivedAt)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Delete Date</p>
-                  <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{formatRetentionDate(player.archivedDeleteAt)}</p>
-                  <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">{getRetentionCountdownLabel(player.archivedDeleteAt)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Delete Date</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">{formatRetentionDate(player.archivedDeleteAt)}</p>
+                  <p className="mt-1 text-xs font-semibold text-emerald-700">{getRetentionCountdownLabel(player.archivedDeleteAt)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">Reason</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--text-muted)]">{player.archivedReason || 'No reason entered'}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Reason</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-slate-600">{player.archivedReason || 'No reason entered'}</p>
                 </div>
                 <div className="flex lg:justify-end">
                   <button
@@ -125,7 +125,7 @@ export function ArchivedPlayersSection({
                     disabled={isRestoringId === player.id}
                     title={isRestoringId === player.id ? 'Please wait while this player is being restored.' : undefined}
                     onClick={() => void onRestorePlayer(player)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
                   >
                     {isRestoringId === player.id ? 'Restoring...' : 'Restore'}
                   </button>
