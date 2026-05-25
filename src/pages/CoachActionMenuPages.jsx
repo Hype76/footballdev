@@ -4,31 +4,35 @@ function CoachActionMenuPage({ actions, description, primaryPath, title }) {
   const navigate = useNavigate()
 
   return (
-    <div className="space-y-5">
-      <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm shadow-slate-200/80">
-        <div className="bg-[radial-gradient(circle_at_top_right,#bbf7d0,transparent_34%),linear-gradient(135deg,#ffffff,#f0fdf4)] p-5 sm:p-7">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Football workflow</p>
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Football workflow</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{title}</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-700">{description}</p>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Next action</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
+              Pick the workflow you need, then complete the real setup step inside the football workspace.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Link
+                to={primaryPath}
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                Open next action
+              </Link>
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-sm shadow-slate-200 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-900 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               Back
             </button>
-            <Link
-              to={primaryPath}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              Open next action
-            </Link>
+            </div>
           </div>
-        </div>
         </div>
       </section>
 
@@ -37,10 +41,10 @@ function CoachActionMenuPage({ actions, description, primaryPath, title }) {
           <Link
             key={action.path}
             to={action.path}
-            className={`rounded-3xl border p-5 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+            className={`rounded-md border p-5 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
               action.primary
-                ? 'border-slate-950 bg-slate-950 text-white shadow-slate-300'
-                : 'border-[var(--border-color)] bg-white text-slate-950 shadow-slate-200 hover:border-emerald-300 hover:bg-emerald-50'
+                ? 'border-emerald-700 bg-emerald-700 text-white'
+                : 'border-slate-200 bg-white text-slate-950 hover:border-emerald-300 hover:bg-emerald-50'
             }`}
           >
             <span className="block text-lg font-black">{action.label}</span>

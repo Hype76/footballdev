@@ -7,7 +7,6 @@ import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.
 import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
@@ -849,17 +848,29 @@ export function SessionsPage({ setupOpen = false }) {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Coach Mode"
-        title="Sessions"
-        description="Open the current session, record quick notes, and assess players with as few taps as possible."
-      />
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Coach mode</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Sessions</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+              Open the current training or match session, keep the player queue moving, record quick notes, and assess players with as few taps as possible.
+            </p>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Session rule</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
+              Create the session first, attach the right players, then use the session queue as the live coaching workspace.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
 
       {requestedSessionMissing ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-slate-950 shadow-sm shadow-slate-200/80">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-slate-950 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-black">Session link could not be opened</p>
@@ -870,7 +881,7 @@ export function SessionsPage({ setupOpen = false }) {
             <button
               type="button"
               onClick={clearRequestedSession}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-amber-100"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-amber-300 bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-amber-100"
             >
               Clear session link
             </button>
@@ -879,7 +890,7 @@ export function SessionsPage({ setupOpen = false }) {
       ) : null}
 
       {completedSessionId ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-slate-950 shadow-sm shadow-slate-200/80">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-slate-950 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-black">Session assessments completed</p>
@@ -890,7 +901,7 @@ export function SessionsPage({ setupOpen = false }) {
             <button
               type="button"
               onClick={() => setSearchParams({})}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-emerald-100"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-emerald-300 bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-emerald-100"
             >
               Dismiss
             </button>
@@ -947,9 +958,9 @@ export function SessionsPage({ setupOpen = false }) {
       <details
         id="session-setup"
         open={setupOpen || sessions.length === 0}
-        className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/80 sm:p-4"
+        className="rounded-md border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
       >
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-2 text-base font-black text-slate-950">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-2 text-base font-black text-slate-950">
           Setup and session admin
           <span className="text-sm font-bold text-slate-500">Create, switch, add players</span>
         </summary>
@@ -1011,7 +1022,7 @@ export function SessionsPage({ setupOpen = false }) {
           `Voice note: ${voiceNoteDeleteTarget?.note || 'Selected voice note'}`,
           `Created by: ${voiceNoteDeleteTarget?.userName || voiceNoteDeleteTarget?.userEmail || 'Staff'}`,
         ]}
-        confirmLabel="Delete Voice Note"
+        confirmLabel="Delete voice note"
         onCancel={() => setVoiceNoteDeleteTarget(null)}
         onConfirm={() => void confirmDeleteVoiceNote()}
       />
@@ -1025,7 +1036,7 @@ export function SessionsPage({ setupOpen = false }) {
           `Session: ${clearSessionTarget?.session?.title || clearSessionTarget?.session?.team || 'Selected session'}`,
           `${clearSessionTarget?.playerCount ?? sessionPlayers.length} players from this session list`,
         ]}
-        confirmLabel="Clear Session"
+        confirmLabel="Clear session"
         onCancel={() => setClearSessionTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmClearSessionPlayers(password)}
@@ -1041,7 +1052,7 @@ export function SessionsPage({ setupOpen = false }) {
           `Players in session: ${deleteSessionTarget?.playerCount ?? 0}`,
           `Assessments linked: ${deleteSessionTarget?.assessmentCount ?? 0}`,
         ]}
-        confirmLabel="Delete Session"
+        confirmLabel="Delete session"
         onCancel={() => setDeleteSessionTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeleteSession(password)}
@@ -1058,7 +1069,7 @@ export function SessionsPage({ setupOpen = false }) {
           'Session status will change to completed',
           'Managers can still review and correct it later',
         ]}
-        confirmLabel="Complete Session"
+        confirmLabel="Complete session"
         onCancel={() => setCompleteSessionTarget(null)}
         onConfirm={() => void confirmCompleteSession()}
       />
@@ -1094,7 +1105,7 @@ function MatchdayFocus({
   }
 
   return (
-    <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80 sm:p-6">
+    <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm sm:p-6">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
@@ -1104,13 +1115,13 @@ function MatchdayFocus({
             {selectedSession?.title || selectedSession?.team || 'Get the next session ready'}
           </h3>
           <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold">
-            <span className="rounded-full bg-white px-3 py-1 text-slate-950">
+            <span className="rounded-md bg-white px-3 py-1 text-slate-950">
               {progressLabel}
             </span>
             {selectedSessionCompleted ? (
-              <span className="rounded-full bg-emerald-700 px-3 py-1 text-white">Completed</span>
+              <span className="rounded-md bg-emerald-700 px-3 py-1 text-white">Completed</span>
             ) : (
-              <span className="rounded-full bg-emerald-700 px-3 py-1 text-white">Open</span>
+              <span className="rounded-md bg-emerald-700 px-3 py-1 text-white">Open</span>
             )}
           </div>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
@@ -1131,7 +1142,7 @@ function MatchdayFocus({
                     ? 'This session is completed, so assessments cannot be started from here.'
                     : undefined
               }
-              className="inline-flex min-h-14 items-center justify-center rounded-xl bg-slate-950 px-5 py-4 text-base font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-14 items-center justify-center rounded-md bg-emerald-700 px-5 py-4 text-base font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {nextActionLabel}
             </button>
@@ -1141,7 +1152,7 @@ function MatchdayFocus({
               onClick={handleSetupScroll}
               disabled={isLoading}
               title={isLoading ? 'Please wait while the session loads.' : undefined}
-              className="inline-flex min-h-14 items-center justify-center rounded-xl bg-slate-950 px-5 py-4 text-base font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-14 items-center justify-center rounded-md bg-emerald-700 px-5 py-4 text-base font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {nextActionLabel}
             </button>
@@ -1150,7 +1161,7 @@ function MatchdayFocus({
             <button
               type="button"
               onClick={handleSetupScroll}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-emerald-200 bg-white px-5 py-3 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"
+              className="inline-flex min-h-12 items-center justify-center rounded-md border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-900 transition hover:bg-emerald-100"
             >
               Session setup
             </button>
