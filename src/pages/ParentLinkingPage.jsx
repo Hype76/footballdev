@@ -32,9 +32,24 @@ function isSquadPlayer(player) {
 
 const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
 const inputClass = 'min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
-const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-emerald-800 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
 const emptyStateClass = 'rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600'
+
+const parentAccessRules = [
+  {
+    label: 'Squad only',
+    body: 'Parent portal access is created only for squad players. Trial players stay private until the club moves them.',
+  },
+  {
+    label: 'One parent, one link',
+    body: 'Each parent email gets its own portal access. Do not share staff logins with families.',
+  },
+  {
+    label: 'Remove when needed',
+    body: 'Revoke a link when a parent should no longer see that player in the portal.',
+  },
+]
 
 export function ParentLinkingPage() {
   const { user } = useAuth()
@@ -55,6 +70,14 @@ export function ParentLinkingPage() {
   )
   const selectedContacts = useMemo(() => getPlayerContacts(selectedPlayer), [selectedPlayer])
   const activeLinks = useMemo(() => links.filter((link) => link.status !== 'revoked'), [links])
+  const playersWithContacts = useMemo(
+    () => players.filter((player) => getPlayerContacts(player).length > 0),
+    [players],
+  )
+  const totalParentEmails = useMemo(
+    () => players.reduce((total, player) => total + getPlayerContacts(player).length, 0),
+    [players],
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -185,7 +208,6 @@ export function ParentLinkingPage() {
     setErrorMessage('')
 
     try {
-      const playersWithContacts = players.filter((player) => getPlayerContacts(player).length > 0)
       const invites = await createParentPortalInvitesForPlayers({
         user,
         players: playersWithContacts,
@@ -239,22 +261,44 @@ export function ParentLinkingPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white p-5 shadow-sm shadow-emerald-900/5 sm:p-6">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-end">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Parent access</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent access</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
               Give parents a clean match-day portal, not a staff login.
             </h1>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-700">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
               Invite the exact parent emails attached to squad players, then remove links when access should stop.
             </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {parentAccessRules.map((item) => (
+                <article key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.body}</p>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Parent portal rule</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              Parent access is only created for squad players. Trial players stay out of the parent portal until they are moved into Squad.
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Portal state</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+                {players.length} squad players available
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {playersWithContacts.length} have parent emails ready for invite.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <ParentMetric label="Squad" value={players.length} isLoading={isLoading} />
+              <ParentMetric label="With email" value={playersWithContacts.length} isLoading={isLoading} />
+              <ParentMetric label="Emails" value={totalParentEmails} isLoading={isLoading} />
+              <ParentMetric label="Active" value={activeLinks.length} isLoading={isLoading} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              Parent access should mirror real squad access, not staff permissions.
             </p>
           </div>
         </div>
@@ -262,24 +306,24 @@ export function ParentLinkingPage() {
 
       {errorMessage ? <NoticeBanner title="Parent linking not completed" message={errorMessage} /> : null}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        {[ 
+      <section className="grid gap-3 sm:grid-cols-3">
+        {[
           { label: 'Squad players', value: players.length },
           { label: 'Selected contacts', value: selectedContactIds.length },
           { label: 'Active links', value: activeLinks.length },
         ].map((item) => (
           <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-800">{item.label}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">{item.label}</p>
             <p className="mt-2 text-3xl font-black text-slate-950">{item.value}</p>
           </div>
         ))}
-      </div>
+      </section>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+        <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Parent invites</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent invites</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Send and manage access</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 Choose one squad player and select parents, or invite every squad parent email in your current team.
@@ -318,7 +362,7 @@ export function ParentLinkingPage() {
                 >
                   {players.map((player) => (
                     <option key={player.id} value={player.id}>
-                      {player.playerName} | {player.team || 'No team'} | {player.section || 'Trial'}
+                      {player.playerName} / {player.team || 'No team'} / {player.section || 'Trial'}
                     </option>
                   ))}
                 </select>
@@ -335,7 +379,7 @@ export function ParentLinkingPage() {
                     onClick={() => setSelectedContactIds(selectedContacts.map((contact) => contact.id))}
                     className={secondaryButtonClass}
                   >
-                    Select All
+                    Select all
                   </button>
                 </div>
 
@@ -373,7 +417,7 @@ export function ParentLinkingPage() {
                   title={selectedContactIds.length === 0 ? 'Select at least one parent email first.' : isSending ? 'Please wait while the invite is sent.' : undefined}
                   className={`${primaryButtonClass} mt-4 w-full sm:w-auto`}
                 >
-                  {isSending ? 'Sending...' : 'Send Selected Invites'}
+                  {isSending ? 'Sending...' : 'Send selected invites'}
                 </button>
               </div>
             </div>
@@ -386,7 +430,7 @@ export function ParentLinkingPage() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="break-words text-sm font-bold text-slate-950">{link.email || 'Link only'}</p>
-                        <p className="mt-1 text-xs font-medium text-slate-600">{link.status} | {link.linkType}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-600">{link.status} / {link.linkType}</p>
                       </div>
                       <button
                         type="button"
@@ -422,6 +466,15 @@ export function ParentLinkingPage() {
         onCancel={() => setRevokeTarget(null)}
         onConfirm={() => void handleRevokeParentLink()}
       />
+    </div>
+  )
+}
+
+function ParentMetric({ isLoading, label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{isLoading ? '...' : value}</p>
     </div>
   )
 }
