@@ -13,6 +13,10 @@ export const USER_PROFILE_SELECT = [
   'status',
   'suspended_at',
   'force_password_change',
+  'onboarding_enabled',
+  'onboarding_completed_steps',
+  'onboarding_dismissed_at',
+  'onboarding_reset_at',
   'theme_mode',
   'theme_accent',
   'display_name',
@@ -21,5 +25,5 @@ export const USER_PROFILE_SELECT = [
   'reply_to_email',
 ].join(', ')
 
-export const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
-export const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
+export const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at, onboarding_enabled, onboarding_completed_steps, onboarding_dismissed_at, onboarding_reset_at'
+export const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at, onboarding_enabled, onboarding_completed_steps, onboarding_dismissed_at, onboarding_reset_at)'

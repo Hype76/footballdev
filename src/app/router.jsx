@@ -233,7 +233,7 @@ function getDefaultWorkspacePath(user) {
   }
 
   if (canManageTeamSettings(user)) {
-    return '/teams'
+    return '/coach'
   }
 
   if (canCreateEvaluation(user)) {
@@ -1036,19 +1036,19 @@ export const router = createBrowserRouter([
             element: <RequireClubWorkspace />,
             children: [
               {
+                path: 'coach',
+                element: (
+                  <PageSuspense>
+                    <CoachHomePage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Club Home',
+                },
+              },
+              {
                 element: <RequirePlayerWorkflowAccess />,
                 children: [
-                  {
-                    path: 'coach',
-                    element: (
-                      <PageSuspense>
-                        <CoachHomePage />
-                      </PageSuspense>
-                    ),
-                    handle: {
-                      title: 'Coach Home',
-                    },
-                  },
                   {
                     path: 'add-player',
                     element: (

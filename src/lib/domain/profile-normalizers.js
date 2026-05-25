@@ -54,6 +54,16 @@ export function normalizeClubMembershipRow(row) {
     planStatus: String(clubRow?.plan_status ?? row.planStatus ?? 'active').trim() || 'active',
     isPlanComped: Boolean(clubRow?.is_plan_comped ?? row.isPlanComped ?? false),
     requireApproval: Boolean(clubRow?.require_approval ?? row.requireApproval ?? true),
+    userOnboardingEnabled: Boolean(row.onboarding_enabled ?? row.userOnboardingEnabled ?? true),
+    userOnboardingCompletedSteps: Array.isArray(row.onboarding_completed_steps) ? row.onboarding_completed_steps : [],
+    userOnboardingDismissedAt: row.onboarding_dismissed_at ?? row.userOnboardingDismissedAt ?? '',
+    userOnboardingResetAt: row.onboarding_reset_at ?? row.userOnboardingResetAt ?? '',
+    workspaceOnboardingEnabled: Boolean(clubRow?.onboarding_enabled ?? row.workspaceOnboardingEnabled ?? true),
+    workspaceOnboardingCompletedSteps: Array.isArray(clubRow?.onboarding_completed_steps)
+      ? clubRow.onboarding_completed_steps
+      : [],
+    workspaceOnboardingDismissedAt: clubRow?.onboarding_dismissed_at ?? row.workspaceOnboardingDismissedAt ?? '',
+    workspaceOnboardingResetAt: clubRow?.onboarding_reset_at ?? row.workspaceOnboardingResetAt ?? '',
   }
 }
 
@@ -107,6 +117,16 @@ export function normalizeUserProfile(profile) {
     testerAccessExpiresAt,
     testerAccessExpired,
     requireApproval: Boolean(getClubValue(profile.clubs, 'require_approval') ?? profile.requireApproval ?? true),
+    userOnboardingEnabled: Boolean(profile.onboarding_enabled ?? profile.userOnboardingEnabled ?? true),
+    userOnboardingCompletedSteps: Array.isArray(profile.onboarding_completed_steps) ? profile.onboarding_completed_steps : [],
+    userOnboardingDismissedAt: profile.onboarding_dismissed_at ?? profile.userOnboardingDismissedAt ?? '',
+    userOnboardingResetAt: profile.onboarding_reset_at ?? profile.userOnboardingResetAt ?? '',
+    workspaceOnboardingEnabled: Boolean(getClubValue(profile.clubs, 'onboarding_enabled') ?? profile.workspaceOnboardingEnabled ?? true),
+    workspaceOnboardingCompletedSteps: Array.isArray(getClubValue(profile.clubs, 'onboarding_completed_steps'))
+      ? getClubValue(profile.clubs, 'onboarding_completed_steps')
+      : [],
+    workspaceOnboardingDismissedAt: getClubValue(profile.clubs, 'onboarding_dismissed_at') ?? profile.workspaceOnboardingDismissedAt ?? '',
+    workspaceOnboardingResetAt: getClubValue(profile.clubs, 'onboarding_reset_at') ?? profile.workspaceOnboardingResetAt ?? '',
     themeMode: String(profile.theme_mode ?? profile.themeMode ?? '').trim(),
     themeAccent: String(profile.theme_accent ?? profile.themeAccent ?? '').trim(),
     themeButtonStyle: String(profile.theme_button_style ?? profile.themeButtonStyle ?? '').trim(),

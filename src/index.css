@@ -17,21 +17,21 @@
 
 @layer base {
   :root {
-    --app-bg: #f5f7f3;
-    --shell-card: #fbfcf9;
+    --app-bg: #f7fafc;
+    --shell-card: #ffffff;
     --panel-bg: #ffffff;
-    --panel-alt: #f8faf7;
-    --panel-soft: #f2f6ef;
-    --sidebar-bg: #eef3ea;
-    --sidebar-active-bg: #dfe8db;
-    --border-color: #dbe3d6;
+    --panel-alt: #f8fafc;
+    --panel-soft: #eef6f1;
+    --sidebar-bg: #ffffff;
+    --sidebar-active-bg: #dcfce7;
+    --border-color: #d8e3dd;
     --text-primary: #0f172a;
-    --text-muted: #475569;
-    --text-secondary: #5a6b5b;
-    --accent: #b8ff1a;
-    --accent-text: #173117;
-    --accent-soft: #e6ff9b;
-    --button-primary: #111827;
+    --text-muted: #4b5563;
+    --text-secondary: #047857;
+    --accent: #16a34a;
+    --accent-text: #ffffff;
+    --accent-soft: #dcfce7;
+    --button-primary: #047857;
     --button-primary-gradient: linear-gradient(135deg, var(--button-primary), color-mix(in srgb, var(--button-primary) 72%, white));
     --button-primary-text: #ffffff;
     --danger-border: #ead7d7;
@@ -48,21 +48,21 @@
   }
 
   body.theme-dark {
-    --app-bg: #070b08;
-    --shell-card: #0c110d;
-    --panel-bg: #111713;
-    --panel-alt: #151d18;
-    --panel-soft: #18211b;
-    --sidebar-bg: #0d130f;
-    --sidebar-active-bg: #1d291f;
-    --border-color: #233026;
-    --text-primary: #f6f9f7;
-    --text-muted: #93a39a;
-    --text-secondary: #c7ff1a;
-    --accent: #c7ff1a;
-    --accent-text: #0f1d0b;
-    --accent-soft: #2a3a0f;
-    --button-primary: #c7ff1a;
+    --app-bg: #08111f;
+    --shell-card: #0f1a2a;
+    --panel-bg: #111c2d;
+    --panel-alt: #152238;
+    --panel-soft: #1d2b44;
+    --sidebar-bg: #0b1626;
+    --sidebar-active-bg: #123323;
+    --border-color: #27364d;
+    --text-primary: #f8fafc;
+    --text-muted: #a8b3c7;
+    --text-secondary: #6ee7b7;
+    --accent: #34d399;
+    --accent-text: #052e16;
+    --accent-soft: #0f3b2c;
+    --button-primary: #34d399;
     --button-primary-gradient: linear-gradient(135deg, var(--button-primary), color-mix(in srgb, var(--button-primary) 72%, white));
     --button-primary-text: #0a0f08;
     --danger-border: #5a2a33;
@@ -94,13 +94,13 @@
   }
 
   body.accent-green {
-    --accent: #22c55e;
-    --accent-text: #052e16;
+    --accent: #16a34a;
+    --accent-text: #ffffff;
     --accent-soft: #bbf7d0;
-    --button-primary: #22c55e;
-    --button-primary-gradient: linear-gradient(135deg, #22c55e, #a3e635);
-    --button-primary-text: #052e16;
-    --text-secondary: #22c55e;
+    --button-primary: #047857;
+    --button-primary-gradient: linear-gradient(135deg, #047857, #22c55e);
+    --button-primary-text: #ffffff;
+    --text-secondary: #047857;
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
   }
 

@@ -1,6 +1,6 @@
 export const primaryNavigation = [
   {
-    label: 'Sessions',
+    label: 'Calendar',
     path: '/sessions',
   },
   {
@@ -8,23 +8,15 @@ export const primaryNavigation = [
     path: '/players',
   },
   {
-    label: 'Assessments',
+    label: 'Development',
     path: '/assess-player',
   },
   {
-    label: 'Add Player',
-    path: '/add-player',
-  },
-  {
-    label: 'Parent Linking',
-    path: '/parent-linking',
-  },
-  {
-    label: 'Email Queue',
+    label: 'Messages',
     path: '/email-queue',
   },
   {
-    label: 'Polls',
+    label: 'Availability',
     path: '/polls',
   },
   {
@@ -36,38 +28,46 @@ export const primaryNavigation = [
     path: '/teams',
   },
   {
-    label: 'End of Season Stats',
-    path: '/end-season-stats',
+    label: 'Payments',
+    path: '/billing',
+  },
+  {
+    label: 'Add Player',
+    path: '/add-player',
+  },
+  {
+    label: 'Parent Invites',
+    path: '/parent-linking',
   },
   {
     label: 'Archived Players',
     path: '/archived-players',
   },
+  {
+    label: 'Season Reports',
+    path: '/end-season-stats',
+  },
 ]
 
 export const clubNavigation = [
   {
-    label: 'Club Settings',
+    label: 'Club Profile',
     path: '/club-settings',
   },
   {
-    label: 'User Access',
+    label: 'Staff Access',
     path: '/user-access',
   },
   {
-    label: 'Assessment Fields',
+    label: 'Development Fields',
     path: '/form-builder',
   },
   {
-    label: 'Email Templates',
+    label: 'Message Templates',
     path: '/parent-email-templates',
   },
   {
     label: 'Activity Log',
     path: '/activity-log',
-  },
-  {
-    label: 'Billing',
-    path: '/billing',
   },
 ]

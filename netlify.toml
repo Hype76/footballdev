@@ -1,9 +1,18 @@
 [build]
-  command = "npm run build"
+  command = "npm run build:staging && npm run verify:build-env"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22.17.0"
+
+[context.production]
+  command = "npm run build:live && npm run verify:build-env"
+
+[context.branch-deploy]
+  command = "npm run build:staging && npm run verify:build-env"
+
+[context.deploy-preview]
+  command = "npm run build:staging && npm run verify:build-env"
 
 [functions."send-scheduled-emails"]
   schedule = "* * * * *"

@@ -17,7 +17,7 @@ import {
 } from '../../lib/theme.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
-import { WalkthroughProvider } from '../walkthrough/WalkthroughProvider.jsx'
+import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
 
 export function Layout() {
   const { accessModeOptions, authError, clubOptions, isProfileLoading, selectAccessMode, selectClub, selectTeam, teamOptions, user } = useAuth()
@@ -229,7 +229,7 @@ export function Layout() {
 
           <main className="flex-1 px-0 py-0 sm:px-4 sm:py-4 md:px-5 md:py-5 xl:px-8">
             <div className="mx-auto w-full max-w-6xl">
-              <WalkthroughProvider>
+              <OnboardingProvider>
                 <div className="min-w-0 overflow-hidden border-y border-[var(--border-color)] bg-[var(--shell-card)] p-3 shadow-sm shadow-slate-900/10 sm:rounded-lg sm:border sm:p-4 md:p-5">
                   {needsAccessModeSelection ? (
                     <WorkspaceSelection
@@ -273,7 +273,7 @@ export function Layout() {
                     <Outlet />
                   )}
                 </div>
-              </WalkthroughProvider>
+              </OnboardingProvider>
             </div>
           </main>
         </div>

@@ -44,10 +44,11 @@ function NavItemLabel({ label, showPollCount = false, pollCount = 0 }) {
 
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
-  const logoUrl = user?.clubLogoUrl || fallbackLogo
-  const isParentPortal = isParentPortalUser(user)
-  const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'Football Operations'
-  const canAccessPlatformFeedback = canViewPlatformFeedback(user)
+  const displayUser = user
+  const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
+  const isParentPortal = isParentPortalUser(displayUser)
+  const clubLabel = displayUser?.role === 'super_admin' ? 'Platform' : displayUser?.clubName || 'Football Operations'
+  const canAccessPlatformFeedback = canViewPlatformFeedback(displayUser)
   const [openPollCount, setOpenPollCount] = useState(0)
   const [queuedEmailCount, setQueuedEmailCount] = useState(0)
 
@@ -152,7 +153,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
   }
   const getVisibleNavigationItems = (items) => items.filter((item) => {
-    if (isSuperAdmin(user)) {
+    if (isSuperAdmin(displayUser)) {
       return item.path === '/activity-log'
     }
 
@@ -167,60 +168,60 @@ export function Sidebar({ isOpen, onClose }) {
       item.path === '/players' ||
       item.path === '/archived-players'
     ) {
-      return canCreateEvaluation(user)
+      return canCreateEvaluation(displayUser)
     }
 
     if (item.path === '/parent-linking') {
-      return canManageParentLinks(user)
+      return canManageParentLinks(displayUser)
     }
 
     if (item.path === '/email-queue') {
-      return canManageEmailQueue(user) && hasPlanFeature(user, 'parentEmail') && queuedEmailCount > 0
+      return canManageEmailQueue(displayUser) && hasPlanFeature(displayUser, 'parentEmail') && queuedEmailCount > 0
     }
 
     if (item.path === '/polls') {
-      return canManagePolls(user)
+      return canManagePolls(displayUser)
     }
 
     if (item.path === '/match-day') {
-      return canManageMatchDay(user)
+      return canManageMatchDay(displayUser)
     }
 
     if (item.path === '/user-access') {
-      return canManageUsers(user)
+      return canManageUsers(displayUser)
     }
 
     if (item.path === '/teams') {
-      return canManageTeamSettings(user)
+      return canManageTeamSettings(displayUser)
     }
 
     if (item.path === '/end-season-stats') {
-      return canViewEndSeasonStats(user)
+      return canViewEndSeasonStats(displayUser)
     }
 
     if (item.path === '/activity-log') {
-      return canViewActivityLog(user)
+      return canViewActivityLog(displayUser)
     }
 
     if (item.path === '/form-builder') {
-      return canManageFormFields(user)
+      return canManageFormFields(displayUser)
     }
 
     if (item.path === '/parent-email-templates') {
-      return canManageParentEmailTemplates(user)
+      return canManageParentEmailTemplates(displayUser)
     }
 
     if (item.path === '/club-settings') {
-      return canManageClubSettings(user)
+      return canManageClubSettings(displayUser)
     }
 
     if (item.path === '/billing') {
-      return canViewBilling(user)
+      return canViewBilling(displayUser)
     }
 
     return true
   }).map((item) => {
-    if (item.path === '/activity-log' && !hasPlanFeature(user, 'auditLogs')) {
+    if (item.path === '/activity-log' && !hasPlanFeature(displayUser, 'auditLogs')) {
       return {
         ...item,
         disabled: true,
@@ -228,7 +229,7 @@ export function Sidebar({ isOpen, onClose }) {
       }
     }
 
-    if (item.path === '/form-builder' && !hasPlanFeature(user, 'customFormFields')) {
+    if (item.path === '/form-builder' && !hasPlanFeature(displayUser, 'customFormFields')) {
       return {
         ...item,
         disabled: true,
@@ -236,7 +237,7 @@ export function Sidebar({ isOpen, onClose }) {
       }
     }
 
-    if (item.path === '/parent-email-templates' && !hasPlanFeature(user, 'parentEmail')) {
+    if (item.path === '/parent-email-templates' && !hasPlanFeature(displayUser, 'parentEmail')) {
       return {
         ...item,
         disabled: true,
@@ -244,7 +245,7 @@ export function Sidebar({ isOpen, onClose }) {
       }
     }
 
-    if (item.path === '/email-queue' && !hasPlanFeature(user, 'parentEmail')) {
+    if (item.path === '/email-queue' && !hasPlanFeature(displayUser, 'parentEmail')) {
       return {
         ...item,
         disabled: true,
@@ -256,7 +257,7 @@ export function Sidebar({ isOpen, onClose }) {
   })
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
-  const clubNavigationLabel = canManageClubSettings(user) ? 'Club' : 'Management'
+  const clubNavigationLabel = canManageClubSettings(displayUser) ? 'Club' : 'Management'
   const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
   const teamNavigationItems = navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
@@ -388,7 +389,7 @@ export function Sidebar({ isOpen, onClose }) {
             <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]">
               <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Coaching Suite</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Club OS</p>
           </div>
 
           <button
@@ -406,10 +407,10 @@ export function Sidebar({ isOpen, onClose }) {
         <nav className="mt-7 space-y-2 pb-4">
           <div className="rounded-lg border border-[var(--accent)] bg-[var(--panel-bg)] p-3">
             <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-              Coach Mode
+              Weekly operations
             </p>
             <p className="px-2 pt-1 text-xs leading-5 text-[var(--text-muted)]">
-              Session tools first.
+              Calendar, players, parents, and match day in one flow.
             </p>
             <div className="mt-3 space-y-2">
               <NavLink
@@ -425,7 +426,7 @@ export function Sidebar({ isOpen, onClose }) {
                   ].join(' ')
                 }
               >
-                Home
+                  Home
               </NavLink>
               {coachNavigationItems.map((item) =>
                 item.disabled ? (
@@ -459,7 +460,7 @@ export function Sidebar({ isOpen, onClose }) {
           {teamNavigationItems.length > 0 ? (
             <details className="group rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
               <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-2 text-sm font-semibold text-[var(--text-primary)]">
-                Team tools
+              Player and team tools
                 <span className="text-xs text-[var(--text-muted)] group-open:hidden">Show</span>
                 <span className="hidden text-xs text-[var(--text-muted)] group-open:inline">Hide</span>
               </summary>
@@ -501,7 +502,7 @@ export function Sidebar({ isOpen, onClose }) {
             data-tour-id="sidebar-club-section"
           >
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-2 text-sm font-semibold text-[var(--text-primary)]">
-              {clubNavigationLabel} tools
+              {clubNavigationLabel} control
               <span className="text-xs text-[var(--text-muted)]">Admin</span>
             </summary>
             {clubNavigationItems.map((item) =>
@@ -535,10 +536,10 @@ export function Sidebar({ isOpen, onClose }) {
           </details>
         ) : null}
 
-        {isSuperAdmin(user) ? (
+        {isSuperAdmin(displayUser) ? (
           <div className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
             <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-              Platform tools
+              Platform control
             </p>
             <NavLink
               to="/platform-admin"
@@ -626,7 +627,7 @@ export function Sidebar({ isOpen, onClose }) {
               How to use
             </NavLink>
           </div>
-          {!isSuperAdmin(user) && canAccessPlatformFeedback ? (
+          {!isSuperAdmin(displayUser) && canAccessPlatformFeedback ? (
             <div className="mb-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
               <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
                 Platform feedback

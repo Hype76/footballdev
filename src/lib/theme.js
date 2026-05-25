@@ -33,7 +33,7 @@ export function getStoredThemeMode() {
 
 export function getStoredThemeAccent() {
   const storedThemeAccent = window.localStorage.getItem(THEME_ACCENT_STORAGE_KEY)
-  return THEME_ACCENTS.includes(storedThemeAccent) ? storedThemeAccent : 'yellow'
+  return THEME_ACCENTS.includes(storedThemeAccent) ? storedThemeAccent : 'green'
 }
 
 export function getStoredThemeButtonStyle() {

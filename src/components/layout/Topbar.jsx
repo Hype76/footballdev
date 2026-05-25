@@ -6,28 +6,31 @@ import { getRoleLabel, isClubAdmin, useAuth } from '../../lib/auth.js'
 import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
 
 export function Topbar({ title, onMenuClick }) {
-  const { authUser, clubOptions, demoRoleKey, hasPlatformAdminAccess, selectAccessMode, selectClub, selectPlatformAdmin, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
+  const { authUser, clubOptions, demoRoleKey, hasPlatformAdminAccess, isProfileLoading, selectAccessMode, selectClub, selectPlatformAdmin, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
-  const roleLabel = user ? getRoleLabel(user) : 'Loading access'
-  const canUseClubAdminView = isClubAdmin(user)
-  const clubLabel = user?.role === 'super_admin' ? 'Platform' : user?.clubName || user?.team || 'No club'
-  const logoUrl = user?.clubLogoUrl || fallbackLogo
-  const userLabel = user?.email || authUser?.email || user?.name || 'Loading user'
-  const teamLabel = user?.activeTeamName ? `Team: ${user.activeTeamName}` : clubLabel
-  const isPlatformAdminView = user?.role === 'super_admin'
-  const isParentPortalView = user?.role === 'parent_portal'
-  const hasParentPortalAccess = Array.isArray(user?.parentPortalLinks) && user.parentPortalLinks.length > 0
+  const displayUser = user
+  const roleLabel = displayUser ? getRoleLabel(displayUser) : 'Loading access'
+  const canUseClubAdminView = isClubAdmin(displayUser)
+  const clubLabel = displayUser?.role === 'super_admin'
+    ? 'Platform'
+    : displayUser?.clubName || displayUser?.team || (isProfileLoading ? 'Opening workspace' : 'No club')
+  const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
+  const userLabel = displayUser?.email || authUser?.email || displayUser?.name || 'Loading user'
+  const teamLabel = displayUser?.activeTeamName ? `Team: ${displayUser.activeTeamName}` : clubLabel
+  const isPlatformAdminView = displayUser?.role === 'super_admin'
+  const isParentPortalView = displayUser?.role === 'parent_portal'
+  const hasParentPortalAccess = Array.isArray(displayUser?.parentPortalLinks) && displayUser.parentPortalLinks.length > 0
   const shouldShowClubAdminOption = !isPlatformAdminView && canUseClubAdminView
   const shouldShowTeamPlaceholder = !isPlatformAdminView && !canUseClubAdminView && teamOptions?.length > 0
   const shouldShowWorkspaceSelector = hasPlatformAdminAccess || hasParentPortalAccess || clubOptions?.length > 0 || shouldShowClubAdminOption || teamOptions?.length > 0
   const workspaceContext = user?.role === 'super_admin'
     ? 'Viewing platform admin tools'
-    : user?.activeTeamName
-      ? `Viewing team: ${user.activeTeamName}`
+    : displayUser?.activeTeamName
+      ? `Running ${displayUser.activeTeamName}`
       : canUseClubAdminView
-        ? 'Viewing club admin tools'
-        : 'Choose a team to continue'
+        ? 'Running club operations'
+        : isProfileLoading ? 'Opening workspace' : 'Choose a team to continue'
 
   const handleSignOut = async () => {
     try {
@@ -123,10 +126,10 @@ export function Topbar({ title, onMenuClick }) {
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 lg:w-auto lg:min-w-[360px]">
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end sm:justify-end">
-            {isDemoUser(user) ? (
-              <label className="col-span-2 grid gap-1 sm:min-w-44">
+        <div className="grid w-full gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 lg:w-auto lg:min-w-[34rem] xl:min-w-[38rem]">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
+            {isDemoUser(displayUser) ? (
+              <label className="col-span-2 grid gap-1 md:col-span-1">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                   Demo role
                 </span>
@@ -145,12 +148,12 @@ export function Topbar({ title, onMenuClick }) {
               </label>
             ) : null}
             {shouldShowWorkspaceSelector ? (
-              <label className="col-span-2 grid gap-1 sm:min-w-44">
+              <label className="col-span-2 grid gap-1 md:col-span-1">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                   Workspace view
                 </span>
                 <select
-                  value={isPlatformAdminView ? '__platform_admin__' : isParentPortalView ? '__parent_portal__' : user?.activeTeamId || ''}
+                  value={isPlatformAdminView ? '__platform_admin__' : isParentPortalView ? '__parent_portal__' : displayUser?.activeTeamId || ''}
                   onChange={handleTeamChange}
                   disabled={isSwitchingTeam}
                   title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
@@ -181,7 +184,7 @@ export function Topbar({ title, onMenuClick }) {
             />
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
             >
               My Settings
             </Link>
@@ -190,7 +193,7 @@ export function Topbar({ title, onMenuClick }) {
               onClick={handleSignOut}
               disabled={isSigningOut}
               title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-3 py-3 text-sm font-semibold leading-none text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>

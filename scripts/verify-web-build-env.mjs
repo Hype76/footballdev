@@ -46,6 +46,10 @@ async function verifyBuildEnvironment() {
     throw new Error('Production Netlify build is pointing at staging Supabase.')
   }
 
+  if (process.env.CONTEXT && process.env.CONTEXT !== 'production' && hasLiveProject) {
+    throw new Error(`${process.env.CONTEXT} Netlify build is pointing at live Supabase.`)
+  }
+
   const target = hasLiveProject ? 'live' : 'staging'
   console.log(`Verified ${target} Supabase project in web build.`)
 }

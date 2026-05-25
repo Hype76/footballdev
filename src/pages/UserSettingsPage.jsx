@@ -7,9 +7,8 @@ import { WalkthroughSettingsSection } from '../components/user-settings/Walkthro
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { useWalkthrough } from '../components/walkthrough/walkthrough-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
-import { canManageTeamAppearance, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
+import { canManageClubSettings, canManageTeamAppearance, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
 import {
   requestLoginEmailChange,
   updateTeamSettings,
@@ -23,18 +22,17 @@ import {
   getStoredThemeMode,
   saveThemePreferences,
 } from '../lib/theme.js'
-import { resetWalkthrough } from '../lib/walkthrough.js'
+import { resetOnboarding } from '../lib/onboarding.js'
 
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
-  const walkthrough = useWalkthrough()
   const { showToast } = useToast()
   const isDemoSettings = isDemoAccount(user)
   const isParentSettings = isParentPortalUser(user)
   const isClubAdminSettings = isClubAdmin(user)
   const showSenderIdentity = Boolean(user?.clubId) && !isParentSettings && !isClubAdminSettings && user?.role !== 'super_admin'
   const showDisplaySettings = canManageTeamAppearance(user) && Boolean(user?.activeTeamId)
-  const showWalkthroughSettings = !isParentSettings && !isClubAdminSettings
+  const showWalkthroughSettings = Boolean(user?.id) && user?.role !== 'super_admin'
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
   const [displayName, setDisplayName] = useState(user?.displayName || user?.username || user?.name || '')
@@ -46,6 +44,7 @@ export function UserSettingsPage() {
   const [isSavingEmail, setIsSavingEmail] = useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
+  const [isRestartingOnboarding, setIsRestartingOnboarding] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
   const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
@@ -304,18 +303,36 @@ export function UserSettingsPage() {
     void persistThemePreferences(nextPreferences)
   }
 
-  const handleRestartWalkthrough = () => {
-    resetWalkthrough(user)
-    showToast({ title: 'Walkthrough restarted', message: 'Open a sidebar page to see its walkthrough again.' })
-  }
+  const getOnboardingScope = () => (canManageClubSettings(user) || canManageTeamSettings(user) ? 'workspace' : 'user')
 
-  const handleWalkthroughDisabledChange = (event) => {
-    const disabled = event.target.checked
-    walkthrough?.setDisabled(disabled)
-    showToast({
-      title: disabled ? 'Walkthrough disabled' : 'Walkthrough enabled',
-      message: disabled ? 'Guided walkthroughs will not open automatically.' : 'Guided walkthroughs will open on eligible pages.',
-    })
+  const handleRestartWalkthrough = async () => {
+    const scope = getOnboardingScope()
+    setIsRestartingOnboarding(true)
+
+    try {
+      await resetOnboarding({ scope, user })
+      if (scope === 'workspace') {
+        updateCurrentUserDetails({
+          workspaceOnboardingCompletedSteps: [],
+          workspaceOnboardingDismissedAt: null,
+          workspaceOnboardingEnabled: true,
+          workspaceOnboardingResetAt: new Date().toISOString(),
+        })
+      } else {
+        updateCurrentUserDetails({
+          userOnboardingCompletedSteps: [],
+          userOnboardingDismissedAt: null,
+          userOnboardingEnabled: true,
+          userOnboardingResetAt: new Date().toISOString(),
+        })
+      }
+      showToast({ title: 'Onboarding restarted', message: 'The setup checklist will open again.' })
+    } catch (error) {
+      console.error(error)
+      showToast({ title: 'Onboarding not restarted', message: error.message || 'Could not reset onboarding.', tone: 'error' })
+    } finally {
+      setIsRestartingOnboarding(false)
+    }
   }
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
@@ -332,6 +349,8 @@ export function UserSettingsPage() {
     : user?.role === 'super_admin'
       ? 'Platform'
       : user?.clubName || 'No club assigned'
+  const onboardingScope = getOnboardingScope()
+  const onboardingScopeLabel = onboardingScope === 'workspace' ? 'workspace' : 'account'
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -389,9 +408,9 @@ export function UserSettingsPage() {
 
           {showWalkthroughSettings ? (
             <WalkthroughSettingsSection
-              disabled={Boolean(walkthrough?.disabled)}
-              onDisabledChange={handleWalkthroughDisabledChange}
+              isRestarting={isRestartingOnboarding}
               onRestart={handleRestartWalkthrough}
+              scopeLabel={onboardingScopeLabel}
             />
           ) : null}
 
