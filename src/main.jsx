@@ -1,7 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
-import { registerSW } from 'virtual:pwa-register'
 import { router } from './app/router.jsx'
 import { TestSiteBanner } from './components/layout/TestSiteBanner.jsx'
 import GlobalInstallAppButton from './components/pwa/GlobalInstallAppButton.jsx'
@@ -16,12 +15,32 @@ window.addEventListener('vite:preloadError', (event) => {
   recoverFromStaleChunk(event.payload)
 })
 
-registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    window.location.reload()
-  },
-})
+if (import.meta.env.MODE === 'production') {
+  void import('virtual:pwa-register').then(({ registerSW }) => {
+    registerSW({
+      immediate: true,
+      onNeedRefresh() {
+        window.location.reload()
+      },
+    })
+  })
+} else if ('serviceWorker' in navigator) {
+  void navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => {
+      void registration.unregister()
+    })
+  })
+
+  if ('caches' in window) {
+    void caches.keys().then((cacheNames) => {
+      cacheNames
+        .filter((cacheName) => cacheName.includes('workbox') || cacheName.includes('app-navigation'))
+        .forEach((cacheName) => {
+          void caches.delete(cacheName)
+        })
+    })
+  }
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
