@@ -52,6 +52,21 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
+const sessionRuleCards = [
+  {
+    label: 'Create the real block',
+    body: 'Use one session for one training night or match block so notes and records share the same football context.',
+  },
+  {
+    label: 'Build the player queue',
+    body: 'Add the relevant squad before recording so coaches can work through players without searching.',
+  },
+  {
+    label: 'Record then complete',
+    body: 'Capture quick notes first, finish player records next, then close the session when the work is done.',
+  },
+]
+
 export function SessionsPage({ setupOpen = false }) {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -149,6 +164,11 @@ export function SessionsPage({ setupOpen = false }) {
     () => combinedSessions.filter((session) => session.id !== selectedSessionId),
     [combinedSessions, selectedSessionId],
   )
+  const openSessionCount = combinedSessions.filter((session) => session.status !== 'completed').length
+  const completedSessionCount = combinedSessions.filter((session) => session.status === 'completed').length
+  const sessionQueueLabel = sessionPlayers.length > 0
+    ? `${assessedPlayerCount} of ${sessionPlayers.length} recorded`
+    : 'No players added'
 
   useEffect(() => {
     let isMounted = true
@@ -848,26 +868,57 @@ export function SessionsPage({ setupOpen = false }) {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Training control</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Run the next session from the queue.</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Create the session, attach the right footballers, then keep this screen open while coaches record attendance, notes, and development records.
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Session command</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+              Run training from plan to player record.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+              Sessions connect the football calendar to the coaching record. Create the block, add the squad, capture notes, then work through the player queue.
             </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {sessionRuleCards.map((item) => (
+                <article key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.body}</p>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Session rule</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              One session equals one real training or match block. Add players before recording development detail so coach notes stay tied to the right football context.
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Current queue</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+                {selectedSession?.title || selectedSession?.team || 'No session selected'}
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {selectedSession ? sessionQueueLabel : 'Create a session or open a saved one to start the player queue.'}
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <SessionMetric label="Open" value={openSessionCount} isLoading={isLoading} />
+              <SessionMetric label="Complete" value={completedSessionCount} isLoading={isLoading} />
+              <SessionMetric label="Queued" value={sessionPlayers.length} isLoading={isSessionPlayersLoading} />
+              <SessionMetric label="Left" value={unassessedPlayerQueue.length} isLoading={isSessionPlayersLoading} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              Keep one active session selected so notes, records, and player progress stay together.
             </p>
           </div>
         </div>
       </section>
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
+
+      <section className="grid gap-3 md:grid-cols-4">
+        <SessionSummaryCard isLoading={isLoading} label="Sessions" value={combinedSessions.length} caption="Saved training and match blocks." />
+        <SessionSummaryCard isLoading={isLoading} label="Open" value={openSessionCount} caption="Sessions still available to work." />
+        <SessionSummaryCard isLoading={isSessionPlayersLoading} label="In queue" value={sessionPlayers.length} caption="Players attached to the selected session." />
+        <SessionSummaryCard isLoading={isSessionPlayersLoading} label="Remaining" value={unassessedPlayerQueue.length} caption="Player records still to complete." />
+      </section>
 
       {requestedSessionMissing ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-slate-950 shadow-sm">
@@ -960,9 +1011,9 @@ export function SessionsPage({ setupOpen = false }) {
         open={setupOpen || sessions.length === 0}
         className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
       >
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-2 text-base font-black text-slate-950">
-          Setup and session admin
-          <span className="text-sm font-bold text-slate-500">Create, switch, add players</span>
+        <summary className="flex min-h-12 cursor-pointer list-none flex-col justify-center gap-1 rounded-lg px-2 text-base font-black text-slate-950 sm:flex-row sm:items-center sm:justify-between">
+          Session setup
+          <span className="text-sm font-bold text-slate-500">Create sessions, switch context, add players</span>
         </summary>
         <div className="mt-4 space-y-4">
           <CreateSessionSection
@@ -1105,7 +1156,7 @@ function MatchdayFocus({
   }
 
   return (
-    <section className="rounded-lg border border-emerald-200 bg-[#e8fff1] p-5 shadow-sm shadow-emerald-900/5 sm:p-6">
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
@@ -1119,9 +1170,9 @@ function MatchdayFocus({
               {progressLabel}
             </span>
             {selectedSessionCompleted ? (
-              <span className="rounded-md bg-emerald-800 px-3 py-1 text-white">Completed</span>
+              <span className="rounded-md bg-emerald-600 px-3 py-1 text-white">Completed</span>
             ) : (
-              <span className="rounded-md bg-emerald-800 px-3 py-1 text-white">Open</span>
+              <span className="rounded-md bg-emerald-600 px-3 py-1 text-white">Open</span>
             )}
           </div>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
@@ -1142,7 +1193,7 @@ function MatchdayFocus({
                     ? 'This session is completed, so development records cannot be started from here.'
                     : undefined
               }
-              className="inline-flex min-h-14 items-center justify-center rounded-lg bg-emerald-800 px-5 py-4 text-base font-black text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-14 items-center justify-center rounded-lg bg-emerald-600 px-5 py-4 text-base font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {nextActionLabel}
             </button>
@@ -1152,7 +1203,7 @@ function MatchdayFocus({
               onClick={handleSetupScroll}
               disabled={isLoading}
               title={isLoading ? 'Please wait while the session loads.' : undefined}
-              className="inline-flex min-h-14 items-center justify-center rounded-lg bg-emerald-800 px-5 py-4 text-base font-black text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-14 items-center justify-center rounded-lg bg-emerald-600 px-5 py-4 text-base font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {nextActionLabel}
             </button>
@@ -1161,7 +1212,7 @@ function MatchdayFocus({
             <button
               type="button"
               onClick={handleSetupScroll}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-900 transition hover:bg-emerald-100"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50"
             >
               Session setup
             </button>
@@ -1169,5 +1220,24 @@ function MatchdayFocus({
         </div>
       </div>
     </section>
+  )
+}
+
+function SessionMetric({ isLoading, label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{isLoading ? '...' : value}</p>
+    </div>
+  )
+}
+
+function SessionSummaryCard({ caption, isLoading, label, value }) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</p>
+      <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{caption}</p>
+    </article>
   )
 }

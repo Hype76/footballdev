@@ -39,9 +39,9 @@ export function SessionPlayersSection({
   return (
     <section
       data-tour-id="session-players-section"
-      className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
+      className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
     >
-      <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
+      <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Session players</p>
@@ -87,7 +87,7 @@ export function SessionPlayersSection({
                 {selectedSession?.title || selectedSession?.team || 'Session'}
               </p>
               <p className="mt-1 text-sm text-slate-600">
-                {formatSessionType(selectedSession?.sessionType)} | {formatSessionDate(selectedSession?.sessionDate)}
+                {formatSessionType(selectedSession?.sessionType)} / {formatSessionDate(selectedSession?.sessionDate)}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -104,7 +104,7 @@ export function SessionPlayersSection({
                 onClick={onAssessAll}
                 disabled={selectedSessionLocked}
                 title={assessAllDisabledReason}
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {completedPlayerNames.length > 0 ? 'Continue records' : 'Record all'}
               </button>
@@ -230,10 +230,10 @@ function SessionVoiceNotes({ deletingVoiceNoteId, notes, onDeleteVoiceNote, sele
             </audio>
           ) : null}
           <p className="mt-2 text-xs font-bold text-slate-500">
-            Deletes {formatRetentionDate(note.audioExpiresAt)} | {getRetentionCountdownLabel(note.audioExpiresAt)}
+            Deletes {formatRetentionDate(note.audioExpiresAt)} / {getRetentionCountdownLabel(note.audioExpiresAt)}
           </p>
           <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-            {note.userName || note.userEmail || 'Staff'} | {formatSessionDate(note.createdAt)}
+            {note.userName || note.userEmail || 'Staff'} / {formatSessionDate(note.createdAt)}
           </p>
         </div>
       ))}
@@ -269,7 +269,7 @@ function SessionPlayerCard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-base font-black text-slate-950">{player.playerName}</p>
-          <p className="mt-1 text-sm text-slate-600">{player.section} | {player.team || 'No team'}</p>
+          <p className="mt-1 text-sm text-slate-600">{player.section} / {player.team || 'No team'}</p>
           {completedPlayerNames.includes(normalizeProgressName(player.playerName)) ? (
             <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
               Development record completed

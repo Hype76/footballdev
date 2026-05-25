@@ -61,7 +61,7 @@ export function CoachOptionsSection({
               >
                 {combinedSessions.map((session) => (
                   <option key={session.id} value={session.id}>
-                    {formatSessionType(session.sessionType)} | {session.title || session.team} | {formatSessionDate(session.sessionDate)} | {session.status === 'completed' ? 'Completed' : 'Open'}
+                    {formatSessionType(session.sessionType)} / {session.title || session.team} / {formatSessionDate(session.sessionDate)} / {session.status === 'completed' ? 'Completed' : 'Open'}
                   </option>
                 ))}
               </select>
@@ -105,7 +105,7 @@ export function CoachOptionsSection({
                   onChange={(event) => onPlayerSelection(player.id, event.target.checked)}
                   className="h-4 w-4"
                 />
-                <span>{player.playerName} | {player.team || 'No team'}</span>
+                <span>{player.playerName} / {player.team || 'No team'}</span>
               </label>
             ))}
           </div>
@@ -128,9 +128,9 @@ export function CoachOptionsSection({
               disabled={isSaving || filteredPlayers.length === 0 || selectedSessionLocked}
               title={addAllDisabledReason}
               onClick={() => void onImportPlayers('all')}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Add All {activePlayerSection} Players
+              Add all {activePlayerSection} players
             </button>
             <button
               type="button"
@@ -139,7 +139,7 @@ export function CoachOptionsSection({
               onClick={() => void onImportPlayers('selected')}
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Add Selected Players
+              Add selected players
             </button>
           </div>
         </div>

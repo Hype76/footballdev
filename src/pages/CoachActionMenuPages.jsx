@@ -2,58 +2,63 @@ import { Link, useNavigate } from 'react-router-dom'
 
 function CoachActionMenuPage({ actions, description, primaryPath, title }) {
   const navigate = useNavigate()
+  const primaryAction = actions.find((action) => action.primary) || actions[0]
+  const secondaryActions = actions.filter((action) => action.path !== primaryAction?.path)
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-sm shadow-emerald-900/5">
-        <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Football workflow</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{title}</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Football workflow</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">{title}</h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">{description}</p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {actions.map((action) => (
+                <Link
+                  key={action.path}
+                  to={action.path}
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-4 transition hover:border-emerald-300 hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <span className="block text-sm font-black text-slate-950">{action.label}</span>
+                  <span className="mt-2 block text-sm leading-6 text-slate-600">{action.description}</span>
+                </Link>
+              ))}
+            </div>
           </div>
-          <div className="rounded-lg border border-lime-200 bg-lime-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Next action</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              Pick the football job, open the working screen, and complete the real step that moves the week forward.
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next action</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+                {primaryAction?.label || 'Open workflow'}
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                Open the working screen and complete the real step that moves the football week forward.
+              </p>
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              {secondaryActions.length > 0
+                ? `${secondaryActions.length} supporting view${secondaryActions.length === 1 ? '' : 's'} available.`
+                : 'This workflow opens directly into the working screen.'}
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Link
                 to={primaryPath}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 Open next action
               </Link>
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-900 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              Back
-            </button>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                Back
+              </button>
             </div>
           </div>
         </div>
       </section>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {actions.map((action) => (
-          <Link
-            key={action.path}
-            to={action.path}
-              className={`rounded-lg border p-5 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-              action.primary
-                ? 'border-emerald-800 bg-emerald-800 text-white'
-                : 'border-slate-200 bg-white text-slate-950 hover:border-emerald-300 hover:bg-lime-50'
-            }`}
-          >
-            <span className="block text-lg font-black">{action.label}</span>
-            <span className={`mt-2 block text-sm leading-6 ${action.primary ? 'text-slate-200' : 'text-slate-600'}`}>
-              {action.description}
-            </span>
-          </Link>
-        ))}
-      </div>
     </div>
   )
 }
