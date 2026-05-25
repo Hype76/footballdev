@@ -2,50 +2,62 @@ export const primaryNavigation = [
   {
     label: 'Calendar',
     path: '/sessions',
+    helper: 'Training and fixtures',
   },
   {
     label: 'Players',
     path: '/players',
+    helper: 'Squads and records',
   },
   {
     label: 'Development',
     path: '/assess-player',
+    helper: 'Assessments and notes',
   },
   {
     label: 'Messages',
     path: '/email-queue',
+    helper: 'Parent email queue',
   },
   {
     label: 'Availability',
     path: '/polls',
+    helper: 'Parent replies',
   },
   {
     label: 'Match Day',
     path: '/match-day',
+    helper: 'Squad, score, minutes',
   },
   {
     label: 'Teams',
     path: '/teams',
+    helper: 'Age groups and squads',
   },
   {
     label: 'Payments',
     path: '/billing',
+    helper: 'Plans and access',
   },
   {
     label: 'Add Player',
     path: '/add-player',
+    helper: 'Create a player record',
   },
   {
     label: 'Parent Invites',
     path: '/parent-linking',
+    helper: 'Link guardians',
   },
   {
     label: 'Archived Players',
     path: '/archived-players',
+    helper: 'Past players',
   },
   {
     label: 'Season Reports',
     path: '/end-season-stats',
+    helper: 'End of season exports',
   },
 ]
 
@@ -53,21 +65,26 @@ export const clubNavigation = [
   {
     label: 'Club Profile',
     path: '/club-settings',
+    helper: 'Shared club details',
   },
   {
     label: 'Staff Access',
     path: '/user-access',
+    helper: 'Roles and permissions',
   },
   {
     label: 'Development Fields',
     path: '/form-builder',
+    helper: 'Assessment setup',
   },
   {
     label: 'Message Templates',
     path: '/parent-email-templates',
+    helper: 'Parent copy rules',
   },
   {
     label: 'Activity Log',
     path: '/activity-log',
+    helper: 'Audit trail',
   },
 ]

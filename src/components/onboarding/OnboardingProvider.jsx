@@ -39,18 +39,18 @@ function patchUserOnboarding(user, scope, patch = {}) {
   }
 }
 
-function StepStatus({ complete }) {
+function StepMarker({ index, complete }) {
   return (
     <span
       className={[
-        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold',
+        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border text-xs font-black',
         complete
-          ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-          : 'border-slate-300 bg-white text-slate-500',
+          ? 'border-emerald-200 bg-emerald-600 text-white'
+          : 'border-slate-200 bg-white text-slate-500',
       ].join(' ')}
       aria-label={complete ? 'Complete' : 'Not complete'}
     >
-      {complete ? 'OK' : ''}
+      {complete ? 'OK' : index + 1}
     </span>
   )
 }
@@ -110,6 +110,7 @@ export function OnboardingProvider({ children }) {
 
   const plan = useMemo(() => buildOnboardingPlan(user, snapshot ?? {}), [snapshot, user])
   const progress = useMemo(() => getOnboardingProgress(plan), [plan])
+  const nextStep = plan?.steps?.find((step) => !step.complete) ?? plan?.steps?.[0]
   const shouldShowOnboarding = Boolean(
     plan &&
       plan.manualState?.enabled &&
@@ -180,97 +181,116 @@ export function OnboardingProvider({ children }) {
   return (
     <>
       {shouldShowOnboarding ? (
-        <section className="mb-6 overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm shadow-slate-200/80">
-          <div className="border-b border-emerald-100 bg-emerald-50 px-5 py-5 sm:px-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">First run setup</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{plan.title}</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">{plan.description}</p>
+        <section className="mb-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+          <div className="grid gap-0 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1fr)]">
+            <div className="border-b border-slate-200 bg-slate-950 p-5 text-white sm:p-6 xl:border-b-0 xl:border-r">
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-300">First run setup</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight">{plan.title}</h2>
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">{plan.description}</p>
+
+              <div className="mt-5 rounded-3xl border border-white/10 bg-white/10 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200">Next useful action</p>
+                <h3 className="mt-2 text-lg font-black">{nextStep?.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{nextStep?.detail}</p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row xl:flex-col 2xl:flex-row">
+                  <Link
+                    to={nextStep?.href || plan.firstAction}
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-50"
+                  >
+                    {nextStep?.actionLabel || 'Start setup'}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleDismiss}
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-white/20 bg-transparent px-4 py-3 text-sm font-black text-white transition hover:bg-white/10"
+                  >
+                    Skip for now
+                  </button>
+                </div>
               </div>
-              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                <Link
-                  to={plan.firstAction}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800"
-                >
-                  Start setup
-                </Link>
+
+              <div className="mt-5">
+                <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-slate-300">
+                  <span>Progress</span>
+                  <span>{progress.completedCount} of {progress.totalCount}</span>
+                </div>
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-emerald-400 transition-all"
+                    style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs font-semibold text-slate-300">
+                  {isLoading ? 'Refreshing real workspace data.' : 'Checked against workspace data where possible.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5">
+              <div className="mb-4 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-black text-amber-950">Rules before features</p>
+                <p className="mt-1 text-sm leading-6 text-amber-900">
+                  This setup asks for only the data needed to run football this week. Complete a real action, or mark it done when your club does not use that workflow.
+                </p>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-2">
+                {plan.steps.map((step, index) => (
+                  <article
+                    key={step.id}
+                    className={[
+                      'rounded-3xl border p-4 shadow-sm transition',
+                      step.complete
+                        ? 'border-emerald-200 bg-emerald-50 shadow-emerald-100/70'
+                        : 'border-slate-200 bg-white shadow-slate-200/70',
+                    ].join(' ')}
+                  >
+                    <div className="flex gap-3">
+                      <StepMarker complete={step.complete} index={index} />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-black text-slate-950">{step.title}</h3>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{step.rule}</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-900">{step.detail}</p>
+                        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                          <Link
+                            to={step.href}
+                            className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-slate-950 px-3 py-2 text-sm font-black text-white transition hover:bg-slate-800"
+                          >
+                            {step.actionLabel}
+                          </Link>
+                          {!step.complete ? (
+                            <button
+                              type="button"
+                              onClick={() => handleCompleteStep(step.id)}
+                              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                            >
+                              Mark done
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div className="mt-4 flex flex-col gap-2 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-semibold text-slate-600">
+                  Reset brings the checklist back for testing or a fresh club launch.
+                </p>
                 <button
                   type="button"
-                  onClick={handleDismiss}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"
+                  onClick={handleReset}
+                  className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-100"
                 >
-                  Skip for now
+                  Reset setup
                 </button>
               </div>
             </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-emerald-100">
-              <div
-                className="h-full rounded-full bg-emerald-600 transition-all"
-                style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
-              />
-            </div>
-            <p className="mt-2 text-xs font-semibold text-emerald-800">
-              {progress.completedCount} of {progress.totalCount} setup checks complete
-              {isLoading ? ' | refreshing' : ''}
-            </p>
-          </div>
-
-          <div className="grid gap-3 p-5 sm:p-6 xl:grid-cols-2">
-            {plan.steps.map((step) => (
-              <article
-                key={step.id}
-                className={[
-                  'rounded-2xl border p-4',
-                  step.complete
-                    ? 'border-emerald-100 bg-emerald-50/70'
-                    : 'border-slate-200 bg-white',
-                ].join(' ')}
-              >
-                <div className="flex gap-3">
-                  <StepStatus complete={step.complete} />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-bold text-slate-950">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{step.rule}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-900">{step.detail}</p>
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                      <Link
-                        to={step.href}
-                        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
-                      >
-                        {step.actionLabel}
-                      </Link>
-                      {!step.complete ? (
-                        <button
-                          type="button"
-                          onClick={() => handleCompleteStep(step.id)}
-                          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-                        >
-                          Mark done
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-2 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <p className="text-sm text-slate-600">
-              Onboarding uses real workspace data where possible. Manual steps are for rules or choices the system cannot infer.
-            </p>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
-            >
-              Reset setup
-            </button>
           </div>
 
           {errorMessage ? (
-            <div className="border-t border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger-text)] sm:px-5">
+            <div className="border-t border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-900 sm:px-5">
               {errorMessage}
             </div>
           ) : null}

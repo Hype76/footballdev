@@ -218,21 +218,21 @@ export function Layout() {
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+    <div className="min-h-screen overflow-x-hidden bg-slate-100 text-slate-950">
       <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-80">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-[22rem]">
           <Topbar
             title={activeTitle}
             onMenuClick={() => setIsSidebarOpen(true)}
           />
 
-          <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-10">
+          <main className="flex-1 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef3f8_100%)] px-4 py-5 sm:px-6 md:px-8 xl:px-10">
             <div className="mx-auto w-full max-w-7xl">
               <OnboardingProvider>
                 {needsAccessModeSelection ? (
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Access"
                       title="How do you want to open this account?"
@@ -244,7 +244,7 @@ export function Layout() {
                     />
                   </div>
                 ) : needsClubSelection ? (
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Club"
                       title="Which club do you want to open?"
@@ -260,7 +260,7 @@ export function Layout() {
                     />
                   </div>
                 ) : needsTeamSelection ? (
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Team"
                       title="Which team do you want to work with?"

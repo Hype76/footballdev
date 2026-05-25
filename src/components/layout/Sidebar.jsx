@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.png'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
@@ -13,29 +13,63 @@ import {
   canManagePolls,
   canManageTeamSettings,
   canManageUsers,
-  canViewPlatformFeedback,
   canViewActivityLog,
   canViewBilling,
   canViewEndSeasonStats,
-  isSuperAdmin,
+  canViewPlatformFeedback,
   isParentPortalUser,
+  isSuperAdmin,
   useAuth,
 } from '../../lib/auth.js'
 import { getScheduledEmails } from '../../lib/domain/scheduled-emails.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 
+const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
+
+const navIcons = {
+  '/activity-log': 'AL',
+  '/add-player': 'AP',
+  '/archived-players': 'AR',
+  '/assess-player': 'DV',
+  '/billing': 'PY',
+  '/club-settings': 'CP',
+  '/email-queue': 'MS',
+  '/end-season-stats': 'SR',
+  '/form-builder': 'AF',
+  '/match-day': 'MD',
+  '/parent-email-templates': 'ET',
+  '/parent-linking': 'PI',
+  '/players': 'PL',
+  '/polls': 'AV',
+  '/sessions': 'CA',
+  '/teams': 'TM',
+  '/user-access': 'SA',
+}
+
 function getSidebarTourId(path) {
   return `sidebar-${String(path ?? '').replace(/^\//, '').replace(/\//g, '-') || 'home'}`
 }
 
-function NavItemLabel({ label, showPollCount = false, pollCount = 0 }) {
+function getNavIcon(path) {
+  return navIcons[path] || 'OS'
+}
+
+function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
+  const count = item.path === '/polls' ? pollCount : item.path === '/email-queue' ? queuedEmailCount : 0
+
   return (
-    <span className="flex min-w-0 items-center justify-between gap-3">
-      <span className="min-w-0 truncate">{label}</span>
-      {showPollCount && pollCount > 0 ? (
-        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-2 text-xs font-bold text-black">
-          {pollCount > 99 ? '99+' : pollCount}
+    <span className="flex min-w-0 items-center gap-3">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[11px] font-black tracking-tight text-slate-700 shadow-sm ring-1 ring-slate-200">
+        {getNavIcon(item.path)}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black">{item.label}</span>
+        {item.helper ? <span className="mt-0.5 block truncate text-xs font-semibold opacity-70">{item.helper}</span> : null}
+      </span>
+      {count > 0 ? (
+        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 px-2 text-xs font-black text-white">
+          {count > 99 ? '99+' : count}
         </span>
       ) : null}
     </span>
@@ -152,6 +186,7 @@ export function Sidebar({ isOpen, onClose }) {
       console.error(error)
     }
   }
+
   const getVisibleNavigationItems = (items) => items.filter((item) => {
     if (isSuperAdmin(displayUser)) {
       return item.path === '/activity-log'
@@ -222,157 +257,46 @@ export function Sidebar({ isOpen, onClose }) {
     return true
   }).map((item) => {
     if (item.path === '/activity-log' && !hasPlanFeature(displayUser, 'auditLogs')) {
-      return {
-        ...item,
-        disabled: true,
-        disabledMessage: createFeatureUpgradeMessage('auditLogs'),
-      }
+      return { ...item, disabled: true, disabledMessage: createFeatureUpgradeMessage('auditLogs') }
     }
 
     if (item.path === '/form-builder' && !hasPlanFeature(displayUser, 'customFormFields')) {
-      return {
-        ...item,
-        disabled: true,
-        disabledMessage: createFeatureUpgradeMessage('customFormFields'),
-      }
+      return { ...item, disabled: true, disabledMessage: createFeatureUpgradeMessage('customFormFields') }
     }
 
     if (item.path === '/parent-email-templates' && !hasPlanFeature(displayUser, 'parentEmail')) {
-      return {
-        ...item,
-        disabled: true,
-        disabledMessage: createFeatureUpgradeMessage('parentEmail'),
-      }
+      return { ...item, disabled: true, disabledMessage: createFeatureUpgradeMessage('parentEmail') }
     }
 
     if (item.path === '/email-queue' && !hasPlanFeature(displayUser, 'parentEmail')) {
-      return {
-        ...item,
-        disabled: true,
-        disabledMessage: createFeatureUpgradeMessage('parentEmail'),
-      }
+      return { ...item, disabled: true, disabledMessage: createFeatureUpgradeMessage('parentEmail') }
     }
 
     return item
   })
+
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
-  const clubNavigationLabel = canManageClubSettings(displayUser) ? 'Club' : 'Management'
-  const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
   const teamNavigationItems = navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
+  const workspaceItems = useMemo(() => {
+    if (isParentPortal) {
+      return [
+        { label: 'Match Day', path: '/parent-portal', helper: 'Fixtures and updates' },
+        { label: 'Messages', path: '/parent-messages', helper: 'Club notices' },
+        { label: 'Polls', path: '/parent-polls', helper: 'Reply requests' },
+        { label: 'Friends and Family', path: '/friends-family', helper: 'Shared access' },
+      ]
+    }
 
-  if (isParentPortal) {
-    return (
-      <>
-        <div
-          className={[
-            'fixed inset-0 z-30 bg-black/50 transition lg:hidden',
-            isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
-          ].join(' ')}
-          onClick={onClose}
-        />
-        <aside
-          className={[
-            'fixed inset-y-0 left-0 z-40 flex w-[min(20rem,calc(100vw-1rem))] max-w-72 flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-4 py-5 transition sm:px-5 sm:py-6 lg:fixed lg:translate-x-0',
-            isOpen ? 'translate-x-0' : '-translate-x-full',
-          ].join(' ')}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)]">
-                <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
-              </div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Parent Portal</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] lg:hidden"
-              aria-label="Close navigation"
-            >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
-            </button>
-          </div>
-          <nav className="mt-7 space-y-2 pb-4">
-            <NavLink
-              to="/parent-portal"
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
-                  isActive
-                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-                ].join(' ')
-              }
-            >
-              Match Day
-            </NavLink>
-            <NavLink
-              to="/parent-messages"
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
-                  isActive
-                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-                ].join(' ')
-              }
-            >
-              Messages
-            </NavLink>
-            <NavLink
-              to="/parent-polls"
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
-                  isActive
-                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-                ].join(' ')
-              }
-            >
-              <NavItemLabel label="Polls" pollCount={openPollCount} showPollCount />
-            </NavLink>
-            <NavLink
-              to="/friends-family"
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'block min-h-12 rounded-lg px-4 py-3 text-base font-semibold transition',
-                  isActive
-                    ? 'bg-[var(--button-primary)] text-[var(--button-primary-text)]'
-                    : 'bg-[var(--panel-alt)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]',
-                ].join(' ')
-              }
-            >
-              Friends and Family
-            </NavLink>
-          </nav>
-          <div className="mt-auto pt-4">
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
-            >
-              Sign out
-            </button>
-          </div>
-        </aside>
-      </>
-    )
-  }
+    return [{ label: 'Home', path: '/coach', helper: 'Today and next actions' }, ...coachNavigationItems]
+  }, [coachNavigationItems, isParentPortal])
 
   return (
     <>
       <div
         className={[
-          'fixed inset-0 z-30 bg-black/50 transition lg:hidden',
+          'fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-sm transition lg:hidden',
           isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
         ].join(' ')}
         onClick={onClose}
@@ -380,139 +304,50 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(21rem,calc(100vw-1rem))] max-w-80 flex-col overflow-y-auto border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] px-4 py-5 shadow-2xl shadow-slate-200/70 transition sm:px-5 sm:py-6 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(22rem,calc(100vw-1rem))] max-w-[22rem] flex-col overflow-y-auto border-r border-slate-200 bg-white px-4 py-5 shadow-2xl shadow-slate-300/50 transition sm:px-5 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-slate-200">
-              <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm">
+                <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-700">
+                  {isParentPortal ? 'Parent access' : 'Football OS'}
+                </p>
+                <h2 className="mt-1 truncate text-lg font-black tracking-tight text-slate-950">{clubLabel}</h2>
+              </div>
             </div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--text-secondary)]">Club OS</p>
-            <h2 className="mt-2 truncate text-lg font-black tracking-tight text-[var(--text-primary)]">{clubLabel}</h2>
-            <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Football operations workspace</p>
+            <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-600">
+              {isParentPortal ? 'Parent match day view with replies and messages.' : 'Run the week from fixtures, players, parents, staff, and match day.'}
+            </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] lg:hidden"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm lg:hidden"
             aria-label="Close navigation"
           >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M6 6l12 12M18 6 6 18" />
-            </svg>
+            X
           </button>
         </div>
 
-        <nav className="mt-7 space-y-3 pb-4">
-          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white p-3 shadow-sm shadow-emerald-100">
-            <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
-              This week
-            </p>
-            <p className="px-2 pt-1 text-xs leading-5 text-slate-600">
-              Schedule, squads, parents, match day.
-            </p>
-            <div className="mt-3 grid gap-2">
-              <NavLink
-                to="/coach"
-                data-tour-id="sidebar-coach-home"
-                onClick={onClose}
-                className={({ isActive }) =>
-                  [
-                    'block min-h-12 rounded-xl px-4 py-3 text-base font-black transition',
-                    isActive
-                      ? 'bg-slate-950 text-white shadow-sm'
-                      : 'bg-white text-slate-900 shadow-sm shadow-slate-100 hover:bg-emerald-50',
-                  ].join(' ')
-                }
-              >
-                  Home
-              </NavLink>
-              {coachNavigationItems.map((item) =>
-                item.disabled ? (
-                  <DisabledNavItem key={item.path} item={item} />
-                ) : (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    data-tour-id={getSidebarTourId(item.path)}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      [
-                        'block min-h-12 rounded-xl px-4 py-3 text-base font-black transition',
-                        isActive
-                          ? 'bg-slate-950 text-white shadow-sm'
-                          : 'bg-white text-slate-900 shadow-sm shadow-slate-100 hover:bg-emerald-50',
-                      ].join(' ')
-                    }
-                  >
-                    <NavItemLabel
-                      label={item.label}
-                      pollCount={openPollCount}
-                      showPollCount={item.path === '/polls'}
-                    />
-                  </NavLink>
-                ),
-              )}
+        <nav className="mt-6 space-y-4 pb-4">
+          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between px-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+                {isParentPortal ? 'Portal' : 'Operate'}
+              </p>
+              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-emerald-700 ring-1 ring-slate-200">
+                Live
+              </span>
             </div>
-          </div>
-
-          {teamNavigationItems.length > 0 ? (
-            <details className="group rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm shadow-slate-200/70">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl px-2 text-sm font-black text-[var(--text-primary)]">
-              Player and team tools
-                <span className="text-xs text-[var(--text-muted)] group-open:hidden">Show</span>
-                <span className="hidden text-xs text-[var(--text-muted)] group-open:inline">Hide</span>
-              </summary>
-              <div className="mt-2 space-y-2">
-                {teamNavigationItems.map((item) =>
-                  item.disabled ? (
-                    <DisabledNavItem key={item.path} item={item} />
-                  ) : (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      data-tour-id={getSidebarTourId(item.path)}
-                      onClick={onClose}
-                      className={({ isActive }) =>
-                        [
-                          'block min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
-                          isActive
-                            ? 'bg-[var(--sidebar-active-bg)] text-emerald-950'
-                            : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                        ].join(' ')
-                      }
-                    >
-                      <NavItemLabel
-                        label={item.label}
-                        pollCount={openPollCount}
-                        showPollCount={item.path === '/polls'}
-                      />
-                    </NavLink>
-                  ),
-                )}
-              </div>
-            </details>
-          ) : null}
-        </nav>
-
-        {clubNavigationItems.length > 0 ? (
-          <details
-            className="mt-2 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm shadow-slate-200/70"
-            data-tour-id="sidebar-club-section"
-          >
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl px-2 text-sm font-black text-[var(--text-primary)]">
-              {clubNavigationLabel} control
-              <span className="text-xs text-[var(--text-muted)]">Admin</span>
-            </summary>
-            {clubNavigationItems.map((item) =>
-              item.disabled ? (
-                <div key={item.path} className="mt-2">
-                  <DisabledNavItem item={item} />
-                </div>
-              ) : (
+            <div className="mt-3 grid gap-2">
+              {workspaceItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
@@ -520,141 +355,73 @@ export function Sidebar({ isOpen, onClose }) {
                   onClick={onClose}
                   className={({ isActive }) =>
                     [
-                      'mt-2 block min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
+                      'block rounded-2xl px-3 py-3 transition',
                       isActive
-                        ? 'bg-[var(--sidebar-active-bg)] text-emerald-950'
-                        : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
+                        ? 'bg-slate-950 text-white shadow-sm shadow-slate-300'
+                        : 'bg-white text-slate-800 shadow-sm shadow-slate-200/70 hover:bg-emerald-50 hover:text-slate-950',
                     ].join(' ')
                   }
                 >
-                  <NavItemLabel
-                    label={item.label}
-                    pollCount={openPollCount}
-                    showPollCount={item.path === '/polls'}
-                  />
+                  <NavItemLabel item={item} pollCount={openPollCount} queuedEmailCount={queuedEmailCount} />
                 </NavLink>
-              ),
-            )}
-          </details>
-        ) : null}
-
-        {isSuperAdmin(displayUser) ? (
-          <div className="mt-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3">
-            <p className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-              Platform control
-            </p>
-            <NavLink
-              to="/platform-admin"
-              data-tour-id="sidebar-platform-admin"
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
-                  isActive
-                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                ].join(' ')
-              }
-            >
-              Platform Admin
-            </NavLink>
-            <NavLink
-              to="/platform-clubs"
-              data-tour-id="sidebar-platform-clubs"
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
-                  isActive
-                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                ].join(' ')
-              }
-            >
-              Club/Team Management
-            </NavLink>
-            <NavLink
-              to="/platform-billing-options"
-              data-tour-id="sidebar-platform-billing-options"
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
-                  isActive
-                    ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                ].join(' ')
-              }
-            >
-              Billing Options
-            </NavLink>
-            {canAccessPlatformFeedback ? (
-              <NavLink
-                to="/platform-feedback"
-                data-tour-id="sidebar-platform-feedback"
-                onClick={onClose}
-                className={({ isActive }) =>
-                  [
-                    'mt-2 block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition',
-                    isActive
-                      ? 'bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                  ].join(' ')
-                }
-              >
-                Platform Feedback
-              </NavLink>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="mt-auto pt-4">
-          <div className="mb-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm shadow-slate-200/70">
-            <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-              Information
-            </p>
-            <NavLink
-              to="/information"
-              data-tour-id="sidebar-information"
-              onClick={onClose}
-              className={({ isActive }) =>
-                  [
-                  'mt-2 block min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
-                  isActive
-                    ? 'bg-[var(--sidebar-active-bg)] text-emerald-950'
-                    : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                ].join(' ')
-              }
-            >
-              How to use
-            </NavLink>
-          </div>
-          {!isSuperAdmin(displayUser) && canAccessPlatformFeedback ? (
-            <div className="mb-3 rounded-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm shadow-slate-200/70">
-              <p className="px-2 text-xs font-black uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                Platform feedback
-              </p>
-              <NavLink
-                to="/platform-feedback"
-                data-tour-id="sidebar-platform-feedback"
-                onClick={onClose}
-                className={({ isActive }) =>
-                  [
-                    'mt-2 block min-h-11 rounded-xl px-4 py-3 text-sm font-bold transition',
-                    isActive
-                      ? 'bg-[var(--sidebar-active-bg)] text-emerald-950'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--panel-soft)] hover:text-[var(--text-primary)]',
-                  ].join(' ')
-                }
-              >
-                Share feedback
-              </NavLink>
+              ))}
             </div>
+          </section>
+
+          {!isParentPortal && teamNavigationItems.length > 0 ? (
+            <NavGroup title="Players and teams" items={teamNavigationItems} onClose={onClose} pollCount={openPollCount} queuedEmailCount={queuedEmailCount} />
+          ) : null}
+
+          {!isParentPortal && clubNavigationItems.length > 0 ? (
+            <NavGroup title={canManageClubSettings(displayUser) ? 'Club control' : 'Management'} items={clubNavigationItems} onClose={onClose} pollCount={openPollCount} queuedEmailCount={queuedEmailCount} />
+          ) : null}
+
+          {isSuperAdmin(displayUser) ? (
+            <PlatformNav onClose={onClose} canAccessPlatformFeedback={canAccessPlatformFeedback} />
+          ) : null}
+        </nav>
+
+        <div className="mt-auto space-y-3 pt-4">
+          {!isParentPortal ? (
+            <>
+              <NavLink
+                to="/information"
+                data-tour-id="sidebar-information"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  [
+                    'block rounded-2xl border px-4 py-3 text-sm font-black transition',
+                    isActive
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                  ].join(' ')
+                }
+              >
+                How to use
+              </NavLink>
+              {!isSuperAdmin(displayUser) && canAccessPlatformFeedback ? (
+                <NavLink
+                  to="/platform-feedback"
+                  data-tour-id="sidebar-platform-feedback"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    [
+                      'block rounded-2xl border px-4 py-3 text-sm font-black transition',
+                      isActive
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                    ].join(' ')
+                  }
+                >
+                  Share feedback
+                </NavLink>
+              ) : null}
+            </>
           ) : null}
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-bold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50"
           >
             Sign out
           </button>
@@ -664,6 +431,53 @@ export function Sidebar({ isOpen, onClose }) {
   )
 }
 
+function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
+  return (
+    <details className="group rounded-3xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/70">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-2xl px-2 text-sm font-black text-slate-950">
+        {title}
+        <span className="text-xs font-black text-slate-500 group-open:hidden">Show</span>
+        <span className="hidden text-xs font-black text-slate-500 group-open:inline">Hide</span>
+      </summary>
+      <div className="mt-2 grid gap-2">
+        {items.map((item) =>
+          item.disabled ? (
+            <DisabledNavItem key={item.path} item={item} />
+          ) : (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              data-tour-id={getSidebarTourId(item.path)}
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  'block rounded-2xl px-3 py-3 transition',
+                  isActive
+                    ? 'bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200'
+                    : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950',
+                ].join(' ')
+              }
+            >
+              <NavItemLabel item={item} pollCount={pollCount} queuedEmailCount={queuedEmailCount} />
+            </NavLink>
+          ),
+        )}
+      </div>
+    </details>
+  )
+}
+
+function PlatformNav({ canAccessPlatformFeedback, onClose }) {
+  const items = [
+    { label: 'Platform Admin', path: '/platform-admin', helper: 'System overview' },
+    { label: 'Club and Team Management', path: '/platform-clubs', helper: 'Club records' },
+    { label: 'Billing Options', path: '/platform-billing-options', helper: 'Plans and coupons' },
+    ...(canAccessPlatformFeedback ? [{ label: 'Platform Feedback', path: '/platform-feedback', helper: 'Requests and issues' }] : []),
+  ]
+
+  return <NavGroup title="Platform control" items={items} onClose={onClose} pollCount={0} queuedEmailCount={0} />
+}
+
 function DisabledNavItem({ item }) {
   return (
     <button
@@ -671,15 +485,14 @@ function DisabledNavItem({ item }) {
       disabled
       aria-disabled="true"
       title={item.disabledMessage}
-      className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-left opacity-65"
+      className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-left opacity-70"
     >
-      <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M7 11V8a5 5 0 0 1 10 0v3" />
-        <rect x="5" y="11" width="14" height="10" rx="2" />
-      </svg>
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[11px] font-black text-slate-500 ring-1 ring-slate-200">
+        {getNavIcon(item.path)}
+      </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-[var(--text-muted)]">{item.label}</span>
-        <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{item.disabledMessage}</span>
+        <span className="block text-sm font-black text-slate-600">{item.label}</span>
+        <span className="mt-1 block text-xs leading-5 text-slate-500">{item.disabledMessage}</span>
       </span>
     </button>
   )

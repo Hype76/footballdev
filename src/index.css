@@ -17,18 +17,18 @@
 
 @layer base {
   :root {
-    --app-bg: #f3f7fb;
+    --app-bg: #f4f8fb;
     --shell-card: #ffffff;
     --panel-bg: #ffffff;
-    --panel-alt: #f8fbff;
-    --panel-soft: #edf7f2;
+    --panel-alt: #f8fafc;
+    --panel-soft: #eef6f3;
     --sidebar-bg: #ffffff;
     --sidebar-active-bg: #dff8ec;
-    --border-color: #d9e5ee;
+    --border-color: #dbe6ef;
     --text-primary: #0f172a;
-    --text-muted: #526171;
+    --text-muted: #526173;
     --text-secondary: #047857;
-    --accent: #00a86b;
+    --accent: #059669;
     --accent-text: #ffffff;
     --accent-soft: #dcf8ea;
     --button-primary: #047857;
@@ -48,21 +48,21 @@
   }
 
   body.theme-dark {
-    --app-bg: #0f172a;
-    --shell-card: #172033;
-    --panel-bg: #172033;
-    --panel-alt: #1d2a40;
-    --panel-soft: #233149;
-    --sidebar-bg: #121c2d;
-    --sidebar-active-bg: #184132;
-    --border-color: #314158;
+    --app-bg: #111827;
+    --shell-card: #1f2937;
+    --panel-bg: #1f2937;
+    --panel-alt: #263244;
+    --panel-soft: #2f3b4d;
+    --sidebar-bg: #172033;
+    --sidebar-active-bg: #164e3b;
+    --border-color: #38475b;
     --text-primary: #f8fafc;
-    --text-muted: #c2cada;
-    --text-secondary: #86efac;
-    --accent: #4ade80;
-    --accent-text: #052e16;
-    --accent-soft: #173f2c;
-    --button-primary: #16a34a;
+    --text-muted: #cbd5e1;
+    --text-secondary: #7dd3fc;
+    --accent: #34d399;
+    --accent-text: #06251a;
+    --accent-soft: #133a2d;
+    --button-primary: #10b981;
     --button-primary-gradient: linear-gradient(135deg, var(--button-primary), color-mix(in srgb, var(--button-primary) 72%, white));
     --button-primary-text: #0a0f08;
     --danger-border: #5a2a33;
@@ -196,7 +196,7 @@
   }
 
   body::selection {
-    background: rgba(90, 107, 91, 0.18);
+    background: rgba(16, 185, 129, 0.18);
   }
 
   button,
