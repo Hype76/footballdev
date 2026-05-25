@@ -4,12 +4,11 @@ export function PlatformFeedbackStats({ feedbackStats }) {
       {feedbackStats.map((item) => (
         <div
           key={item.label}
-          className="group relative overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 transition duration-300 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[0_22px_70px_rgba(0,0,0,0.2)]"
+          className="overflow-hidden rounded-md border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-300"
         >
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--accent)] opacity-70" />
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">{item.label}</p>
-          <p className="mt-3 text-4xl font-semibold text-[var(--text-primary)]">{item.value}</p>
-          <p className="mt-3 text-sm text-[var(--text-muted)]">{item.caption}</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{item.label}</p>
+          <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{item.value}</p>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{item.caption}</p>
         </div>
       ))}
     </div>

@@ -141,7 +141,7 @@ export function PlatformFeedbackPage() {
 
   if ((isAuthLoading && !session?.user) || (!user && isProfileLoading)) {
     return (
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-8 text-sm font-medium text-[var(--text-muted)]">
+      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 text-sm font-bold text-slate-600 shadow-sm">
         Loading...
       </div>
     )
@@ -160,7 +160,7 @@ export function PlatformFeedbackPage() {
       />
 
       {successMessage ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
           {successMessage}
         </div>
       ) : null}

@@ -97,7 +97,7 @@ export default function OfflineDraftSync() {
     : syncMessage || `${pendingDraftCount} draft${pendingDraftCount === 1 ? '' : 's'} waiting to sync`
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 max-w-sm rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] shadow-2xl shadow-black/30">
+    <div className="fixed bottom-4 left-4 z-50 max-w-sm rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 shadow-lg shadow-slate-950/10">
       {isSyncing ? 'Syncing drafts...' : message}
     </div>
   )

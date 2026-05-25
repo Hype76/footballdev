@@ -87,10 +87,16 @@ const TermsPage = lazyRoute(() => import('../pages/TermsPage.jsx'), 'TermsPage')
 const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
 const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx'), 'UserSettingsPage')
 
+const primaryActionClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
+
+const secondaryActionClassName =
+  'inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
+
 function LoadingScreen() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8">
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-6 py-5 text-sm font-medium text-[var(--text-muted)]">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
+      <div className="rounded-md border border-slate-200 bg-white px-6 py-5 text-sm font-bold text-slate-600 shadow-sm">
         Loading...
       </div>
     </main>
@@ -113,16 +119,16 @@ function NavigateToParentInvite() {
 function RouteContentSkeleton() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
-        <div className="h-4 w-28 rounded-full bg-[var(--panel-soft)]" />
-        <div className="mt-5 h-10 w-64 rounded-lg bg-[var(--panel-soft)]" />
-        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[var(--panel-soft)]" />
+      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
+        <div className="h-4 w-28 rounded-md bg-slate-100" />
+        <div className="mt-5 h-10 w-64 max-w-full rounded-md bg-slate-100" />
+        <div className="mt-4 h-5 w-full max-w-xl rounded-md bg-slate-100" />
       </div>
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-8">
-        <div className="h-8 w-40 rounded-lg bg-[var(--panel-soft)]" />
+      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
+        <div className="h-8 w-40 rounded-md bg-slate-100" />
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="h-28 rounded-lg bg-[var(--panel-soft)]" />
-          <div className="h-28 rounded-lg bg-[var(--panel-soft)]" />
+          <div className="h-28 rounded-md bg-slate-100" />
+          <div className="h-28 rounded-md bg-slate-100" />
         </div>
       </div>
     </div>
@@ -132,10 +138,10 @@ function RouteContentSkeleton() {
 function RouteGateState({ title, message, actions = null }) {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Workspace</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{message}</p>
+      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Workspace</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{message}</p>
         {actions ? <div className="mt-6 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
       </div>
     </div>
@@ -163,14 +169,14 @@ function AccountDetailsUnavailableState({ message }) {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+            className={primaryActionClassName}
           >
             Retry
           </button>
           <button
             type="button"
             onClick={handleSignInAgain}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className={secondaryActionClassName}
           >
             Sign In Again
           </button>
@@ -201,15 +207,15 @@ function AccountSuspendedState() {
 function TesterAccessExpiredState() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Billing</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Tester access has ended</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Billing</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Tester access has ended</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
           Your temporary tester access has expired. Your club data is still safe. A paid plan is needed to continue using the workspace.
         </p>
         <a
           href="/billing"
-          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+          className={`mt-6 ${primaryActionClassName}`}
         >
           View Billing Options
         </a>
@@ -221,15 +227,15 @@ function TesterAccessExpiredState() {
 function PlanAccessRequiredState() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Billing</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Plan access needs attention</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Billing</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Plan access needs attention</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
           This workspace needs an active plan before staff can keep using club tools. Your existing club data remains safe.
         </p>
         <a
           href="/billing"
-          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+          className={`mt-6 ${primaryActionClassName}`}
         >
           View Billing Options
         </a>
@@ -364,21 +370,21 @@ function RouteErrorFallback({ error }) {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] px-5 py-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Page Error</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{message}</p>
+      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">Page Error</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{message}</p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+            className={primaryActionClassName}
           >
             Refresh App
           </button>
           <a
             href="/"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className={secondaryActionClassName}
           >
             Go To Workspace
           </a>
