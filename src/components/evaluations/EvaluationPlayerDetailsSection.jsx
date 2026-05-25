@@ -32,13 +32,13 @@ export function EvaluationPlayerDetailsSection({
     >
       <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label className="block min-w-0">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Section</span>
+          <span className="mb-2 block text-sm font-bold text-slate-950">Section</span>
           <select
             name="section"
             value={formData.section}
             onChange={onFieldChange}
             required
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
           >
             {evaluationSections.map((section) => (
               <option key={section} value={section}>
@@ -49,13 +49,13 @@ export function EvaluationPlayerDetailsSection({
         </label>
 
         <label className="block min-w-0">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
+          <span className="mb-2 block text-sm font-bold text-slate-950">Team</span>
           <select
             name="team"
             value={formData.team}
             onChange={onFieldChange}
             required
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
           >
             <option value="">Select team</option>
             {availableTeams.map((team) => (
@@ -64,7 +64,7 @@ export function EvaluationPlayerDetailsSection({
               </option>
             ))}
           </select>
-          <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+          <p className="mt-2 text-xs leading-5 text-slate-500">
             {canManageUsers(user)
               ? 'Managers and admins can assess against any club team.'
               : 'Choose the team this assessment should sit under. Session selection is optional.'}
@@ -72,14 +72,14 @@ export function EvaluationPlayerDetailsSection({
         </label>
 
         <label className="block min-w-0">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Player Name</span>
+          <span className="mb-2 block text-sm font-bold text-slate-950">Player Name</span>
           <select
             name="playerName"
             value={formData.playerName}
             onChange={onFieldChange}
             required
             disabled={playerOptions.length === 0}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="">
               {playerOptions.length === 0 ? `No ${selectedSection || 'matching'} players available` : 'Select player'}
@@ -93,34 +93,34 @@ export function EvaluationPlayerDetailsSection({
         </label>
 
         <label className="block min-w-0">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Coach</span>
+          <span className="mb-2 block text-sm font-bold text-slate-950">Coach</span>
           <input
             type="text"
             name="coachName"
             value={formData.coachName}
             readOnly
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-emerald-50 px-4 py-3 text-sm text-slate-950 outline-none"
           />
         </label>
 
         <div className="min-w-0 md:col-span-2">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{contactLabel} Email Recipients</span>
+          <span className="mb-2 block text-sm font-bold text-slate-950">{contactLabel} Email Recipients</span>
           {parentContacts.length > 0 ? (
             <div className="grid gap-3 md:grid-cols-2">
               {parentContacts.map((contact, index) => (
                 <label
                   key={`${contact.email || contact.name}-${index}`}
-                  className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)]"
+                  className="flex min-h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950"
                 >
                   <input
                     type="checkbox"
                     checked={selectedParentContactIndexes.includes(index)}
                     onChange={() => onToggleParentContact(index)}
-                    className="h-4 w-4 accent-[var(--accent)]"
+                    className="h-4 w-4 accent-emerald-700"
                   />
                   <span className="min-w-0">
                     <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}</span>
-                    <span className="block break-words text-xs text-[var(--text-muted)]">{contact.email || 'No email entered'}</span>
+                    <span className="block break-words text-xs text-slate-500">{contact.email || 'No email entered'}</span>
                   </span>
                 </label>
               ))}
@@ -128,7 +128,7 @@ export function EvaluationPlayerDetailsSection({
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block min-w-0">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
                   {contactLabel} Name
                 </span>
                 <input
@@ -136,11 +136,11 @@ export function EvaluationPlayerDetailsSection({
                   name="parentName"
                   value={formData.parentName}
                   onChange={onFieldChange}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
                 />
               </label>
               <label className="block min-w-0">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
                   {contactLabel} Email
                 </span>
                 <input
@@ -148,26 +148,26 @@ export function EvaluationPlayerDetailsSection({
                   name="parentEmail"
                   value={formData.parentEmail}
                   onChange={onFieldChange}
-                  className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
                 />
               </label>
             </div>
           )}
-          <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+          <p className="mt-2 text-xs leading-5 text-slate-500">
             Selected {contactNounPlural} are used for {contactNoun} email templates.
           </p>
         </div>
 
         <label className="block min-w-0">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Session</span>
+          <span className="mb-2 block text-sm font-bold text-slate-950">Session</span>
           <input
             type="date"
             name="session"
             value={formatSessionForInput(formData.session)}
             onChange={onFieldChange}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
           />
-          <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Current session: {readableSession}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Current session: {readableSession}</p>
         </label>
       </div>
     </SectionCard>

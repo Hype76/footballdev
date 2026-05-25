@@ -10,6 +10,7 @@ import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
 import { canCreateEvaluation, useAuth } from '../lib/auth.js'
 import { PLAYER_PAGE_SIZE, getAverageScore, getPlayerKey } from '../hooks/players/playersPageUtils.js'
 import {
+  EVALUATION_SECTIONS,
   archivePlayer,
   getEvaluations,
   getPlayers,
@@ -30,8 +31,12 @@ export function PlayersPage({
   const { showToast } = useToast()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const viewFilter = searchParams.get('view') || defaultView
-  const urlSection = searchParams.get('section') || 'All'
+  const requestedViewFilter = searchParams.get('view') || defaultView
+  const requestedSection = searchParams.get('section') || 'All'
+  const isValidViewFilter = ['all', 'evaluated', 'scored'].includes(requestedViewFilter)
+  const isValidSectionFilter = requestedSection === 'All' || EVALUATION_SECTIONS.includes(requestedSection)
+  const viewFilter = isValidViewFilter ? requestedViewFilter : defaultView
+  const urlSection = isValidSectionFilter ? requestedSection : 'All'
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
   const cacheKey = user ? `players-page:${user.id}:${user.clubId || 'platform'}:${user.roleRank}:${activeTeamScope}` : ''
   const [players, setPlayers] = useState(() => {
@@ -217,6 +222,11 @@ export function PlayersPage({
     setPlayerPage(1)
   }
 
+  const clearInvalidFilters = () => {
+    setSearchParams({})
+    setPlayerPage(1)
+  }
+
   if (!canCreateEvaluation(user)) {
     return <Navigate to="/" replace />
   }
@@ -302,8 +312,27 @@ export function PlayersPage({
       />
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
+      {!isValidViewFilter || !isValidSectionFilter ? (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-950">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-bold">Player filters were reset</p>
+              <p className="mt-1 leading-6 text-slate-600">
+                The link used an unknown filter, so the full player list is shown instead.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearInvalidFilters}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+      ) : null}
       {message ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
           {message}
         </div>
       ) : null}

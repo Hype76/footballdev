@@ -46,19 +46,19 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
   }
 
   return (
-    <section className="mb-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className="mb-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">Next best action</p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-[var(--text-primary)]">Set up this workspace</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{getRoleStep(user)}</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Next best action</p>
+          <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">Set up this workspace</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">{getRoleStep(user)}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           {nextAction ? (
             nextAction.path ? (
               <Link
                 to={nextAction.path}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)]"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
               >
                 {nextAction.label}
               </Link>
@@ -66,7 +66,7 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
               <button
                 type="button"
                 onClick={() => focusStepTarget(nextAction.target)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-2 text-sm font-semibold text-[var(--button-primary-text)]"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
               >
                 {nextAction.label}
               </button>
@@ -75,33 +75,39 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
           <button
             type="button"
             onClick={onComplete}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
           >
             Done
           </button>
           <button
             type="button"
             onClick={() => onDisable(true)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-soft)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
           >
             Hide tips
           </button>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {steps.map((step, index) => (
-          <button
-            key={`${activeWalkthrough.key}-${step.title}`}
-            type="button"
-            onClick={() => focusStepTarget(step.target)}
-            className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4 text-left transition hover:border-[var(--accent)] hover:bg-[var(--panel-soft)] focus:border-[var(--accent)] focus:outline-none"
-          >
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Step {index + 1}</p>
-            <h3 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{step.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{step.body}</p>
-          </button>
-        ))}
-      </div>
+      <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-sm font-bold text-slate-950">
+          View setup tips
+          <span className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">{steps.length} steps</span>
+        </summary>
+        <div className="grid gap-3 border-t border-slate-200 p-3 md:grid-cols-2">
+          {steps.map((step, index) => (
+            <button
+              key={`${activeWalkthrough.key}-${step.title}`}
+              type="button"
+              onClick={() => focusStepTarget(step.target)}
+              className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 focus:border-emerald-500 focus:outline-none"
+            >
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Step {index + 1}</p>
+              <h3 className="mt-2 text-sm font-bold text-slate-950">{step.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{step.body}</p>
+            </button>
+          ))}
+        </div>
+      </details>
     </section>
   )
 }

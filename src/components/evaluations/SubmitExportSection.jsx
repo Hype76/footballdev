@@ -51,21 +51,21 @@ export function SubmitExportSection({
       title="Submit and export"
       description="Save the assessment first. Email and PDF options are optional."
     >
-      <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+      <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
         Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
       </div>
 
       {!isDemoAccount ? (
-        <label className="mb-4 flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+        <label className="mb-4 flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <input
             type="checkbox"
             checked={isEmailEnabled}
             onChange={(event) => onEmailAfterSaveChange(event.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+            className="mt-1 h-4 w-4 rounded border-slate-300 accent-emerald-700"
           />
           <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[var(--text-primary)]">Email parents after saving</span>
-            <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+            <span className="block text-sm font-bold text-slate-950">Email parents after saving</span>
+            <span className="mt-1 block text-sm leading-6 text-slate-600">
               Leave this off to save the assessment only.
             </span>
           </span>
@@ -76,11 +76,11 @@ export function SubmitExportSection({
         <div className="mb-4 grid gap-4 md:grid-cols-2">
           {availableEmailTemplates.length > 0 ? (
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Email template</span>
+              <span className="mb-2 block text-sm font-bold text-slate-950">Email template</span>
               <select
                 value={selectedEmailTemplateKey}
                 onChange={(event) => onEmailTemplateChange(event.target.value)}
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500"
               >
                 {availableEmailTemplates.map((template) => (
                   <option key={template.key} value={template.key}>
@@ -103,55 +103,55 @@ export function SubmitExportSection({
 
           {shouldShowInviteDate ? (
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+              <span className="mb-2 block text-sm font-bold text-slate-950">
                 Invite date
               </span>
               <input
                 type="date"
                 value={inviteDate}
                 onChange={(event) => onInviteDateChange(normalizeSessionValue(event.target.value))}
-                className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500"
               />
-              <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+              <p className="mt-2 text-xs leading-5 text-slate-500">
                 This is only used in invite email templates. The Session field above remains the saved current session date.
               </p>
             </label>
           ) : null}
 
-          <label className="flex items-start gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
+          <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
             <input
               type="checkbox"
               checked={Boolean(isPdfAttachmentApproved)}
               onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[var(--border-color)] accent-[var(--accent)]"
+              className="mt-1 h-4 w-4 rounded border-slate-300 accent-emerald-700"
             />
             <span>
-              <span className="block text-sm font-semibold text-[var(--text-primary)]">Attach assessment PDF</span>
-              <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+              <span className="block text-sm font-bold text-slate-950">Attach assessment PDF</span>
+              <span className="mt-1 block text-sm leading-6 text-slate-600">
                 Include the selected assessment details as a PDF attachment.
               </span>
             </span>
           </label>
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 md:col-span-2">
-            <span className="block text-sm font-semibold text-[var(--text-primary)]">Send timing</span>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 md:col-span-2">
+            <span className="block text-sm font-bold text-slate-950">Send timing</span>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
                 <input
                   type="radio"
                   name="assessment-email-send-mode"
                   checked={emailSendMode !== 'scheduled'}
                   onChange={() => onEmailSendModeChange('now')}
-                  className="h-4 w-4 accent-[var(--accent)]"
+                  className="h-4 w-4 accent-emerald-700"
                 />
                 Send now
               </label>
-              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+              <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
                 <input
                   type="radio"
                   name="assessment-email-send-mode"
                   checked={emailSendMode === 'scheduled'}
                   onChange={() => onEmailSendModeChange('scheduled')}
-                  className="h-4 w-4 accent-[var(--accent)]"
+                  className="h-4 w-4 accent-emerald-700"
                 />
                 Schedule
               </label>
@@ -169,11 +169,11 @@ export function SubmitExportSection({
       ) : null}
 
       {isEmailEnabled || isPdfAttachmentApproved ? (
-        <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Assessment details to include</p>
-              <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+              <p className="text-sm font-bold text-slate-950">Assessment details to include</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
                 Choose what goes into the {contactNoun} email and PDF. This choice is saved in this browser for this player.
               </p>
             </div>
@@ -181,14 +181,14 @@ export function SubmitExportSection({
               <button
                 type="button"
                 onClick={onSelectAllExportFields}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
               >
                 Select All
               </button>
               <button
                 type="button"
                 onClick={onClearExportFields}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
               >
                 Clear
               </button>
@@ -204,12 +204,12 @@ export function SubmitExportSection({
               selectedExportLabels={selectedExportLabels}
             />
           ) : (
-            <p className="mt-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            <p className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">
               No assessment responses above zero have been entered yet.
             </p>
           )}
 
-          <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
+          <p className="mt-3 text-xs leading-5 text-slate-500">
             {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
           </p>
         </div>
@@ -220,14 +220,14 @@ export function SubmitExportSection({
           type="submit"
           disabled={isSubmitting || !canSubmitEvaluation}
           title={submitDisabledReason}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isSubmitting ? (isSendingParentEmail ? 'Saving and emailing...' : 'Saving...') : 'Save Assessment'}
         </button>
         <button
           type="button"
           onClick={onPrintBlankForm}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 sm:w-auto"
         >
           Print Blank Form
         </button>
@@ -235,7 +235,7 @@ export function SubmitExportSection({
           <button
             type="button"
             onClick={onGoToPlayer}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)] sm:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 sm:w-auto"
           >
             Open Player Profile
           </button>

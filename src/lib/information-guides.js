@@ -122,6 +122,121 @@ export const platformAdminGuide = [
   },
 ]
 
+export const onboardingVideoGuides = [
+  {
+    key: 'workspace-start',
+    title: 'Start in your workspace',
+    duration: '1 min',
+    src: '/onboarding/workspace-start.mp4',
+    poster: '/onboarding/video-poster.svg',
+    captions: '/onboarding/workspace-start.vtt',
+    caption: 'A quick route through the sidebar, top bar, information page, and the first places most users need.',
+    steps: [
+      'Open the sidebar and choose the area you need.',
+      'Use the top bar to confirm role, team, and club context.',
+      'Return to Information when you need the guide library.',
+    ],
+  },
+  {
+    key: 'teams-staff',
+    title: 'Set up teams and staff',
+    duration: '2 min',
+    src: '/onboarding/teams-staff.mp4',
+    poster: '/onboarding/video-poster.svg',
+    captions: '/onboarding/teams-staff.vtt',
+    caption: 'Create teams, add staff logins, and allocate access based on the current plan and role limits.',
+    steps: [
+      'Create or review teams from Team Management.',
+      'Invite staff or create staff logins.',
+      'Assign each staff member only to the teams they should manage.',
+    ],
+  },
+  {
+    key: 'players',
+    title: 'Add and manage players',
+    duration: '2 min',
+    src: '/onboarding/players.mp4',
+    poster: '/onboarding/video-poster.svg',
+    captions: '/onboarding/players.vtt',
+    caption: 'Add players, keep details current, and understand how archived players affect plan limits.',
+    steps: [
+      'Add player details, team, section, positions, and shirt number where used.',
+      'Open a player profile to review history and parent contacts.',
+      'Archive players when they should no longer count as active.',
+    ],
+  },
+  {
+    key: 'sessions-assessments',
+    title: 'Run sessions and assessments',
+    duration: '3 min',
+    src: '/onboarding/sessions-assessments.mp4',
+    poster: '/onboarding/video-poster.svg',
+    captions: '/onboarding/sessions-assessments.vtt',
+    caption: 'Build a session, add players, complete assessment fields, then preview the report before sharing.',
+    steps: [
+      'Create a training or match session and add the correct players.',
+      'Open the assessment queue and complete each player report.',
+      'Use preview before exporting or sending parent email.',
+    ],
+  },
+  {
+    key: 'assessment-fields',
+    title: 'Configure assessment fields',
+    duration: '2 min',
+    src: '/onboarding/assessment-fields.mp4',
+    poster: '/onboarding/video-poster.svg',
+    captions: '/onboarding/assessment-fields.vtt',
+    caption: 'Change the fields coaches complete so reports match the way your club reviews player development.',
+    steps: [
+      'Open Assessment Fields from the sidebar.',
+      'Add, reorder, or remove fields for your club workflow.',
+      'Check the assessment form before coaches start a new session.',
+    ],
+  },
+  {
+    key: 'parent-email',
+    title: 'Send parent emails',
+    duration: '2 min',
+    src: '/onboarding/parent-email.mp4',
+    poster: '/onboarding/video-poster.svg',
+    captions: '/onboarding/parent-email.vtt',
+    caption: 'Use parent email templates and send feedback from the assessment flow or player profile.',
+    steps: [
+      'Create or review parent email templates.',
+      'Confirm parent contact details on the player profile.',
+      'Send the report and review delivery from the queue where available.',
+    ],
+  },
+  {
+    key: 'billing',
+    title: 'Review billing and plan limits',
+    duration: '1 min',
+    src: '/onboarding/billing.mp4',
+    poster: '/onboarding/video-poster.svg',
+    captions: '/onboarding/billing.vtt',
+    caption: 'Check the current plan, what the plan unlocks, and why an upgrade may be needed.',
+    steps: [
+      'Open Billing from the sidebar.',
+      'Compare plan limits with current club usage.',
+      'Start checkout only when the club is ready to upgrade.',
+    ],
+  },
+  {
+    key: 'platform-admin',
+    title: 'Manage clubs as platform admin',
+    duration: '3 min',
+    src: '/onboarding/platform-admin.mp4',
+    poster: '/onboarding/video-poster.svg',
+    captions: '/onboarding/platform-admin.vtt',
+    caption: 'Create and manage clubs, billing options, promotions, and platform feedback without entering club content.',
+    steps: [
+      'Open Platform Admin to review platform level stats.',
+      'Use Club Management for workspace status and plan checks.',
+      'Use Billing Options and Platform Feedback for operational tasks.',
+    ],
+  },
+]
+
 export function formatLimit(value) {
   return value === null || value === undefined ? 'Unlimited' : String(value)
 }

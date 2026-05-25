@@ -46,10 +46,10 @@ export function EvaluationExportFieldsSelector({
             resetDrag()
           }}
           className={[
-            'inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold transition',
+            'inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-bold transition',
             isDragLocked
-              ? 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-soft)]'
-              : 'border-[var(--accent)] bg-[var(--panel-soft)] text-[var(--text-primary)]',
+              ? 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
+              : 'border-emerald-300 bg-emerald-50 text-emerald-900',
           ].join(' ')}
         >
           {isDragLocked ? 'Unlock drag' : 'Lock drag'}
@@ -105,23 +105,23 @@ export function EvaluationExportFieldsSelector({
                 onReorderExportField(sourceLabel, itemLabel, responseItems)
               }}
               className={[
-                'flex min-h-11 items-start gap-3 rounded-lg border bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] transition',
+                'flex min-h-11 items-start gap-3 rounded-2xl border bg-white px-4 py-3 text-sm text-slate-950 transition',
                 isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
                 draggedLabel === itemLabel ? 'opacity-60' : '',
                 dragOverLabel === itemLabel
-                  ? 'border-[var(--accent)] ring-2 ring-[var(--accent)] ring-opacity-40'
-                  : 'border-[var(--border-color)]',
+                  ? 'border-emerald-400 ring-2 ring-emerald-200'
+                  : 'border-slate-200',
               ].join(' ')}
             >
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => onToggleExportField(itemLabel, responseItems)}
-                className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                className="mt-1 h-4 w-4 accent-emerald-700"
               />
               <span className="min-w-0">
-                <span className="block font-semibold">{itemLabel}</span>
-                <span className="block break-words text-xs leading-5 text-[var(--text-muted)]">
+                <span className="block font-bold">{itemLabel}</span>
+                <span className="block break-words text-xs leading-5 text-slate-500">
                   {String(item.value ?? '').trim() || 'No data entered'}
                 </span>
               </span>

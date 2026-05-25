@@ -90,23 +90,23 @@ export function ScheduleDateTimePicker({
 
   return (
     <fieldset className="block">
-      <legend className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">{label}</legend>
+      <legend className="mb-2 block text-sm font-bold text-slate-950">{label}</legend>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem_5rem]">
         <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Date</span>
+          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Date</span>
           <input
             type="date"
             value={date}
             onChange={handleDateChange}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Hour</span>
+          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Hour</span>
           <select
             value={hour}
             onChange={handleHourChange}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-center text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
           >
             <option value="">HH</option>
             {HOUR_OPTIONS.map((option) => (
@@ -115,11 +115,11 @@ export function ScheduleDateTimePicker({
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Minute</span>
+          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Minute</span>
           <select
             value={minute}
             onChange={handleMinuteChange}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-center text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
           >
             <option value="">MM</option>
             {MINUTE_OPTIONS.map((option) => (
@@ -138,7 +138,7 @@ export function ScheduleDateTimePicker({
               hour: option.hour,
               minute: option.minute,
             })}
-            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+            className="inline-flex min-h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-50"
           >
             {option.label}
           </button>

@@ -93,10 +93,16 @@ export function CreateEvaluationPage() {
   const hasInitializedRef = useRef(false)
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
   const searchParamsKey = searchParams.toString()
   const editingEvaluationId = String(searchParams.get('evaluationId') ?? '').trim()
+  const requestedAssessmentSection = String(searchParams.get('section') ?? '').trim()
+  const requestedAssessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
+  const requestedAssessmentPlayer = String(searchParams.get('player') ?? '').trim()
+  const hasInvalidAssessmentSection =
+    Boolean(requestedAssessmentSection) && !EVALUATION_SECTIONS.includes(requestedAssessmentSection)
+  const hasIncompleteSessionAssessmentLink = Boolean(requestedAssessmentSessionId) && !requestedAssessmentPlayer
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
   const teamsCacheKey = user ? `assessment-teams:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
   const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
@@ -754,6 +760,13 @@ export function CreateEvaluationPage() {
     user,
   ])
 
+  const clearAssessmentLinkState = () => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('section')
+    nextSearchParams.delete('sessionId')
+    setSearchParams(nextSearchParams)
+  }
+
   useEffect(() => {
     if (!hasInitializedRef.current || !user || isPlatformOwner || !offlineDraftId) {
       return undefined
@@ -1306,12 +1319,12 @@ export function CreateEvaluationPage() {
         onConfirm={() => void handleSaveNextAssessmentReminder()}
       >
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Reminder date</span>
+          <span className="mb-2 block text-sm font-bold text-slate-950">Reminder date</span>
           <input
             type="date"
             value={nextAssessmentReminderDate}
             onChange={(event) => setNextAssessmentReminderDate(event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
           />
         </label>
       </ConfirmModal>
@@ -1324,7 +1337,7 @@ export function CreateEvaluationPage() {
         />
 
         {isSaved ? (
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
             Assessment saved
           </div>
         ) : null}
@@ -1341,6 +1354,25 @@ export function CreateEvaluationPage() {
         ) : null}
 
         {dataRefreshNotice ? <NoticeBanner title="Using available club data" message={dataRefreshNotice} tone="info" /> : null}
+        {hasInvalidAssessmentSection || hasIncompleteSessionAssessmentLink ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-950">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-bold">Assessment link was adjusted</p>
+                <p className="mt-1 leading-6 text-slate-600">
+                  The link had missing or unknown assessment details, so the form is using the nearest valid options.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearAssessmentLinkState}
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
+              >
+                Clear link details
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <EvaluationAvailabilityState
           availableTeams={availableTeams}

@@ -17,7 +17,7 @@ export function EvaluationAvailabilityState({
         title="Platform account"
         description="Super admins oversee the platform. Assessments must be created from a club user account."
       >
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm leading-6 text-[var(--text-muted)]">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
           Use this account to manage clubs, users, and the wider workspace. Switch into a club-linked account to
           assess players.
         </div>
@@ -28,7 +28,7 @@ export function EvaluationAvailabilityState({
   if (isLoadingFields) {
     return (
       <SectionCard title="Form" description="Loading the configured assessment fields for this club.">
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
           Loading form fields...
         </div>
       </SectionCard>
@@ -38,7 +38,7 @@ export function EvaluationAvailabilityState({
   if (isLoadingTeams) {
     return (
       <SectionCard title="Teams" description="Loading the available teams for this account.">
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
           Loading teams...
         </div>
       </SectionCard>
@@ -48,13 +48,13 @@ export function EvaluationAvailabilityState({
   if (teamsLoadErrorMessage) {
     return (
       <SectionCard title="Teams unavailable" description="The team list could not be loaded for this account just now.">
-        <div className="space-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
+        <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
           <p>{teamsLoadErrorMessage}</p>
           {canManageUsers(user) ? (
             <div>
               <Link
                 to="/teams"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--panel-soft)]"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
               >
                 Open Team Management
               </Link>
@@ -71,13 +71,13 @@ export function EvaluationAvailabilityState({
         title="No teams available"
         description="Assessments now use real club teams so staff can be routed and filtered correctly."
       >
-        <div className="space-y-4 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm leading-6 text-[var(--text-muted)]">
+        <div className="space-y-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
           <p>{noTeamsMessage}</p>
           {canManageUsers(user) ? (
             <div>
               <Link
                 to="/teams"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800"
               >
                 Open Team Management
               </Link>

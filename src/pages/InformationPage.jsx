@@ -1,34 +1,64 @@
-import { InfoCard, PlanCard, QuickLinks, RoleCard } from '../components/information/InformationCards.jsx'
+import { InfoCard, PlanCard, QuickLinks, VideoGuideGrid } from '../components/information/InformationCards.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import {
-  canManageParentEmailTemplates,
+  canManageFormFields,
   canManageUsers,
   canViewBilling,
-  canViewPlatformFeedback,
   getRoleLabel,
   isDemoAccount,
   isSuperAdmin,
   useAuth,
 } from '../lib/auth.js'
 import { getPlanLimit, getPlanName, hasPlanFeature } from '../lib/plans.js'
-import { formatLimit, planGuides, platformAdminGuide, roleGuides } from '../lib/information-guides.js'
+import { formatLimit, onboardingVideoGuides, planGuides, platformAdminGuide } from '../lib/information-guides.js'
 import { getRoleQuickLinks } from '../lib/role-quick-links.js'
+
+function getVisibleVideoGuides(user, access) {
+  if (isSuperAdmin(user)) {
+    return onboardingVideoGuides.filter((guide) => guide.key === 'platform-admin')
+  }
+
+  return onboardingVideoGuides.filter((guide) => {
+    if (guide.key === 'platform-admin') {
+      return false
+    }
+
+    if (guide.key === 'teams-staff') {
+      return access.canUseStaffManagement
+    }
+
+    if (guide.key === 'assessment-fields') {
+      return access.canUseAssessmentFields
+    }
+
+    if (guide.key === 'parent-email') {
+      return access.canUseParentEmail
+    }
+
+    if (guide.key === 'billing') {
+      return access.canUseBilling
+    }
+
+    return true
+  })
+}
 
 export function InformationPage() {
   const { user } = useAuth()
   const currentPlanName = getPlanName(user)
-  const currentRank = Number(user?.roleRank ?? 0)
   const currentPlanKey = String(user?.planKey ?? '').trim()
   const canUseBilling = canViewBilling(user)
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
-  const canUseTemplates = canManageParentEmailTemplates(user)
+  const canUseAssessmentFields = canManageFormFields(user)
   const canUseStaffManagement = canManageUsers(user)
-  const canAccessPlatformFeedback = canViewPlatformFeedback(user)
   const quickLinks = getRoleQuickLinks(user)
-  const visibleRoleGuides = isSuperAdmin(user)
-    ? roleGuides
-    : roleGuides.filter((guide) => guide.rank <= currentRank)
+  const visibleVideoGuides = getVisibleVideoGuides(user, {
+    canUseAssessmentFields,
+    canUseBilling,
+    canUseParentEmail,
+    canUseStaffManagement,
+  })
 
   if (isSuperAdmin(user)) {
     return (
@@ -45,6 +75,10 @@ export function InformationPage() {
               <InfoCard key={item.title} title={item.title}>{item.body}</InfoCard>
             ))}
           </div>
+        </SectionCard>
+
+        <SectionCard title="Video walkthroughs" description="Short onboarding videos for platform administration tasks.">
+          <VideoGuideGrid guides={visibleVideoGuides} />
         </SectionCard>
 
         <SectionCard title="Billing and promotions" description="How billing tools are expected to work.">
@@ -80,9 +114,9 @@ export function InformationPage() {
       />
 
       {isDemoAccount(user) ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-5 py-4">
-          <p className="text-sm font-semibold text-[var(--text-primary)]">Demo workspace</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
+          <p className="text-sm font-black text-emerald-950">Demo workspace</p>
+          <p className="mt-2 text-sm leading-6 text-emerald-900">
             Demo users can explore the workspace and billing page. Destructive actions and account setting changes are blocked.
           </p>
         </div>
@@ -97,27 +131,8 @@ export function InformationPage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Daily workflow" description="The usual order for running player feedback.">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <InfoCard title="1. Set up teams and staff">
-            Club Admins create teams. Managers and Team Admins allocate staff based on the club plan and role limits.
-          </InfoCard>
-          <InfoCard title="2. Configure assessment fields">
-            Use Assessment Fields to control the fields coaches complete. This is available from Single Team upward.
-          </InfoCard>
-          <InfoCard title="3. Add players">
-            Add players with their team, section, positions, and parent contacts. Archived players do not count as active players until restored.
-          </InfoCard>
-          <InfoCard title="4. Create sessions">
-            Build training or match sessions, add players, then assess from the session queue.
-          </InfoCard>
-          <InfoCard title="5. Assess and preview">
-            Complete the assessment form and use the live preview. Individual accounts can preview even though exports are locked.
-          </InfoCard>
-          <InfoCard title="6. Share reports">
-            Plans with parent email can use club templates and email parents from the player profile or assessment flow.
-          </InfoCard>
-        </div>
+      <SectionCard title="Video walkthroughs" description="Short videos for the main tasks available to this role and plan.">
+        <VideoGuideGrid guides={visibleVideoGuides} />
       </SectionCard>
 
       <SectionCard title="Plan guide" description="Current plan restrictions and upgrade reasons.">
@@ -126,55 +141,6 @@ export function InformationPage() {
             <PlanCard key={plan.key} plan={plan} isCurrent={plan.key === currentPlanKey} />
           ))}
         </div>
-      </SectionCard>
-
-      <SectionCard title="Feature notes" description="Important details that affect day to day use.">
-        <div className="grid gap-4 md:grid-cols-2">
-          <InfoCard title="Billing">
-            {canUseBilling
-              ? 'Billing is available from the sidebar. Individual users can see upgrade options even though the free tier has no charge.'
-              : 'Billing is only visible to the highest permitted role for the current plan.'}
-          </InfoCard>
-          <InfoCard title="Parent email templates">
-            {canUseTemplates
-              ? 'Managers and above can create separate club templates for parent email types. Templates use fields such as {playerName}, {teamName}, and {summary}.'
-              : canUseParentEmail
-                ? 'Parent email templates are club templates. Ask a Manager, Team Admin, or Club Admin to create them.'
-                : 'Parent email templates are available on tiers that include parent email.'}
-          </InfoCard>
-          <InfoCard title="Email sharing">
-            {canUseParentEmail
-              ? 'Parent email sending is enabled for this plan and depends on available templates.'
-              : 'Parent email sending is an upgrade feature. The live assessment preview remains available.'}
-          </InfoCard>
-          <InfoCard title="Archived players">
-            Restoring an archived player checks the current active player limit. If the club is already at the limit, restore is blocked until space is available.
-          </InfoCard>
-          <InfoCard title="Staff management">
-            {canUseStaffManagement
-              ? 'This role can manage users within the limits of the plan and cannot assign roles above its own access.'
-              : 'Ask a Manager, Team Admin, or Club Admin to change staff access.'}
-          </InfoCard>
-          <InfoCard title="Platform feedback">
-            {canAccessPlatformFeedback
-              ? 'Use Platform Feedback to suggest improvements or report issues. Demo users cannot see platform feedback.'
-              : 'Platform feedback is hidden for this account.'}
-          </InfoCard>
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Role access" description="Roles shown here are your role and lower roles. Higher roles are hidden unless you have them.">
-        {visibleRoleGuides.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
-            No role guide is available for this account yet.
-          </div>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
-            {visibleRoleGuides.map((guide) => (
-              <RoleCard key={guide.key} guide={guide} />
-            ))}
-          </div>
-        )}
       </SectionCard>
 
       <SectionCard title="Quick links" description="Common places to go next.">
