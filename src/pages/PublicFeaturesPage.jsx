@@ -31,18 +31,19 @@ export function PublicFeaturesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#061009] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-white lg:pb-0">
+    <main className="min-h-screen bg-slate-50 pb-[max(5.5rem,env(safe-area-inset-bottom))] text-slate-950 lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="relative overflow-hidden">
         <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-100" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#061009]/58 via-[#061009]/20 to-transparent" />
+        <div className="absolute inset-0 bg-white/82" />
+        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-white/25" />
         <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
           <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d8ff2f]">Features</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Features</p>
             <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
               Academy standards, built for grassroots football.
             </h1>
-            <p className="mt-5 text-base leading-7 text-slate-200 sm:mt-6 sm:text-lg sm:leading-8">
+            <p className="mt-5 text-base leading-7 text-slate-700 sm:mt-6 sm:text-lg sm:leading-8">
               Bring professional structure to trials, player development, staff access, match days, and parent communication without making club admin harder.
             </p>
           </div>
@@ -51,13 +52,13 @@ export function PublicFeaturesPage() {
 
       <section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-8 sm:gap-5 sm:px-6 sm:py-12 md:grid-cols-2 lg:px-8">
         {featureGroups.map((feature) => (
-          <article key={feature.title} className="rounded-lg border border-white/10 bg-white/[0.045] p-5 shadow-xl shadow-black/20 sm:p-6">
+          <article key={feature.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
             <h2 className="text-xl font-black tracking-tight sm:text-2xl">{feature.title}</h2>
-            <p className="mt-4 text-sm leading-7 text-slate-300">{feature.copy}</p>
+            <p className="mt-4 text-sm leading-7 text-slate-600">{feature.copy}</p>
             <ul className="mt-6 space-y-3">
               {feature.points.map((point) => (
-                <li key={point} className="flex gap-3 text-sm font-bold text-slate-100">
-                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#d8ff2f]" />
+                <li key={point} className="flex gap-3 text-sm font-bold text-slate-800">
+                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
                   <span>{point}</span>
                 </li>
               ))}
@@ -67,23 +68,23 @@ export function PublicFeaturesPage() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
-        <div className="grid gap-5 rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm shadow-slate-200/80 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <h2 className="text-xl font-black tracking-tight sm:text-2xl">Try it now, or contact us.</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-200">Open the demo account, ask a question, or choose a plan that matches your club size.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">Open the demo account, ask a question, or choose a plan that matches your club size.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90">
+            <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800">
               Try Now
             </a>
             <button
               type="button"
               onClick={openContactModal}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50"
             >
               Contact Us
             </button>
-            <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] px-5 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]">
+            <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50">
               View Pricing
             </a>
           </div>

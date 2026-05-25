@@ -14,43 +14,43 @@ const terms = [
 
 export function TermsPage() {
   return (
-    <main className="min-h-screen bg-[#030603] text-white">
+    <main className="min-h-screen bg-slate-50 text-slate-950">
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-0 bg-[#071008]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)]" />
       </div>
 
       <div className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/login" className="flex items-center gap-3">
-            <img src={fallbackLogo} alt="Football Player" className="h-11 w-11 rounded-lg object-contain" />
+            <img src={fallbackLogo} alt="Football Player" className="h-11 w-11 rounded-xl bg-slate-950 object-contain p-1" />
             <span className="text-lg font-black tracking-tight">Football Player</span>
           </Link>
-          <nav className="flex flex-wrap gap-3 text-sm font-bold text-slate-300">
-            <Link to="/login" className="hover:text-white">Main page</Link>
-            <Link to="/gdpr" className="hover:text-white">GDPR</Link>
+          <nav className="flex flex-wrap gap-3 text-sm font-bold text-slate-600">
+            <Link to="/login" className="hover:text-slate-950">Main page</Link>
+            <Link to="/gdpr" className="hover:text-slate-950">GDPR</Link>
           </nav>
         </header>
 
         <section className="py-10">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d8ff2f]">Terms</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Terms</p>
           <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight sm:text-5xl">Terms of Service</h1>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
+          <p className="mt-5 max-w-3xl text-base leading-8 text-slate-700">
             These terms set out how clubs, coaches, administrators, and authorised users may use Football Player. They are written for normal club use and should be read with the GDPR and Data Protection Notice.
           </p>
-          <p className="mt-3 text-sm font-semibold text-slate-400">Last updated: 11 May 2026</p>
+          <p className="mt-3 text-sm font-semibold text-slate-500">Last updated: 11 May 2026</p>
         </section>
 
         <div className="grid gap-4">
           {terms.map(([title, copy]) => (
-            <section key={title} className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+            <section key={title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
               <h2 className="text-2xl font-black">{title}</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">{copy}</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">{copy}</p>
             </section>
           ))}
 
-          <section className="rounded-lg border border-white/10 bg-white/[0.04] p-5 backdrop-blur sm:p-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
             <h2 className="text-2xl font-black">Support and disputes</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-300">
+            <p className="mt-3 text-sm leading-7 text-slate-600">
               Clubs should raise operational issues through their workspace administrator. Any legal, billing, or data protection issue should be raised promptly so it can be reviewed and handled fairly.
             </p>
           </section>

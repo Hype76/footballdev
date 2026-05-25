@@ -220,18 +220,18 @@ export function ParentLoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#030603] px-4 py-8 text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[#071008]" />
-      <div className="relative w-full max-w-md rounded-lg border border-white/10 bg-[#0b130d]/95 p-5 shadow-2xl shadow-black/40 sm:p-6">
-        <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#d8ff2f]/25 bg-black/40 object-contain p-1" />
-        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-[#d8ff2f]">Parent Portal</p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Parent login</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-300">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 text-slate-950">
+      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(180deg,#f8fafc_0%,#ecfdf5_100%)]" />
+      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/10 sm:p-6">
+        <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-xl border border-slate-200 bg-slate-950 object-contain p-1" />
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent Portal</p>
+        <h1 className="mt-3 text-2xl font-black tracking-tight">Parent login</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
           Log in with the parent account you confirmed by email.
         </p>
 
         {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? (
-          <p className="mt-5 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
+          <p className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             Preparing parent login...
           </p>
         ) : null}
@@ -239,7 +239,7 @@ export function ParentLoginPage() {
         {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? null : (
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-200">Email</span>
+            <span className="mb-2 block text-sm font-bold text-slate-950">Email</span>
             <input
               type="email"
               value={email}
@@ -251,13 +251,13 @@ export function ParentLoginPage() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="min-h-12 w-full rounded-lg border border-white/10 bg-[#101b12] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d8ff2f]"
+              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-200">Password</span>
-            <div className="flex rounded-lg border border-white/10 bg-[#101b12] focus-within:border-[#d8ff2f]">
+            <span className="mb-2 block text-sm font-bold text-slate-950">Password</span>
+            <div className="flex rounded-xl border border-slate-200 bg-slate-50 focus-within:border-emerald-500 focus-within:bg-white">
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
@@ -269,12 +269,12 @@ export function ParentLoginPage() {
                 required
                 autoComplete="current-password"
                 placeholder="Enter password"
-                className="min-h-12 min-w-0 flex-1 rounded-l-lg bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+                className="min-h-12 min-w-0 flex-1 rounded-l-xl bg-transparent px-4 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400"
               />
               <button
                 type="button"
                 onClick={() => setIsPasswordVisible((current) => !current)}
-                className="min-h-12 rounded-r-lg px-4 py-3 text-sm font-bold text-[#d8ff2f]"
+                className="min-h-12 rounded-r-xl px-4 py-3 text-sm font-bold text-emerald-700"
               >
                 {isPasswordVisible ? 'Hide' : 'Show'}
               </button>
@@ -284,7 +284,7 @@ export function ParentLoginPage() {
           {errorMessage ? <NoticeBanner title="Parent login not completed" message={errorMessage} /> : null}
 
           {message ? (
-            <div className="rounded-lg border border-[#d8ff2f]/20 bg-[#d8ff2f]/10 px-4 py-3 text-sm font-semibold text-[#d8ff2f]">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
               {message}
             </div>
           ) : null}
@@ -292,7 +292,7 @@ export function ParentLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting || isSigningOutConfirmedSession}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#d8ff2f] px-5 py-3 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Logging in...' : 'Login'}
           </button>
@@ -301,7 +301,7 @@ export function ParentLoginPage() {
             type="button"
             disabled={isSubmitting || isSigningOutConfirmedSession}
             onClick={handlePasswordReset}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Forgot password
           </button>
@@ -309,7 +309,7 @@ export function ParentLoginPage() {
           {parentInviteToken ? (
             <a
               href={buildParentAppUrl(`/parent-invite/${parentInviteToken}`)}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d8ff2f]/30 bg-[#d8ff2f]/10 px-5 py-3 text-sm font-bold text-[#d8ff2f] transition hover:bg-[#d8ff2f]/15"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-800 transition hover:bg-emerald-100"
             >
               Back to parent invite
             </a>

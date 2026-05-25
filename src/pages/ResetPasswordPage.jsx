@@ -54,25 +54,25 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#020702] px-4 py-8 text-white sm:px-6">
-      <section className="w-full max-w-xl rounded-lg border border-[#20301f] bg-[#0b140c] px-6 py-8 shadow-xl shadow-black/30 sm:px-10 sm:py-10">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 text-slate-950 sm:px-6">
+      <section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white px-6 py-8 shadow-2xl shadow-slate-950/10 sm:px-10 sm:py-10">
         <div className="flex items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-[#bfff2f]/30 bg-black/30">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
             <img src={fallbackLogo} alt="Football Player" className="h-full w-full object-cover" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#c6ff2f]">Football Player</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Reset password</h1>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Football Player</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Reset password</h1>
           </div>
         </div>
 
-        <p className="mt-6 text-sm leading-6 text-slate-300">
+        <p className="mt-6 text-sm leading-6 text-slate-600">
           Enter a new password for your account. After the update you will be signed out and can log in again.
         </p>
 
         <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-200">New password</span>
+            <span className="mb-2 block text-sm font-bold text-slate-950">New password</span>
             <input
               type={isPasswordVisible ? 'text' : 'password'}
               name="password"
@@ -80,12 +80,12 @@ export function ResetPasswordPage() {
               onChange={handleChange}
               required
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-lg border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#c6ff2f]"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-200">Confirm password</span>
+            <span className="mb-2 block text-sm font-bold text-slate-950">Confirm password</span>
             <input
               type={isPasswordVisible ? 'text' : 'password'}
               name="confirmPassword"
@@ -93,28 +93,28 @@ export function ResetPasswordPage() {
               onChange={handleChange}
               required
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-lg border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm text-white outline-none transition focus:border-[#c6ff2f]"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
             />
           </label>
 
-          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#20301f] bg-[#111d12] px-4 py-3 text-sm font-semibold text-slate-200">
+          <label className="inline-flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">
             <input
               type="checkbox"
               checked={isPasswordVisible}
               onChange={(event) => setIsPasswordVisible(event.target.checked)}
-              className="h-4 w-4 rounded border-[#20301f]"
+              className="h-4 w-4 rounded border-slate-300"
             />
             <span>Show password</span>
           </label>
 
           {errorMessage ? (
-            <div className="rounded-lg border border-[#7d2639] bg-[#35101c] px-4 py-3 text-sm font-medium text-[#ffc2cf]">
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {errorMessage}
             </div>
           ) : null}
 
           {message ? (
-            <div className="rounded-lg border border-[#20301f] bg-[#142414] px-4 py-3 text-sm font-medium text-[#c6ff2f]">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
               {message}
             </div>
           ) : null}
@@ -123,7 +123,7 @@ export function ResetPasswordPage() {
             type="submit"
             disabled={isSubmitting}
             title={isSubmitting ? 'Please wait while your password is being updated.' : undefined}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#c6ff2f] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Updating...' : 'Update Password'}
           </button>
