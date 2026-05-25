@@ -39,6 +39,21 @@ function getPlayerPortalContacts(player) {
     .filter((contact) => contact.email)
 }
 
+const playerIntakeRules = [
+  {
+    label: 'Search before adding',
+    body: 'One footballer should have one record. Use the recent list and register before creating a duplicate.',
+  },
+  {
+    label: 'Start with status',
+    body: 'Choose Trial or Squad at intake so sessions, parent invites, and match day know how to use the player.',
+  },
+  {
+    label: 'Contacts unlock parents',
+    body: 'Add the right parent or player email now if the portal invite should be available straight away.',
+  },
+]
+
 export function AddPlayerPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -346,22 +361,48 @@ export function AddPlayerPage() {
   const normalizedContactType = normalizePlayerContactType(playerForm.contactType)
   const contactGroups = getContactGroups(normalizedContactType)
   const preparedContacts = ensureContactsForType(playerForm.parentContacts, normalizedContactType, playerForm.playerName)
+  const trialPlayerCount = players.filter((player) => player.section === 'Trial').length
+  const squadPlayerCount = players.filter((player) => player.section === 'Squad').length
+  const playerContactCount = players.filter((player) => getPlayerPortalContacts(player).length > 0).length
+  const remainingPlayerCapacity = canAddMorePlayers ? 'Open' : 'Limit'
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Player intake</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Add player</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Add player</h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
               Create one footballer record with a team, Trial or Squad status, positions, and the contacts needed for parent communication.
             </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {playerIntakeRules.map((item) => (
+                <article key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.body}</p>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-800">Intake rule</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-950">
-              Start in Trial unless the player is already in the squad. Squad players with contact emails can be invited to the parent portal straight away.
+          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Intake state</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+                {players.length} footballers already registered
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                Add the next player only after the current register has been checked.
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <IntakeMetric label="Trial" value={trialPlayerCount} isLoading={isLoading} />
+              <IntakeMetric label="Squad" value={squadPlayerCount} isLoading={isLoading} />
+              <IntakeMetric label="Contacts" value={playerContactCount} isLoading={isLoading} />
+              <IntakeMetric label="Capacity" value={remainingPlayerCapacity} isLoading={isLoading} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              Squad players with contact emails can be invited to the parent portal straight after save.
             </p>
           </div>
         </div>
@@ -375,7 +416,7 @@ export function AddPlayerPage() {
       ) : null}
 
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
           {message}
         </div>
       ) : null}
@@ -421,6 +462,15 @@ export function AddPlayerPage() {
         onCancel={() => setParentPortalInviteTarget(null)}
         onConfirm={() => void confirmSendParentPortalLink()}
       />
+    </div>
+  )
+}
+
+function IntakeMetric({ isLoading, label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{isLoading ? '...' : value}</p>
     </div>
   )
 }
