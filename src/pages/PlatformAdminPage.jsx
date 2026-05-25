@@ -647,7 +647,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       ) : null}
 
       {successMessage ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
           {successMessage}
         </div>
       ) : null}

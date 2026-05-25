@@ -29,11 +29,11 @@ export function PlatformFeedbackSection({
       description="Review product feedback, update status, add internal notes, or remove completed items."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
           Loading feedback...
         </div>
       ) : feedbackItems.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
           No platform feedback has been submitted yet.
         </div>
       ) : (
@@ -45,20 +45,20 @@ export function PlatformFeedbackSection({
             }
 
             return (
-              <div key={item.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-5">
+              <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
                 <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
                   <div>
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{item.message}</p>
-                    <p className="mt-3 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{item.message}</p>
+                    <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
                       {item.clubName} | {item.createdByEmail || 'No email'} | {item.voteCount} votes
                     </p>
                   </div>
                   <label className="block">
-                    <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Status</span>
+                    <span className="mb-2 block text-sm font-bold text-slate-950">Status</span>
                     <select
                       value={draft.status}
                       onChange={(event) => onDraftChange(item.id, 'status', event.target.value)}
-                      className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                      className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white"
                     >
                       {STATUS_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -70,13 +70,13 @@ export function PlatformFeedbackSection({
                 </div>
 
                 {item.comments?.length ? (
-                  <div className="mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">Visible comments</p>
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm font-black text-slate-950">Visible comments</p>
                     <div className="mt-3 space-y-3">
                       {item.comments.map((comment) => (
-                        <div key={comment.id} className="rounded-lg bg-[var(--panel-alt)] px-4 py-3">
-                          <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{comment.message}</p>
-                          <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                        <div key={comment.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{comment.message}</p>
+                          <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
                             Platform admin | {formatPlatformDate(comment.createdAt)}
                           </p>
                         </div>
@@ -86,13 +86,13 @@ export function PlatformFeedbackSection({
                 ) : null}
 
                 <label className="mt-4 block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Add public comment</span>
+                  <span className="mb-2 block text-sm font-bold text-slate-950">Add public comment</span>
                   <textarea
                     rows="3"
                     value={draft.adminComment}
                     onChange={(event) => onDraftChange(item.id, 'adminComment', event.target.value)}
                     placeholder="This will be visible to users on the feedback board."
-                    className="min-h-24 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-24 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white"
                   />
                 </label>
 
@@ -102,7 +102,7 @@ export function PlatformFeedbackSection({
                     disabled={updatingFeedbackId === item.id}
                     title={updatingFeedbackId === item.id ? 'Please wait while this feedback is being saved.' : undefined}
                     onClick={() => void onSave(item)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Save
                   </button>
@@ -111,7 +111,7 @@ export function PlatformFeedbackSection({
                     disabled={updatingFeedbackId === item.id}
                     title={updatingFeedbackId === item.id ? 'Please wait while this feedback is being updated.' : undefined}
                     onClick={() => void onDelete(item)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Delete
                   </button>
