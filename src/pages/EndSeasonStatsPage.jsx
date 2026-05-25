@@ -151,14 +151,14 @@ export function EndSeasonStatsPage() {
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <label className="block md:min-w-72">
-            <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Team</span>
+            <span className="mb-2 block text-sm font-black text-slate-950">Team</span>
             <select
               value={selectedTeamId}
               onChange={(event) => {
                 setSelectedTeamId(event.target.value)
                 setAwardsGeneratedAt('')
               }}
-              className="min-h-11 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              className="min-h-11 border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             >
               <option value="">All teams</option>
               {teams.map((team) => (
@@ -171,7 +171,7 @@ export function EndSeasonStatsPage() {
             type="button"
             onClick={generateAwards}
             disabled={isLoading || stats.length === 0}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Generate end of season awards
           </button>
@@ -193,14 +193,14 @@ export function EndSeasonStatsPage() {
 
       <SectionCard title="Player stats" description="All active squad players are listed, including players with zero Match Day stats.">
         {isLoading ? (
-          <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className="border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
             Loading end of season stats...
           </p>
         ) : sortedStats.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-                <tr className="border-b border-[var(--border-color)]">
+              <thead className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                <tr className="border-b border-slate-200">
                   <SortableHeader field="playerName" label="Player" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader field="teamName" label="Team" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader align="right" field="goals" label="Goals" sortConfig={sortConfig} onSort={updateSort} />
@@ -210,21 +210,21 @@ export function EndSeasonStatsPage() {
               </thead>
               <tbody>
                 {sortedStats.map((player) => (
-                  <tr key={player.playerId} className="border-b border-[var(--border-color)] last:border-0">
-                    <td className="px-3 py-3 font-semibold text-[var(--text-primary)]">
+                  <tr key={player.playerId} className="border-b border-slate-200 last:border-0">
+                    <td className="px-3 py-3 font-bold text-slate-950">
                       {player.shirtNumber ? `#${player.shirtNumber} ` : ''}{player.playerName}
                     </td>
-                    <td className="px-3 py-3 text-[var(--text-muted)]">{player.teamName || 'No team'}</td>
-                    <td className="px-3 py-3 text-right font-semibold text-[var(--text-primary)]">{player.goals}</td>
-                    <td className="px-3 py-3 text-right font-semibold text-[var(--text-primary)]">{player.assists}</td>
-                    <td className="px-3 py-3 text-right font-semibold text-[var(--text-primary)]">{player.motmVotes}</td>
+                    <td className="px-3 py-3 font-semibold text-slate-600">{player.teamName || 'No team'}</td>
+                    <td className="px-3 py-3 text-right font-bold text-slate-950">{player.goals}</td>
+                    <td className="px-3 py-3 text-right font-bold text-slate-950">{player.assists}</td>
+                    <td className="px-3 py-3 text-right font-bold text-slate-950">{player.motmVotes}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm text-[var(--text-muted)]">
+          <p className="border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
             No squad players are available for this team.
           </p>
         )}
@@ -235,9 +235,9 @@ export function EndSeasonStatsPage() {
 
 function AwardCard({ title, value }) {
   return (
-    <article className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{title}</p>
-      <p className="mt-3 text-lg font-semibold text-[var(--text-primary)]">{value}</p>
+    <article className="border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{title}</p>
+      <p className="mt-3 text-lg font-bold text-slate-950">{value}</p>
     </article>
   )
 }
@@ -253,9 +253,9 @@ function SortableHeader({ align = 'left', field, label, onSort, sortConfig }) {
         type="button"
         onClick={() => onSort(field)}
         aria-label={`Sort ${label} ${directionLabel}`}
-        className={`inline-flex items-center gap-1 font-semibold uppercase tracking-[0.16em] transition hover:text-[var(--text-primary)] ${
+        className={`inline-flex items-center gap-1 font-black uppercase tracking-[0.14em] transition hover:text-slate-950 ${
           align === 'right' ? 'justify-end' : 'justify-start'
-        } ${isActive ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'}`}
+        } ${isActive ? 'text-emerald-700' : 'text-slate-500'}`}
       >
         <span>{label}</span>
         <span aria-hidden="true" className="text-[0.62rem]">{sortLabel}</span>

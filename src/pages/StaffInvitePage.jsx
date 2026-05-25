@@ -105,18 +105,18 @@ export function StaffInvitePage() {
   const logoUrl = invite?.logoUrl || fallbackLogo
 
   return (
-    <main className="min-h-screen bg-[var(--page-bg)] px-4 py-10 text-[var(--text-primary)]">
-      <div className="mx-auto w-full max-w-xl rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-6 shadow-2xl shadow-black/20 sm:p-8">
+    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
+      <div className="mx-auto w-full max-w-xl border border-slate-200 bg-white p-6 sm:p-8">
         <img
           src={logoUrl}
           alt=""
-          className="mb-6 h-16 w-16 rounded-lg border border-[var(--border-color)] object-contain"
+          className="mb-6 h-16 w-16 border border-slate-200 bg-slate-950 object-contain"
         />
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--text-secondary)]">Staff invite</p>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create staff access</h1>
+        <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Staff invite</p>
+        <h1 className="text-2xl font-black text-slate-950">Create staff access</h1>
 
         {isLoading ? (
-          <p className="mt-6 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4 text-sm text-[var(--text-muted)]">
+          <p className="mt-6 border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
             Opening staff invite...
           </p>
         ) : errorMessage && !invite ? (
@@ -125,15 +125,15 @@ export function StaffInvitePage() {
           </div>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-4">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">{invite.clubName || 'Football Player'}</p>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">{invite.teamName || 'Team access'} | {invite.roleLabel || 'Staff'}</p>
-              <p className="mt-3 break-words text-sm text-[var(--text-secondary)]">{invite.email}</p>
+            <div className="border border-slate-200 bg-slate-50 px-4 py-4">
+              <p className="text-sm font-black text-slate-950">{invite.clubName || 'Football Player'}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-600">{invite.teamName || 'Team access'} | {invite.roleLabel || 'Staff'}</p>
+              <p className="mt-3 break-words text-sm font-semibold text-emerald-700">{invite.email}</p>
             </div>
 
             {errorMessage ? <NoticeBanner title="Staff access not created" message={errorMessage} /> : null}
             {successMessage ? (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-100">
+              <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
                 {successMessage}
               </div>
             ) : null}
@@ -141,8 +141,8 @@ export function StaffInvitePage() {
             {!successMessage ? (
               <>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Create password</span>
-                  <div className="flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] focus-within:border-[var(--accent)]">
+                  <span className="mb-2 block text-sm font-black text-slate-950">Create password</span>
+                  <div className="flex border border-slate-200 bg-slate-50 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
                     <input
                       type={isPasswordVisible ? 'text' : 'password'}
                       value={password}
@@ -150,13 +150,13 @@ export function StaffInvitePage() {
                       required
                       minLength={8}
                       autoComplete="new-password"
-                      className="min-h-11 min-w-0 flex-1 rounded-l-lg bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                      className="min-h-11 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-slate-950 outline-none"
                       placeholder="Create a password"
                     />
                     <button
                       type="button"
                       onClick={() => setIsPasswordVisible((value) => !value)}
-                      className="min-h-11 rounded-r-lg px-4 py-3 text-sm font-semibold text-[var(--text-secondary)]"
+                      className="min-h-11 border-l border-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
                     >
                       {isPasswordVisible ? 'Hide' : 'Show'}
                     </button>
@@ -164,7 +164,7 @@ export function StaffInvitePage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">Confirm password</span>
+                  <span className="mb-2 block text-sm font-black text-slate-950">Confirm password</span>
                   <input
                     type={isPasswordVisible ? 'text' : 'password'}
                     value={confirmPassword}
@@ -172,7 +172,7 @@ export function StaffInvitePage() {
                     required
                     minLength={8}
                     autoComplete="new-password"
-                    className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+                    className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
                     placeholder="Confirm password"
                   />
                 </label>
@@ -180,7 +180,7 @@ export function StaffInvitePage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 w-full items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? 'Creating access...' : 'Create Staff Access'}
                 </button>
@@ -188,7 +188,7 @@ export function StaffInvitePage() {
             ) : (
               <Link
                 to="/sign-in"
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-3 text-sm font-semibold text-[var(--button-primary-text)] transition hover:opacity-90"
+                className="inline-flex min-h-11 w-full items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
               >
                 Go to sign in
               </Link>
