@@ -50,9 +50,9 @@ export function ScheduleDateTimePicker({
   onChange,
 }) {
   const inputClass =
-    'min-h-11 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100'
+    'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#bfdbfe]'
   const compactInputClass =
-    'min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-center text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100'
+    'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-center text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#3b82f6] focus:ring-2 focus:ring-[#bfdbfe]'
   const parts = parseDateTimeValue(value)
   const fallbackTime = getDefaultTimeParts()
   const date = parts.date || ''
@@ -94,10 +94,10 @@ export function ScheduleDateTimePicker({
 
   return (
     <fieldset className="block">
-      <legend className="mb-2 block text-sm font-bold text-slate-950">{label}</legend>
+      <legend className="mb-2 block text-sm font-bold text-[#0f172a]">{label}</legend>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem_5rem]">
         <label className="block">
-          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-sky-700">Date</span>
+          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#2563eb]">Date</span>
           <input
             type="date"
             value={date}
@@ -106,7 +106,7 @@ export function ScheduleDateTimePicker({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-sky-700">Hour</span>
+          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#2563eb]">Hour</span>
           <select
             value={hour}
             onChange={handleHourChange}
@@ -119,7 +119,7 @@ export function ScheduleDateTimePicker({
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-sky-700">Minute</span>
+          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#2563eb]">Minute</span>
           <select
             value={minute}
             onChange={handleMinuteChange}
@@ -142,7 +142,7 @@ export function ScheduleDateTimePicker({
               hour: option.hour,
               minute: option.minute,
             })}
-            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-sky-50"
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-xs font-bold text-[#0f172a] transition hover:border-[#3b82f6] hover:bg-[#eff6ff]"
           >
             {option.label}
           </button>
