@@ -7,6 +7,11 @@ import { getDraftParentContacts } from '../../hooks/players/playerProfileUtils.j
 import { isInviteEmailTemplate } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const fieldClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const smallLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#067a46]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+
 export function PlayerDetailsSection({
   directEmailSendingId,
   editingPlayerId,
@@ -39,7 +44,7 @@ export function PlayerDetailsSection({
       description="Edit section, team, and parent contact details here."
     >
       {profilePlayers.length === 0 ? (
-        <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-5 text-sm font-bold text-[#667085]">
           No saved player details yet. This profile was created from development history.
         </div>
       ) : (
@@ -53,7 +58,7 @@ export function PlayerDetailsSection({
             })
 
             return (
-              <div key={player.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+              <div key={player.id} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
                 {isEditing ? (
                   <PlayerDetailsEditor
                     draft={draft}
@@ -113,20 +118,20 @@ function PlayerDetailsEditor({
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <label className="block">
-        <span className="mb-2 block text-sm font-semibold text-slate-950">Player Name</span>
+        <span className={labelClass}>Player Name</span>
         <input
           value={draft.playerName}
           onChange={(event) => onPlayerDraftChange('playerName', event.target.value)}
           onKeyDown={(event) => event.stopPropagation()}
-          className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          className={fieldClass}
         />
       </label>
       <label className="block">
-        <span className="mb-2 block text-sm font-semibold text-slate-950">Section</span>
+        <span className={labelClass}>Section</span>
         <select
           value={draft.section}
           onChange={(event) => onPlayerDraftChange('section', event.target.value)}
-          className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          className={fieldClass}
         >
           {EVALUATION_SECTIONS.map((section) => (
             <option key={section} value={section}>
@@ -136,67 +141,67 @@ function PlayerDetailsEditor({
         </select>
       </label>
       <label className="block">
-        <span className="mb-2 block text-sm font-semibold text-slate-950">Shirt Number</span>
+        <span className={labelClass}>Shirt Number</span>
         <input
           value={draft.shirtNumber ?? ''}
           onChange={(event) => onPlayerDraftChange('shirtNumber', event.target.value)}
           inputMode="numeric"
-          className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          className={fieldClass}
         />
       </label>
       <label className="block">
-        <span className="mb-2 block text-sm font-semibold text-slate-950">Team</span>
+        <span className={labelClass}>Team</span>
         <input
           value={draft.team}
           onChange={(event) => onPlayerDraftChange('team', event.target.value)}
-          className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          className={fieldClass}
         />
       </label>
       <div className="md:col-span-2 xl:col-span-3">
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <span className="block text-sm font-semibold text-slate-950">Contacts</span>
-            <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
+            <span className="block text-sm font-black text-[#101828]">Contacts</span>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#667085]">
               Add parent or guardian contacts used for player communication.
             </p>
           </div>
           <button
             type="button"
             onClick={onAddParentContact}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 sm:w-auto"
+            className={`${secondaryButtonClass} w-full sm:w-auto`}
           >
             Add Another Contact
           </button>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {getDraftParentContacts(draft).map((contact, index) => (
-            <div key={index} className="rounded-md border border-slate-200 bg-white p-3">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+            <div key={index} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/60">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
                 Contact {index + 1}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Name</span>
+                  <span className={smallLabelClass}>Name</span>
                   <input
                     value={contact.name}
                     onChange={(event) => onParentContactDraftChange(index, 'name', event.target.value)}
-                    className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                    className={fieldClass}
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Email</span>
+                  <span className={smallLabelClass}>Email</span>
                   <input
                     type="email"
                     value={contact.email}
                     onChange={(event) => onParentContactDraftChange(index, 'email', event.target.value)}
-                    className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                    className={fieldClass}
                   />
                 </label>
               </div>
               <button
                 type="button"
                 onClick={() => onRemoveParentContact(index)}
-                className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100 sm:w-auto"
+                className={`${secondaryButtonClass} mt-3 min-h-10 w-full px-3 py-2 text-xs sm:w-auto`}
               >
                 Remove Contact
               </button>
@@ -205,18 +210,18 @@ function PlayerDetailsEditor({
         </div>
       </div>
       <div className="md:col-span-2 xl:col-span-3">
-        <span className="mb-2 block text-sm font-semibold text-slate-950">Player Positions</span>
+        <span className={labelClass}>Player Positions</span>
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
             value={draft.positionDraft ?? ''}
             onChange={(event) => onPlayerDraftChange('positionDraft', event.target.value)}
             placeholder="Add position"
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
           <button
             type="button"
             onClick={onAddPlayerPosition}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+            className={secondaryButtonClass}
           >
             Add Position
           </button>
@@ -228,14 +233,14 @@ function PlayerDetailsEditor({
                 key={position}
                 type="button"
                 onClick={() => onRemovePlayerPosition(position)}
-                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-slate-100"
               >
                 {position} remove
               </button>
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">No positions entered.</p>
+          <p className="mt-2 text-xs font-semibold leading-5 text-[#667085]">No positions entered.</p>
         )}
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -244,7 +249,7 @@ function PlayerDetailsEditor({
           disabled={isSavingPlayer}
           title={savingDisabledReason}
           onClick={onSavePlayer}
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
         >
           Save
         </button>
@@ -253,7 +258,7 @@ function PlayerDetailsEditor({
           disabled={isSavingPlayer}
           title={savingDisabledReason}
           onClick={onCancelEditing}
-          className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className={secondaryButtonClass}
         >
           Cancel
         </button>
@@ -295,16 +300,16 @@ function PlayerDetailsSummary({
         <PlayerDetailItem label="Team" value={player.team || 'No team entered'} />
         <PlayerDetailItem label="Shirt Number" value={player.shirtNumber || 'Not entered'} />
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Contacts</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Contacts</p>
           <div className="mt-2 space-y-1">
             {contacts.length > 0 ? (
               contacts.map((contact, index) => (
-                <p key={index} className="break-words text-sm font-semibold text-slate-950">
+                <p key={index} className="break-words text-sm font-black text-[#101828]">
                   {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}{contact.email ? ` | ${contact.email}` : ''}
                 </p>
               ))
             ) : (
-              <p className="text-sm font-semibold text-slate-950">No contact details entered</p>
+              <p className="text-sm font-black text-[#101828]">No contact details entered</p>
             )}
           </div>
         </div>
@@ -315,16 +320,16 @@ function PlayerDetailsSummary({
         <PlayerDetailItem label="Status" value={player.status === 'promoted' ? 'Promoted' : 'Active'} />
       </div>
 
-      <div className="rounded-md border border-slate-200 bg-white p-4">
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(160px,0.45fr)_auto_auto_auto] lg:items-end">
           {directEmailTemplates.length > 0 ? (
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-950">Email template</span>
+              <span className={labelClass}>Email template</span>
               <select
                 value={selectedDirectEmailTemplateKey}
                 onChange={(event) => onSelectedDirectEmailTemplateChange(event.target.value)}
                 onFocus={onRefreshEmailTemplates}
-                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                className={fieldClass}
               >
                 {directEmailTemplates.map((template) => (
                   <option key={template.optionKey} value={template.optionKey}>
@@ -334,18 +339,18 @@ function PlayerDetailsSummary({
               </select>
             </label>
           ) : (
-            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+            <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#667085]">
               Enable a template for Direct Email before sending.
             </div>
           )}
           {shouldShowInviteDate ? (
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-950">Invite date</span>
+              <span className={labelClass}>Invite date</span>
               <input
                 type="date"
                 value={selectedDirectInviteDate}
                 onChange={(event) => onSelectedDirectInviteDateChange(event.target.value)}
-                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                className={fieldClass}
               />
             </label>
           ) : (
@@ -356,7 +361,7 @@ function PlayerDetailsSummary({
             onClick={onSendDirectEmail}
             disabled={directEmailSendingId === directEmailId || directEmailTemplates.length === 0}
             title={directEmailDisabledReason}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+            className={`${secondaryButtonClass} w-full lg:w-auto`}
           >
             {directEmailSendingId === directEmailId ? 'Sending...' : 'Send Email'}
           </button>
@@ -366,7 +371,7 @@ function PlayerDetailsSummary({
               disabled={isPromoting}
               title={promotionDisabledReason}
               onClick={onMovePlayerToTrial}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+              className={`${secondaryButtonClass} w-full lg:w-auto`}
             >
               {isPromoting ? 'Moving...' : 'Move to Trial'}
             </button>
@@ -376,7 +381,7 @@ function PlayerDetailsSummary({
               disabled={isPromoting}
               title={promotionDisabledReason}
               onClick={onPromotePlayer}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
             >
               {isPromoting ? 'Promoting...' : 'Promote to Squad'}
             </button>
@@ -384,7 +389,7 @@ function PlayerDetailsSummary({
           <button
             type="button"
             onClick={onStartEditingPlayer}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 lg:w-auto"
+            className={`${secondaryButtonClass} w-full lg:w-auto`}
           >
             Edit Details
           </button>
@@ -397,8 +402,8 @@ function PlayerDetailsSummary({
 function PlayerDetailItem({ label, value }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-950">{value}</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{label}</p>
+      <p className="mt-2 text-sm font-black text-[#101828]">{value}</p>
     </div>
   )
 }

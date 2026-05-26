@@ -1579,17 +1579,17 @@ export function PlayerProfile() {
         onCancel={() => setPromoteConfirmTarget(null)}
         onConfirm={() => void confirmPromotePlayer()}
       >
-        <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950">
+        <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/60">
           <input
             type="checkbox"
             checked={sendParentPortalLinkOnPromote}
             disabled={getPlayerPortalContacts(promoteConfirmTarget).length === 0}
             onChange={(event) => setSendParentPortalLinkOnPromote(event.target.checked)}
-            className="mt-1 h-4 w-4 accent-emerald-700 disabled:cursor-not-allowed"
+            className="mt-1 h-4 w-4 accent-[#067a46] disabled:cursor-not-allowed"
           />
           <span>
-            <span className="block font-semibold">Send Parent link to Parent Portal</span>
-            <span className="mt-1 block text-xs font-semibold leading-5 text-slate-600">
+            <span className="block font-black">Send Parent link to Parent Portal</span>
+            <span className="mt-1 block text-xs font-semibold leading-5 text-[#667085]">
               {getPlayerPortalContacts(promoteConfirmTarget).length > 0
                 ? 'Parent contacts saved on this player will receive the portal invite.'
                 : 'Add a parent email before sending a parent portal link.'}

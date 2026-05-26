@@ -13,7 +13,7 @@ export function PlayerStatsCards({
       detail: 'Need decisions before they become squad ready.',
       to: '/players/current?section=Trial',
       action: 'Open trial list',
-      tone: 'border-amber-300 bg-amber-50 text-amber-900',
+      tone: 'border-[#fedf89] bg-[#fffaeb] text-[#93370d]',
     },
     {
       label: 'Squad players',
@@ -21,7 +21,7 @@ export function PlayerStatsCards({
       detail: 'Available for team planning and match day work.',
       to: '/players/current?section=Squad',
       action: 'Open squad list',
-      tone: 'border-sky-300 bg-sky-50 text-sky-900',
+      tone: 'border-[#b2ddff] bg-[#eff8ff] text-[#175cd3]',
     },
     {
       label: 'Development records',
@@ -29,7 +29,7 @@ export function PlayerStatsCards({
       detail: `${evaluatedPlayerCount} players have development history.`,
       to: '/assess-player/completed',
       action: 'Review records',
-      tone: 'border-emerald-300 bg-emerald-50 text-emerald-700',
+      tone: 'border-[#b7efce] bg-[#ecfdf3] text-[#067a46]',
     },
   ]
 
@@ -40,19 +40,19 @@ export function PlayerStatsCards({
           key={card.label}
           to={card.to}
           aria-label={card.action}
-          className="group block rounded-md border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="group block rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#20a464]"
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{card.label}</p>
-              <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{card.value}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#667085]">{card.label}</p>
+              <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{card.value}</p>
             </div>
-            <span className={['inline-flex min-h-8 items-center rounded-md border px-3 text-xs font-black', card.tone].join(' ')}>
+            <span className={['inline-flex min-h-8 items-center rounded-lg border px-3 text-xs font-black', card.tone].join(' ')}>
               Live
             </span>
           </div>
-          <p className="mt-3 min-h-10 text-sm leading-5 text-slate-600">{card.detail}</p>
-          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-black text-white transition group-hover:bg-emerald-700">
+          <p className="mt-3 min-h-10 text-sm font-semibold leading-5 text-[#667085]">{card.detail}</p>
+          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#067a46] px-4 py-2 text-sm font-black text-white transition group-hover:bg-[#05603a]">
             {card.action}
           </span>
         </Link>
