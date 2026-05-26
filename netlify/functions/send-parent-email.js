@@ -20,7 +20,7 @@ import {
 
 void supabaseAdmin
 
-const DEMO_EMAIL = 'demo@footballplayer.online'
+const DEMO_EMAIL = 'demo@playerfeedback.online'
 
 function cleanHeaderPart(value, fallback) {
   const cleanedValue = String(value ?? '')

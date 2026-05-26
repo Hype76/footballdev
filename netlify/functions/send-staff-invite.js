@@ -16,7 +16,7 @@ import {
   getAuthenticatedRequestUser,
 } from './_plan-gate.js'
 
-const DEMO_EMAIL = 'demo@footballplayer.online'
+const DEMO_EMAIL = 'demo@playerfeedback.online'
 
 function jsonResponse(statusCode, payload) {
   return {

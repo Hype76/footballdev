@@ -1,6 +1,6 @@
 import process from 'node:process'
 
-const DEMO_EMAIL = 'demo@footballplayer.online'
+const DEMO_EMAIL = 'demo@playerfeedback.online'
 const DEMO_PASSWORD = 'Demo12345!'
 const DEMO_CLUB_NAME = 'Football Player Demo Club'
 const DEMO_USER_NAME = 'Demo User'

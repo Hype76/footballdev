@@ -87,6 +87,12 @@ export function LoginPage() {
     const result = await response.json().catch(() => ({}))
 
     if (!response.ok || result.success === false) {
+      const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+
+      if (isLocalPreview && response.status === 404) {
+        return
+      }
+
       throw new Error(result.message || 'Demo account could not be opened.')
     }
   }
