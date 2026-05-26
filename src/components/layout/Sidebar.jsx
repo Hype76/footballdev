@@ -84,7 +84,7 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
         {item.helper ? <span className="mt-0.5 block truncate text-xs font-semibold opacity-70">{item.helper}</span> : null}
       </span>
       {count > 0 ? (
-        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-lg bg-[#2563eb] px-2 text-xs font-black text-white">
+        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-lg bg-[#2563eb] px-2 text-xs font-black text-white shadow-sm shadow-[#2563eb]/20">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -363,7 +363,7 @@ export function Sidebar({ isOpen, onClose }) {
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
                 {isParentPortal ? 'Family actions' : 'Week operations'}
               </p>
-              <span className="rounded-lg bg-[#0f172a] px-2 py-1 text-[11px] font-black text-white">
+              <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[11px] font-black text-[#166534]">
                 Live
               </span>
             </div>
@@ -378,8 +378,8 @@ export function Sidebar({ isOpen, onClose }) {
                     [
                       'block rounded-lg px-3 py-3 transition',
                       isActive
-                        ? 'bg-[#0f172a] text-white shadow-sm shadow-[#0f172a]/20'
-                        : 'bg-white text-[#475569] shadow-sm shadow-[#0f172a]/5 hover:bg-[#eff6ff] hover:text-[#0f172a]',
+                        ? 'bg-[#eff6ff] text-[#1e3a8a] shadow-sm shadow-[#2563eb]/10 ring-1 ring-[#3b82f6]'
+                        : 'bg-white text-[#475569] shadow-sm shadow-[#2563eb]/5 hover:bg-[#eff6ff] hover:text-[#0f172a]',
                     ].join(' ')
                   }
                 >
@@ -477,7 +477,7 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
                 [
                   'block rounded-lg px-3 py-3 transition',
                   isActive
-                    ? 'bg-[#eff6ff] text-[#1e3a8a] ring-1 ring-[#3b82f6]'
+                    ? 'bg-[#eff6ff] text-[#1e3a8a] shadow-sm shadow-[#2563eb]/10 ring-1 ring-[#3b82f6]'
                     : 'text-[#475569] hover:bg-[#f8fafc] hover:text-[#0f172a]',
                 ].join(' ')
               }

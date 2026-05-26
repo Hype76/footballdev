@@ -14,6 +14,7 @@ import {
 
 const eyebrowClass = 'text-[11px] font-black uppercase tracking-[0.18em] text-[#2563eb]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff]'
 
 function patchUserOnboarding(user, scope, patch = {}) {
@@ -100,7 +101,7 @@ function SetupStepCard({ index, onComplete, step }) {
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Link
               to={step.href}
-              className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-black text-white transition hover:bg-[#1d4ed8]"
+              className={primaryButtonClass}
             >
               {step.actionLabel}
             </Link>
@@ -174,7 +175,7 @@ function CompactOnboardingPanel({
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
             <Link
               to={nextStep?.href || plan.firstAction}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8]"
+              className={primaryButtonClass}
             >
               {nextStep?.actionLabel || 'Start setup'}
             </Link>
@@ -366,60 +367,56 @@ export function OnboardingProvider({ children }) {
       ) : null}
       {shouldShowOnboarding && shouldUseFullSetup ? (
         <section className="mb-6 overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
-          <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
-            <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className={eyebrowClass}>First run setup</p>
-              <h2 className="mt-3 max-w-5xl text-4xl font-black leading-[1.05] tracking-tight text-[#0f172a] sm:text-5xl">
-                {plan.title}
-              </h2>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">{plan.description}</p>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                <ConstraintRule title="Use real club data" body="Create or confirm the records needed for this week of football." />
-                <ConstraintRule title="Respect role limits" body="Only complete setup work this account is allowed to manage." />
-                <ConstraintRule title="Do one real action" body="Every setup step should leave the workspace more useful than before." />
+          <div className="border-b border-[#dbe6ef] bg-[#f8fbfd] px-5 py-5 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+              <div className="min-w-0">
+                <p className={eyebrowClass}>First run setup</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a] sm:text-3xl">
+                  {plan.title}
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">{plan.description}</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)] xl:min-w-[34rem]">
+                <div className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10">
+                  <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
+                    <span>Setup progress</span>
+                    <span>{progress.completedCount} of {progress.totalCount}</span>
+                  </div>
+                  <div className="mt-3 h-3 overflow-hidden rounded-lg bg-[#e0f2fe] ring-1 ring-[#cbd5e1]">
+                    <div
+                      className="h-full rounded-lg bg-[#2563eb] transition-all"
+                      style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <p className="mt-3 text-xs font-semibold leading-5 text-[#64748b]">
+                    {isLoading ? 'Refreshing workspace data.' : 'Uses live workspace records where possible.'}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] p-4 shadow-sm shadow-[#1d4ed8]/10">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">Next action</p>
+                  <p className="mt-2 text-lg font-black leading-6 text-[#0f172a]">{nextStep?.title}</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <Link to={nextStep?.href || plan.firstAction} className={primaryButtonClass}>
+                      {nextStep?.actionLabel || 'Start setup'}
+                    </Link>
+                    <button type="button" onClick={handleDismiss} className={secondaryButtonClass}>
+                      Skip for now
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <aside className="grid content-between border-t border-[#cbd5e1] bg-[#eff6ff] p-5 sm:p-6 xl:border-l xl:border-t-0">
-              <div>
-                <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
-                  <span>Setup progress</span>
-                  <span>{progress.completedCount} of {progress.totalCount}</span>
-                </div>
-                <div className="mt-4 h-3 overflow-hidden rounded-lg bg-white ring-1 ring-[#d8e3ee]">
-                  <div
-                    className="h-full rounded-lg bg-[#1d4ed8] transition-all"
-                    style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
-                  />
-                </div>
-                <p className="mt-3 text-sm font-semibold leading-6 text-[#475569]">
-                  {isLoading ? 'Refreshing workspace data.' : 'Progress uses real workspace data where possible.'}
-                </p>
-              </div>
-              <div className="mt-5 rounded-lg border border-[#bfdbfe] bg-white p-4 shadow-sm shadow-[#1d4ed8]/10">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">Next required action</p>
-                <p className="mt-2 text-xl font-black leading-6 text-[#0f172a]">{nextStep?.title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{nextStep?.detail}</p>
-                <div className="mt-4 grid gap-2">
-                  <Link
-                    to={nextStep?.href || plan.firstAction}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8]"
-                  >
-                    {nextStep?.actionLabel || 'Start setup'}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleDismiss}
-                    className={secondaryButtonClass}
-                  >
-                    Skip for now
-                  </button>
-                </div>
-              </div>
-            </aside>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <ConstraintRule title="Use real club data" body="Create or confirm the records needed for this week of football." />
+              <ConstraintRule title="Respect role limits" body="Only complete setup work this account is allowed to manage." />
+              <ConstraintRule title="Do one real action" body="Each setup step should make the workspace ready for a real session, match, or parent update." />
+            </div>
           </div>
 
-          <div className="border-t border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6 lg:px-8">
+          <div className="bg-white px-5 py-5 sm:px-6 lg:px-8">
             <div className="grid gap-3 lg:grid-cols-2">
               {plan.steps.map((step, index) => (
                 <SetupStepCard key={step.id} index={index} onComplete={handleCompleteStep} step={step} />
@@ -433,7 +430,7 @@ export function OnboardingProvider({ children }) {
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff]"
+                className={secondaryButtonClass}
               >
                 Reset setup
               </button>
@@ -467,7 +464,7 @@ export function OnboardingProvider({ children }) {
               <button
                 type="button"
                 onClick={handleReopen}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8]"
+                className={primaryButtonClass}
               >
                 Reopen setup
               </button>
