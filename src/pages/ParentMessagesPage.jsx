@@ -12,6 +12,13 @@ import {
 import { exportPdfHtml } from '../lib/pdf.js'
 import { getParentPortalMessages, markParentPortalMessageRead } from '../lib/supabase.js'
 
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#667085]'
+const panelClass = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/70 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+
 export function ParentMessagesPage() {
   const { user } = useAuth()
   const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
@@ -177,10 +184,10 @@ export function ParentMessagesPage() {
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
         <div className="grid gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent inbox</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Club messages for the selected child</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-              Open club-sent emails, mark messages as read, and download development PDFs when the club shared one.
+            <p className={eyebrowClass}>Parent inbox</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-[#101828]">Messages for the selected player</h2>
+            <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
+              Review official club updates, open anything unread, and keep development PDFs with the player record.
             </p>
           </div>
 
@@ -189,56 +196,56 @@ export function ParentMessagesPage() {
               type="button"
               onClick={() => void handleMarkAllMessagesRead()}
               disabled={isMarkingAllRead || !hasUnreadMessages}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 shadow-sm shadow-slate-200/70 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className={secondaryButtonClass}
             >
               {isMarkingAllRead ? 'Marking...' : hasUnreadMessages ? 'Mark all as read' : 'All read'}
             </button>
           ) : null}
         </div>
 
-        <div className="grid gap-5 bg-[#fbfdfb] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="grid gap-5 bg-[#f9fafb] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <aside className="space-y-4">
             {links.length > 1 ? (
-              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
-                <label htmlFor="parent-message-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+              <div className={panelClass}>
+                <label htmlFor="parent-message-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#667085]">
                   Child
                 </label>
                 <select
                   id="parent-message-child"
                   value={selectedLink?.id || ''}
                   onChange={(event) => setSelectedLinkId(event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                  className={inputClass}
                 >
                   {links.map((link) => (
                     <option key={link.id} value={link.id}>
-                      {link.playerName} - {link.teamName || 'No team'} - {link.clubName || 'No club'}
+                      {link.playerName} | {link.teamName || 'No team'} | {link.clubName || 'No club'}
                     </option>
                   ))}
                 </select>
               </div>
             ) : null}
 
-            <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] p-4 shadow-sm shadow-emerald-100/70">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Inbox rule</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                This is the club message record for the selected child. It should support conversations with staff, not replace them.
+            <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] p-4 shadow-sm shadow-[#abefc6]/50">
+              <p className={eyebrowClass}>Inbox rule</p>
+              <p className={`mt-2 ${bodyTextClass}`}>
+                This is the official message record for this player. It keeps club updates findable after the email has gone.
               </p>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Selected child</p>
-              <p className="mt-2 text-lg font-black text-slate-950">{selectedLink?.playerName || 'No child selected'}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-600">{selectedLink?.teamName || 'No team'} / {selectedLink?.clubName || 'No club'}</p>
+            <div className={panelClass}>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Selected player</p>
+              <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink?.playerName || 'No player selected'}</p>
+              <p className="mt-1 text-sm font-semibold text-[#667085]">{selectedLink?.teamName || 'No team'} | {selectedLink?.clubName || 'No club'}</p>
             </div>
           </aside>
 
           <div className="min-w-0">
             {messageError ? (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+              <p className="rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318]">
                 {messageError}
               </p>
             ) : isLoadingMessages ? (
-              <p className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-slate-600">
+              <p className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/70">
                 Loading messages...
               </p>
             ) : messages.length > 0 ? (
@@ -254,7 +261,7 @@ export function ParentMessagesPage() {
                 ))}
               </div>
             ) : (
-              <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-5 text-sm font-semibold text-slate-600">
+              <p className="rounded-lg border border-dashed border-[#d0d5dd] bg-white px-4 py-5 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/70">
                 No emails have been shared in the parent portal for this child yet.
               </p>
             )}
@@ -270,12 +277,12 @@ function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
       <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent portal</p>
-          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-slate-950 sm:text-5xl">
-            Read the club message record for {selectedLink?.playerName || 'your child'}.
+          <p className={eyebrowClass}>Parent portal</p>
+          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-5xl">
+            Keep {selectedLink?.playerName || 'the player'} in step with the club.
           </h1>
-          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
-            This inbox shows the practical football updates staff have already sent: development notes, PDFs, team information, and parent actions.
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
+            Use this inbox for practical football updates: development notes, PDF records, team information, and parent actions.
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {summary.map((item) => (
@@ -284,19 +291,19 @@ function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
           </div>
         </div>
 
-        <div className="grid content-between rounded-lg border border-slate-200 bg-[#f8fafc] p-5">
+        <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-inner shadow-slate-200/60">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Latest message</p>
-            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+            <p className={eyebrowClass}>Latest message</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
               {latestMessage ? getMessageSubject(latestMessage) : 'No message yet'}
             </p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            <p className={`mt-2 ${bodyTextClass}`}>
               {latestMessage ? formatMessageDate(latestMessage.createdAt) : 'Messages will appear here when the club shares them.'}
             </p>
           </div>
-          <div className="mt-5 rounded-lg border border-emerald-200 bg-white px-4 py-3">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Next action</p>
-            <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
+          <div className="mt-5 rounded-lg border border-[#abefc6] bg-white px-4 py-3 shadow-sm shadow-slate-200/60">
+            <p className={eyebrowClass}>Next action</p>
+            <p className={`mt-1 ${bodyTextClass}`}>
               Open unread messages first. Download the PDF only when a development attachment exists.
             </p>
           </div>
@@ -308,10 +315,10 @@ function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
 
 function InboxMetric({ caption, isLoading, label, value }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4 shadow-sm shadow-slate-200/60">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</p>
-      <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : value}</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{caption}</p>
+    <article className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+      <p className={eyebrowClass}>{label}</p>
+      <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : value}</p>
+      <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
     </article>
   )
 }
@@ -327,35 +334,35 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
 
   return (
     <article className={`rounded-lg border bg-white shadow-sm shadow-slate-200/70 transition ${
-      isUnread ? 'border-emerald-300' : 'border-slate-200'
+      isUnread ? 'border-[#20a464]' : 'border-slate-200'
     }`}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="block w-full px-4 py-4 text-left transition hover:bg-[#f8fafc]"
+        className="block w-full px-4 py-4 text-left transition hover:bg-[#f9fafb]"
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-black text-slate-950">
+            <p className="text-sm font-black text-[#101828]">
               {subject}
             </p>
-            <p className="mt-1 text-xs font-semibold text-slate-500">
-              {formatMessageDate(message.createdAt)} / {message.senderName || message.senderEmail || 'Club staff'}
+            <p className="mt-1 text-xs font-semibold text-[#667085]">
+              {formatMessageDate(message.createdAt)} | {message.senderName || message.senderEmail || 'Club staff'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {isUnread ? (
-              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-emerald-200 bg-[#f2fbf6] px-3 py-1 text-xs font-black text-emerald-800">
+              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-3 py-1 text-xs font-black text-[#067a46]">
                 Unread
               </span>
             ) : null}
             {hasAttachment ? (
-              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
+              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1 text-xs font-black text-[#667085]">
                 PDF attached
               </span>
             ) : null}
-            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1 text-xs font-black text-[#667085]">
               {isOpen ? 'Hide email' : 'View email'}
             </span>
           </div>
@@ -366,28 +373,28 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
         <div className="min-w-0">
           <div className="border-t border-slate-200 px-4 py-4">
             {templateName ? (
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#667085]">
                 {templateName}
               </p>
             ) : null}
 
             {body ? (
-              <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">
+              <p className={`whitespace-pre-wrap break-words ${bodyTextClass}`}>
                 {body}
               </p>
             ) : (
-              <p className="text-sm font-semibold leading-6 text-slate-600">No email body was recorded for this message.</p>
+              <p className={bodyTextClass}>No email body was recorded for this message.</p>
             )}
 
             {assessmentFields.length > 0 ? (
               <div className="mt-4 space-y-2">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Development details</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Development details</p>
                 {assessmentFields.map((field) => (
-                  <div key={field.label} className="rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                  <div key={field.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">
                       {field.label}
                     </p>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-slate-600">
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-[#475467]">
                       {String(field.value ?? '')}
                     </p>
                   </div>
@@ -400,13 +407,13 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
                 <button
                   type="button"
                   onClick={onDownloadPdf}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
+                  className={primaryButtonClass}
                 >
                   Download PDF
                 </button>
               </div>
             ) : hasAttachment ? (
-              <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+              <p className={`mt-4 ${bodyTextClass}`}>
                 A PDF was attached to this email, but the download source was not recorded for this older message.
               </p>
             ) : null}
