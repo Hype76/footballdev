@@ -9,6 +9,14 @@ import {
   revokeFamilyPortalLink,
 } from '../lib/supabase.js'
 
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05653a] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/70 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition focus:border-[#067a46] focus:ring-2 focus:ring-[#d7f8e5]'
+const chipClass = 'inline-flex w-fit whitespace-nowrap rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#456653] shadow-sm shadow-[#d7eadf]/50'
+
 export function FriendsFamilyPage() {
   const { updateCurrentUserDetails, user } = useAuth()
   const { showToast } = useToast()
@@ -42,9 +50,18 @@ export function FriendsFamilyPage() {
     },
   ]
   const accessRules = [
-    'The link opens one selected child only.',
-    'It does not show staff tools, club settings, or another child.',
-    'Accepted access can be removed by the parent at any time.',
+    {
+      title: 'One child only',
+      description: 'The link opens the selected child and nothing else.',
+    },
+    {
+      title: 'Parent portal access',
+      description: 'Family members cannot see staff tools, club settings, or another child.',
+    },
+    {
+      title: 'Revocable',
+      description: 'Accepted access can be removed from this screen at any time.',
+    },
   ]
 
   useEffect(() => {
@@ -142,53 +159,17 @@ export function FriendsFamilyPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#d7eadf]/70">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Parent portal</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#10231a] sm:text-5xl">
-              Give family access without opening the whole club.
-            </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4d6458]">
-              Create a controlled link for the selected child. Use it when a grandparent, carer, or trusted family member needs match day and development updates.
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {familySummary.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{item.label}</p>
-                  <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#10231a]">
-                    {isLoadingFamilyLinks ? '...' : item.value}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.caption}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/70">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Current child</p>
-              <p className="mt-3 break-words text-2xl font-black tracking-tight text-[#10231a]">{selectedChildLabel}</p>
-              <p className="mt-3 text-sm font-semibold leading-6 text-[#4d6458]">
-                Select the child first. Every family link is tied to that child and can be revoked after it has been accepted.
-              </p>
-            </div>
-            <ul className="mt-5 space-y-2">
-              {accessRules.map((rule) => (
-                <li key={rule} className="flex gap-3 rounded-lg border border-[#bfe8cd] bg-white px-3 py-3 text-sm font-bold leading-5 text-[#234331]">
-                  <span className="mt-1 h-4 w-4 shrink-0 rounded-full border-4 border-white bg-[#20c76a] shadow-sm shadow-[#9edbb5]" aria-hidden="true" />
-                  <span>{rule}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
+      <FamilyAccessHero
+        accessRules={accessRules}
+        familySummary={familySummary}
+        isLoading={isLoadingFamilyLinks}
+        selectedChildLabel={selectedChildLabel}
+      />
 
       {errorMessage ? <NoticeBanner title="Family link not created" message={errorMessage} /> : null}
 
       <SectionCard title="Create family access" description="Choose the child, create one link, then send it to the family member who should receive access.">
-        <div className="grid gap-4 rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <div className="grid gap-4 rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/50 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <label className="block">
             <span className="mb-2 block text-sm font-black text-[#10231a]">Child to share</span>
             <select
@@ -197,7 +178,7 @@ export function FriendsFamilyPage() {
                 setSelectedLinkId(event.target.value)
                 setShareUrl('')
               }}
-              className="min-h-12 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition focus:border-[#067a46] focus:ring-2 focus:ring-[#bfe8cd]"
+              className={inputClass}
             >
               {links.map((link) => (
                 <option key={link.id} value={link.id}>
@@ -211,23 +192,23 @@ export function FriendsFamilyPage() {
             onClick={handleCreateLink}
             disabled={isCreating || !selectedLink}
             title={isCreating ? 'Please wait while the family link is created.' : !selectedLink ? 'No child link is available.' : undefined}
-            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05653a] disabled:cursor-not-allowed disabled:opacity-60"
+            className={primaryButtonClass}
           >
             {isCreating ? 'Creating...' : 'Create family link'}
           </button>
         </div>
 
         {shareUrl ? (
-          <div className="mt-5 rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-4">
+          <div className="mt-5 rounded-lg border border-[#bddcca] bg-[#effbf3] p-4 shadow-sm shadow-[#d7eadf]/60">
             <p className="text-sm font-black text-[#10231a]">Family link ready</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4d6458]">
+            <p className={`mt-2 ${bodyTextClass}`}>
               Send this to the family member. Once they accept it, they will appear in the accepted access list below.
             </p>
             <p className="mt-3 break-all rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#234331]">{shareUrl}</p>
             <button
               type="button"
               onClick={handleCopy}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]"
+              className={`mt-4 ${secondaryButtonClass}`}
             >
               Copy link
             </button>
@@ -240,7 +221,7 @@ export function FriendsFamilyPage() {
         description="These people can currently open the selected child in the parent portal."
       >
         {isLoadingFamilyLinks ? (
-          <p className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 text-sm font-bold text-[#5f7468]">
+          <p className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 text-sm font-bold text-[#456653]">
             Loading family access...
           </p>
         ) : familyLinks.length > 0 ? (
@@ -248,13 +229,14 @@ export function FriendsFamilyPage() {
             {familyLinks.map((familyLink) => (
               <div
                 key={familyLink.id}
-                className="flex flex-col gap-3 rounded-lg border border-[#d7eadf] bg-white p-4 shadow-sm shadow-[#d7eadf]/70 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="break-all text-sm font-black text-[#10231a]">
+                  <span className={chipClass}>Accepted access</span>
+                  <p className="mt-3 break-all text-sm font-black text-[#10231a]">
                     {familyLink.email || 'Email not recorded'}
                   </p>
-                  <p className="mt-1 text-xs font-bold text-[#5f7468]">
+                  <p className="mt-1 text-xs font-bold text-[#456653]">
                     Accepted {familyLink.acceptedAt ? new Date(familyLink.acceptedAt).toLocaleString() : 'date not recorded'}
                   </p>
                 </div>
@@ -270,14 +252,72 @@ export function FriendsFamilyPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-5">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-5">
             <p className="text-sm font-black text-[#10231a]">No accepted access yet</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className={`mt-2 ${bodyTextClass}`}>
               Create a link above and share it with the family member who should be able to open this child.
             </p>
           </div>
         )}
       </SectionCard>
     </div>
+  )
+}
+
+function FamilyAccessHero({ accessRules, familySummary, isLoading, selectedChildLabel }) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_26rem]">
+        <div className="px-5 py-6 sm:px-6 lg:px-8">
+          <div className="max-w-5xl">
+            <p className={eyebrowClass}>Family access</p>
+            <h1 className="mt-3 text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+              Share one child without opening the whole club.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
+              Create controlled parent-portal access for a grandparent, carer, or trusted family member who needs match day and development updates.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {familySummary.map((item) => (
+                <FamilyMetric key={item.label} isLoading={isLoading} {...item} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <aside className="border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className={panelClass}>
+            <p className={eyebrowClass}>Current child</p>
+            <p className="mt-3 break-words text-2xl font-black tracking-tight text-[#10231a]">{selectedChildLabel}</p>
+            <p className={`mt-3 ${bodyTextClass}`}>
+              Choose the child before creating a link. Each accepted family account stays tied to that child until access is revoked.
+            </p>
+          </div>
+          <div className="mt-4 space-y-2">
+            {accessRules.map((rule) => (
+              <article key={rule.title} className="rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-4 w-4 shrink-0 rounded-full border border-[#20a464] bg-[#d7f8e5]" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-black text-[#10231a]">{rule.title}</p>
+                    <p className={`mt-1 ${bodyTextClass}`}>{rule.description}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </aside>
+      </div>
+    </section>
+  )
+}
+
+function FamilyMetric({ caption, isLoading, label, value }) {
+  return (
+    <article className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+      <p className={eyebrowClass}>{label}</p>
+      <p className="mt-3 break-words text-3xl font-black tracking-tight text-[#10231a]">{isLoading ? '...' : value}</p>
+      <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
+    </article>
   )
 }
