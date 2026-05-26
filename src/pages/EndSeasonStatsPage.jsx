@@ -5,12 +5,12 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewEndSeasonStats, useAuth } from '../lib/auth.js'
 import { getEndSeasonStats, getTeams, withRequestTimeout } from '../lib/supabase.js'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-bold text-[#456653] shadow-sm shadow-[#067a46]/10'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-slate-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100'
+const labelClass = 'mb-2 block text-sm font-black text-slate-950'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-sky-600 px-5 py-3 text-sm font-black text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60'
+const emptyStateClass = 'rounded-lg border border-slate-200 bg-sky-50 px-4 py-5 text-sm font-bold text-slate-600 shadow-sm shadow-slate-200/70'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-slate-600'
+const panelClass = 'rounded-lg border border-slate-200 bg-sky-50 shadow-sm shadow-slate-200/70'
 
 const seasonRules = [
   {
@@ -162,35 +162,35 @@ export function EndSeasonStatsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Season review</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Season review</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
               Turn match day records into a clear end-of-season football review.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-600">
               Review year-to-date goals, assists, and Player of the Match votes before you publish awards or plan next season.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {seasonRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
-                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-sky-50 px-4 py-4 shadow-sm shadow-slate-200/70">
+                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
                   <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-5 shadow-sm shadow-[#067a46]/10">
+          <div className="grid content-between rounded-lg border border-slate-200 bg-sky-50 p-5 shadow-sm shadow-slate-200/70">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Selected view</p>
-              <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#10231a]">{selectedTeamName}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Selected view</p>
+              <p className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">{selectedTeamName}</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 {isLoading ? 'Loading current season stats.' : `${activePlayers} squad players included in this review.`}
               </p>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <SeasonMetric label="Players" value={isLoading ? '...' : activePlayers} />
               <SeasonMetric label="Goals" value={isLoading ? '...' : totalGoals} />
               <SeasonMetric label="Assists" value={isLoading ? '...' : totalAssists} />
@@ -254,11 +254,11 @@ export function EndSeasonStatsPage() {
             Loading end of season stats...
           </p>
         ) : sortedStats.length > 0 ? (
-          <div className="overflow-hidden rounded-lg border border-[#bddcca] shadow-sm shadow-[#067a46]/10">
+          <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm shadow-slate-200/70">
             <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-[#f6fbf8] text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
-                <tr className="border-b border-[#bddcca]">
+              <thead className="bg-sky-50 text-xs font-black uppercase tracking-[0.14em] text-slate-600">
+                <tr className="border-b border-slate-200">
                   <SortableHeader field="playerName" label="Player" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader field="teamName" label="Team" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader align="right" field="goals" label="Goals" sortConfig={sortConfig} onSort={updateSort} />
@@ -268,14 +268,14 @@ export function EndSeasonStatsPage() {
               </thead>
               <tbody>
                 {sortedStats.map((player) => (
-                  <tr key={player.playerId} className="border-b border-[#bddcca] bg-white last:border-0 hover:bg-[#f6fbf8]">
-                    <td className="px-3 py-3 font-black text-[#10231a]">
+                  <tr key={player.playerId} className="border-b border-slate-200 bg-white last:border-0 hover:bg-sky-50">
+                    <td className="px-3 py-3 font-black text-slate-950">
                       {player.shirtNumber ? `#${player.shirtNumber} ` : ''}{player.playerName}
                     </td>
-                    <td className="px-3 py-3 font-semibold text-[#456653]">{player.teamName || 'No team'}</td>
-                    <td className="px-3 py-3 text-right font-black text-[#10231a]">{player.goals}</td>
-                    <td className="px-3 py-3 text-right font-black text-[#10231a]">{player.assists}</td>
-                    <td className="px-3 py-3 text-right font-black text-[#10231a]">{player.motmVotes}</td>
+                    <td className="px-3 py-3 font-semibold text-slate-600">{player.teamName || 'No team'}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-950">{player.goals}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-950">{player.assists}</td>
+                    <td className="px-3 py-3 text-right font-black text-slate-950">{player.motmVotes}</td>
                   </tr>
                 ))}
               </tbody>
@@ -295,17 +295,17 @@ export function EndSeasonStatsPage() {
 function AwardCard({ title, value }) {
   return (
     <article className={`${panelClass} p-4`}>
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{title}</p>
-      <p className="mt-3 text-lg font-black text-[#10231a]">{value}</p>
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">{title}</p>
+      <p className="mt-3 text-lg font-black text-slate-950">{value}</p>
     </article>
   )
 }
 
 function SeasonMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
-      <p className="mt-2 break-words text-2xl font-black text-[#10231a]">{value}</p>
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/70">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-slate-950">{value}</p>
     </div>
   )
 }
@@ -321,9 +321,9 @@ function SortableHeader({ align = 'left', field, label, onSort, sortConfig }) {
         type="button"
         onClick={() => onSort(field)}
         aria-label={`Sort ${label} ${directionLabel}`}
-        className={`inline-flex items-center gap-1 font-black uppercase tracking-[0.14em] transition hover:text-[#10231a] ${
+        className={`inline-flex items-center gap-1 font-black uppercase tracking-[0.14em] transition hover:text-slate-950 ${
           align === 'right' ? 'justify-end' : 'justify-start'
-        } ${isActive ? 'text-[#067a46]' : 'text-[#456653]'}`}
+        } ${isActive ? 'text-sky-700' : 'text-slate-600'}`}
       >
         <span>{label}</span>
         <span aria-hidden="true" className="text-[0.62rem]">{sortLabel}</span>
