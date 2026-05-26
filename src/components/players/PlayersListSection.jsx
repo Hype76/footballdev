@@ -3,10 +3,10 @@ import { formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageU
 import { Pagination } from '../ui/Pagination.jsx'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#789083] focus:border-[#2563eb] focus:ring-2 focus:ring-[#bfdbfe]'
-const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#bfdbfe]'
+const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#475569]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayersListSection({
   actionLoadingKey,
@@ -53,7 +53,7 @@ export function PlayersListSection({
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1d4ed8]">Live register</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Find the footballer before you change the workflow</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Find the footballer before you change the workflow</h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
               Search by player, team, or position. Filter by section, then open the profile when the decision needs parent or development context.
             </p>
@@ -132,7 +132,7 @@ export function PlayersListSection({
                     <div>
                       <div className="flex max-w-full flex-col gap-2 sm:flex-row sm:items-center">
                         <p
-                          className="min-w-0 truncate text-lg font-black text-[#10231a]"
+                          className="min-w-0 truncate text-lg font-black text-[#0f172a]"
                           title={player.playerName}
                         >
                           {player.playerName}
@@ -148,23 +148,23 @@ export function PlayersListSection({
                     </div>
                     <div>
                       <p className={eyebrowClass}>Section</p>
-                      <p className="mt-2 text-sm font-black text-[#10231a]">{player.section}</p>
+                      <p className="mt-2 text-sm font-black text-[#0f172a]">{player.section}</p>
                     </div>
                     <div>
                       <p className={eyebrowClass}>Last Score</p>
-                      <p className="mt-2 text-sm font-black text-[#10231a]">
+                      <p className="mt-2 text-sm font-black text-[#0f172a]">
                         {player.latestScore !== null ? player.latestScore.toFixed(1) : '-'}
                       </p>
                     </div>
                     <div>
                       <p className={eyebrowClass}>Average</p>
-                      <p className="mt-2 text-sm font-black text-[#10231a]">
+                      <p className="mt-2 text-sm font-black text-[#0f172a]">
                         {player.averageScore !== null ? player.averageScore.toFixed(1) : '-'}
                       </p>
                     </div>
                     <div>
                       <p className={eyebrowClass}>Last Seen</p>
-                      <p className="mt-2 text-sm font-black text-[#10231a]">{formatPlayerDate(player.latestDate)}</p>
+                      <p className="mt-2 text-sm font-black text-[#0f172a]">{formatPlayerDate(player.latestDate)}</p>
                     </div>
                   </div>
                 </button>

@@ -16,7 +16,7 @@ export function RecentlyAddedPlayersSection({
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1d4ed8]">Recently added</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Check the latest player records</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Check the latest player records</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
               Use this list to avoid duplicates before adding another footballer to the register.
             </p>
@@ -39,7 +39,7 @@ export function RecentlyAddedPlayersSection({
               to={`/player/${encodeURIComponent(player.playerName)}`}
               className="group rounded-lg border border-[#d8e3ee] bg-white p-4 shadow-sm shadow-[#0f172a]/5 transition hover:-translate-y-0.5 hover:border-[#2563eb] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
             >
-              <p className="text-base font-black text-[#10231a]">{player.playerName}</p>
+              <p className="text-base font-black text-[#0f172a]">{player.playerName}</p>
               <p className="mt-2 text-sm font-bold text-[#1d4ed8]">
                 {player.section} / {player.team || 'No team'}
               </p>

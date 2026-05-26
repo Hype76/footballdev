@@ -2,8 +2,8 @@ import { LOG_PAGE_SIZE, formatActivityAction, formatActivityDateTime, formatActi
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const fieldLabelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const selectClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
+const fieldLabelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
+const selectClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
 const emptyStateClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-6 text-sm font-semibold text-[#475569]'
 const loadingStateClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 text-sm font-semibold text-[#475569]'
 
@@ -85,7 +85,7 @@ export function RecentActivitySection({
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-[#10231a]">{formatActivityAction(log.action)}</p>
+                    <p className="text-sm font-black text-[#0f172a]">{formatActivityAction(log.action)}</p>
                     <p className="mt-1 break-words text-sm font-semibold text-[#475569]">
                       {log.actorName || log.actorEmail || 'Unknown user'}
                       {log.actorEmail && log.actorName ? `, ${log.actorEmail}` : ''}

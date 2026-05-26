@@ -45,7 +45,7 @@ export function PlayerStatsCards({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#475569]">{card.label}</p>
-              <p className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{card.value}</p>
+              <p className="mt-3 text-4xl font-black tracking-tight text-[#0f172a]">{card.value}</p>
             </div>
             <span className={['inline-flex min-h-8 items-center rounded-lg border px-3 text-xs font-black', card.tone].join(' ')}>
               Register

@@ -183,7 +183,7 @@ export function ActivityLogPage() {
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Activity control</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
               Review the club trail before a small issue becomes a phone call.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
@@ -192,7 +192,7 @@ export function ActivityLogPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {activityRules.map((rule) => (
                 <div key={rule.label} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
-                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                  <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{rule.body}</p>
                 </div>
               ))}
@@ -202,7 +202,7 @@ export function ActivityLogPage() {
           <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Loaded window</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">
                 {isLoading ? 'Loading activity' : `${filteredLogs.length} events visible`}
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
@@ -263,7 +263,7 @@ function ActivityAccessState({ title, description }) {
   return (
     <section className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-6 shadow-sm shadow-[#2563eb]/10 sm:px-6">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Activity control</p>
-      <h1 className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{title}</h1>
+      <h1 className="mt-3 text-4xl font-black tracking-tight text-[#0f172a]">{title}</h1>
       <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">{description}</p>
     </section>
   )
@@ -273,7 +273,7 @@ function ActivityMetric({ label, value }) {
   return (
     <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
-      <p className="mt-2 break-words text-2xl font-black text-[#10231a]">{value}</p>
+      <p className="mt-2 break-words text-2xl font-black text-[#0f172a]">{value}</p>
     </div>
   )
 }

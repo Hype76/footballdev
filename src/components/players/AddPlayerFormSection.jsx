@@ -2,9 +2,9 @@ import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { CONTACT_TYPE_OPTIONS } from '../../hooks/players/addPlayerUtils.js'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:ring-2 focus:ring-[#cbd5e1]'
-const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#cbd5e1] bg-white text-sm font-black text-[#10231a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-bold text-[#0f172a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:ring-2 focus:ring-[#cbd5e1]'
+const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
+const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#cbd5e1] bg-white text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function AddPlayerFormSection({
   availableTeams,
@@ -33,7 +33,7 @@ export function AddPlayerFormSection({
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Player details</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Create the football record</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Create the football record</h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
               {canAddMorePlayers ? 'Add the player once, then use their profile for development records, parent links, and match day work.' : playerLimitMessage}
             </p>
@@ -141,7 +141,7 @@ export function AddPlayerFormSection({
                   key={option.value}
                   className={`flex min-h-12 items-start gap-3 rounded-lg border px-4 py-3 text-sm font-semibold transition ${
                     normalizedContactType === option.value
-                      ? 'border-[#2563eb] bg-[#eff6ff] text-[#10231a] shadow-sm shadow-[#2563eb]/10'
+                      ? 'border-[#2563eb] bg-[#eff6ff] text-[#0f172a] shadow-sm shadow-[#2563eb]/10'
                       : 'border-[#cbd5e1] bg-[#f8fafc] text-[#475569] shadow-sm shadow-[#2563eb]/10'
                   }`}
                 >
@@ -154,7 +154,7 @@ export function AddPlayerFormSection({
                     className="mt-1 h-4 w-4 accent-[#2563eb]"
                   />
                   <span>
-                    <span className="block font-black text-[#10231a]">{option.label}</span>
+                    <span className="block font-black text-[#0f172a]">{option.label}</span>
                     <span className="mt-1 block text-xs leading-5">{option.description}</span>
                   </span>
                 </label>
@@ -169,7 +169,7 @@ export function AddPlayerFormSection({
               <div key={group.type} className="md:col-span-2 xl:col-span-2">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
-                    <span className="block text-sm font-black text-[#10231a]">{group.title}</span>
+                    <span className="block text-sm font-black text-[#0f172a]">{group.title}</span>
                     <span className="mt-1 block text-xs font-semibold leading-5 text-[#475569]">{group.description}</span>
                   </div>
                   <button
@@ -247,7 +247,7 @@ export function AddPlayerFormSection({
                     key={position}
                     type="button"
                     onClick={() => onRemovePosition(position)}
-                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#10231a] transition hover:bg-[#eff6ff]"
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#0f172a] transition hover:bg-[#eff6ff]"
                   >
                     Remove {position}
                   </button>

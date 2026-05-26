@@ -32,10 +32,10 @@ const EMPTY_FORM = {
   options: ['Yes', 'No'],
 }
 
-const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
+const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:border-[#3b82f6] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#0f172a] transition hover:border-[#3b82f6] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-2 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 const emptyStateClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#475569] shadow-sm shadow-[#2563eb]/10'
 const sectionHeaderClass = 'border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6'
@@ -442,7 +442,7 @@ export function PollsPage() {
           <div className="px-5 py-6 sm:px-6 lg:px-8">
             <div className="max-w-5xl">
               <p className={eyebrowClass}>Availability board</p>
-              <h1 className="mt-3 text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+              <h1 className="mt-3 text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
                 Know who can play before match day moves.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
@@ -461,7 +461,7 @@ export function PollsPage() {
           <div className="grid content-between border-t border-[#cbd5e1] bg-[#eff6ff] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#475569]">This week</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">
                 {openPollCount} open requests
               </p>
             </div>
@@ -495,7 +495,7 @@ export function PollsPage() {
         ].map((item) => (
           <div key={item.label} className="rounded-lg border border-[#cbd5e1] bg-white p-5 shadow-sm shadow-[#2563eb]/10">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{item.label}</p>
-            <p className="mt-2 text-3xl font-black text-[#10231a]">{isLoading ? '...' : item.value}</p>
+            <p className="mt-2 text-3xl font-black text-[#0f172a]">{isLoading ? '...' : item.value}</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{item.caption}</p>
           </div>
         ))}
@@ -504,7 +504,7 @@ export function PollsPage() {
       <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm">
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Create request</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Ask for one clear answer</h2>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Ask for one clear answer</h2>
           <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
             Choose the request type, set the team lane, and publish it to the people who need to reply.
           </p>
@@ -522,7 +522,7 @@ export function PollsPage() {
                   className={`min-h-11 rounded-lg border px-4 py-3 text-sm font-black transition ${
                     form.pollType === option.value
                       ? 'border-[#2563eb] bg-[#2563eb] text-white shadow-sm shadow-[#2563eb]/10'
-                      : 'border-[#cbd5e1] bg-white text-[#10231a] shadow-sm shadow-[#2563eb]/10 hover:border-[#3b82f6] hover:bg-[#eff6ff]'
+                      : 'border-[#cbd5e1] bg-white text-[#0f172a] shadow-sm shadow-[#2563eb]/10 hover:border-[#3b82f6] hover:bg-[#eff6ff]'
                   }`}
                 >
                   {getRequestTypeLabel(option.value)}
@@ -586,13 +586,13 @@ export function PollsPage() {
             <textarea
               value={form.description}
               onChange={(event) => updateForm({ description: event.target.value })}
-              className="min-h-24 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]"
+              className="min-h-24 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]"
               placeholder="Description optional"
             />
           </label>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#2563eb]/10">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10">
               <input
                 type="checkbox"
                 checked={form.allowMultiple}
@@ -606,19 +606,19 @@ export function PollsPage() {
             </label>
             {form.allowMultiple ? (
               <label className="block rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 shadow-sm shadow-[#2563eb]/10">
-                <span className="mb-1 block text-sm font-black text-[#10231a]">Number of choices</span>
+                <span className="mb-1 block text-sm font-black text-[#0f172a]">Number of choices</span>
                 <input
                   type="number"
                   min="1"
                   max={Math.max(buildOptionsForSubmit(form).length, 1)}
                   value={form.maxChoices}
                   onChange={(event) => updateForm({ maxChoices: event.target.value })}
-                  className="min-h-9 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#dbeafe]"
+                  className="min-h-9 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#dbeafe]"
                   placeholder="No limit"
                 />
               </label>
             ) : null}
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#2563eb]/10">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10">
               <input
                 type="checkbox"
                 checked={form.hideVotes}
@@ -627,7 +627,7 @@ export function PollsPage() {
               />
               Hide votes
             </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#2563eb]/10">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10">
               <input
                 type="checkbox"
                 checked={form.allowComments}
@@ -636,7 +636,7 @@ export function PollsPage() {
               />
               Allow comments
             </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#2563eb]/10">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10">
               <input
                 type="checkbox"
                 checked={form.allowVoteChanges}
@@ -646,7 +646,7 @@ export function PollsPage() {
               Allow choice change
             </label>
             {form.audience === 'parents' ? (
-              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#2563eb]/10">
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10">
                 <input
                   type="checkbox"
                   checked={form.allowOwnChildVotes}
@@ -685,7 +685,7 @@ export function PollsPage() {
         <div className="grid gap-4 border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
             <p className={eyebrowClass}>Reply board</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Availability requests</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Availability requests</h2>
             <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
               Review open and closed requests, answer staff questions, and use reply totals before committing the squad.
             </p>
@@ -693,7 +693,7 @@ export function PollsPage() {
           <select
             value={audienceFilter}
             onChange={(event) => setAudienceFilter(event.target.value)}
-            className="min-h-10 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#dbeafe]"
+            className="min-h-10 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#dbeafe]"
           >
             <option value="all">All requests</option>
             <option value="parents">Parent requests</option>
@@ -735,7 +735,7 @@ function DecisionMetric({ isLoading, label, value }) {
   return (
     <div className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 shadow-sm shadow-[#2563eb]/10">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-2xl font-black text-[#0f172a]">{isLoading ? '...' : value}</p>
     </div>
   )
 }
@@ -755,7 +755,7 @@ function PollOptionsEditor({
     return (
       <div>
         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-black text-[#10231a]">Award candidates</p>
+          <p className="text-sm font-black text-[#0f172a]">Award candidates</p>
           <button
             type="button"
             onClick={addAllPlayers}
@@ -769,7 +769,7 @@ function PollOptionsEditor({
           <select
             value={selectedPlayerId}
             onChange={(event) => setSelectedPlayerId(event.target.value)}
-            className="min-h-11 flex-1 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]"
+            className="min-h-11 flex-1 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]"
           >
             <option value="">Select a player</option>
             {awardPlayers.map((player) => (
@@ -790,7 +790,7 @@ function PollOptionsEditor({
         <div className="mt-3 space-y-2">
           {form.options.length > 0 ? form.options.map((option, index) => (
             <div key={option.id || `${option.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 shadow-sm shadow-[#2563eb]/10">
-              <span className="min-w-0 break-words text-sm font-black text-[#10231a]">{option.label}</span>
+              <span className="min-w-0 break-words text-sm font-black text-[#0f172a]">{option.label}</span>
               <button
                 type="button"
                 onClick={() => onRemoveOption(index)}
@@ -812,7 +812,7 @@ function PollOptionsEditor({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-[#10231a]">{form.pollType === 'time' ? 'Time options' : 'Options'}</p>
+        <p className="text-sm font-black text-[#0f172a]">{form.pollType === 'time' ? 'Time options' : 'Options'}</p>
         <button
           type="button"
           onClick={addOption}
@@ -828,7 +828,7 @@ function PollOptionsEditor({
               type={form.pollType === 'time' ? 'datetime-local' : 'text'}
               value={option}
               onChange={(event) => onOptionChange(index, event.target.value)}
-              className="min-h-11 flex-1 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]"
+              className="min-h-11 flex-1 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]"
               placeholder={`Option ${index + 1}`}
             />
             <button
@@ -889,7 +889,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
               </span>
             ) : null}
           </div>
-          <h4 className="mt-3 text-lg font-black text-[#10231a]">{poll.title}</h4>
+          <h4 className="mt-3 text-lg font-black text-[#0f172a]">{poll.title}</h4>
           {poll.description ? <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#475569]">{poll.description}</p> : null}
           <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-[#475569]">
             {totalVotes} {totalVotes === 1 ? 'response' : 'responses'}
@@ -927,7 +927,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
             <div key={option.id} className={panelClass}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-[#10231a]">{option.label}</p>
+                  <p className="text-sm font-black text-[#0f172a]">{option.label}</p>
                   <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#475569]">{count} votes / {percent}%</p>
                 </div>
                 {isStaffPoll && !isClosed ? (
@@ -938,7 +938,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
                     className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                       isSelected
                         ? 'border-[#2563eb] bg-[#2563eb] text-white'
-                        : 'border-[#cbd5e1] bg-white text-[#10231a] hover:border-[#3b82f6] hover:bg-[#eff6ff]'
+                        : 'border-[#cbd5e1] bg-white text-[#0f172a] hover:border-[#3b82f6] hover:bg-[#eff6ff]'
                     }`}
                   >
                     {isSelected ? 'Selected' : 'Vote'}

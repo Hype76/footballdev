@@ -195,7 +195,7 @@ export function BillingPage() {
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Club access</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
               Keep the club plan clear before coaches and parents rely on it.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
@@ -204,7 +204,7 @@ export function BillingPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {billingRules.map((rule) => (
                 <div key={rule.label} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
-                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                  <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{rule.body}</p>
                 </div>
               ))}
@@ -214,7 +214,7 @@ export function BillingPage() {
           <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Access state</p>
-              <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#10231a]">
+              <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#0f172a]">
                 {isLoading ? 'Loading plan' : getPlanName(visibleClub)}
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
@@ -258,21 +258,21 @@ export function BillingPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Tier</p>
-              <p className="mt-3 text-2xl font-black text-[#10231a]">{getPlanName(visibleClub)}</p>
+              <p className="mt-3 text-2xl font-black text-[#0f172a]">{getPlanName(visibleClub)}</p>
             </div>
             <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Status</p>
-              <p className="mt-3 text-2xl font-black text-[#10231a]">
+              <p className="mt-3 text-2xl font-black text-[#0f172a]">
                 {testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus)}
               </p>
             </div>
             <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Next billing date</p>
-              <p className="mt-3 text-2xl font-black text-[#10231a]">{formatDate(visibleClub?.currentPeriodEnd)}</p>
+              <p className="mt-3 text-2xl font-black text-[#0f172a]">{formatDate(visibleClub?.currentPeriodEnd)}</p>
             </div>
             <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Last updated</p>
-              <p className="mt-3 text-2xl font-black text-[#10231a]">{formatDate(visibleClub?.planUpdatedAt)}</p>
+              <p className="mt-3 text-2xl font-black text-[#0f172a]">{formatDate(visibleClub?.planUpdatedAt)}</p>
             </div>
           </div>
         )}
@@ -321,12 +321,12 @@ export function BillingPage() {
                 className="grid gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10 md:grid-cols-[1fr_auto_auto]"
               >
                 <div>
-                  <p className="font-black text-[#10231a]">{invoice.number}</p>
+                  <p className="font-black text-[#0f172a]">{invoice.number}</p>
                   <p className="mt-1 text-sm font-semibold text-[#475569]">
                     {formatDate(invoice.createdAt)}, {getBillingStatusLabel(invoice.status)}
                   </p>
                 </div>
-                <p className="text-sm font-black text-[#10231a] md:self-center">
+                <p className="text-sm font-black text-[#0f172a] md:self-center">
                   {formatMoney(invoice.amountPaid || invoice.amountDue, invoice.currency)}
                 </p>
                 <div className="flex flex-col gap-2 sm:flex-row md:self-center">
@@ -335,7 +335,7 @@ export function BillingPage() {
                       href={invoice.hostedInvoiceUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
                     >
                       View
                     </a>
@@ -364,7 +364,7 @@ function BillingMetric({ label, value }) {
   return (
     <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
-      <p className="mt-2 break-words text-2xl font-black text-[#10231a]">{value}</p>
+      <p className="mt-2 break-words text-2xl font-black text-[#0f172a]">{value}</p>
     </div>
   )
 }

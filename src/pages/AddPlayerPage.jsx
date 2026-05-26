@@ -373,7 +373,7 @@ export function AddPlayerPage() {
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Player intake</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#10231a] sm:text-5xl">
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-5xl">
               Register the footballer before anything else starts.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
@@ -391,7 +391,7 @@ export function AddPlayerPage() {
           <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Intake state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">
                 {players.length} footballers already registered
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
@@ -473,7 +473,7 @@ function IntakeMetric({ isLoading, label, value }) {
   return (
     <div className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 shadow-sm shadow-[#2563eb]/10">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-2xl font-black text-[#0f172a]">{isLoading ? '...' : value}</p>
     </div>
   )
 }

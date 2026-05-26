@@ -4,8 +4,8 @@ import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
-const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
+const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]'
 const detailClass = 'text-sm font-semibold text-[#475569]'
 
@@ -104,7 +104,7 @@ export function ArchivedPlayersSection({
                   />
                 </label>
                 <div className="md:col-span-2">
-                  <p className="text-base font-black text-[#10231a]">{player.playerName}</p>
+                  <p className="text-base font-black text-[#0f172a]">{player.playerName}</p>
                   <p className={`mt-1 ${detailClass}`}>
                     {player.team || 'No team entered'} | {player.section || 'No section entered'}
                   </p>
@@ -114,11 +114,11 @@ export function ArchivedPlayersSection({
                 </div>
                 <div>
                   <p className={eyebrowClass}>Archived</p>
-                  <p className="mt-2 text-sm font-black text-[#10231a]">{formatPlayerDate(player.archivedAt)}</p>
+                  <p className="mt-2 text-sm font-black text-[#0f172a]">{formatPlayerDate(player.archivedAt)}</p>
                 </div>
                 <div>
                   <p className={eyebrowClass}>Delete Date</p>
-                  <p className="mt-2 text-sm font-black text-[#10231a]">{formatRetentionDate(player.archivedDeleteAt)}</p>
+                  <p className="mt-2 text-sm font-black text-[#0f172a]">{formatRetentionDate(player.archivedDeleteAt)}</p>
                   <p className="mt-1 text-xs font-black text-[#2563eb]">{getRetentionCountdownLabel(player.archivedDeleteAt)}</p>
                 </div>
                 <div>

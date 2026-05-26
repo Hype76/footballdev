@@ -7,7 +7,7 @@ import { SessionStatePanel } from './SessionStatePanel.jsx'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#1d4ed8]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0f172a] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-5 py-3 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 const recordingButtonClass = 'border-[#f04438] bg-[#d92d20] text-white hover:bg-[#b42318]'
 
@@ -53,7 +53,7 @@ export function SessionPlayersSection({
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className={eyebrowClass}>Session players</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Run the live player queue</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Run the live player queue</h2>
             <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
               Coaches can record quick notes during the game or training, then complete each development record in sequence.
             </p>
@@ -100,7 +100,7 @@ export function SessionPlayersSection({
 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-black text-[#10231a]">
+              <p className="text-sm font-black text-[#0f172a]">
                 {selectedSession?.title || selectedSession?.team || 'Session'}
               </p>
           <p className="mt-1 text-sm font-semibold text-[#475569]">
@@ -202,7 +202,7 @@ function TeamVoiceNoteButton({
       className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
         isRecording
           ? recordingButtonClass
-        : 'border-[#d8e3ee] bg-white text-[#10231a] hover:border-[#2563eb] hover:bg-[#eff6ff]'
+        : 'border-[#d8e3ee] bg-white text-[#0f172a] hover:border-[#2563eb] hover:bg-[#eff6ff]'
       }`}
     >
       <MicIcon />
@@ -220,11 +220,11 @@ function SessionVoiceNotes({ deletingVoiceNoteId, notes, onDeleteVoiceNote, sele
 
   return (
     <div className="space-y-3 rounded-lg border border-[#d8e3ee] bg-white p-4 shadow-sm shadow-[#0f172a]/5">
-      <p className="text-sm font-black text-[#10231a]">Team voice notes</p>
+      <p className="text-sm font-black text-[#0f172a]">Team voice notes</p>
       {notes.map((note) => (
         <div key={note.id} className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <p className="text-sm font-black text-[#10231a]">{note.note}</p>
+            <p className="text-sm font-black text-[#0f172a]">{note.note}</p>
             <button
               type="button"
               disabled={selectedSessionLocked || deletingVoiceNoteId === note.id}
@@ -285,7 +285,7 @@ function SessionPlayerCard({
     <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] p-4 shadow-sm shadow-[#0f172a]/5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <p className="text-base font-black text-[#10231a]">{player.playerName}</p>
+          <p className="text-base font-black text-[#0f172a]">{player.playerName}</p>
           <p className="mt-1 text-sm font-semibold text-[#475569]">{player.section} / {player.team || 'No team'}</p>
           {completedPlayerNames.includes(normalizeProgressName(player.playerName)) ? (
             <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#1d4ed8]">
@@ -312,7 +312,7 @@ function SessionPlayerCard({
             className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
               isRecording
                 ? recordingButtonClass
-                : 'border-[#d8e3ee] bg-white text-[#10231a] hover:border-[#2563eb] hover:bg-[#eff6ff]'
+                : 'border-[#d8e3ee] bg-white text-[#0f172a] hover:border-[#2563eb] hover:bg-[#eff6ff]'
             }`}
           >
             <MicIcon />

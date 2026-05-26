@@ -7,10 +7,10 @@ export function SessionStatePanel({ action, body, eyebrow = 'Session setup', tit
         </span>
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1d4ed8]">{eyebrow}</p>
-          <p className="mt-2 text-base font-black text-[#10231a]">{title}</p>
+          <p className="mt-2 text-base font-black text-[#0f172a]">{title}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{body}</p>
           {action ? (
-            <p className="mt-3 rounded-lg border border-[#bfdbfe] bg-white px-3 py-2 text-sm font-black text-[#10231a]">
+            <p className="mt-3 rounded-lg border border-[#bfdbfe] bg-white px-3 py-2 text-sm font-black text-[#0f172a]">
               {action}
             </p>
           ) : null}

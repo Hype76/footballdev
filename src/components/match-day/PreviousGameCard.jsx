@@ -81,8 +81,8 @@ export function PreviousGameCard({ match, onOpen }) {
       className="block w-full rounded-lg border border-[#cbd5e1] bg-white p-4 text-left shadow-sm shadow-[#2563eb]/10 transition hover:-translate-y-0.5 hover:border-[#3b82f6] hover:bg-[#f8fafc] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]"
     >
       <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
-      <h4 className="mt-2 text-base font-black text-[#10231a]">{match.teamName || 'Our team'} v {match.opponent}</h4>
-      <p className="mt-2 text-3xl font-black text-[#10231a]">
+      <h4 className="mt-2 text-base font-black text-[#0f172a]">{match.teamName || 'Our team'} v {match.opponent}</h4>
+      <p className="mt-2 text-3xl font-black text-[#0f172a]">
         {getClubScore(match)} - {getOpponentScore(match)}
       </p>
       {goals.length > 0 ? (
@@ -109,13 +109,13 @@ export function PreviousGameDetailModal({ match, onClose }) {
   const goals = getGoalEvents(match)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#10231a]/55 px-3 py-4 sm:items-center" role="dialog" aria-modal="true" aria-label="Previous game details">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#0f172a]/55 px-3 py-4 sm:items-center" role="dialog" aria-modal="true" aria-label="Previous game details">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-xl sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
-            <h3 className="mt-2 text-xl font-black text-[#10231a]">{match.teamName || 'Our team'} v {match.opponent}</h3>
-            <p className="mt-2 text-4xl font-black text-[#10231a]">
+            <h3 className="mt-2 text-xl font-black text-[#0f172a]">{match.teamName || 'Our team'} v {match.opponent}</h3>
+            <p className="mt-2 text-4xl font-black text-[#0f172a]">
               {getClubScore(match)} - {getOpponentScore(match)}
             </p>
             <p className="mt-1 text-sm font-semibold text-[#475569]">{formatPreviousMatchStatus(match)}</p>
@@ -123,7 +123,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:border-[#3b82f6] hover:bg-[#eff6ff]"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#0f172a] transition hover:border-[#3b82f6] hover:bg-[#eff6ff]"
           >
             Close
           </button>
@@ -132,30 +132,30 @@ export function PreviousGameDetailModal({ match, onClose }) {
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className={panelClass}>
             <p className={eyebrowClass}>Venue</p>
-            <p className="mt-2 text-sm font-black text-[#10231a]">{match.venueName || 'Venue not set'}</p>
+            <p className="mt-2 text-sm font-black text-[#0f172a]">{match.venueName || 'Venue not set'}</p>
             {match.venueAddress ? <p className={`mt-1 ${bodyClass}`}>{match.venueAddress}</p> : null}
           </div>
           <div className={panelClass}>
             <p className={eyebrowClass}>Result</p>
-            <p className="mt-2 text-sm font-black text-[#10231a]">{match.homeAway} game</p>
+            <p className="mt-2 text-sm font-black text-[#0f172a]">{match.homeAway} game</p>
             <p className={`mt-1 ${bodyClass}`}>{goals.length} {goals.length === 1 ? 'goal recorded' : 'goals recorded'}</p>
           </div>
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-black text-[#10231a]">Goal details</h4>
+          <h4 className="text-sm font-black text-[#0f172a]">Goal details</h4>
           {goals.length > 0 ? (
             <div className="mt-3 space-y-2">
               {goals.map((event) => (
                 <div key={event.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 shadow-sm shadow-[#2563eb]/10">
-                  <p className="text-sm font-black text-[#10231a]">{formatGoalLine(event)}</p>
+                  <p className="text-sm font-black text-[#0f172a]">{formatGoalLine(event)}</p>
                   {event.notes ? <p className="mt-1 text-xs font-semibold text-[#475569]">{event.notes}</p> : null}
                 </div>
               ))}
             </div>
           ) : (
             <div className="mt-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5">
-              <p className="text-sm font-black text-[#10231a]">No goals were recorded for this match.</p>
+              <p className="text-sm font-black text-[#0f172a]">No goals were recorded for this match.</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
                 Score updates can still exist without scorer detail if staff only tracked the final result.
               </p>

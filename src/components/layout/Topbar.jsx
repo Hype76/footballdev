@@ -146,7 +146,7 @@ export function Topbar({ title, onMenuClick }) {
                 {todayLabel}
               </span>
             </div>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-[#10231a] sm:text-3xl">
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-[#0f172a] sm:text-3xl">
               {title}
             </h1>
             <div className="mt-2 flex flex-wrap gap-2 text-xs font-black">
@@ -168,7 +168,7 @@ export function Topbar({ title, onMenuClick }) {
                 <select
                   value={demoRoleKey || ''}
                   onChange={(event) => setDemoRolePreview(event.target.value)}
-                  className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#3b82f6]"
+                  className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6]"
                 >
                   <option value="">Default role</option>
                   {DEMO_ROLE_OPTIONS.map((role) => (
@@ -189,7 +189,7 @@ export function Topbar({ title, onMenuClick }) {
                   onChange={handleTeamChange}
                   disabled={isSwitchingTeam}
                   title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
-                  className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
                   {hasParentPortalAccess ? <option value="__parent_portal__">Parent Portal</option> : null}
@@ -216,7 +216,7 @@ export function Topbar({ title, onMenuClick }) {
             />
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#eff6ff]"
+              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-sm font-black leading-none text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#eff6ff]"
             >
               My Settings
             </Link>
@@ -225,7 +225,7 @@ export function Topbar({ title, onMenuClick }) {
               onClick={handleSignOut}
               disabled={isSigningOut}
               title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>

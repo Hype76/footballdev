@@ -140,7 +140,7 @@ export function PlatformFeedbackPage() {
 
   if ((isAuthLoading && !session?.user) || (!user && isProfileLoading)) {
     return (
-      <div className="rounded-lg border border-[#bddcca] bg-white px-5 py-8 text-sm font-bold text-[#456653] shadow-sm shadow-[#067a46]/10">
+      <div className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-8 text-sm font-bold text-[#475569] shadow-sm shadow-[#2563eb]/10">
         Loading...
       </div>
     )
@@ -153,7 +153,7 @@ export function PlatformFeedbackPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       {successMessage ? (
-        <div className="rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-black text-[#2563eb] shadow-sm shadow-[#2563eb]/10">
           {successMessage}
         </div>
       ) : null}

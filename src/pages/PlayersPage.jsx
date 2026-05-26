@@ -324,9 +324,9 @@ export function PlayersPage({
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">{headerEyebrow}</p>
-              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">{headerTitle}</h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">{headerDescription}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">{headerEyebrow}</p>
+              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">{headerTitle}</h1>
+              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">{headerDescription}</p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {playerRegisterRules.map((item) => (
                   <article key={item.label} className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] p-4 shadow-sm shadow-[#0f172a]/5">
@@ -340,7 +340,7 @@ export function PlayersPage({
           <div className="grid content-between border-t border-[#bfdbfe] bg-[#eff6ff] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1d4ed8]">Register state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">
                 {playerRows.length} footballers tracked
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
@@ -362,7 +362,7 @@ export function PlayersPage({
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
       {!isValidViewFilter || !isValidSectionFilter ? (
-        <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-4 py-4 text-sm font-semibold text-[#10231a] shadow-sm shadow-[#0f172a]/5">
+        <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-4 py-4 text-sm font-semibold text-[#0f172a] shadow-sm shadow-[#0f172a]/5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-bold">Player filters were reset</p>
@@ -373,7 +373,7 @@ export function PlayersPage({
             <button
               type="button"
               onClick={clearInvalidFilters}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-bold text-[#10231a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-bold text-[#0f172a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
             >
               Clear filters
             </button>
@@ -381,7 +381,7 @@ export function PlayersPage({
         </div>
       ) : null}
       {message ? (
-        <div className="rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-4 py-3 text-sm font-bold text-[#067a46]">
+        <div className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-3 text-sm font-bold text-[#2563eb]">
           {message}
         </div>
       ) : null}
@@ -429,7 +429,7 @@ function PlayerMetric({ isLoading, label, value }) {
   return (
     <div className="rounded-lg border border-[#bfdbfe] bg-white px-3 py-3 shadow-sm shadow-[#1d4ed8]/10">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#1d4ed8]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-2xl font-black text-[#0f172a]">{isLoading ? '...' : value}</p>
     </div>
   )
 }

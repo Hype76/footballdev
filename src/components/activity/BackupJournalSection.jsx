@@ -34,7 +34,7 @@ export function BackupJournalSection({
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-[#10231a]">
+                  <p className="text-sm font-black text-[#0f172a]">
                     {formatActivityAction(backup.operation)} {formatActivityAction(backup.tableName)}
                   </p>
                   <p className="mt-1 break-words text-sm font-semibold text-[#475569]">

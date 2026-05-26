@@ -312,7 +312,7 @@ export function Sidebar({ isOpen, onClose }) {
     <>
       <div
         className={[
-          'fixed inset-0 z-30 bg-[#10231a]/25 backdrop-blur-sm transition lg:hidden',
+          'fixed inset-0 z-30 bg-[#0f172a]/25 backdrop-blur-sm transition lg:hidden',
           isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
         ].join(' ')}
         onClick={onClose}
@@ -334,7 +334,7 @@ export function Sidebar({ isOpen, onClose }) {
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2563eb]">
                   {isParentPortal ? 'Family portal' : 'Football OS'}
                 </p>
-                <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#10231a]">{clubLabel}</h2>
+                <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#0f172a]">{clubLabel}</h2>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -442,7 +442,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#f8fafc]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#f8fafc]"
           >
             Sign out
           </button>
@@ -455,7 +455,7 @@ export function Sidebar({ isOpen, onClose }) {
 function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
   return (
     <details className="group rounded-lg border border-[#cbd5e1] bg-white p-2 shadow-sm shadow-[#2563eb]/10">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#10231a]">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#0f172a]">
         <span className="min-w-0 flex-1">
           <span className="block">{title}</span>
           <span className="mt-0.5 block text-xs font-semibold text-[#475569]">{groupDescriptions[title] || 'Workspace tools'}</span>
@@ -478,7 +478,7 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
                   'block rounded-lg px-3 py-3 transition',
                   isActive
                     ? 'bg-[#eff6ff] text-[#1e3a8a] ring-1 ring-[#3b82f6]'
-                    : 'text-[#475569] hover:bg-[#f8fafc] hover:text-[#10231a]',
+                    : 'text-[#475569] hover:bg-[#f8fafc] hover:text-[#0f172a]',
                 ].join(' ')
               }
             >
