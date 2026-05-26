@@ -45,29 +45,29 @@ const EMPTY_GOAL_FORM = {
   notes: '',
 }
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
 const smallLabelClass = 'mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
-const compactInputClass = 'min-h-10 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const compactInputClass = 'min-h-10 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-2 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
-const panelClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
-const sectionHeaderClass = 'border-b border-[#cfeedd] bg-[#f8fdf9] px-5 py-5 sm:px-6'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
+const sectionHeaderClass = 'border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
 
 const matchRuleCards = [
   {
-    label: 'Staff own the match',
-    body: 'Staff create the fixture, set the score, and decide when updates go to parents.',
+    label: 'Staff control the fixture',
+    body: 'Create the match, choose the scorer, set the score, and decide when parent updates go out.',
   },
   {
-    label: 'Scorer is delegated',
-    body: 'Parents can help with live scoring only after a staff member selects them.',
+    label: 'Parents only score when selected',
+    body: 'A parent volunteer can help with live updates only after staff grant access for that match.',
   },
   {
-    label: 'Result stays recorded',
-    body: 'Full-time score, goals, assists, venue, and notes stay in the club record.',
+    label: 'One result record',
+    body: 'Full time score, goals, assists, venue, and notes stay attached to the club fixture.',
   },
 ]
 
@@ -491,29 +491,31 @@ export function MatchDayPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/80">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
-            <p className={eyebrowClass}>Match command</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-[#101828] sm:text-5xl">
-              Control the fixture from request to result.
-            </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
-              Match Day starts before kick off. Create the fixture, request a scorer, run the live board, then keep the final score and goal detail in one club record.
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {matchRuleCards.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.body}</p>
-                </article>
-              ))}
+            <div className="px-5 py-6 sm:px-6 lg:px-8">
+              <p className={eyebrowClass}>Match command</p>
+              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+                Run the football match from request to result.
+              </h1>
+              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
+                Create the fixture, request or select a scorer, run the live board, then keep the final score and goal detail in one club record.
+              </p>
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {matchRuleCards.map((item) => (
+                  <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.body}</p>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="grid content-between rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-5 shadow-inner shadow-[#d7eadf]/60">
+          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Next fixture</p>
-              <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Next fixture</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
                 {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No fixture created'}
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
@@ -526,8 +528,8 @@ export function MatchDayPage() {
               <MatchMetric label="Upcoming" value={upcomingMatches} isLoading={isLoading} />
               <MatchMetric label="Goals" value={goalCount} isLoading={isLoading} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#5f7468]">
-              Keep one active fixture visible so staff and parent updates stay aligned.
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#456653]">
+              Keep one active fixture visible so staff actions and parent updates stay aligned.
             </p>
           </div>
         </div>
@@ -537,20 +539,20 @@ export function MatchDayPage() {
 
       <section className="grid gap-3 md:grid-cols-4">
         {matchDaySummary.map((item) => (
-          <article key={item.label} className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+          <article key={item.label} className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
-            <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : item.value}</p>
+            <p className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{isLoading ? '...' : item.value}</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.caption}</p>
           </article>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Fixture setup</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create match day</h2>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Create match day</h2>
           <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-            Create the match, prepare parent-facing details, and publish a scorer request when needed.
+            Set the opponent, team, venue, and parent-facing scorer request before the fixture appears in the live workflow.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleCreateMatch}>
@@ -665,14 +667,14 @@ export function MatchDayPage() {
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3">
               <input
                 type="checkbox"
                 checked={form.enableMotmPoll}
                 onChange={(event) => updateForm({ enableMotmPoll: event.target.checked })}
                 className="h-4 w-4 accent-[#067a46]"
               />
-              <span className="text-sm font-black text-[#101828]">Create Player of the Match poll at full time</span>
+              <span className="text-sm font-black text-[#10231a]">Create Player of the Match poll at full time</span>
             </label>
 
             <label className="block">
@@ -700,17 +702,17 @@ export function MatchDayPage() {
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Live board</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Run live and upcoming matches</h2>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Run live and upcoming matches</h2>
           <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
             Start the match, update the score, select parent scorers, and record goals with scorer and assist detail.
           </p>
         </div>
         <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <p className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-5 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
+          <p className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
             Loading match day...
           </p>
         ) : activeMatches.length > 0 ? (
@@ -742,18 +744,21 @@ export function MatchDayPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
-            No live or upcoming matches have been created yet.
-          </p>
+          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5 shadow-sm shadow-[#d7eadf]/60">
+            <p className="text-base font-black text-[#10231a]">No live or upcoming matches yet.</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              Create the match day above before requesting a scorer or publishing parent updates.
+            </p>
+          </div>
         )}
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm">
-        <div className="grid gap-4 border-b border-[#cfeedd] bg-[#f8fdf9] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
+        <div className="grid gap-4 border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
             <p className={eyebrowClass}>Results archive</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Previous games</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Previous games</h2>
             <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
               Review completed results. Reset the list when a new season starts.
             </p>
@@ -775,9 +780,12 @@ export function MatchDayPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
-            No previous games are showing.
-          </p>
+          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5 shadow-sm shadow-[#d7eadf]/60">
+            <p className="text-base font-black text-[#10231a]">No previous games are showing.</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              Completed fixtures appear here after full time so staff can review goals and results.
+            </p>
+          </div>
         )}
         </div>
       </section>
@@ -805,31 +813,31 @@ function MatchDayCard({
   const currentMinute = getCurrentMatchMinute(match)
 
   return (
-    <article className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+    <article className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex w-fit rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-3 py-1 text-xs font-black text-[#067a46]">
               {match.status.replace(/_/g, ' ')}
             </span>
-            <span className="inline-flex w-fit rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
+            <span className="inline-flex w-fit rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
               {match.homeAway}
             </span>
             {match.teamName ? (
-              <span className="inline-flex w-fit rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
+              <span className="inline-flex w-fit rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
                 {match.teamName}
               </span>
             ) : null}
           </div>
-          <h4 className="mt-3 text-lg font-black text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
+          <h4 className="mt-3 text-lg font-black text-[#10231a]">{match.teamName || 'Our team'} v {match.opponent}</h4>
           <p className="mt-1 text-sm font-semibold text-[#5f7468]">{formatMatchDate(match)}</p>
           {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#5f7468]">{match.venueName}</p> : null}
           {match.notes ? <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#5f7468]">{match.notes}</p> : null}
         </div>
 
-        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 text-center shadow-sm shadow-[#d7eadf]/60">
+        <div className="rounded-lg border border-[#bddcca] bg-[#effbf3] p-4 text-center shadow-sm shadow-[#d7eadf]/60">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Live score</p>
-          <p className="mt-2 text-4xl font-black text-[#101828]">
+          <p className="mt-2 text-4xl font-black text-[#10231a]">
             {getClubScore(match)} - {getOpponentScore(match)}
           </p>
           {currentMinute ? (
@@ -840,7 +848,7 @@ function MatchDayCard({
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <div className={panelClass}>
-          <h5 className="text-sm font-black text-[#101828]">Score and status</h5>
+          <h5 className="text-sm font-black text-[#10231a]">Score and status</h5>
           {match.status === 'scheduled' || match.status === 'scorer_request' ? (
             <button
               type="button"
@@ -892,7 +900,7 @@ function MatchDayCard({
                 className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   match.status === option.value
                     ? 'border-[#067a46] bg-[#067a46] text-white'
-                    : 'border-[#cfeedd] bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]'
+                    : 'border-[#bddcca] bg-white text-[#10231a] hover:border-[#20a464] hover:bg-[#f0fdf6]'
                 }`}
               >
                 {option.label}
@@ -902,17 +910,17 @@ function MatchDayCard({
         </div>
 
         <div className={panelClass}>
-          <h5 className="text-sm font-black text-[#101828]">Parent scorer requests</h5>
+          <h5 className="text-sm font-black text-[#10231a]">Parent scorer requests</h5>
           {match.scorerInterests.length > 0 ? (
             <div className="mt-3 space-y-2">
               {match.scorerInterests.map((interest) => {
                 const isSelected = selectedParentLinkIds.has(String(interest.parentLinkId))
 
                 return (
-                  <div key={interest.id} className="rounded-lg border border-[#cfeedd] bg-white p-3 shadow-sm shadow-[#d7eadf]/60">
+                  <div key={interest.id} className="rounded-lg border border-[#bddcca] bg-white p-3 shadow-sm shadow-[#d7eadf]/60">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <p className="text-sm font-black text-[#101828]">{interest.parentEmail || interest.parentName || 'Parent'}</p>
+                        <p className="text-sm font-black text-[#10231a]">{interest.parentEmail || interest.parentName || 'Parent'}</p>
                         <p className="mt-1 text-xs font-semibold text-[#5f7468]">
                           {interest.playerName ? `Linked to ${interest.playerName}` : 'Parent portal volunteer'}
                         </p>
@@ -932,15 +940,18 @@ function MatchDayCard({
               })}
             </div>
           ) : (
-            <p className="mt-3 rounded-lg border border-dashed border-[#9addb4] bg-white px-4 py-5 text-sm font-semibold text-[#5f7468]">
-              No parents have volunteered yet.
-            </p>
+            <div className="mt-3 rounded-lg border border-[#bddcca] bg-white px-4 py-5">
+              <p className="text-sm font-black text-[#10231a]">No parents have volunteered yet.</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+                Keep the scorer request open or select a staff member to run the score from the touchline.
+              </p>
+            </div>
           )}
         </div>
       </div>
 
-      <form className="mt-4 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60" onSubmit={(event) => onAddGoal(event, match)}>
-        <h5 className="text-sm font-black text-[#101828]">Add goal</h5>
+      <form className="mt-4 rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60" onSubmit={(event) => onAddGoal(event, match)}>
+        <h5 className="text-sm font-black text-[#10231a]">Add goal</h5>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <label className="block">
             <span className={smallLabelClass}>Team</span>
@@ -1024,8 +1035,8 @@ function MatchDayCard({
       {match.events.length > 0 ? (
         <div className="mt-4 space-y-2">
           {match.events.slice(0, 6).map((event) => (
-            <div key={event.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
-              <p className="text-sm font-black text-[#101828]">
+            <div key={event.id} className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+              <p className="text-sm font-black text-[#10231a]">
                 {event.eventType === 'goal' ? 'Goal' : 'Update'} / {event.homeScore} - {event.awayScore}
               </p>
               <p className="mt-1 text-xs font-semibold text-[#5f7468]">
@@ -1045,9 +1056,9 @@ function MatchDayCard({
 
 function MatchMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#cfeedd] bg-white px-3 py-3 shadow-sm">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
     </div>
   )
 }
