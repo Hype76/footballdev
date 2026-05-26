@@ -5,9 +5,9 @@ import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const eyebrowLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.12em] text-[#067a46]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const helperClass = 'mt-2 text-xs font-semibold leading-5 text-[#667085]'
-const contactCardClass = 'flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] shadow-sm shadow-slate-200/60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const helperClass = 'mt-2 text-xs font-semibold leading-5 text-[#5f7468]'
+const contactCardClass = 'flex min-h-11 items-center gap-3 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] shadow-sm shadow-[#d7eadf]/60'
 
 export function EvaluationPlayerDetailsSection({
   availableTeams,
@@ -127,7 +127,7 @@ export function EvaluationPlayerDetailsSection({
                   />
                   <span className="min-w-0">
                     <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}</span>
-                    <span className="block break-words text-xs font-semibold text-[#667085]">{contact.email || 'No email entered'}</span>
+                    <span className="block break-words text-xs font-semibold text-[#5f7468]">{contact.email || 'No email entered'}</span>
                   </span>
                 </label>
               ))}

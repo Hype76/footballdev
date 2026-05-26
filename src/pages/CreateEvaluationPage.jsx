@@ -104,7 +104,7 @@ function RecordReadinessItem({ isReady, label, value }) {
   const state = getReadyState(isReady)
 
   return (
-    <div className={`rounded-lg border px-4 py-3 shadow-sm shadow-slate-200/60 ${state.className}`}>
+    <div className={`rounded-lg border px-4 py-3 shadow-sm shadow-[#d7eadf]/60 ${state.className}`}>
       <div className="flex items-start gap-3">
         <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${state.dotClassName}`} />
         <div className="min-w-0">
@@ -146,17 +146,17 @@ function DevelopmentRecordCommandPanel({
           : 'Save the development record.'
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
-      <div className="grid gap-5 border-b border-slate-200 bg-[#f9fafb] px-5 py-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+    <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <div className="grid gap-5 border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Record workspace</p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Build one clear football record.</h3>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
             Work top to bottom: player, football detail, then sharing choice. Save internal notes first unless the parent output is ready.
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm shadow-slate-200/60">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">Next action</p>
+        <div className="rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">Next action</p>
           <p className="mt-2 text-lg font-black text-[#101828]">{nextAction}</p>
         </div>
       </div>
@@ -188,7 +188,7 @@ function DevelopmentRecordCommandPanel({
         />
       </div>
 
-      <div className="grid gap-3 border-t border-slate-200 bg-[#f9fafb] px-5 py-4 text-sm font-semibold text-[#667085] md:grid-cols-3">
+      <div className="grid gap-3 border-t border-[#d7eadf] bg-[#f8fdf9] px-5 py-4 text-sm font-semibold text-[#5f7468] md:grid-cols-3">
         <p>
           Session: <span className="font-black text-[#101828]">{selectedSession}</span>
         </p>
@@ -1444,7 +1444,7 @@ export function CreateEvaluationPage() {
             type="date"
             value={nextAssessmentReminderDate}
             onChange={(event) => setNextAssessmentReminderDate(event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+            className="min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
           />
         </label>
       </ConfirmModal>
@@ -1457,7 +1457,7 @@ export function CreateEvaluationPage() {
         />
 
         {isSaved ? (
-          <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-slate-200/60">
+          <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
             Development record saved
           </div>
         ) : null}
@@ -1475,18 +1475,18 @@ export function CreateEvaluationPage() {
 
         {dataRefreshNotice ? <NoticeBanner title="Using available club data" message={dataRefreshNotice} tone="info" /> : null}
         {hasInvalidAssessmentSection || hasIncompleteSessionAssessmentLink ? (
-          <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm text-[#101828] shadow-sm shadow-slate-200/60">
+          <div className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-4 text-sm text-[#101828] shadow-sm shadow-[#d7eadf]/60">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-black">Development link was adjusted</p>
-                <p className="mt-1 font-semibold leading-6 text-[#667085]">
+                <p className="mt-1 font-semibold leading-6 text-[#5f7468]">
                   The link had missing or unknown development details, so the form is using the nearest valid options.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={clearAssessmentLinkState}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 Clear link details
               </button>

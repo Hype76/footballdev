@@ -18,7 +18,7 @@ export function ConfiguredFieldsSection({
       }
     >
       {enabledFields.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/60">
+        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
           No development fields are enabled for this club. Enable fields in Development Form first.
         </div>
       ) : (

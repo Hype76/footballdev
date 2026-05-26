@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom'
 import { canManageUsers, canCreateEvaluation } from '../../lib/auth.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const statePanelClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold leading-6 text-[#667085] shadow-sm shadow-slate-200/60'
-const emptyPanelClass = 'space-y-4 rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-5 text-sm font-semibold leading-6 text-[#667085] shadow-sm shadow-slate-200/60'
-const secondaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]'
+const statePanelClass = 'rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold leading-6 text-[#5f7468] shadow-sm shadow-[#d7eadf]/60'
+const emptyPanelClass = 'space-y-4 rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold leading-6 text-[#5f7468] shadow-sm shadow-[#d7eadf]/60'
+const secondaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]'
 const primaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a]'
 
 export function EvaluationAvailabilityState({

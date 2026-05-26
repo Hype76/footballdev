@@ -5,10 +5,10 @@ import { ScheduleDateTimePicker } from '../ui/ScheduleDateTimePicker.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const choiceCardClass = 'flex items-start gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60'
-const optionCardClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/60'
-const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] sm:w-auto'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const choiceCardClass = 'flex items-start gap-3 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
+const optionCardClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/60'
+const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] sm:w-auto'
 
 export function SubmitExportSection({
   availableEmailTemplates,
@@ -58,7 +58,7 @@ export function SubmitExportSection({
       title="Submit and export"
       description="Save the record first. Parent email and PDF output are optional and should only include useful football detail."
     >
-      <div className="mb-4 rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-slate-200/60">
+      <div className="mb-4 rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
         Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
       </div>
 
@@ -68,11 +68,11 @@ export function SubmitExportSection({
             type="checkbox"
             checked={isEmailEnabled}
             onChange={(event) => onEmailAfterSaveChange(event.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-slate-300 accent-[#067a46]"
+            className="mt-1 h-4 w-4 rounded border-[#9addb4] accent-[#067a46]"
           />
           <span className="min-w-0">
             <span className="block text-sm font-black text-[#101828]">Email parents after saving</span>
-            <span className="mt-1 block text-sm font-semibold leading-6 text-[#667085]">
+            <span className="mt-1 block text-sm font-semibold leading-6 text-[#5f7468]">
               Leave this off to save the coach record only.
             </span>
           </span>
@@ -119,7 +119,7 @@ export function SubmitExportSection({
                 onChange={(event) => onInviteDateChange(normalizeSessionValue(event.target.value))}
                 className={inputClass}
               />
-              <p className="mt-2 text-xs font-semibold leading-5 text-[#667085]">
+              <p className="mt-2 text-xs font-semibold leading-5 text-[#5f7468]">
                 This is only used in invite email templates. The Session field above remains the saved current session date.
               </p>
             </label>
@@ -130,16 +130,16 @@ export function SubmitExportSection({
               type="checkbox"
               checked={Boolean(isPdfAttachmentApproved)}
               onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-slate-300 accent-[#067a46]"
+              className="mt-1 h-4 w-4 rounded border-[#9addb4] accent-[#067a46]"
             />
             <span>
               <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-[#667085]">
+              <span className="mt-1 block text-sm font-semibold leading-6 text-[#5f7468]">
                 Include the selected football details as a PDF attachment.
               </span>
             </span>
           </label>
-          <div className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60 md:col-span-2">
+          <div className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60 md:col-span-2">
             <span className="block text-sm font-black text-[#101828]">Send timing</span>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <label className={optionCardClass}>
@@ -176,11 +176,11 @@ export function SubmitExportSection({
       ) : null}
 
       {isEmailEnabled || isPdfAttachmentApproved ? (
-        <div className="mb-4 rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+        <div className="mb-4 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-sm font-black text-[#101828]">Football details to include</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-[#667085]">
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#5f7468]">
                 Choose what goes into the {contactNoun} email and PDF. This choice is saved in this browser for this player.
               </p>
             </div>
@@ -188,14 +188,14 @@ export function SubmitExportSection({
               <button
                 type="button"
                 onClick={onSelectAllExportFields}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 Select All
               </button>
               <button
                 type="button"
                 onClick={onClearExportFields}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 Clear
               </button>
@@ -211,12 +211,12 @@ export function SubmitExportSection({
               selectedExportLabels={selectedExportLabels}
             />
           ) : (
-            <p className="mt-4 rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-[#667085]">
+            <p className="mt-4 rounded-lg border border-dashed border-[#9addb4] bg-white px-4 py-3 text-sm font-semibold text-[#5f7468]">
               No scored development responses have been entered yet.
             </p>
           )}
 
-          <p className="mt-3 text-xs font-semibold leading-5 text-[#667085]">
+          <p className="mt-3 text-xs font-semibold leading-5 text-[#5f7468]">
             {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
           </p>
         </div>
