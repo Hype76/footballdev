@@ -18,11 +18,11 @@ export function PendingAllocationsSection({
       description="Invited emails receive the saved role when they sign in. Remove stale invites before sending new ones."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold text-[#667085]">
+        <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]">
           Loading pending allocations...
         </div>
       ) : pendingInvites.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085]">
+        <div className="rounded-lg border border-dashed border-[#bddcca] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]">
           No pending allocations.
         </div>
       ) : (
@@ -30,11 +30,11 @@ export function PendingAllocationsSection({
           {paginatedInvites.items.map((invite) => (
             <div
               key={invite.id}
-              className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 shadow-sm shadow-slate-200/60"
+              className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="break-words text-sm font-black text-[#101828]">{invite.email}</p>
+                  <p className="break-words text-sm font-black text-[#10231a]">{invite.email}</p>
                   <p className="mt-1 text-sm font-semibold text-[#067a46]">{invite.roleLabel}</p>
                 </div>
                 <button
@@ -42,7 +42,7 @@ export function PendingAllocationsSection({
                   disabled={isSaving}
                   title={isSaving ? 'Please wait while this allocation is being removed.' : undefined}
                   onClick={() => onDeleteInvite(invite)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Remove
                 </button>
