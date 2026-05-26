@@ -2,10 +2,10 @@ import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageUtils.js'
 import { Pagination } from '../ui/Pagination.jsx'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-slate-400 focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#667085]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayersListSection({
   actionLoadingKey,
@@ -34,24 +34,24 @@ export function PlayersListSection({
   return (
     <section
       data-tour-id="players-list-section"
-      className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+      className="overflow-hidden rounded-lg border border-[#b7efce] bg-white shadow-sm shadow-[#d7eadf]/80"
     >
-      <div className="border-b border-slate-200 bg-[#f9fafb] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#bfe8cd] bg-[#f8fdf9] px-5 py-5 sm:px-6">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Player register</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Find, check, and act on players</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
               Use the register as the source of truth for footballers. Search first, filter by section, then open a profile before making squad decisions.
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#475467] shadow-sm shadow-slate-200/60">
+          <div className="rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#456653] shadow-sm shadow-[#d7eadf]/60">
             {filteredPlayers.length} matching players
           </div>
         </div>
       </div>
 
-      <div className="grid gap-4 border-b border-slate-200 px-5 py-5 sm:px-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 border-b border-[#bfe8cd] px-5 py-5 sm:px-6 md:grid-cols-2 lg:grid-cols-3">
         <label className="block md:col-span-2">
           <span className={labelClass}>Search player register</span>
           <input
@@ -82,11 +82,11 @@ export function PlayersListSection({
 
       <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-6 text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60">
+          <div className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-6 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
             Loading player register...
           </div>
         ) : filteredPlayers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-8 text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60">
+          <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-8 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
             {emptyMessage}
           </div>
         ) : (
@@ -101,9 +101,7 @@ export function PlayersListSection({
             return (
               <div
                 key={getPlayerKey(player.playerName)}
-                className={[
-                  'relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:shadow-md',
-                ].join(' ')}
+                className="relative overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/70 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:shadow-md"
               >
                 <div className={['absolute inset-y-0 left-0 w-1', stripeClass].join(' ')} />
                 <button
@@ -124,8 +122,8 @@ export function PlayersListSection({
                           {isSquadPlayer ? 'Squad player' : 'Trial player'}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm font-bold text-[#475467]">{player.team || 'No team entered'}</p>
-                      <p className="mt-1 text-sm font-semibold text-[#667085]">
+                      <p className="mt-2 text-sm font-bold text-[#456653]">{player.team || 'No team entered'}</p>
+                      <p className="mt-1 text-sm font-semibold text-[#5f7468]">
                         {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
                       </p>
                     </div>
@@ -151,7 +149,7 @@ export function PlayersListSection({
                     </div>
                   </div>
                 </button>
-                <div className="flex flex-col gap-2 border-t border-slate-200 bg-[#f9fafb] px-4 py-3 sm:flex-row sm:flex-wrap sm:justify-end">
+                <div className="flex flex-col gap-2 border-t border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 sm:flex-row sm:flex-wrap sm:justify-end">
                   {isSquadPlayer ? (
                     <button
                       type="button"
