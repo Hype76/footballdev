@@ -3,9 +3,9 @@ import { SessionStatePanel } from './SessionStatePanel.jsx'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
-const inputClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function OpenSessionsSection({
   canCompleteSessions,
@@ -25,11 +25,11 @@ export function OpenSessionsSection({
   return (
     <section
       data-tour-id="open-sessions-section"
-      className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/70"
+      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70"
     >
-      <div className="border-b border-[#cfeedd] bg-white px-5 py-5 sm:px-6">
+      <div className="border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6">
         <p className={eyebrowClass}>Saved sessions</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Open existing sessions</h2>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Open existing sessions</h2>
         <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
           Reopen any saved session to continue notes, add players, or carry on development records.
         </p>
@@ -52,11 +52,11 @@ export function OpenSessionsSection({
           />
         ) : (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
-          <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-black text-[#101828]">
+                  <p className="truncate text-sm font-black text-[#10231a]">
                     {selectedSession?.title || selectedSession?.team || 'Current session'}
                   </p>
                   <span className="rounded-lg bg-[#067a46] px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-white">
@@ -105,7 +105,7 @@ export function OpenSessionsSection({
           </div>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-black text-[#101828]">Previous sessions</span>
+            <span className="mb-2 block text-sm font-black text-[#10231a]">Previous sessions</span>
             <select
               value=""
               onChange={(event) => onOpenSession(event.target.value)}

@@ -2,8 +2,8 @@ import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { SessionStatePanel } from './SessionStatePanel.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function CreateSessionSection({
@@ -18,7 +18,7 @@ export function CreateSessionSection({
     <SectionCard
       title="Create session"
       tourId="create-session-section"
-      description="Use a date only. Times are not required for development records."
+      description="Create one training or match block before adding the player queue."
     >
       {isLoading ? (
         <SessionStatePanel

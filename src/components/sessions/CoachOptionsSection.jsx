@@ -3,11 +3,11 @@ import { AVAILABLE_PLAYER_PAGE_SIZE, formatSessionDate, formatSessionType } from
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const emptyClass = 'rounded-lg border border-dashed border-[#b7efce] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const emptyClass = 'rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function CoachOptionsSection({
   activePlayerSection,
@@ -51,7 +51,8 @@ export function CoachOptionsSection({
     >
       {sessions.length === 0 ? (
         <div className={emptyClass}>
-          No sessions created yet.
+          <p className="font-black text-[#10231a]">No sessions have been created yet.</p>
+          <p className="mt-2 leading-6">Create the first training or match block before adding a player queue.</p>
         </div>
       ) : (
         <div className="space-y-5">
@@ -88,7 +89,7 @@ export function CoachOptionsSection({
             </label>
           </div>
 
-          <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
             Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
             {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
               <span className="mt-2 block text-xs font-black text-[#067a46]">
@@ -101,7 +102,7 @@ export function CoachOptionsSection({
             {paginatedPlayers.items.map((player) => (
               <label
                 key={player.id}
-                className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/50 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/50 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 <input
                   type="checkbox"
@@ -122,7 +123,10 @@ export function CoachOptionsSection({
 
           {filteredPlayers.length === 0 ? (
             <div className={emptyClass}>
-              No {String(activePlayerSection || 'selected').toLowerCase()} players are available for {activePlayerTeam || 'this team'}.
+              <p className="font-black text-[#10231a]">No players match this session list.</p>
+              <p className="mt-2 leading-6">
+                No {String(activePlayerSection || 'selected').toLowerCase()} players are available for {activePlayerTeam || 'this team'}.
+              </p>
             </div>
           ) : null}
 
