@@ -68,6 +68,13 @@ const rhythmItems = [
   },
 ]
 
+const surfaceClass = 'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70'
+const sectionHeaderClass = 'border-b border-slate-200 bg-[#f9fafb] px-5 py-5 sm:px-6'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#667085]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white'
+
 function getActiveSession(sessions) {
   const openSessions = sessions.filter((session) => session.status !== 'completed')
 
@@ -232,11 +239,11 @@ export function CoachHomePage() {
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Football operating room</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+            <p className={eyebrowClass}>Football operating room</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-[#101828] sm:text-5xl">
               Run the week from one match-ready board.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
               Start with the next real football action: build the squad, run the session, record the note, or confirm match day. No generic dashboard noise.
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -252,17 +259,17 @@ export function CoachHomePage() {
                   ].join(' ')}
                 >
                   <span className="block text-sm font-black leading-5">{action.label}</span>
-                  <span className={['mt-2 block text-xs leading-5', action.primary ? 'text-emerald-50' : 'text-[#667085]'].join(' ')}>
+                  <span className={['mt-2 block text-xs font-semibold leading-5', action.primary ? 'text-[#dcfae6]' : 'text-[#667085]'].join(' ')}>
                     {action.description}
                   </span>
                 </Link>
               ))}
             </div>
           </div>
-          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+          <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-inner shadow-slate-200/60">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Today rule</p>
-              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Today rule</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
                 Session first. Availability before match day.
               </p>
             </div>
@@ -271,7 +278,7 @@ export function CoachHomePage() {
               <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" compact />
               <CoachMetric label="Waiting" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" compact />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#667085]">
               The board uses live workspace data where possible, then pushes staff to the next useful action.
             </p>
           </div>
@@ -284,41 +291,40 @@ export function CoachHomePage() {
             key={item.label}
             to={item.path}
             className={[
-              'rounded-lg border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
-              item.tone === 'good' ? 'hover:border-emerald-300 hover:bg-emerald-50' : 'hover:border-amber-300 hover:bg-amber-50',
+              'rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:bg-[#f9fafb] focus:outline-none focus:ring-2 focus:ring-[#20a464]',
             ].join(' ')}
           >
             <span className="flex items-center justify-between gap-3">
-              <span className="min-w-0 text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</span>
+              <span className="min-w-0 text-xs font-black uppercase tracking-[0.16em] text-[#667085]">{item.label}</span>
               <span className={[
-                'shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-black',
-                item.tone === 'good' ? 'bg-emerald-100 text-emerald-900' : item.tone === 'risk' ? 'bg-rose-100 text-rose-900' : 'bg-amber-100 text-amber-950',
+                'shrink-0 whitespace-nowrap rounded-lg border px-2 py-1 text-[11px] font-black',
+                item.tone === 'good' ? 'border-[#abefc6] bg-[#ecfdf3] text-[#067647]' : item.tone === 'risk' ? 'border-[#fecdca] bg-[#fef3f2] text-[#b42318]' : 'border-[#fedf89] bg-[#fffaeb] text-[#93370d]',
               ].join(' ')}
               >
                 {item.state}
               </span>
             </span>
-            <span className="mt-3 block text-sm font-semibold leading-6 text-slate-700">{item.detail}</span>
+            <span className="mt-3 block text-sm font-semibold leading-6 text-[#475467]">{item.detail}</span>
           </Link>
         ))}
       </section>
 
       {errorMessage ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900 shadow-sm">
+        <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-bold text-[#93370d] shadow-sm">
           {errorMessage}
         </div>
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
+        <section className={surfaceClass}>
+          <div className={sectionHeaderClass}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Training queue</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                <p className={eyebrowClass}>Training queue</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
                   {activeSession?.title || activeSession?.team || (isLoading ? 'Loading session' : 'No session selected')}
                 </h2>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className={`mt-2 ${bodyTextClass}`}>
                   {activeSession
                     ? `${formatSessionType(activeSession.sessionType)} | ${formatSessionDate(activeSession.sessionDate)}`
                     : 'Create or open a session to start coach work.'}
@@ -326,7 +332,7 @@ export function CoachHomePage() {
               </div>
               <Link
                 to="/sessions/start"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
+                className={primaryButtonClass}
               >
                 Open session
               </Link>
@@ -344,21 +350,21 @@ export function CoachHomePage() {
 
             <div className="mt-5 space-y-3">
               {unassessedPlayers.slice(0, 4).map((player) => (
-                <div key={player.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <div key={player.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 shadow-sm shadow-slate-200/60">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-slate-950">{player.playerName}</p>
-                    <p className="mt-1 text-xs text-slate-500">{player.section} / {player.team || 'No team'}</p>
+                    <p className="truncate text-sm font-black text-[#101828]">{player.playerName}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#667085]">{player.section} / {player.team || 'No team'}</p>
                   </div>
                   <Link
                     to="/sessions/start"
-                    className="shrink-0 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-50 hover:text-slate-950"
+                    className="shrink-0 rounded-lg border border-[#abefc6] bg-white px-3 py-2 text-sm font-black text-[#067a46] transition hover:bg-[#f0fdf6] hover:text-[#101828]"
                   >
                     Record
                   </Link>
                 </div>
               ))}
               {!isLoading && unassessedPlayers.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
+                <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-5 text-sm font-bold text-[#667085]">
                   No players are waiting in the current development queue.
                 </div>
               ) : null}
@@ -366,10 +372,10 @@ export function CoachHomePage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Match readiness</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Before the weekend</h2>
+        <section className={surfaceClass}>
+          <div className={sectionHeaderClass}>
+            <p className={eyebrowClass}>Match readiness</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Before the weekend</h2>
           </div>
           <div className="grid gap-3 px-5 py-5 sm:px-6">
             {[
@@ -380,10 +386,10 @@ export function CoachHomePage() {
               <Link
                 key={action.label}
                 to={action.path}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-slate-950 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-[#101828] shadow-sm shadow-slate-200/60 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#20a464]"
               >
                 <span className="block text-sm font-black">{action.label}</span>
-                <span className="mt-1 block text-sm leading-6 text-slate-600">{action.value}</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#667085]">{action.value}</span>
               </Link>
             ))}
           </div>
@@ -395,25 +401,25 @@ export function CoachHomePage() {
           <Link
             key={item.label}
             to={item.path}
-            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50"
+            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:bg-[#f9fafb] focus:outline-none focus:ring-2 focus:ring-[#20a464]"
           >
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{item.label}</p>
-            <h2 className="mt-3 text-lg font-black text-slate-950">{item.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{item.body}</p>
+            <p className={eyebrowClass}>{item.label}</p>
+            <h2 className="mt-3 text-lg font-black text-[#101828]">{item.title}</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">{item.body}</p>
           </Link>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
+      <section className={surfaceClass}>
+        <div className={sectionHeaderClass}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Development</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Latest player notes</h2>
+              <p className={eyebrowClass}>Development</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Latest player notes</h2>
             </div>
             <Link
               to="/assess-player/completed"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:border-emerald-300 hover:bg-emerald-50"
+              className={secondaryButtonClass}
             >
               View all
             </Link>
@@ -421,16 +427,16 @@ export function CoachHomePage() {
         </div>
         <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-3">
           {recentEvaluations.map((evaluation) => (
-            <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="truncate text-sm font-black text-slate-950">{evaluation.playerName}</p>
-              <p className="mt-2 text-xs text-slate-500">{evaluation.team || user?.activeTeamName || 'Team'} / score {evaluation.averageScore ?? 'Not scored'}</p>
-              <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
+            <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+              <p className="truncate text-sm font-black text-[#101828]">{evaluation.playerName}</p>
+              <p className="mt-2 text-xs font-semibold text-[#667085]">{evaluation.team || user?.activeTeamName || 'Team'} / score {evaluation.averageScore ?? 'Not scored'}</p>
+              <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-[#475467]">
                 {getEvaluationSummary(evaluation)}
               </p>
             </div>
           ))}
           {!isLoading && recentEvaluations.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600 lg:col-span-3">
+            <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-5 text-sm font-bold text-[#667085] lg:col-span-3">
               Completed development records will appear here.
             </div>
           ) : null}
@@ -443,12 +449,12 @@ export function CoachHomePage() {
 function CoachMetric({ actionLabel = 'Open', compact = false, isLoading, label, to, value }) {
   const content = (
     <>
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</span>
-      <span className={['mt-2 block font-black text-slate-950', compact ? 'text-2xl' : 'text-3xl'].join(' ')}>
+      <span className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{label}</span>
+      <span className={['mt-2 block font-black text-[#101828]', compact ? 'text-2xl' : 'text-3xl'].join(' ')}>
         {isLoading ? '...' : value}
       </span>
       {to ? (
-        <span className={['inline-flex items-center justify-center rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white', compact ? 'mt-3 min-h-8' : 'mt-4 min-h-9'].join(' ')}>
+        <span className={['inline-flex items-center justify-center rounded-lg bg-[#101828] px-3 py-2 text-xs font-black text-white', compact ? 'mt-3 min-h-8' : 'mt-4 min-h-9'].join(' ')}>
           {actionLabel}
         </span>
       ) : null}
@@ -460,7 +466,7 @@ function CoachMetric({ actionLabel = 'Open', compact = false, isLoading, label, 
       <Link
         to={to}
         aria-label={`${actionLabel} ${label.toLowerCase()}`}
-        className={['block rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500', compact ? 'px-3 py-3' : 'px-4 py-4'].join(' ')}
+        className={['block rounded-lg border border-slate-200 bg-white text-left shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:bg-[#f0fdf6] focus:outline-none focus:ring-2 focus:ring-[#20a464]', compact ? 'px-3 py-3' : 'px-4 py-4'].join(' ')}
       >
         {content}
       </Link>
@@ -468,7 +474,7 @@ function CoachMetric({ actionLabel = 'Open', compact = false, isLoading, label, 
   }
 
   return (
-    <div className={['rounded-lg border border-slate-200 bg-white shadow-sm', compact ? 'px-3 py-3' : 'px-4 py-4'].join(' ')}>
+    <div className={['rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70', compact ? 'px-3 py-3' : 'px-4 py-4'].join(' ')}>
       {content}
     </div>
   )
