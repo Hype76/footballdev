@@ -46,19 +46,19 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
   }
 
   return (
-    <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+    <section className="mb-4 rounded-lg border border-[#cfeedd] bg-white p-4 sm:p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Next best action</p>
-          <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">Set up this workspace</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">{getRoleStep(user)}</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#067a46]">Workspace rules</p>
+          <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">Complete the next real setup step</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-[#5f7468]">{getRoleStep(user)}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           {nextAction ? (
             nextAction.path ? (
               <Link
                 to={nextAction.path}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#05603a]"
               >
                 {nextAction.label}
               </Link>
@@ -66,7 +66,7 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
               <button
                 type="button"
                 onClick={() => focusStepTarget(nextAction.target)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#05603a]"
               >
                 {nextAction.label}
               </button>
@@ -75,35 +75,35 @@ function WalkthroughChecklist({ activeWalkthrough, onComplete, onDisable, user }
           <button
             type="button"
             onClick={onComplete}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#9addb4] bg-white px-4 py-2 text-sm font-bold text-[#101828] transition hover:bg-[#f8fdf9]"
           >
-            Done
+            Mark complete
           </button>
           <button
             type="button"
             onClick={() => onDisable(true)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#9addb4] bg-white px-4 py-2 text-sm font-bold text-[#5f7468] transition hover:bg-[#f8fdf9]"
           >
             Hide tips
           </button>
         </div>
       </div>
-      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-sm font-bold text-slate-950">
-          View setup tips
-          <span className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">{steps.length} steps</span>
+      <details className="mt-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9]">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-sm font-bold text-[#101828]">
+          View rules and targets
+          <span className="text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">{steps.length} steps</span>
         </summary>
-        <div className="grid gap-3 border-t border-slate-200 p-3 md:grid-cols-2">
+        <div className="grid gap-3 border-t border-[#cfeedd] p-3 md:grid-cols-2">
           {steps.map((step, index) => (
             <button
               key={`${activeWalkthrough.key}-${step.title}`}
               type="button"
               onClick={() => focusStepTarget(step.target)}
-              className="rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 focus:border-emerald-500 focus:outline-none"
+              className="rounded-lg border border-[#cfeedd] bg-white p-4 text-left transition hover:border-[#9addb4] hover:bg-[#f0fdf6] focus:border-[#20a464] focus:outline-none"
             >
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Step {index + 1}</p>
-              <h3 className="mt-2 text-sm font-bold text-slate-950">{step.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{step.body}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Step {index + 1}</p>
+              <h3 className="mt-2 text-sm font-bold text-[#101828]">{step.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-[#5f7468]">{step.body}</p>
             </button>
           ))}
         </div>

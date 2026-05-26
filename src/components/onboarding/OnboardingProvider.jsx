@@ -264,7 +264,7 @@ export function OnboardingProvider({ children }) {
                       <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-black text-[#101828]">{step.title}</h3>
                         <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{step.rule}</p>
-                        <p className="mt-2 text-sm leading-6 text-[#344054]">{step.detail}</p>
+                        <p className="mt-2 text-sm leading-6 text-[#456653]">{step.detail}</p>
                         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                           <Link
                             to={step.href}

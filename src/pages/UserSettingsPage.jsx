@@ -392,7 +392,7 @@ export function UserSettingsPage() {
             <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-5xl">
               {pageTitle}
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#5f7468]">
               {pageDescription} Reopen setup from here when you need the first-run rules and checklist again.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
