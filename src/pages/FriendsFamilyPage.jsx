@@ -22,6 +22,9 @@ export function FriendsFamilyPage() {
   const [isLoadingFamilyLinks, setIsLoadingFamilyLinks] = useState(false)
   const [revokeLinkId, setRevokeLinkId] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId) ?? links[0]
+  const selectedChildLabel = selectedLink
+    ? [selectedLink.playerName, selectedLink.teamName, selectedLink.clubName].filter(Boolean).join(' | ')
+    : 'No child selected'
   const familySummary = [
     {
       label: 'Linked children',
@@ -143,19 +146,29 @@ export function FriendsFamilyPage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         {familySummary.map((item) => (
-          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+          <article key={item.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
             <p className="mt-3 break-words text-3xl font-black tracking-tight text-slate-950">{isLoadingFamilyLinks ? '...' : item.value}</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.caption}</p>
           </article>
         ))}
       </section>
 
-      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Sharing rule</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-          Share one child at a time. A family link opens only the selected child, and access can be revoked from this page.
-        </p>
+      <section className="grid gap-4 rounded-lg border border-emerald-200 bg-[#f2fbf6] p-5 shadow-sm shadow-emerald-100/70 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Sharing rule</p>
+          <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">Share one child with one controlled link.</h2>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">
+            A family link opens only the selected child. It does not expose other children, staff tools, messages for another player, or club admin records.
+          </p>
+        </div>
+        <div className="rounded-lg border border-emerald-200 bg-white p-4">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Current selection</p>
+          <p className="mt-2 break-words text-lg font-black text-slate-950">{selectedChildLabel}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            Create a new link after selecting the child you want a family member to access.
+          </p>
+        </div>
       </section>
 
       {errorMessage ? <NoticeBanner title="Family link not created" message={errorMessage} /> : null}
@@ -170,7 +183,7 @@ export function FriendsFamilyPage() {
                 setSelectedLinkId(event.target.value)
                 setShareUrl('')
               }}
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className="min-h-12 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             >
               {links.map((link) => (
                 <option key={link.id} value={link.id}>
@@ -184,20 +197,20 @@ export function FriendsFamilyPage() {
             onClick={handleCreateLink}
             disabled={isCreating || !selectedLink}
             title={isCreating ? 'Please wait while the family link is created.' : !selectedLink ? 'No child link is available.' : undefined}
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isCreating ? 'Creating...' : 'Create Share Link'}
           </button>
         </div>
 
         {shareUrl ? (
-          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <div className="mt-5 rounded-lg border border-emerald-200 bg-[#f2fbf6] p-4">
             <p className="text-sm font-black text-slate-950">Share this link</p>
-            <p className="mt-2 break-all text-sm font-semibold text-slate-600">{shareUrl}</p>
+            <p className="mt-2 break-all rounded-lg border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">{shareUrl}</p>
             <button
               type="button"
               onClick={handleCopy}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50"
             >
               Copy Link
             </button>
@@ -210,7 +223,7 @@ export function FriendsFamilyPage() {
         description="These people can currently open the selected child in the parent portal."
       >
         {isLoadingFamilyLinks ? (
-          <p className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+          <p className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4 text-sm font-semibold text-slate-600">
             Loading Friends and Family access...
           </p>
         ) : familyLinks.length > 0 ? (
@@ -218,7 +231,7 @@ export function FriendsFamilyPage() {
             {familyLinks.map((familyLink) => (
               <div
                 key={familyLink.id}
-                className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <p className="break-all text-sm font-black text-slate-950">
@@ -232,7 +245,7 @@ export function FriendsFamilyPage() {
                   type="button"
                   onClick={() => handleRevokeFamilyLink(familyLink)}
                   disabled={revokeLinkId === familyLink.id}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {revokeLinkId === familyLink.id ? 'Removing...' : 'Revoke Access'}
                 </button>
@@ -240,9 +253,12 @@ export function FriendsFamilyPage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
-            No Friends and Family access has been accepted for this child yet.
-          </p>
+          <div className="rounded-lg border border-slate-200 bg-[#f8fafc] p-5">
+            <p className="text-sm font-black text-slate-950">No accepted access yet</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              Create a link above and share it with the family member who should be able to open this child.
+            </p>
+          </div>
         )}
       </SectionCard>
     </div>
