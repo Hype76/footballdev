@@ -28,23 +28,32 @@ import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
 
 const navIcons = {
-  '/activity-log': 'AL',
-  '/add-player': 'AP',
-  '/archived-players': 'AR',
-  '/assess-player': 'DR',
-  '/billing': 'PL',
-  '/club-settings': 'CP',
-  '/email-queue': 'MQ',
-  '/end-season-stats': 'SR',
-  '/form-builder': 'DF',
-  '/match-day': 'MD',
-  '/parent-email-templates': 'MT',
-  '/parent-linking': 'PI',
-  '/players': 'PL',
-  '/polls': 'AV',
-  '/sessions': 'CA',
-  '/teams': 'TM',
-  '/user-access': 'SA',
+  '/activity-log': 'activity',
+  '/add-player': 'player-add',
+  '/archived-players': 'archive',
+  '/assess-player': 'note',
+  '/billing': 'card',
+  '/club-settings': 'shield',
+  '/email-queue': 'mail',
+  '/end-season-stats': 'chart',
+  '/form-builder': 'fields',
+  '/match-day': 'whistle',
+  '/parent-email-templates': 'template',
+  '/parent-linking': 'parents',
+  '/players': 'players',
+  '/polls': 'availability',
+  '/sessions': 'calendar',
+  '/teams': 'teams',
+  '/user-access': 'staff',
+  '/coach': 'home',
+  '/parent-portal': 'calendar',
+  '/parent-messages': 'mail',
+  '/parent-polls': 'availability',
+  '/friends-family': 'parents',
+  '/platform-admin': 'shield',
+  '/platform-clubs': 'teams',
+  '/platform-billing-options': 'card',
+  '/platform-feedback': 'note',
 }
 
 const groupDescriptions = {
@@ -59,7 +68,7 @@ function getSidebarTourId(path) {
 }
 
 function getNavIcon(path) {
-  return navIcons[path] || 'OS'
+  return navIcons[path] || 'home'
 }
 
 function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
@@ -67,8 +76,8 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
 
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#effbf3] text-[10px] font-black tracking-tight text-[#067a46] shadow-sm shadow-[#d7eadf]/80 ring-1 ring-[#bfe8cd]">
-        {getNavIcon(item.path)}
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#067a46] shadow-sm shadow-[#d7eadf]/80 ring-1 ring-[#bfe8cd]">
+        <NavIcon name={getNavIcon(item.path)} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-black">{item.label}</span>
@@ -303,7 +312,7 @@ export function Sidebar({ isOpen, onClose }) {
     <>
       <div
         className={[
-          'fixed inset-0 z-30 bg-[#10231a]/35 backdrop-blur-sm transition lg:hidden',
+          'fixed inset-0 z-30 bg-[#10231a]/25 backdrop-blur-sm transition lg:hidden',
           isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
         ].join(' ')}
         onClick={onClose}
@@ -311,32 +320,32 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(18rem,calc(100vw-1rem))] max-w-[18rem] flex-col overflow-y-auto border-r border-[#bfe8cd] bg-white px-3 py-4 shadow-2xl shadow-[#bfe8cd]/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(18.5rem,calc(100vw-1rem))] max-w-[18.5rem] flex-col overflow-y-auto border-r border-[#cfeedd] bg-white px-3 py-4 shadow-2xl shadow-[#cfeedd]/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-[#d7eadf] pb-4">
+        <div className="flex items-start justify-between gap-3 border-b border-[#e0f3e8] pb-4">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/70">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cfeedd] bg-[#f8fdf9] shadow-sm shadow-[#d7eadf]/70">
                 <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#067a46]">
                   {isParentPortal ? 'Parent access' : 'Club control'}
                 </p>
                 <h2 className="mt-1 truncate text-base font-black tracking-tight text-[#101828]">{clubLabel}</h2>
               </div>
             </div>
-            <p className="mt-3 border-l-4 border-[#20a464] bg-[#f0fdf6] px-3 py-2 text-xs font-bold leading-5 text-[#456653]">
-              {isParentPortal ? 'Fixtures, replies, and club messages in one place.' : 'Football first: week plan, squad, parents, staff, and match day.'}
+            <p className="mt-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 text-xs font-bold leading-5 text-[#456653]">
+              {isParentPortal ? 'Fixtures, replies, and club messages in one view.' : 'Week plan, squad, parents, staff, and match day.'}
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white text-[#456653] shadow-sm lg:hidden"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#cfeedd] bg-white text-[#456653] shadow-sm lg:hidden"
             aria-label="Close navigation"
           >
             X
@@ -344,7 +353,7 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
 
         <nav className="mt-4 space-y-3 pb-4">
-          <section className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70">
+          <section className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70">
             <div className="flex items-center justify-between px-2">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#456653]">
                 {isParentPortal ? 'Family view' : 'Match week'}
@@ -428,7 +437,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/70 transition hover:bg-[#f8fdf9]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/70 transition hover:bg-[#f8fdf9]"
           >
             Sign out
           </button>
@@ -440,14 +449,14 @@ export function Sidebar({ isOpen, onClose }) {
 
 function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
   return (
-    <details className="group rounded-lg border border-[#bfe8cd] bg-white p-2 shadow-sm shadow-[#d7eadf]/70">
+    <details className="group rounded-lg border border-[#cfeedd] bg-white p-2 shadow-sm shadow-[#d7eadf]/70">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#101828]">
         <span className="min-w-0 flex-1">
           <span className="block">{title}</span>
           <span className="mt-0.5 block text-xs font-semibold text-[#5f7468]">{groupDescriptions[title] || 'Workspace tools'}</span>
         </span>
-        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#5f7468] group-open:hidden">Show</span>
-        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#5f7468] group-open:inline-flex">Hide</span>
+        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#5f7468] group-open:hidden">Show</span>
+        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#5f7468] group-open:inline-flex">Hide</span>
       </summary>
       <div className="mt-2 grid gap-1.5">
         {items.map((item) =>
@@ -497,13 +506,97 @@ function DisabledNavItem({ item }) {
       title={item.disabledMessage}
       className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-3 py-3 text-left opacity-70"
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[10px] font-black text-[#5f7468] ring-1 ring-[#bfe8cd]">
-        {getNavIcon(item.path)}
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#5f7468] ring-1 ring-[#bfe8cd]">
+        <NavIcon name={getNavIcon(item.path)} />
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-black text-[#5f7468]">{item.label}</span>
         <span className="mt-1 block text-xs leading-5 text-[#6d8076]">{item.disabledMessage}</span>
       </span>
     </button>
+  )
+}
+
+function NavIcon({ name }) {
+  const common = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    strokeWidth: '1.8',
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+      {name === 'calendar' ? (
+        <>
+          <path {...common} d="M7 4v3M17 4v3M5 9h14" />
+          <path {...common} d="M6 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" />
+        </>
+      ) : name === 'players' || name === 'teams' || name === 'parents' || name === 'staff' ? (
+        <>
+          <path {...common} d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+          <path {...common} d="M15.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+          <path {...common} d="M3.5 20a5 5 0 0 1 10 0" />
+          <path {...common} d="M13 19a4 4 0 0 1 7.5 0" />
+        </>
+      ) : name === 'player-add' ? (
+        <>
+          <path {...common} d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+          <path {...common} d="M4 20a5 5 0 0 1 10 0" />
+          <path {...common} d="M18 9v8M14 13h8" />
+        </>
+      ) : name === 'note' || name === 'template' ? (
+        <>
+          <path {...common} d="M6 4h9l3 3v13H6V4Z" />
+          <path {...common} d="M15 4v4h4M8.5 12h7M8.5 16h5" />
+        </>
+      ) : name === 'mail' ? (
+        <>
+          <path {...common} d="M4 6h16v12H4V6Z" />
+          <path {...common} d="m4.5 7 7.5 6 7.5-6" />
+        </>
+      ) : name === 'availability' ? (
+        <>
+          <path {...common} d="M5 12.5 9.2 17 19 7" />
+          <path {...common} d="M4 4h16v16H4V4Z" />
+        </>
+      ) : name === 'whistle' ? (
+        <>
+          <path {...common} d="M4 13a5 5 0 0 1 5-5h8v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5v-1Z" />
+          <path {...common} d="M17 8l3-3M9 13h.01" />
+        </>
+      ) : name === 'card' ? (
+        <>
+          <path {...common} d="M4 7h16v11H4V7Z" />
+          <path {...common} d="M4 11h16M7 15h4" />
+        </>
+      ) : name === 'shield' ? (
+        <>
+          <path {...common} d="M12 3 19 6v5c0 4.5-2.7 7.4-7 10-4.3-2.6-7-5.5-7-10V6l7-3Z" />
+          <path {...common} d="M9 12l2 2 4-5" />
+        </>
+      ) : name === 'fields' ? (
+        <>
+          <path {...common} d="M5 6h14M5 12h14M5 18h14" />
+          <path {...common} d="M8 4v4M15 10v4M11 16v4" />
+        </>
+      ) : name === 'chart' || name === 'activity' ? (
+        <>
+          <path {...common} d="M5 19V5M5 19h15" />
+          <path {...common} d="M8 15l3-4 3 2 5-7" />
+        </>
+      ) : name === 'archive' ? (
+        <>
+          <path {...common} d="M4 7h16v4H4V7Z" />
+          <path {...common} d="M6 11v8h12v-8M10 15h4" />
+        </>
+      ) : (
+        <>
+          <path {...common} d="M4 11.5 12 5l8 6.5" />
+          <path {...common} d="M6.5 10.5V20h11v-9.5" />
+        </>
+      )}
+    </svg>
   )
 }

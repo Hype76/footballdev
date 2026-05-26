@@ -88,15 +88,15 @@ const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'U
 const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx'), 'UserSettingsPage')
 
 const primaryActionClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 const secondaryActionClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 function LoadingScreen() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
-      <div className="rounded-md border border-slate-200 bg-white px-6 py-5 text-sm font-bold text-slate-600 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-[#f7fbf8] px-4 py-8">
+      <div className="rounded-lg border border-[#cfeedd] bg-white px-6 py-5 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/70">
         Loading...
       </div>
     </main>
@@ -119,16 +119,16 @@ function NavigateToParentInvite() {
 function RouteContentSkeleton() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
-        <div className="h-4 w-28 rounded-md bg-slate-100" />
-        <div className="mt-5 h-10 w-64 max-w-full rounded-md bg-slate-100" />
-        <div className="mt-4 h-5 w-full max-w-xl rounded-md bg-slate-100" />
+      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
+        <div className="h-4 w-28 rounded-lg bg-[#e6f7ed]" />
+        <div className="mt-5 h-10 w-64 max-w-full rounded-lg bg-[#eef8f2]" />
+        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[#eef8f2]" />
       </div>
-      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
-        <div className="h-8 w-40 rounded-md bg-slate-100" />
+      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
+        <div className="h-8 w-40 rounded-lg bg-[#eef8f2]" />
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="h-28 rounded-md bg-slate-100" />
-          <div className="h-28 rounded-md bg-slate-100" />
+          <div className="h-28 rounded-lg bg-[#eef8f2]" />
+          <div className="h-28 rounded-lg bg-[#eef8f2]" />
         </div>
       </div>
     </div>
@@ -138,10 +138,10 @@ function RouteContentSkeleton() {
 function RouteGateState({ title, message, actions = null }) {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Workspace</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">{title}</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{message}</p>
+      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Workspace</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828]">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#5f7468]">{message}</p>
         {actions ? <div className="mt-6 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
       </div>
     </div>
@@ -207,10 +207,10 @@ function AccountSuspendedState() {
 function TesterAccessExpiredState() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Billing</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Tester access has ended</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Billing</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828]">Tester access has ended</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#5f7468]">
           Your temporary tester access has expired. Your club data is still safe. A paid plan is needed to continue using the workspace.
         </p>
         <a
@@ -227,10 +227,10 @@ function TesterAccessExpiredState() {
 function PlanAccessRequiredState() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Billing</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Plan access needs attention</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Billing</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828]">Plan access needs attention</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#5f7468]">
           This workspace needs an active plan before staff can keep using club tools. Your existing club data remains safe.
         </p>
         <a

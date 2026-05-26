@@ -218,19 +218,19 @@ export function Layout() {
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f8fdf9] text-[#101828]">
-      <div className="fixed inset-0 -z-10 bg-[linear-gradient(180deg,#ffffff_0%,#f8fdf9_44%,#eefaf2_100%)]" />
+    <div className="min-h-screen overflow-x-hidden bg-[#f7fbf8] text-[#101828]">
+      <div className="fixed inset-0 -z-10 bg-[linear-gradient(180deg,#ffffff_0%,#f7fbf8_48%,#eef8f2_100%)]" />
       <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-[18rem]">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-[18.5rem]">
           <Topbar
             title={activeTitle}
             onMenuClick={() => setIsSidebarOpen(true)}
           />
 
           <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-10">
-            <div className="mx-auto w-full max-w-[104rem]">
+            <div className="mx-auto w-full max-w-[108rem]">
               <OnboardingProvider>
                 {needsAccessModeSelection ? (
                   <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
