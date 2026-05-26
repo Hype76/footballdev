@@ -95,7 +95,7 @@ export function InformationPage() {
         <GuideHero
           eyebrow="Platform guide"
           title="Run platform support without mixing it into club football records."
-          description="Use this as the control surface for administration rules, walkthroughs, billing tools, and common platform destinations."
+          description="Use this as the control surface for administration rules, video guides, billing tools, and common platform destinations."
           metrics={[
             { label: 'Role', value: getRoleLabel(user) },
             { label: 'Guides', value: visibleVideoGuides.length },
@@ -113,7 +113,7 @@ export function InformationPage() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Video walkthroughs" description="Short onboarding videos for platform administration tasks.">
+        <SectionCard title="Video guides" description="Short onboarding videos for platform administration tasks.">
           <VideoGuideGrid guides={visibleVideoGuides} />
         </SectionCard>
 
@@ -174,7 +174,7 @@ export function InformationPage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Video walkthroughs" description="Short videos for the main tasks available to this role and plan.">
+      <SectionCard title="Video guides" description="Short videos for the main tasks available to this role and plan.">
         <VideoGuideGrid guides={visibleVideoGuides} />
       </SectionCard>
 

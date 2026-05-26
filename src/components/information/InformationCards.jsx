@@ -92,7 +92,7 @@ function VideoMedia({ guide }) {
       <div className="grid aspect-video w-full place-items-center bg-[#f0fdf6] p-5">
         <div className="w-full max-w-md rounded-lg border border-[#bddcca] bg-white p-5 text-center shadow-sm shadow-[#067a46]/10">
           <img className="mx-auto h-16 w-16 rounded-lg border border-[#bddcca] bg-[#10231a] object-cover p-1" src={guide.poster} alt="" />
-          <p className="mt-4 text-sm font-black text-[#10231a]">Walkthrough pending</p>
+          <p className="mt-4 text-sm font-black text-[#10231a]">Video pending</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
             This guide has a task checklist now. The recorded video can be added without changing the page layout.
           </p>
@@ -125,7 +125,7 @@ export function VideoGuideCard({ guide }) {
       <div className="p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className={labelClass}>Walkthrough</p>
+            <p className={labelClass}>Video guide</p>
             <h3 className="mt-2 text-lg font-black text-[#10231a]">{guide.title}</h3>
             <p className={`mt-2 ${bodyClass}`}>{guide.caption}</p>
           </div>
@@ -143,7 +143,7 @@ export function VideoGuideGrid({ guides }) {
   if (!guides.length) {
     return (
       <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
-        No video walkthroughs are available for this role yet.
+        No video guides are available for this role yet.
       </div>
     )
   }

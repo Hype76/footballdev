@@ -1,6 +1,6 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-export function WalkthroughSettingsSection({
+export function SetupChecklistSettingsSection({
   isRestarting,
   onRestart,
   scopeLabel,
@@ -9,7 +9,7 @@ export function WalkthroughSettingsSection({
     <SectionCard
       title="Setup checklist"
       description="Reopen the first-run checklist for the current workspace or account."
-      tourId="walkthrough-settings"
+      tourId="setup-checklist-settings"
     >
       <div className="space-y-4">
         <button

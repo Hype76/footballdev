@@ -3,7 +3,7 @@ import { AccountProfileSection } from '../components/user-settings/AccountProfil
 import { DisplaySettingsSection } from '../components/user-settings/DisplaySettingsSection.jsx'
 import { LoginEmailSection } from '../components/user-settings/LoginEmailSection.jsx'
 import { PasswordSettingsSection } from '../components/user-settings/PasswordSettingsSection.jsx'
-import { WalkthroughSettingsSection } from '../components/user-settings/WalkthroughSettingsSection.jsx'
+import { SetupChecklistSettingsSection } from '../components/user-settings/SetupChecklistSettingsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
@@ -49,7 +49,7 @@ export function UserSettingsPage() {
   const isClubAdminSettings = isClubAdmin(user)
   const showSenderIdentity = Boolean(user?.clubId) && !isParentSettings && !isClubAdminSettings && user?.role !== 'super_admin'
   const showDisplaySettings = canManageTeamAppearance(user) && Boolean(user?.activeTeamId)
-  const showWalkthroughSettings = Boolean(user?.id) && user?.role !== 'super_admin'
+  const showSetupChecklistSettings = Boolean(user?.id) && user?.role !== 'super_admin'
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
   const [displayName, setDisplayName] = useState(user?.displayName || user?.username || user?.name || '')
@@ -322,7 +322,7 @@ export function UserSettingsPage() {
 
   const getOnboardingScope = () => (canManageClubSettings(user) || canManageTeamSettings(user) ? 'workspace' : 'user')
 
-  const handleRestartWalkthrough = async () => {
+  const handleRestartSetup = async () => {
     const scope = getOnboardingScope()
     setIsRestartingOnboarding(true)
 
@@ -472,10 +472,10 @@ export function UserSettingsPage() {
             />
           ) : null}
 
-          {showWalkthroughSettings ? (
-            <WalkthroughSettingsSection
+          {showSetupChecklistSettings ? (
+            <SetupChecklistSettingsSection
               isRestarting={isRestartingOnboarding}
-              onRestart={handleRestartWalkthrough}
+              onRestart={handleRestartSetup}
               scopeLabel={onboardingScopeLabel}
             />
           ) : null}
