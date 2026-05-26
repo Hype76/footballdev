@@ -4,12 +4,12 @@ import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { StatusPill } from '../ui/StatusPill.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]'
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#456653]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]'
+const emptyStateClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10'
 
 export function PlatformAccountManagementSection({
   clubPage,
@@ -54,7 +54,7 @@ export function PlatformAccountManagementSection({
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
           Loading platform stats...
         </div>
       ) : visibleClubs.length === 0 ? (
@@ -101,7 +101,7 @@ function ClubAccountCard({
   updatingUserId,
 }) {
   return (
-    <div className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+    <div className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10">
       <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
         <ClubSummary
           club={club}
@@ -139,14 +139,14 @@ function ClubSummary({
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
-        <p className="text-lg font-black text-[#101828]">{club.name}</p>
+        <p className="text-lg font-black text-[#10231a]">{club.name}</p>
         <StatusPill status={club.status} />
       </div>
-      <p className="mt-2 text-sm font-semibold text-[#5f7468]">
+      <p className="mt-2 text-sm font-semibold text-[#456653]">
         Contact: {club.contactEmail || 'No email entered'}
         {club.contactPhone ? ` | ${club.contactPhone}` : ''}
       </p>
-      <p className="mt-2 text-sm font-semibold text-[#5f7468]">
+      <p className="mt-2 text-sm font-semibold text-[#456653]">
         Latest activity: {formatPlatformDate(club.latestActivityAt)}
       </p>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -181,7 +181,7 @@ function ClubSummary({
             <option value="cancelled">Cancelled</option>
           </select>
         </label>
-        <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-black text-[#101828] md:mt-7">
+        <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 md:mt-7">
           <input
             type="checkbox"
             checked={Boolean(club.isPlanComped)}
@@ -193,11 +193,11 @@ function ClubSummary({
           <span>Free access</span>
         </label>
       </div>
-      <p className="mt-2 text-sm font-semibold text-[#5f7468]">
+      <p className="mt-2 text-sm font-semibold text-[#456653]">
         Current plan: {getPlanName(club)}{club.isPlanComped ? ' | Free access enabled' : ''}
       </p>
       {club.suspendedAt ? (
-        <p className="mt-2 text-sm font-semibold text-[#5f7468]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>
+        <p className="mt-2 text-sm font-semibold text-[#456653]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>
       ) : null}
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
@@ -236,9 +236,9 @@ function ClubMetricGrid({ club }) {
   return (
     <div className="grid w-full gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 2xl:max-w-[620px]">
       {metrics.map(([label, value]) => (
-        <div key={label} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">{label}</p>
-          <p className="mt-2 font-black text-[#101828]">{value}</p>
+        <div key={label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#456653]">{label}</p>
+          <p className="mt-2 font-black text-[#10231a]">{value}</p>
         </div>
       ))}
     </div>
@@ -254,15 +254,15 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
           <p className={emptyStateClass}>No users found.</p>
         ) : (
           club.users.map((member) => (
-            <div key={member.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+            <div key={member.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
-                  <p className="break-words text-sm font-black text-[#101828]">
+                  <p className="break-words text-sm font-black text-[#10231a]">
                     {member.name || 'No name entered'}
                   </p>
-                  <p className="mt-1 break-words text-sm font-semibold text-[#5f7468]">{member.email}</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-[#456653]">{member.email}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="rounded-lg border border-[#bfe8cd] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
+                    <span className="rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#456653] shadow-sm shadow-[#067a46]/10">
                       {member.roleLabel}
                     </span>
                     <StatusPill status={member.status} />
@@ -314,9 +314,9 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
           club.teams.map((team) => (
             <div
               key={team.id}
-              className="flex flex-col gap-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10 sm:flex-row sm:items-center sm:justify-between"
             >
-              <span className="text-sm font-black text-[#101828]">{team.name}</span>
+              <span className="text-sm font-black text-[#10231a]">{team.name}</span>
               <button
                 type="button"
                 disabled={updatingTeamId === team.id}
@@ -335,9 +335,9 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
           <p className={emptyStateClass}>No role data found.</p>
         ) : (
           club.roleCounts.map((role) => (
-            <div key={role.label} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
-              <p className="text-sm font-black text-[#101828]">{role.label}</p>
-              <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
+            <div key={role.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10">
+              <p className="text-sm font-black text-[#10231a]">{role.label}</p>
+              <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
                 {role.count} users
               </p>
             </div>
