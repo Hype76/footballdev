@@ -1,9 +1,9 @@
 import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
+import { SessionStatePanel } from './SessionStatePanel.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const emptyClass = 'rounded-lg border border-dashed border-[#b7efce] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]'
 const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function CreateSessionSection({
@@ -21,13 +21,19 @@ export function CreateSessionSection({
       description="Use a date only. Times are not required for development records."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]">
-          Loading session setup...
-        </div>
+        <SessionStatePanel
+          eyebrow="Loading setup"
+          title="Checking teams and saved sessions."
+          body="The session builder needs the club team list before a training or match block can be created."
+          action="This usually takes a moment."
+        />
       ) : teams.length === 0 ? (
-        <div className={emptyClass}>
-          No teams are available yet. Create a team first, then sessions can be planned.
-        </div>
+        <SessionStatePanel
+          eyebrow="Setup required"
+          title="Create a team before planning sessions."
+          body="Sessions must belong to a real football group so player queues, notes, and development records stay in the right workspace."
+          action="Go to Teams and create the first team, then return here."
+        />
       ) : (
         <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={onSubmit}>
           <label className="block">

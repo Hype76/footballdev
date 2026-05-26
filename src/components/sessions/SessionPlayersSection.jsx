@@ -2,10 +2,10 @@ import { MicIcon } from '../icons/MicIcon.jsx'
 import { formatRetentionDate, getRetentionCountdownLabel } from '../../lib/retention.js'
 import { SESSION_PLAYER_PAGE_SIZE, formatSessionDate, formatSessionType, normalizeProgressName } from '../../lib/session-page-utils.js'
 import { Pagination } from '../ui/Pagination.jsx'
+import { SessionStatePanel } from './SessionStatePanel.jsx'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
-const emptyClass = 'rounded-lg border border-dashed border-[#b7efce] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-5 py-3 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
@@ -68,17 +68,26 @@ export function SessionPlayersSection({
 
       <div className="px-5 py-5 sm:px-6">
         {!selectedSessionId ? (
-          <div className={emptyClass}>
-          Select a session to manage players.
-          </div>
+          <SessionStatePanel
+            eyebrow="Select session"
+            title="Open or create a session before managing players."
+            body="The player queue depends on the selected training or match block, so notes and records stay attached to the right context."
+            action="Choose a saved session above, or create a new one below."
+          />
         ) : isLoading ? (
-          <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]">
-          Loading session players...
-          </div>
+          <SessionStatePanel
+            eyebrow="Loading queue"
+            title="Checking the player list for this session."
+            body="Player records, completion state, and voice notes are loaded together before the queue can be edited."
+            action="This keeps coaches from recording against the wrong session."
+          />
         ) : sessionPlayers.length === 0 ? (
-          <div className={emptyClass}>
-          No players have been added to this session yet.
-          </div>
+          <SessionStatePanel
+            eyebrow="Queue empty"
+            title="Add players before recording notes."
+            body="A session is ready, but it needs a player queue before coaches can record individual development work."
+            action="Use the available player list to add the relevant squad."
+          />
         ) : (
           <div className="space-y-4">
           {selectedSessionCompleted ? (

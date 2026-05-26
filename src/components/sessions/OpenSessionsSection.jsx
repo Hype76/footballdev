@@ -1,8 +1,8 @@
 import { formatSessionDate, formatSessionType } from '../../lib/session-page-utils.js'
+import { SessionStatePanel } from './SessionStatePanel.jsx'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
-const emptyClass = 'rounded-lg border border-dashed border-[#b7efce] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 const inputClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
@@ -37,13 +37,19 @@ export function OpenSessionsSection({
 
       <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]">
-          Loading saved sessions...
-          </div>
+          <SessionStatePanel
+            eyebrow="Loading sessions"
+            title="Checking saved training and match blocks."
+            body="Saved sessions are loaded with their status so coaches can reopen the right player queue."
+            action="Keep this page open while the workspace refreshes."
+          />
         ) : combinedSessions.length === 0 ? (
-          <div className={emptyClass}>
-          No saved sessions yet. Create a session below and it will appear here.
-          </div>
+          <SessionStatePanel
+            eyebrow="No sessions yet"
+            title="Create the first training or match block."
+            body="A session gives the team one shared queue for players, voice notes, and development records."
+            action="Use Create session below, then add the relevant players."
+          />
         ) : (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
           <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
