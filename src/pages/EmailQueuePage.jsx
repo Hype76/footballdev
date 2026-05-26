@@ -47,11 +47,11 @@ function createEditDraft(item) {
   }
 }
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const primaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg bg-[#067a46] px-4 py-2 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
-const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-2 text-sm font-black text-[#b42318] transition hover:bg-[#fee4e2] disabled:cursor-not-allowed disabled:opacity-60'
 
 const queueRules = [
   {
@@ -221,7 +221,7 @@ export function EmailQueuePage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Communication queue</p>
@@ -229,25 +229,25 @@ export function EmailQueuePage() {
               Hold parent and player emails until they are ready to leave.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
-              Review scheduled football messages before send time. Fix failures, change timing, send now, or delete a message before it leaves the club workspace.
+              Review scheduled football messages before send time. Fix failures, change timing, send now, or delete a message before it reaches families.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {queueRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 shadow-sm shadow-slate-200/60">
-                  <p className="text-sm font-black text-[#101828]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">{rule.body}</p>
+                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-sm shadow-slate-200/70">
+          <div className="grid content-between rounded-lg border border-[#9addb4] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/80">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#667085]">Next send</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Next send</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
                 {nextQueuedEmail ? formatDateTime(nextQueuedEmail.scheduledAt) : 'Nothing queued'}
               </p>
-              <p className="mt-2 break-words text-sm font-semibold leading-6 text-[#667085]">
+              <p className="mt-2 break-words text-sm font-semibold leading-6 text-[#456653]">
                 {nextQueuedEmail ? nextQueuedEmail.subject : 'Scheduled parent and player emails will appear here before they are sent.'}
               </p>
             </div>
@@ -263,29 +263,29 @@ export function EmailQueuePage() {
 
       {errorMessage ? <NoticeBanner title="Email queue action failed" message={errorMessage} /> : null}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
-        <div className="mb-4 flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-5">
+        <div className="mb-4 flex flex-col gap-2 border-b border-[#d7eadf] pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Holding queue</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Scheduled messages</h2>
           </div>
-          <p className="text-sm font-semibold leading-6 text-[#667085]">
+          <p className="text-sm font-semibold leading-6 text-[#5f7468]">
             {sortedQueue.length} emails waiting for club approval or send time.
           </p>
         </div>
         {isLoading ? (
-          <p className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-5 text-sm font-semibold text-[#667085]">Loading email queue...</p>
+          <p className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">Loading email queue...</p>
         ) : sortedQueue.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-5 py-8">
+          <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-5 py-8">
             <p className="text-lg font-black text-[#101828]">No emails are waiting to send.</p>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#667085]">
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#5f7468]">
               Queue items appear after a coach schedules a parent or player email from a football workflow.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {sortedQueue.map((item) => (
-              <div key={item.id} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+              <div key={item.id} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -293,16 +293,16 @@ export function EmailQueuePage() {
                         {item.status}
                       </span>
                       {item.hasAttachment ? (
-                        <span className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black text-[#667085]">
+                        <span className="rounded-lg border border-[#bfe8cd] bg-white px-3 py-1 text-xs font-black text-[#5f7468]">
                           PDF attached
                         </span>
                       ) : null}
                     </div>
                     <h2 className="mt-3 break-words text-lg font-black text-[#101828]">{item.subject}</h2>
-                    <p className="mt-2 break-words text-sm font-semibold leading-6 text-[#667085]">To: {item.toEmail}</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#667085]">Send time: {formatDateTime(item.scheduledAt)}</p>
-                    {item.playerName ? <p className="mt-1 text-sm leading-6 text-[#667085]">Player: {item.playerName}</p> : null}
-                    {item.lastError ? <p className="mt-2 text-sm font-bold text-red-700">{item.lastError}</p> : null}
+                    <p className="mt-2 break-words text-sm font-semibold leading-6 text-[#5f7468]">To: {item.toEmail}</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#5f7468]">Send time: {formatDateTime(item.scheduledAt)}</p>
+                    {item.playerName ? <p className="mt-1 text-sm font-semibold leading-6 text-[#5f7468]">Player: {item.playerName}</p> : null}
+                    {item.lastError ? <p className="mt-2 rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-3 py-2 text-sm font-black text-[#b42318]">{item.lastError}</p> : null}
                   </div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
                     <button
@@ -375,10 +375,10 @@ export function EmailQueuePage() {
               value={editDraft.html}
               onChange={(event) => setEditDraft((current) => ({ ...current, html: event.target.value }))}
               rows={8}
-              className="min-h-40 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 font-mono text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+              className="min-h-40 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 font-mono text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
             />
           </label>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 text-black">
+          <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 text-black">
             <div dangerouslySetInnerHTML={{ __html: editDraft.html }} />
           </div>
         </div>
@@ -416,10 +416,10 @@ export function EmailQueuePage() {
 }
 
 function QueueMetric({ label, value, tone = 'default' }) {
-  const valueClass = tone === 'danger' ? 'text-red-700' : 'text-[#101828]'
+  const valueClass = tone === 'danger' ? 'text-[#b42318]' : 'text-[#101828]'
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/60">
+    <div className="rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className={`mt-2 break-words text-2xl font-black ${valueClass}`}>{value}</p>
     </div>
