@@ -46,15 +46,15 @@ const EMPTY_GOAL_FORM = {
 }
 
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const smallLabelClass = 'mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
-const compactInputClass = 'min-h-10 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const smallLabelClass = 'mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[#456653]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const compactInputClass = 'min-h-10 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
-const sectionHeaderClass = 'border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10'
+const sectionHeaderClass = 'border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
 
 const matchRuleCards = [
   {
@@ -491,7 +491,7 @@ export function MatchDayPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
@@ -504,7 +504,7 @@ export function MatchDayPage() {
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {matchRuleCards.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                  <article key={item.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.body}</p>
                   </article>
@@ -512,13 +512,13 @@ export function MatchDayPage() {
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bddcca] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Next fixture</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
                 {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No fixture created'}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
                 {nextMatch ? formatMatchDate(nextMatch) : 'Create a match day to request a scorer and prepare the live board.'}
               </p>
             </div>
@@ -539,15 +539,15 @@ export function MatchDayPage() {
 
       <section className="grid gap-3 md:grid-cols-4">
         {matchDaySummary.map((item) => (
-          <article key={item.label} className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+          <article key={item.label} className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
             <p className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{isLoading ? '...' : item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.caption}</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.caption}</p>
           </article>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Fixture setup</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Create match day</h2>
@@ -667,7 +667,7 @@ export function MatchDayPage() {
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3">
               <input
                 type="checkbox"
                 checked={form.enableMotmPoll}
@@ -702,7 +702,7 @@ export function MatchDayPage() {
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className={sectionHeaderClass}>
           <p className={eyebrowClass}>Live board</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Run live and upcoming matches</h2>
@@ -712,7 +712,7 @@ export function MatchDayPage() {
         </div>
         <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <p className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
+          <p className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-bold text-[#456653] shadow-sm shadow-[#067a46]/10">
             Loading match day...
           </p>
         ) : activeMatches.length > 0 ? (
@@ -744,9 +744,9 @@ export function MatchDayPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5 shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 shadow-sm shadow-[#067a46]/10">
             <p className="text-base font-black text-[#10231a]">No live or upcoming matches yet.</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
               Create the match day above before requesting a scorer or publishing parent updates.
             </p>
           </div>
@@ -754,8 +754,8 @@ export function MatchDayPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
-        <div className="grid gap-4 border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+        <div className="grid gap-4 border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
             <p className={eyebrowClass}>Results archive</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Previous games</h2>
@@ -780,9 +780,9 @@ export function MatchDayPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5 shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 shadow-sm shadow-[#067a46]/10">
             <p className="text-base font-black text-[#10231a]">No previous games are showing.</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
               Completed fixtures appear here after full time so staff can review goals and results.
             </p>
           </div>
@@ -813,35 +813,35 @@ function MatchDayCard({
   const currentMinute = getCurrentMatchMinute(match)
 
   return (
-    <article className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+    <article className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex w-fit rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-3 py-1 text-xs font-black text-[#067a46]">
               {match.status.replace(/_/g, ' ')}
             </span>
-            <span className="inline-flex w-fit rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
+            <span className="inline-flex w-fit rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-1 text-xs font-black text-[#456653]">
               {match.homeAway}
             </span>
             {match.teamName ? (
-              <span className="inline-flex w-fit rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
+              <span className="inline-flex w-fit rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-1 text-xs font-black text-[#456653]">
                 {match.teamName}
               </span>
             ) : null}
           </div>
           <h4 className="mt-3 text-lg font-black text-[#10231a]">{match.teamName || 'Our team'} v {match.opponent}</h4>
-          <p className="mt-1 text-sm font-semibold text-[#5f7468]">{formatMatchDate(match)}</p>
-          {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#5f7468]">{match.venueName}</p> : null}
-          {match.notes ? <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#5f7468]">{match.notes}</p> : null}
+          <p className="mt-1 text-sm font-semibold text-[#456653]">{formatMatchDate(match)}</p>
+          {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#456653]">{match.venueName}</p> : null}
+          {match.notes ? <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#456653]">{match.notes}</p> : null}
         </div>
 
-        <div className="rounded-lg border border-[#bddcca] bg-[#effbf3] p-4 text-center shadow-sm shadow-[#d7eadf]/60">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Live score</p>
+        <div className="rounded-lg border border-[#bddcca] bg-[#effbf3] p-4 text-center shadow-sm shadow-[#067a46]/10">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Live score</p>
           <p className="mt-2 text-4xl font-black text-[#10231a]">
             {getClubScore(match)} - {getOpponentScore(match)}
           </p>
           {currentMinute ? (
-            <p className="mt-2 text-sm font-black text-[#5f7468]">{currentMinute} min</p>
+            <p className="mt-2 text-sm font-black text-[#456653]">{currentMinute} min</p>
           ) : null}
         </div>
       </div>
@@ -917,14 +917,14 @@ function MatchDayCard({
                 const isSelected = selectedParentLinkIds.has(String(interest.parentLinkId))
 
                 return (
-                  <div key={interest.id} className="rounded-lg border border-[#bddcca] bg-white p-3 shadow-sm shadow-[#d7eadf]/60">
+                  <div key={interest.id} className="rounded-lg border border-[#bddcca] bg-white p-3 shadow-sm shadow-[#067a46]/10">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-sm font-black text-[#10231a]">{interest.parentEmail || interest.parentName || 'Parent'}</p>
-                        <p className="mt-1 text-xs font-semibold text-[#5f7468]">
+                        <p className="mt-1 text-xs font-semibold text-[#456653]">
                           {interest.playerName ? `Linked to ${interest.playerName}` : 'Parent portal volunteer'}
                         </p>
-                        {interest.message ? <p className="mt-2 text-sm font-semibold text-[#5f7468]">{interest.message}</p> : null}
+                        {interest.message ? <p className="mt-2 text-sm font-semibold text-[#456653]">{interest.message}</p> : null}
                       </div>
                       <button
                         type="button"
@@ -942,7 +942,7 @@ function MatchDayCard({
           ) : (
             <div className="mt-3 rounded-lg border border-[#bddcca] bg-white px-4 py-5">
               <p className="text-sm font-black text-[#10231a]">No parents have volunteered yet.</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
                 Keep the scorer request open or select a staff member to run the score from the touchline.
               </p>
             </div>
@@ -950,7 +950,7 @@ function MatchDayCard({
         </div>
       </div>
 
-      <form className="mt-4 rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60" onSubmit={(event) => onAddGoal(event, match)}>
+      <form className="mt-4 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10" onSubmit={(event) => onAddGoal(event, match)}>
         <h5 className="text-sm font-black text-[#10231a]">Add goal</h5>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <label className="block">
@@ -1035,11 +1035,11 @@ function MatchDayCard({
       {match.events.length > 0 ? (
         <div className="mt-4 space-y-2">
           {match.events.slice(0, 6).map((event) => (
-            <div key={event.id} className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+            <div key={event.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10">
               <p className="text-sm font-black text-[#10231a]">
                 {event.eventType === 'goal' ? 'Goal' : 'Update'} / {event.homeScore} - {event.awayScore}
               </p>
-              <p className="mt-1 text-xs font-semibold text-[#5f7468]">
+              <p className="mt-1 text-xs font-semibold text-[#456653]">
                 {event.minute !== null ? `${event.minute} min / ` : ''}
                 {event.scorerInitials || event.scorerName || 'Score update'}
                 {event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}

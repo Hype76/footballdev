@@ -46,9 +46,9 @@ function formatGoalLine(event) {
   ].filter(Boolean).join(' / ')
 }
 
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]'
-const bodyClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#456653]'
+const bodyClass = 'text-sm font-semibold leading-6 text-[#456653]'
 
 export function PreviousGameCard({ match, onOpen }) {
   const goals = getGoalEvents(match)
@@ -57,7 +57,7 @@ export function PreviousGameCard({ match, onOpen }) {
     <button
       type="button"
       onClick={() => onOpen(match)}
-      className="block w-full rounded-lg border border-[#bddcca] bg-white p-4 text-left shadow-sm shadow-[#d7eadf]/70 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:bg-[#f8fdf9] focus:outline-none focus:ring-2 focus:ring-[#20a464]"
+      className="block w-full rounded-lg border border-[#bddcca] bg-white p-4 text-left shadow-sm shadow-[#067a46]/10 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:bg-[#f6fbf8] focus:outline-none focus:ring-2 focus:ring-[#20a464]"
     >
       <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
       <h4 className="mt-2 text-base font-black text-[#10231a]">{match.teamName || 'Our team'} v {match.opponent}</h4>
@@ -67,14 +67,14 @@ export function PreviousGameCard({ match, onOpen }) {
       {goals.length > 0 ? (
         <div className="mt-3 space-y-2">
           {goals.slice(0, 4).map((event) => (
-            <p key={event.id} className="text-xs font-semibold text-[#5f7468]">{formatGoalLine(event)}</p>
+            <p key={event.id} className="text-xs font-semibold text-[#456653]">{formatGoalLine(event)}</p>
           ))}
           {goals.length > 4 ? (
             <p className="text-xs font-black text-[#067a46]">View {goals.length - 4} more</p>
           ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-xs font-semibold text-[#5f7468]">{match.status.replace(/_/g, ' ')}</p>
+        <p className="mt-3 text-xs font-semibold text-[#456653]">{match.status.replace(/_/g, ' ')}</p>
       )}
     </button>
   )
@@ -97,7 +97,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
             <p className="mt-2 text-4xl font-black text-[#10231a]">
               {getClubScore(match)} - {getOpponentScore(match)}
             </p>
-            <p className="mt-1 text-sm font-semibold text-[#5f7468]">{match.status.replace(/_/g, ' ')}</p>
+            <p className="mt-1 text-sm font-semibold text-[#456653]">{match.status.replace(/_/g, ' ')}</p>
           </div>
           <button
             type="button"
@@ -126,16 +126,16 @@ export function PreviousGameDetailModal({ match, onClose }) {
           {goals.length > 0 ? (
             <div className="mt-3 space-y-2">
               {goals.map((event) => (
-                <div key={event.id} className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+                <div key={event.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10">
                   <p className="text-sm font-black text-[#10231a]">{formatGoalLine(event)}</p>
-                  {event.notes ? <p className="mt-1 text-xs font-semibold text-[#5f7468]">{event.notes}</p> : null}
+                  {event.notes ? <p className="mt-1 text-xs font-semibold text-[#456653]">{event.notes}</p> : null}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="mt-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5">
+            <div className="mt-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5">
               <p className="text-sm font-black text-[#10231a]">No goals were recorded for this match.</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
                 Score updates can still exist without scorer detail if staff only tracked the final result.
               </p>
             </div>
@@ -145,7 +145,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
         {match.notes ? (
           <div className={`mt-5 ${panelClass}`}>
             <p className={eyebrowClass}>Notes</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#5f7468]">{match.notes}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#456653]">{match.notes}</p>
           </div>
         ) : null}
       </div>
