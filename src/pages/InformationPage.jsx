@@ -157,9 +157,9 @@ export function InformationPage() {
       />
 
       {isDemoAccount(user) ? (
-        <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-5 py-4 shadow-sm shadow-[#d7eadf]/70">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-5 py-4 shadow-sm shadow-[#067a46]/10">
           <p className="text-sm font-black text-[#10231a]">Demo workspace</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
             Demo users can explore the workspace and billing page. Destructive actions and account setting changes are blocked.
           </p>
         </div>
@@ -195,7 +195,7 @@ export function InformationPage() {
 
 function GuideHero({ description, eyebrow, metrics, rules, title }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#d7eadf]/70">
+    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
       <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">{eyebrow}</p>
@@ -205,15 +205,15 @@ function GuideHero({ description, eyebrow, metrics, rules, title }) {
           <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4d6458]">{description}</p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {rules.map((rule) => (
-              <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+              <div key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
                 <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{rule.body}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/70">
+        <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#effbf3] p-5 shadow-sm shadow-[#067a46]/10">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Current guide state</p>
             <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#10231a]">{metrics[0]?.value || 'Not set'}</p>
@@ -234,7 +234,7 @@ function GuideHero({ description, eyebrow, metrics, rules, title }) {
 
 function GuideMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 break-words text-2xl font-black text-[#10231a]">{value}</p>
     </div>
