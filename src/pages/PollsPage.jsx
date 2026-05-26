@@ -33,16 +33,16 @@ const EMPTY_FORM = {
 }
 
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-2 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#d7eadf]/60'
-const sectionHeaderClass = 'border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6'
+const emptyStateClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10'
+const sectionHeaderClass = 'border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
-const chipClass = 'inline-flex w-fit rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black text-[#456653] shadow-sm shadow-[#d7eadf]/50'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10'
+const chipClass = 'inline-flex w-fit rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black text-[#456653] shadow-sm shadow-[#067a46]/10'
 
 const pollRuleCards = [
   {
@@ -417,7 +417,7 @@ export function PollsPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div className="px-5 py-6 sm:px-6 lg:px-8">
             <div className="max-w-5xl">
@@ -430,7 +430,7 @@ export function PollsPage() {
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {pollRuleCards.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                  <article key={item.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.body}</p>
                   </article>
@@ -438,7 +438,7 @@ export function PollsPage() {
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Reply state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
@@ -459,7 +459,7 @@ export function PollsPage() {
       </section>
 
       {successMessage ? (
-        <div className="rounded-lg border border-[#bddcca] bg-[#effbf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
           {successMessage}
         </div>
       ) : null}
@@ -473,7 +473,7 @@ export function PollsPage() {
           { label: 'Staff route', value: staffPollCount, caption: 'Internal team staff decisions.' },
           { label: 'Total replies', value: responseCount, caption: 'Responses across all poll types.' },
         ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+          <div key={item.label} className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{item.label}</p>
             <p className="mt-2 text-3xl font-black text-[#10231a]">{isLoading ? '...' : item.value}</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.caption}</p>
@@ -502,7 +502,7 @@ export function PollsPage() {
                   className={`min-h-11 rounded-lg border px-4 py-3 text-sm font-black transition ${
                     form.pollType === option.value
                       ? 'border-[#067a46] bg-[#067a46] text-white shadow-sm shadow-[#b7efce]'
-                      : 'border-[#bddcca] bg-white text-[#10231a] shadow-sm shadow-[#d7eadf]/60 hover:border-[#20a464] hover:bg-[#f0fdf6]'
+                      : 'border-[#bddcca] bg-white text-[#10231a] shadow-sm shadow-[#067a46]/10 hover:border-[#20a464] hover:bg-[#f0fdf6]'
                   }`}
                 >
                   {option.label}
@@ -566,13 +566,13 @@ export function PollsPage() {
             <textarea
               value={form.description}
               onChange={(event) => updateForm({ description: event.target.value })}
-              className="min-h-24 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+              className="min-h-24 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
               placeholder="Description optional"
             />
           </label>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10">
               <input
                 type="checkbox"
                 checked={form.allowMultiple}
@@ -585,7 +585,7 @@ export function PollsPage() {
               Multiple choice
             </label>
             {form.allowMultiple ? (
-              <label className="block rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 shadow-sm shadow-[#d7eadf]/60">
+              <label className="block rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 shadow-sm shadow-[#067a46]/10">
                 <span className="mb-1 block text-sm font-black text-[#10231a]">Number of choices</span>
                 <input
                   type="number"
@@ -598,7 +598,7 @@ export function PollsPage() {
                 />
               </label>
             ) : null}
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10">
               <input
                 type="checkbox"
                 checked={form.hideVotes}
@@ -607,7 +607,7 @@ export function PollsPage() {
               />
               Hide votes
             </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10">
               <input
                 type="checkbox"
                 checked={form.allowComments}
@@ -616,7 +616,7 @@ export function PollsPage() {
               />
               Allow comments
             </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10">
               <input
                 type="checkbox"
                 checked={form.allowVoteChanges}
@@ -626,7 +626,7 @@ export function PollsPage() {
               Allow choice change
             </label>
             {form.audience === 'parents' ? (
-              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60">
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10">
                 <input
                   type="checkbox"
                   checked={form.allowOwnChildVotes}
@@ -662,7 +662,7 @@ export function PollsPage() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm">
-        <div className="grid gap-4 border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <div className="grid gap-4 border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
             <p className={eyebrowClass}>Decision board</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Poll board</h2>
@@ -682,7 +682,7 @@ export function PollsPage() {
         </div>
         <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <p className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#d7eadf]/60">
+          <p className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
             Loading polls...
           </p>
         ) : visiblePolls.length > 0 ? (
@@ -713,7 +713,7 @@ export function PollsPage() {
 
 function DecisionMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm shadow-[#067a46]/10">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
     </div>
@@ -749,7 +749,7 @@ function PollOptionsEditor({
           <select
             value={selectedPlayerId}
             onChange={(event) => setSelectedPlayerId(event.target.value)}
-            className="min-h-11 flex-1 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+            className="min-h-11 flex-1 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
           >
             <option value="">Select a player</option>
             {awardPlayers.map((player) => (
@@ -769,7 +769,7 @@ function PollOptionsEditor({
         </div>
         <div className="mt-3 space-y-2">
           {form.options.length > 0 ? form.options.map((option, index) => (
-            <div key={option.id || `${option.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 shadow-sm shadow-[#d7eadf]/60">
+            <div key={option.id || `${option.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 shadow-sm shadow-[#067a46]/10">
               <span className="min-w-0 break-words text-sm font-black text-[#10231a]">{option.label}</span>
               <button
                 type="button"
@@ -808,7 +808,7 @@ function PollOptionsEditor({
               type={form.pollType === 'time' ? 'datetime-local' : 'text'}
               value={option}
               onChange={(event) => onOptionChange(index, event.target.value)}
-              className="min-h-11 flex-1 rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+              className="min-h-11 flex-1 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
               placeholder={`Option ${index + 1}`}
             />
             <button
@@ -835,7 +835,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
   const isClosed = poll.status === 'closed'
 
   return (
-    <article className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+    <article className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
@@ -860,7 +860,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
                 Vote locked after choice
               </span>
             ) : null}
-            <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black shadow-sm ${isClosed ? 'border-[#bddcca] bg-[#eef8f1] text-[#456653] shadow-[#d7eadf]/50' : 'border-[#bddcca] bg-[#effbf3] text-[#067a46] shadow-[#d7eadf]'}`}>
+            <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black shadow-sm ${isClosed ? 'border-[#bddcca] bg-[#eef8f1] text-[#456653] shadow-[#067a46]/10' : 'border-[#bddcca] bg-[#f0fdf6] text-[#067a46] shadow-[#067a46]/10'}`}>
               {isClosed ? 'Closed' : 'Open'}
             </span>
             {poll.teamName ? (
@@ -925,7 +925,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
                   </button>
                 ) : null}
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-lg bg-[#d7eadf]">
+              <div className="mt-3 h-2 overflow-hidden rounded-lg bg-[#bddcca]">
                 <div className="h-full rounded-lg bg-[#20a464]" style={{ width: `${percent}%` }} />
               </div>
             </div>

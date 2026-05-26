@@ -27,7 +27,7 @@ export function DemoRequestModal({
         >
           X
         </button>
-        <div className="border-b border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 sm:px-6">
+        <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Request demo</p>
           <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#10231a]">{demoPlan.name}</h2>
           <p className="mt-3 text-sm font-semibold leading-6 text-[#456653]">

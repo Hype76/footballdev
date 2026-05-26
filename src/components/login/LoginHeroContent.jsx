@@ -49,7 +49,7 @@ export function LoginHeroContent() {
               ['Parents', '6 invites ready'],
               ['Players', '4 records due'],
             ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-[#d7eadf] bg-[#f6fbf8] px-3 py-3">
+              <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-3">
                 <span className="text-sm font-black text-[#10231a]">{label}</span>
                 <span className="text-xs font-black text-[#067a46]">{value}</span>
               </div>

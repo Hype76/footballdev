@@ -369,7 +369,7 @@ export function AddPlayerPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#067a46]/10">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Player intake</p>
@@ -381,7 +381,7 @@ export function AddPlayerPage() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {playerIntakeRules.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+                <article key={item.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.body}</p>
                 </article>

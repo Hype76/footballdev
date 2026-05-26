@@ -294,7 +294,7 @@ export function CoachHomePage() {
               </div>
             </div>
 
-            <div className="border-t border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 sm:px-6 lg:px-8">
+            <div className="border-t border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6 lg:px-8">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {quickActions.map((action) => (
                   <Link
@@ -316,7 +316,7 @@ export function CoachHomePage() {
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Today rule</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">

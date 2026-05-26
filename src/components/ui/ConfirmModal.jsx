@@ -105,7 +105,7 @@ export function ConfirmModal({
         <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#10231a]">{title}</h2>
         {message ? <p className="mt-3 text-sm font-semibold leading-6 text-[#456653]">{message}</p> : null}
         {items.length > 0 ? (
-          <div className="mt-4 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#d7eadf]/60">
+          <div className="mt-4 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
             <p className="text-sm font-black text-[#10231a]">{itemsTitle}</p>
             <ul
               className={
@@ -115,7 +115,7 @@ export function ConfirmModal({
               }
             >
               {itemRows.map((item) => (
-                <li key={item.key} className="min-w-0 rounded-lg border border-[#d7eadf] bg-white px-3 py-2">
+                <li key={item.key} className="min-w-0 rounded-lg border border-[#bddcca] bg-white px-3 py-2">
                   {item.label ? (
                     <span className="block text-xs font-black uppercase tracking-[0.12em] text-[#456653]">
                       {item.label}

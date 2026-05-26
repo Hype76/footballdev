@@ -75,7 +75,7 @@ export function SectionCard({
       data-tour-id={tourId}
       className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
     >
-      <div className="flex flex-col gap-4 border-b border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+      <div className="flex flex-col gap-4 border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div className="min-w-0">
           <h3 className="text-2xl font-black tracking-tight text-[#10231a]">{title}</h3>
           {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">{description}</p> : null}
