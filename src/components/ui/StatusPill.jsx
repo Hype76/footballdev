@@ -7,7 +7,7 @@ export function StatusPill({ status }) {
         'inline-flex w-fit shrink-0 whitespace-nowrap rounded-lg border px-3 py-1.5 text-center text-xs font-semibold uppercase leading-none tracking-[0.08em]',
         isSuspended
           ? 'border-red-200 bg-red-50 text-red-800'
-          : 'border-[#bddcca] bg-[#f0fdf6] text-[#05603a]',
+          : 'border-sky-200 bg-sky-50 text-sky-800',
       ].join(' ')}
     >
       {isSuspended ? 'Suspended' : 'Active'}
