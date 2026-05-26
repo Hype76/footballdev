@@ -16,6 +16,7 @@ import {
   messageHasAttachment,
 } from '../../lib/email-message-display.js'
 import { exportPdfHtml } from '../../lib/pdf.js'
+import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
 const panelClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] shadow-sm shadow-[#d7eadf]/60'
 const cardClass = 'rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/60'
@@ -105,7 +106,7 @@ export function PlayerStaffActivity({
                 title={voiceNoteDisabledReason || (isRecordingVoiceNote ? 'Stop recording' : 'Voice note')}
                 className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   isRecordingVoiceNote
-                    ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
+                    ? 'border-[#fecdca] bg-[#b42318] text-white hover:bg-[#912018]'
                     : 'border-[#cfeedd] bg-white text-[#101828] hover:bg-[#e8f7ee]'
                 }`}
               >
@@ -116,9 +117,12 @@ export function PlayerStaffActivity({
 
           <div className="mt-4 space-y-3">
             {staffNotes.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-4 text-sm font-bold text-[#5f7468]">
-                No staff notes yet.
-              </div>
+              <PlayerStatePanel
+                action="Write a staff-only note or record a voice note after a useful coaching conversation."
+                body="Staff notes stay inside the club workspace. Use them for context that coaches need but parents should not receive."
+                eyebrow="Staff memory"
+                title="No staff notes have been saved yet."
+              />
             ) : (
               staffNotes.map((note) => (
                 <div key={note.id} className={`${cardClass} px-4 py-3`}>
@@ -130,7 +134,7 @@ export function PlayerStaffActivity({
                         disabled={deletingNoteId === note.id}
                         title={deletingNoteId === note.id ? 'Please wait while this note is being deleted.' : undefined}
                         onClick={() => onDeleteNote(note)}
-                        className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {deletingNoteId === note.id ? 'Deleting...' : 'Delete'}
                       </button>
@@ -159,9 +163,12 @@ export function PlayerStaffActivity({
           <p className="text-sm font-black text-[#101828]">Player activity</p>
           <div className="mt-3 space-y-3">
             {activityLogs.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-4 text-sm font-bold text-[#5f7468]">
-                No player activity logged yet.
-              </div>
+              <PlayerStatePanel
+                action="Activity appears after staff send emails, save notes, update records, or complete key player actions."
+                body="This log becomes the player timeline for staff accountability and club memory."
+                eyebrow="Activity timeline"
+                title="No player activity has been logged yet."
+              />
             ) : (
               activityLogs.slice(0, 10).map((log) => (
                 <ActivityCard
@@ -268,7 +275,12 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
             {body ? (
               <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#5f7468]">{body}</p>
             ) : (
-              <p className={bodyClass}>No email body was recorded for this message.</p>
+              <PlayerStatePanel
+                action="Use the message subject, recipient, and attachment record to confirm what was sent."
+                body="This older email activity did not store a message body, so the full text cannot be shown here."
+                eyebrow="Message record"
+                title="Email body content is not available."
+              />
             )}
           </div>
 
@@ -308,7 +320,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
           ) : null}
 
           {downloadError ? (
-            <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            <p className="mt-3 rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-bold text-[#b42318]">
               {downloadError}
             </p>
           ) : null}
