@@ -2,7 +2,7 @@ import { formatTrendDate } from '../../hooks/players/playerProfileUtils.js'
 import { MicIcon } from '../icons/MicIcon.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const metricCardClass = 'rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70'
+const metricCardClass = 'rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 
 export function PlayerOverview({
@@ -43,7 +43,7 @@ export function PlayerOverview({
               className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border px-3 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 isRecordingVoiceNote
                   ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
-                  : 'border-slate-200 bg-[#f9fafb] text-[#101828] hover:bg-slate-100'
+                  : 'border-[#cfeedd] bg-[#f8fdf9] text-[#101828] hover:bg-[#e8f7ee]'
               }`}
             >
               <MicIcon />
@@ -74,7 +74,7 @@ export function PlayerOverview({
         description="Shows how the player's development scores are moving over time."
       >
         {ratingTrend.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-bold text-[#667085]">
+          <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-6 text-sm font-bold text-[#5f7468]">
             No scored development records yet.
           </div>
         ) : (
@@ -84,7 +84,7 @@ export function PlayerOverview({
                 const scorePercent = Math.max(0, Math.min(100, (Number(evaluation.averageScore) / ratingTrendMax) * 100))
 
                 return (
-                  <div key={evaluation.id} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+                  <div key={evaluation.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-black text-[#101828]">{formatTrendDate(evaluation)}</p>
                       <p className="text-sm font-black text-[#101828]">{evaluation.averageScore.toFixed(1)}</p>
@@ -104,16 +104,16 @@ export function PlayerOverview({
             </div>
 
             {fieldMovement.length > 0 ? (
-              <div className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+              <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
                 <p className="text-sm font-black text-[#101828]">Field movement</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {fieldMovement.map((item) => (
-                    <div key={item.label} className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm shadow-slate-200/60">
+                    <div key={item.label} className="rounded-lg border border-[#cfeedd] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
                       <p className="mt-2 text-sm font-black text-[#101828]">
                         {item.firstValue} to {item.latestValue}
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-[#667085]">
+                      <p className="mt-1 text-sm font-semibold text-[#5f7468]">
                         {item.change > 0 ? '+' : ''}{item.change.toFixed(1)} change
                       </p>
                     </div>

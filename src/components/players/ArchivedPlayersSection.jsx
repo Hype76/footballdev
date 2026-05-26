@@ -5,9 +5,9 @@ import { SectionCard } from '../ui/SectionCard.jsx'
 
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const fieldClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-slate-400 focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#067a46]'
-const detailClass = 'text-sm font-semibold text-[#667085]'
+const detailClass = 'text-sm font-semibold text-[#5f7468]'
 
 export function ArchivedPlayersSection({
   filteredPlayers,
@@ -31,7 +31,7 @@ export function ArchivedPlayersSection({
       description="Archived players are hidden from active player lists and are scheduled for deletion after 3 months."
     >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-bold text-[#667085]">
+        <p className="text-sm font-bold text-[#5f7468]">
           {selectedPlayerIds.length > 0
             ? `${selectedPlayerIds.length} selected`
             : `${players.length} archived player${players.length === 1 ? '' : 's'}`}
@@ -82,24 +82,24 @@ export function ArchivedPlayersSection({
       </label>
 
       {isLoading ? (
-        <div className="mt-5 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-6 text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60">
+        <div className="mt-5 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-6 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
           Loading archived players...
         </div>
       ) : filteredPlayers.length === 0 ? (
-        <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60">
+        <div className="mt-5 rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-6 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
           No archived players found.
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
           {paginatedPlayers.items.map((player) => (
-            <div key={player.id} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+            <div key={player.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
               <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
                 <label className="flex items-start pt-1">
                   <input
                     type="checkbox"
                     checked={selectedPlayerIds.includes(player.id)}
                     onChange={() => onTogglePlayer(player.id)}
-                    className="h-5 w-5 rounded border-slate-200 bg-white text-[#067a46] focus:ring-[#20a464]"
+                    className="h-5 w-5 rounded border-[#cfeedd] bg-white text-[#067a46] focus:ring-[#20a464]"
                     aria-label={`Select ${player.playerName}`}
                   />
                 </label>
@@ -123,7 +123,7 @@ export function ArchivedPlayersSection({
                 </div>
                 <div>
                   <p className={eyebrowClass}>Reason</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-[#667085]">{player.archivedReason || 'No reason entered'}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-[#5f7468]">{player.archivedReason || 'No reason entered'}</p>
                 </div>
                 <div className="flex lg:justify-end">
                   <button

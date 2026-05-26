@@ -7,10 +7,10 @@ import { getDraftParentContacts } from '../../hooks/players/playerProfileUtils.j
 import { isInviteEmailTemplate } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const fieldClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const smallLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#067a46]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#e8f7ee] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayerDetailsSection({
   directEmailSendingId,
@@ -44,7 +44,7 @@ export function PlayerDetailsSection({
       description="Edit section, team, and parent contact details here."
     >
       {profilePlayers.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-5 text-sm font-bold text-[#667085]">
+        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-bold text-[#5f7468]">
           No saved player details yet. This profile was created from development history.
         </div>
       ) : (
@@ -58,7 +58,7 @@ export function PlayerDetailsSection({
             })
 
             return (
-              <div key={player.id} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+              <div key={player.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
                 {isEditing ? (
                   <PlayerDetailsEditor
                     draft={draft}
@@ -161,7 +161,7 @@ function PlayerDetailsEditor({
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <span className="block text-sm font-black text-[#101828]">Contacts</span>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#667085]">
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#5f7468]">
               Add parent or guardian contacts used for player communication.
             </p>
           </div>
@@ -175,7 +175,7 @@ function PlayerDetailsEditor({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {getDraftParentContacts(draft).map((contact, index) => (
-            <div key={index} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/60">
+            <div key={index} className="rounded-lg border border-[#cfeedd] bg-white p-3 shadow-sm shadow-[#d7eadf]/60">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
                 Contact {index + 1}
               </p>
@@ -233,14 +233,14 @@ function PlayerDetailsEditor({
                 key={position}
                 type="button"
                 onClick={() => onRemovePlayerPosition(position)}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-slate-100"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-[#e8f7ee]"
               >
                 {position} remove
               </button>
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-xs font-semibold leading-5 text-[#667085]">No positions entered.</p>
+          <p className="mt-2 text-xs font-semibold leading-5 text-[#5f7468]">No positions entered.</p>
         )}
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -320,7 +320,7 @@ function PlayerDetailsSummary({
         <PlayerDetailItem label="Status" value={player.status === 'promoted' ? 'Promoted' : 'Active'} />
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
+      <div className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/60">
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(160px,0.45fr)_auto_auto_auto] lg:items-end">
           {directEmailTemplates.length > 0 ? (
             <label className="block">
@@ -339,7 +339,7 @@ function PlayerDetailsSummary({
               </select>
             </label>
           ) : (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#667085]">
+            <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-3 text-sm font-bold text-[#5f7468]">
               Enable a template for Direct Email before sending.
             </div>
           )}

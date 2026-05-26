@@ -17,14 +17,14 @@ import {
 } from '../../lib/email-message-display.js'
 import { exportPdfHtml } from '../../lib/pdf.js'
 
-const panelClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] shadow-sm shadow-slate-200/60'
-const cardClass = 'rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/60'
-const fieldClass = 'w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-slate-400 focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const panelClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] shadow-sm shadow-[#d7eadf]/60'
+const cardClass = 'rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/60'
+const fieldClass = 'w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#067a46]'
-const bodyClass = 'text-sm font-semibold leading-6 text-[#667085]'
+const bodyClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#e8f7ee] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayerStaffActivity({
   activityLogs,
@@ -106,7 +106,7 @@ export function PlayerStaffActivity({
                 className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   isRecordingVoiceNote
                     ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
-                    : 'border-slate-200 bg-white text-[#101828] hover:bg-slate-100'
+                    : 'border-[#cfeedd] bg-white text-[#101828] hover:bg-[#e8f7ee]'
                 }`}
               >
                 <MicIcon />
@@ -116,7 +116,7 @@ export function PlayerStaffActivity({
 
           <div className="mt-4 space-y-3">
             {staffNotes.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-4 text-sm font-bold text-[#667085]">
+              <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-4 text-sm font-bold text-[#5f7468]">
                 No staff notes yet.
               </div>
             ) : (
@@ -159,7 +159,7 @@ export function PlayerStaffActivity({
           <p className="text-sm font-black text-[#101828]">Player activity</p>
           <div className="mt-3 space-y-3">
             {activityLogs.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-4 text-sm font-bold text-[#667085]">
+              <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-4 text-sm font-bold text-[#5f7468]">
                 No player activity logged yet.
               </div>
             ) : (
@@ -209,7 +209,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
           {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
         </p>
         {log.recipientEmail ? (
-          <p className="mt-1 break-words text-xs font-semibold text-[#667085]">Recipient: {log.recipientEmail}</p>
+          <p className="mt-1 break-words text-xs font-semibold text-[#5f7468]">Recipient: {log.recipientEmail}</p>
         ) : null}
       </div>
     )
@@ -230,7 +230,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="block w-full px-4 py-3 text-left transition hover:bg-slate-100"
+        className="block w-full px-4 py-3 text-left transition hover:bg-[#e8f7ee]"
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -239,7 +239,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
               {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
             </p>
             {log.recipientEmail ? (
-              <p className="mt-1 break-words text-xs font-semibold text-[#667085]">Recipient: {log.recipientEmail}</p>
+              <p className="mt-1 break-words text-xs font-semibold text-[#5f7468]">Recipient: {log.recipientEmail}</p>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -248,7 +248,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
                 PDF attached
               </span>
             ) : null}
-            <span className="inline-flex w-fit rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1 text-xs font-black text-[#067a46]">
+            <span className="inline-flex w-fit rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#067a46]">
               {isOpen ? 'Hide email' : 'View email'}
             </span>
           </div>
@@ -256,17 +256,17 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
       </button>
 
       {isOpen ? (
-        <div className="border-t border-slate-200 px-4 py-4">
-          <div className="grid gap-2 text-xs font-semibold text-[#667085] sm:grid-cols-2">
+        <div className="border-t border-[#cfeedd] px-4 py-4">
+          <div className="grid gap-2 text-xs font-semibold text-[#5f7468] sm:grid-cols-2">
             {templateName ? <InfoLine label="Template" value={templateName} /> : null}
             {playerLabel ? <InfoLine label="Player" value={playerLabel} /> : null}
             {teamLabel ? <InfoLine label="Team" value={teamLabel} /> : null}
             {clubLabel ? <InfoLine label="Club" value={clubLabel} /> : null}
           </div>
 
-          <div className="mt-4 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3">
+          <div className="mt-4 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3">
             {body ? (
-              <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#667085]">{body}</p>
+              <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#5f7468]">{body}</p>
             ) : (
               <p className={bodyClass}>No email body was recorded for this message.</p>
             )}
@@ -276,11 +276,11 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
             <div className="mt-4 space-y-2">
               <p className={eyebrowClass}>Development details</p>
               {assessmentFields.map((field) => (
-                <div key={field.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2">
+                <div key={field.label} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
                     {field.label}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-[#667085]">
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-[#5f7468]">
                     {String(field.value ?? '')}
                   </p>
                 </div>

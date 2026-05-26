@@ -50,14 +50,14 @@ export function PlayerEvaluationsHistory({
       description="History is scoped by club and role, with sharing actions available on each record."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-6 py-10 text-center text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60">
+        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-6 py-10 text-center text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
           Loading player history...
         </div>
       ) : evaluations.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-6 py-10 text-center shadow-sm shadow-slate-200/60">
+        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-6 py-10 text-center shadow-sm shadow-[#d7eadf]/60">
           <p className="text-sm font-black uppercase tracking-[0.18em] text-[#067a46]">Player History</p>
           <p className="mt-3 text-xl font-black text-[#101828]">No history for this player yet</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
             Once development records are saved for this player, the full review trail will appear here.
           </p>
         </div>
