@@ -69,16 +69,16 @@ export function ParentPortalLoginBox() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 text-slate-950 shadow-sm shadow-slate-200/70 sm:p-5">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent login</p>
+    <section className="rounded-lg border border-[#b7efce] bg-white p-4 text-[#101828] shadow-sm shadow-[#d7eadf]/70 sm:p-5">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Parent login</p>
       <h2 className="mt-3 text-2xl font-black tracking-tight">Open the parent portal</h2>
-      <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">
+      <p className="mt-2 text-sm font-semibold leading-7 text-[#5f7468]">
         Use the parent account confirmed by email. You will be taken to the dedicated parent portal after login.
       </p>
 
       <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
         <label className="block">
-          <span className="mb-2 block text-sm font-bold text-slate-950">Email</span>
+          <span className="mb-2 block text-sm font-bold text-[#101828]">Email</span>
           <input
             type="email"
             value={email}
@@ -89,13 +89,13 @@ export function ParentPortalLoginBox() {
             required
             autoComplete="email"
             placeholder="you@example.com"
-            className="min-h-12 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+            className="min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-bold text-slate-950">Password</span>
-          <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-[#f8fafc] focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus:ring-emerald-100">
+          <span className="mb-2 block text-sm font-bold text-[#101828]">Password</span>
+          <div className="flex overflow-hidden rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] focus-within:border-[#20a464] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#d7f8e5]">
             <input
               type={isPasswordVisible ? 'text' : 'password'}
               value={password}
@@ -106,12 +106,12 @@ export function ParentPortalLoginBox() {
               required
               autoComplete="current-password"
               placeholder="Enter password"
-              className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-slate-950 outline-none placeholder:text-slate-400"
+              className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none placeholder:text-[#8da59a]"
             />
             <button
               type="button"
               onClick={() => setIsPasswordVisible((current) => !current)}
-              className="min-h-12 border-l border-slate-200 px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-[#f2fbf6]"
+              className="min-h-12 border-l border-[#bfe8cd] px-4 py-3 text-sm font-bold text-[#067a46] transition hover:bg-[#f0fdf6]"
             >
               {isPasswordVisible ? 'Hide' : 'Show'}
             </button>
@@ -123,14 +123,14 @@ export function ParentPortalLoginBox() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? 'Opening parent portal...' : 'Login to Parent Portal'}
         </button>
 
         <a
           href={buildParentAppUrl('/parent-login')}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-bold text-[#101828] transition hover:bg-[#f0fdf6]"
         >
           Forgot password
         </a>
