@@ -44,15 +44,75 @@ function StepMarker({ index, complete }) {
   return (
     <span
       className={[
-        'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-xs font-black',
+        'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-xs font-black',
         complete
           ? 'border-[#067a46] bg-[#067a46] text-white'
-          : 'border-[#9addb4] bg-white text-[#456653]',
+          : 'border-[#bddcca] bg-white text-[#456653]',
       ].join(' ')}
       aria-label={complete ? 'Complete' : 'Not complete'}
     >
       {complete ? 'OK' : index + 1}
     </span>
+  )
+}
+
+function ConstraintRule({ body, title }) {
+  return (
+    <div className="rounded-lg border border-[#d7eadf] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+      <p className="text-sm font-black text-[#10231a]">{title}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{body}</p>
+    </div>
+  )
+}
+
+function SetupStepCard({ index, onComplete, step }) {
+  return (
+    <article
+      className={[
+        'rounded-lg border p-4 shadow-sm transition',
+        step.complete
+          ? 'border-[#b7efce] bg-[#effbf3] shadow-[#d7eadf]/70'
+          : 'border-[#d7eadf] bg-white shadow-[#d7eadf]/60 hover:border-[#20a464]',
+      ].join(' ')}
+    >
+      <div className="flex gap-3">
+        <StepMarker complete={step.complete} index={index} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-black leading-6 text-[#10231a]">{step.title}</h3>
+            <span
+              className={[
+                'rounded-lg border px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em]',
+                step.complete
+                  ? 'border-[#abefc6] bg-white text-[#067647]'
+                  : 'border-[#fedf89] bg-[#fffbeb] text-[#93370d]',
+              ].join(' ')}
+            >
+              {step.complete ? 'Ready' : 'Needed'}
+            </span>
+          </div>
+          <p className="mt-2 text-sm font-black leading-6 text-[#456653]">{step.rule}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{step.detail}</p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Link
+              to={step.href}
+              className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg bg-[#067a46] px-4 py-2 text-sm font-black text-white transition hover:bg-[#05603a]"
+            >
+              {step.actionLabel}
+            </Link>
+            {!step.complete ? (
+              <button
+                type="button"
+                onClick={() => onComplete(step.id)}
+                className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]"
+              >
+                Mark not used
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -202,22 +262,25 @@ export function OnboardingProvider({ children }) {
   return (
     <>
       {shouldShowOnboarding ? (
-        <section className="mb-6 overflow-hidden rounded-lg border border-[#b7efce] bg-white shadow-sm shadow-[#d7eadf]/80">
-          <div className="border-b border-[#d7f8e5] bg-white px-5 py-5 sm:px-6">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-stretch">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">First run setup</p>
-                <h2 className="mt-2 max-w-4xl text-3xl font-black leading-[1.08] tracking-tight text-[#101828] sm:text-4xl">{plan.title}</h2>
-                <p className="mt-3 max-w-3xl text-base font-semibold leading-7 text-[#456653]">{plan.description}</p>
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  <SetupRule title="Use real data" body="Create or confirm the football records the club needs this week." />
-                  <SetupRule title="Respect access" body="Only complete setup work this account is allowed to manage." />
-                  <SetupRule title="Keep it practical" body="Skip workflows the club does not use and reset setup later if needed." />
-                </div>
+        <section className="mb-6 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+          <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
+            <div className="px-5 py-6 sm:px-6 lg:px-8">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">First run setup</p>
+              <h2 className="mt-3 max-w-5xl text-4xl font-black leading-[1.05] tracking-tight text-[#10231a] sm:text-5xl">
+                {plan.title}
+              </h2>
+              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">{plan.description}</p>
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                <ConstraintRule title="Use real club data" body="Create or confirm the records needed for this week of football." />
+                <ConstraintRule title="Respect role limits" body="Only complete setup work this account is allowed to manage." />
+                <ConstraintRule title="Do one real action" body="Every setup step should leave the workspace more useful than before." />
               </div>
-              <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/80">
-                <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
-                  <span>Launch checks</span>
+            </div>
+
+            <aside className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+              <div>
+                <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
+                  <span>Setup progress</span>
                   <span>{progress.completedCount} of {progress.totalCount}</span>
                 </div>
                 <div className="mt-4 h-3 overflow-hidden rounded-lg bg-white ring-1 ring-[#bfe8cd]">
@@ -226,24 +289,15 @@ export function OnboardingProvider({ children }) {
                     style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
                   />
                 </div>
-                <p className="mt-2 text-xs font-bold text-[#5f7468]">
-                  {isLoading ? 'Refreshing real workspace data.' : 'Checked against workspace data where possible.'}
+                <p className="mt-3 text-sm font-semibold leading-6 text-[#5f7468]">
+                  {isLoading ? 'Refreshing workspace data.' : 'Progress uses real workspace data where possible.'}
                 </p>
-                <div className="mt-5 rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-4 py-3">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Next action</p>
-                  <p className="mt-1 text-lg font-black text-[#101828]">{nextStep?.title}</p>
-                </div>
               </div>
-            </div>
-          </div>
-
-          <div className="grid gap-0 xl:grid-cols-[minmax(20rem,0.62fr)_minmax(0,1fr)]">
-            <div className="border-b border-[#bfe8cd] bg-[#f8fdf9] p-5 sm:p-6 xl:border-b-0 xl:border-r">
-              <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-4 shadow-sm shadow-[#b7efce]">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Next useful action</p>
-                <h3 className="mt-2 text-lg font-black text-[#101828]">{nextStep?.title}</h3>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{nextStep?.detail}</p>
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row xl:flex-col 2xl:flex-row">
+              <div className="mt-5 rounded-lg border border-[#b7efce] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Next required action</p>
+                <p className="mt-2 text-xl font-black leading-6 text-[#10231a]">{nextStep?.title}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{nextStep?.detail}</p>
+                <div className="mt-4 grid gap-2">
                   <Link
                     to={nextStep?.href || plan.firstAction}
                     className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#b7efce] transition hover:bg-[#05603a]"
@@ -253,74 +307,33 @@ export function OnboardingProvider({ children }) {
                   <button
                     type="button"
                     onClick={handleDismiss}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]"
                   >
                     Skip for now
                   </button>
                 </div>
               </div>
+            </aside>
+          </div>
 
-              <div className="mt-4 rounded-lg border border-[#fedf89] bg-[#fffbeb] px-4 py-3">
-                <p className="text-sm font-black text-[#93370d]">Rules before features</p>
-                <p className="mt-1 text-sm leading-6 text-[#93370d]">
-                  This setup asks for only the data needed to run football this week. Complete a real action, or mark it done when your club does not use that workflow.
-                </p>
-              </div>
+          <div className="border-t border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6 lg:px-8">
+            <div className="grid gap-3 lg:grid-cols-2">
+              {plan.steps.map((step, index) => (
+                <SetupStepCard key={step.id} index={index} onComplete={handleCompleteStep} step={step} />
+              ))}
             </div>
 
-            <div className="bg-white p-4 sm:p-5">
-              <div className="grid gap-3 lg:grid-cols-2">
-                {plan.steps.map((step, index) => (
-                  <article
-                    key={step.id}
-                    className={[
-                      'rounded-lg border p-4 shadow-sm transition',
-                      step.complete
-                        ? 'border-[#b7efce] bg-[#f0fdf6]'
-                        : 'border-[#bfe8cd] bg-white',
-                    ].join(' ')}
-                  >
-                    <div className="flex gap-3">
-                      <StepMarker complete={step.complete} index={index} />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-black text-[#101828]">{step.title}</h3>
-                        <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{step.rule}</p>
-                        <p className="mt-2 text-sm leading-6 text-[#456653]">{step.detail}</p>
-                        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                          <Link
-                            to={step.href}
-                            className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg bg-[#067a46] px-4 py-2 text-sm font-black text-white transition hover:bg-[#05603a]"
-                          >
-                            {step.actionLabel}
-                          </Link>
-                          {!step.complete ? (
-                            <button
-                              type="button"
-                              onClick={() => handleCompleteStep(step.id)}
-                              className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-2 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6]"
-                            >
-                              Mark done
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-
-              <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/70 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-semibold text-[#5f7468]">
-                  Reset brings the checklist back for testing or a fresh club launch.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6]"
-                >
-                  Reset setup
-                </button>
-              </div>
+            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/70 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold leading-6 text-[#5f7468]">
+                Skip pauses setup. Reset starts this first-run path again for a fresh club launch or testing.
+              </p>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]"
+              >
+                Reset setup
+              </button>
             </div>
           </div>
 
@@ -332,11 +345,11 @@ export function OnboardingProvider({ children }) {
         </section>
       ) : null}
       {shouldShowReopenOnboarding ? (
-        <section className="mb-6 rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70 sm:px-5">
+        <section className="mb-6 rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70 sm:px-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">Setup paused</p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
+              <h2 className="mt-1 text-xl font-black tracking-tight text-[#10231a]">{plan.title}</h2>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
                 {progress.completedCount} of {progress.totalCount} setup checks are complete. Reopen setup when the club is ready to finish the next real action.
               </p>
@@ -344,7 +357,7 @@ export function OnboardingProvider({ children }) {
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[24rem]">
               <Link
                 to={nextStep?.href || plan.firstAction}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 {nextStep?.actionLabel || 'Open next step'}
               </Link>
@@ -366,14 +379,5 @@ export function OnboardingProvider({ children }) {
       ) : null}
       {children}
     </>
-  )
-}
-
-function SetupRule({ body, title }) {
-  return (
-    <div className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
-      <p className="text-sm font-black text-[#101828]">{title}</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{body}</p>
-    </div>
   )
 }
