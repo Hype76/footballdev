@@ -4,6 +4,14 @@ import { hasPlanFeature } from '../../lib/plans.js'
 import { buildEvaluationSummary } from '../../hooks/players/playerProfileUtils.js'
 import { EvaluationExportFieldsSelector } from '../evaluations/EvaluationExportFieldsSelector.jsx'
 
+const panelClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const bodyClass = 'text-sm font-semibold leading-6 text-[#667085]'
+const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+const smallButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:bg-slate-100'
+
 export function EvaluationHistoryCard({
   availableEmailTemplates,
   availablePlayers,
@@ -73,7 +81,7 @@ export function EvaluationHistoryCard({
   const removePlayerDisabledReason = isDeleting ? 'Please wait while this player is being removed.' : undefined
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 sm:p-5">
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
@@ -82,15 +90,15 @@ export function EvaluationHistoryCard({
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-lg font-semibold text-slate-950">{evaluation.date || 'No date entered'}</p>
-            {evaluation.session ? <p className="mt-1 text-sm font-semibold text-slate-600">Session: {evaluation.session}</p> : null}
-            <p className="mt-1 text-sm font-semibold text-slate-600">Section: {evaluation.section || 'Trial'}</p>
+            <p className="text-lg font-black text-[#101828]">{evaluation.date || 'No date entered'}</p>
+            {evaluation.session ? <p className="mt-1 text-sm font-semibold text-[#667085]">Session: {evaluation.session}</p> : null}
+            <p className="mt-1 text-sm font-semibold text-[#667085]">Section: {evaluation.section || 'Trial'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex min-h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950">
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-3 py-2 text-sm font-black text-[#067a46]">
               Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
             </span>
-            <span className="inline-flex min-h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950">
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828]">
               {isOpen ? 'Close' : 'Open'}
             </span>
           </div>
@@ -99,11 +107,11 @@ export function EvaluationHistoryCard({
 
       {isOpen ? (
       <>
-      <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className={`mt-5 ${panelClass}`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-950">Move report to another player</p>
-            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+            <p className="text-sm font-black text-[#101828]">Move report to another player</p>
+            <p className={`mt-1 ${bodyClass}`}>
               Use this if a report was saved against the wrong player.
             </p>
           </div>
@@ -113,24 +121,24 @@ export function EvaluationHistoryCard({
               onClick={() => onDeleteEvaluation(evaluation)}
               disabled={isDeletingEvaluationId === evaluation.id}
               title={deleteAssessmentDisabledReason}
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isDeletingEvaluationId === evaluation.id ? 'Deleting...' : 'Delete Record'}
             </button>
           ) : null}
         </div>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+        <p className={`mt-1 ${bodyClass}`}>
           Deleting an old development record removes it from this player history and average score calculations.
         </p>
         <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-950">Correct player</span>
+            <span className={labelClass}>Correct player</span>
             <select
               value={selectedReassignTargets[evaluation.id] || ''}
               onChange={(event) => onReassignTargetChange(evaluation.id, event.target.value)}
               disabled={availablePlayers.length === 0}
               title={reassignSelectDisabledReason}
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className={fieldClass}
             >
               <option value="">
                 {availablePlayers.length === 0 ? 'No other players available' : 'Select player'}
@@ -147,7 +155,7 @@ export function EvaluationHistoryCard({
             onClick={() => onReassignEvaluation(evaluation)}
             disabled={!selectedReassignTargets[evaluation.id] || isReassigningId === evaluation.id}
             title={reassignDisabledReason}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+            className={`${secondaryButtonClass} md:w-auto`}
           >
             {isReassigningId === evaluation.id ? 'Moving...' : 'Move Report'}
           </button>
@@ -157,11 +165,11 @@ export function EvaluationHistoryCard({
       <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_minmax(220px,1fr)_auto_auto_auto_auto] xl:items-end">
         {availableEmailTemplates.length > 0 ? (
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-950">Email template</span>
+            <span className={labelClass}>Email template</span>
             <select
               value={selectedTemplateKey}
               onChange={(event) => onSelectedEmailTemplateChange(evaluation.id, event.target.value)}
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             >
               {availableEmailTemplates.map((template) => (
                 <option key={template.key} value={template.key}>
@@ -171,18 +179,18 @@ export function EvaluationHistoryCard({
             </select>
           </label>
         ) : (
-          <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+          <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#667085]">
             Create a club email template before sending emails.
           </div>
         )}
         {shouldShowInviteDate ? (
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-950">Invite date</span>
+            <span className={labelClass}>Invite date</span>
             <input
               type="date"
               value={selectedInviteDate}
               onChange={(event) => onInviteDateChange(evaluation.id, event.target.value)}
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
         ) : (
@@ -212,7 +220,7 @@ export function EvaluationHistoryCard({
               onClick={() => onSendTestEmail(evaluation)}
               disabled={emailSendingId === `test:${evaluation.id}` || !canShare || !user?.email || !hasPlanFeature(user, 'parentEmail')}
               title={testEmailDisabledReason || 'Send a test copy to your email address'}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className={secondaryButtonClass}
             >
               {emailSendingId === `test:${evaluation.id}` ? 'Sending...' : 'Test Email'}
             </button>
@@ -221,7 +229,7 @@ export function EvaluationHistoryCard({
               onClick={() => onSendParentEmail(evaluation)}
               disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
               title={emailParentsDisabledReason || 'Email parents'}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className={secondaryButtonClass}
             >
               {emailSendingId === evaluation.id ? 'Sending...' : 'Email Parents'}
             </button>
@@ -231,7 +239,7 @@ export function EvaluationHistoryCard({
           <button
             type="button"
             onClick={() => onEditEvaluation(evaluation)}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className={secondaryButtonClass}
           >
             Edit Record
           </button>
@@ -239,11 +247,11 @@ export function EvaluationHistoryCard({
       </div>
 
       {selectedTemplateKey === 'decline' && canDeletePlayer(user) ? (
-        <div className="mt-4 rounded-md border border-red-500/30 bg-red-950/20 p-4">
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 shadow-sm shadow-red-100/60">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-950">No place offered</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+              <p className="text-sm font-black text-[#101828]">No place offered</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-red-700">
                 If this player is no longer needed, you can remove them from the system after preparing the parent email.
               </p>
             </div>
@@ -252,7 +260,7 @@ export function EvaluationHistoryCard({
               disabled={isDeleting}
               title={removePlayerDisabledReason}
               onClick={onRemovePlayer}
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-5 py-3 text-sm font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isDeleting ? 'Removing...' : 'Remove From System'}
             </button>
@@ -262,10 +270,10 @@ export function EvaluationHistoryCard({
 
       {evaluationParentContacts.length > 0 ? (
         <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Parent details</p>
+          <p className={eyebrowClass}>Parent details</p>
           <div className="mt-3 space-y-1">
             {evaluationParentContacts.map((contact, index) => (
-              <p key={index} className="break-words text-sm font-semibold leading-6 text-slate-600">
+              <p key={index} className={bodyClass}>
                 {contact.name || 'Parent/Guardian'}{contact.email ? ` | ${contact.email}` : ''}
               </p>
             ))}
@@ -274,24 +282,24 @@ export function EvaluationHistoryCard({
       ) : null}
 
       <div className="mt-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Summary</p>
-        <p className="mt-3 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">
+        <p className={eyebrowClass}>Summary</p>
+        <p className="mt-3 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#667085]">
           {buildEvaluationSummary(evaluation)}
         </p>
       </div>
 
       <div className="mt-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Responses</p>
+        <p className={eyebrowClass}>Responses</p>
         <div className="mt-3 space-y-2">
           {responseItems.length > 0 ? (
             responseItems.map((item) => (
-              <div key={item.label} className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
-                <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">{String(item.value)}</p>
+              <div key={item.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 shadow-sm shadow-slate-200/60">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#667085]">{String(item.value)}</p>
               </div>
             ))
           ) : (
-            <p className="text-sm font-semibold leading-6 text-slate-600">No responses provided.</p>
+            <p className={bodyClass}>No responses provided.</p>
           )}
         </div>
       </div>
@@ -309,30 +317,30 @@ function EvaluationRecipients({
 }) {
   return (
     <div>
-      <span className="mb-2 block text-sm font-semibold text-slate-950">Email recipients</span>
+      <span className={labelClass}>Email recipients</span>
       {contacts.length > 0 ? (
-        <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-[#f9fafb] p-3 shadow-sm shadow-slate-200/60">
           {contacts.map((contact, index) => {
             const selectedIndexes = selectedParentContacts[evaluationId] ?? contacts.map((_, contactIndex) => contactIndex)
 
             return (
-              <label key={`${contact.email || contact.name}-${index}`} className="flex items-start gap-2 text-sm font-semibold text-slate-950">
+              <label key={`${contact.email || contact.name}-${index}`} className="flex items-start gap-2 text-sm font-black text-[#101828]">
                 <input
                   type="checkbox"
                   checked={selectedIndexes.includes(index)}
                   onChange={() => onToggleEvaluationParentContact(evaluationId, index, contacts)}
-                  className="mt-1 h-4 w-4 accent-emerald-700"
+                  className="mt-1 h-4 w-4 accent-[#067a46]"
                 />
                 <span className="min-w-0">
-                  <span className="block font-semibold">{contact.name || 'Parent/Guardian'}</span>
-                  <span className="block break-words text-xs font-semibold text-slate-600">{contact.email || 'No email entered'}</span>
+                  <span className="block font-black">{contact.name || 'Parent/Guardian'}</span>
+                  <span className="block break-words text-xs font-semibold text-[#667085]">{contact.email || 'No email entered'}</span>
                 </span>
               </label>
             )
           })}
         </div>
       ) : (
-        <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-3 text-sm font-bold text-[#667085]">
           No parent contacts entered.
         </div>
       )}
@@ -353,11 +361,11 @@ function EvaluationExportFields({
 }) {
   return (
     <div className="xl:col-span-7">
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className={panelClass}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-950">Development details to include</p>
-            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+            <p className="text-sm font-black text-[#101828]">Development details to include</p>
+            <p className={`mt-1 ${bodyClass}`}>
               Choose what goes into the parent email. This choice is saved in this browser for {playerName}.
             </p>
           </div>
@@ -365,14 +373,14 @@ function EvaluationExportFields({
             <button
               type="button"
               onClick={() => onSelectAllExportFields(responseItems)}
-              className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100"
+              className={smallButtonClass}
             >
               Select All
             </button>
             <button
               type="button"
               onClick={onClearExportFields}
-              className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-slate-100"
+              className={smallButtonClass}
             >
               Clear
             </button>
@@ -389,12 +397,12 @@ function EvaluationExportFields({
             selectedExportLabels={selectedExportLabels}
           />
         ) : (
-          <p className="mt-4 rounded-md border border-dashed border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600">
+          <p className="mt-4 rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-bold text-[#667085]">
             No development responses above zero were entered for this record.
           </p>
         )}
 
-        <p className="mt-3 text-xs font-semibold leading-5 text-slate-600">
+        <p className="mt-3 text-xs font-semibold leading-5 text-[#667085]">
           {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
         </p>
       </div>
