@@ -4,25 +4,31 @@ import { LoginHeader } from '../components/login/LoginHeader.jsx'
 
 const featureGroups = [
   {
-    title: 'Player development records',
-    copy: 'Keep trial notes, squad history, positions, development scores, and coach decisions tied to the player profile.',
-    points: ['Custom development forms', 'Trial and squad status', 'Previous development history'],
+    title: 'Setup first',
+    copy: 'Create the club, first team, staff access, players, and parent links before opening the wider workspace.',
+    points: ['Club identity and logo', 'Team and staff access', 'Player and parent records'],
   },
   {
-    title: 'Team and staff control',
-    copy: 'Give coaches access to the teams they work with, then let Team Admins enforce appearance and settings for that team.',
-    points: ['Role based access', 'Team branding controls', 'Staff allocation by team'],
+    title: 'Run the football week',
+    copy: 'Keep availability, sessions, match day, and player development records connected to the right team.',
+    points: ['Availability decisions', 'Training and match sessions', 'Live match day cards'],
   },
   {
-    title: 'Sessions and match days',
-    copy: 'Build session lists, record from the pitch, track match day scoring, and keep updates attached to the correct team.',
-    points: ['Training session workflows', 'Match day live updates', 'Coach friendly mobile views'],
+    title: 'Develop players',
+    copy: 'Use club-defined development forms so coaches record useful football feedback instead of scattered notes.',
+    points: ['Custom forms', 'Trial and squad history', 'Development PDFs'],
   },
   {
-    title: 'Parent communication',
-    copy: 'Turn coach input into clear parent messages without asking staff to rewrite the same feedback every week.',
-    points: ['Parent portal access', 'Email templates', 'Polls and messages'],
+    title: 'Keep parents informed',
+    copy: 'Share the right updates through a controlled parent portal without staff losing control of records.',
+    points: ['Messages and attachments', 'Parent polls', 'Linked child access'],
   },
+]
+
+const operatingRules = [
+  ['Constraint first', 'The interface explains the rule before the action: who can edit, what data is needed, and what happens next.'],
+  ['Football only', 'Every surface maps to club work: teams, players, fixtures, sessions, staff roles, and parent communication.'],
+  ['Less admin drift', 'The product should reduce duplicate notes, repeated messages, and manual chasing across chats.'],
 ]
 
 export function PublicFeaturesPage() {
@@ -31,20 +37,20 @@ export function PublicFeaturesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-[max(5.5rem,env(safe-area-inset-bottom))] text-slate-950 lg:pb-0">
+    <main className="min-h-screen bg-[#fbfdfb] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-slate-950 lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="relative overflow-hidden">
         <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-100" />
-        <div className="absolute inset-0 bg-white/82" />
-        <div className="absolute inset-0 bg-white/70" />
+        <div className="absolute inset-0 bg-white/88" />
+        <div className="absolute inset-0 bg-[#fbfdfb]/72" />
         <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
-          <div className="max-w-3xl">
+          <div className="max-w-4xl rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-200/80 backdrop-blur sm:p-6 lg:p-8">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Features</p>
             <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
-              Academy standards, built for grassroots football.
+              A football-only workspace for clubs that need less chaos.
             </h1>
-            <p className="mt-5 text-base leading-7 text-slate-700 sm:mt-6 sm:text-lg sm:leading-8">
-              Bring professional structure to trials, player development, staff access, match days, and parent communication without making club admin harder.
+            <p className="mt-5 text-base font-semibold leading-7 text-slate-700 sm:mt-6 sm:text-lg sm:leading-8">
+              Build the operating layer clubs actually need: setup, staff roles, players, availability, match day, development records, and parent communication.
             </p>
           </div>
         </div>
@@ -52,13 +58,13 @@ export function PublicFeaturesPage() {
 
       <section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-8 sm:gap-5 sm:px-6 sm:py-12 md:grid-cols-2 lg:px-8">
         {featureGroups.map((feature) => (
-          <article key={feature.title} className="rounded-lg border border-slate-200 bg-white p-5 sm:p-6">
+          <article key={feature.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70 sm:p-6">
             <h2 className="text-xl font-black tracking-tight sm:text-2xl">{feature.title}</h2>
-            <p className="mt-4 text-sm leading-7 text-slate-600">{feature.copy}</p>
+            <p className="mt-4 text-sm font-semibold leading-7 text-slate-600">{feature.copy}</p>
             <ul className="mt-6 space-y-3">
               {feature.points.map((point) => (
                 <li key={point} className="flex gap-3 text-sm font-bold text-slate-800">
-                  <span className="mt-2 h-2 w-2 shrink-0 rounded-sm bg-emerald-600" />
+                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
                   <span>{point}</span>
                 </li>
               ))}
@@ -68,10 +74,19 @@ export function PublicFeaturesPage() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
-        <div className="grid gap-5 rounded-lg border border-emerald-200 bg-emerald-50 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="mb-5 grid gap-3 rounded-lg border border-emerald-200 bg-[#f2fbf6] p-5 shadow-sm shadow-emerald-100/60 sm:p-6 lg:grid-cols-3">
+          {operatingRules.map(([title, copy]) => (
+            <article key={title} className="rounded-lg border border-emerald-200 bg-white p-4">
+              <h2 className="text-sm font-black text-slate-950">{title}</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="grid gap-5 rounded-lg border border-emerald-200 bg-[#f2fbf6] p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <h2 className="text-xl font-black tracking-tight sm:text-2xl">Try it now, or contact us.</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-700">Open the demo account, ask a question, or choose a plan that matches your club size.</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">Open the demo account, ask a question, or choose a plan that matches your club size.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800">
