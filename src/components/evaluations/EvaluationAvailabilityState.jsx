@@ -2,6 +2,11 @@ import { Link } from 'react-router-dom'
 import { canManageUsers, canCreateEvaluation } from '../../lib/auth.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const statePanelClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold leading-6 text-[#667085] shadow-sm shadow-slate-200/60'
+const emptyPanelClass = 'space-y-4 rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-5 text-sm font-semibold leading-6 text-[#667085] shadow-sm shadow-slate-200/60'
+const secondaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]'
+const primaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a]'
+
 export function EvaluationAvailabilityState({
   availableTeams,
   children,
@@ -17,7 +22,7 @@ export function EvaluationAvailabilityState({
         title="Platform account"
         description="Super admins oversee the platform. Development records must be created from a club user account."
       >
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold leading-6 text-slate-600">
+        <div className={`${statePanelClass} space-y-4`}>
           Use this account to manage clubs, users, and the wider workspace. Switch into a club-linked account to
           record player development.
         </div>
@@ -28,7 +33,7 @@ export function EvaluationAvailabilityState({
   if (isLoadingFields) {
     return (
       <SectionCard title="Form" description="Loading the configured development fields for this club.">
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
+        <div className={statePanelClass}>
           Loading form fields...
         </div>
       </SectionCard>
@@ -38,7 +43,7 @@ export function EvaluationAvailabilityState({
   if (isLoadingTeams) {
     return (
       <SectionCard title="Teams" description="Loading the available teams for this account.">
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
+        <div className={statePanelClass}>
           Loading teams...
         </div>
       </SectionCard>
@@ -48,13 +53,13 @@ export function EvaluationAvailabilityState({
   if (teamsLoadErrorMessage) {
     return (
       <SectionCard title="Teams unavailable" description="The team list could not be loaded for this account just now.">
-        <div className="space-y-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold leading-6 text-slate-600">
+        <div className={statePanelClass}>
           <p>{teamsLoadErrorMessage}</p>
           {canManageUsers(user) ? (
             <div>
               <Link
                 to="/teams"
-                className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
+                className={secondaryLinkClass}
               >
                 Open Team Management
               </Link>
@@ -71,13 +76,13 @@ export function EvaluationAvailabilityState({
         title="No teams available"
         description="Development records use real club teams so staff can be routed and filtered correctly."
       >
-        <div className="space-y-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold leading-6 text-slate-600">
+        <div className={emptyPanelClass}>
           <p>{noTeamsMessage}</p>
           {canManageUsers(user) ? (
             <div>
               <Link
                 to="/teams"
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800"
+                className={primaryLinkClass}
               >
                 Open Team Management
               </Link>
