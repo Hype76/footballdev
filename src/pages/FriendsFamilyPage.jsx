@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
@@ -41,6 +40,11 @@ export function FriendsFamilyPage() {
       value: selectedLink?.playerName || 'Not selected',
       caption: selectedLink?.teamName || 'Choose a child before sharing.',
     },
+  ]
+  const accessRules = [
+    'The link opens one selected child only.',
+    'It does not show staff tools, club settings, or another child.',
+    'Accepted access can be removed by the parent at any time.',
   ]
 
   useEffect(() => {
@@ -138,52 +142,62 @@ export function FriendsFamilyPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Parent Portal"
-        title="Friends and Family"
-        description="Create a share link for family access. The link only opens parent portal access for the selected child."
-      />
+      <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#d7eadf]/70">
+        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Parent portal</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#10231a] sm:text-5xl">
+              Give family access without opening the whole club.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4d6458]">
+              Create a controlled link for the selected child. Use it when a grandparent, carer, or trusted family member needs match day and development updates.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {familySummary.map((item) => (
+                <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{item.label}</p>
+                  <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#10231a]">
+                    {isLoadingFamilyLinks ? '...' : item.value}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.caption}</p>
+                </article>
+              ))}
+            </div>
+          </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {familySummary.map((item) => (
-          <article key={item.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
-            <p className="mt-3 break-words text-3xl font-black tracking-tight text-slate-950">{isLoadingFamilyLinks ? '...' : item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="grid gap-4 rounded-lg border border-emerald-200 bg-[#f2fbf6] p-5 shadow-sm shadow-emerald-100/70 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Sharing rule</p>
-          <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">Share one child with one controlled link.</h2>
-          <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">
-            A family link opens only the selected child. It does not expose other children, staff tools, messages for another player, or club admin records.
-          </p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-white p-4">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Current selection</p>
-          <p className="mt-2 break-words text-lg font-black text-slate-950">{selectedChildLabel}</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            Create a new link after selecting the child you want a family member to access.
-          </p>
+          <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/70">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Current child</p>
+              <p className="mt-3 break-words text-2xl font-black tracking-tight text-[#10231a]">{selectedChildLabel}</p>
+              <p className="mt-3 text-sm font-semibold leading-6 text-[#4d6458]">
+                Select the child first. Every family link is tied to that child and can be revoked after it has been accepted.
+              </p>
+            </div>
+            <ul className="mt-5 space-y-2">
+              {accessRules.map((rule) => (
+                <li key={rule} className="flex gap-3 rounded-lg border border-[#bfe8cd] bg-white px-3 py-3 text-sm font-bold leading-5 text-[#234331]">
+                  <span className="mt-1 h-4 w-4 shrink-0 rounded-full border-4 border-white bg-[#20c76a] shadow-sm shadow-[#9edbb5]" aria-hidden="true" />
+                  <span>{rule}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
       {errorMessage ? <NoticeBanner title="Family link not created" message={errorMessage} /> : null}
 
-      <SectionCard title="Share access" description="Links are created one at a time so you control what child is shared.">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+      <SectionCard title="Create family access" description="Choose the child, create one link, then send it to the family member who should receive access.">
+        <div className="grid gap-4 rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Child</span>
+            <span className="mb-2 block text-sm font-black text-[#10231a]">Child to share</span>
             <select
               value={selectedLinkId}
               onChange={(event) => {
                 setSelectedLinkId(event.target.value)
                 setShareUrl('')
               }}
-              className="min-h-12 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className="min-h-12 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition focus:border-[#067a46] focus:ring-2 focus:ring-[#bfe8cd]"
             >
               {links.map((link) => (
                 <option key={link.id} value={link.id}>
@@ -197,22 +211,25 @@ export function FriendsFamilyPage() {
             onClick={handleCreateLink}
             disabled={isCreating || !selectedLink}
             title={isCreating ? 'Please wait while the family link is created.' : !selectedLink ? 'No child link is available.' : undefined}
-            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05653a] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isCreating ? 'Creating...' : 'Create Share Link'}
+            {isCreating ? 'Creating...' : 'Create family link'}
           </button>
         </div>
 
         {shareUrl ? (
-          <div className="mt-5 rounded-lg border border-emerald-200 bg-[#f2fbf6] p-4">
-            <p className="text-sm font-black text-slate-950">Share this link</p>
-            <p className="mt-2 break-all rounded-lg border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">{shareUrl}</p>
+          <div className="mt-5 rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-4">
+            <p className="text-sm font-black text-[#10231a]">Family link ready</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4d6458]">
+              Send this to the family member. Once they accept it, they will appear in the accepted access list below.
+            </p>
+            <p className="mt-3 break-all rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#234331]">{shareUrl}</p>
             <button
               type="button"
               onClick={handleCopy}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]"
             >
-              Copy Link
+              Copy link
             </button>
           </div>
         ) : null}
@@ -223,21 +240,21 @@ export function FriendsFamilyPage() {
         description="These people can currently open the selected child in the parent portal."
       >
         {isLoadingFamilyLinks ? (
-          <p className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4 text-sm font-semibold text-slate-600">
-            Loading Friends and Family access...
+          <p className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 text-sm font-bold text-[#5f7468]">
+            Loading family access...
           </p>
         ) : familyLinks.length > 0 ? (
           <div className="space-y-3">
             {familyLinks.map((familyLink) => (
               <div
                 key={familyLink.id}
-                className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-lg border border-[#d7eadf] bg-white p-4 shadow-sm shadow-[#d7eadf]/70 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="break-all text-sm font-black text-slate-950">
+                  <p className="break-all text-sm font-black text-[#10231a]">
                     {familyLink.email || 'Email not recorded'}
                   </p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                  <p className="mt-1 text-xs font-bold text-[#5f7468]">
                     Accepted {familyLink.acceptedAt ? new Date(familyLink.acceptedAt).toLocaleString() : 'date not recorded'}
                   </p>
                 </div>
@@ -245,17 +262,17 @@ export function FriendsFamilyPage() {
                   type="button"
                   onClick={() => handleRevokeFamilyLink(familyLink)}
                   disabled={revokeLinkId === familyLink.id}
-                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#f2b8b5] bg-[#fff4f3] px-4 py-2 text-sm font-black text-[#9b1c17] transition hover:bg-[#ffe7e5] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {revokeLinkId === familyLink.id ? 'Removing...' : 'Revoke Access'}
+                  {revokeLinkId === familyLink.id ? 'Removing...' : 'Revoke access'}
                 </button>
               </div>
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-slate-200 bg-[#f8fafc] p-5">
-            <p className="text-sm font-black text-slate-950">No accepted access yet</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-5">
+            <p className="text-sm font-black text-[#10231a]">No accepted access yet</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
               Create a link above and share it with the family member who should be able to open this child.
             </p>
           </div>
