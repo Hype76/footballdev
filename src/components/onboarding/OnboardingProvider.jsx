@@ -12,6 +12,10 @@ import {
   saveOnboardingStep,
 } from '../../lib/onboarding.js'
 
+const eyebrowClass = 'text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]'
+
 function patchUserOnboarding(user, scope, patch = {}) {
   if (scope === 'workspace') {
     return {
@@ -58,7 +62,7 @@ function StepMarker({ index, complete }) {
 
 function ConstraintRule({ body, title }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
       <p className="text-sm font-black text-[#10231a]">{title}</p>
       <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{body}</p>
     </div>
@@ -71,8 +75,8 @@ function SetupStepCard({ index, onComplete, step }) {
       className={[
         'rounded-lg border p-4 shadow-sm transition',
         step.complete
-          ? 'border-[#b7efce] bg-[#effbf3] shadow-[#d7eadf]/70'
-          : 'border-[#bddcca] bg-white shadow-[#d7eadf]/60 hover:border-[#20a464]',
+          ? 'border-[#b7efce] bg-[#effbf3] shadow-[#067a46]/10'
+          : 'border-[#bddcca] bg-white shadow-[#067a46]/10 hover:border-[#20a464]',
       ].join(' ')}
     >
       <div className="flex gap-3">
@@ -104,9 +108,9 @@ function SetupStepCard({ index, onComplete, step }) {
               <button
                 type="button"
                 onClick={() => onComplete(step.id)}
-                className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
-                Mark not used
+                Confirm not needed
               </button>
             ) : null}
           </div>
@@ -262,10 +266,10 @@ export function OnboardingProvider({ children }) {
   return (
     <>
       {shouldShowOnboarding ? (
-        <section className="mb-6 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+        <section className="mb-6 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">First run setup</p>
+              <p className={eyebrowClass}>First run setup</p>
               <h2 className="mt-3 max-w-5xl text-4xl font-black leading-[1.05] tracking-tight text-[#10231a] sm:text-5xl">
                 {plan.title}
               </h2>
@@ -277,7 +281,7 @@ export function OnboardingProvider({ children }) {
               </div>
             </div>
 
-            <aside className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+            <aside className="grid content-between border-t border-[#bddcca] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
               <div>
                 <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
                   <span>Setup progress</span>
@@ -293,21 +297,21 @@ export function OnboardingProvider({ children }) {
                   {isLoading ? 'Refreshing workspace data.' : 'Progress uses real workspace data where possible.'}
                 </p>
               </div>
-              <div className="mt-5 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+              <div className="mt-5 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Next required action</p>
                 <p className="mt-2 text-xl font-black leading-6 text-[#10231a]">{nextStep?.title}</p>
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{nextStep?.detail}</p>
                 <div className="mt-4 grid gap-2">
                   <Link
                     to={nextStep?.href || plan.firstAction}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#b7efce] transition hover:bg-[#05603a]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a]"
                   >
                     {nextStep?.actionLabel || 'Start setup'}
                   </Link>
                   <button
                     type="button"
                     onClick={handleDismiss}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                    className={secondaryButtonClass}
                   >
                     Skip for now
                   </button>
@@ -316,21 +320,21 @@ export function OnboardingProvider({ children }) {
             </aside>
           </div>
 
-          <div className="border-t border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6 lg:px-8">
+          <div className="border-t border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6 lg:px-8">
             <div className="grid gap-3 lg:grid-cols-2">
               {plan.steps.map((step, index) => (
                 <SetupStepCard key={step.id} index={index} onComplete={handleCompleteStep} step={step} />
               ))}
             </div>
 
-            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/70 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold leading-6 text-[#456653]">
+            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#067a46]/10 sm:flex-row sm:items-center sm:justify-between">
+              <p className={bodyTextClass}>
                 Skip pauses setup. Reset starts this first-run path again for a fresh club launch or testing.
               </p>
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 Reset setup
               </button>
@@ -345,10 +349,10 @@ export function OnboardingProvider({ children }) {
         </section>
       ) : null}
       {shouldShowReopenOnboarding ? (
-        <section className="mb-6 rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70 sm:px-5">
+        <section className="mb-6 rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10 sm:px-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">Setup paused</p>
+              <p className={eyebrowClass}>Setup paused</p>
               <h2 className="mt-1 text-xl font-black tracking-tight text-[#10231a]">{plan.title}</h2>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">
                 {progress.completedCount} of {progress.totalCount} setup checks are complete. Reopen setup when the club is ready to finish the next real action.
@@ -357,7 +361,7 @@ export function OnboardingProvider({ children }) {
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[24rem]">
               <Link
                 to={nextStep?.href || plan.firstAction}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 {nextStep?.actionLabel || 'Open next step'}
               </Link>
