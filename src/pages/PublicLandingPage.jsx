@@ -5,12 +5,12 @@ import { LoginHeroContent } from '../components/login/LoginHeroContent.jsx'
 
 export function PublicLandingPage() {
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-slate-50 text-slate-950">
+    <main className="relative min-h-dvh overflow-hidden bg-[#fbfdfb] text-slate-950">
       <div className="absolute inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-white/80" />
-        <div className="absolute inset-0 bg-white/45" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-slate-50/80" />
+        <div className="absolute inset-0 bg-white/88" />
+        <div className="absolute inset-0 bg-[#fbfdfb]/68" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-[#fbfdfb]/82" />
       </div>
 
       <div className="relative flex min-h-dvh w-full flex-col">
