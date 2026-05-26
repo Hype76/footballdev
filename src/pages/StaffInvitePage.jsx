@@ -113,7 +113,7 @@ export function StaffInvitePage() {
         <img
           src={logoUrl}
           alt=""
-          className="mb-6 h-16 w-16 rounded-lg border border-[#cbd5e1] bg-[#0f172a] object-contain p-1"
+          className="mb-6 h-16 w-16 rounded-lg border border-[#cbd5e1] bg-white object-contain p-1 shadow-sm shadow-[#2563eb]/10"
         />
         <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Staff invite</p>
         <h1 className="text-2xl font-black text-[#0f172a]">Create staff access</h1>

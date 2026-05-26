@@ -216,7 +216,7 @@ export function LoginHeader({ logo }) {
       <header className="border-b border-[#cbd5e1] bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-[#0f172a] shadow-sm shadow-[#2563eb]/5 backdrop-blur sm:px-6 sm:py-4 lg:px-8">
         <div className="flex items-center justify-between gap-3">
           <a href="/" className="flex min-w-0 items-center gap-3 lg:order-1">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-[#0f172a] sm:h-16 sm:w-16">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10 sm:h-16 sm:w-16">
               <img src={logo} alt="Football Player" className="h-full w-full object-contain p-1" />
             </div>
             <div className="min-w-0">

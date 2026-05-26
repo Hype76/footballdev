@@ -57,7 +57,7 @@ export function ClubProfileSettingsSection({
                     type="file"
                     accept="image/*"
                     onChange={onFileChange}
-                    className="block min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-bold text-[#0f172a] file:mr-4 file:rounded-lg file:border-0 file:bg-[#0f172a] file:px-3 file:py-2 file:text-sm file:font-black file:text-white"
+                    className="block min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-bold text-[#0f172a] file:mr-4 file:rounded-lg file:border-0 file:bg-[#2563eb] file:px-3 file:py-2 file:text-sm file:font-black file:text-white"
                   />
                   <p className="mt-2 text-xs font-semibold leading-5 text-[#475569]">
                     PNG, JPG, or SVG. Maximum file size 2MB.

@@ -225,7 +225,7 @@ export function ParentLoginPage() {
     <main className="min-h-screen bg-[#f8fafc] px-4 py-6 text-[#0f172a] sm:px-6 lg:px-8">
       <section className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-center">
         <div className="rounded-lg border border-[#cbd5e1] bg-white p-5 shadow-sm shadow-[#2563eb]/10 sm:p-6 lg:p-8">
-          <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#cbd5e1] bg-[#0f172a] object-contain p-1" />
+          <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#cbd5e1] bg-white object-contain p-1 shadow-sm shadow-[#2563eb]/10" />
           <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Parent portal</p>
           <h1 className="mt-3 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-5xl">
             Open the football updates linked to your child.

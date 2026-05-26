@@ -59,7 +59,7 @@ export function ResetPasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] px-4 py-8 text-[#0f172a] sm:px-6">
       <section className="w-full max-w-xl rounded-lg border border-[#cbd5e1] bg-white px-6 py-8 shadow-sm shadow-[#2563eb]/10 sm:px-10 sm:py-10">
         <div className="flex items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-[#0f172a]">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
             <img src={fallbackLogo} alt="Football Player" className="h-full w-full object-cover" />
           </div>
           <div>

@@ -381,7 +381,7 @@ function ClubSettingsHero({ canChangeClubLogo, formData, identityChecksComplete,
           </div>
           <div className="mt-4 rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10">
             <div className="flex items-center gap-3">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-[#0f172a]">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
                 <img src={resolvedLogoUrl} alt="" className="h-full w-full object-contain p-1" />
               </span>
               <div className="min-w-0">

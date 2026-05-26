@@ -91,7 +91,7 @@ function VideoMedia({ guide }) {
     return (
       <div className="grid aspect-video w-full place-items-center bg-[#eff6ff] p-5">
         <div className="w-full max-w-md rounded-lg border border-[#cbd5e1] bg-white p-5 text-center shadow-sm shadow-[#2563eb]/10">
-          <img className="mx-auto h-16 w-16 rounded-lg border border-[#cbd5e1] bg-[#0f172a] object-cover p-1" src={guide.poster} alt="" />
+          <img className="mx-auto h-16 w-16 rounded-lg border border-[#cbd5e1] bg-white object-cover p-1 shadow-sm shadow-[#2563eb]/10" src={guide.poster} alt="" />
           <p className="mt-4 text-sm font-black text-[#0f172a]">Video pending</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
             This guide has a task checklist now. The recorded video can be added without changing the page layout.

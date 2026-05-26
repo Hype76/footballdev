@@ -19,7 +19,7 @@ export function LoginAuthPanel({
   return (
     <section ref={signupBoxRef}>
       <div className="mx-auto w-full max-w-md rounded-lg border border-[#cbd5e1] bg-white p-5 text-[#0f172a] shadow-lg shadow-[#0f172a]/10 sm:p-6">
-        <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-[#0f172a] sm:h-28 sm:w-28">
+        <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10 sm:h-28 sm:w-28">
           <img src={logo} alt="Football Player" className="h-full w-full object-contain p-2" />
         </div>
         <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] p-5">

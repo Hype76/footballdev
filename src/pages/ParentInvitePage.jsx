@@ -272,7 +272,7 @@ export function ParentInvitePage() {
 
   return (
     <ParentShell>
-      <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#cbd5e1] bg-[#0f172a] object-contain p-1" />
+      <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#cbd5e1] bg-white object-contain p-1 shadow-sm shadow-[#2563eb]/10" />
       <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Guardian access</p>
       <h1 className="mt-3 text-2xl font-black tracking-tight">Create your parent portal login</h1>
       <p className="mt-3 text-sm font-semibold leading-6 text-[#475569]">
