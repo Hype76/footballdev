@@ -3,8 +3,8 @@ import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition focus:border-[#067a46] focus:ring-2 focus:ring-[#d7f8e5]'
-const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
-const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/70 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
+const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
 
 export function ClubProfileSettingsSection({
@@ -35,17 +35,17 @@ export function ClubProfileSettingsSection({
       tourId="club-profile-settings"
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#456653]">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 text-sm font-semibold text-[#456653]">
           Loading club settings...
         </div>
       ) : (
         <div className="grid gap-5 xl:grid-cols-[0.72fr_1fr]">
-          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-5 shadow-sm shadow-[#067a46]/10">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Badge control</p>
             <p className={`mt-2 ${bodyTextClass}`}>
               Use the same badge parents already recognise from match day and club communication.
             </p>
-            <div className="mt-4 flex min-h-56 items-center justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-white p-4 shadow-inner shadow-[#d7eadf]/50">
+            <div className="mt-4 flex min-h-56 items-center justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-white p-4 shadow-inner shadow-[#067a46]/10">
               <img src={resolvedLogoUrl} alt={formData.name || 'Club logo'} className="max-h-40 w-auto object-contain" />
             </div>
 
@@ -81,7 +81,7 @@ export function ClubProfileSettingsSection({
             )}
           </div>
 
-          <form className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#d7eadf]/60" onSubmit={onSubmit}>
+          <form className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10" onSubmit={onSubmit}>
             <div className="mb-5">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Shared details</p>
               <p className={`mt-2 ${bodyTextClass}`}>
