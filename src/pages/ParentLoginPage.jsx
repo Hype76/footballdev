@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { buildParentAppUrl, isParentPortalHost } from '../lib/app-origins.js'
+import { buildParentAppUrl, getParentAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 import { supabase } from '../lib/supabase-client.js'
 
@@ -58,9 +58,11 @@ export function ParentLoginPage() {
   const [password, setPassword] = useState('')
   const shouldClearExistingSession = initialParams.confirmed || initialParams.created
   const isParentHost = isParentPortalHost()
+  const parentAppOrigin = getParentAppOrigin()
+  const canRenderOnCurrentHost = parentAppOrigin === window.location.origin
 
   useEffect(() => {
-    if (!isParentHost) {
+    if (!isParentHost && !canRenderOnCurrentHost) {
       return undefined
     }
 
@@ -122,21 +124,21 @@ export function ParentLoginPage() {
     return () => {
       isMounted = false
     }
-  }, [isParentHost])
+  }, [canRenderOnCurrentHost, isParentHost])
 
   useEffect(() => {
-    if (isParentHost) {
+    if (isParentHost || canRenderOnCurrentHost) {
       return
     }
 
     window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
-  }, [isParentHost])
+  }, [canRenderOnCurrentHost, isParentHost])
 
   useEffect(() => {
     let isMounted = true
 
     const clearConfirmationSession = async () => {
-      if (!isParentHost || !shouldClearExistingSession || !session?.user || clearSessionAttemptedRef.current) {
+      if ((!isParentHost && !canRenderOnCurrentHost) || !shouldClearExistingSession || !session?.user || clearSessionAttemptedRef.current) {
         return
       }
 
@@ -158,12 +160,12 @@ export function ParentLoginPage() {
     return () => {
       isMounted = false
     }
-  }, [isParentHost, session?.user, shouldClearExistingSession, signOut])
+  }, [canRenderOnCurrentHost, isParentHost, session?.user, shouldClearExistingSession, signOut])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (!isParentHost) {
+    if (!isParentHost && !canRenderOnCurrentHost) {
       window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
       return
     }
@@ -199,7 +201,7 @@ export function ParentLoginPage() {
   }
 
   const handlePasswordReset = async () => {
-    if (!isParentHost) {
+    if (!isParentHost && !canRenderOnCurrentHost) {
       window.location.replace(buildParentAppUrl(`${window.location.pathname}${window.location.search}`))
       return
     }
