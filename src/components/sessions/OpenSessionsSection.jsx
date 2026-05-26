@@ -59,7 +59,12 @@ export function OpenSessionsSection({
                   <p className="truncate text-sm font-black text-[#0f172a]">
                     {selectedSession?.title || selectedSession?.team || 'Current session'}
                   </p>
-                  <span className="rounded-lg bg-[#0f172a] px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-white">
+                  <span className={[
+                    'rounded-lg border px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em]',
+                    selectedSessionCompleted
+                      ? 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]'
+                      : 'border-[#bbf7d0] bg-[#dcfce7] text-[#166534]',
+                  ].join(' ')}>
                     {selectedSessionCompleted ? 'Completed' : 'Open'}
                   </span>
                 </div>

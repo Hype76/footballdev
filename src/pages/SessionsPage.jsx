@@ -69,7 +69,7 @@ const sessionRuleCards = [
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#1d4ed8]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
-const primaryButtonClass = 'inline-flex min-h-14 items-center justify-center rounded-lg bg-[#0f172a] px-5 py-4 text-base font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-14 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-4 text-base font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-5 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff]'
 
 export function SessionsPage({ setupOpen = false }) {
@@ -1177,9 +1177,9 @@ function MatchdayFocus({
               {progressLabel}
             </span>
             {selectedSessionCompleted ? (
-              <span className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-white">Completed</span>
+              <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1 text-[#1d4ed8]">Completed</span>
             ) : (
-              <span className="rounded-lg bg-[#0f172a] px-3 py-1 text-white">Open</span>
+              <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-3 py-1 text-[#166534]">Open</span>
             )}
           </div>
           <p className={`mt-3 max-w-2xl ${bodyTextClass}`}>

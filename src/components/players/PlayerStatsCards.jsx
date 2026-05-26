@@ -52,7 +52,7 @@ export function PlayerStatsCards({
             </span>
           </div>
           <p className="mt-3 min-h-10 text-sm font-semibold leading-5 text-[#475569]">{card.detail}</p>
-          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#0f172a] px-4 py-2 text-sm font-black text-white transition group-hover:bg-[#1d4ed8]">
+          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition group-hover:bg-[#1d4ed8]">
             {card.action}
           </span>
         </Link>

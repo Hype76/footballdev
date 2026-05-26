@@ -6,7 +6,7 @@ import { SessionStatePanel } from './SessionStatePanel.jsx'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#1d4ed8]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0f172a] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-5 py-3 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 const recordingButtonClass = 'border-[#f04438] bg-[#d92d20] text-white hover:bg-[#b42318]'

@@ -198,7 +198,7 @@ export function PlayersListSection({
                   <button
                     type="button"
                     onClick={() => onOpenPlayer(player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0f172a] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#0f172a]/15 transition hover:bg-[#1d4ed8]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8]"
                   >
                     Open profile
                   </button>

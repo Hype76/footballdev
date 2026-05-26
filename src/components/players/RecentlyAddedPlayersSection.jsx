@@ -46,7 +46,7 @@ export function RecentlyAddedPlayersSection({
               <p className="mt-1 text-sm font-semibold leading-5 text-[#475569]">
                 {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
               </p>
-              <span className="mt-4 inline-flex min-h-9 items-center rounded-lg bg-[#0f172a] px-3 text-xs font-black text-white transition group-hover:bg-[#1d4ed8]">
+              <span className="mt-4 inline-flex min-h-9 items-center rounded-lg bg-[#2563eb] px-3 text-xs font-black text-white shadow-sm shadow-[#2563eb]/20 transition group-hover:bg-[#1d4ed8]">
                 Open profile
               </span>
             </Link>
