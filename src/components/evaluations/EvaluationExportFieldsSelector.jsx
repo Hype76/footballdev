@@ -48,7 +48,7 @@ export function EvaluationExportFieldsSelector({
           className={[
             'inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-xs font-black transition',
             isDragLocked
-              ? 'border-[#bfe8cd] bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]'
+              ? 'border-[#bddcca] bg-white text-[#10231a] hover:border-[#20a464] hover:bg-[#f0fdf6]'
               : 'border-[#abefc6] bg-[#ecfdf3] text-[#067a46]',
           ].join(' ')}
         >
@@ -105,12 +105,12 @@ export function EvaluationExportFieldsSelector({
                 onReorderExportField(sourceLabel, itemLabel, responseItems)
               }}
               className={[
-                'flex min-h-11 items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm font-semibold text-[#101828] shadow-sm shadow-[#d7eadf]/60 transition',
+                'flex min-h-11 items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm font-semibold text-[#10231a] shadow-sm shadow-[#067a46]/10 transition',
                 isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
                 draggedLabel === itemLabel ? 'opacity-60' : '',
                 dragOverLabel === itemLabel
                   ? 'border-[#20a464] ring-2 ring-[#d7f8e5]'
-                  : 'border-[#bfe8cd]',
+                  : 'border-[#bddcca]',
               ].join(' ')}
             >
               <input
@@ -121,7 +121,7 @@ export function EvaluationExportFieldsSelector({
               />
               <span className="min-w-0">
                 <span className="block font-black">{itemLabel}</span>
-                <span className="block break-words text-xs font-semibold leading-5 text-[#5f7468]">
+                <span className="block break-words text-xs font-semibold leading-5 text-[#456653]">
                   {String(item.value ?? '').trim() || 'No data entered'}
                 </span>
               </span>
