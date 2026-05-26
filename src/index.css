@@ -251,14 +251,12 @@
   }
 
   body.button-style-gradient [class*='bg-[var(--button-primary)]'] {
-    background: var(--button-primary-gradient);
-    background-size: 140% 140%;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 24%, transparent);
+    background: var(--button-primary);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 16%, transparent);
   }
 
   body.button-style-gradient button[class*='bg-[var(--button-primary)]']:hover {
-    transform: translateY(-1px);
-    background-position: 100% 0;
+    background: var(--button-primary);
   }
 
   body.button-style-solid [class*='bg-[var(--button-primary)]'] {

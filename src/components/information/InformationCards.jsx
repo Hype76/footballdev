@@ -23,7 +23,7 @@ function DetailList({ items }) {
     <div className="mt-4 space-y-2">
       {items.map((item) => (
         <div key={item} className="flex gap-3 rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 shadow-sm shadow-[#2563eb]/10">
-          <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#2563eb]" />
+          <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#2563eb]" />
           <p className="text-sm font-semibold leading-6 text-[#475569]">{item}</p>
         </div>
       ))}

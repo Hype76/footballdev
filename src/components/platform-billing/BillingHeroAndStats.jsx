@@ -14,7 +14,7 @@ export function BillingHeroAndStats({ billingStats, isLoading }) {
           </div>
           <div className="rounded-lg border border-[#cbd5e1] bg-white p-5 shadow-sm shadow-[#2563eb]/10">
             <div className="flex items-center gap-3">
-              <span className="h-3 w-3 rounded-full bg-[#2563eb]" />
+              <span className="h-3 w-3 rounded-lg bg-[#2563eb]" />
               <p className="text-sm font-black text-[#0f172a]">
                 {isLoading ? 'Refreshing billing data' : 'Billing data loaded'}
               </p>

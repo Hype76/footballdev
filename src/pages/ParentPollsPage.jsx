@@ -375,8 +375,8 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
                 </button>
               </div>
               {shouldShowVotes ? (
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#cbd5e1]">
-                  <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${percent}%` }} />
+                <div className="mt-3 h-2 overflow-hidden rounded-lg bg-[#cbd5e1]">
+                  <div className="h-full rounded-lg bg-[#2563eb]" style={{ width: `${percent}%` }} />
                 </div>
               ) : null}
             </div>

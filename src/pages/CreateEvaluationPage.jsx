@@ -106,7 +106,7 @@ function RecordReadinessItem({ isReady, label, value }) {
   return (
     <div className={`rounded-lg border px-4 py-3 shadow-sm shadow-[#2563eb]/10 ${state.className}`}>
       <div className="flex items-start gap-3">
-        <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${state.dotClassName}`} />
+        <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-lg ${state.dotClassName}`} />
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.14em]">{state.label}</p>
           <p className="mt-1 text-sm font-black">{label}</p>

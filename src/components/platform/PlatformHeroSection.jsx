@@ -21,7 +21,7 @@ export function PlatformHeroSection({
         </div>
         <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
           <div className="flex items-center gap-3">
-            <span className="h-3 w-3 rounded-full bg-[#2563eb]" />
+            <span className="h-3 w-3 rounded-lg bg-[#2563eb]" />
             <p className="text-sm font-black text-[#0f172a]">{status}</p>
           </div>
           <p className="mt-3 text-sm font-semibold leading-6 text-[#475569]">{detail}</p>
@@ -54,7 +54,7 @@ export function PlatformStatGrid({ items }) {
               <p className="mt-3 text-4xl font-black tracking-tight text-[#0f172a]">{item.value}</p>
             </div>
             {item.detail ? (
-              <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
+              <span className="mt-1 h-2.5 w-2.5 rounded-lg bg-[#2563eb]" />
             ) : null}
           </div>
           {item.caption ? <p className="mt-4 text-sm font-black text-[#0f172a]">{item.caption}</p> : null}

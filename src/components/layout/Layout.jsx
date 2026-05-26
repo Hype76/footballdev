@@ -219,7 +219,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
-      <div className="fixed inset-0 -z-10 bg-[linear-gradient(180deg,var(--shell-card)_0%,var(--app-bg)_48%,var(--panel-soft)_100%)]" />
+      <div className="fixed inset-0 -z-10 bg-[var(--app-bg)]" />
       <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 

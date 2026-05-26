@@ -93,9 +93,9 @@ export function PlayerOverview({
                       <p className="text-sm font-black text-[#0f172a]">{formatTrendDate(evaluation)}</p>
                       <p className="text-sm font-black text-[#0f172a]">{evaluation.averageScore.toFixed(1)}</p>
                     </div>
-                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-[#dbeafe]">
+                    <div className="mt-4 h-3 overflow-hidden rounded-lg bg-[#dbeafe]">
                       <div
-                        className="h-full rounded-full bg-[#2563eb]"
+                        className="h-full rounded-lg bg-[#2563eb]"
                         style={{ width: `${scorePercent}%` }}
                       />
                     </div>

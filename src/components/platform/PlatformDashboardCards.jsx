@@ -14,9 +14,9 @@ export function PlatformPlanMixSection({ planBreakdown, platformTotals }) {
                 <p className="text-sm font-black text-[#0f172a]">{planName}</p>
                 <p className="text-lg font-black text-[#2563eb]">{count}</p>
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e0f3e8]">
+              <div className="mt-3 h-2 overflow-hidden rounded-lg bg-[#e0f3e8]">
                 <div
-                  className="h-full rounded-full bg-[#2563eb] transition-all duration-700"
+                  className="h-full rounded-lg bg-[#2563eb] transition-all duration-700"
                   style={{
                     width: `${Math.max(8, Math.round((count / Math.max(1, platformTotals.clubs ?? 1)) * 100))}%`,
                   }}

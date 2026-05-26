@@ -17,7 +17,7 @@ function BillingSuccessBanner({ message }) {
   return (
     <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
       <div className="flex gap-3">
-        <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#2563eb]" />
+        <span className="mt-1 h-3 w-3 shrink-0 rounded-lg bg-[#2563eb]" />
         <div>
           <p className="text-sm font-black text-[#0f172a]">Billing change saved</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-[#475569]">{message}</p>
