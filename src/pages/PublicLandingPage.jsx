@@ -5,7 +5,7 @@ import { LoginHeroContent } from '../components/login/LoginHeroContent.jsx'
 
 export function PublicLandingPage() {
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#fbfdfb] text-slate-950">
+    <main className="relative min-h-dvh overflow-hidden bg-[#fbfdfb] text-[#101828]">
       <div className="absolute inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-white/88" />

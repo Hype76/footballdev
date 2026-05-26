@@ -13,6 +13,20 @@ import {
   defaultTesterCodeForm,
 } from '../lib/platform-billing-utils.js'
 
+function BillingSuccessBanner({ message }) {
+  return (
+    <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-4 shadow-sm shadow-[#d7eadf]/70">
+      <div className="flex gap-3">
+        <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#067a46]" />
+        <div>
+          <p className="text-sm font-black text-[#101828]">Billing change saved</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-[#456653]">{message}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function PlatformBillingOptionsPage() {
   const { session, user } = useAuth()
   const { showToast } = useToast()
@@ -371,9 +385,7 @@ export function PlatformBillingOptionsPage() {
       ) : null}
 
       {successMessage ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950">
-          {successMessage}
-        </div>
+        <BillingSuccessBanner message={successMessage} />
       ) : null}
 
       <BillingHeroAndStats billingStats={billingStats} isLoading={isLoading} />
