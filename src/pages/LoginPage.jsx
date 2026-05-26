@@ -200,8 +200,8 @@ export function LoginPage() {
       <div className="relative flex min-h-screen w-full flex-col">
         <LoginHeader logo={fallbackLogo} />
 
-        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-6 px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-8 lg:py-10">
-          <section className="rounded-lg border border-[#b7efce] bg-white/95 p-5 shadow-sm shadow-[#d7eadf]/80 backdrop-blur sm:p-6 lg:p-8">
+        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-8 lg:py-10">
+          <section>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Football club workspace</p>
             <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-5xl xl:text-6xl">
               Run the football week from one practical club system.
@@ -210,25 +210,34 @@ export function LoginPage() {
               Manage players, teams, availability, match day, parent communication, and development records without scattering work across chats and spreadsheets.
             </p>
 
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <div className="mt-7 grid gap-3 md:grid-cols-3">
               {[
                 ['Set up first', 'Create the club, first team, staff access, players, and parent links before inviting wider use.'],
                 ['Use real records', 'Every workflow starts from football data the club already understands.'],
                 ['Keep roles clear', 'Club admins, team staff, and parents only see the actions their access allows.'],
               ].map(([title, copy]) => (
-                <article key={title} className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/50">
+                <article key={title} className="rounded-lg border border-[#bfe8cd] bg-white/95 p-4 shadow-sm shadow-[#d7eadf]/50 backdrop-blur">
                   <p className="text-sm font-black text-[#101828]">{title}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{copy}</p>
                 </article>
               ))}
             </div>
 
-            <section className="mt-5 rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-5">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">First useful action</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
-                Log in, open the setup board, then complete the first team and player checks before running sessions or parent messages.
-              </p>
-            </section>
+            <div className="mt-7 grid gap-3 rounded-lg border border-[#b7efce] bg-[#f0fdf6]/95 p-4 shadow-sm shadow-[#d7eadf]/60 backdrop-blur sm:grid-cols-[0.9fr_1.1fr] sm:p-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">First useful action</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
+                  Log in, open the setup board, then complete the first team and player checks before running sessions or parent messages.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs font-black text-[#101828] sm:grid-cols-4">
+                {['Club', 'Team', 'Players', 'Parents'].map((item) => (
+                  <span key={item} className="rounded-lg border border-[#bfe8cd] bg-white px-3 py-3 text-center">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
           </section>
 
           <LoginAuthPanel
