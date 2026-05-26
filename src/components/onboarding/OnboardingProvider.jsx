@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
 import {
   ONBOARDING_EVENT,
@@ -120,11 +120,91 @@ function SetupStepCard({ index, onComplete, step }) {
   )
 }
 
+function CompactOnboardingPanel({
+  errorMessage,
+  handleDismiss,
+  handleReopenFull,
+  handleReset,
+  isLoading,
+  nextStep,
+  plan,
+  progress,
+}) {
+  return (
+    <section className="mb-6 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+        <div className="px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0">
+              <p className={eyebrowClass}>First run setup</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{plan.title}</h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">
+                {isLoading ? 'Refreshing workspace data.' : `${progress.completedCount} of ${progress.totalCount} setup checks are complete.`}
+              </p>
+            </div>
+            <div className="grid shrink-0 gap-2 sm:grid-cols-2 md:min-w-[17rem]">
+              <button
+                type="button"
+                onClick={handleReopenFull}
+                className={secondaryButtonClass}
+              >
+                View checklist
+              </button>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className={secondaryButtonClass}
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 h-3 overflow-hidden rounded-lg bg-[#eef8f2] ring-1 ring-[#bddcca]">
+            <div
+              className="h-full rounded-lg bg-[#067a46] transition-all"
+              style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+
+        <aside className="border-t border-[#bddcca] bg-[#f0fdf6] px-5 py-5 sm:px-6 lg:border-l lg:border-t-0">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Next required action</p>
+          <p className="mt-2 text-xl font-black leading-6 text-[#10231a]">{nextStep?.title}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{nextStep?.detail}</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            <Link
+              to={nextStep?.href || plan.firstAction}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a]"
+            >
+              {nextStep?.actionLabel || 'Start setup'}
+            </Link>
+            <button
+              type="button"
+              onClick={handleReset}
+              className={secondaryButtonClass}
+            >
+              Reset setup
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      {errorMessage ? (
+        <div className="border-t border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] sm:px-5">
+          {errorMessage}
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
 export function OnboardingProvider({ children }) {
+  const location = useLocation()
   const { updateCurrentUserDetails, user } = useAuth()
   const [snapshot, setSnapshot] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [showFullSetup, setShowFullSetup] = useState(false)
   const [stateVersion, setStateVersion] = useState(0)
 
   useEffect(() => {
@@ -188,6 +268,13 @@ export function OnboardingProvider({ children }) {
       plan.manualState?.dismissedAt &&
       !progress.isComplete,
   )
+  const currentPath = location.pathname || '/'
+  const fullSetupPaths = new Set(['/', '/coach', '/club-settings', '/user-settings'])
+  const shouldUseFullSetup = showFullSetup || fullSetupPaths.has(currentPath)
+
+  useEffect(() => {
+    setShowFullSetup(false)
+  }, [currentPath, user?.id])
 
   const handleCompleteStep = async (stepId) => {
     if (!plan || !user) {
@@ -265,7 +352,19 @@ export function OnboardingProvider({ children }) {
 
   return (
     <>
-      {shouldShowOnboarding ? (
+      {shouldShowOnboarding && !shouldUseFullSetup ? (
+        <CompactOnboardingPanel
+          errorMessage={errorMessage}
+          handleDismiss={handleDismiss}
+          handleReopenFull={() => setShowFullSetup(true)}
+          handleReset={handleReset}
+          isLoading={isLoading}
+          nextStep={nextStep}
+          plan={plan}
+          progress={progress}
+        />
+      ) : null}
+      {shouldShowOnboarding && shouldUseFullSetup ? (
         <section className="mb-6 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="px-5 py-6 sm:px-6 lg:px-8">
