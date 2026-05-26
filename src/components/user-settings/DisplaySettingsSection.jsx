@@ -3,7 +3,7 @@ import { themeAccentOptions, themeButtonStyleOptions, themeModeOptions } from '.
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const selectClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const selectClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function DisplaySettingsSection({
   canUseThemes,
@@ -72,7 +72,7 @@ export function DisplaySettingsSection({
           </select>
         </label>
       </div>
-      <div className="mt-4 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+      <div className="mt-4 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Preview</p>
         <div className="mt-3 flex flex-wrap gap-3">
           <span
@@ -81,13 +81,13 @@ export function DisplaySettingsSection({
           >
             Primary action
           </span>
-          <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#9addb4] bg-white px-4 py-3 text-sm font-black text-[#10231a]">
+          <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10">
             Accent state
           </span>
         </div>
       </div>
       {!canUseThemes ? (
-        <p className="mt-3 text-xs font-semibold leading-5 text-[#5f7468]">{createFeatureUpgradeMessage('themes')}</p>
+        <p className="mt-3 text-xs font-semibold leading-5 text-[#456653]">{createFeatureUpgradeMessage('themes')}</p>
       ) : null}
     </SectionCard>
   )

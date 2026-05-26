@@ -1,8 +1,8 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PasswordSettingsSection({
   isDemoSettings,
@@ -52,14 +52,14 @@ export function PasswordSettingsSection({
           </label>
         </div>
 
-        <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60">
+        <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10">
           <input
             type="checkbox"
             checked={showPassword}
             onChange={(event) => onShowPasswordChange(event.target.checked)}
             disabled={isDemoSettings}
             title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
-            className="h-4 w-4 rounded border-[#9addb4] accent-[#067a46]"
+            className="h-4 w-4 rounded border-[#bddcca] accent-[#067a46]"
           />
           <span>Show password</span>
         </label>

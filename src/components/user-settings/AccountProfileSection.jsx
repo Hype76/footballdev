@@ -2,10 +2,12 @@ import { getRoleLabel } from '../../lib/auth.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
-const infoCardClass = 'rounded-lg border border-[#d7eadf] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const infoCardClass = 'rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#067a46]/10'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#067a46]'
 const valueClass = 'mt-2 break-words text-sm font-semibold text-[#10231a]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
 
 export function AccountProfileSection({
   authUser,
@@ -62,9 +64,9 @@ export function AccountProfileSection({
         ) : null}
 
         {showEmailIdentity ? (
-          <div className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+          <div className={`${panelClass} p-4`}>
             <p className="text-sm font-black text-[#10231a]">Parent email identity</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className={`mt-2 ${bodyTextClass}`}>
               Emails will be sent from feedback@footballplayer.online. Parent replies will go to your reply-to email.
             </p>
 
@@ -109,7 +111,7 @@ export function AccountProfileSection({
                 className={inputClass}
               />
               {!canEditEmailClubName ? (
-                <span className="mt-2 block text-xs font-semibold leading-5 text-[#5f7468]">
+                <span className="mt-2 block text-xs font-semibold leading-5 text-[#456653]">
                   Only the top role for this plan can change the club name used in sender details.
                 </span>
               ) : null}
@@ -129,7 +131,7 @@ export function AccountProfileSection({
             </label>
           </div>
 
-          <div className="mt-4 rounded-lg border border-[#9addb4] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+          <div className="mt-4 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#067a46]/10">
             <p className={eyebrowClass}>Sender preview</p>
             <p className="mt-2 break-words text-sm font-black text-[#10231a]">
               {senderPreview} &lt;feedback@footballplayer.online&gt;
