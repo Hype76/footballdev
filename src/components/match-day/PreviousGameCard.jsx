@@ -67,9 +67,9 @@ function formatGoalLine(event) {
   ].filter(Boolean).join(' / ')
 }
 
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#456653]'
-const bodyClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#475569]'
+const bodyClass = 'text-sm font-semibold leading-6 text-[#475569]'
 
 export function PreviousGameCard({ match, onOpen }) {
   const goals = getGoalEvents(match)
@@ -78,7 +78,7 @@ export function PreviousGameCard({ match, onOpen }) {
     <button
       type="button"
       onClick={() => onOpen(match)}
-      className="block w-full rounded-lg border border-[#bddcca] bg-white p-4 text-left shadow-sm shadow-[#067a46]/10 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:bg-[#f6fbf8] focus:outline-none focus:ring-2 focus:ring-[#20a464]"
+      className="block w-full rounded-lg border border-[#cbd5e1] bg-white p-4 text-left shadow-sm shadow-[#2563eb]/10 transition hover:-translate-y-0.5 hover:border-[#3b82f6] hover:bg-[#f8fafc] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]"
     >
       <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
       <h4 className="mt-2 text-base font-black text-[#10231a]">{match.teamName || 'Our team'} v {match.opponent}</h4>
@@ -88,14 +88,14 @@ export function PreviousGameCard({ match, onOpen }) {
       {goals.length > 0 ? (
         <div className="mt-3 space-y-2">
           {goals.slice(0, 4).map((event) => (
-            <p key={event.id} className="text-xs font-semibold text-[#456653]">{formatGoalLine(event)}</p>
+            <p key={event.id} className="text-xs font-semibold text-[#475569]">{formatGoalLine(event)}</p>
           ))}
           {goals.length > 4 ? (
-            <p className="text-xs font-black text-[#067a46]">View {goals.length - 4} more</p>
+            <p className="text-xs font-black text-[#2563eb]">View {goals.length - 4} more</p>
           ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-xs font-semibold text-[#456653]">{formatPreviousMatchStatus(match)}</p>
+        <p className="mt-3 text-xs font-semibold text-[#475569]">{formatPreviousMatchStatus(match)}</p>
       )}
     </button>
   )
@@ -110,7 +110,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#10231a]/55 px-3 py-4 sm:items-center" role="dialog" aria-modal="true" aria-label="Previous game details">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[#bddcca] bg-white p-4 shadow-xl sm:p-5">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-xl sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className={eyebrowClass}>{formatPreviousMatchDate(match)}</p>
@@ -118,12 +118,12 @@ export function PreviousGameDetailModal({ match, onClose }) {
             <p className="mt-2 text-4xl font-black text-[#10231a]">
               {getClubScore(match)} - {getOpponentScore(match)}
             </p>
-            <p className="mt-1 text-sm font-semibold text-[#456653]">{formatPreviousMatchStatus(match)}</p>
+            <p className="mt-1 text-sm font-semibold text-[#475569]">{formatPreviousMatchStatus(match)}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:border-[#3b82f6] hover:bg-[#eff6ff]"
           >
             Close
           </button>
@@ -147,16 +147,16 @@ export function PreviousGameDetailModal({ match, onClose }) {
           {goals.length > 0 ? (
             <div className="mt-3 space-y-2">
               {goals.map((event) => (
-                <div key={event.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10">
+                <div key={event.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 shadow-sm shadow-[#2563eb]/10">
                   <p className="text-sm font-black text-[#10231a]">{formatGoalLine(event)}</p>
-                  {event.notes ? <p className="mt-1 text-xs font-semibold text-[#456653]">{event.notes}</p> : null}
+                  {event.notes ? <p className="mt-1 text-xs font-semibold text-[#475569]">{event.notes}</p> : null}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="mt-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5">
+            <div className="mt-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5">
               <p className="text-sm font-black text-[#10231a]">No goals were recorded for this match.</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
                 Score updates can still exist without scorer detail if staff only tracked the final result.
               </p>
             </div>
@@ -166,7 +166,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
         {match.notes ? (
           <div className={`mt-5 ${panelClass}`}>
             <p className={eyebrowClass}>Notes</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#456653]">{match.notes}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#475569]">{match.notes}</p>
           </div>
         ) : null}
       </div>
