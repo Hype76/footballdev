@@ -6,8 +6,8 @@ import { getParentPortalPolls, submitParentPortalPollVote } from '../lib/supabas
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70'
-const chipClass = 'inline-flex w-fit whitespace-nowrap rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black text-[#456653] shadow-sm shadow-[#d7eadf]/50'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10'
+const chipClass = 'inline-flex w-fit whitespace-nowrap rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black text-[#456653] shadow-sm shadow-[#067a46]/10'
 
 function getPollVoteCounts(poll) {
   const counts = new Map()
@@ -153,8 +153,8 @@ export function ParentPollsPage() {
         summary={pollSummary}
       />
 
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
-        <div className="grid gap-5 border-b border-[#d7eadf] bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+        <div className="grid gap-5 border-b border-[#bddcca] bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <div>
             <p className={eyebrowClass}>Parent polls</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-[#10231a]">Answer club questions</h2>
@@ -163,7 +163,7 @@ export function ParentPollsPage() {
             </p>
           </div>
 
-          <div className="rounded-lg border border-[#bddcca] bg-[#effbf3] p-4 shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-4 shadow-sm shadow-[#067a46]/10">
             <p className={eyebrowClass}>Poll rule</p>
             <p className={`mt-2 ${bodyTextClass}`}>
               Polls are controlled by the club. Some allow one answer, some allow multiple answers, and some lock your response after voting.
@@ -171,7 +171,7 @@ export function ParentPollsPage() {
           </div>
         </div>
 
-        <div className="grid gap-5 bg-[#f8fdf9] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="grid gap-5 bg-[#f6fbf8] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <aside className="space-y-4">
             <ParentPollChildSelector
               links={links}
@@ -221,7 +221,7 @@ function ParentPollsHero({ answeredPollCount, isLoading, polls, selectedLink, su
   const nextPoll = polls.find((poll) => getSelectedOptionIds(poll).length === 0) ?? polls[0]
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
       <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
         <div className="px-5 py-6 sm:px-6 lg:px-8">
           <div className="max-w-5xl">
@@ -240,7 +240,7 @@ function ParentPollsHero({ answeredPollCount, isLoading, polls, selectedLink, su
           </div>
         </div>
 
-        <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+        <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Next poll</p>
             <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
@@ -250,7 +250,7 @@ function ParentPollsHero({ answeredPollCount, isLoading, polls, selectedLink, su
               {nextPoll ? `${answeredPollCount} answered from ${polls.length} shared polls.` : 'The club has not shared a poll for this child yet.'}
             </p>
           </div>
-          <div className="mt-5 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+          <div className="mt-5 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#067a46]/10">
             <p className={eyebrowClass}>Next action</p>
             <p className={`mt-1 ${bodyTextClass}`}>
               Read the lock rule before voting. If changes are blocked, the first saved answer is final.
@@ -264,7 +264,7 @@ function ParentPollsHero({ answeredPollCount, isLoading, polls, selectedLink, su
 
 function ParentPollMetric({ caption, isLoading, label, value }) {
   return (
-    <article className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+    <article className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{label}</p>
       <p className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{isLoading ? '...' : value}</p>
       <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
@@ -305,7 +305,7 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
   const selectedPlayerId = String(selectedLink?.playerId ?? '').trim()
 
   return (
-    <article className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+    <article className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
           <span className={chipClass}>
@@ -349,8 +349,8 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
               key={option.id}
               className={`rounded-lg border p-3 ${
                 isOwnChildOption
-                  ? 'border-[#bddcca] bg-[#effbf3] opacity-60'
-                  : 'border-[#bddcca] bg-[#f8fdf9]'
+                  ? 'border-[#bddcca] bg-[#f0fdf6] opacity-60'
+                  : 'border-[#bddcca] bg-[#f6fbf8]'
               }`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -368,14 +368,14 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
                   className={`inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     isSelected
                       ? 'border border-[#067a46] bg-[#067a46] text-white'
-                      : 'border border-[#bddcca] bg-white text-[#10231a] hover:bg-[#f8fdf9]'
+                      : 'border border-[#bddcca] bg-white text-[#10231a] hover:bg-[#f6fbf8]'
                   }`}
                 >
                   {isOwnChildOption ? 'Unavailable' : isVoteLocked && isSelected ? 'Locked' : isSelected ? 'Selected' : 'Vote'}
                 </button>
               </div>
               {shouldShowVotes ? (
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#d7eadf]">
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#bddcca]">
                   <div className="h-full rounded-full bg-[#067a46]" style={{ width: `${percent}%` }} />
                 </div>
               ) : null}

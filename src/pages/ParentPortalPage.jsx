@@ -31,12 +31,12 @@ const EMPTY_GOAL_FORM = {
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70'
-const softPanelClass = 'rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10'
+const softPanelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
-const fieldClass = 'min-h-10 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const emptyClass = 'rounded-lg border border-[#bddcca] bg-white px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#d7eadf]/70'
+const fieldClass = 'min-h-10 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const emptyClass = 'rounded-lg border border-[#bddcca] bg-white px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10'
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
@@ -535,8 +535,8 @@ export function ParentPortalPage() {
 
       {matchError ? <NoticeBanner title="Match Day action failed" message={matchError} /> : null}
 
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
-        <div className="grid gap-5 border-b border-[#d7eadf] bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+        <div className="grid gap-5 border-b border-[#bddcca] bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <div>
             <p className={eyebrowClass}>Match day workspace</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-[#10231a]">Follow the selected player</h2>
@@ -545,7 +545,7 @@ export function ParentPortalPage() {
             </p>
           </div>
 
-          <div className="rounded-lg border border-[#bddcca] bg-[#effbf3] p-4 shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-4 shadow-sm shadow-[#067a46]/10">
             <p className={eyebrowClass}>Parent rule</p>
             <p className={`mt-2 ${bodyTextClass}`}>
               Parents can view shared updates and respond where invited. Club staff still own team selection, records, and final match day control.
@@ -553,7 +553,7 @@ export function ParentPortalPage() {
           </div>
         </div>
 
-        <div className="grid gap-5 bg-[#f8fdf9] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="grid gap-5 bg-[#f6fbf8] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <aside className="space-y-4">
             <ParentChildSelector
               links={links}
@@ -572,7 +572,7 @@ export function ParentPortalPage() {
           </aside>
 
           <div className="min-w-0 space-y-5">
-            <section className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
+            <section className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className={eyebrowClass}>Live and upcoming</p>
@@ -587,7 +587,7 @@ export function ParentPortalPage() {
                     No child links are active for this parent account.
                   </p>
                 ) : isLoadingMatches ? (
-                  <p className="rounded-lg border border-[#bddcca] bg-white px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#d7eadf]/70">
+                  <p className="rounded-lg border border-[#bddcca] bg-white px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
                     Loading Match Day...
                   </p>
                 ) : activeMatches.length > 0 ? (
@@ -628,7 +628,7 @@ export function ParentPortalPage() {
               </div>
             </section>
 
-            <section className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
+            <section className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className={eyebrowClass}>Previous games</p>
@@ -662,7 +662,7 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
   const nextMatch = activeMatches[0]
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
       <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
         <div className="px-5 py-6 sm:px-6 lg:px-8">
           <div className="max-w-5xl">
@@ -681,7 +681,7 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
           </div>
         </div>
 
-        <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+        <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Next match card</p>
             <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
@@ -691,7 +691,7 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
               {nextMatch ? formatMatchDate(nextMatch) : previousMatches.length > 0 ? 'Open previous games to review shared results.' : 'The club has not shared a match card yet.'}
             </p>
           </div>
-          <div className="mt-5 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+          <div className="mt-5 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#067a46]/10">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Next action</p>
             <p className={`mt-1 ${bodyTextClass}`}>
               Check the selected child first. Enable notifications only on the device you want to use on match day.
@@ -705,7 +705,7 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
 
 function ParentMatchMetric({ caption, isLoading, label, value }) {
   return (
-    <article className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+    <article className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
       <p className={eyebrowClass}>{label}</p>
       <p className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{isLoading ? '...' : value}</p>
       <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
@@ -723,7 +723,7 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
         id="parent-portal-child"
         value={selectedLink?.id || ''}
         onChange={(event) => onSelect(event.target.value)}
-        className="min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+        className="min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
       >
         {links.map((link) => (
           <option key={link.id} value={link.id}>
@@ -739,7 +739,7 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
               key={link.id}
               type="button"
               onClick={() => onSelect(link.id)}
-              className="block w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-left transition hover:border-[#20a464] hover:bg-white"
+              className="block w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-left transition hover:border-[#20a464] hover:bg-white"
             >
               <p className="text-sm font-black text-[#10231a]">{link.playerName}</p>
               <p className="mt-1 text-xs font-semibold text-[#456653]">{link.teamName || 'No team'} | {link.clubName || 'No club'}</p>
@@ -760,7 +760,7 @@ function PushNotificationPanel({
 }) {
   if (!pushState.isSupported) {
     return (
-      <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70">
+      <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Notifications</p>
         <p className="mt-2 text-sm font-black text-[#10231a]">Not available on this device yet.</p>
         <p className={`mt-2 ${bodyTextClass}`}>{pushState.reason}</p>
@@ -769,7 +769,7 @@ function PushNotificationPanel({
   }
 
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
       <div className="min-w-0">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Notifications</p>
         <p className="mt-2 text-sm font-black text-[#10231a]">
@@ -824,15 +824,15 @@ function ParentMatchCard({
   const currentMinute = getCurrentMatchMinute(match, now)
 
   return (
-    <article className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+    <article className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#456653]">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-1 text-xs font-black text-[#456653]">
               {match.status.replace(/_/g, ' ')}
             </span>
             {match.isScorer ? (
-              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#bddcca] bg-[#effbf3] px-3 py-1 text-xs font-black text-[#067a46]">
+              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-3 py-1 text-xs font-black text-[#067a46]">
                 Selected scorer
               </span>
             ) : null}
@@ -845,7 +845,7 @@ function ParentMatchCard({
           ) : null}
         </div>
 
-        <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 text-center shadow-sm shadow-[#d7eadf]/60">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 text-center shadow-sm shadow-[#067a46]/10">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Live score</p>
           <p className="mt-2 text-4xl font-black text-[#10231a]">
             {getClubScore(match)} - {getOpponentScore(match)}
@@ -929,7 +929,7 @@ function ParentMatchCard({
             </div>
           </div>
 
-          <form className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70" onSubmit={(event) => onAddGoal(event, match)}>
+          <form className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10" onSubmit={(event) => onAddGoal(event, match)}>
             <h5 className="text-sm font-black text-[#10231a]">Add goal</h5>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <label className="block">
@@ -1016,7 +1016,7 @@ function ParentMatchCard({
       {match.events.length > 0 ? (
         <div className="mt-4 space-y-2">
           {match.events.slice(0, 8).map((event) => (
-            <div key={event.id} className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3">
+            <div key={event.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3">
               <p className="text-sm font-semibold text-[#10231a]">
                 {event.eventType === 'goal' ? 'Goal' : 'Score update'} / {event.homeScore} - {event.awayScore}
               </p>
