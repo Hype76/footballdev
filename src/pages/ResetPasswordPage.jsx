@@ -18,7 +18,7 @@ export function ResetPasswordPage() {
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const inputClass =
-    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
+    'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100'
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -56,8 +56,8 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 text-slate-950 sm:px-6">
-      <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white px-6 py-8 sm:px-10 sm:py-10">
+    <main className="flex min-h-screen items-center justify-center bg-[#fbfdfb] px-4 py-8 text-slate-950 sm:px-6">
+      <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white px-6 py-8 shadow-sm shadow-slate-200/80 sm:px-10 sm:py-10">
         <div className="flex items-center gap-4">
           <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-950">
             <img src={fallbackLogo} alt="Football Player" className="h-full w-full object-cover" />
@@ -71,6 +71,9 @@ export function ResetPasswordPage() {
         <p className="mt-6 text-sm leading-6 text-slate-600">
           Enter a new password for your account. After the update you will be signed out and can log in again.
         </p>
+        <div className="mt-5 rounded-lg border border-emerald-200 bg-[#f2fbf6] px-4 py-3 text-sm font-semibold leading-6 text-slate-700">
+          Use a password that belongs only to this account. Shared staff or parent passwords should not be used.
+        </div>
 
         <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
           <label className="block">
@@ -99,7 +102,7 @@ export function ResetPasswordPage() {
             />
           </label>
 
-          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800">
+          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800">
             <input
               type="checkbox"
               checked={isPasswordVisible}
@@ -116,7 +119,7 @@ export function ResetPasswordPage() {
           ) : null}
 
           {message ? (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+            <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] px-4 py-3 text-sm font-medium text-emerald-800">
               {message}
             </div>
           ) : null}

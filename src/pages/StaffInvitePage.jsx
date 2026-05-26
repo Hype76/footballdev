@@ -105,18 +105,21 @@ export function StaffInvitePage() {
   const logoUrl = invite?.logoUrl || fallbackLogo
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
-      <div className="mx-auto w-full max-w-xl border border-slate-200 bg-white p-6 sm:p-8">
+    <main className="min-h-screen bg-[#fbfdfb] px-4 py-10 text-slate-950">
+      <div className="mx-auto w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/80 sm:p-8">
         <img
           src={logoUrl}
           alt=""
-          className="mb-6 h-16 w-16 border border-slate-200 bg-slate-950 object-contain"
+          className="mb-6 h-16 w-16 rounded-lg border border-slate-200 bg-slate-950 object-contain p-1"
         />
         <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Staff invite</p>
         <h1 className="text-2xl font-black text-slate-950">Create staff access</h1>
+        <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+          Create your own login for the club role shown below. Do not share another staff member's account.
+        </p>
 
         {isLoading ? (
-          <p className="mt-6 border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
+          <p className="mt-6 rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-4 text-sm font-semibold text-slate-600">
             Opening staff invite...
           </p>
         ) : errorMessage && !invite ? (
@@ -125,7 +128,8 @@ export function StaffInvitePage() {
           </div>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <div className="border border-slate-200 bg-slate-50 px-4 py-4">
+            <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] px-4 py-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Access details</p>
               <p className="text-sm font-black text-slate-950">{invite.clubName || 'Football Player'}</p>
               <p className="mt-1 text-sm font-semibold text-slate-600">{invite.teamName || 'Team access'} | {invite.roleLabel || 'Staff'}</p>
               <p className="mt-3 break-words text-sm font-semibold text-emerald-700">{invite.email}</p>
@@ -133,7 +137,7 @@ export function StaffInvitePage() {
 
             {errorMessage ? <NoticeBanner title="Staff access not created" message={errorMessage} /> : null}
             {successMessage ? (
-              <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+              <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] px-4 py-3 text-sm font-bold text-emerald-800">
                 {successMessage}
               </div>
             ) : null}
@@ -142,7 +146,7 @@ export function StaffInvitePage() {
               <>
                 <label className="block">
                   <span className="mb-2 block text-sm font-black text-slate-950">Create password</span>
-                  <div className="flex border border-slate-200 bg-slate-50 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
+                  <div className="flex rounded-lg border border-slate-200 bg-[#f8fafc] focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
                     <input
                       type={isPasswordVisible ? 'text' : 'password'}
                       value={password}
@@ -156,7 +160,7 @@ export function StaffInvitePage() {
                     <button
                       type="button"
                       onClick={() => setIsPasswordVisible((value) => !value)}
-                      className="min-h-11 border-l border-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                      className="min-h-11 border-l border-slate-200 px-4 py-3 text-sm font-black text-emerald-700 transition hover:bg-[#f2fbf6]"
                     >
                       {isPasswordVisible ? 'Hide' : 'Show'}
                     </button>
@@ -172,7 +176,7 @@ export function StaffInvitePage() {
                     required
                     minLength={8}
                     autoComplete="new-password"
-                    className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                    className="min-h-11 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
                     placeholder="Confirm password"
                   />
                 </label>
@@ -180,7 +184,7 @@ export function StaffInvitePage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex min-h-11 w-full items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? 'Creating access...' : 'Create Staff Access'}
                 </button>
@@ -188,7 +192,7 @@ export function StaffInvitePage() {
             ) : (
               <Link
                 to="/sign-in"
-                className="inline-flex min-h-11 w-full items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
               >
                 Go to sign in
               </Link>
