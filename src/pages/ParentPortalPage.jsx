@@ -30,13 +30,13 @@ const EMPTY_GOAL_FORM = {
 }
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#667085]'
-const panelClass = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70'
-const softPanelClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
+const panelClass = 'rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70'
+const softPanelClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
-const fieldClass = 'min-h-10 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const emptyClass = 'rounded-lg border border-dashed border-[#d0d5dd] bg-white px-4 py-5 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/70'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const fieldClass = 'min-h-10 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const emptyClass = 'rounded-lg border border-dashed border-[#9addb4] bg-white px-4 py-5 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/70'
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
@@ -535,8 +535,8 @@ export function ParentPortalPage() {
 
       {matchError ? <NoticeBanner title="Match Day action failed" message={matchError} /> : null}
 
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
-        <div className="grid gap-5 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/80">
+        <div className="grid gap-5 border-b border-[#cfeedd] bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <div>
             <p className={eyebrowClass}>Match day workspace</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-[#101828]">Follow the selected player</h2>
@@ -553,7 +553,7 @@ export function ParentPortalPage() {
           </div>
         </div>
 
-        <div className="grid gap-5 bg-[#f9fafb] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="grid gap-5 bg-[#f8fdf9] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <aside className="space-y-4">
             <ParentChildSelector
               links={links}
@@ -572,13 +572,13 @@ export function ParentPortalPage() {
           </aside>
 
           <div className="min-w-0 space-y-5">
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
+            <section className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className={eyebrowClass}>Live and upcoming</p>
                   <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Match cards</h3>
                 </div>
-                <p className="text-sm font-black text-[#667085]">{activeMatches.length} active</p>
+                <p className="text-sm font-black text-[#5f7468]">{activeMatches.length} active</p>
               </div>
 
               <div className="mt-4">
@@ -587,7 +587,7 @@ export function ParentPortalPage() {
                     No child links are active for this parent account.
                   </p>
                 ) : isLoadingMatches ? (
-                  <p className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/70">
+                  <p className="rounded-lg border border-[#cfeedd] bg-white px-4 py-5 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/70">
                     Loading Match Day...
                   </p>
                 ) : activeMatches.length > 0 ? (
@@ -628,13 +628,13 @@ export function ParentPortalPage() {
               </div>
             </section>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
+            <section className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className={eyebrowClass}>Previous games</p>
                   <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Shared results</h3>
                 </div>
-                <p className="text-sm font-black text-[#667085]">{previousMatches.length} complete</p>
+                <p className="text-sm font-black text-[#5f7468]">{previousMatches.length} complete</p>
               </div>
 
               {previousMatches.length > 0 ? (
@@ -662,14 +662,14 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
   const nextMatch = activeMatches[0]
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+    <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/80">
       <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
         <div>
           <p className={eyebrowClass}>Parent portal</p>
           <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-5xl">
             Match day for {selectedLink?.playerName || 'the player'}.
           </h1>
-          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#5f7468]">
             Follow live scores, volunteer when the club asks for a scorer, and review completed football fixtures in one controlled parent view.
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -679,7 +679,7 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
           </div>
         </div>
 
-        <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-inner shadow-slate-200/60">
+        <div className="grid content-between rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-5 shadow-inner shadow-[#d7eadf]/60">
           <div>
             <p className={eyebrowClass}>Next match card</p>
             <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
@@ -689,7 +689,7 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
               {nextMatch ? formatMatchDate(nextMatch) : previousMatches.length > 0 ? 'Open previous games to review shared results.' : 'The club has not shared a match card yet.'}
             </p>
           </div>
-          <div className="mt-5 rounded-lg border border-[#abefc6] bg-white px-4 py-3 shadow-sm shadow-slate-200/60">
+          <div className="mt-5 rounded-lg border border-[#abefc6] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
             <p className={eyebrowClass}>Next action</p>
             <p className={`mt-1 ${bodyTextClass}`}>
               Check the selected child first. Enable notifications only on the device you want to use on match day.
@@ -703,7 +703,7 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
 
 function ParentMatchMetric({ caption, isLoading, label, value }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+    <article className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
       <p className={eyebrowClass}>{label}</p>
       <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : value}</p>
       <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
@@ -714,14 +714,14 @@ function ParentMatchMetric({ caption, isLoading, label, value }) {
 function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
   return (
     <div className={panelClass}>
-      <label htmlFor="parent-portal-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#667085]">
+      <label htmlFor="parent-portal-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">
         Current player
       </label>
       <select
         id="parent-portal-child"
         value={selectedLink?.id || ''}
         onChange={(event) => onSelect(event.target.value)}
-        className="min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+        className="min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
       >
         {links.map((link) => (
           <option key={link.id} value={link.id}>
@@ -737,10 +737,10 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
               key={link.id}
               type="button"
               onClick={() => onSelect(link.id)}
-              className="block w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-left transition hover:border-[#20a464] hover:bg-white"
+              className="block w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-left transition hover:border-[#20a464] hover:bg-white"
             >
               <p className="text-sm font-black text-[#101828]">{link.playerName}</p>
-              <p className="mt-1 text-xs font-semibold text-[#667085]">{link.teamName || 'No team'} | {link.clubName || 'No club'}</p>
+              <p className="mt-1 text-xs font-semibold text-[#5f7468]">{link.teamName || 'No team'} | {link.clubName || 'No club'}</p>
             </button>
           ))}
         </div>
@@ -758,8 +758,8 @@ function PushNotificationPanel({
 }) {
   if (!pushState.isSupported) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/70">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Notifications</p>
+      <div className="rounded-lg border border-[#cfeedd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Notifications</p>
         <p className="mt-2 text-sm font-black text-[#101828]">Not available on this device yet.</p>
         <p className={`mt-2 ${bodyTextClass}`}>{pushState.reason}</p>
       </div>
@@ -767,9 +767,9 @@ function PushNotificationPanel({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/70">
+    <div className="rounded-lg border border-[#cfeedd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70">
       <div className="min-w-0">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Notifications</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Notifications</p>
         <p className="mt-2 text-sm font-black text-[#101828]">
           {hasPushSubscription ? 'Notifications are enabled on this device.' : 'Enable Match Day notifications on this device.'}
         </p>
@@ -822,11 +822,11 @@ function ParentMatchCard({
   const currentMinute = getCurrentMatchMinute(match, now)
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
+    <article className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1 text-xs font-black text-[#667085]">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
               {match.status.replace(/_/g, ' ')}
             </span>
             {match.isScorer ? (
@@ -836,20 +836,20 @@ function ParentMatchCard({
             ) : null}
           </div>
           <h4 className="mt-3 text-lg font-black text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
-          <p className="mt-1 text-sm font-semibold text-[#667085]">{formatMatchDate(match)}</p>
-          {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#667085]">{match.venueName}</p> : null}
+          <p className="mt-1 text-sm font-semibold text-[#5f7468]">{formatMatchDate(match)}</p>
+          {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#5f7468]">{match.venueName}</p> : null}
           {match.scorerRequestMessage && !match.isScorer ? (
             <p className={`mt-3 whitespace-pre-wrap ${bodyTextClass}`}>{match.scorerRequestMessage}</p>
           ) : null}
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 text-center shadow-sm shadow-slate-200/60">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Live score</p>
+        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 text-center shadow-sm shadow-[#d7eadf]/60">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Live score</p>
           <p className="mt-2 text-4xl font-black text-[#101828]">
             {getClubScore(match)} - {getOpponentScore(match)}
           </p>
           {currentMinute ? (
-            <p className="mt-2 text-sm font-bold text-[#667085]">{currentMinute} min</p>
+            <p className="mt-2 text-sm font-bold text-[#5f7468]">{currentMinute} min</p>
           ) : null}
         </div>
       </div>
@@ -882,7 +882,7 @@ function ParentMatchCard({
             <h5 className="text-sm font-black text-[#101828]">Update score</h5>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-[#667085]">Home</span>
+                <span className="mb-1 block text-xs font-black text-[#5f7468]">Home</span>
                 <input
                   type="number"
                   min="0"
@@ -892,7 +892,7 @@ function ParentMatchCard({
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-[#667085]">Away</span>
+                <span className="mb-1 block text-xs font-black text-[#5f7468]">Away</span>
                 <input
                   type="number"
                   min="0"
@@ -902,7 +902,7 @@ function ParentMatchCard({
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-black text-[#667085]">Status</span>
+                <span className="mb-1 block text-xs font-black text-[#5f7468]">Status</span>
                 <select
                   value={scoreDraft.status}
                   onChange={(event) => onScoreDraftChange({ status: event.target.value })}
@@ -927,7 +927,7 @@ function ParentMatchCard({
             </div>
           </div>
 
-          <form className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70" onSubmit={(event) => onAddGoal(event, match)}>
+          <form className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70" onSubmit={(event) => onAddGoal(event, match)}>
             <h5 className="text-sm font-black text-[#101828]">Add goal</h5>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <label className="block">
@@ -1014,11 +1014,11 @@ function ParentMatchCard({
       {match.events.length > 0 ? (
         <div className="mt-4 space-y-2">
           {match.events.slice(0, 8).map((event) => (
-            <div key={event.id} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3">
+            <div key={event.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3">
               <p className="text-sm font-semibold text-[#101828]">
                 {event.eventType === 'goal' ? 'Goal' : 'Score update'} / {event.homeScore} - {event.awayScore}
               </p>
-              <p className="mt-1 text-xs font-semibold text-[#667085]">
+              <p className="mt-1 text-xs font-semibold text-[#5f7468]">
                 {event.minute !== null ? `${event.minute} min / ` : ''}
                 {event.scorerInitials || event.scorerName || 'Score update'}
                 {event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}

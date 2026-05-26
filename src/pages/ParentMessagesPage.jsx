@@ -13,11 +13,11 @@ import { exportPdfHtml } from '../lib/pdf.js'
 import { getParentPortalMessages, markParentPortalMessageRead } from '../lib/supabase.js'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#667085]'
-const panelClass = 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
+const panelClass = 'rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/70 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
-const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/70 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 
 export function ParentMessagesPage() {
   const { user } = useAuth()
@@ -181,8 +181,8 @@ export function ParentMessagesPage() {
         summary={messageSummary}
       />
 
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
-        <div className="grid gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/80">
+        <div className="grid gap-4 border-b border-[#cfeedd] bg-white px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className={eyebrowClass}>Parent inbox</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-[#101828]">Messages for the selected player</h2>
@@ -203,11 +203,11 @@ export function ParentMessagesPage() {
           ) : null}
         </div>
 
-        <div className="grid gap-5 bg-[#f9fafb] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="grid gap-5 bg-[#f8fdf9] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <aside className="space-y-4">
             {links.length > 1 ? (
               <div className={panelClass}>
-                <label htmlFor="parent-message-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#667085]">
+                <label htmlFor="parent-message-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">
                   Child
                 </label>
                 <select
@@ -233,9 +233,9 @@ export function ParentMessagesPage() {
             </div>
 
             <div className={panelClass}>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Selected player</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Selected player</p>
               <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink?.playerName || 'No player selected'}</p>
-              <p className="mt-1 text-sm font-semibold text-[#667085]">{selectedLink?.teamName || 'No team'} | {selectedLink?.clubName || 'No club'}</p>
+              <p className="mt-1 text-sm font-semibold text-[#5f7468]">{selectedLink?.teamName || 'No team'} | {selectedLink?.clubName || 'No club'}</p>
             </div>
           </aside>
 
@@ -245,7 +245,7 @@ export function ParentMessagesPage() {
                 {messageError}
               </p>
             ) : isLoadingMessages ? (
-              <p className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/70">
+              <p className="rounded-lg border border-[#cfeedd] bg-white px-4 py-5 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/70">
                 Loading messages...
               </p>
             ) : messages.length > 0 ? (
@@ -261,7 +261,7 @@ export function ParentMessagesPage() {
                 ))}
               </div>
             ) : (
-              <p className="rounded-lg border border-dashed border-[#d0d5dd] bg-white px-4 py-5 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/70">
+              <p className="rounded-lg border border-dashed border-[#9addb4] bg-white px-4 py-5 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/70">
                 No emails have been shared in the parent portal for this child yet.
               </p>
             )}
@@ -274,14 +274,14 @@ export function ParentMessagesPage() {
 
 function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+    <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/80">
       <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
         <div>
           <p className={eyebrowClass}>Parent portal</p>
           <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-5xl">
             Keep {selectedLink?.playerName || 'the player'} in step with the club.
           </h1>
-          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#5f7468]">
             Use this inbox for practical football updates: development notes, PDF records, team information, and parent actions.
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -291,7 +291,7 @@ function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
           </div>
         </div>
 
-        <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-inner shadow-slate-200/60">
+        <div className="grid content-between rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-5 shadow-inner shadow-[#d7eadf]/60">
           <div>
             <p className={eyebrowClass}>Latest message</p>
             <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
@@ -301,7 +301,7 @@ function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
               {latestMessage ? formatMessageDate(latestMessage.createdAt) : 'Messages will appear here when the club shares them.'}
             </p>
           </div>
-          <div className="mt-5 rounded-lg border border-[#abefc6] bg-white px-4 py-3 shadow-sm shadow-slate-200/60">
+          <div className="mt-5 rounded-lg border border-[#abefc6] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
             <p className={eyebrowClass}>Next action</p>
             <p className={`mt-1 ${bodyTextClass}`}>
               Open unread messages first. Download the PDF only when a development attachment exists.
@@ -315,7 +315,7 @@ function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
 
 function InboxMetric({ caption, isLoading, label, value }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+    <article className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
       <p className={eyebrowClass}>{label}</p>
       <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : value}</p>
       <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
@@ -333,21 +333,21 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
   const isUnread = !message.readAt
 
   return (
-    <article className={`rounded-lg border bg-white shadow-sm shadow-slate-200/70 transition ${
-      isUnread ? 'border-[#20a464]' : 'border-slate-200'
+    <article className={`rounded-lg border bg-white shadow-sm shadow-[#d7eadf]/70 transition ${
+      isUnread ? 'border-[#20a464]' : 'border-[#cfeedd]'
     }`}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="block w-full px-4 py-4 text-left transition hover:bg-[#f9fafb]"
+        className="block w-full px-4 py-4 text-left transition hover:bg-[#f8fdf9]"
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-black text-[#101828]">
               {subject}
             </p>
-            <p className="mt-1 text-xs font-semibold text-[#667085]">
+            <p className="mt-1 text-xs font-semibold text-[#5f7468]">
               {formatMessageDate(message.createdAt)} | {message.senderName || message.senderEmail || 'Club staff'}
             </p>
           </div>
@@ -358,11 +358,11 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
               </span>
             ) : null}
             {hasAttachment ? (
-              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1 text-xs font-black text-[#667085]">
+              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
                 PDF attached
               </span>
             ) : null}
-            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1 text-xs font-black text-[#667085]">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1 text-xs font-black text-[#5f7468]">
               {isOpen ? 'Hide email' : 'View email'}
             </span>
           </div>
@@ -371,9 +371,9 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
 
       {isOpen ? (
         <div className="min-w-0">
-          <div className="border-t border-slate-200 px-4 py-4">
+          <div className="border-t border-[#cfeedd] px-4 py-4">
             {templateName ? (
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#667085]">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
                 {templateName}
               </p>
             ) : null}
@@ -388,13 +388,13 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
 
             {assessmentFields.length > 0 ? (
               <div className="mt-4 space-y-2">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Development details</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Development details</p>
                 {assessmentFields.map((field) => (
-                  <div key={field.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#667085]">
+                  <div key={field.label} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
                       {field.label}
                     </p>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-[#475467]">
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-[#5f7468]">
                       {String(field.value ?? '')}
                     </p>
                   </div>

@@ -220,15 +220,15 @@ export function ParentLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fbfdfb] px-4 py-6 text-slate-950 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#fbfdfb] px-4 py-6 text-[#101828] sm:px-6 lg:px-8">
       <section className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-center">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6 lg:p-8">
-          <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-slate-200 bg-slate-950 object-contain p-1" />
-          <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent portal</p>
-          <h1 className="mt-3 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-slate-950 sm:text-5xl">
+        <div className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/80 sm:p-6 lg:p-8">
+          <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#cfeedd] bg-[#06140d] object-contain p-1" />
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Parent portal</p>
+          <h1 className="mt-3 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-5xl">
             Open the football updates linked to your child.
           </h1>
-          <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-700">
+          <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#456653]">
             Use the parent account confirmed by email. This view only shows club-shared messages, polls, match cards, and development reports for linked children.
           </p>
 
@@ -238,23 +238,23 @@ export function ParentLoginPage() {
               ['Club controlled', 'Staff decide what is shared and when parent actions are available.'],
               ['Match ready', 'Use this on the device you want for live match day notifications.'],
             ].map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4">
-                <p className="text-sm font-black text-slate-950">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
+              <article key={title} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4">
+                <p className="text-sm font-black text-[#101828]">{title}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{copy}</p>
               </article>
             ))}
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Secure access</p>
-          <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">Parent login</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+        <div className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Secure access</p>
+          <h2 className="mt-3 text-2xl font-black tracking-tight text-[#101828]">Parent login</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
             Log in with the same email that received the club invite.
           </p>
 
         {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? (
-          <p className="mt-5 rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-slate-600">
+          <p className="mt-5 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#5f7468]">
             Preparing parent login...
           </p>
         ) : null}
@@ -262,7 +262,7 @@ export function ParentLoginPage() {
         {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? null : (
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Email</span>
+            <span className="mb-2 block text-sm font-bold text-[#101828]">Email</span>
             <input
               type="email"
               value={email}
@@ -274,13 +274,13 @@ export function ParentLoginPage() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="min-h-12 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className="min-h-12 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Password</span>
-            <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-[#f8fafc] focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-100">
+            <span className="mb-2 block text-sm font-bold text-[#101828]">Password</span>
+            <div className="flex overflow-hidden rounded-lg border border-[#cfeedd] bg-[#f8fdf9] focus-within:border-[#20a464] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#d7f8e5]">
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
@@ -292,12 +292,12 @@ export function ParentLoginPage() {
                 required
                 autoComplete="current-password"
                 placeholder="Enter password"
-                className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-slate-950 outline-none placeholder:text-slate-400"
+                className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none placeholder:text-[#8da59a]"
               />
               <button
                 type="button"
                 onClick={() => setIsPasswordVisible((current) => !current)}
-                className="min-h-12 border-l border-slate-200 px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-[#f2fbf6]"
+                className="min-h-12 border-l border-[#cfeedd] px-4 py-3 text-sm font-bold text-[#067a46] transition hover:bg-[#f2fbf6]"
               >
                 {isPasswordVisible ? 'Hide' : 'Show'}
               </button>
@@ -307,7 +307,7 @@ export function ParentLoginPage() {
           {errorMessage ? <NoticeBanner title="Parent login not completed" message={errorMessage} /> : null}
 
           {message ? (
-            <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] px-4 py-3 text-sm font-semibold text-emerald-800">
+            <div className="rounded-lg border border-[#b7efce] bg-[#f2fbf6] px-4 py-3 text-sm font-semibold text-[#05603a]">
               {message}
             </div>
           ) : null}
@@ -315,7 +315,7 @@ export function ParentLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting || isSigningOutConfirmedSession}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Logging in...' : 'Login'}
           </button>
@@ -324,7 +324,7 @@ export function ParentLoginPage() {
             type="button"
             disabled={isSubmitting || isSigningOutConfirmedSession}
             onClick={handlePasswordReset}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-5 py-3 text-sm font-bold text-[#101828] transition hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Forgot password
           </button>
@@ -332,7 +332,7 @@ export function ParentLoginPage() {
           {parentInviteToken ? (
             <a
               href={buildParentAppUrl(`/parent-invite/${parentInviteToken}`)}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-emerald-200 bg-[#f2fbf6] px-5 py-3 text-sm font-bold text-emerald-800 transition hover:bg-emerald-100"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#b7efce] bg-[#f2fbf6] px-5 py-3 text-sm font-bold text-[#05603a] transition hover:bg-[#d7f8e5]"
             >
               Back to parent invite
             </a>
