@@ -1,6 +1,10 @@
 import { testerPlanOptions } from '../../lib/platform-billing-utils.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
+
 export function CreateTesterCodeSection({
   isSavingTesterCode,
   onCreateTesterCode,
@@ -14,30 +18,30 @@ export function CreateTesterCodeSection({
     >
       <form onSubmit={onCreateTesterCode} className="grid gap-4 xl:grid-cols-4">
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Label</span>
+          <span className={labelClass}>Label</span>
           <input
             value={testerCodeForm.label}
             onChange={(event) => onTesterCodeChange('label', event.target.value)}
             placeholder="Cambourne tester"
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Access code</span>
+          <span className={labelClass}>Access code</span>
           <input
             required
             value={testerCodeForm.code}
             onChange={(event) => onTesterCodeChange('code', event.target.value)}
             placeholder="TESTER-30"
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm uppercase text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={`${fieldClass} uppercase`}
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Plan level</span>
+          <span className={labelClass}>Plan level</span>
           <select
             value={testerCodeForm.planKey}
             onChange={(event) => onTesterCodeChange('planKey', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           >
             {testerPlanOptions.map((plan) => (
               <option key={plan.key} value={plan.key}>
@@ -47,35 +51,35 @@ export function CreateTesterCodeSection({
           </select>
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Runs for days</span>
+          <span className={labelClass}>Runs for days</span>
           <input
             required
             type="number"
             min="1"
             value={testerCodeForm.expiresInDays}
             onChange={(event) => onTesterCodeChange('expiresInDays', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Max uses</span>
+          <span className={labelClass}>Max uses</span>
           <input
             required
             type="number"
             min="1"
             value={testerCodeForm.maxUses}
             onChange={(event) => onTesterCodeChange('maxUses', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
         </label>
         <label className="block xl:col-span-2">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Assigned email</span>
+          <span className={labelClass}>Assigned email</span>
           <input
             type="email"
             value={testerCodeForm.assignedEmail}
             onChange={(event) => onTesterCodeChange('assignedEmail', event.target.value)}
             placeholder="Optional. Leave blank for any email."
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
         </label>
         <div className="xl:col-span-4">
@@ -83,9 +87,9 @@ export function CreateTesterCodeSection({
             type="submit"
             disabled={isSavingTesterCode}
             title={isSavingTesterCode ? 'Please wait while this tester code is being created.' : undefined}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className={primaryButtonClass}
           >
-            {isSavingTesterCode ? 'Creating...' : 'Create Tester Code'}
+            {isSavingTesterCode ? 'Creating...' : 'Create tester code'}
           </button>
         </div>
       </form>

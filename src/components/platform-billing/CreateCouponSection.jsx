@@ -1,5 +1,9 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
+
 export function CreateCouponSection({
   couponForm,
   isSaving,
@@ -13,51 +17,51 @@ export function CreateCouponSection({
     >
       <form onSubmit={onCreateCoupon} className="grid gap-4 xl:grid-cols-4">
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Coupon name</span>
+          <span className={labelClass}>Coupon name</span>
           <input
             required
             value={couponForm.name}
             onChange={(event) => onCouponChange('name', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Promotion code</span>
+          <span className={labelClass}>Promotion code</span>
           <input
             required
             value={couponForm.code}
             onChange={(event) => onCouponChange('code', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm uppercase text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={`${fieldClass} uppercase`}
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Percent off</span>
+          <span className={labelClass}>Percent off</span>
           <input
             type="number"
             min="0"
             max="100"
             value={couponForm.percentOff}
             onChange={(event) => onCouponChange('percentOff', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Fixed amount off</span>
+          <span className={labelClass}>Fixed amount off</span>
           <input
             type="number"
             min="0"
             step="0.01"
             value={couponForm.amountOff}
             onChange={(event) => onCouponChange('amountOff', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Duration</span>
+          <span className={labelClass}>Duration</span>
           <select
             value={couponForm.duration}
             onChange={(event) => onCouponChange('duration', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           >
             <option value="once">Once</option>
             <option value="repeating">Repeating</option>
@@ -66,45 +70,45 @@ export function CreateCouponSection({
         </label>
         {couponForm.duration === 'repeating' ? (
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-950">Months</span>
+            <span className={labelClass}>Months</span>
             <input
               type="number"
               min="1"
               value={couponForm.durationInMonths}
               onChange={(event) => onCouponChange('durationInMonths', event.target.value)}
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
         ) : null}
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">End date</span>
+          <span className={labelClass}>End date</span>
           <input
             type="date"
             value={couponForm.expiresAt}
             onChange={(event) => onCouponChange('expiresAt', event.target.value)}
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={fieldClass}
           />
-          <span className="mt-2 block text-xs text-slate-600">
+          <span className="mt-2 block text-xs font-semibold text-[#5f7468]">
             Optional. This stops new redemptions after the selected date.
           </span>
         </label>
-        <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 xl:self-end">
+        <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 xl:self-end">
           <input
             type="checkbox"
             checked={couponForm.firstTimeOnly}
             onChange={(event) => onCouponChange('firstTimeOnly', event.target.checked)}
-            className="h-4 w-4 accent-[var(--accent)]"
+            className="h-4 w-4 accent-[#067a46]"
           />
-          <span className="text-sm font-semibold text-slate-950">First purchase only</span>
+          <span className="text-sm font-black text-[#101828]">First purchase only</span>
         </label>
         <div className="xl:col-span-4">
           <button
             type="submit"
             disabled={isSaving}
             title={isSaving ? 'Please wait while this coupon is being created.' : undefined}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className={primaryButtonClass}
           >
-            {isSaving ? 'Creating...' : 'Create Coupon'}
+            {isSaving ? 'Creating...' : 'Create coupon'}
           </button>
         </div>
       </form>
