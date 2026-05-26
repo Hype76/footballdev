@@ -30,24 +30,24 @@ function isSquadPlayer(player) {
   return String(player?.section ?? '').trim().toLowerCase() === 'squad'
 }
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const inputClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const inputClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-xs font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
-const sectionHeaderClass = 'border-b border-[#cfeedd] bg-[#f8fdf9] px-5 py-5 sm:px-6'
+const sectionHeaderClass = 'border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
-const panelClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
 
 const parentAccessRules = [
   {
     label: 'Squad only',
-    body: 'Parent portal access is created only for squad players. Trial players stay private until the club moves them.',
+    body: 'Parent portal access is created only for squad players. Trial players stay private until staff move them.',
   },
   {
-    label: 'One parent, one link',
-    body: 'Each parent email gets its own portal access. Do not share staff logins with families.',
+    label: 'Own login only',
+    body: 'Each parent email gets its own portal access. Families should never use staff accounts.',
   },
   {
     label: 'Remove when needed',
@@ -266,29 +266,31 @@ export function ParentLinkingPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/80">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
-            <p className={eyebrowClass}>Parent access</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-[#101828] sm:text-5xl">
-              Give parents a clean match-day portal, not a staff login.
-            </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
-              Invite the exact parent emails attached to squad players, then remove links when access should stop.
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {parentAccessRules.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.body}</p>
-                </article>
-              ))}
+            <div className="px-5 py-6 sm:px-6 lg:px-8">
+              <p className={eyebrowClass}>Parent access</p>
+              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+                Give parents the right portal, not staff access.
+              </h1>
+              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
+                Invite the exact parent emails attached to squad players, then remove links when access should stop.
+              </p>
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {parentAccessRules.map((item) => (
+                  <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.body}</p>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="grid content-between rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-5 shadow-inner shadow-[#d7eadf]/60">
+          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Portal state</p>
-              <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Portal state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
                 {players.length} squad players available
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
@@ -301,7 +303,7 @@ export function ParentLinkingPage() {
               <ParentMetric label="Emails" value={totalParentEmails} isLoading={isLoading} />
               <ParentMetric label="Active" value={activeLinks.length} isLoading={isLoading} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#456653]">
               Parent access should mirror real squad access, not staff permissions.
             </p>
           </div>
@@ -316,19 +318,19 @@ export function ParentLinkingPage() {
           { label: 'Selected contacts', value: selectedContactIds.length },
           { label: 'Active links', value: activeLinks.length },
         ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+          <div key={item.label} className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
             <p className="text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">{item.label}</p>
-            <p className="mt-2 text-3xl font-black text-[#101828]">{item.value}</p>
+            <p className="mt-2 text-3xl font-black text-[#10231a]">{item.value}</p>
           </div>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/70">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
         <div className={sectionHeaderClass}>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>
               <p className={eyebrowClass}>Parent invites</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Send and manage access</h2>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Send and manage access</h2>
               <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
                 Choose one squad player and select parents, or invite every squad parent email in your current team.
               </p>
@@ -381,7 +383,7 @@ export function ParentLinkingPage() {
                 <div className={panelClass}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-black text-[#101828]">Parent emails</p>
+                      <p className="text-sm font-black text-[#10231a]">Parent emails</p>
                       <p className="mt-1 text-sm font-semibold text-[#5f7468]">Only selected emails will receive this player invite.</p>
                     </div>
                     <button
@@ -395,7 +397,7 @@ export function ParentLinkingPage() {
 
                   <div className="mt-4 space-y-2">
                     {selectedContacts.length > 0 ? selectedContacts.map((contact) => (
-                      <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm text-[#101828] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]">
+                      <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]">
                         <input
                           type="checkbox"
                           checked={selectedContactIds.includes(contact.id)}
@@ -436,13 +438,13 @@ export function ParentLinkingPage() {
               </div>
 
               <div className={panelClass}>
-                <p className="text-sm font-black text-[#101828]">Existing links for this player</p>
+                <p className="text-sm font-black text-[#10231a]">Existing links for this player</p>
                 <div className="mt-4 space-y-2">
                   {links.length > 0 ? links.map((link) => (
-                    <div key={link.id} className="rounded-lg border border-[#cfeedd] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+                    <div key={link.id} className="rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
-                          <p className="break-words text-sm font-black text-[#101828]">{link.email || 'Link only'}</p>
+                          <p className="break-words text-sm font-black text-[#10231a]">{link.email || 'Link only'}</p>
                           <p className="mt-1 text-xs font-semibold text-[#5f7468]">{link.status} / {link.linkType}</p>
                         </div>
                         <button
@@ -490,26 +492,26 @@ export function ParentLinkingPage() {
 
 function ParentMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#cfeedd] bg-white px-3 py-3 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm shadow-[#d7eadf]/60">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
     </div>
   )
 }
 
 function ParentAccessStatePanel({ action, body, eyebrow = 'Parent access', title }) {
   return (
-    <div className="rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
+    <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
       <div className="flex gap-3">
-        <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white text-sm font-black text-[#067a46]">
+        <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#bddcca] bg-white text-sm font-black text-[#067a46]">
           FP
         </span>
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{eyebrow}</p>
-          <p className="mt-2 text-base font-black text-[#101828]">{title}</p>
+          <p className="mt-2 text-base font-black text-[#10231a]">{title}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{body}</p>
           {action ? (
-            <p className="mt-3 rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-sm font-black text-[#101828]">
+            <p className="mt-3 rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a]">
               {action}
             </p>
           ) : null}
