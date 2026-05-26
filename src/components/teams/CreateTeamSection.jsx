@@ -7,11 +7,11 @@ export function CreateTeamSection({
   teamLimitMessage,
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/70" data-tour-id="create-team-section">
-      <div className="border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6">
+    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10" data-tour-id="create-team-section">
+      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Step 1 / squad base</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Create the first team</h2>
-        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">
           {canCreateMoreTeams
             ? 'Add the team or age group before players, sessions, staff access, and match day records.'
             : teamLimitMessage}
@@ -27,7 +27,7 @@ export function CreateTeamSection({
             onChange={(event) => onTeamNameChange(event.target.value)}
             placeholder="U12 Blue, U14 Girls, First Team"
             required
-            className="min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+            className="min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#6b8577] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
           />
         </label>
         <button

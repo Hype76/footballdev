@@ -57,6 +57,9 @@ const teamSetupRules = [
   },
 ]
 
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
+
 export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
   const { showToast } = useToast()
@@ -630,7 +633,7 @@ export function TeamManagementPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
@@ -643,20 +646,20 @@ export function TeamManagementPage() {
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {teamSetupRules.map((rule) => (
-                  <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+                  <div key={rule.label} className={`${panelClass} px-4 py-4`}>
                     <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
+                    <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bddcca] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#456653]">Setup state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{teams.length} teams configured</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className={`mt-2 ${bodyTextClass}`}>
                 {allocatedStaffCount} staff accounts are allocated to at least one team.
               </p>
             </div>
@@ -666,7 +669,7 @@ export function TeamManagementPage() {
               <TeamSetupMetric label="Allocated" value={allocatedStaffCount} />
               <TeamSetupMetric label="Players" value={playerTotal} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className={`mt-4 ${bodyTextClass}`}>
               {unallocatedStaffCount > 0
                 ? `${unallocatedStaffCount} staff accounts still need team scope.`
                 : 'Every visible staff account has team scope or is ready to review.'}
@@ -676,7 +679,7 @@ export function TeamManagementPage() {
       </section>
 
       {message ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
+        <div className="rounded-lg border border-[#8bdcae] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#05603a] shadow-sm shadow-[#067a46]/10">
           {message}
         </div>
       ) : null}
@@ -762,7 +765,7 @@ export function TeamManagementPage() {
 
 function TeamSetupMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#d7eadf] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#10231a]">{value}</p>
     </div>

@@ -9,14 +9,14 @@ export function CreateStaffLoginSection({
   teams,
 }) {
   const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-  const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+  const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/70" data-tour-id="create-staff-section">
-      <div className="border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6">
+    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10" data-tour-id="create-staff-section">
+      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Step 2 / scoped access</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Invite staff with team access</h2>
-        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">
           {canCreateMoreStaff
             ? 'Send a staff invite, choose the role, and attach the login to one team. Coaches should only see the squads they work with.'
             : staffLimitMessage}
@@ -98,7 +98,7 @@ export function CreateStaffLoginSection({
                 ? 'Create an assignable staff role before adding staff access.'
                 : canCreateMoreStaff ? undefined : staffLimitMessage
           }
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           Send staff invite
         </button>
