@@ -6,7 +6,6 @@ import { PlatformFeedbackHero } from '../components/platform-feedback/PlatformFe
 import { PlatformFeedbackStats } from '../components/platform-feedback/PlatformFeedbackStats.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canViewPlatformFeedback, isSuperAdmin, useAuth } from '../lib/auth.js'
 import { FEEDBACK_PAGE_SIZE, PLATFORM_FEEDBACK_CACHE_KEY, getFeedbackStats } from '../lib/platform-feedback-utils.js'
@@ -141,7 +140,7 @@ export function PlatformFeedbackPage() {
 
   if ((isAuthLoading && !session?.user) || (!user && isProfileLoading)) {
     return (
-      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 text-sm font-bold text-slate-600 shadow-sm">
+      <div className="rounded-lg border border-[#d7eadf] bg-white px-5 py-8 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/70">
         Loading...
       </div>
     )
@@ -153,14 +152,8 @@ export function PlatformFeedbackPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Platform Feedback"
-        title="Share feedback"
-        description="Tell us what would make the platform better. Other clubs can vote for ideas they also need."
-      />
-
       {successMessage ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
+        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
           {successMessage}
         </div>
       ) : null}
