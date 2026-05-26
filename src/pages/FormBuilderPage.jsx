@@ -46,8 +46,8 @@ const developmentFormRules = [
   },
 ]
 
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const metricCardClass = 'rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]'
+const metricCardClass = 'rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10'
 
 export function FormBuilderPage() {
   const { user } = useAuth()
@@ -434,31 +434,31 @@ export function FormBuilderPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
             <p className={eyebrowClass}>Development form</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
               Build the football record coaches will actually complete.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
               Choose the fields that matter for player development, parent updates, and squad decisions. Keep the form short enough to use after training.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {developmentFormRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
-                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{rule.body}</p>
+                <div key={rule.label} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
+                  <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-5 shadow-inner shadow-[#067a46]/10">
+          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-5 shadow-inner shadow-[#2563eb]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#456653]">Form state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{enabledFieldsCount} fields live for coaches</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#475569]">Form state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">{enabledFieldsCount} fields live for coaches</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
                 {defaultFields.length} default fields and {customFields.length} custom fields are configured for this club.
               </p>
             </div>
@@ -468,7 +468,7 @@ export function FormBuilderPage() {
               <FormMetric label="Enabled" value={enabledFieldsCount} />
               <FormMetric label="Total" value={fields.length} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#456653]">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#475569]">
               {canUseCustomFields ? 'Custom development fields are available.' : createFeatureUpgradeMessage('customFormFields')}
             </p>
           </div>
@@ -523,7 +523,7 @@ export function FormBuilderPage() {
           `Field: ${fieldDeleteTarget?.label || 'Selected field'}`,
           `Type: ${fieldDeleteTarget ? getFieldTypeLabel(fieldDeleteTarget.type) : 'Unknown type'}`,
         ]}
-        confirmLabel="Delete Field"
+        confirmLabel="Delete field"
         onCancel={() => setFieldDeleteTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeleteField(password)}
@@ -535,8 +535,8 @@ export function FormBuilderPage() {
 function FormMetric({ label, value }) {
   return (
     <div className={metricCardClass}>
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#10231a]">{value}</p>
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#0f172a]">{value}</p>
     </div>
   )
 }
