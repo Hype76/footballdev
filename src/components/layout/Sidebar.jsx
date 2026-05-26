@@ -57,10 +57,10 @@ const navIcons = {
 }
 
 const groupDescriptions = {
-  'Club setup': 'Identity, staff, rules, and audit',
-  Management: 'Shared workspace controls',
-  'Platform setup': 'Support and billing tools',
-  'Squad tools': 'Player records and club memory',
+  'Club setup': 'Identity, staff, rules, audit',
+  Management: 'Workspace controls',
+  'Platform setup': 'Support and billing',
+  'Squad tools': 'Teams, reports, and records',
 }
 
 function getSidebarTourId(path) {
@@ -320,26 +320,31 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(18.5rem,calc(100vw-1rem))] max-w-[18.5rem] flex-col overflow-y-auto border-r border-[#cfeedd] bg-white px-3 py-4 shadow-2xl shadow-[#cfeedd]/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(20.5rem,calc(100vw-1rem))] max-w-[20.5rem] flex-col overflow-y-auto border-r border-[#cfeedd] bg-white px-3 py-4 shadow-2xl shadow-[#cfeedd]/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-[#e0f3e8] pb-4">
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-3 shadow-sm shadow-[#d7eadf]/70">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cfeedd] bg-[#f8fdf9] shadow-sm shadow-[#d7eadf]/70">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/70">
                 <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#067a46]">
-                  {isParentPortal ? 'Parent access' : 'Club control'}
+                  {isParentPortal ? 'Family portal' : 'Football OS'}
                 </p>
-                <h2 className="mt-1 truncate text-base font-black tracking-tight text-[#101828]">{clubLabel}</h2>
+                <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#101828]">{clubLabel}</h2>
               </div>
             </div>
-            <p className="mt-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 text-xs font-bold leading-5 text-[#456653]">
-              {isParentPortal ? 'Fixtures, replies, and club messages in one view.' : 'Week plan, squad, parents, staff, and match day.'}
-            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <span className="rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-xs font-black text-[#065f3b]">
+                {isParentPortal ? 'Family view' : 'Club workspace'}
+              </span>
+              <span className="rounded-lg border border-[#c7ddff] bg-[#eef6ff] px-3 py-2 text-xs font-black text-[#175cd3]">
+                Match week
+              </span>
+            </div>
           </div>
 
           <button
@@ -356,10 +361,10 @@ export function Sidebar({ isOpen, onClose }) {
           <section className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70">
             <div className="flex items-center justify-between px-2">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#456653]">
-                {isParentPortal ? 'Family view' : 'Match week'}
+                {isParentPortal ? 'Family actions' : 'Week operations'}
               </p>
               <span className="rounded-lg bg-[#067a46] px-2 py-1 text-[11px] font-black text-white">
-                Active
+                Live
               </span>
             </div>
             <div className="mt-2 grid gap-1.5">
@@ -429,7 +434,7 @@ export function Sidebar({ isOpen, onClose }) {
                     ].join(' ')
                   }
                 >
-                  Share feedback
+                  Feedback
                 </NavLink>
               ) : null}
             </>

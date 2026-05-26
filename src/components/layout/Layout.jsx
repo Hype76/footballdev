@@ -223,7 +223,7 @@ export function Layout() {
       <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-[18.5rem]">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-[20.5rem]">
           <Topbar
             title={activeTitle}
             onMenuClick={() => setIsSidebarOpen(true)}

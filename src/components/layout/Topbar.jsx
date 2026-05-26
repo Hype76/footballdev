@@ -31,6 +31,20 @@ export function Topbar({ title, onMenuClick }) {
       : canUseClubAdminView
         ? 'Club operations'
         : isProfileLoading ? 'Opening workspace' : 'Choose a team'
+  const workLaneLabel = isPlatformAdminView
+    ? 'Platform lane'
+    : isParentPortalView
+      ? 'Family lane'
+      : canUseClubAdminView && !displayUser?.activeTeamName
+        ? 'Club lane'
+        : 'Team lane'
+  const nextActionLabel = isParentPortalView
+    ? 'Check fixtures and replies'
+    : isPlatformAdminView
+      ? 'Review clubs and support'
+      : displayUser?.activeTeamName
+        ? 'Run players, parents, and match day'
+        : 'Choose a team to focus actions'
   const todayLabel = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
     day: '2-digit',
@@ -103,7 +117,7 @@ export function Topbar({ title, onMenuClick }) {
 
   return (
     <header className="sticky top-0 z-20 border-b border-[#d8efe2] bg-white/95 px-4 py-3 shadow-sm shadow-[#d7eadf]/70 backdrop-blur sm:px-6 md:px-8 xl:px-10">
-      <div className="mx-auto flex max-w-[108rem] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="mx-auto flex max-w-[108rem] flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -135,11 +149,16 @@ export function Topbar({ title, onMenuClick }) {
             <h1 className="mt-1 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
               {title}
             </h1>
-            <p className="mt-1 text-sm font-semibold text-[#5f7468]">{userLabel} / {roleLabel} / {teamLabel}</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs font-black">
+              <span className="rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] px-3 py-2 text-[#065f3b]">{workLaneLabel}</span>
+              <span className="rounded-lg border border-[#c7ddff] bg-[#eef6ff] px-3 py-2 text-[#175cd3]">{nextActionLabel}</span>
+              <span className="rounded-lg border border-[#d8efe2] bg-white px-3 py-2 text-[#456653]">{roleLabel}</span>
+            </div>
+            <p className="mt-2 text-sm font-semibold text-[#5f7468]">{userLabel} / {teamLabel}</p>
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-[#d8efe2] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70 xl:w-auto xl:min-w-[36rem]">
+        <div className="grid w-full gap-2 rounded-lg border border-[#d8efe2] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70 2xl:w-auto 2xl:min-w-[36rem]">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
             {isDemoUser(displayUser) ? (
               <label className="col-span-2 grid gap-1 md:col-span-1">
