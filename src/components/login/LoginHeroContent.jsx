@@ -13,24 +13,24 @@ export function LoginHeroContent() {
 
   return (
     <section className="order-2 lg:order-1">
-      <div className="max-w-5xl rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-200/80 backdrop-blur sm:p-6 lg:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Football club operations</p>
-        <h1 className="mt-4 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-slate-950 min-[420px]:text-4xl sm:mt-5 sm:text-5xl xl:text-6xl">
+      <div className="max-w-5xl rounded-lg border border-[#b7efce] bg-white/95 p-5 shadow-sm shadow-[#d7eadf]/80 backdrop-blur sm:p-6 lg:p-8">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Football club operations</p>
+        <h1 className="mt-4 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#101828] min-[420px]:text-4xl sm:mt-5 sm:text-5xl xl:text-6xl">
           A football-only workspace that starts with the work clubs actually need.
         </h1>
-        <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-slate-700 sm:mt-6 sm:text-lg sm:leading-8">
+        <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#456653] sm:mt-6 sm:text-lg sm:leading-8">
           Set up the club, teams, players, staff access, parent links, availability, sessions, match day, and development records in one practical operating system.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a]"
           >
             Open Workspace
           </a>
           <a
             href="/features"
-            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6]"
           >
             Explore Features
           </a>
@@ -38,28 +38,28 @@ export function LoginHeroContent() {
       </div>
 
       <div className="mt-5 grid max-w-5xl gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-lg border border-emerald-200 bg-[#f2fbf6] p-5 shadow-sm shadow-emerald-100/70 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">First run setup</p>
+        <section className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-5 shadow-sm shadow-[#d7eadf]/70 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">First run setup</p>
           <div className="mt-5 grid gap-3">
             {setupSteps.map(([number, title, copy]) => (
-              <article key={title} className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-lg border border-emerald-200 bg-white p-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-sm font-black text-white">{number}</span>
+              <article key={title} className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-lg border border-[#b7efce] bg-white p-4">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#067a46] text-sm font-black text-white">{number}</span>
                 <span>
-                  <span className="block text-sm font-black text-slate-950">{title}</span>
-                  <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">{copy}</span>
+                  <span className="block text-sm font-black text-[#101828]">{title}</span>
+                  <span className="mt-1 block text-sm font-semibold leading-6 text-[#5f7468]">{copy}</span>
                 </span>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Run the week</p>
+        <section className="rounded-lg border border-[#b7efce] bg-white p-5 shadow-sm shadow-[#d7eadf]/70 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Run the week</p>
           <div className="mt-5 grid gap-3">
             {weeklyTools.map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4">
-                <p className="text-sm font-black text-slate-950">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
+              <article key={title} className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4">
+                <p className="text-sm font-black text-[#101828]">{title}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{copy}</p>
               </article>
             ))}
           </div>
