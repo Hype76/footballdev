@@ -1,5 +1,6 @@
 import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { CONTACT_TYPE_OPTIONS } from '../../hooks/players/addPlayerUtils.js'
+import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition placeholder:text-[#8aa095] focus:border-[#067a46] focus:ring-2 focus:ring-[#bfe8cd]'
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
@@ -44,12 +45,22 @@ export function AddPlayerFormSection({
       </div>
 
       {isLoading ? (
-        <div className="m-5 rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 text-sm font-bold text-[#5f7468] sm:m-6">
-          Loading player setup...
+        <div className="m-5 sm:m-6">
+          <PlayerStatePanel
+            action="This usually takes a moment."
+            body="The player form needs the team list before a footballer can be saved into Trial or Squad."
+            eyebrow="Loading player setup"
+            title="Checking teams and player capacity."
+          />
         </div>
       ) : availableTeams.length === 0 ? (
-        <div className="m-5 rounded-lg border border-dashed border-[#bddcca] bg-[#f8fdf9] px-4 py-6 text-sm font-bold text-[#5f7468] sm:m-6">
-          No teams are available yet. Create a team first, then add players into Trial or Squad.
+        <div className="m-5 sm:m-6">
+          <PlayerStatePanel
+            action="Go to Teams, create the first team, then return here."
+            body="Players need a real team so parent links, sessions, match day, and development records stay in the right football workspace."
+            eyebrow="Setup required"
+            title="Create a team before adding players."
+          />
         </div>
       ) : (
         <form className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4" onSubmit={onAddPlayer}>

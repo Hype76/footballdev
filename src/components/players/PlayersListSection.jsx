@@ -1,6 +1,7 @@
 import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageUtils.js'
 import { Pagination } from '../ui/Pagination.jsx'
+import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -24,12 +25,24 @@ export function PlayersListSection({
   urlSection,
   viewFilter,
 }) {
-  const emptyMessage =
+  const emptyState =
     viewFilter === 'evaluated'
-      ? 'No players with completed development records found.'
+      ? {
+          action: 'Switch the view or open the development workflow.',
+          body: 'The register is filtering for players with completed development history. Clear the filter or record a player from a session.',
+          title: 'No completed development records match this view.',
+        }
       : viewFilter === 'scored'
-        ? 'No players with scored development records found.'
-        : 'No players found.'
+        ? {
+            action: 'Clear the filter or create the first scored record.',
+            body: 'The register is filtering for scored records. Scores appear after coaches complete numeric development fields.',
+            title: 'No scored development records match this view.',
+          }
+        : {
+            action: 'Clear the search or add the first player.',
+            body: 'Players appear here after they are added to Trial or Squad. Search and filters can also hide existing records.',
+            title: 'No player records match this search.',
+          }
 
   return (
     <section
@@ -82,13 +95,19 @@ export function PlayersListSection({
 
       <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <div className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-6 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
-            Loading player register...
-          </div>
+          <PlayerStatePanel
+            action="Keep this page open while the workspace refreshes."
+            body="The register is loading squad, trial, team, position, and score context before actions are available."
+            eyebrow="Loading register"
+            title="Checking player records."
+          />
         ) : filteredPlayers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-8 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
-            {emptyMessage}
-          </div>
+          <PlayerStatePanel
+            action={emptyState.action}
+            body={emptyState.body}
+            eyebrow="Register empty"
+            title={emptyState.title}
+          />
         ) : (
           <div className="grid gap-3">
           {paginatedPlayers.items.map((player) => {
@@ -166,7 +185,7 @@ export function PlayersListSection({
                     disabled={actionLoadingKey === `${player.playerId}:archive`}
                     title={actionLoadingKey === `${player.playerId}:archive` ? 'Please wait while this player is being archived.' : undefined}
                     onClick={(event) => onArchivePlayer(event, player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {actionLoadingKey === `${player.playerId}:archive` ? 'Archiving...' : 'Archive'}
                   </button>
