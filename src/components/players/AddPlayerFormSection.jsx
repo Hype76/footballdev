@@ -2,9 +2,9 @@ import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { CONTACT_TYPE_OPTIONS } from '../../hooks/players/addPlayerUtils.js'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition placeholder:text-[#789083] focus:border-[#067a46] focus:ring-2 focus:ring-[#bddcca]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:ring-2 focus:ring-[#cbd5e1]'
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#bddcca] bg-white text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f6fbf8] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#cbd5e1] bg-white text-sm font-black text-[#10231a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function AddPlayerFormSection({
   availableTeams,
@@ -27,18 +27,18 @@ export function AddPlayerFormSection({
   return (
     <section
       data-tour-id="add-player-form-section"
-      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
+      className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10"
     >
-      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Player details</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Player details</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Create the football record</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
               {canAddMorePlayers ? 'Add the player once, then use their profile for development records, parent links, and match day work.' : playerLimitMessage}
             </p>
           </div>
-          <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-[#bddcca] bg-white px-4 text-sm font-black text-[#234331]">
+          <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-[#cbd5e1] bg-white px-4 text-sm font-black text-[#0f172a]">
             Trial or Squad
           </span>
         </div>
@@ -127,7 +127,7 @@ export function AddPlayerFormSection({
               type="submit"
               disabled={isAddingPlayer || !canAddMorePlayers}
               title={canAddMorePlayers ? undefined : playerLimitMessage}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isAddingPlayer ? 'Adding...' : 'Add player'}
             </button>
@@ -141,8 +141,8 @@ export function AddPlayerFormSection({
                   key={option.value}
                   className={`flex min-h-12 items-start gap-3 rounded-lg border px-4 py-3 text-sm font-semibold transition ${
                     normalizedContactType === option.value
-                      ? 'border-[#20a464] bg-[#ecfdf3] text-[#10231a] shadow-sm shadow-[#067a46]/10'
-                      : 'border-[#bddcca] bg-[#f6fbf8] text-[#456653] shadow-sm shadow-[#067a46]/10'
+                      ? 'border-[#2563eb] bg-[#eff6ff] text-[#10231a] shadow-sm shadow-[#2563eb]/10'
+                      : 'border-[#cbd5e1] bg-[#f8fafc] text-[#475569] shadow-sm shadow-[#2563eb]/10'
                   }`}
                 >
                   <input
@@ -151,7 +151,7 @@ export function AddPlayerFormSection({
                     value={option.value}
                     checked={normalizedContactType === option.value}
                     onChange={onChange}
-                    className="mt-1 h-4 w-4 accent-[#067a46]"
+                    className="mt-1 h-4 w-4 accent-[#2563eb]"
                   />
                   <span>
                     <span className="block font-black text-[#10231a]">{option.label}</span>
@@ -170,7 +170,7 @@ export function AddPlayerFormSection({
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
                     <span className="block text-sm font-black text-[#10231a]">{group.title}</span>
-                    <span className="mt-1 block text-xs font-semibold leading-5 text-[#456653]">{group.description}</span>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-[#475569]">{group.description}</span>
                   </div>
                   <button
                     type="button"
@@ -182,10 +182,10 @@ export function AddPlayerFormSection({
                 </div>
                 <div className="space-y-3">
                   {contacts.map((contact, index) => (
-                    <div key={`${group.type}-${index}`} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-3 shadow-sm shadow-[#067a46]/10">
+                    <div key={`${group.type}-${index}`} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-3 shadow-sm shadow-[#2563eb]/10">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block">
-                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
+                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
                             {group.nameLabel}
                           </span>
                           <input
@@ -196,7 +196,7 @@ export function AddPlayerFormSection({
                           />
                         </label>
                         <label className="block">
-                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
+                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
                             {group.emailLabel}
                           </span>
                           <input
@@ -247,14 +247,14 @@ export function AddPlayerFormSection({
                     key={position}
                     type="button"
                     onClick={() => onRemovePosition(position)}
-                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a] transition hover:bg-[#f0fdf6]"
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#10231a] transition hover:bg-[#eff6ff]"
                   >
                     Remove {position}
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-xs font-bold leading-5 text-[#456653]">Add one or more positions for this player.</p>
+              <p className="mt-2 text-xs font-bold leading-5 text-[#475569]">Add one or more positions for this player.</p>
             )}
           </div>
         </form>

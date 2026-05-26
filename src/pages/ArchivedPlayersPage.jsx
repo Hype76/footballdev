@@ -205,7 +205,7 @@ export function ArchivedPlayersPage() {
 
       {errorMessage ? <NoticeBanner title="Archived players partly available" message={errorMessage} tone="info" /> : null}
       {message ? (
-        <div className="rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-3 text-sm font-black text-[#2563eb] shadow-sm shadow-[#2563eb]/10">
           {message}
         </div>
       ) : null}

@@ -5,9 +5,9 @@ import { SectionCard } from '../ui/SectionCard.jsx'
 
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const fieldClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#067a46]'
-const detailClass = 'text-sm font-semibold text-[#456653]'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]'
+const detailClass = 'text-sm font-semibold text-[#475569]'
 
 export function ArchivedPlayersSection({
   filteredPlayers,
@@ -31,7 +31,7 @@ export function ArchivedPlayersSection({
       description="Archived players are hidden from active player lists and are scheduled for deletion after 3 months."
     >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-bold text-[#456653]">
+        <p className="text-sm font-bold text-[#475569]">
           {selectedPlayerIds.length > 0
             ? `${selectedPlayerIds.length} selected`
             : `${players.length} archived player${players.length === 1 ? '' : 's'}`}
@@ -82,24 +82,24 @@ export function ArchivedPlayersSection({
       </label>
 
       {isLoading ? (
-        <div className="mt-5 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-6 text-sm font-bold text-[#456653] shadow-sm shadow-[#067a46]/10">
+        <div className="mt-5 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-6 text-sm font-bold text-[#475569] shadow-sm shadow-[#2563eb]/10">
           Loading archived players...
         </div>
       ) : filteredPlayers.length === 0 ? (
-        <div className="mt-5 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-6 text-sm font-bold text-[#456653] shadow-sm shadow-[#067a46]/10">
+        <div className="mt-5 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-6 text-sm font-bold text-[#475569] shadow-sm shadow-[#2563eb]/10">
           No archived players found.
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
           {paginatedPlayers.items.map((player) => (
-            <div key={player.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+            <div key={player.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
               <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
                 <label className="flex items-start pt-1">
                   <input
                     type="checkbox"
                     checked={selectedPlayerIds.includes(player.id)}
                     onChange={() => onTogglePlayer(player.id)}
-                    className="h-5 w-5 rounded border-[#bddcca] bg-white text-[#067a46] focus:ring-[#20a464]"
+                    className="h-5 w-5 rounded border-[#cbd5e1] bg-white text-[#2563eb] focus:ring-[#2563eb]"
                     aria-label={`Select ${player.playerName}`}
                   />
                 </label>
@@ -119,11 +119,11 @@ export function ArchivedPlayersSection({
                 <div>
                   <p className={eyebrowClass}>Delete Date</p>
                   <p className="mt-2 text-sm font-black text-[#10231a]">{formatRetentionDate(player.archivedDeleteAt)}</p>
-                  <p className="mt-1 text-xs font-black text-[#067a46]">{getRetentionCountdownLabel(player.archivedDeleteAt)}</p>
+                  <p className="mt-1 text-xs font-black text-[#2563eb]">{getRetentionCountdownLabel(player.archivedDeleteAt)}</p>
                 </div>
                 <div>
                   <p className={eyebrowClass}>Reason</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-[#456653]">{player.archivedReason || 'No reason entered'}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-[#475569]">{player.archivedReason || 'No reason entered'}</p>
                 </div>
                 <div className="flex lg:justify-end">
                   <button
@@ -131,7 +131,7 @@ export function ArchivedPlayersSection({
                     disabled={isRestoringId === player.id}
                     title={isRestoringId === player.id ? 'Please wait while this player is being restored.' : undefined}
                     onClick={() => void onRestorePlayer(player)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
                   >
                     {isRestoringId === player.id ? 'Restoring...' : 'Restore'}
                   </button>
