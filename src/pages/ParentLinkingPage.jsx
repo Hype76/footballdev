@@ -35,7 +35,6 @@ const inputClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fd
 const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-lg border border-dashed border-[#b7efce] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60'
 const sectionHeaderClass = 'border-b border-[#cfeedd] bg-[#f8fdf9] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
@@ -338,7 +337,7 @@ export function ParentLinkingPage() {
               type="button"
               onClick={handleInviteAll}
               disabled={isLoading || isSending || players.length === 0}
-              title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'No squad players are available for this team.' : undefined}
+              title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'Create a squad player before sending parent invites.' : undefined}
               className={`${primaryButtonClass} w-full sm:w-auto`}
             >
               {isSending ? 'Sending...' : 'Send invite to all'}
@@ -348,111 +347,125 @@ export function ParentLinkingPage() {
 
         <div className="px-5 py-5 sm:px-6">
           {isLoading ? (
-            <p className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
-            Loading parent linking...
-            </p>
+            <ParentAccessStatePanel
+              action="Keep this page open while squad players, contacts, and existing links are checked."
+              body="The invite controls need the current team, squad list, saved parent emails, and active portal links before access can be changed."
+              eyebrow="Loading parent access"
+              title="Checking who can be invited."
+            />
           ) : players.length === 0 ? (
-            <p className={emptyStateClass}>
-            No squad players are available for parent portal links yet.
-            </p>
+            <ParentAccessStatePanel
+              action="Move the first player into Squad, add parent emails, then return here to invite families."
+              body="Parent portal access is limited to squad players so families only see footballers who are part of the active team."
+              eyebrow="Setup required"
+              title="No squad players are ready for parent access."
+            />
           ) : (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
-            <div className="space-y-4">
-              <label className="block">
-                <span className={labelClass}>Player</span>
-                <select
-                  value={selectedPlayerId}
-                  onChange={(event) => setSelectedPlayerId(event.target.value)}
-                  className={inputClass}
-                >
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.playerName} / {player.team || 'No team'} / {player.section || 'Trial'}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="space-y-4">
+                <label className="block">
+                  <span className={labelClass}>Player</span>
+                  <select
+                    value={selectedPlayerId}
+                    onChange={(event) => setSelectedPlayerId(event.target.value)}
+                    className={inputClass}
+                  >
+                    {players.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.playerName} / {player.team || 'No team'} / {player.section || 'Trial'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <div className={panelClass}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-black text-[#101828]">Parent emails</p>
-                    <p className="mt-1 text-sm font-semibold text-[#5f7468]">Only selected emails will receive this player invite.</p>
+                <div className={panelClass}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-black text-[#101828]">Parent emails</p>
+                      <p className="mt-1 text-sm font-semibold text-[#5f7468]">Only selected emails will receive this player invite.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedContactIds(selectedContacts.map((contact) => contact.id))}
+                      className={secondaryButtonClass}
+                    >
+                      Select all
+                    </button>
                   </div>
+
+                  <div className="mt-4 space-y-2">
+                    {selectedContacts.length > 0 ? selectedContacts.map((contact) => (
+                      <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm text-[#101828] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]">
+                        <input
+                          type="checkbox"
+                          checked={selectedContactIds.includes(contact.id)}
+                          onChange={() =>
+                            setSelectedContactIds((current) =>
+                              current.includes(contact.id)
+                                ? current.filter((item) => item !== contact.id)
+                                : [...current, contact.id],
+                            )
+                          }
+                          className="mt-1 h-4 w-4 accent-[#067a46]"
+                        />
+                        <span>
+                          <span className="block font-black">{contact.name || 'Parent'}</span>
+                          <span className="block text-xs font-semibold text-[#5f7468]">{contact.email}</span>
+                        </span>
+                      </label>
+                    )) : (
+                      <ParentAccessStatePanel
+                        action="Open the player profile, add at least one parent email, then return to send the invite."
+                        body="The portal invite must go to a saved parent email. Staff should not create shared family access from memory."
+                        eyebrow="Missing contact"
+                        title="This player has no parent emails saved."
+                      />
+                    )}
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setSelectedContactIds(selectedContacts.map((contact) => contact.id))}
-                    className={secondaryButtonClass}
+                    onClick={handleSendSelected}
+                    disabled={isSending || selectedContactIds.length === 0}
+                    title={selectedContactIds.length === 0 ? 'Select at least one parent email first.' : isSending ? 'Please wait while the invite is sent.' : undefined}
+                    className={`${primaryButtonClass} mt-4 w-full sm:w-auto`}
                   >
-                    Select all
+                    {isSending ? 'Sending...' : 'Send selected invites'}
                   </button>
                 </div>
+              </div>
 
+              <div className={panelClass}>
+                <p className="text-sm font-black text-[#101828]">Existing links for this player</p>
                 <div className="mt-4 space-y-2">
-                  {selectedContacts.length > 0 ? selectedContacts.map((contact) => (
-                    <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm text-[#101828] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]">
-                      <input
-                        type="checkbox"
-                        checked={selectedContactIds.includes(contact.id)}
-                        onChange={() =>
-                          setSelectedContactIds((current) =>
-                            current.includes(contact.id)
-                              ? current.filter((item) => item !== contact.id)
-                              : [...current, contact.id],
-                          )
-                        }
-                        className="mt-1 h-4 w-4 accent-[#067a46]"
-                      />
-                      <span>
-                        <span className="block font-black">{contact.name || 'Parent'}</span>
-                        <span className="block text-xs font-semibold text-[#5f7468]">{contact.email}</span>
-                      </span>
-                    </label>
+                  {links.length > 0 ? links.map((link) => (
+                    <div key={link.id} className="rounded-lg border border-[#cfeedd] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-black text-[#101828]">{link.email || 'Link only'}</p>
+                          <p className="mt-1 text-xs font-semibold text-[#5f7468]">{link.status} / {link.linkType}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setRevokeTarget(link)}
+                          disabled={isSending || isRevokingLink || link.status === 'revoked'}
+                          title={link.status === 'revoked' ? 'This parent access has already been removed.' : undefined}
+                          className={dangerButtonClass}
+                        >
+                          Remove access
+                        </button>
+                      </div>
+                    </div>
                   )) : (
-                    <p className={emptyStateClass}>
-                      This player does not have parent emails saved yet.
-                    </p>
+                    <ParentAccessStatePanel
+                      action="Select parent emails and send the first invite for this player."
+                      body="Existing links appear here after a parent invite is created. Use this panel to check who can still access the player."
+                      eyebrow="No active access"
+                      title="No parent links exist for this player yet."
+                    />
                   )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleSendSelected}
-                  disabled={isSending || selectedContactIds.length === 0}
-                  title={selectedContactIds.length === 0 ? 'Select at least one parent email first.' : isSending ? 'Please wait while the invite is sent.' : undefined}
-                  className={`${primaryButtonClass} mt-4 w-full sm:w-auto`}
-                >
-                  {isSending ? 'Sending...' : 'Send selected invites'}
-                </button>
               </div>
-            </div>
-
-            <div className={panelClass}>
-              <p className="text-sm font-black text-[#101828]">Existing links for this player</p>
-              <div className="mt-4 space-y-2">
-                {links.length > 0 ? links.map((link) => (
-                  <div key={link.id} className="rounded-lg border border-[#cfeedd] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="break-words text-sm font-black text-[#101828]">{link.email || 'Link only'}</p>
-                        <p className="mt-1 text-xs font-semibold text-[#5f7468]">{link.status} / {link.linkType}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setRevokeTarget(link)}
-                        disabled={isSending || isRevokingLink || link.status === 'revoked'}
-                        title={link.status === 'revoked' ? 'This parent access has already been removed.' : undefined}
-                        className={dangerButtonClass}
-                      >
-                        Remove access
-                      </button>
-                    </div>
-                  </div>
-                )) : (
-                  <p className="text-sm font-semibold text-[#5f7468]">No parent links created for this player yet.</p>
-                )}
-              </div>
-            </div>
             </div>
           )}
         </div>
@@ -480,6 +493,28 @@ function ParentMetric({ isLoading, label, value }) {
     <div className="rounded-lg border border-[#cfeedd] bg-white px-3 py-3 shadow-sm shadow-[#d7eadf]/60">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
+    </div>
+  )
+}
+
+function ParentAccessStatePanel({ action, body, eyebrow = 'Parent access', title }) {
+  return (
+    <div className="rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
+      <div className="flex gap-3">
+        <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white text-sm font-black text-[#067a46]">
+          FP
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{eyebrow}</p>
+          <p className="mt-2 text-base font-black text-[#101828]">{title}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{body}</p>
+          {action ? (
+            <p className="mt-3 rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-sm font-black text-[#101828]">
+              {action}
+            </p>
+          ) : null}
+        </div>
+      </div>
     </div>
   )
 }
