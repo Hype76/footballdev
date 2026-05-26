@@ -58,9 +58,9 @@ function StepMarker({ index, complete }) {
 
 function ConstraintRule({ body, title }) {
   return (
-    <div className="rounded-lg border border-[#d7eadf] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
       <p className="text-sm font-black text-[#10231a]">{title}</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{body}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{body}</p>
     </div>
   )
 }
@@ -72,7 +72,7 @@ function SetupStepCard({ index, onComplete, step }) {
         'rounded-lg border p-4 shadow-sm transition',
         step.complete
           ? 'border-[#b7efce] bg-[#effbf3] shadow-[#d7eadf]/70'
-          : 'border-[#d7eadf] bg-white shadow-[#d7eadf]/60 hover:border-[#20a464]',
+          : 'border-[#bddcca] bg-white shadow-[#d7eadf]/60 hover:border-[#20a464]',
       ].join(' ')}
     >
       <div className="flex gap-3">
@@ -84,7 +84,7 @@ function SetupStepCard({ index, onComplete, step }) {
               className={[
                 'rounded-lg border px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em]',
                 step.complete
-                  ? 'border-[#abefc6] bg-white text-[#067647]'
+                  ? 'border-[#bddcca] bg-white text-[#067647]'
                   : 'border-[#fedf89] bg-[#fffbeb] text-[#93370d]',
               ].join(' ')}
             >
@@ -92,7 +92,7 @@ function SetupStepCard({ index, onComplete, step }) {
             </span>
           </div>
           <p className="mt-2 text-sm font-black leading-6 text-[#456653]">{step.rule}</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{step.detail}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{step.detail}</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Link
               to={step.href}
@@ -104,7 +104,7 @@ function SetupStepCard({ index, onComplete, step }) {
               <button
                 type="button"
                 onClick={() => onComplete(step.id)}
-                className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]"
+                className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 Mark not used
               </button>
@@ -283,20 +283,20 @@ export function OnboardingProvider({ children }) {
                   <span>Setup progress</span>
                   <span>{progress.completedCount} of {progress.totalCount}</span>
                 </div>
-                <div className="mt-4 h-3 overflow-hidden rounded-lg bg-white ring-1 ring-[#bfe8cd]">
+                <div className="mt-4 h-3 overflow-hidden rounded-lg bg-white ring-1 ring-[#bddcca]">
                   <div
                     className="h-full rounded-lg bg-[#067a46] transition-all"
                     style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
                   />
                 </div>
-                <p className="mt-3 text-sm font-semibold leading-6 text-[#5f7468]">
+                <p className="mt-3 text-sm font-semibold leading-6 text-[#456653]">
                   {isLoading ? 'Refreshing workspace data.' : 'Progress uses real workspace data where possible.'}
                 </p>
               </div>
-              <div className="mt-5 rounded-lg border border-[#b7efce] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+              <div className="mt-5 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Next required action</p>
                 <p className="mt-2 text-xl font-black leading-6 text-[#10231a]">{nextStep?.title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{nextStep?.detail}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{nextStep?.detail}</p>
                 <div className="mt-4 grid gap-2">
                   <Link
                     to={nextStep?.href || plan.firstAction}
@@ -307,7 +307,7 @@ export function OnboardingProvider({ children }) {
                   <button
                     type="button"
                     onClick={handleDismiss}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
                   >
                     Skip for now
                   </button>
@@ -324,13 +324,13 @@ export function OnboardingProvider({ children }) {
             </div>
 
             <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/70 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className="text-sm font-semibold leading-6 text-[#456653]">
                 Skip pauses setup. Reset starts this first-run path again for a fresh club launch or testing.
               </p>
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 Reset setup
               </button>
@@ -350,7 +350,7 @@ export function OnboardingProvider({ children }) {
             <div className="min-w-0">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">Setup paused</p>
               <h2 className="mt-1 text-xl font-black tracking-tight text-[#10231a]">{plan.title}</h2>
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">
                 {progress.completedCount} of {progress.totalCount} setup checks are complete. Reopen setup when the club is ready to finish the next real action.
               </p>
             </div>
