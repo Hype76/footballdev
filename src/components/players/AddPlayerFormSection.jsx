@@ -4,7 +4,7 @@ import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition placeholder:text-[#789083] focus:border-[#067a46] focus:ring-2 focus:ring-[#bddcca]'
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#bddcca] bg-white text-sm font-black text-[#10231a] transition hover:bg-[#f6fbf8] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#bddcca] bg-white text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f6fbf8] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function AddPlayerFormSection({
   availableTeams,
@@ -27,9 +27,9 @@ export function AddPlayerFormSection({
   return (
     <section
       data-tour-id="add-player-form-section"
-      className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#067a46]/10"
+      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
     >
-      <div className="border-b border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Player details</p>
@@ -127,7 +127,7 @@ export function AddPlayerFormSection({
               type="submit"
               disabled={isAddingPlayer || !canAddMorePlayers}
               title={canAddMorePlayers ? undefined : playerLimitMessage}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isAddingPlayer ? 'Adding...' : 'Add player'}
             </button>
@@ -142,7 +142,7 @@ export function AddPlayerFormSection({
                   className={`flex min-h-12 items-start gap-3 rounded-lg border px-4 py-3 text-sm font-semibold transition ${
                     normalizedContactType === option.value
                       ? 'border-[#20a464] bg-[#ecfdf3] text-[#10231a] shadow-sm shadow-[#067a46]/10'
-                      : 'border-[#d7eadf] bg-[#f6fbf8] text-[#456653]'
+                      : 'border-[#bddcca] bg-[#f6fbf8] text-[#456653] shadow-sm shadow-[#067a46]/10'
                   }`}
                 >
                   <input
@@ -182,7 +182,7 @@ export function AddPlayerFormSection({
                 </div>
                 <div className="space-y-3">
                   {contacts.map((contact, index) => (
-                    <div key={`${group.type}-${index}`} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-3 shadow-sm shadow-[#067a46]/10">
+                    <div key={`${group.type}-${index}`} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-3 shadow-sm shadow-[#067a46]/10">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block">
                           <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#456653]">

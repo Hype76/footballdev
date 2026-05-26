@@ -10,9 +10,9 @@ export function RecentlyAddedPlayersSection({
 }) {
   return (
     <section
-      className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#067a46]/10"
+      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
     >
-      <div className="border-b border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Recently added</p>
@@ -37,7 +37,7 @@ export function RecentlyAddedPlayersSection({
             <Link
               key={player.id}
               to={`/player/${encodeURIComponent(player.playerName)}`}
-              className="group rounded-lg border border-[#d7eadf] bg-white p-4 shadow-sm shadow-[#067a46]/10 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#20a464]"
+              className="group rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#20a464]"
             >
               <p className="text-base font-black text-[#10231a]">{player.playerName}</p>
               <p className="mt-2 text-sm font-bold text-[#234331]">

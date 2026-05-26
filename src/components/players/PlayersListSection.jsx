@@ -6,7 +6,7 @@ import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#789083] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#456653]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayersListSection({
   actionLoadingKey,
@@ -49,7 +49,7 @@ export function PlayersListSection({
       data-tour-id="players-list-section"
       className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
     >
-      <div className="border-b border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Live register</p>
@@ -64,7 +64,7 @@ export function PlayersListSection({
         </div>
       </div>
 
-      <div className="grid gap-4 border-b border-[#d7eadf] px-5 py-5 sm:px-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 border-b border-[#bddcca] px-5 py-5 sm:px-6 md:grid-cols-2 lg:grid-cols-3">
         <label className="block md:col-span-2">
           <span className={labelClass}>Search player register</span>
           <input
@@ -168,7 +168,7 @@ export function PlayersListSection({
                     </div>
                   </div>
                 </button>
-                <div className="grid gap-3 border-t border-[#d7eadf] bg-[#f6fbf8] px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="grid gap-3 border-t border-[#bddcca] bg-[#f6fbf8] px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                   <p className="text-sm font-semibold leading-6 text-[#456653]">
                     {player.totalEvaluations > 0
                       ? `${player.totalEvaluations} development record${player.totalEvaluations === 1 ? '' : 's'} attached.`
@@ -198,7 +198,7 @@ export function PlayersListSection({
                   <button
                     type="button"
                     onClick={() => onOpenPlayer(player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a]"
                   >
                     Open profile
                   </button>
