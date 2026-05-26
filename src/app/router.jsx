@@ -91,12 +91,12 @@ const primaryActionClassName =
   'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 const secondaryActionClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 function LoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7fbf8] px-4 py-8">
-      <div className="rounded-lg border border-[#cfeedd] bg-white px-6 py-5 text-sm font-bold text-[#5f7468] shadow-sm shadow-[#d7eadf]/70">
+      <div className="rounded-lg border border-[#bddcca] bg-white px-6 py-5 text-sm font-bold text-[#456653] shadow-sm shadow-[#d7eadf]/70">
         Loading...
       </div>
     </main>
@@ -119,12 +119,12 @@ function NavigateToParentInvite() {
 function RouteContentSkeleton() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
+      <div className="rounded-lg border border-[#bddcca] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
         <div className="h-4 w-28 rounded-lg bg-[#e6f7ed]" />
         <div className="mt-5 h-10 w-64 max-w-full rounded-lg bg-[#eef8f2]" />
         <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[#eef8f2]" />
       </div>
-      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
+      <div className="rounded-lg border border-[#bddcca] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
         <div className="h-8 w-40 rounded-lg bg-[#eef8f2]" />
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="h-28 rounded-lg bg-[#eef8f2]" />
@@ -135,15 +135,48 @@ function RouteContentSkeleton() {
   )
 }
 
-function RouteGateState({ title, message, actions = null }) {
+const accountRecoveryRules = [
+  {
+    title: 'Session is active',
+    body: 'The browser still has a Supabase login session.',
+  },
+  {
+    title: 'Profile is missing',
+    body: 'This workspace cannot match that login to a club, parent, team, or platform profile.',
+  },
+  {
+    title: 'Use the right environment',
+    body: 'Staging needs a staging test account. Live accounts are kept separate.',
+  },
+]
+
+function RouteGateState({ title, message, eyebrow = 'Workspace', actions = null, rules = [] }) {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Workspace</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828]">{title}</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#5f7468]">{message}</p>
-        {actions ? <div className="mt-6 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
-      </div>
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="px-5 py-6 sm:px-6 lg:px-8">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">{eyebrow}</p>
+            <h1 className="mt-3 text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">{title}</h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">{message}</p>
+            {actions ? <div className="mt-6 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
+          </div>
+
+          {rules.length > 0 ? (
+            <aside className="border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">What this means</p>
+              <div className="mt-4 space-y-2">
+                {rules.map((rule) => (
+                  <article key={rule.title} className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/60">
+                    <p className="text-sm font-black text-[#10231a]">{rule.title}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{rule.body}</p>
+                  </article>
+                ))}
+              </div>
+            </aside>
+          ) : null}
+        </div>
+      </section>
     </div>
   )
 }
@@ -163,7 +196,8 @@ function AccountDetailsUnavailableState({ message }) {
   return (
     <RouteGateState
       title="Account details unavailable"
-      message={message || 'Your login session is active, but this staging workspace could not find a matching account profile. Retry once, or sign in again with a staging test account.'}
+      message={message || 'Your login session is active, but this workspace could not find a matching account profile. Retry once after a refresh. If it still appears, sign in again with the correct staging test account.'}
+      rules={accountRecoveryRules}
       actions={(
         <>
           <button
@@ -189,8 +223,13 @@ function AccountDetailsUnavailableState({ message }) {
 function ClubSuspendedState() {
   return (
     <RouteGateState
+      eyebrow="Club access"
       title="Club access suspended"
       message="This club workspace has been suspended by the platform admin. Contact platform support if this should be reactivated."
+      rules={[
+        { title: 'Data is retained', body: 'Suspension blocks access without removing club records.' },
+        { title: 'Platform controlled', body: 'Only a platform admin can reactivate this workspace.' },
+      ]}
     />
   )
 }
@@ -198,49 +237,58 @@ function ClubSuspendedState() {
 function AccountSuspendedState() {
   return (
     <RouteGateState
+      eyebrow="Account access"
       title="Account access suspended"
       message="This account has been suspended. Contact your club admin or platform support if this should be reactivated."
+      rules={[
+        { title: 'Access is blocked', body: 'This login cannot open club tools while suspended.' },
+        { title: 'Ask an admin', body: 'A club admin or platform admin needs to review the account.' },
+      ]}
     />
   )
 }
 
 function TesterAccessExpiredState() {
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Billing</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828]">Tester access has ended</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#5f7468]">
-          Your temporary tester access has expired. Your club data is still safe. A paid plan is needed to continue using the workspace.
-        </p>
+    <RouteGateState
+      eyebrow="Billing"
+      title="Tester access has ended"
+      message="Your temporary tester access has expired. Your club data is still safe. A paid plan is needed to continue using the workspace."
+      rules={[
+        { title: 'Temporary access only', body: 'Tester links expire so staging and trial access do not stay open forever.' },
+        { title: 'Billing unlocks work', body: 'Choose a plan before staff continue with club tools.' },
+      ]}
+      actions={(
         <a
           href="/billing"
-          className={`mt-6 ${primaryActionClassName}`}
+          className={primaryActionClassName}
         >
           View Billing Options
         </a>
-      </div>
-    </div>
+      )}
+    />
   )
 }
 
 function PlanAccessRequiredState() {
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[#cfeedd] bg-white px-5 py-8 shadow-sm shadow-[#d7eadf]/70">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Billing</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828]">Plan access needs attention</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#5f7468]">
-          This workspace needs an active plan before staff can keep using club tools. Your existing club data remains safe.
-        </p>
+    <RouteGateState
+      eyebrow="Billing"
+      title="Plan access needs attention"
+      message="This workspace needs an active plan before staff can keep using club tools. Your existing club data remains safe."
+      rules={[
+        { title: 'Club records stay safe', body: 'Billing gates access to tools without deleting saved football data.' },
+        { title: 'Plan required', body: 'An active plan is needed before staff can continue daily operations.' },
+      ]}
+      actions={(
         <a
           href="/billing"
-          className={`mt-6 ${primaryActionClassName}`}
+          className={primaryActionClassName}
         >
           View Billing Options
         </a>
-      </div>
-    </div>
+      )}
+    />
   )
 }
 
