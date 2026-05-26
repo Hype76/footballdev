@@ -35,7 +35,7 @@ export function Layout() {
     () => (themeMode === 'system' ? systemTheme : themeMode),
     [systemTheme, themeMode],
   )
-  const effectiveTheme = import.meta.env.MODE === 'staging' ? 'light' : resolvedTheme
+  const effectiveTheme = resolvedTheme
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -218,8 +218,8 @@ export function Layout() {
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f7fbf8] text-[#10231a]">
-      <div className="fixed inset-0 -z-10 bg-[linear-gradient(180deg,#ffffff_0%,#f7fbf8_48%,#eef8f2_100%)]" />
+    <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+      <div className="fixed inset-0 -z-10 bg-[linear-gradient(180deg,var(--shell-card)_0%,var(--app-bg)_48%,var(--panel-soft)_100%)]" />
       <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 

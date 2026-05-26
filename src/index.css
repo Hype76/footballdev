@@ -275,6 +275,55 @@
   image-rendering: -webkit-optimize-contrast;
 }
 
+body.theme-dark [class*='bg-[#f7fbf8]'],
+body.theme-dark [class*='bg-[#f6fbf8]'],
+body.theme-dark [class*='bg-[#f4fbf7]'] {
+  background-color: var(--panel-alt) !important;
+}
+
+body.theme-dark [class*='bg-[#f0fdf6]'],
+body.theme-dark [class*='bg-[#ecfdf3]'],
+body.theme-dark [class*='bg-[#eef8f1]'],
+body.theme-dark [class*='bg-[#d7f8e5]'] {
+  background-color: var(--accent-soft) !important;
+}
+
+body.theme-dark [class*='bg-white'] {
+  background-color: var(--panel-bg) !important;
+}
+
+body.theme-dark [class*='border-[#bddcca]'] {
+  border-color: var(--border-color) !important;
+}
+
+body.theme-dark [class*='text-[#10231a]'] {
+  color: var(--text-primary) !important;
+}
+
+body.theme-dark [class*='text-[#456653]'],
+body.theme-dark [class*='text-[#4d6458]'],
+body.theme-dark [class*='text-[#526173]'] {
+  color: var(--text-muted) !important;
+}
+
+body.theme-dark [class*='text-[#067a46]'],
+body.theme-dark [class*='text-[#05603a]'],
+body.theme-dark [class*='text-[#065f3b]'],
+body.theme-dark [class*='text-[#047857]'] {
+  color: var(--accent) !important;
+}
+
+body.theme-dark [class*='shadow-[#067a46]'],
+body.theme-dark [class*='shadow-[#10231a]'] {
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.22) !important;
+}
+
+body.theme-dark [class*='bg-[#067a46]'],
+body.theme-dark [class*='bg-[#05603a]'] {
+  background-color: var(--button-primary) !important;
+  color: var(--button-primary-text) !important;
+}
+
 #root {
   min-height: 100vh;
 }
