@@ -16,11 +16,11 @@ export function WalkthroughSettingsSection({
           type="button"
           onClick={onRestart}
           disabled={isRestarting}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isRestarting ? 'Opening setup...' : 'Open setup checklist'}
         </button>
-        <p className="text-xs leading-5 text-slate-600">
+        <p className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-3 text-xs font-semibold leading-5 text-[#5f7468]">
           This clears skipped setup for this {scopeLabel} and shows the checklist again above the page.
         </p>
       </div>

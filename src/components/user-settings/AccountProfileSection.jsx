@@ -1,6 +1,12 @@
 import { getRoleLabel } from '../../lib/auth.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const infoCardClass = 'rounded-lg border border-[#d7eadf] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#067a46]'
+const valueClass = 'mt-2 break-words text-sm font-semibold text-[#10231a]'
+
 export function AccountProfileSection({
   authUser,
   canEditEmailClubName,
@@ -30,65 +36,65 @@ export function AccountProfileSection({
     >
       <form className="space-y-4" onSubmit={onSubmit}>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">Username</span>
+          <span className={labelClass}>Username</span>
           <input
             type="text"
             value={username}
             onChange={(event) => onUsernameChange(event.target.value)}
             required
             autoComplete="nickname"
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className={inputClass}
           />
         </label>
 
         {!showEmailIdentity ? (
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-950">Display Name</span>
+            <span className={labelClass}>Display Name</span>
             <input
               type="text"
               value={displayName}
               onChange={(event) => onDisplayNameChange(event.target.value)}
               required
               autoComplete="name"
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className={inputClass}
             />
           </label>
         ) : null}
 
         {showEmailIdentity ? (
-          <div className="rounded-md border border-slate-200 bg-white p-4">
-            <p className="text-sm font-semibold text-slate-950">Parent email identity</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+          <div className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+            <p className="text-sm font-black text-[#10231a]">Parent email identity</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
               Emails will be sent from feedback@footballplayer.online. Parent replies will go to your reply-to email.
             </p>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-950">Display Name</span>
+              <span className={labelClass}>Display Name</span>
               <input
                 type="text"
                 value={displayName}
                 onChange={(event) => onDisplayNameChange(event.target.value)}
                 required
                 autoComplete="name"
-                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                className={inputClass}
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-950">Team Name</span>
+              <span className={labelClass}>Team Name</span>
               <input
                 type="text"
                 value={emailTeamName}
                 onChange={(event) => onEmailTeamNameChange(event.target.value)}
                 required
                 placeholder="U12"
-                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                className={inputClass}
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-950">Club Name</span>
+              <span className={labelClass}>Club Name</span>
               <input
                 type="text"
                 value={emailClubName}
@@ -100,17 +106,17 @@ export function AccountProfileSection({
                 required
                 disabled={!canEditEmailClubName}
                 placeholder="Cambourne FC"
-                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className={inputClass}
               />
               {!canEditEmailClubName ? (
-                <span className="mt-2 block text-xs leading-5 text-slate-600">
+                <span className="mt-2 block text-xs font-semibold leading-5 text-[#5f7468]">
                   Only the top role for this plan can change the club name used in sender details.
                 </span>
               ) : null}
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-950">Reply-to Email</span>
+              <span className={labelClass}>Reply-to Email</span>
               <input
                 type="email"
                 value={replyToEmail}
@@ -118,14 +124,14 @@ export function AccountProfileSection({
                 required
                 autoComplete="email"
                 placeholder="coach@club.com"
-                className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                className={inputClass}
               />
             </label>
           </div>
 
-          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Sender preview</p>
-            <p className="mt-2 break-words text-sm font-medium text-slate-950">
+          <div className="mt-4 rounded-lg border border-[#9addb4] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+            <p className={eyebrowClass}>Sender preview</p>
+            <p className="mt-2 break-words text-sm font-black text-[#10231a]">
               {senderPreview} &lt;feedback@footballplayer.online&gt;
             </p>
           </div>
@@ -133,22 +139,22 @@ export function AccountProfileSection({
         ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Email</p>
-            <p className="mt-2 break-words text-sm font-medium text-slate-950">
+          <div className={infoCardClass}>
+            <p className={eyebrowClass}>Email</p>
+            <p className={valueClass}>
               {user?.email || authUser?.email || 'No email found'}
             </p>
           </div>
 
-          <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Role</p>
-            <p className="mt-2 text-sm font-medium text-slate-950">{getRoleLabel(user)}</p>
+          <div className={infoCardClass}>
+            <p className={eyebrowClass}>Role</p>
+            <p className={valueClass}>{getRoleLabel(user)}</p>
           </div>
         </div>
 
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Workspace</p>
-          <p className="mt-2 text-sm font-medium text-slate-950">
+        <div className={infoCardClass}>
+          <p className={eyebrowClass}>Workspace</p>
+          <p className={valueClass}>
             {workspaceLabel || (user?.role === 'super_admin' ? 'Platform' : user?.clubName || 'No club assigned')}
           </p>
         </div>
@@ -163,7 +169,7 @@ export function AccountProfileSection({
                 ? 'Demo accounts cannot change account details.'
                 : undefined
           }
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isSavingProfile ? 'Saving...' : 'Save account'}
         </button>

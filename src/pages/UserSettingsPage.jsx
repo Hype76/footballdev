@@ -25,16 +25,16 @@ import { resetOnboarding } from '../lib/onboarding.js'
 
 const accountRules = [
   {
-    label: 'Login stays personal',
-    body: 'Use this page for your own email, password, display name, and sender identity.',
+    label: 'Personal details only',
+    body: 'Use this page for your login, password, display name, and sender identity.',
   },
   {
-    label: 'Club data stays separate',
-    body: 'Club profile, teams, players, staff, and parent setup are managed in the football workspace tools.',
+    label: 'Club data is elsewhere',
+    body: 'Club profile, teams, players, staff, and parent setup stay in the workspace tools.',
   },
   {
-    label: 'Setup can reopen',
-    body: 'Restart the first-run checklist when the workspace needs the operating rules shown again.',
+    label: 'Setup can be reset',
+    body: 'Reopen the first-run checklist when staff need the operating rules shown again.',
   },
 ]
 
@@ -385,31 +385,31 @@ export function UserSettingsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Account control</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Account control</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-5xl">
               {pageTitle}
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
               {pageDescription} Reopen setup from here when you need the first-run rules and checklist again.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {accountRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+          <div className="grid content-between rounded-lg border border-[#9addb4] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/80">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Signed in context</p>
-              <p className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">{workspaceLabel}</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Signed in context</p>
+              <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#101828]">{workspaceLabel}</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
                 Setup state is saved against this {onboardingScopeLabel}.
               </p>
             </div>
@@ -424,7 +424,7 @@ export function UserSettingsPage() {
       </section>
 
       {successMessage ? (
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm shadow-slate-200/70">
+        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
           {successMessage}
         </div>
       ) : null}
@@ -509,9 +509,9 @@ export function UserSettingsPage() {
 
 function AccountMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
-      <p className="mt-2 break-words text-2xl font-black text-slate-950">{value}</p>
+    <div className="rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-[#101828]">{value}</p>
     </div>
   )
 }

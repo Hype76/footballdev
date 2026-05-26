@@ -1,5 +1,8 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+
 export function LoginEmailSection({
   email,
   isDemoSettings,
@@ -15,7 +18,7 @@ export function LoginEmailSection({
     >
       <form className="space-y-4" onSubmit={onSubmit}>
         <label className="block">
-          <span className="mb-2 block text-sm font-semibold text-slate-950">New login email</span>
+          <span className={labelClass}>New login email</span>
           <input
             type="email"
             value={email}
@@ -24,7 +27,7 @@ export function LoginEmailSection({
             title={isDemoSettings ? 'Demo accounts cannot change login email.' : undefined}
             required
             autoComplete="email"
-            className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className={inputClass}
           />
         </label>
         <button
@@ -37,7 +40,7 @@ export function LoginEmailSection({
                 ? 'Demo accounts cannot change login email.'
                 : undefined
           }
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSavingEmail ? 'Requesting...' : 'Update login email'}
         </button>

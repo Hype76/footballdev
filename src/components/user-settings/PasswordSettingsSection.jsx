@@ -1,5 +1,9 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+
 export function PasswordSettingsSection({
   isDemoSettings,
   isSavingPassword,
@@ -20,7 +24,7 @@ export function PasswordSettingsSection({
       <form className="space-y-4" onSubmit={onSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-950">New password</span>
+            <span className={labelClass}>New password</span>
             <input
               type={showPassword ? 'text' : 'password'}
               value={passwordData.password}
@@ -29,12 +33,12 @@ export function PasswordSettingsSection({
               title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
               minLength={8}
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className={inputClass}
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-950">Confirm password</span>
+            <span className={labelClass}>Confirm password</span>
             <input
               type={showPassword ? 'text' : 'password'}
               value={passwordData.confirmPassword}
@@ -43,19 +47,19 @@ export function PasswordSettingsSection({
               title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
               minLength={8}
               autoComplete="new-password"
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className={inputClass}
             />
           </label>
         </div>
 
-        <label className="inline-flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-950">
+        <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/60">
           <input
             type="checkbox"
             checked={showPassword}
             onChange={(event) => onShowPasswordChange(event.target.checked)}
             disabled={isDemoSettings}
             title={isDemoSettings ? 'Demo accounts cannot change password.' : undefined}
-            className="h-4 w-4 rounded border-slate-200"
+            className="h-4 w-4 rounded border-[#9addb4] accent-[#067a46]"
           />
           <span>Show password</span>
         </label>
@@ -73,7 +77,7 @@ export function PasswordSettingsSection({
                     ? 'Enter and confirm your new password before saving.'
                     : undefined
             }
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSavingPassword ? 'Updating...' : 'Update password'}
           </button>
@@ -89,7 +93,7 @@ export function PasswordSettingsSection({
                   ? 'Demo accounts cannot reset password.'
                   : undefined
             }
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className={secondaryButtonClass}
           >
             {isSendingReset ? 'Sending...' : 'Send reset email'}
           </button>
