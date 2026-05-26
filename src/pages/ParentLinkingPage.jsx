@@ -31,14 +31,14 @@ function isSquadPlayer(player) {
 }
 
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const inputClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-xs font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-xs font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
-const sectionHeaderClass = 'border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6'
+const sectionHeaderClass = 'border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10'
 
 const parentAccessRules = [
   {
@@ -266,7 +266,7 @@ export function ParentLinkingPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
@@ -279,21 +279,21 @@ export function ParentLinkingPage() {
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {parentAccessRules.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                  <article key={item.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.body}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.body}</p>
                   </article>
                 ))}
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Portal state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
                 {players.length} squad players available
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
                 {playersWithContacts.length} have parent emails ready for invite.
               </p>
             </div>
@@ -318,14 +318,14 @@ export function ParentLinkingPage() {
           { label: 'Selected contacts', value: selectedContactIds.length },
           { label: 'Active links', value: activeLinks.length },
         ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+          <div key={item.label} className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
             <p className="text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">{item.label}</p>
             <p className="mt-2 text-3xl font-black text-[#10231a]">{item.value}</p>
           </div>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className={sectionHeaderClass}>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div>
@@ -384,7 +384,7 @@ export function ParentLinkingPage() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-black text-[#10231a]">Parent emails</p>
-                      <p className="mt-1 text-sm font-semibold text-[#5f7468]">Only selected emails will receive this player invite.</p>
+                      <p className="mt-1 text-sm font-semibold text-[#456653]">Only selected emails will receive this player invite.</p>
                     </div>
                     <button
                       type="button"
@@ -397,7 +397,7 @@ export function ParentLinkingPage() {
 
                   <div className="mt-4 space-y-2">
                     {selectedContacts.length > 0 ? selectedContacts.map((contact) => (
-                      <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]">
+                      <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]">
                         <input
                           type="checkbox"
                           checked={selectedContactIds.includes(contact.id)}
@@ -412,7 +412,7 @@ export function ParentLinkingPage() {
                         />
                         <span>
                           <span className="block font-black">{contact.name || 'Parent'}</span>
-                          <span className="block text-xs font-semibold text-[#5f7468]">{contact.email}</span>
+                          <span className="block text-xs font-semibold text-[#456653]">{contact.email}</span>
                         </span>
                       </label>
                     )) : (
@@ -441,11 +441,11 @@ export function ParentLinkingPage() {
                 <p className="text-sm font-black text-[#10231a]">Existing links for this player</p>
                 <div className="mt-4 space-y-2">
                   {links.length > 0 ? links.map((link) => (
-                    <div key={link.id} className="rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+                    <div key={link.id} className="rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#067a46]/10">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
                           <p className="break-words text-sm font-black text-[#10231a]">{link.email || 'Link only'}</p>
-                          <p className="mt-1 text-xs font-semibold text-[#5f7468]">{link.status} / {link.linkType}</p>
+                          <p className="mt-1 text-xs font-semibold text-[#456653]">{link.status} / {link.linkType}</p>
                         </div>
                         <button
                           type="button"
@@ -492,7 +492,7 @@ export function ParentLinkingPage() {
 
 function ParentMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm shadow-[#067a46]/10">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
     </div>
@@ -501,7 +501,7 @@ function ParentMetric({ isLoading, label, value }) {
 
 function ParentAccessStatePanel({ action, body, eyebrow = 'Parent access', title }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
+    <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-4 shadow-sm shadow-[#067a46]/10 sm:p-5">
       <div className="flex gap-3">
         <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#bddcca] bg-white text-sm font-black text-[#067a46]">
           FP
