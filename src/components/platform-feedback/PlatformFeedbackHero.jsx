@@ -4,7 +4,7 @@ export function PlatformFeedbackHero({ isLoading }) {
       <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-stretch">
         <div className="px-5 py-6 sm:px-6 sm:py-8">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Platform feedback</p>
-          <h1 className="mt-4 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-5xl">
+          <h1 className="mt-4 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-4xl">
             Turn tester feedback into a clear product queue.
           </h1>
           <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">

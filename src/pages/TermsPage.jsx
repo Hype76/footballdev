@@ -43,7 +43,7 @@ export function TermsPage() {
 
         <section className={heroClass}>
           <p className={eyebrowClass}>Terms</p>
-          <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight sm:text-5xl">Terms of Service</h1>
+          <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">Terms of Service</h1>
           <p className="mt-5 max-w-3xl text-base font-semibold leading-8 text-[#475569]">
             These terms set out how clubs, coaches, administrators, and authorised users may use Football Player. They are written for normal club use and should be read with the GDPR and Data Protection Notice.
           </p>

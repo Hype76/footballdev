@@ -49,7 +49,7 @@ export function GdprPage() {
 
         <section className={heroClass}>
           <p className={eyebrowClass}>Privacy and GDPR</p>
-          <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight sm:text-5xl">GDPR and Data Protection Notice</h1>
+          <h1 className="mt-4 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">GDPR and Data Protection Notice</h1>
           <p className="mt-5 max-w-3xl text-base font-semibold leading-8 text-[#475569]">
             This page explains how Football Player supports clubs with responsible data handling under UK GDPR and the Data Protection Act 2018. Club administrators remain responsible for deciding what player, parent, and staff data is entered into their workspace.
           </p>

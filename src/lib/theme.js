@@ -18,12 +18,11 @@ export const themeAccentOptions = [
   { value: 'blue', label: 'Blue' },
   { value: 'green', label: 'Green' },
   { value: 'red', label: 'Red' },
-  { value: 'purple', label: 'Purple' },
 ]
 
 export const themeButtonStyleOptions = [
   { value: 'solid', label: 'Solid colour' },
-  { value: 'gradient', label: 'Gradient' },
+  { value: 'gradient', label: 'Legacy solid' },
 ]
 
 export function getStoredThemeMode() {

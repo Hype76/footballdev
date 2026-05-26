@@ -227,7 +227,7 @@ export function ParentLoginPage() {
         <div className="rounded-lg border border-[#cbd5e1] bg-white p-5 shadow-sm shadow-[#2563eb]/10 sm:p-6 lg:p-8">
           <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#cbd5e1] bg-white object-contain p-1 shadow-sm shadow-[#2563eb]/10" />
           <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Parent portal</p>
-          <h1 className="mt-3 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-5xl">
+          <h1 className="mt-3 max-w-3xl text-3xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-4xl">
             Open the football updates linked to your child.
           </h1>
           <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#475569]">
