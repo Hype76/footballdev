@@ -630,31 +630,31 @@ export function TeamManagementPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Team command</p>
             <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-5xl">
               Build the club structure before the season gets busy.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
               Teams decide where players, staff access, sessions, and match day records live. Create each squad, then give coaches only the access they need.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {teamSetupRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 shadow-sm shadow-slate-200/60">
+                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
                   <p className="text-sm font-black text-[#101828]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">{rule.body}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-sm shadow-slate-200/70">
+          <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/70">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#667085]">Setup state</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#456653]">Setup state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{teams.length} teams configured</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
                 {allocatedStaffCount} staff accounts are allocated to at least one team.
               </p>
             </div>
@@ -664,7 +664,7 @@ export function TeamManagementPage() {
               <TeamSetupMetric label="Allocated" value={allocatedStaffCount} />
               <TeamSetupMetric label="Players" value={playerTotal} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#667085]">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#5f7468]">
               {unallocatedStaffCount > 0
                 ? `${unallocatedStaffCount} staff accounts still need team scope.`
                 : 'Every visible staff account has team scope or is ready to review.'}
@@ -674,7 +674,7 @@ export function TeamManagementPage() {
       </section>
 
       {message ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-slate-200/60">
+        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
           {message}
         </div>
       ) : null}
@@ -760,7 +760,7 @@ export function TeamManagementPage() {
 
 function TeamSetupMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/60">
+    <div className="rounded-lg border border-[#d7eadf] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#101828]">{value}</p>
     </div>
