@@ -31,6 +31,27 @@ function getGoalEvents(match) {
     : []
 }
 
+function isPastFixture(match) {
+  if (match.status === 'full_time') {
+    return false
+  }
+
+  if (!match.matchDate) {
+    return false
+  }
+
+  const endOfMatchDay = new Date(`${match.matchDate}T23:59:59`)
+  return !Number.isNaN(endOfMatchDay.getTime()) && endOfMatchDay.getTime() < Date.now()
+}
+
+function formatPreviousMatchStatus(match) {
+  if (isPastFixture(match)) {
+    return 'Past fixture'
+  }
+
+  return String(match.status ?? 'shared').replace(/_/g, ' ')
+}
+
 function formatGoalLine(event) {
   const scorer = event.scorerInitials || event.scorerName || 'Player'
   const assist = event.assistInitials || event.assistName
@@ -74,7 +95,7 @@ export function PreviousGameCard({ match, onOpen }) {
           ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-xs font-semibold text-[#456653]">{match.status.replace(/_/g, ' ')}</p>
+        <p className="mt-3 text-xs font-semibold text-[#456653]">{formatPreviousMatchStatus(match)}</p>
       )}
     </button>
   )
@@ -97,7 +118,7 @@ export function PreviousGameDetailModal({ match, onClose }) {
             <p className="mt-2 text-4xl font-black text-[#10231a]">
               {getClubScore(match)} - {getOpponentScore(match)}
             </p>
-            <p className="mt-1 text-sm font-semibold text-[#456653]">{match.status.replace(/_/g, ' ')}</p>
+            <p className="mt-1 text-sm font-semibold text-[#456653]">{formatPreviousMatchStatus(match)}</p>
           </div>
           <button
             type="button"
