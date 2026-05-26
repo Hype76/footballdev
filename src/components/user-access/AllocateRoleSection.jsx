@@ -11,7 +11,8 @@ export function AllocateRoleSection({
   staffLimitMessage,
 }) {
   const inputClass =
-    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
+    'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+  const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 
   return (
     <SectionCard
@@ -24,25 +25,25 @@ export function AllocateRoleSection({
       }
     >
       {isLoading ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+        <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold text-[#667085]">
           Loading roles...
         </div>
       ) : assignableRoles.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085]">
           No role data entered yet, or role data could not be loaded.
         </div>
       ) : (
-        <form className="rounded-lg border border-slate-200 bg-white p-5" onSubmit={onSubmit}>
+        <form className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/60" onSubmit={onSubmit}>
           <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Invite details</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Invite details</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
               Use a real staff email. Access should match the work they are expected to do this week.
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-950">Email</span>
+              <span className={labelClass}>Email</span>
               <input
                 type="email"
                 name="email"
@@ -54,7 +55,7 @@ export function AllocateRoleSection({
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-950">Role</span>
+              <span className={labelClass}>Role</span>
               <select
                 name="roleKey"
                 value={formState.roleKey}
@@ -73,7 +74,7 @@ export function AllocateRoleSection({
 
             {formState.roleKey === '__custom__' ? (
               <label className="block md:col-span-2">
-                <span className="mb-2 block text-sm font-semibold text-slate-950">Custom role</span>
+                <span className={labelClass}>Custom role</span>
                 <input
                   type="text"
                   name="customRoleLabel"
@@ -82,7 +83,7 @@ export function AllocateRoleSection({
                   required={formState.roleKey === '__custom__'}
                   className={inputClass}
                 />
-                <p className="mt-2 text-xs leading-5 text-slate-600">
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#667085]">
                   Custom roles are saved at the support level and can be reused later.
                 </p>
               </label>
@@ -98,7 +99,7 @@ export function AllocateRoleSection({
                   ? 'Please wait while this user access is being saved.'
                   : canAddMoreUsers ? undefined : staffLimitMessage
               }
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSaving ? 'Sending...' : 'Send role invite'}
             </button>

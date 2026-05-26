@@ -18,7 +18,7 @@ export function ActiveUsersSection({
   user,
 }) {
   const buttonClass =
-    'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
+    'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
 
   return (
     <SectionCard
@@ -27,11 +27,11 @@ export function ActiveUsersSection({
       description="Review who already has workspace access and keep display names readable for staff records."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+        <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold text-[#667085]">
           Loading active users...
         </div>
       ) : members.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085]">
           No active users found for this club.
         </div>
       ) : (
@@ -39,15 +39,15 @@ export function ActiveUsersSection({
           {paginatedMembers.items.map((member) => (
             <div
               key={member.id}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4"
+              className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 shadow-sm shadow-slate-200/60"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="break-words text-sm font-semibold text-slate-950">{member.email}</p>
-                  <p className="mt-1 text-sm text-slate-600">{member.name || 'No display name yet'}</p>
+                  <p className="break-words text-sm font-black text-[#101828]">{member.email}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#667085]">{member.name || 'No display name yet'}</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                  <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
                     {getRoleLabel(member)}
                   </div>
                   {canRemoveClubUser(user, member) ? (
@@ -73,7 +73,7 @@ export function ActiveUsersSection({
                       type="text"
                       value={nameDrafts[member.id] ?? ''}
                       onChange={(event) => onNameDraftChange(member.id, event.target.value)}
-                      className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                      className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5]"
                     />
                   </label>
                   <button
