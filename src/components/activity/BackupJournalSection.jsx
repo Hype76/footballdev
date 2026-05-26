@@ -2,6 +2,9 @@ import { BACKUP_PAGE_SIZE, formatActivityAction, formatActivityDateTime } from '
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const emptyStateClass = 'rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085]'
+const loadingStateClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold text-[#667085]'
+
 export function BackupJournalSection({
   backupPage,
   backups,
@@ -15,11 +18,11 @@ export function BackupJournalSection({
       description="Platform admins can inspect the fallback record trail for core data changes."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-600">
+        <div className={loadingStateClass}>
           Loading backups...
         </div>
       ) : backups.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
+        <div className={emptyStateClass}>
           No backup entries have been recorded yet.
         </div>
       ) : (
@@ -27,14 +30,14 @@ export function BackupJournalSection({
           {paginatedBackups.items.map((backup) => (
             <article
               key={backup.id}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+              className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60"
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-slate-950">
+                  <p className="text-sm font-black text-[#101828]">
                     {formatActivityAction(backup.operation)} {formatActivityAction(backup.tableName)}
                   </p>
-                  <p className="mt-1 break-words text-sm font-semibold text-slate-600">
+                  <p className="mt-1 break-words text-sm font-semibold text-[#667085]">
                     Record: {backup.recordId || 'No record ID'}
                   </p>
                 </div>
