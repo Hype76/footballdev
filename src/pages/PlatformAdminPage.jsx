@@ -825,7 +825,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           'Team staff allocations linked to this team',
           'Team links on sessions will be cleared by the database where required',
         ]}
-        confirmLabel="Delete Team"
+        confirmLabel="Delete team"
         onCancel={() => setTeamDeleteTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeleteTeam(password)}

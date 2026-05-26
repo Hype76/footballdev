@@ -754,7 +754,7 @@ export function TeamManagementPage() {
           `Team: ${teamDeleteTarget?.name || 'Selected team'}`,
           `${teamDeleteTarget?.staffIds?.length ?? 0} staff allocations for this team`,
         ]}
-        confirmLabel="Delete Team"
+        confirmLabel="Delete team"
         onCancel={() => setTeamDeleteTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeleteTeam(password)}

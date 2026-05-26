@@ -201,7 +201,7 @@ function SelectedTeamPanel({
               onClick={() => void onSaveTeamName(selectedTeam.id)}
               className={`${secondaryButtonClass} md:w-auto`}
             >
-              Save Name
+              Save name
             </button>
           </div>
           <p className="mt-2 text-sm font-semibold text-[#456653]">
@@ -215,7 +215,7 @@ function SelectedTeamPanel({
           onClick={() => void onDeleteTeam(selectedTeam.id)}
           className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e4] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Delete Team
+          Delete team
         </button>
       </div>
 
@@ -295,7 +295,7 @@ function AddExistingStaffPanel({
           onClick={() => void onAddExistingStaff()}
           className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Add To Team
+          Add to team
         </button>
       </div>
     </div>

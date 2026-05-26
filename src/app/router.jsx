@@ -95,7 +95,7 @@ const secondaryActionClassName =
 
 function LoadingScreen() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7fbf8] px-4 py-8">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)]">
       <div className="rounded-lg border border-[#bddcca] bg-white px-6 py-5 text-sm font-bold text-[#456653] shadow-sm shadow-[#d7eadf]/70">
         Loading...
       </div>
@@ -212,7 +212,7 @@ function AccountDetailsUnavailableState({ message }) {
             onClick={handleSignInAgain}
             className={secondaryActionClassName}
           >
-            Sign In Again
+            Sign in again
           </button>
         </>
       )}
@@ -263,7 +263,7 @@ function TesterAccessExpiredState() {
           href="/billing"
           className={primaryActionClassName}
         >
-          View Billing Options
+          View billing options
         </a>
       )}
     />
@@ -285,7 +285,7 @@ function PlanAccessRequiredState() {
           href="/billing"
           className={primaryActionClassName}
         >
-          View Billing Options
+          View billing options
         </a>
       )}
     />
@@ -417,28 +417,40 @@ function RouteErrorFallback({ error }) {
     : 'The page hit an unexpected error. Refresh the page or return to your workspace.'
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-md border border-slate-200 bg-white px-5 py-8 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-700">Page Error</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">{title}</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{message}</p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+    <RouteGateState
+      eyebrow="Page error"
+      title={title}
+      message={message}
+      rules={[
+        {
+          title: isChunkError ? 'Old app file' : 'Route failed',
+          body: isChunkError
+            ? 'The browser kept an older JavaScript file after a new build.'
+            : 'The current route stopped before the workspace could finish loading.',
+        },
+        {
+          title: 'No data changed',
+          body: 'Refreshing the app does not remove club, player, parent, or match records.',
+        },
+      ]}
+      actions={(
+        <>
           <button
             type="button"
             onClick={() => window.location.reload()}
             className={primaryActionClassName}
           >
-            Refresh App
+            Refresh app
           </button>
           <a
             href="/"
             className={secondaryActionClassName}
           >
-            Go To Workspace
+            Go to workspace
           </a>
-        </div>
-      </div>
-    </div>
+        </>
+      )}
+    />
   )
 }
 
