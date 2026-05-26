@@ -50,9 +50,9 @@ export function ScheduleDateTimePicker({
   onChange,
 }) {
   const inputClass =
-    'min-h-11 w-full rounded-lg border border-[#9addb4] bg-white px-4 py-3 text-sm text-[#101828] outline-none transition focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5]'
+    'min-h-11 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5]'
   const compactInputClass =
-    'min-h-11 w-full rounded-lg border border-[#9addb4] bg-white px-3 py-3 text-center text-sm text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5]'
+    'min-h-11 w-full rounded-lg border border-[#bddcca] bg-white px-3 py-3 text-center text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#789083] focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5]'
   const parts = parseDateTimeValue(value)
   const fallbackTime = getDefaultTimeParts()
   const date = parts.date || ''
@@ -94,7 +94,7 @@ export function ScheduleDateTimePicker({
 
   return (
     <fieldset className="block">
-      <legend className="mb-2 block text-sm font-bold text-[#101828]">{label}</legend>
+      <legend className="mb-2 block text-sm font-bold text-[#10231a]">{label}</legend>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem_5rem]">
         <label className="block">
           <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">Date</span>
@@ -142,7 +142,7 @@ export function ScheduleDateTimePicker({
               hour: option.hour,
               minute: option.minute,
             })}
-            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#9addb4] bg-white px-3 py-2 text-xs font-bold text-[#101828] transition hover:bg-[#f8fdf9]"
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-xs font-bold text-[#10231a] transition hover:bg-[#f6fbf8]"
           >
             {option.label}
           </button>

@@ -48,20 +48,20 @@ export function ToastProvider({ children }) {
 function ToastMessage({ toast, onDismiss }) {
   const toneClassName =
     toast.tone === 'error'
-      ? 'border-red-200 bg-red-50 text-red-800'
-      : 'border-[#b7efce] bg-white text-[#101828]'
+      ? 'border-red-200 bg-red-50 text-red-800 shadow-red-950/10'
+      : 'border-[#bddcca] bg-white text-[#10231a] shadow-[#067a46]/10'
 
   return (
-    <div className={`rounded-lg border px-4 py-3 ${toneClassName}`}>
+    <div className={`rounded-lg border px-4 py-3 shadow-lg ${toneClassName}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold">{toast.title}</p>
+          <p className="text-sm font-black">{toast.title}</p>
           {toast.message ? <p className="mt-1 text-sm leading-5 opacity-90">{toast.message}</p> : null}
         </div>
         <button
           type="button"
           onClick={onDismiss}
-          className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-lg border border-current/20 text-sm font-semibold"
+          className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-lg border border-current/20 text-sm font-black transition hover:bg-current/5"
           aria-label="Dismiss notification"
         >
           x
