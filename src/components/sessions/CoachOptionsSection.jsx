@@ -4,10 +4,10 @@ import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const emptyClass = 'rounded-lg border border-dashed border-[#d0d5dd] bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const emptyClass = 'rounded-lg border border-dashed border-[#b7efce] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function CoachOptionsSection({
   activePlayerSection,
@@ -88,7 +88,7 @@ export function CoachOptionsSection({
             </label>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/60">
+          <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
             Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
             {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
               <span className="mt-2 block text-xs font-black text-[#067a46]">
@@ -101,7 +101,7 @@ export function CoachOptionsSection({
             {paginatedPlayers.items.map((player) => (
               <label
                 key={player.id}
-                className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/50"
+                className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/50 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
               >
                 <input
                   type="checkbox"
