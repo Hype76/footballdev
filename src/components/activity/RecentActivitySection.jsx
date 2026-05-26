@@ -3,9 +3,9 @@ import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const fieldLabelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const selectClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const emptyStateClass = 'rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]'
-const loadingStateClass = 'rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]'
+const selectClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const emptyStateClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-6 text-sm font-semibold text-[#456653]'
+const loadingStateClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 text-sm font-semibold text-[#456653]'
 
 export function RecentActivitySection({
   actionOptions,
@@ -81,12 +81,12 @@ export function RecentActivitySection({
             return (
               <article
                 key={log.id}
-                className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60"
+                className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-[#101828]">{formatActivityAction(log.action)}</p>
-                    <p className="mt-1 break-words text-sm font-semibold text-[#5f7468]">
+                    <p className="text-sm font-black text-[#10231a]">{formatActivityAction(log.action)}</p>
+                    <p className="mt-1 break-words text-sm font-semibold text-[#456653]">
                       {log.actorName || log.actorEmail || 'Unknown user'}
                       {log.actorEmail && log.actorName ? `, ${log.actorEmail}` : ''}
                       {log.actorRoleLabel ? `, ${log.actorRoleLabel}` : ''}
@@ -95,10 +95,10 @@ export function RecentActivitySection({
                       {log.entityType || 'record'}
                     </p>
                     {metadata ? (
-                      <p className="mt-2 break-words text-sm font-semibold text-[#5f7468]">{metadata}</p>
+                      <p className="mt-2 break-words text-sm font-semibold text-[#456653]">{metadata}</p>
                     ) : null}
                   </div>
-                  <p className="shrink-0 rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-sm font-black text-[#456653]">{formatActivityDateTime(log.createdAt)}</p>
+                  <p className="shrink-0 rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#456653]">{formatActivityDateTime(log.createdAt)}</p>
                 </div>
               </article>
             )

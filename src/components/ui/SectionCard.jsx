@@ -73,9 +73,9 @@ export function SectionCard({
   return (
     <section
       data-tour-id={tourId}
-      className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70"
+      className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
     >
-      <div className="flex flex-col gap-4 border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+      <div className="flex flex-col gap-4 border-b border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div className="min-w-0">
           <h3 className="text-2xl font-black tracking-tight text-[#10231a]">{title}</h3>
           {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">{description}</p> : null}
@@ -87,7 +87,7 @@ export function SectionCard({
             onClick={handleToggle}
             aria-controls={contentId}
             aria-expanded={isOpen}
-            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#456653] shadow-sm shadow-[#d7eadf]/60 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#456653] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
           >
             {isOpen ? 'Collapse' : 'Expand'}
           </button>

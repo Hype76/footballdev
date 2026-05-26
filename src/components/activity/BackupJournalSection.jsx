@@ -2,8 +2,8 @@ import { BACKUP_PAGE_SIZE, formatActivityAction, formatActivityDateTime } from '
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const emptyStateClass = 'rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]'
-const loadingStateClass = 'rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]'
+const emptyStateClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-6 text-sm font-semibold text-[#456653]'
+const loadingStateClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 text-sm font-semibold text-[#456653]'
 
 export function BackupJournalSection({
   backupPage,
@@ -30,18 +30,18 @@ export function BackupJournalSection({
           {paginatedBackups.items.map((backup) => (
             <article
               key={backup.id}
-              className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60"
+              className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10"
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-[#101828]">
+                  <p className="text-sm font-black text-[#10231a]">
                     {formatActivityAction(backup.operation)} {formatActivityAction(backup.tableName)}
                   </p>
-                  <p className="mt-1 break-words text-sm font-semibold text-[#5f7468]">
+                  <p className="mt-1 break-words text-sm font-semibold text-[#456653]">
                     Record: {backup.recordId || 'No record ID'}
                   </p>
                 </div>
-                <p className="shrink-0 rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-sm font-black text-[#456653]">{formatActivityDateTime(backup.createdAt)}</p>
+                <p className="shrink-0 rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#456653]">{formatActivityDateTime(backup.createdAt)}</p>
               </div>
             </article>
           ))}
