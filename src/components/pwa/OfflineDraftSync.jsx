@@ -32,7 +32,7 @@ export default function OfflineDraftSync() {
       }
 
       setIsSyncing(true)
-      setSyncMessage('Back online - syncing drafts...')
+      setSyncMessage('Back online. Syncing drafts...')
 
       try {
         const result = await syncDrafts()
@@ -93,11 +93,11 @@ export default function OfflineDraftSync() {
   }
 
   const message = !isOnline
-    ? `Offline - saving locally${pendingDraftCount ? ` (${pendingDraftCount})` : ''}`
+    ? `Offline. Saving locally${pendingDraftCount ? ` (${pendingDraftCount})` : ''}`
     : syncMessage || `${pendingDraftCount} draft${pendingDraftCount === 1 ? '' : 's'} waiting to sync`
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 max-w-sm rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 shadow-lg shadow-slate-950/10">
+    <div className="fixed bottom-4 left-4 z-50 max-w-sm rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-lg shadow-[#10231a]/10">
       {isSyncing ? 'Syncing drafts...' : message}
     </div>
   )
