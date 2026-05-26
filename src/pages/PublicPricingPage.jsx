@@ -131,19 +131,19 @@ export function PublicPricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fbfdfb] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-slate-950 lg:pb-0">
+    <main className="min-h-screen bg-[#fbfdfb] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#101828] lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto w-full max-w-7xl px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6 lg:p-8">
+        <div className="rounded-lg border border-[#b7efce] bg-white p-5 shadow-sm shadow-[#d7eadf]/80 sm:p-6 lg:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Pricing</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Pricing</p>
             <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">Choose the workspace size that matches your football operation.</h1>
-            <p className="mt-5 text-base font-semibold leading-7 text-slate-700 sm:leading-8">
+            <p className="mt-5 text-base font-semibold leading-7 text-[#456653] sm:leading-8">
               Start with one team, then scale into a full club workspace with setup checks, staff roles, player records, parent communication, and audit logs.
             </p>
             </div>
-            <div className="grid w-full grid-cols-2 rounded-lg border border-slate-200 bg-[#f8fafc] p-1 sm:max-w-xs">
+            <div className="grid w-full grid-cols-2 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-1 sm:max-w-xs">
             {[
               ['monthly', 'Monthly'],
               ['annual', 'Annual'],
@@ -154,7 +154,7 @@ export function PublicPricingPage() {
                 onClick={() => setBillingCycle(key)}
                 className={[
                   'min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition',
-                  billingCycle === key ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-600 hover:bg-white hover:text-slate-950',
+                  billingCycle === key ? 'bg-[#067a46] text-white shadow-sm' : 'text-[#5f7468] hover:bg-white hover:text-[#101828]',
                 ].join(' ')}
               >
                 {label}
@@ -169,18 +169,18 @@ export function PublicPricingPage() {
               ['Single team', 'For a coach or team admin running one football group properly.'],
               ['Club workspace', 'For clubs that need teams, staff access, parent comms, and audit control.'],
             ].map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4">
-                <p className="text-sm font-black text-slate-950">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
+              <article key={title} className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-4">
+                <p className="text-sm font-black text-[#101828]">{title}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{copy}</p>
               </article>
             ))}
           </div>
         </div>
 
         {errorMessage ? <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{errorMessage}</div> : null}
-        {message ? <div className="mt-6 rounded-lg border border-emerald-200 bg-[#f2fbf6] px-4 py-3 text-sm font-semibold text-emerald-800">{message}</div> : null}
+        {message ? <div className="mt-6 rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-4 py-3 text-sm font-semibold text-[#05603a]">{message}</div> : null}
         {livePromotion && !paymentsDisabled ? (
-          <div className="mt-6 rounded-lg border border-emerald-200 bg-[#f2fbf6] px-5 py-4 text-sm font-bold text-emerald-800">
+          <div className="mt-6 rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-5 py-4 text-sm font-bold text-[#05603a]">
             Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
           </div>
         ) : null}
@@ -191,25 +191,25 @@ export function PublicPricingPage() {
             const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
 
             return (
-              <article key={plan.name} className="relative flex flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
+              <article key={plan.name} className="relative flex flex-col rounded-lg border border-[#bfe8cd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
                 {plan.name === 'Small Club' ? (
-                  <span className="absolute right-4 top-4 rounded-lg border border-emerald-200 bg-[#f2fbf6] px-3 py-1 text-xs font-bold text-emerald-800 sm:right-5 sm:top-5">
+                  <span className="absolute right-4 top-4 rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-3 py-1 text-xs font-bold text-[#05603a] sm:right-5 sm:top-5">
                     Popular
                   </span>
                 ) : null}
                 <div className="min-h-[116px] pr-14 sm:min-h-[128px] sm:pr-16">
                   <h2 className="text-lg font-black">{plan.name}</h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{plan.description}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{plan.description}</p>
                 </div>
                 <div className="min-h-[84px] sm:min-h-[92px]">
                   <span className="text-3xl font-black sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
-                  {priceLabel ? <span className="ml-2 text-sm font-semibold text-slate-500">{priceLabel}</span> : null}
-                  {showPromotion ? <p className="mt-2 text-xs font-semibold text-emerald-700">{getPromotionSummary(livePromotion)}</p> : null}
+                  {priceLabel ? <span className="ml-2 text-sm font-semibold text-[#5f7468]">{priceLabel}</span> : null}
+                  {showPromotion ? <p className="mt-2 text-xs font-semibold text-[#067a46]">{getPromotionSummary(livePromotion)}</p> : null}
                 </div>
                 <ul className="mt-6 grow space-y-3">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-slate-700">
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
+                    <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-[#456653]">
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#067a46]" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -221,7 +221,7 @@ export function PublicPricingPage() {
                     onClick={() => void handleChoosePlan(plan)}
                     className={[
                       'inline-flex min-h-12 items-center justify-center rounded-lg px-5 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60',
-                      plan.name === 'Small Club' ? 'bg-emerald-700 text-white hover:bg-emerald-800' : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50',
+                      plan.name === 'Small Club' ? 'bg-[#067a46] text-white hover:bg-[#05603a]' : 'border border-[#bfe8cd] bg-white text-[#101828] hover:bg-[#f0fdf6]',
                     ].join(' ')}
                   >
                     {paymentsDisabled ? 'Create Test Club' : plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' ? 'Request Demo' : 'Choose Plan'}
@@ -230,7 +230,7 @@ export function PublicPricingPage() {
                     <button
                       type="button"
                       onClick={plan.name === 'Large Club' ? openContactModal : () => setDemoPlan(plan)}
-                      className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50"
+                      className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6]"
                     >
                       {plan.name === 'Large Club' ? 'Contact Us' : 'Request Demo'}
                     </button>
