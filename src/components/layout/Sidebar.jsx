@@ -48,10 +48,10 @@ const navIcons = {
 }
 
 const groupDescriptions = {
-  'Club setup': 'Rules, staff, identity, and audit controls',
-  Management: 'Shared controls for this workspace',
+  'Club setup': 'Identity, staff, rules, and audit',
+  Management: 'Shared workspace controls',
   'Platform setup': 'Support and billing tools',
-  'Squad tools': 'Football records beyond this week',
+  'Squad tools': 'Player records and club memory',
 }
 
 function getSidebarTourId(path) {
@@ -67,7 +67,7 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
 
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[10px] font-black tracking-tight text-slate-700 shadow-sm shadow-slate-200/80 ring-1 ring-slate-200">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f4f8ff] text-[10px] font-black tracking-tight text-[#344054] shadow-sm shadow-slate-200/80 ring-1 ring-slate-200">
         {getNavIcon(item.path)}
       </span>
       <span className="min-w-0 flex-1">
@@ -75,7 +75,7 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
         {item.helper ? <span className="mt-0.5 block truncate text-xs font-semibold opacity-70">{item.helper}</span> : null}
       </span>
       {count > 0 ? (
-        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-md bg-emerald-600 px-2 text-xs font-black text-white">
+        <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-lg bg-[#067a46] px-2 text-xs font-black text-white">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
@@ -311,24 +311,24 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(20rem,calc(100vw-1rem))] max-w-[20rem] flex-col overflow-y-auto border-r border-slate-200 bg-[#fbfdfb] px-3 py-4 shadow-2xl shadow-slate-300/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(18rem,calc(100vw-1rem))] max-w-[18rem] flex-col overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 shadow-2xl shadow-slate-300/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/80">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-950 shadow-sm">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-[#101828] shadow-sm">
                 <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">
                   {isParentPortal ? 'Parent access' : 'Club control'}
                 </p>
-                <h2 className="mt-1 truncate text-base font-black tracking-tight text-slate-950">{clubLabel}</h2>
+                <h2 className="mt-1 truncate text-base font-black tracking-tight text-[#101828]">{clubLabel}</h2>
               </div>
             </div>
-            <p className="mt-3 rounded-lg border border-emerald-200 bg-[#f2fbf6] px-3 py-2 text-xs font-bold leading-5 text-slate-700">
+            <p className="mt-3 border-l-4 border-[#20a464] bg-[#f0fdf6] px-3 py-2 text-xs font-bold leading-5 text-[#344054]">
               {isParentPortal ? 'Fixtures, replies, and club messages in one place.' : 'Football first: week plan, squad, parents, staff, and match day.'}
             </p>
           </div>
@@ -336,7 +336,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm lg:hidden"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#475467] shadow-sm lg:hidden"
             aria-label="Close navigation"
           >
             X
@@ -344,12 +344,12 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
 
         <nav className="mt-4 space-y-3 pb-4">
-          <section className="rounded-lg border border-emerald-200 bg-white p-2 shadow-sm shadow-slate-200/70">
+          <section className="rounded-lg border border-slate-200 bg-[#f9fafb] p-2 shadow-sm shadow-slate-200/70">
             <div className="flex items-center justify-between px-2">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#667085]">
                 {isParentPortal ? 'Family view' : 'Match week'}
               </p>
-              <span className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-black text-white">
+              <span className="rounded-lg bg-[#101828] px-2 py-1 text-[11px] font-black text-white">
                 Active
               </span>
             </div>
@@ -364,8 +364,8 @@ export function Sidebar({ isOpen, onClose }) {
                     [
                       'block rounded-lg px-3 py-3 transition',
                       isActive
-                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
-                        : 'bg-[#f8fafc] text-slate-800 shadow-sm shadow-slate-200/70 hover:bg-[#f2fbf6] hover:text-slate-950',
+                        ? 'bg-[#067a46] text-white shadow-sm shadow-emerald-200'
+                        : 'bg-white text-[#344054] shadow-sm shadow-slate-200/70 hover:bg-[#f0fdf6] hover:text-[#101828]',
                     ].join(' ')
                   }
                 >
@@ -399,8 +399,8 @@ export function Sidebar({ isOpen, onClose }) {
                   [
                     'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-slate-200/60',
                     isActive
-                      ? 'border-emerald-300 bg-[#f2fbf6] text-emerald-900'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-[#f8fafc]',
+                      ? 'border-[#20a464] bg-[#f0fdf6] text-[#065f3b]'
+                      : 'border-slate-200 bg-white text-[#344054] hover:bg-[#f9fafb]',
                   ].join(' ')
                 }
               >
@@ -415,8 +415,8 @@ export function Sidebar({ isOpen, onClose }) {
                     [
                       'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-slate-200/60',
                       isActive
-                        ? 'border-emerald-300 bg-[#f2fbf6] text-emerald-900'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-[#f8fafc]',
+                      ? 'border-[#20a464] bg-[#f0fdf6] text-[#065f3b]'
+                      : 'border-slate-200 bg-white text-[#344054] hover:bg-[#f9fafb]',
                     ].join(' ')
                   }
                 >
@@ -428,7 +428,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 shadow-sm shadow-slate-200/70 transition hover:bg-[#f8fafc]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/70 transition hover:bg-[#f9fafb]"
           >
             Sign out
           </button>
@@ -441,13 +441,13 @@ export function Sidebar({ isOpen, onClose }) {
 function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
   return (
     <details className="group rounded-lg border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/70">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-slate-950">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#101828]">
         <span className="min-w-0 flex-1">
           <span className="block">{title}</span>
-          <span className="mt-0.5 block text-xs font-semibold text-slate-500">{groupDescriptions[title] || 'Workspace tools'}</span>
+          <span className="mt-0.5 block text-xs font-semibold text-[#667085]">{groupDescriptions[title] || 'Workspace tools'}</span>
         </span>
-        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-black text-slate-500 group-open:hidden">Show</span>
-        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-black text-slate-500 group-open:inline-flex">Hide</span>
+        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-2 py-1 text-xs font-black text-[#667085] group-open:hidden">Show</span>
+        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-2 py-1 text-xs font-black text-[#667085] group-open:inline-flex">Hide</span>
       </summary>
       <div className="mt-2 grid gap-1.5">
         {items.map((item) =>
@@ -463,8 +463,8 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
                 [
                   'block rounded-lg px-3 py-3 transition',
                   isActive
-                    ? 'bg-[#f2fbf6] text-emerald-950 ring-1 ring-emerald-300'
-                    : 'text-slate-700 hover:bg-[#f8fafc] hover:text-slate-950',
+                    ? 'bg-[#f0fdf6] text-[#065f3b] ring-1 ring-[#20a464]'
+                    : 'text-[#344054] hover:bg-[#f9fafb] hover:text-[#101828]',
                 ].join(' ')
               }
             >

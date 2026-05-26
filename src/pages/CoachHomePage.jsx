@@ -239,20 +239,20 @@ export function CoachHomePage() {
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
               Start with the next real football action: build the squad, run the session, record the note, or confirm match day. No generic dashboard noise.
             </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {quickActions.map((action) => (
                 <Link
                   key={action.path}
                   to={action.path}
                   className={[
-                    'rounded-lg border px-4 py-4 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500',
+                    'min-w-0 rounded-lg border px-4 py-4 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#20a464]',
                     action.primary
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-950 hover:border-emerald-300 hover:bg-emerald-50',
+                      ? 'border-[#067a46] bg-[#067a46] text-white'
+                      : 'border-slate-200 bg-[#f9fafb] text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]',
                   ].join(' ')}
                 >
-                  <span className="block text-sm font-black">{action.label}</span>
-                  <span className={['mt-2 block text-xs leading-5', action.primary ? 'text-emerald-50' : 'text-slate-600'].join(' ')}>
+                  <span className="block text-sm font-black leading-5">{action.label}</span>
+                  <span className={['mt-2 block text-xs leading-5', action.primary ? 'text-emerald-50' : 'text-[#667085]'].join(' ')}>
                     {action.description}
                   </span>
                 </Link>
