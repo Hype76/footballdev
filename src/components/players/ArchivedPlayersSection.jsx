@@ -3,6 +3,12 @@ import { formatRetentionDate, getRetentionCountdownLabel } from '../../lib/reten
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-slate-400 focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#067a46]'
+const detailClass = 'text-sm font-semibold text-[#667085]'
+
 export function ArchivedPlayersSection({
   filteredPlayers,
   isDeleting,
@@ -25,7 +31,7 @@ export function ArchivedPlayersSection({
       description="Archived players are hidden from active player lists and are scheduled for deletion after 3 months."
     >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-medium text-slate-600">
+        <p className="text-sm font-bold text-[#667085]">
           {selectedPlayerIds.length > 0
             ? `${selectedPlayerIds.length} selected`
             : `${players.length} archived player${players.length === 1 ? '' : 's'}`}
@@ -42,7 +48,7 @@ export function ArchivedPlayersSection({
                   : undefined
             }
             onClick={() => onDeleteModeOpen('selected')}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className={dangerButtonClass}
           >
             Delete selected
           </button>
@@ -57,7 +63,7 @@ export function ArchivedPlayersSection({
                   : undefined
             }
             onClick={() => onDeleteModeOpen('all')}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className={dangerButtonClass}
           >
             Clear all
           </button>
@@ -65,59 +71,59 @@ export function ArchivedPlayersSection({
       </div>
 
       <label className="block">
-        <span className="mb-2 block text-sm font-semibold text-slate-950">Search archived players</span>
+        <span className={labelClass}>Search archived players</span>
         <input
           type="search"
           value={searchTerm}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search player, team, or archive reason"
-          className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          className={fieldClass}
         />
       </label>
 
       {isLoading ? (
-        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
+        <div className="mt-5 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-6 text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60">
           Loading archived players...
         </div>
       ) : filteredPlayers.length === 0 ? (
-        <div className="mt-5 rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
+        <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60">
           No archived players found.
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
           {paginatedPlayers.items.map((player) => (
-            <div key={player.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div key={player.id} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
               <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
                 <label className="flex items-start pt-1">
                   <input
                     type="checkbox"
                     checked={selectedPlayerIds.includes(player.id)}
                     onChange={() => onTogglePlayer(player.id)}
-                    className="h-5 w-5 rounded border-slate-200 bg-white text-emerald-700 focus:ring-emerald-600"
+                    className="h-5 w-5 rounded border-slate-200 bg-white text-[#067a46] focus:ring-[#20a464]"
                     aria-label={`Select ${player.playerName}`}
                   />
                 </label>
                 <div className="md:col-span-2">
-                  <p className="text-base font-semibold text-slate-950">{player.playerName}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-600">
+                  <p className="text-base font-black text-[#101828]">{player.playerName}</p>
+                  <p className={`mt-1 ${detailClass}`}>
                     {player.team || 'No team entered'} | {player.section || 'No section entered'}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-600">
+                  <p className={`mt-1 ${detailClass}`}>
                     {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Archived</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">{formatPlayerDate(player.archivedAt)}</p>
+                  <p className={eyebrowClass}>Archived</p>
+                  <p className="mt-2 text-sm font-black text-[#101828]">{formatPlayerDate(player.archivedAt)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Delete Date</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-950">{formatRetentionDate(player.archivedDeleteAt)}</p>
-                  <p className="mt-1 text-xs font-semibold text-emerald-700">{getRetentionCountdownLabel(player.archivedDeleteAt)}</p>
+                  <p className={eyebrowClass}>Delete Date</p>
+                  <p className="mt-2 text-sm font-black text-[#101828]">{formatRetentionDate(player.archivedDeleteAt)}</p>
+                  <p className="mt-1 text-xs font-black text-[#067a46]">{getRetentionCountdownLabel(player.archivedDeleteAt)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Reason</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-slate-600">{player.archivedReason || 'No reason entered'}</p>
+                  <p className={eyebrowClass}>Reason</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-[#667085]">{player.archivedReason || 'No reason entered'}</p>
                 </div>
                 <div className="flex lg:justify-end">
                   <button
@@ -125,7 +131,7 @@ export function ArchivedPlayersSection({
                     disabled={isRestoringId === player.id}
                     title={isRestoringId === player.id ? 'Please wait while this player is being restored.' : undefined}
                     onClick={() => void onRestorePlayer(player)}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
                   >
                     {isRestoringId === player.id ? 'Restoring...' : 'Restore'}
                   </button>
