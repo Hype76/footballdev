@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 
 export function InfoCard({ title, children }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <h3 className="text-base font-black text-slate-950">{title}</h3>
-      <div className="mt-2 text-sm leading-6 text-slate-600">{children}</div>
+    <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+      <h3 className="text-base font-black text-[#10231a]">{title}</h3>
+      <div className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{children}</div>
     </div>
   )
 }
@@ -14,8 +14,8 @@ function DetailList({ items }) {
   return (
     <div className="mt-4 space-y-2">
       {items.map((item) => (
-        <div key={item} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-          <p className="text-sm leading-6 text-slate-700">{item}</p>
+        <div key={item} className="rounded-lg border border-[#d7eadf] bg-white px-4 py-3">
+          <p className="text-sm font-semibold leading-6 text-[#4d6458]">{item}</p>
         </div>
       ))}
     </div>
@@ -24,14 +24,14 @@ function DetailList({ items }) {
 
 export function PlanCard({ plan, isCurrent }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+    <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/60">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-lg font-black text-slate-950">{plan.label}</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{plan.summary}</p>
+          <h3 className="text-lg font-black text-[#10231a]">{plan.label}</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{plan.summary}</p>
         </div>
         {isCurrent ? (
-          <span className="inline-flex w-fit rounded-lg border border-emerald-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
+          <span className="inline-flex w-fit rounded-lg border border-[#bfe8cd] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">
             Current
           </span>
         ) : null}
@@ -43,9 +43,9 @@ export function PlanCard({ plan, isCurrent }) {
 
 export function RoleCard({ guide }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-      <h3 className="text-lg font-black text-slate-950">{guide.label}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{guide.summary}</p>
+    <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/60">
+      <h3 className="text-lg font-black text-[#10231a]">{guide.label}</h3>
+      <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{guide.summary}</p>
       <DetailList items={guide.capabilities} />
     </div>
   )
@@ -54,7 +54,7 @@ export function RoleCard({ guide }) {
 export function QuickLinks({ links }) {
   if (!links.length) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+      <div className="rounded-lg border border-dashed border-[#bddcca] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">
         No quick links are available for this role yet.
       </div>
     )
@@ -69,8 +69,8 @@ export function QuickLinks({ links }) {
           className={[
             'inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-3 text-sm font-bold transition',
             link.primary
-              ? 'bg-emerald-700 text-white hover:bg-emerald-600'
-              : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50',
+              ? 'bg-[#067a46] text-white hover:bg-[#05603a]'
+              : 'border border-[#bddcca] bg-white text-[#10231a] hover:bg-[#f8fdf9]',
           ].join(' ')}
         >
           {link.label}
@@ -111,17 +111,17 @@ function VideoMedia({ guide }) {
 
 export function VideoGuideCard({ guide }) {
   return (
-    <article className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+    <article className="overflow-hidden rounded-lg border border-[#d7eadf] bg-[#f8fdf9] shadow-sm shadow-[#d7eadf]/60">
       <div className="bg-slate-950">
         <VideoMedia guide={guide} />
       </div>
       <div className="p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="text-base font-black text-slate-950">{guide.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{guide.caption}</p>
+            <h3 className="text-base font-black text-[#10231a]">{guide.title}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{guide.caption}</p>
           </div>
-          <span className="inline-flex w-fit shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-700">
+          <span className="inline-flex w-fit shrink-0 rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">
             {guide.duration}
           </span>
         </div>
@@ -134,7 +134,7 @@ export function VideoGuideCard({ guide }) {
 export function VideoGuideGrid({ guides }) {
   if (!guides.length) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+      <div className="rounded-lg border border-dashed border-[#bddcca] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">
         No video walkthroughs are available for this role yet.
       </div>
     )

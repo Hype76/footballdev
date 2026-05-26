@@ -157,9 +157,9 @@ export function InformationPage() {
       />
 
       {isDemoAccount(user) ? (
-        <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-200/70">
-          <p className="text-sm font-black text-slate-950">Demo workspace</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+        <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-5 py-4 shadow-sm shadow-[#d7eadf]/70">
+          <p className="text-sm font-black text-[#10231a]">Demo workspace</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
             Demo users can explore the workspace and billing page. Destructive actions and account setting changes are blocked.
           </p>
         </div>
@@ -195,30 +195,30 @@ export function InformationPage() {
 
 function GuideHero({ description, eyebrow, metrics, rules, title }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+    <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#d7eadf]/70">
       <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
-          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">{eyebrow}</p>
+          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#10231a] sm:text-5xl">
             {title}
           </h1>
-          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">{description}</p>
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4d6458]">{description}</p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {rules.map((rule) => (
-              <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
-                <p className="text-sm font-black text-slate-950">{rule.label}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+              <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+                <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+        <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/70">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Current guide state</p>
-            <p className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">{metrics[0]?.value || 'Not set'}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              The guide adapts to the account, role, plan, and workspace context.
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Current guide state</p>
+            <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#10231a]">{metrics[0]?.value || 'Not set'}</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4d6458]">
+              The guide adapts to this account, role, plan, and workspace context.
             </p>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3">
@@ -234,9 +234,9 @@ function GuideHero({ description, eyebrow, metrics, rules, title }) {
 
 function GuideMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
-      <p className="mt-2 break-words text-2xl font-black text-slate-950">{value}</p>
+    <div className="rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-[#10231a]">{value}</p>
     </div>
   )
 }
