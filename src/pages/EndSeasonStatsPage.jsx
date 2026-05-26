@@ -6,6 +6,11 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewEndSeasonStats, useAuth } from '../lib/auth.js'
 import { getEndSeasonStats, getTeams, withRequestTimeout } from '../lib/supabase.js'
 
+const fieldClass = 'min-h-12 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const emptyStateClass = 'rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-5 text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60'
+
 function getTopPlayers(stats, field) {
   const topValue = Math.max(...stats.map((player) => Number(player[field] ?? 0)), 0)
 
@@ -151,14 +156,14 @@ export function EndSeasonStatsPage() {
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <label className="block md:min-w-72">
-            <span className="mb-2 block text-sm font-black text-slate-950">Team</span>
+            <span className={labelClass}>Team</span>
             <select
               value={selectedTeamId}
               onChange={(event) => {
                 setSelectedTeamId(event.target.value)
                 setAwardsGeneratedAt('')
               }}
-              className="min-h-11 border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             >
               <option value="">All teams</option>
               {teams.map((team) => (
@@ -171,7 +176,7 @@ export function EndSeasonStatsPage() {
             type="button"
             onClick={generateAwards}
             disabled={isLoading || stats.length === 0}
-            className="inline-flex min-h-11 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className={primaryButtonClass}
           >
             Generate end of season awards
           </button>
@@ -193,13 +198,14 @@ export function EndSeasonStatsPage() {
 
       <SectionCard title="Player stats" description="All active squad players are listed, including players with zero Match Day stats.">
         {isLoading ? (
-          <p className="border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
+          <p className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-5 text-sm font-bold text-[#667085] shadow-sm shadow-slate-200/60">
             Loading end of season stats...
           </p>
         ) : sortedStats.length > 0 ? (
-          <div className="overflow-x-auto">
+          <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm shadow-slate-200/70">
+            <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              <thead className="bg-[#f9fafb] text-xs font-black uppercase tracking-[0.14em] text-[#667085]">
                 <tr className="border-b border-slate-200">
                   <SortableHeader field="playerName" label="Player" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader field="teamName" label="Team" sortConfig={sortConfig} onSort={updateSort} />
@@ -210,21 +216,22 @@ export function EndSeasonStatsPage() {
               </thead>
               <tbody>
                 {sortedStats.map((player) => (
-                  <tr key={player.playerId} className="border-b border-slate-200 last:border-0">
-                    <td className="px-3 py-3 font-bold text-slate-950">
+                  <tr key={player.playerId} className="border-b border-slate-200 bg-white last:border-0 hover:bg-[#f9fafb]">
+                    <td className="px-3 py-3 font-black text-[#101828]">
                       {player.shirtNumber ? `#${player.shirtNumber} ` : ''}{player.playerName}
                     </td>
-                    <td className="px-3 py-3 font-semibold text-slate-600">{player.teamName || 'No team'}</td>
-                    <td className="px-3 py-3 text-right font-bold text-slate-950">{player.goals}</td>
-                    <td className="px-3 py-3 text-right font-bold text-slate-950">{player.assists}</td>
-                    <td className="px-3 py-3 text-right font-bold text-slate-950">{player.motmVotes}</td>
+                    <td className="px-3 py-3 font-semibold text-[#667085]">{player.teamName || 'No team'}</td>
+                    <td className="px-3 py-3 text-right font-black text-[#101828]">{player.goals}</td>
+                    <td className="px-3 py-3 text-right font-black text-[#101828]">{player.assists}</td>
+                    <td className="px-3 py-3 text-right font-black text-[#101828]">{player.motmVotes}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
-          <p className="border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
+          <p className={emptyStateClass}>
             No squad players are available for this team.
           </p>
         )}
@@ -235,9 +242,9 @@ export function EndSeasonStatsPage() {
 
 function AwardCard({ title, value }) {
   return (
-    <article className="border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{title}</p>
-      <p className="mt-3 text-lg font-bold text-slate-950">{value}</p>
+    <article className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{title}</p>
+      <p className="mt-3 text-lg font-black text-[#101828]">{value}</p>
     </article>
   )
 }
@@ -253,9 +260,9 @@ function SortableHeader({ align = 'left', field, label, onSort, sortConfig }) {
         type="button"
         onClick={() => onSort(field)}
         aria-label={`Sort ${label} ${directionLabel}`}
-        className={`inline-flex items-center gap-1 font-black uppercase tracking-[0.14em] transition hover:text-slate-950 ${
+        className={`inline-flex items-center gap-1 font-black uppercase tracking-[0.14em] transition hover:text-[#101828] ${
           align === 'right' ? 'justify-end' : 'justify-start'
-        } ${isActive ? 'text-emerald-700' : 'text-slate-500'}`}
+        } ${isActive ? 'text-[#067a46]' : 'text-[#667085]'}`}
       >
         <span>{label}</span>
         <span aria-hidden="true" className="text-[0.62rem]">{sortLabel}</span>
