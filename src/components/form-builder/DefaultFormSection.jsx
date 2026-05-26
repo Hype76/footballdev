@@ -1,8 +1,8 @@
 import { getFieldTypeLabel } from '../../hooks/form-builder/formBuilderUtils.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const defaultFieldCardClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60'
-const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
+const defaultFieldCardClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10'
+const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
 
 export function DefaultFormSection({
   defaultTemplateFields,
@@ -22,14 +22,14 @@ export function DefaultFormSection({
         <div className="grid gap-3 md:grid-cols-2">
           {defaultTemplateFields.map((field) => (
             <div key={field.id} className={defaultFieldCardClass}>
-              <p className="text-sm font-black text-[#101828]">{field.label}</p>
+              <p className="text-sm font-black text-[#10231a]">{field.label}</p>
               <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{getFieldTypeLabel(field.type)}</p>
             </div>
           ))}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold leading-6 text-[#5f7468]">
+          <p className="text-sm font-semibold leading-6 text-[#456653]">
             {fieldsCount === 0
               ? 'No fields are configured for this club yet. Load the default form to start.'
               : 'Default fields are already available below and can be enabled, disabled, and reordered.'}
