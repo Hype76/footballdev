@@ -47,10 +47,10 @@ function createEditDraft(item) {
   }
 }
 
-const labelClass = 'mb-2 block text-sm font-black text-slate-950'
-const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100'
-const primaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-black text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-950 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]'
+const primaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#0f172a] transition hover:border-[#3b82f6] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-2 text-sm font-black text-[#b42318] transition hover:bg-[#fee4e2] disabled:cursor-not-allowed disabled:opacity-60'
 
 const queueRules = [
@@ -221,33 +221,33 @@ export function EmailQueuePage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
+      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Communication queue</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Communication queue</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-[#0f172a] sm:text-4xl">
               Hold parent and player emails until they are ready to leave.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-600">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
               Review scheduled football messages before send time. Fix failures, change timing, send now, or delete a message before it reaches families.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {queueRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-slate-200 bg-sky-50 px-4 py-4 shadow-sm shadow-slate-200/70">
-                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                <div key={rule.label} className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
+                  <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-slate-200 bg-sky-50 p-5 shadow-sm shadow-slate-200/70">
+          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Next send</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Next send</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">
                 {nextQueuedEmail ? formatDateTime(nextQueuedEmail.scheduledAt) : 'Nothing queued'}
               </p>
-              <p className="mt-2 break-words text-sm font-semibold leading-6 text-slate-600">
+              <p className="mt-2 break-words text-sm font-semibold leading-6 text-[#475569]">
                 {nextQueuedEmail ? nextQueuedEmail.subject : 'Scheduled parent and player emails will appear here before they are sent.'}
               </p>
             </div>
@@ -263,45 +263,45 @@ export function EmailQueuePage() {
 
       {errorMessage ? <NoticeBanner title="Email queue action failed" message={errorMessage} /> : null}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
-        <div className="mb-4 flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10 sm:p-5">
+        <div className="mb-4 flex flex-col gap-2 border-b border-[#cbd5e1] pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Holding queue</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Scheduled messages</h2>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Holding queue</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Scheduled messages</h2>
           </div>
-          <p className="text-sm font-semibold leading-6 text-slate-600">
+          <p className="text-sm font-semibold leading-6 text-[#475569]">
             {sortedQueue.length} emails waiting for club approval or send time.
           </p>
         </div>
         {isLoading ? (
-          <p className="rounded-lg border border-slate-200 bg-sky-50 px-4 py-5 text-sm font-semibold text-slate-600">Loading email queue...</p>
+          <p className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-5 text-sm font-semibold text-[#475569]">Loading email queue...</p>
         ) : sortedQueue.length === 0 ? (
-          <div className="rounded-lg border border-slate-200 bg-sky-50 px-5 py-8">
-            <p className="text-lg font-black text-slate-950">No emails are waiting to send.</p>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+          <div className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-5 py-8">
+            <p className="text-lg font-black text-[#0f172a]">No emails are waiting to send.</p>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#475569]">
               Queue items appear after a coach schedules a parent or player email from a football workflow.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {sortedQueue.map((item) => (
-              <div key={item.id} className="rounded-lg border border-slate-200 bg-sky-50 p-4 shadow-sm shadow-slate-200/70">
+              <div key={item.id} className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-4 shadow-sm shadow-[#2563eb]/10">
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-lg border border-sky-100 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-sky-700">
+                      <span className="rounded-lg border border-[#bfdbfe] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#2563eb]">
                         {item.status}
                       </span>
                       {item.hasAttachment ? (
-                        <span className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-600">
+                        <span className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-1 text-xs font-black text-[#475569]">
                           PDF attached
                         </span>
                       ) : null}
                     </div>
-                    <h2 className="mt-3 break-words text-lg font-black text-slate-950">{item.subject}</h2>
-                    <p className="mt-2 break-words text-sm font-semibold leading-6 text-slate-600">To: {item.toEmail}</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Send time: {formatDateTime(item.scheduledAt)}</p>
-                    {item.playerName ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Player: {item.playerName}</p> : null}
+                    <h2 className="mt-3 break-words text-lg font-black text-[#0f172a]">{item.subject}</h2>
+                    <p className="mt-2 break-words text-sm font-semibold leading-6 text-[#475569]">To: {item.toEmail}</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#475569]">Send time: {formatDateTime(item.scheduledAt)}</p>
+                    {item.playerName ? <p className="mt-1 text-sm font-semibold leading-6 text-[#475569]">Player: {item.playerName}</p> : null}
                     {item.lastError ? <p className="mt-2 rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-3 py-2 text-sm font-black text-[#b42318]">{item.lastError}</p> : null}
                   </div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -375,10 +375,10 @@ export function EmailQueuePage() {
               value={editDraft.html}
               onChange={(event) => setEditDraft((current) => ({ ...current, html: event.target.value }))}
               rows={8}
-              className="min-h-40 w-full rounded-lg border border-slate-200 bg-sky-50 px-4 py-3 font-mono text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
+              className="min-h-40 w-full rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-3 font-mono text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]"
             />
           </label>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 text-black">
+          <div className="rounded-lg border border-[#cbd5e1] bg-white p-4 text-black">
             <div dangerouslySetInnerHTML={{ __html: editDraft.html }} />
           </div>
         </div>
@@ -416,11 +416,11 @@ export function EmailQueuePage() {
 }
 
 function QueueMetric({ label, value, tone = 'default' }) {
-  const valueClass = tone === 'danger' ? 'text-rose-700' : 'text-slate-950'
+  const valueClass = tone === 'danger' ? 'text-rose-700' : 'text-[#0f172a]'
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/70">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">{label}</p>
+    <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
       <p className={`mt-2 break-words text-2xl font-black ${valueClass}`}>{value}</p>
     </div>
   )
