@@ -8,12 +8,15 @@ export function CreateStaffLoginSection({
   staffLimitMessage,
   teams,
 }) {
+  const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+  const fieldClass = 'min-h-12 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70" data-tour-id="create-staff-section">
-      <div className="border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">Step 2</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Invite staff with team access</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+      <div className="border-b border-slate-200 bg-[#f9fafb] px-5 py-4 sm:px-6">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#067a46]">Step 2</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invite staff with team access</h2>
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
           {canCreateMoreStaff
             ? 'Send a staff invite, choose the role, and attach the login to one team. Staff should only see the teams they work with.'
             : staffLimitMessage}
@@ -23,25 +26,25 @@ export function CreateStaffLoginSection({
       <form className="space-y-4 px-5 py-5 sm:px-6" onSubmit={onCreateCoach}>
         <div className="grid gap-3 lg:grid-cols-3">
           <label className="block">
-            <span className="mb-2 block text-sm font-black text-slate-950">Staff email</span>
+            <span className={labelClass}>Staff email</span>
             <input
               type="email"
               name="email"
               value={coachForm.email}
               onChange={onCoachFormChange}
               required
-              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-black text-slate-950">Role</span>
+            <span className={labelClass}>Role</span>
             <select
               name="roleKey"
               value={coachForm.roleKey}
               onChange={onCoachFormChange}
               required
-              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             >
               {assignableRoles.map((role) => (
                 <option key={role.roleKey} value={role.roleKey}>
@@ -53,13 +56,13 @@ export function CreateStaffLoginSection({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-black text-slate-950">Team access</span>
+            <span className={labelClass}>Team access</span>
             <select
               name="teamId"
               value={coachForm.teamId}
               onChange={onCoachFormChange}
               required
-              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             >
               <option value="">Select team access</option>
               {teams.map((team) => (
@@ -73,14 +76,14 @@ export function CreateStaffLoginSection({
 
         {coachForm.roleKey === '__custom__' ? (
           <label className="block max-w-xl">
-            <span className="mb-2 block text-sm font-black text-slate-950">Custom role</span>
+            <span className={labelClass}>Custom role</span>
             <input
               type="text"
               name="customRoleLabel"
               value={coachForm.customRoleLabel}
               onChange={onCoachFormChange}
               required
-              className="min-h-12 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
         ) : null}
@@ -95,7 +98,7 @@ export function CreateStaffLoginSection({
                 ? 'Create an assignable staff role before adding staff access.'
                 : canCreateMoreStaff ? undefined : staffLimitMessage
           }
-          className="inline-flex min-h-12 w-full items-center justify-center border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           Send staff invite
         </button>
