@@ -116,13 +116,13 @@ export function Topbar({ title, onMenuClick }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[#d8efe2] bg-white/95 px-4 py-3 shadow-sm shadow-[#d7eadf]/70 backdrop-blur sm:px-6 md:px-8 xl:px-10">
+    <header className="sticky top-0 z-20 border-b border-[#bddcca] bg-white/95 px-4 py-3 shadow-sm shadow-[#067a46]/10 backdrop-blur sm:px-6 md:px-8 xl:px-10">
       <div className="mx-auto flex max-w-[108rem] flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-[#bddcca] bg-white text-[#456653] shadow-sm shadow-[#d7eadf]/70 lg:hidden"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-[#bddcca] bg-white text-[#456653] shadow-sm shadow-[#067a46]/10 lg:hidden"
             aria-label="Open navigation"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -130,7 +130,7 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-[#f8fdf9] shadow-sm shadow-[#d7eadf]/70">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
           </div>
 
@@ -158,7 +158,7 @@ export function Topbar({ title, onMenuClick }) {
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-[#d8efe2] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70 2xl:w-auto 2xl:min-w-[36rem]">
+        <div className="grid w-full gap-2 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-2 shadow-sm shadow-[#067a46]/10 2xl:w-auto 2xl:min-w-[36rem]">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
             {isDemoUser(displayUser) ? (
               <label className="col-span-2 grid gap-1 md:col-span-1">
@@ -216,7 +216,7 @@ export function Topbar({ title, onMenuClick }) {
             />
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#bddcca] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:bg-[#f0fdf6]"
+              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#bddcca] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:bg-[#f0fdf6]"
             >
               My Settings
             </Link>
@@ -225,7 +225,7 @@ export function Topbar({ title, onMenuClick }) {
               onClick={handleSignOut}
               disabled={isSigningOut}
               title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#d7eadf]/60 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>
