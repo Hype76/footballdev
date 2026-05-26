@@ -1,5 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom'
 
+const surfaceClass = 'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white'
+
 function CoachActionMenuPage({ actions, description, primaryPath, title }) {
   const navigate = useNavigate()
   const primaryAction = actions.find((action) => action.primary) || actions[0]
@@ -7,36 +12,43 @@ function CoachActionMenuPage({ actions, description, primaryPath, title }) {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <section className={surfaceClass}>
         <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Football workflow</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">{title}</h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">{description}</p>
+            <p className={eyebrowClass}>Football workflow</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-[#101828] sm:text-5xl">{title}</h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">{description}</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {actions.map((action) => (
                 <Link
                   key={action.path}
                   to={action.path}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-4 transition hover:border-emerald-300 hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className={[
+                    'rounded-lg border p-4 shadow-sm shadow-slate-200/60 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#20a464]',
+                    action.primary
+                      ? 'border-[#067a46] bg-[#067a46] text-white'
+                      : 'border-slate-200 bg-[#f9fafb] text-[#101828] hover:border-[#20a464] hover:bg-white',
+                  ].join(' ')}
                 >
-                  <span className="block text-sm font-black text-slate-950">{action.label}</span>
-                  <span className="mt-2 block text-sm leading-6 text-slate-600">{action.description}</span>
+                  <span className="block text-sm font-black">{action.label}</span>
+                  <span className={['mt-2 block text-sm font-semibold leading-6', action.primary ? 'text-[#dcfae6]' : 'text-[#667085]'].join(' ')}>
+                    {action.description}
+                  </span>
                 </Link>
               ))}
             </div>
           </div>
-          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+          <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-inner shadow-slate-200/60">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next action</p>
-              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Next action</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
                 {primaryAction?.label || 'Open workflow'}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
                 Open the working screen and complete the real step that moves the football week forward.
               </p>
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#667085]">
               {secondaryActions.length > 0
                 ? `${secondaryActions.length} supporting view${secondaryActions.length === 1 ? '' : 's'} available.`
                 : 'This workflow opens directly into the working screen.'}
@@ -44,14 +56,14 @@ function CoachActionMenuPage({ actions, description, primaryPath, title }) {
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Link
                 to={primaryPath}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className={primaryButtonClass}
               >
                 Open next action
               </Link>
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className={secondaryButtonClass}
               >
                 Back
               </button>
