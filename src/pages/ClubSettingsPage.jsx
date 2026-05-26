@@ -354,7 +354,7 @@ function ClubSettingsHero({ canChangeClubLogo, formData, identityChecksComplete,
         <div className="px-5 py-6 sm:px-6 lg:px-8">
           <div className="max-w-5xl">
             <p className={eyebrowClass}>Club setup</p>
-            <h1 className="mt-3 text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
+            <h1 className="mt-3 text-3xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-4xl">
               Make the workspace recognisable before parents see it.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">

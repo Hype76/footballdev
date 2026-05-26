@@ -638,7 +638,7 @@ export function TeamManagementPage() {
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Team setup</p>
-              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
+              <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-4xl">
                 Create the football structure first.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">

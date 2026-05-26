@@ -879,7 +879,7 @@ export function SessionsPage({ setupOpen = false }) {
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
               <p className={eyebrowClass}>Session command</p>
-              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
+              <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-4xl">
                 Run training from plan to player record.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">

@@ -271,7 +271,7 @@ export function ParentLinkingPage() {
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
               <p className={eyebrowClass}>Guardian access</p>
-              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
+              <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-4xl">
                 Give every parent the right child record.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
