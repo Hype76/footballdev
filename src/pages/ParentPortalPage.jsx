@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
 import {
@@ -518,137 +516,226 @@ export function ParentPortalPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Parent Portal"
-        title="Match Day"
-        description="Follow live scores, volunteer as a scorer, and review previous game results for your linked child."
+      <ParentMatchDayHero
+        activeMatches={activeMatches}
+        isLoading={isLoadingMatches}
+        previousMatches={previousMatches}
+        selectedLink={selectedLink}
+        summary={parentPortalSummary}
       />
-
-      <section className="grid gap-4 md:grid-cols-3">
-        {parentPortalSummary.map((item) => (
-          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoadingMatches ? '...' : item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Parent portal rule</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-          Parents can view club-shared updates and respond where invited. Team selection, scores, reports, and match day controls remain owned by club staff.
-        </p>
-      </section>
 
       {matchError ? <NoticeBanner title="Match Day action failed" message={matchError} /> : null}
 
-      {otherLinks.length > 0 ? (
-        <SectionCard title="Child links" description="If this account is linked to more than one child or team, select the child to view.">
-          <div className="mb-4">
-            <label htmlFor="parent-portal-child" className="mb-2 block text-sm font-bold text-slate-950">
-              Current child
-            </label>
-            <select
-              id="parent-portal-child"
-              value={selectedLink?.id || ''}
-              onChange={(event) => setSelectedLinkId(event.target.value)}
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
-            >
-              {links.map((link) => (
-                <option key={link.id} value={link.id}>
-                  {link.playerName} | {link.teamName || 'No team'} | {link.clubName || 'No club'}
-                </option>
-              ))}
-            </select>
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-5 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Match day workspace</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Follow the selected child</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              Select a child, enable useful alerts, then open live cards when the club has shared match day access.
+            </p>
           </div>
-          <div className="space-y-2">
-            {otherLinks.map((link) => (
-              <button
-                key={link.id}
-                type="button"
-                onClick={() => setSelectedLinkId(link.id)}
-                className="block w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-emerald-300 hover:bg-white"
-              >
-                <p className="text-sm font-bold text-slate-950">{link.playerName}</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">{link.teamName || 'No team'} | {link.clubName || 'No club'}</p>
-              </button>
-            ))}
-          </div>
-        </SectionCard>
-      ) : null}
 
-      <SectionCard title="Match Day notifications" description="Enable phone notifications for goals, scorer updates, half time, and full time.">
-        <PushNotificationPanel
-          hasPushSubscription={hasPushSubscription}
-          isUpdatingPush={isUpdatingPush}
-          onDisable={handleDisableNotifications}
-          onEnable={handleEnableNotifications}
-          pushState={pushState}
-        />
-      </SectionCard>
-
-      <SectionCard title="Live and upcoming" description="Live score updates appear here during the match.">
-        {!selectedLink ? (
-          <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-            No child links are active for this parent account.
-          </p>
-        ) : isLoadingMatches ? (
-          <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-            Loading Match Day...
-          </p>
-        ) : activeMatches.length > 0 ? (
-          <div className="space-y-4">
-            {activeMatches.map((match) => (
-              <ParentMatchCard
-                key={match.id}
-                activeMatchId={activeMatchId}
-                goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
-                match={match}
-                onAddGoal={handleAddGoal}
-                onGoalFormChange={updateGoalForm}
-                onPlayerPick={handlePlayerPick}
-                onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
-                  ...currentDrafts,
-                  [match.id]: {
-                    homeScore: match.homeScore,
-                    awayScore: match.awayScore,
-                    status: match.status,
-                    ...(currentDrafts[match.id] ?? {}),
-                    ...updates,
-                  },
-                }))}
-                onScoreSave={handleScoreSave}
-                onStartMatch={handleStartMatch}
-                onVolunteer={handleVolunteer}
-                now={clockNow}
-                players={squadPlayers}
-                scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
-              />
-            ))}
+          <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Parent rule</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+              Parents can view shared updates and respond where invited. Club staff still own team selection, records, and final match day control.
+            </p>
           </div>
-        ) : (
-          <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-            No Match Day updates are available for this child right now.
-          </p>
-        )}
-      </SectionCard>
+        </div>
 
-      <SectionCard title="Previous games" description="Completed results from earlier Match Day fixtures.">
-        {previousMatches.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {previousMatches.map((match) => (
-              <PreviousGameCard key={match.id} match={match} onOpen={setSelectedPreviousMatch} />
-            ))}
+        <div className="grid gap-5 bg-[#fbfdfb] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+          <aside className="space-y-4">
+            <ParentChildSelector
+              links={links}
+              onSelect={setSelectedLinkId}
+              otherLinks={otherLinks}
+              selectedLink={selectedLink}
+            />
+
+            <PushNotificationPanel
+              hasPushSubscription={hasPushSubscription}
+              isUpdatingPush={isUpdatingPush}
+              onDisable={handleDisableNotifications}
+              onEnable={handleEnableNotifications}
+              pushState={pushState}
+            />
+          </aside>
+
+          <div className="min-w-0 space-y-5">
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Live and upcoming</p>
+                  <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Match cards</h3>
+                </div>
+                <p className="text-sm font-bold text-slate-500">{activeMatches.length} active</p>
+              </div>
+
+              <div className="mt-4">
+                {!selectedLink ? (
+                  <p className="rounded-lg border border-dashed border-slate-300 bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-slate-600">
+                    No child links are active for this parent account.
+                  </p>
+                ) : isLoadingMatches ? (
+                  <p className="rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-slate-600">
+                    Loading Match Day...
+                  </p>
+                ) : activeMatches.length > 0 ? (
+                  <div className="space-y-4">
+                    {activeMatches.map((match) => (
+                      <ParentMatchCard
+                        key={match.id}
+                        activeMatchId={activeMatchId}
+                        goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
+                        match={match}
+                        onAddGoal={handleAddGoal}
+                        onGoalFormChange={updateGoalForm}
+                        onPlayerPick={handlePlayerPick}
+                        onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
+                          ...currentDrafts,
+                          [match.id]: {
+                            homeScore: match.homeScore,
+                            awayScore: match.awayScore,
+                            status: match.status,
+                            ...(currentDrafts[match.id] ?? {}),
+                            ...updates,
+                          },
+                        }))}
+                        onScoreSave={handleScoreSave}
+                        onStartMatch={handleStartMatch}
+                        onVolunteer={handleVolunteer}
+                        now={clockNow}
+                        players={squadPlayers}
+                        scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-slate-300 bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-slate-600">
+                    No Match Day updates are available for this child right now.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Previous games</p>
+                  <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Shared results</h3>
+                </div>
+                <p className="text-sm font-bold text-slate-500">{previousMatches.length} complete</p>
+              </div>
+
+              {previousMatches.length > 0 ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {previousMatches.map((match) => (
+                    <PreviousGameCard key={match.id} match={match} onOpen={setSelectedPreviousMatch} />
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 rounded-lg border border-dashed border-slate-300 bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-slate-600">
+                  No previous games have been shared yet.
+                </p>
+              )}
+            </section>
           </div>
-        ) : (
-          <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-            No previous games have been shared yet.
-          </p>
-        )}
-      </SectionCard>
+        </div>
+      </section>
 
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
+    </div>
+  )
+}
+
+function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selectedLink, summary }) {
+  const nextMatch = activeMatches[0]
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent portal</p>
+          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-slate-950 sm:text-5xl">
+            Match day for {selectedLink?.playerName || 'your child'}.
+          </h1>
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+            Follow live scores, volunteer when the club asks for a scorer, and review completed football fixtures in one controlled parent view.
+          </p>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {summary.map((item) => (
+              <ParentMatchMetric key={item.label} isLoading={isLoading} {...item} />
+            ))}
+          </div>
+        </div>
+
+        <div className="grid content-between rounded-lg border border-slate-200 bg-[#f8fafc] p-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next match card</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+              {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No active match'}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              {nextMatch ? formatMatchDate(nextMatch) : previousMatches.length > 0 ? 'Open previous games to review shared results.' : 'The club has not shared a match card yet.'}
+            </p>
+          </div>
+          <div className="mt-5 rounded-lg border border-emerald-200 bg-white px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Next action</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
+              Check the selected child first. Enable notifications only on the device you want to use on match day.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ParentMatchMetric({ caption, isLoading, label, value }) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4 shadow-sm shadow-slate-200/60">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</p>
+      <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{caption}</p>
+    </article>
+  )
+}
+
+function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
+      <label htmlFor="parent-portal-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+        Current child
+      </label>
+      <select
+        id="parent-portal-child"
+        value={selectedLink?.id || ''}
+        onChange={(event) => onSelect(event.target.value)}
+        className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+      >
+        {links.map((link) => (
+          <option key={link.id} value={link.id}>
+            {link.playerName} - {link.teamName || 'No team'} - {link.clubName || 'No club'}
+          </option>
+        ))}
+      </select>
+
+      {otherLinks.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          {otherLinks.map((link) => (
+            <button
+              key={link.id}
+              type="button"
+              onClick={() => onSelect(link.id)}
+              className="block w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3 text-left transition hover:border-emerald-300 hover:bg-white"
+            >
+              <p className="text-sm font-black text-slate-950">{link.playerName}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{link.teamName || 'No team'} / {link.clubName || 'No club'}</p>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -662,17 +749,19 @@ function PushNotificationPanel({
 }) {
   if (!pushState.isSupported) {
     return (
-      <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-4">
-        <p className="text-sm font-bold text-slate-950">Notifications are not available on this device yet.</p>
+      <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/70">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Notifications</p>
+        <p className="mt-2 text-sm font-black text-slate-950">Not available on this device yet.</p>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{pushState.reason}</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/70">
       <div className="min-w-0">
-        <p className="text-sm font-bold text-slate-950">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Notifications</p>
+        <p className="mt-2 text-sm font-black text-slate-950">
           {hasPushSubscription ? 'Notifications are enabled on this device.' : 'Enable Match Day notifications on this device.'}
         </p>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
@@ -686,7 +775,7 @@ function PushNotificationPanel({
           type="button"
           onClick={onDisable}
           disabled={isUpdatingPush}
-          className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isUpdatingPush ? 'Disabling...' : 'Disable'}
         </button>
@@ -695,7 +784,7 @@ function PushNotificationPanel({
           type="button"
           onClick={onEnable}
           disabled={isUpdatingPush || pushState.permission === 'denied'}
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isUpdatingPush ? 'Enabling...' : 'Enable notifications'}
         </button>
@@ -724,15 +813,15 @@ function ParentMatchCard({
   const currentMinute = getCurrentMatchMinute(match, now)
 
   return (
-    <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex w-fit rounded-sm border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
               {match.status.replace(/_/g, ' ')}
             </span>
             {match.isScorer ? (
-              <span className="inline-flex w-fit rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
+              <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-emerald-200 bg-[#f2fbf6] px-3 py-1 text-xs font-black text-emerald-800">
                 Selected scorer
               </span>
             ) : null}
@@ -745,7 +834,7 @@ function ParentMatchCard({
           ) : null}
         </div>
 
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-center">
+        <div className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4 text-center">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Live score</p>
           <p className="mt-2 text-4xl font-black text-slate-950">
             {getClubScore(match)} - {getOpponentScore(match)}
@@ -762,7 +851,7 @@ function ParentMatchCard({
             type="button"
             onClick={() => onVolunteer(match)}
             disabled={isBusy || match.hasInterest}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {match.hasInterest ? 'Interest sent' : 'Volunteer as scorer'}
           </button>
@@ -774,13 +863,13 @@ function ParentMatchCard({
               type="button"
               onClick={() => onStartMatch(match)}
               disabled={isBusy}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Start match
             </button>
           ) : null}
 
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4">
             <h5 className="text-sm font-black text-slate-950">Update score</h5>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <label className="block">
@@ -790,7 +879,7 @@ function ParentMatchCard({
                   min="0"
                   value={scoreDraft.homeScore}
                   onChange={(event) => onScoreDraftChange({ homeScore: event.target.value })}
-                  className="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950"
                 />
               </label>
               <label className="block">
@@ -800,7 +889,7 @@ function ParentMatchCard({
                   min="0"
                   value={scoreDraft.awayScore}
                   onChange={(event) => onScoreDraftChange({ awayScore: event.target.value })}
-                  className="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950"
                 />
               </label>
               <label className="block">
@@ -808,7 +897,7 @@ function ParentMatchCard({
                 <select
                   value={scoreDraft.status}
                   onChange={(event) => onScoreDraftChange({ status: event.target.value })}
-                  className="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950"
                 >
                   <option value="live">Live</option>
                   <option value="half_time">Half time</option>
@@ -822,33 +911,33 @@ function ParentMatchCard({
                 type="button"
                 onClick={() => onScoreSave(match)}
                 disabled={isBusy}
-                className="mt-auto inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-auto inline-flex min-h-10 items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Save
               </button>
             </div>
           </div>
 
-          <form className="rounded-md border border-slate-200 bg-white p-4" onSubmit={(event) => onAddGoal(event, match)}>
-            <h5 className="text-sm font-semibold text-slate-950">Add goal</h5>
+          <form className="rounded-lg border border-slate-200 bg-white p-4" onSubmit={(event) => onAddGoal(event, match)}>
+            <h5 className="text-sm font-black text-slate-950">Add goal</h5>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-emerald-700">Team</span>
+                <span className="mb-1 block text-xs font-bold text-emerald-700">Team</span>
                 <select
                   value={goalForm.teamSide}
                   onChange={(event) => onGoalFormChange(match.id, { teamSide: event.target.value })}
-                  className="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2 text-sm font-semibold text-slate-950"
                 >
                   <option value="club">Our team</option>
                   <option value="opponent">Opponent</option>
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-emerald-700">Scorer player</span>
+                <span className="mb-1 block text-xs font-bold text-emerald-700">Scorer player</span>
                 <select
                   value=""
                   onChange={(event) => onPlayerPick(match.id, 'scorer', event.target.value)}
-                  className="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2 text-sm font-semibold text-slate-950"
                 >
                   <option value="">Choose player</option>
                   {orderedPlayers.map((player) => (
@@ -857,27 +946,27 @@ function ParentMatchCard({
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-emerald-700">Scorer name</span>
+                <span className="mb-1 block text-xs font-bold text-emerald-700">Scorer name</span>
                 <input
                   value={goalForm.scorerName}
                   onChange={(event) => onGoalFormChange(match.id, { scorerName: event.target.value })}
-                  className="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2 text-sm font-semibold text-slate-950"
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-emerald-700">Scorer shirt</span>
+                <span className="mb-1 block text-xs font-bold text-emerald-700">Scorer shirt</span>
                 <input
                   value={goalForm.scorerShirtNumber}
                   onChange={(event) => onGoalFormChange(match.id, { scorerShirtNumber: event.target.value })}
-                  className="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2 text-sm font-semibold text-slate-950"
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-emerald-700">Assist player</span>
+                <span className="mb-1 block text-xs font-bold text-emerald-700">Assist player</span>
                 <select
                   value=""
                   onChange={(event) => onPlayerPick(match.id, 'assist', event.target.value)}
-                  className="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2 text-sm font-semibold text-slate-950"
                 >
                   <option value="">Choose player</option>
                   {orderedPlayers.map((player) => (
@@ -886,25 +975,25 @@ function ParentMatchCard({
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-emerald-700">Assist name</span>
+                <span className="mb-1 block text-xs font-bold text-emerald-700">Assist name</span>
                 <input
                   value={goalForm.assistName}
                   onChange={(event) => onGoalFormChange(match.id, { assistName: event.target.value })}
-                  className="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2 text-sm font-semibold text-slate-950"
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-emerald-700">Assist shirt</span>
+                <span className="mb-1 block text-xs font-bold text-emerald-700">Assist shirt</span>
                 <input
                   value={goalForm.assistShirtNumber}
                   onChange={(event) => onGoalFormChange(match.id, { assistShirtNumber: event.target.value })}
-                  className="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950"
+                  className="min-h-10 w-full rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-2 text-sm font-semibold text-slate-950"
                 />
               </label>
               <button
                 type="submit"
                 disabled={isBusy}
-                className="inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Add goal
               </button>
@@ -916,15 +1005,15 @@ function ParentMatchCard({
       {match.events.length > 0 ? (
         <div className="mt-4 space-y-2">
           {match.events.slice(0, 8).map((event) => (
-            <div key={event.id} className="rounded-md border border-slate-200 bg-white px-4 py-3">
+            <div key={event.id} className="rounded-lg border border-slate-200 bg-[#f8fafc] px-4 py-3">
               <p className="text-sm font-semibold text-slate-950">
-                {event.eventType === 'goal' ? 'Goal' : 'Score update'} | {event.homeScore} - {event.awayScore}
+                {event.eventType === 'goal' ? 'Goal' : 'Score update'} / {event.homeScore} - {event.awayScore}
               </p>
               <p className="mt-1 text-xs font-semibold text-slate-600">
-                {event.minute !== null ? `${event.minute} min | ` : ''}
+                {event.minute !== null ? `${event.minute} min / ` : ''}
                 {event.scorerInitials || event.scorerName || 'Score update'}
                 {event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}
-                {event.assistInitials || event.assistName ? ` | Assist ${event.assistInitials || event.assistName}` : ''}
+                {event.assistInitials || event.assistName ? ` / Assist ${event.assistInitials || event.assistName}` : ''}
                 {event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}
               </p>
             </div>
