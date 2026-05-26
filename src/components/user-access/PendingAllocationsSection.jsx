@@ -1,6 +1,9 @@
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+
 export function PendingAllocationsSection({
   invitePage,
   isLoading,
@@ -18,11 +21,11 @@ export function PendingAllocationsSection({
       description="Invited emails receive the saved role when they sign in. Remove stale invites before sending new ones."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]">
+        <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#456653]`}>
           Loading pending allocations...
         </div>
       ) : pendingInvites.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[#bddcca] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]">
+        <div className={`${panelClass} px-4 py-6 text-sm font-semibold text-[#456653]`}>
           No pending allocations.
         </div>
       ) : (
@@ -30,7 +33,7 @@ export function PendingAllocationsSection({
           {paginatedInvites.items.map((invite) => (
             <div
               key={invite.id}
-              className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60"
+              className={`${panelClass} px-4 py-4`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -42,7 +45,7 @@ export function PendingAllocationsSection({
                   disabled={isSaving}
                   title={isSaving ? 'Please wait while this allocation is being removed.' : undefined}
                   onClick={() => onDeleteInvite(invite)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={secondaryButtonClass}
                 >
                   Remove
                 </button>

@@ -11,8 +11,10 @@ export function AllocateRoleSection({
   staffLimitMessage,
 }) {
   const inputClass =
-    'min-h-11 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition focus:border-[#067a46] focus:ring-2 focus:ring-[#bfe8cd]'
+    'min-h-11 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition focus:border-[#067a46] focus:ring-2 focus:ring-[#d7f8e5]'
   const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+  const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+  const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
 
   return (
     <SectionCard
@@ -25,18 +27,18 @@ export function AllocateRoleSection({
       }
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]">
+        <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#456653]`}>
           Loading roles...
         </div>
       ) : assignableRoles.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[#bddcca] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468]">
+        <div className={`${panelClass} px-4 py-6 text-sm font-semibold text-[#456653]`}>
           No role data entered yet, or role data could not be loaded.
         </div>
       ) : (
-        <form className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/60" onSubmit={onSubmit}>
+        <form className={`${panelClass} p-5`} onSubmit={onSubmit}>
           <div className="mb-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Invite details</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className={`mt-2 ${bodyTextClass}`}>
               Use the staff member email they will actually sign in with. Access should match the work they are expected to do this week.
             </p>
           </div>
@@ -83,7 +85,7 @@ export function AllocateRoleSection({
                   required={formState.roleKey === '__custom__'}
                   className={inputClass}
                 />
-                <p className="mt-2 text-xs font-semibold leading-5 text-[#5f7468]">
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#456653]">
                   Custom roles are saved at the support level and can be reused later.
                 </p>
               </label>

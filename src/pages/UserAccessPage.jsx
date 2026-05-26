@@ -41,6 +41,9 @@ const staffAccessRules = [
   },
 ]
 
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
+
 export function UserAccessPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -398,7 +401,7 @@ export function UserAccessPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#d7eadf]/70">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Staff control</p>
@@ -410,19 +413,19 @@ export function UserAccessPage() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {staffAccessRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+                <div key={rule.label} className={`${panelClass} px-4 py-4`}>
                   <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
+                  <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/70">
+          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#effbf3] p-5 shadow-sm shadow-[#067a46]/10">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Access state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{activeAndPendingEmailCount} staff emails tracked</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4d6458]">
+              <p className={`mt-2 ${bodyTextClass}`}>
                 Scope: {scopeLabel}. {pendingAccessCount} pending invites and {members.length} active users are visible to this account.
               </p>
             </div>
@@ -432,7 +435,7 @@ export function UserAccessPage() {
               <AccessMetric label="Roles" value={visibleRoleCount} />
               <AccessMetric label="Plan count" value={activeAndPendingEmailCount} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#4d6458]">
+            <p className={`mt-4 ${bodyTextClass}`}>
               {canAddMoreUsers ? 'Staff invite capacity is available.' : staffLimitMessage}
             </p>
           </div>
@@ -440,7 +443,7 @@ export function UserAccessPage() {
       </section>
 
       {message ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
+        <div className="rounded-lg border border-[#8bdcae] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#05603a] shadow-sm shadow-[#067a46]/10">
           {message}
         </div>
       ) : null}
@@ -525,7 +528,7 @@ export function UserAccessPage() {
 
 function AccessMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#10231a]">{value}</p>
     </div>
