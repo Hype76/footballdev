@@ -46,6 +46,9 @@ const developmentFormRules = [
   },
 ]
 
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const metricCardClass = 'rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/60'
+
 export function FormBuilderPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -434,28 +437,28 @@ export function FormBuilderPage() {
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Development form</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-slate-950 sm:text-5xl">
+            <p className={eyebrowClass}>Development form</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-5xl">
               Build the football record coaches will actually complete.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
               Choose the fields that matter for player development, parent updates, and squad decisions. Keep the form short enough to use after training.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {developmentFormRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-sm font-black text-slate-950">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rule.body}</p>
+                <div key={rule.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 shadow-sm shadow-slate-200/60">
+                  <p className="text-sm font-black text-[#101828]">{rule.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+          <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-inner shadow-slate-200/60">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Form state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{enabledFieldsCount} fields live for coaches</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#667085]">Form state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{enabledFieldsCount} fields live for coaches</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
                 {defaultFields.length} default fields and {customFields.length} custom fields are configured for this club.
               </p>
             </div>
@@ -465,7 +468,7 @@ export function FormBuilderPage() {
               <FormMetric label="Enabled" value={enabledFieldsCount} />
               <FormMetric label="Total" value={fields.length} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#667085]">
               {canUseCustomFields ? 'Custom development fields are available.' : createFeatureUpgradeMessage('customFormFields')}
             </p>
           </div>
@@ -531,9 +534,9 @@ export function FormBuilderPage() {
 
 function FormMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
-      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+    <div className={metricCardClass}>
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#101828]">{value}</p>
     </div>
   )
 }
