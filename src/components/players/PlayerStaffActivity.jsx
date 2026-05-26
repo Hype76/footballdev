@@ -251,7 +251,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
           </div>
           <div className="flex flex-wrap gap-2">
             {messageHasAttachment(log) ? (
-              <span className="inline-flex w-fit rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-3 py-1 text-xs font-black text-[#067a46]">
+              <span className="inline-flex w-fit rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-3 py-1 text-xs font-black text-[#067a46]">
                 PDF attached
               </span>
             ) : null}

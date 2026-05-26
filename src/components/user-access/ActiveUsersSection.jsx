@@ -49,7 +49,7 @@ export function ActiveUsersSection({
                   <p className={`mt-1 ${bodyTextClass}`}>{member.name || 'No display name yet'}</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
+                  <div className="rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
                     {getRoleLabel(member)}
                   </div>
                   {canRemoveClubUser(user, member) ? (

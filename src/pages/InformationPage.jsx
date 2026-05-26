@@ -213,7 +213,7 @@ function GuideHero({ description, eyebrow, metrics, rules, title }) {
           </div>
         </div>
 
-        <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#effbf3] p-5 shadow-sm shadow-[#067a46]/10">
+        <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-5 shadow-sm shadow-[#067a46]/10">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Current guide state</p>
             <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#10231a]">{metrics[0]?.value || 'Not set'}</p>

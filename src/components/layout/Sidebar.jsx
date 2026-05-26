@@ -320,7 +320,7 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(20.5rem,calc(100vw-1rem))] max-w-[20.5rem] flex-col overflow-y-auto border-r border-[#bddcca] bg-white px-3 py-4 shadow-2xl shadow-[#bddcca]/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(20.5rem,calc(100vw-1rem))] max-w-[20.5rem] flex-col overflow-y-auto border-r border-[#bddcca] bg-white px-3 py-4 shadow-2xl shadow-[#067a46]/10 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >

@@ -287,7 +287,7 @@ export function ParentInvitePage() {
 
       {invite && !session?.user && !acceptedLink ? (
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-          <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-4">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Child link</p>
             <p className="text-sm font-bold text-[#10231a]">{invite.playerName || 'Child access'}</p>
             <p className="mt-1 text-xs font-semibold text-[#456653]">{invite.teamName || 'Team'} | {invite.clubName || 'Club'}</p>
@@ -341,7 +341,7 @@ export function ParentInvitePage() {
           {errorMessage ? <NoticeBanner title="Parent access not created" message={errorMessage} /> : null}
 
           {message ? (
-            <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-4 py-3 text-sm font-semibold text-[#05603a]">
+            <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-4 py-3 text-sm font-semibold text-[#05603a]">
               {message}
             </div>
           ) : null}
@@ -367,7 +367,7 @@ export function ParentInvitePage() {
 
       {acceptedLink ? (
         <div className="mt-5 space-y-4">
-          <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-4">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-4">
             <p className="text-sm font-bold text-[#10231a]">{acceptedLink.playerName}</p>
             <p className="mt-1 text-xs font-semibold text-[#456653]">{acceptedLink.teamName || 'No team'} | {acceptedLink.clubName || 'No club'}</p>
           </div>

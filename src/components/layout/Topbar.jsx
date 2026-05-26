@@ -139,7 +139,7 @@ export function Topbar({ title, onMenuClick }) {
               <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">
                 {clubLabel}
               </p>
-              <span className="rounded-lg bg-[#f0fdf6] px-2 py-1 text-[11px] font-black text-[#065f3b] ring-1 ring-[#b7efce]">
+              <span className="rounded-lg bg-[#f0fdf6] px-2 py-1 text-[11px] font-black text-[#065f3b] ring-1 ring-[#bddcca]">
                 {workspaceContext}
               </span>
               <span className="rounded-lg bg-[#eef6ff] px-2 py-1 text-[11px] font-black text-[#175cd3] ring-1 ring-[#c7ddff]">

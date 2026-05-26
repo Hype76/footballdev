@@ -419,7 +419,7 @@ export function AddPlayerPage() {
       ) : null}
 
       {message ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
           {message}
         </div>
       ) : null}

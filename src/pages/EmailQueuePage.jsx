@@ -289,7 +289,7 @@ export function EmailQueuePage() {
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-lg border border-[#b7efce] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">
+                      <span className="rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">
                         {item.status}
                       </span>
                       {item.hasAttachment ? (

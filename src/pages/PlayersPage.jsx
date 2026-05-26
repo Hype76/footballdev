@@ -329,7 +329,7 @@ export function PlayersPage({
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">{headerDescription}</p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {playerRegisterRules.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+                  <article key={item.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.body}</p>
                   </article>
@@ -337,7 +337,7 @@ export function PlayersPage({
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#d7eadf] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Register state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
@@ -381,7 +381,7 @@ export function PlayersPage({
         </div>
       ) : null}
       {message ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-bold text-[#067a46]">
+        <div className="rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-4 py-3 text-sm font-bold text-[#067a46]">
           {message}
         </div>
       ) : null}

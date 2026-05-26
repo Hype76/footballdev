@@ -147,7 +147,7 @@ function DevelopmentRecordCommandPanel({
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
-      <div className="grid gap-5 border-b border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+      <div className="grid gap-5 border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Record workspace</p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Build one clear football record.</h3>
@@ -188,7 +188,7 @@ function DevelopmentRecordCommandPanel({
         />
       </div>
 
-      <div className="grid gap-3 border-t border-[#d7eadf] bg-[#f6fbf8] px-5 py-4 text-sm font-semibold text-[#456653] md:grid-cols-3">
+      <div className="grid gap-3 border-t border-[#bddcca] bg-[#f6fbf8] px-5 py-4 text-sm font-semibold text-[#456653] md:grid-cols-3">
         <p>
           Session: <span className="font-black text-[#10231a]">{selectedSession}</span>
         </p>

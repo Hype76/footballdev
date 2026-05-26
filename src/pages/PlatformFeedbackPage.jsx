@@ -153,7 +153,7 @@ export function PlatformFeedbackPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       {successMessage ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
           {successMessage}
         </div>
       ) : null}

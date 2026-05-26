@@ -105,7 +105,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
           ) : null}
 
           {message ? (
-            <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-4 py-3 text-sm font-semibold text-[#05603a]">
+            <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-4 py-3 text-sm font-semibold text-[#05603a]">
               {message}
             </div>
           ) : null}

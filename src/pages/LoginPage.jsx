@@ -190,11 +190,11 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#fbfdfb] text-[#10231a]">
+    <main className="min-h-screen overflow-hidden bg-[#f6fbf8] text-[#10231a]">
       <div className="fixed inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-white/88" />
-        <div className="absolute inset-0 bg-[#fbfdfb]/70" />
+        <div className="absolute inset-0 bg-[#f6fbf8]/70" />
       </div>
 
       <div className="relative flex min-h-screen w-full flex-col">

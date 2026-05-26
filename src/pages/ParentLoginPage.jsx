@@ -307,7 +307,7 @@ export function ParentLoginPage() {
           {errorMessage ? <NoticeBanner title="Parent login not completed" message={errorMessage} /> : null}
 
           {message ? (
-            <div className="rounded-lg border border-[#b7efce] bg-[#f2fbf6] px-4 py-3 text-sm font-semibold text-[#05603a]">
+            <div className="rounded-lg border border-[#bddcca] bg-[#f2fbf6] px-4 py-3 text-sm font-semibold text-[#05603a]">
               {message}
             </div>
           ) : null}
@@ -332,7 +332,7 @@ export function ParentLoginPage() {
           {parentInviteToken ? (
             <a
               href={buildParentAppUrl(`/parent-invite/${parentInviteToken}`)}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#b7efce] bg-[#f2fbf6] px-5 py-3 text-sm font-bold text-[#05603a] transition hover:bg-[#d7f8e5]"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-[#f2fbf6] px-5 py-3 text-sm font-bold text-[#05603a] transition hover:bg-[#d7f8e5]"
             >
               Back to parent invite
             </a>

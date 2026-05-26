@@ -512,7 +512,7 @@ export function MatchDayPage() {
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#bddcca] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Next fixture</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
@@ -835,7 +835,7 @@ function MatchDayCard({
           {match.notes ? <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#456653]">{match.notes}</p> : null}
         </div>
 
-        <div className="rounded-lg border border-[#bddcca] bg-[#effbf3] p-4 text-center shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-4 text-center shadow-sm shadow-[#067a46]/10">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Live score</p>
           <p className="mt-2 text-4xl font-black text-[#10231a]">
             {getClubScore(match)} - {getOpponentScore(match)}

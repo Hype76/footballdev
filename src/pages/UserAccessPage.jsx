@@ -421,7 +421,7 @@ export function UserAccessPage() {
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#effbf3] p-5 shadow-sm shadow-[#067a46]/10">
+          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-5 shadow-sm shadow-[#067a46]/10">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Access state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{activeAndPendingEmailCount} staff emails tracked</p>

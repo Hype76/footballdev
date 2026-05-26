@@ -501,7 +501,7 @@ export function PollsPage() {
                   onClick={() => handlePollTypeChange(option.value)}
                   className={`min-h-11 rounded-lg border px-4 py-3 text-sm font-black transition ${
                     form.pollType === option.value
-                      ? 'border-[#067a46] bg-[#067a46] text-white shadow-sm shadow-[#b7efce]'
+                      ? 'border-[#067a46] bg-[#067a46] text-white shadow-sm shadow-[#067a46]/10'
                       : 'border-[#bddcca] bg-white text-[#10231a] shadow-sm shadow-[#067a46]/10 hover:border-[#20a464] hover:bg-[#f0fdf6]'
                   }`}
                 >

@@ -18,7 +18,7 @@ export function PlatformFeedbackHero({ isLoading }) {
             ))}
           </div>
         </div>
-        <div className="grid content-between border-t border-[#bddcca] bg-[#effbf3] px-5 py-6 sm:px-6 xl:border-l xl:border-t-0">
+        <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] px-5 py-6 sm:px-6 xl:border-l xl:border-t-0">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Board state</p>
             <p className="mt-3 text-2xl font-black tracking-tight text-[#10231a]">

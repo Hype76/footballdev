@@ -310,13 +310,13 @@ export function ClubSettingsPage() {
       />
 
       {isSaved ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
           Saved successfully
         </div>
       ) : null}
 
       {uploadSuccessMessage ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
           {uploadSuccessMessage}
         </div>
       ) : null}

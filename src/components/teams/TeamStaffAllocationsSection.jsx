@@ -125,7 +125,7 @@ function TeamList({
               className={[
                 'w-full rounded-lg border px-4 py-3 text-left transition',
                 selectedTeam?.id === team.id
-                  ? 'border-[#20a464] bg-[#effbf3] shadow-sm shadow-[#067a46]/15'
+                  ? 'border-[#20a464] bg-[#f0fdf6] shadow-sm shadow-[#067a46]/15'
                   : 'border-[#bddcca] bg-white hover:border-[#20a464] hover:bg-[#f0fdf6]',
               ].join(' ')}
             >

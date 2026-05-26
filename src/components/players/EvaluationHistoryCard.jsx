@@ -95,7 +95,7 @@ export function EvaluationHistoryCard({
             <p className="mt-1 text-sm font-semibold text-[#456653]">Section: {evaluation.section || 'Trial'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex min-h-9 items-center rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-3 py-2 text-sm font-black text-[#067a46]">
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-3 py-2 text-sm font-black text-[#067a46]">
               Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
             </span>
             <span className="inline-flex min-h-9 items-center rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a]">

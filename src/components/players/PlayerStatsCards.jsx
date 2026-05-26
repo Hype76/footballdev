@@ -29,7 +29,7 @@ export function PlayerStatsCards({
       detail: `${evaluatedPlayerCount} players have coach history attached.`,
       to: '/assess-player/completed',
       action: 'Review records',
-      tone: 'border-[#b7efce] bg-[#ecfdf3] text-[#067a46]',
+      tone: 'border-[#bddcca] bg-[#ecfdf3] text-[#067a46]',
     },
   ]
 

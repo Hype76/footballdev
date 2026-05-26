@@ -655,7 +655,7 @@ export function TeamManagementPage() {
             </div>
           </div>
 
-          <div className="grid content-between border-t border-[#bddcca] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#456653]">Setup state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{teams.length} teams configured</p>

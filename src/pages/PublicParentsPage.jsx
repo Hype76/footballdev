@@ -16,10 +16,10 @@ const parentRules = [
 
 export function PublicParentsPage() {
   return (
-    <main className="min-h-screen bg-[#fbfdfb] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#101828] lg:pb-0">
+    <main className="min-h-screen bg-[#f6fbf8] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#10231a] lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:grid-cols-[0.85fr_1fr] lg:gap-8 lg:px-8 lg:py-16">
-        <div className="order-2 flex items-start justify-center overflow-hidden rounded-lg border border-[#b7efce] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6 lg:sticky lg:top-28 lg:order-1 lg:max-h-[820px]">
+        <div className="order-2 flex items-start justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10 sm:p-6 lg:sticky lg:top-28 lg:order-1 lg:max-h-[820px]">
           <img
             src={parentPortalGoalPhoneImage}
             alt="Mobile phone showing a Football Player goal celebration"
@@ -43,26 +43,26 @@ export function PublicParentsPage() {
             </a>
             <a
               href="/pricing"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm transition hover:bg-[#f0fdf6]"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm transition hover:bg-[#f0fdf6]"
             >
               View Pricing
             </a>
           </div>
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             {parentCards.map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/60 sm:p-5">
+              <article key={title} className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10 sm:p-5">
                 <h2 className="text-lg font-black sm:text-xl">{title}</h2>
-                <p className="mt-2 text-sm font-semibold leading-7 text-[#5f7468]">{copy}</p>
+                <p className="mt-2 text-sm font-semibold leading-7 text-[#456653]">{copy}</p>
               </article>
             ))}
           </div>
-          <section className="mt-5 rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-5 shadow-sm shadow-[#d7eadf]/60">
+          <section className="mt-5 rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-5 shadow-sm shadow-[#067a46]/10">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">How it should feel</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {parentRules.map(([title, copy]) => (
-                <article key={title} className="rounded-lg border border-[#b7efce] bg-white p-4">
-                  <h2 className="text-sm font-black text-[#101828]">{title}</h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{copy}</p>
+                <article key={title} className="rounded-lg border border-[#bddcca] bg-white p-4">
+                  <h2 className="text-sm font-black text-[#10231a]">{title}</h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{copy}</p>
                 </article>
               ))}
             </div>

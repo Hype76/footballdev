@@ -75,7 +75,7 @@ function SetupStepCard({ index, onComplete, step }) {
       className={[
         'rounded-lg border p-4 shadow-sm transition',
         step.complete
-          ? 'border-[#b7efce] bg-[#effbf3] shadow-[#067a46]/10'
+          ? 'border-[#bddcca] bg-[#f0fdf6] shadow-[#067a46]/10'
           : 'border-[#bddcca] bg-white shadow-[#067a46]/10 hover:border-[#20a464]',
       ].join(' ')}
     >
@@ -281,7 +281,7 @@ export function OnboardingProvider({ children }) {
               </div>
             </div>
 
-            <aside className="grid content-between border-t border-[#bddcca] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+            <aside className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
               <div>
                 <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
                   <span>Setup progress</span>

@@ -5,10 +5,10 @@ import { ParentPortalLoginBox } from '../components/login/ParentPortalLoginBox.j
 
 export function PublicParentPortalLoginPage() {
   return (
-    <main className="min-h-screen bg-[#fbfdfb] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#101828] lg:pb-0">
+    <main className="min-h-screen bg-[#f6fbf8] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#10231a] lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:grid-cols-[0.75fr_1fr] lg:gap-8 lg:px-8 lg:py-16">
-        <div className="order-2 flex items-start justify-center overflow-hidden rounded-lg border border-[#b7efce] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6 lg:order-1">
+        <div className="order-2 flex items-start justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10 sm:p-6 lg:order-1">
           <img
             src={parentPortalGoalPhoneImage}
             alt="Mobile phone showing a Football Player goal notification"
@@ -29,9 +29,9 @@ export function PublicParentPortalLoginPage() {
               ['Match day', 'Follow live cards when staff share them.'],
               ['Polls', 'Answer club questions with clear voting rules.'],
             ].map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/60">
-                <p className="text-sm font-black text-[#101828]">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{copy}</p>
+              <article key={title} className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
+                <p className="text-sm font-black text-[#10231a]">{title}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{copy}</p>
               </article>
             ))}
           </div>
