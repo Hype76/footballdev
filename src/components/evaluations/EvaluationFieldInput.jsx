@@ -55,18 +55,18 @@ function ScoreInfo() {
         aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
         onBlur={() => setIsOpen(false)}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white text-sm font-black text-[#067a46] transition hover:border-[#20a464] hover:bg-[#f0fdf6] focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5] focus:outline-none"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white text-sm font-black text-[#067a46] transition hover:border-[#20a464] hover:bg-[#f0fdf6] focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5] focus:outline-none"
       >
         i
       </button>
-      <span className={`pointer-events-none absolute right-0 top-12 z-20 w-80 rounded-lg border border-[#bfe8cd] bg-white p-4 text-left text-xs leading-5 text-[#5f7468] shadow-lg shadow-[#10231a]/10 group-hover:block group-focus-within:block ${isOpen ? 'block' : 'hidden'}`}>
-        <span className="mb-3 block text-sm font-black text-[#101828]">Scoring guide</span>
+      <span className={`pointer-events-none absolute right-0 top-12 z-20 w-80 rounded-lg border border-[#bddcca] bg-white p-4 text-left text-xs leading-5 text-[#456653] shadow-lg shadow-[#10231a]/10 group-hover:block group-focus-within:block ${isOpen ? 'block' : 'hidden'}`}>
+        <span className="mb-3 block text-sm font-black text-[#10231a]">Scoring guide</span>
         {SCORE_HELP.map((help, index) => (
           <span key={help.label} className="mt-2 block">
-            <span className="font-black text-[#101828]">
+            <span className="font-black text-[#10231a]">
               {index + 1}. {help.label}
             </span>
-            <span className="mt-0.5 block text-[#5f7468]">{help.description}</span>
+            <span className="mt-0.5 block text-[#456653]">{help.description}</span>
           </span>
         ))}
       </span>
@@ -76,7 +76,7 @@ function ScoreInfo() {
 
 export function EvaluationFieldInput({ field, value, onChange }) {
   const sharedClassName =
-    'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+    'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 
   if (field.type === 'textarea') {
     return (
@@ -85,7 +85,7 @@ export function EvaluationFieldInput({ field, value, onChange }) {
         onChange={(event) => onChange(field.id, event.target.value)}
         required={field.required}
         rows="4"
-        className="min-h-32 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+        className="min-h-32 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
       />
     )
   }

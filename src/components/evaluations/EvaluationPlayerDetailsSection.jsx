@@ -3,11 +3,11 @@ import { canManageUsers } from '../../lib/auth.js'
 import { PLAYER_CONTACT_TYPES } from '../../lib/supabase.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
 const eyebrowLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.12em] text-[#067a46]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const helperClass = 'mt-2 text-xs font-semibold leading-5 text-[#5f7468]'
-const contactCardClass = 'flex min-h-11 items-center gap-3 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] shadow-sm shadow-[#d7eadf]/60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const helperClass = 'mt-2 text-xs font-semibold leading-5 text-[#456653]'
+const contactCardClass = 'flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] shadow-sm shadow-[#067a46]/10'
 
 export function EvaluationPlayerDetailsSection({
   availableTeams,
@@ -106,7 +106,7 @@ export function EvaluationPlayerDetailsSection({
             name="coachName"
             value={formData.coachName}
             readOnly
-            className="min-h-11 w-full rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-semibold text-[#101828] outline-none"
+            className="min-h-11 w-full rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none"
           />
         </label>
 
@@ -127,7 +127,7 @@ export function EvaluationPlayerDetailsSection({
                   />
                   <span className="min-w-0">
                     <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}</span>
-                    <span className="block break-words text-xs font-semibold text-[#5f7468]">{contact.email || 'No email entered'}</span>
+                    <span className="block break-words text-xs font-semibold text-[#456653]">{contact.email || 'No email entered'}</span>
                   </span>
                 </label>
               ))}
