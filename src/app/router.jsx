@@ -91,12 +91,12 @@ const primaryActionClassName =
   'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 const secondaryActionClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#dbeafe]/60 transition hover:border-[#3b82f6] hover:bg-[#eff6ff] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 function LoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)]">
-      <div className="rounded-lg border border-[#cbd5e1] bg-white px-6 py-5 text-sm font-bold text-[#475569] shadow-sm shadow-[#dbeafe]/70">
+      <div className="rounded-lg border border-[#cbd5e1] bg-white px-6 py-5 text-sm font-bold text-[#475569] shadow-sm shadow-[#2563eb]/10">
         Loading...
       </div>
     </main>
@@ -119,12 +119,12 @@ function NavigateToParentInvite() {
 function RouteContentSkeleton() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-8 shadow-sm shadow-[#dbeafe]/70">
+      <div className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-8 shadow-sm shadow-[#2563eb]/10">
         <div className="h-4 w-28 rounded-lg bg-[#dbeafe]" />
         <div className="mt-5 h-10 w-64 max-w-full rounded-lg bg-[#e0f2fe]" />
         <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[#e0f2fe]" />
       </div>
-      <div className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-8 shadow-sm shadow-[#dbeafe]/70">
+      <div className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-8 shadow-sm shadow-[#2563eb]/10">
         <div className="h-8 w-40 rounded-lg bg-[#e0f2fe]" />
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="h-28 rounded-lg bg-[#e0f2fe]" />
@@ -145,19 +145,19 @@ const accountRecoveryRules = [
     body: 'This workspace cannot match that login to a club, parent, team, or platform profile.',
   },
   {
-    title: 'Use the right environment',
-    body: 'Staging needs a staging test account. Live accounts are kept separate.',
+    title: 'Use the right account',
+    body: 'Use an account that belongs to this workspace. Test and live workspaces keep accounts separate.',
   },
 ]
 
 function RouteGateState({ title, message, eyebrow = 'Workspace', actions = null, rules = [] }) {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#dbeafe]/80">
+      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="px-5 py-6 sm:px-6 lg:px-8">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">{eyebrow}</p>
-            <h1 className="mt-3 text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">{title}</h1>
+            <h1 className="mt-3 text-3xl font-black leading-[1.05] tracking-tight text-[#0f172a] sm:text-4xl">{title}</h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">{message}</p>
             {actions ? <div className="mt-6 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
           </div>
@@ -167,8 +167,8 @@ function RouteGateState({ title, message, eyebrow = 'Workspace', actions = null,
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">What this means</p>
               <div className="mt-4 space-y-2">
                 {rules.map((rule) => (
-                  <article key={rule.title} className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#dbeafe]/60">
-                    <p className="text-sm font-black text-[#10231a]">{rule.title}</p>
+                  <article key={rule.title} className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10">
+                    <p className="text-sm font-black text-[#0f172a]">{rule.title}</p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{rule.body}</p>
                   </article>
                 ))}
@@ -196,7 +196,7 @@ function AccountDetailsUnavailableState({ message }) {
   return (
     <RouteGateState
       title="Account details unavailable"
-      message={message || 'Your login session is active, but this workspace could not find a matching account profile. Retry once after a refresh. If it still appears, sign in again with the correct staging test account.'}
+      message={message || 'Your login session is active, but this workspace could not find a matching account profile. Retry once after a refresh. If it still appears, sign in again with an account that belongs to this workspace.'}
       rules={accountRecoveryRules}
       actions={(
         <>
