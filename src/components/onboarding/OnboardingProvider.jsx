@@ -105,13 +105,13 @@ function SetupStepCard({ index, onComplete, step }) {
             >
               {step.actionLabel}
             </Link>
-            {!step.complete ? (
+            {!step.complete && step.manualLabel ? (
               <button
                 type="button"
                 onClick={() => onComplete(step.id)}
                 className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff]"
               >
-                Confirm not needed
+                {step.manualLabel}
               </button>
             ) : null}
           </div>

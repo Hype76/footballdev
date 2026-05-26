@@ -125,13 +125,14 @@ export async function loadOnboardingSnapshot(user) {
   }
 }
 
-function makeStep({ actionLabel, complete, detail, href, id, rule, title }) {
+function makeStep({ actionLabel, complete, detail, href, id, manualLabel = '', rule, title }) {
   return {
     actionLabel,
     complete: Boolean(complete),
     detail,
     href,
     id,
+    manualLabel,
     rule,
     title,
   }
@@ -220,6 +221,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
           detail: 'Add staff or confirm the first admin account is enough for testing.',
           href: '/user-access',
           actionLabel: 'Open access',
+          manualLabel: 'Admin only for now',
           complete: snapshot.staff > 1 || hasCompletedStep(user, scope, 'staff-access'),
         }),
         makeStep({
@@ -256,6 +258,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
           detail: 'Create the next fixture or mark this step done if the club is training only.',
           href: '/match-day',
           actionLabel: 'Open match day',
+          manualLabel: 'Training only for now',
           complete: snapshot.matchDays > 0 || hasCompletedStep(user, scope, 'first-match'),
         }),
         makeStep({
@@ -265,6 +268,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
           detail: 'Send the first parent invite or confirm parent access is not used yet.',
           href: '/parent-linking',
           actionLabel: 'Open linking',
+          manualLabel: 'No parent access yet',
           complete: snapshot.parentLinks > 0 || hasCompletedStep(user, scope, 'parent-invites'),
         }),
       ],

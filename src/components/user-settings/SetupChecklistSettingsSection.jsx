@@ -21,7 +21,7 @@ export function SetupChecklistSettingsSection({
           {isRestarting ? 'Opening setup...' : 'Open setup checklist'}
         </button>
         <p className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-xs font-semibold leading-5 text-[#475569] shadow-sm shadow-[#2563eb]/10">
-          This clears skipped setup for this {scopeLabel} and shows the checklist again above the page.
+          This resets setup state for this {scopeLabel} and shows the checklist above the page again.
         </p>
       </div>
     </SectionCard>
