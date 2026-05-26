@@ -218,8 +218,8 @@ export function Layout() {
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f5f7fa] text-[#101828]">
-      <div className="fixed inset-0 -z-10 bg-[linear-gradient(180deg,#ffffff_0%,#f5f7fa_38%,#eef4f0_100%)]" />
+    <div className="min-h-screen overflow-x-hidden bg-[#f8fdf9] text-[#101828]">
+      <div className="fixed inset-0 -z-10 bg-[linear-gradient(180deg,#ffffff_0%,#f8fdf9_44%,#eefaf2_100%)]" />
       <div className="flex min-h-screen w-full">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
@@ -233,7 +233,7 @@ export function Layout() {
             <div className="mx-auto w-full max-w-[104rem]">
               <OnboardingProvider>
                 {needsAccessModeSelection ? (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Access"
                       title="How do you want to open this account?"
@@ -245,7 +245,7 @@ export function Layout() {
                     />
                   </div>
                 ) : needsClubSelection ? (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Club"
                       title="Which club do you want to open?"
@@ -261,7 +261,7 @@ export function Layout() {
                     />
                   </div>
                 ) : needsTeamSelection ? (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/80 sm:p-6">
+                  <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
                     <WorkspaceSelection
                       eyebrow="Choose Team"
                       title="Which team do you want to work with?"
@@ -291,10 +291,10 @@ export function Layout() {
 function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, options, title }) {
   return (
     <div className="mx-auto max-w-3xl space-y-5 py-4 sm:py-8">
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80 sm:p-6">
+      <div className="rounded-lg border border-[#bfe8cd] bg-white p-5 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-[#067a46]">{eyebrow}</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">{title}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[#475467]">{description}</p>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#456653]">{description}</p>
       </div>
 
       <div className="space-y-3">
@@ -305,11 +305,11 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
             onClick={() => onSelect(option.id)}
             disabled={isLoading}
             title={isLoading ? 'Please wait while the workspace opens.' : undefined}
-            className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm shadow-slate-200/70 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-left shadow-sm shadow-[#d7eadf]/70 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="min-w-0">
               <span className="block truncate text-sm font-black text-[#101828]">{option.label}</span>
-              <span className="mt-1 block text-xs text-[#667085]">{option.meta}</span>
+              <span className="mt-1 block text-xs font-semibold text-[#5f7468]">{option.meta}</span>
             </span>
             <span className="shrink-0 text-sm font-black text-[#067a46]">
               {isLoading ? 'Opening...' : 'Open'}
@@ -319,7 +319,7 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-900">
+        <div className="rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#b42318]">
           {error}
         </div>
       ) : null}

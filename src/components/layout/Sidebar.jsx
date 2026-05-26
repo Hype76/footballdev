@@ -67,7 +67,7 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
 
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f4f8ff] text-[10px] font-black tracking-tight text-[#344054] shadow-sm shadow-slate-200/80 ring-1 ring-slate-200">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#effbf3] text-[10px] font-black tracking-tight text-[#067a46] shadow-sm shadow-[#d7eadf]/80 ring-1 ring-[#bfe8cd]">
         {getNavIcon(item.path)}
       </span>
       <span className="min-w-0 flex-1">
@@ -303,7 +303,7 @@ export function Sidebar({ isOpen, onClose }) {
     <>
       <div
         className={[
-          'fixed inset-0 z-30 bg-slate-950/30 backdrop-blur-sm transition lg:hidden',
+          'fixed inset-0 z-30 bg-[#10231a]/35 backdrop-blur-sm transition lg:hidden',
           isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
         ].join(' ')}
         onClick={onClose}
@@ -311,14 +311,14 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(18rem,calc(100vw-1rem))] max-w-[18rem] flex-col overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 shadow-2xl shadow-slate-300/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(18rem,calc(100vw-1rem))] max-w-[18rem] flex-col overflow-y-auto border-r border-[#bfe8cd] bg-white px-3 py-4 shadow-2xl shadow-[#bfe8cd]/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
+        <div className="flex items-start justify-between gap-3 border-b border-[#d7eadf] pb-4">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-[#101828] shadow-sm">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/70">
                 <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
               </div>
               <div className="min-w-0">
@@ -328,7 +328,7 @@ export function Sidebar({ isOpen, onClose }) {
                 <h2 className="mt-1 truncate text-base font-black tracking-tight text-[#101828]">{clubLabel}</h2>
               </div>
             </div>
-            <p className="mt-3 border-l-4 border-[#20a464] bg-[#f0fdf6] px-3 py-2 text-xs font-bold leading-5 text-[#344054]">
+            <p className="mt-3 border-l-4 border-[#20a464] bg-[#f0fdf6] px-3 py-2 text-xs font-bold leading-5 text-[#456653]">
               {isParentPortal ? 'Fixtures, replies, and club messages in one place.' : 'Football first: week plan, squad, parents, staff, and match day.'}
             </p>
           </div>
@@ -336,7 +336,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#475467] shadow-sm lg:hidden"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white text-[#456653] shadow-sm lg:hidden"
             aria-label="Close navigation"
           >
             X
@@ -344,12 +344,12 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
 
         <nav className="mt-4 space-y-3 pb-4">
-          <section className="rounded-lg border border-slate-200 bg-[#f9fafb] p-2 shadow-sm shadow-slate-200/70">
+          <section className="rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70">
             <div className="flex items-center justify-between px-2">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#667085]">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#456653]">
                 {isParentPortal ? 'Family view' : 'Match week'}
               </p>
-              <span className="rounded-lg bg-[#101828] px-2 py-1 text-[11px] font-black text-white">
+              <span className="rounded-lg bg-[#067a46] px-2 py-1 text-[11px] font-black text-white">
                 Active
               </span>
             </div>
@@ -364,8 +364,8 @@ export function Sidebar({ isOpen, onClose }) {
                     [
                       'block rounded-lg px-3 py-3 transition',
                       isActive
-                        ? 'bg-[#067a46] text-white shadow-sm shadow-emerald-200'
-                        : 'bg-white text-[#344054] shadow-sm shadow-slate-200/70 hover:bg-[#f0fdf6] hover:text-[#101828]',
+                        ? 'bg-[#067a46] text-white shadow-sm shadow-[#b7efce]'
+                        : 'bg-white text-[#344054] shadow-sm shadow-[#d7eadf]/70 hover:bg-[#f0fdf6] hover:text-[#101828]',
                     ].join(' ')
                   }
                 >
@@ -397,10 +397,10 @@ export function Sidebar({ isOpen, onClose }) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
-                    'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-slate-200/60',
+                    'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#d7eadf]/60',
                     isActive
                       ? 'border-[#20a464] bg-[#f0fdf6] text-[#065f3b]'
-                      : 'border-slate-200 bg-white text-[#344054] hover:bg-[#f9fafb]',
+                      : 'border-[#bfe8cd] bg-white text-[#344054] hover:bg-[#f8fdf9]',
                   ].join(' ')
                 }
               >
@@ -413,10 +413,10 @@ export function Sidebar({ isOpen, onClose }) {
                   onClick={onClose}
                   className={({ isActive }) =>
                     [
-                      'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-slate-200/60',
+                      'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#d7eadf]/60',
                       isActive
                       ? 'border-[#20a464] bg-[#f0fdf6] text-[#065f3b]'
-                      : 'border-slate-200 bg-white text-[#344054] hover:bg-[#f9fafb]',
+                      : 'border-[#bfe8cd] bg-white text-[#344054] hover:bg-[#f8fdf9]',
                     ].join(' ')
                   }
                 >
@@ -428,7 +428,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/70 transition hover:bg-[#f9fafb]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/70 transition hover:bg-[#f8fdf9]"
           >
             Sign out
           </button>
@@ -440,14 +440,14 @@ export function Sidebar({ isOpen, onClose }) {
 
 function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
   return (
-    <details className="group rounded-lg border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/70">
+    <details className="group rounded-lg border border-[#bfe8cd] bg-white p-2 shadow-sm shadow-[#d7eadf]/70">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#101828]">
         <span className="min-w-0 flex-1">
           <span className="block">{title}</span>
-          <span className="mt-0.5 block text-xs font-semibold text-[#667085]">{groupDescriptions[title] || 'Workspace tools'}</span>
+          <span className="mt-0.5 block text-xs font-semibold text-[#5f7468]">{groupDescriptions[title] || 'Workspace tools'}</span>
         </span>
-        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-2 py-1 text-xs font-black text-[#667085] group-open:hidden">Show</span>
-        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-200 bg-[#f9fafb] px-2 py-1 text-xs font-black text-[#667085] group-open:inline-flex">Hide</span>
+        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#5f7468] group-open:hidden">Show</span>
+        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#5f7468] group-open:inline-flex">Hide</span>
       </summary>
       <div className="mt-2 grid gap-1.5">
         {items.map((item) =>
@@ -464,7 +464,7 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
                   'block rounded-lg px-3 py-3 transition',
                   isActive
                     ? 'bg-[#f0fdf6] text-[#065f3b] ring-1 ring-[#20a464]'
-                    : 'text-[#344054] hover:bg-[#f9fafb] hover:text-[#101828]',
+                    : 'text-[#344054] hover:bg-[#f8fdf9] hover:text-[#101828]',
                 ].join(' ')
               }
             >
@@ -495,14 +495,14 @@ function DisabledNavItem({ item }) {
       disabled
       aria-disabled="true"
       title={item.disabledMessage}
-      className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-left opacity-70"
+      className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-3 py-3 text-left opacity-70"
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[10px] font-black text-slate-500 ring-1 ring-slate-200">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[10px] font-black text-[#5f7468] ring-1 ring-[#bfe8cd]">
         {getNavIcon(item.path)}
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-black text-slate-600">{item.label}</span>
-        <span className="mt-1 block text-xs leading-5 text-slate-500">{item.disabledMessage}</span>
+        <span className="block text-sm font-black text-[#5f7468]">{item.label}</span>
+        <span className="mt-1 block text-xs leading-5 text-[#6d8076]">{item.disabledMessage}</span>
       </span>
     </button>
   )
