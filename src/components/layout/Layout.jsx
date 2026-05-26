@@ -289,13 +289,13 @@ export function Layout() {
 
 function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, options, title }) {
   return (
-    <section className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+    <section className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
       <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="border-b border-[#d7eadf] bg-[#f0fdf6] p-5 sm:p-7 lg:border-b-0 lg:border-r">
+        <div className="border-b border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-7 lg:border-b-0 lg:border-r">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-[#067a46]">{eyebrow}</p>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-[#10231a] sm:text-4xl">{title}</h1>
           <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[#456653]">{description}</p>
-          <div className="mt-6 rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70">
+          <div className="mt-6 rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
             <p className="text-sm font-black text-[#10231a]">Before you continue</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
               The workspace selection controls what data loads, which actions are available, and where saved football records belong.
@@ -312,7 +312,7 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
                 onClick={() => onSelect(option.id)}
                 disabled={isLoading}
                 title={isLoading ? 'Please wait while the workspace opens.' : undefined}
-                className="group flex min-h-20 w-full items-center justify-between gap-4 rounded-lg border border-[#bddcca] bg-white px-4 py-4 text-left shadow-sm shadow-[#d7eadf]/70 transition hover:border-[#20a464] hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex min-h-20 w-full items-center justify-between gap-4 rounded-lg border border-[#bddcca] bg-white px-4 py-4 text-left shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f6fbf8] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#bddcca] bg-[#f0fdf6] text-sm font-black text-[#067a46]">
