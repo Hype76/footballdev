@@ -5,10 +5,10 @@ function getStaffDisplayName(member) {
   return String(member?.name || member?.username || member?.email || 'Unnamed staff').trim()
 }
 
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#6b8577] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
+const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
 
 export function TeamStaffAllocationsSection({
   availableStaff,
@@ -39,21 +39,21 @@ export function TeamStaffAllocationsSection({
   teamPageSize,
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10" data-tour-id="team-staff-section">
-      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Step 3 / access audit</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Control team access</h2>
+    <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10" data-tour-id="team-staff-section">
+      <div className="border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Step 3 / access audit</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Control team access</h2>
         <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
           Select one club team, rename it if needed, then check exactly which staff can work inside that team.
         </p>
       </div>
       {isLoading ? (
-        <div className={`${panelClass} m-5 px-4 py-4 text-sm font-semibold text-[#456653] sm:m-6`}>
+        <div className={`${panelClass} m-5 px-4 py-4 text-sm font-semibold text-[#475569] sm:m-6`}>
           Loading teams...
         </div>
       ) : teamAssignments.length === 0 ? (
         <div className={`${panelClass} m-5 px-4 py-6 sm:m-6`}>
-          <p className="text-base font-black text-[#10231a]">No teams have been created yet.</p>
+          <p className="text-base font-black text-[#0f172a]">No teams have been created yet.</p>
           <p className={`mt-2 ${bodyTextClass}`}>
             Create the first team above before adding players, sessions, staff access, or match day records.
           </p>
@@ -111,7 +111,7 @@ function TeamList({
 }) {
   return (
     <div className={`${panelClass} p-4`}>
-      <p className="text-sm font-black text-[#10231a]">Club teams</p>
+      <p className="text-sm font-black text-[#0f172a]">Club teams</p>
       <p className={`mt-1 ${bodyTextClass}`}>Choose a team to manage its staff access.</p>
       <div className="mt-4 space-y-2">
         {paginatedTeams.items.map((team) => {
@@ -125,15 +125,15 @@ function TeamList({
               className={[
                 'w-full rounded-lg border px-4 py-3 text-left transition',
                 selectedTeam?.id === team.id
-                  ? 'border-[#20a464] bg-[#f0fdf6] shadow-sm shadow-[#067a46]/15'
-                  : 'border-[#bddcca] bg-white hover:border-[#20a464] hover:bg-[#f0fdf6]',
+                  ? 'border-[#2563eb] bg-[#eff6ff] shadow-sm shadow-[#2563eb]/15'
+                  : 'border-[#cbd5e1] bg-white hover:border-[#2563eb] hover:bg-[#eff6ff]',
               ].join(' ')}
             >
-              <span className="block text-sm font-black text-[#10231a]">{team.name}</span>
-              <span className="mt-1 block text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
+              <span className="block text-sm font-black text-[#0f172a]">{team.name}</span>
+              <span className="mt-1 block text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
                 {team.staffIds.length} staff allocated
               </span>
-              <span className="mt-2 grid gap-2 text-xs font-semibold text-[#456653] sm:grid-cols-2">
+              <span className="mt-2 grid gap-2 text-xs font-semibold text-[#475569] sm:grid-cols-2">
                 <span>{stats.playerCount} players</span>
                 <span>{stats.assessmentCount} development records</span>
               </span>
@@ -177,7 +177,7 @@ function SelectedTeamPanel({
         <div className="min-w-0 flex-1">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <label className="block">
-              <span className="mb-2 block text-sm font-black text-[#10231a]">Team name</span>
+              <span className="mb-2 block text-sm font-black text-[#0f172a]">Team name</span>
               <input
                 type="text"
                 value={teamNameDrafts[selectedTeam.id] ?? selectedTeam.name}
@@ -204,7 +204,7 @@ function SelectedTeamPanel({
               Save name
             </button>
           </div>
-          <p className="mt-2 text-sm font-semibold text-[#456653]">
+          <p className="mt-2 text-sm font-semibold text-[#475569]">
             {selectedTeamStaff.length} staff allocated to this team.
           </p>
         </div>
@@ -252,14 +252,14 @@ function AddExistingStaffPanel({
   staffToAddId,
 }) {
   return (
-    <div className="mt-5 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
-      <p className="text-sm font-black text-[#10231a]">Add existing staff</p>
+    <div className="mt-5 rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10">
+      <p className="text-sm font-black text-[#0f172a]">Add existing staff</p>
       <p className={`mt-1 ${bodyTextClass}`}>
         Search club staff, then add the selected person to this team.
       </p>
       <div className="mt-3 grid gap-3">
         <label className="block">
-          <span className="mb-2 block text-sm font-black text-[#10231a]">Search staff</span>
+          <span className="mb-2 block text-sm font-black text-[#0f172a]">Search staff</span>
           <input
             type="search"
             value={staffSearch}
@@ -293,7 +293,7 @@ function AddExistingStaffPanel({
                 : undefined
           }
           onClick={() => void onAddExistingStaff()}
-          className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
         >
           Add to team
         </button>
@@ -313,10 +313,10 @@ function AllocatedStaffList({
 }) {
   return (
     <div className="mt-5">
-      <p className="text-sm font-black text-[#10231a]">Allocated staff</p>
+      <p className="text-sm font-black text-[#0f172a]">Allocated staff</p>
       {selectedTeamStaff.length === 0 ? (
-        <div className="mt-3 rounded-lg border border-[#bddcca] bg-white px-4 py-6 shadow-sm shadow-[#067a46]/10">
-          <p className="text-sm font-black text-[#10231a]">No staff are allocated to this team yet.</p>
+        <div className="mt-3 rounded-lg border border-[#cbd5e1] bg-white px-4 py-6 shadow-sm shadow-[#2563eb]/10">
+          <p className="text-sm font-black text-[#0f172a]">No staff are allocated to this team yet.</p>
           <p className={`mt-2 ${bodyTextClass}`}>
             Add the coach or manager who should see this squad before session work starts.
           </p>
@@ -326,15 +326,15 @@ function AllocatedStaffList({
           {paginatedSelectedTeamStaff.items.map((member) => (
             <div
               key={member.id}
-              className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10"
+              className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="break-words text-sm font-black text-[#10231a]">
+                  <p className="break-words text-sm font-black text-[#0f172a]">
                     {getStaffDisplayName(member)}
                   </p>
-                  <p className="mt-1 break-words text-sm font-semibold text-[#456653]">{member.email}</p>
-                  <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
+                  <p className="mt-1 break-words text-sm font-semibold text-[#475569]">{member.email}</p>
+                  <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
                     {getRoleLabel(member)}
                   </p>
                 </div>
@@ -343,7 +343,7 @@ function AllocatedStaffList({
                   disabled={isSaving}
                   title={isSaving ? 'Please wait while staff allocation is being saved.' : undefined}
                   onClick={() => void onRemoveStaff(member.id)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-black text-[#0f172a] transition hover:border-[#2563eb] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Remove
                 </button>

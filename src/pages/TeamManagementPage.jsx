@@ -57,8 +57,8 @@ const teamSetupRules = [
   },
 ]
 
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
+const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
 
 export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
@@ -633,21 +633,21 @@ export function TeamManagementPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Team setup</p>
-              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Team setup</p>
+              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-5xl">
                 Create the football structure first.
               </h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
+              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
                 Teams decide where players, staff access, sessions, and match day records live. Set up the squads first, then give coaches scoped access.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {teamSetupRules.map((rule) => (
                   <div key={rule.label} className={`${panelClass} px-4 py-4`}>
-                    <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                    <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
                     <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
                   </div>
                 ))}
@@ -655,10 +655,10 @@ export function TeamManagementPage() {
             </div>
           </div>
 
-          <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#cbd5e1] bg-[#eff6ff] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#456653]">Setup state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{teams.length} teams configured</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#475569]">Setup state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">{teams.length} teams configured</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 {allocatedStaffCount} staff accounts are allocated to at least one team.
               </p>
@@ -679,7 +679,7 @@ export function TeamManagementPage() {
       </section>
 
       {message ? (
-        <div className="rounded-lg border border-[#8bdcae] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#05603a] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-black text-[#1d4ed8] shadow-sm shadow-[#2563eb]/10">
           {message}
         </div>
       ) : null}
@@ -765,9 +765,9 @@ export function TeamManagementPage() {
 
 function TeamSetupMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#10231a]">{value}</p>
+    <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#0f172a]">{value}</p>
     </div>
   )
 }
