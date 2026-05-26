@@ -257,7 +257,7 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
-      <nav className="fixed inset-x-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-center rounded-lg border border-[#bddcca] bg-white p-1.5 shadow-lg shadow-[#10231a]/10 sm:inset-x-6 lg:hidden">
+      <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-[#bddcca] bg-white p-1.5 shadow-lg shadow-[#10231a]/10 sm:mx-6 lg:hidden">
         <div className="grid w-full grid-cols-5 gap-1">
           {navItems.map(([href, label]) => (
             <a
