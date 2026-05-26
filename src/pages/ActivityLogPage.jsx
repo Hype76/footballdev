@@ -9,16 +9,16 @@ import { getAuditLogs, getRecordBackups, withRequestTimeout } from '../lib/supab
 
 const activityRules = [
   {
-    label: 'Trace the decision',
-    body: 'Use actor, action, and record context to understand what changed in the football workspace.',
+    label: 'Find the change',
+    body: 'Start with the person, action, and record type before asking staff what happened.',
   },
   {
-    label: 'Respect role boundaries',
-    body: 'Managers only see activity inside their allowed scope. Platform admins see the full trail.',
+    label: 'Keep scope tight',
+    body: 'Club staff see their allowed football workspace. Platform admins can inspect the wider trail.',
   },
   {
-    label: 'Use it for accountability',
-    body: 'This is a club operations record, not a coach performance report.',
+    label: 'Use facts first',
+    body: 'Treat this as an operations record for parent updates, squad changes, and match records.',
   },
 ]
 
@@ -179,33 +179,33 @@ export function ActivityLogPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Activity control</p>
             <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-5xl">
-              See who changed the football workspace and when it happened.
+              Review the club trail before a small issue becomes a phone call.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
-              Review important record changes, filter by user or action, and keep club operations accountable.
+              Filter the audit window by user or event, then use the record details to answer parent, coach, or admin questions quickly.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {activityRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 shadow-sm shadow-slate-200/60">
+                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
                   <p className="text-sm font-black text-[#101828]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">{rule.body}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-sm shadow-slate-200/70">
+          <div className="grid content-between rounded-lg border border-[#9addb4] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/80">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#667085]">Loaded window</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Loaded window</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
                 {isLoading ? 'Loading activity' : `${filteredLogs.length} events visible`}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
                 {selectedActorId || selectedAction ? 'Filters are applied to the loaded audit window.' : 'Results follow your role and plan access.'}
               </p>
             </div>
@@ -220,7 +220,7 @@ export function ActivityLogPage() {
       </section>
 
       {errorMessage ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700">
+        <div className="rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-3 text-sm font-black text-[#b42318]">
           {errorMessage}
         </div>
       ) : null}
@@ -261,17 +261,17 @@ export function ActivityLogPage() {
 
 function ActivityAccessState({ title, description }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white px-5 py-6 shadow-sm shadow-slate-200/80 sm:px-6">
+    <section className="rounded-lg border border-[#bfe8cd] bg-white px-5 py-6 shadow-sm shadow-[#d7eadf]/80 sm:px-6">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Activity control</p>
       <h1 className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{title}</h1>
-      <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">{description}</p>
+      <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">{description}</p>
     </section>
   )
 }
 
 function ActivityMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/60">
+    <div className="rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 break-words text-2xl font-black text-[#101828]">{value}</p>
     </div>
