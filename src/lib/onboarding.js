@@ -401,6 +401,31 @@ export async function dismissOnboarding({ scope, user }) {
   window.dispatchEvent(new CustomEvent(ONBOARDING_EVENT))
 }
 
+export async function reopenOnboarding({ scope, user }) {
+  if (!user?.id) {
+    return
+  }
+
+  const payload = {
+    onboarding_dismissed_at: null,
+    onboarding_enabled: true,
+  }
+
+  if (scope === 'workspace' && user.clubId) {
+    const { error } = await supabase.from('clubs').update(payload).eq('id', user.clubId)
+    if (error) {
+      throw error
+    }
+  } else {
+    const { error } = await supabase.from('users').update(payload).eq('id', user.id)
+    if (error) {
+      throw error
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent(ONBOARDING_EVENT))
+}
+
 export async function resetOnboarding({ scope, user }) {
   if (!user?.id) {
     return

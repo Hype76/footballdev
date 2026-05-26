@@ -7,6 +7,7 @@ import {
   dismissOnboarding,
   getOnboardingProgress,
   loadOnboardingSnapshot,
+  reopenOnboarding,
   resetOnboarding,
   saveOnboardingStep,
 } from '../../lib/onboarding.js'
@@ -117,6 +118,12 @@ export function OnboardingProvider({ children }) {
       !plan.manualState?.dismissedAt &&
       !progress.isComplete,
   )
+  const shouldShowReopenOnboarding = Boolean(
+    plan &&
+      plan.manualState?.enabled &&
+      plan.manualState?.dismissedAt &&
+      !progress.isComplete,
+  )
 
   const handleCompleteStep = async (stepId) => {
     if (!plan || !user) {
@@ -175,6 +182,20 @@ export function OnboardingProvider({ children }) {
     } catch (error) {
       console.error(error)
       setErrorMessage('Onboarding could not be reset.')
+    }
+  }
+
+  const handleReopen = async () => {
+    if (!plan || !user) {
+      return
+    }
+
+    try {
+      await reopenOnboarding({ scope: plan.scope, user })
+      updateCurrentUserDetails(patchUserOnboarding(user, plan.scope, { dismissedAt: null, enabled: true }))
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Onboarding could not be reopened.')
     }
   }
 
@@ -304,7 +325,40 @@ export function OnboardingProvider({ children }) {
           </div>
 
           {errorMessage ? (
-            <div className="border-t border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-900 sm:px-5">
+            <div className="border-t border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] sm:px-5">
+              {errorMessage}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+      {shouldShowReopenOnboarding ? (
+        <section className="mb-6 rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70 sm:px-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">Setup paused</p>
+              <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
+                {progress.completedCount} of {progress.totalCount} setup checks are complete. Reopen setup when the club is ready to finish the next real action.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[24rem]">
+              <Link
+                to={nextStep?.href || plan.firstAction}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+              >
+                {nextStep?.actionLabel || 'Open next step'}
+              </Link>
+              <button
+                type="button"
+                onClick={handleReopen}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a]"
+              >
+                Reopen setup
+              </button>
+            </div>
+          </div>
+          {errorMessage ? (
+            <div className="mt-3 rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318]">
               {errorMessage}
             </div>
           ) : null}
