@@ -1,8 +1,8 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
 
 export function CreateCouponSection({
   couponForm,
@@ -88,18 +88,18 @@ export function CreateCouponSection({
             onChange={(event) => onCouponChange('expiresAt', event.target.value)}
             className={fieldClass}
           />
-          <span className="mt-2 block text-xs font-semibold text-[#5f7468]">
+          <span className="mt-2 block text-xs font-semibold text-[#456653]">
             Optional. This stops new redemptions after the selected date.
           </span>
         </label>
-        <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 xl:self-end">
+        <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10 xl:self-end">
           <input
             type="checkbox"
             checked={couponForm.firstTimeOnly}
             onChange={(event) => onCouponChange('firstTimeOnly', event.target.checked)}
             className="h-4 w-4 accent-[#067a46]"
           />
-          <span className="text-sm font-black text-[#101828]">First purchase only</span>
+          <span className="text-sm font-black text-[#10231a]">First purchase only</span>
         </label>
         <div className="xl:col-span-4">
           <button

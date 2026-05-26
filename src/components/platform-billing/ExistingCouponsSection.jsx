@@ -15,35 +15,35 @@ export function ExistingCouponsSection({
       description="Use these promotion codes when applying discounts during checkout."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
           Loading coupons...
         </div>
       ) : sortedCoupons.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
           No coupons have been created yet.
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {sortedCoupons.map((coupon) => (
-            <div key={coupon.id} className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+            <div key={coupon.id} className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-[#101828]">{coupon.name || coupon.id}</p>
-                  <p className="mt-1 text-sm font-semibold text-[#5f7468]">{formatDiscount(coupon)}</p>
+                  <p className="font-black text-[#10231a]">{coupon.name || coupon.id}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#456653]">{formatDiscount(coupon)}</p>
                 </div>
                 <span className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#067647]">
                   {coupon.liveOnWebsite ? 'Live' : coupon.active ? 'Active' : 'Inactive'}
                 </span>
               </div>
-              <p className="mt-4 text-sm font-black text-[#101828]">{coupon.code || 'No code'}</p>
-              <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
+              <p className="mt-4 text-sm font-black text-[#10231a]">{coupon.code || 'No code'}</p>
+              <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
                 {coupon.duration}{coupon.durationInMonths ? ` | ${coupon.durationInMonths} months` : ''} | {formatDate(coupon.createdAt)}
               </p>
-              <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
+              <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
                 {formatExpiry(coupon)}
               </p>
               {coupon.firstTimeOnly ? (
-                <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
+                <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
                   First purchase only
                 </p>
               ) : null}
@@ -59,7 +59,7 @@ export function ExistingCouponsSection({
                         : undefined
                   }
                   onClick={() => onSetLivePromotion(coupon)}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {livePromotionId === coupon.promotionCodeId ? 'Saving...' : coupon.liveOnWebsite ? 'Hide From Website' : 'Show Live'}
                 </button>

@@ -13,7 +13,7 @@ export function TesterAccessCodesSection({
       description="These codes grant temporary access. Expired tester accounts keep their data and must choose a paid plan to continue."
     >
       {sortedTesterCodes.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
           No tester access codes have been created yet.
         </div>
       ) : (
@@ -23,28 +23,28 @@ export function TesterAccessCodesSection({
             const hasExpired = code.expiresAt && new Date(code.expiresAt).getTime() <= currentTime
 
             return (
-              <div key={code.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/70">
+              <div key={code.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-[#101828]">{code.label || code.code}</p>
+                    <p className="font-black text-[#10231a]">{code.label || code.code}</p>
                     <p className="mt-1 text-sm font-black uppercase tracking-[0.14em] text-[#067a46]">{code.code}</p>
                   </div>
-                  <span className="rounded-lg border border-[#bfe8cd] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
+                  <span className="rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#067a46] shadow-sm shadow-[#067a46]/10">
                     {hasExpired ? 'Expired' : code.isActive ? 'Active' : 'Disabled'}
                   </span>
                 </div>
-                <div className="mt-4 space-y-2 text-sm font-semibold text-[#5f7468]">
-                  <p><span className="font-black text-[#101828]">Plan:</span> {planLabel}</p>
-                  <p><span className="font-black text-[#101828]">Email:</span> {code.assignedEmail || 'Any email'}</p>
-                  <p><span className="font-black text-[#101828]">Uses:</span> {code.redeemedCount} of {code.maxUses}</p>
-                  <p><span className="font-black text-[#101828]">Expires:</span> {formatDate(code.expiresAt)}</p>
+                <div className="mt-4 space-y-2 text-sm font-semibold text-[#456653]">
+                  <p><span className="font-black text-[#10231a]">Plan:</span> {planLabel}</p>
+                  <p><span className="font-black text-[#10231a]">Email:</span> {code.assignedEmail || 'Any email'}</p>
+                  <p><span className="font-black text-[#10231a]">Uses:</span> {code.redeemedCount} of {code.maxUses}</p>
+                  <p><span className="font-black text-[#10231a]">Expires:</span> {formatDate(code.expiresAt)}</p>
                 </div>
                 <button
                   type="button"
                   disabled={updatingTesterCodeId === code.id}
                   title={updatingTesterCodeId === code.id ? 'Please wait while this tester code is being updated.' : undefined}
                   onClick={() => onToggleTesterCode(code)}
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {updatingTesterCodeId === code.id ? 'Saving...' : code.isActive ? 'Disable code' : 'Enable code'}
                 </button>
