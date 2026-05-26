@@ -1,6 +1,12 @@
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const dangerButtonClass = 'inline-flex min-h-9 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-50'
+const emptyStateClass = 'rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]'
+
 export function PlatformAdminStaffSection({
   currentUserId,
   deletingAdminId,
@@ -19,28 +25,28 @@ export function PlatformAdminStaffSection({
       <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <form className="grid gap-4" onSubmit={onSubmit}>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Name</span>
+            <span className={labelClass}>Name</span>
             <input
               type="text"
               value={form.name}
               onChange={(event) => onChange('name', event.target.value)}
               placeholder="Staff member name"
-              className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Email</span>
+            <span className={labelClass}>Email</span>
             <input
               type="email"
               value={form.email}
               onChange={(event) => onChange('email', event.target.value)}
               required
               placeholder="admin@example.com"
-              className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Temporary password</span>
+            <span className={labelClass}>Temporary password</span>
             <input
               type="password"
               value={form.password}
@@ -49,27 +55,27 @@ export function PlatformAdminStaffSection({
               minLength={8}
               autoComplete="new-password"
               placeholder="At least 8 characters"
-              className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
           <button
             type="submit"
             disabled={isSaving}
             title={isSaving ? 'Please wait while this platform admin is being saved.' : undefined}
-            className="inline-flex min-h-11 items-center justify-center bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className={primaryButtonClass}
           >
-            {isSaving ? 'Saving...' : 'Add Platform Admin'}
+            {isSaving ? 'Saving...' : 'Add platform admin'}
           </button>
-          <p className="text-sm leading-6 text-slate-600">
+          <p className="text-sm font-semibold leading-6 text-[#5f7468]">
             This creates or promotes the account to platform admin access on this environment.
           </p>
         </form>
 
         <div>
-          <p className="text-sm font-black text-slate-950">Current platform admins</p>
+          <p className="text-sm font-black text-[#101828]">Current platform admins</p>
           <div className="mt-3 space-y-2">
             {platformAdmins.length === 0 ? (
-              <p className="border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
+              <p className={emptyStateClass}>
                 No platform admins found.
               </p>
             ) : (
@@ -77,13 +83,13 @@ export function PlatformAdminStaffSection({
                 const isCurrentUser = String(admin.id) === String(currentUserId)
 
                   return (
-                <div key={admin.id} className="border border-slate-200 bg-white px-4 py-3">
+                <div key={admin.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="break-words text-sm font-black text-slate-950">
+                      <p className="break-words text-sm font-black text-[#101828]">
                         {admin.name || 'No name entered'}
                       </p>
-                      <p className="mt-1 break-words text-sm text-slate-600">{admin.email}</p>
+                      <p className="mt-1 break-words text-sm font-semibold text-[#5f7468]">{admin.email}</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                       <StatusPill status={admin.status} />
@@ -98,7 +104,7 @@ export function PlatformAdminStaffSection({
                               : 'Delete platform admin'
                         }
                         onClick={() => onDelete(admin)}
-                        className="inline-flex min-h-9 items-center justify-center border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        className={dangerButtonClass}
                       >
                         {deletingAdminId === admin.id ? 'Deleting...' : 'Delete'}
                       </button>

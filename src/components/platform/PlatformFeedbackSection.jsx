@@ -10,6 +10,12 @@ const STATUS_OPTIONS = [
   { value: 'declined', label: 'Declined' },
 ]
 
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
+const emptyStateClass = 'rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]'
+
 export function PlatformFeedbackSection({
   drafts,
   feedbackItems,
@@ -29,11 +35,11 @@ export function PlatformFeedbackSection({
       description="Review product feedback, update status, add internal notes, or remove completed items."
     >
       {isLoading ? (
-        <div className="border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
+        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">
           Loading feedback...
         </div>
       ) : feedbackItems.length === 0 ? (
-        <div className="border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
+        <div className={emptyStateClass}>
           No platform feedback has been submitted yet.
         </div>
       ) : (
@@ -45,20 +51,20 @@ export function PlatformFeedbackSection({
             }
 
             return (
-              <div key={item.id} className="border border-slate-200 bg-white p-5">
+              <div key={item.id} className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
                 <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
                   <div>
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{item.message}</p>
-                    <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                    <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#456653]">{item.message}</p>
+                    <p className="mt-3 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
                       {item.clubName} | {item.createdByEmail || 'No email'} | {item.voteCount} votes
                     </p>
                   </div>
                   <label className="block">
-                    <span className="mb-2 block text-sm font-bold text-slate-950">Status</span>
+                    <span className={labelClass}>Status</span>
                     <select
                       value={draft.status}
                       onChange={(event) => onDraftChange(item.id, 'status', event.target.value)}
-                      className="min-h-11 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                      className={fieldClass}
                     >
                       {STATUS_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -70,13 +76,13 @@ export function PlatformFeedbackSection({
                 </div>
 
                 {item.comments?.length ? (
-                  <div className="mt-4 border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm font-black text-slate-950">Visible comments</p>
+                  <div className="mt-4 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                    <p className="text-sm font-black text-[#101828]">Visible comments</p>
                     <div className="mt-3 space-y-3">
                       {item.comments.map((comment) => (
-                        <div key={comment.id} className="border border-slate-200 bg-white px-4 py-3">
-                          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{comment.message}</p>
-                          <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                        <div key={comment.id} className="rounded-lg border border-[#cfeedd] bg-white px-4 py-3">
+                          <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#456653]">{comment.message}</p>
+                          <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
                             Platform admin | {formatPlatformDate(comment.createdAt)}
                           </p>
                         </div>
@@ -86,13 +92,13 @@ export function PlatformFeedbackSection({
                 ) : null}
 
                 <label className="mt-4 block">
-                  <span className="mb-2 block text-sm font-bold text-slate-950">Add public comment</span>
+                  <span className={labelClass}>Add public comment</span>
                   <textarea
                     rows="3"
                     value={draft.adminComment}
                     onChange={(event) => onDraftChange(item.id, 'adminComment', event.target.value)}
                     placeholder="This will be visible to users on the feedback board."
-                    className="min-h-24 w-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                    className={fieldClass}
                   />
                 </label>
 
@@ -102,7 +108,7 @@ export function PlatformFeedbackSection({
                     disabled={updatingFeedbackId === item.id}
                     title={updatingFeedbackId === item.id ? 'Please wait while this feedback is being saved.' : undefined}
                     onClick={() => void onSave(item)}
-                    className="inline-flex min-h-11 items-center justify-center bg-emerald-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={primaryButtonClass}
                   >
                     Save
                   </button>
@@ -111,7 +117,7 @@ export function PlatformFeedbackSection({
                     disabled={updatingFeedbackId === item.id}
                     title={updatingFeedbackId === item.id ? 'Please wait while this feedback is being updated.' : undefined}
                     onClick={() => void onDelete(item)}
-                    className="inline-flex min-h-11 items-center justify-center border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={dangerButtonClass}
                   >
                     Delete
                   </button>
