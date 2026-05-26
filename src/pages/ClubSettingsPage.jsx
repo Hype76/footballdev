@@ -37,6 +37,10 @@ const clubSettingsRules = [
   },
 ]
 
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70'
+
 export function ClubSettingsPage() {
   const { updateCurrentClubDetails, user } = useAuth()
   const { showToast } = useToast()
@@ -296,53 +300,14 @@ export function ClubSettingsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#d7eadf]/70">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-stretch">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Club identity</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#10231a] sm:text-5xl">
-              Set the club identity before parents see the workspace.
-            </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4d6458]">
-              Club name, contact details, and badge are reused across staff screens, parent previews, emails, and shared football records.
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {clubSettingsRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
-                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/70">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Setup state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{identityChecksComplete} of 3 identity checks ready</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4d6458]">
-                Club name, contacts, and badge are the first setup details parents and staff will see.
-              </p>
-            </div>
-            <div className="mt-5 rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/60">
-              <div className="flex items-center gap-3">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-[#10231a]">
-                  <img src={resolvedLogoUrl} alt="" className="h-full w-full object-contain p-1" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-base font-black text-[#10231a]">{formData.name || user?.clubName || 'Club name not set'}</p>
-                  <p className="mt-1 truncate text-sm font-semibold text-[#5f7468]">
-                    {formData.contactEmail || formData.contactPhone || 'Add a contact before inviting parents'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#4d6458]">
-              {canChangeClubLogo ? 'Logo changes are available for this account.' : 'Logo changes are restricted for this account.'}
-            </p>
-          </div>
-        </div>
-      </section>
+      <ClubSettingsHero
+        canChangeClubLogo={canChangeClubLogo}
+        formData={formData}
+        identityChecksComplete={identityChecksComplete}
+        resolvedLogoUrl={resolvedLogoUrl}
+        rules={clubSettingsRules}
+        user={user}
+      />
 
       {isSaved ? (
         <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
@@ -379,5 +344,59 @@ export function ClubSettingsPage() {
         selectedLogoFile={selectedLogoFile}
       />
     </div>
+  )
+}
+
+function ClubSettingsHero({ canChangeClubLogo, formData, identityChecksComplete, resolvedLogoUrl, rules, user }) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
+        <div className="px-5 py-6 sm:px-6 lg:px-8">
+          <div className="max-w-5xl">
+            <p className={eyebrowClass}>Club identity</p>
+            <h1 className="mt-3 text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+              Set the club identity before parents see the workspace.
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
+              Club name, contact details, and badge are reused across staff screens, parent previews, emails, and shared football records.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {rules.map((rule) => (
+                <article key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                  <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <aside className="border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className={panelClass}>
+            <p className={eyebrowClass}>Setup state</p>
+            <p className="mt-3 text-3xl font-black tracking-tight text-[#10231a]">{identityChecksComplete} of 3 ready</p>
+            <p className={`mt-2 ${bodyTextClass}`}>
+              Club name, contacts, and badge are the first setup details parents and staff will see.
+            </p>
+          </div>
+          <div className="mt-4 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/60">
+            <div className="flex items-center gap-3">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-[#10231a]">
+                <img src={resolvedLogoUrl} alt="" className="h-full w-full object-contain p-1" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-base font-black text-[#10231a]">{formData.name || user?.clubName || 'Club name not set'}</p>
+                <p className="mt-1 truncate text-sm font-semibold text-[#456653]">
+                  {formData.contactEmail || formData.contactPhone || 'Add a contact before inviting parents'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <p className={`mt-4 ${bodyTextClass}`}>
+            {canChangeClubLogo ? 'Logo changes are available for this account.' : 'Logo changes are restricted for this account.'}
+          </p>
+        </aside>
+      </div>
+    </section>
   )
 }
