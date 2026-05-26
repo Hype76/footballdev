@@ -69,7 +69,7 @@ export function LoginMarketingAndPricing({
           <div className="mt-6 grid gap-3">
             {operatingSystemRows.map(([title, copy], index) => (
               <article key={title} className="grid gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 sm:grid-cols-[2.5rem_1fr]">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-sm font-black text-white">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-black text-white">
                   {index + 1}
                 </span>
                 <span>
@@ -205,7 +205,7 @@ export function LoginMarketingAndPricing({
               <ul className="mt-6 grow space-y-3">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-[#475569]">
-                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#2563eb]" />
+                    <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#2563eb]" />
                     <span>{feature}</span>
                   </li>
                 ))}

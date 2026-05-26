@@ -28,7 +28,7 @@ export function PublicParentsPage() {
         </div>
         <div className="order-1 flex flex-col justify-center lg:order-2">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Parents portal</p>
-          <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
+          <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-5xl">
             Parent communication built around the football week.
           </h1>
           <p className="mt-5 text-base font-semibold leading-7 text-[#475569] sm:mt-6 sm:text-lg sm:leading-8">

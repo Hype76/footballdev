@@ -46,7 +46,7 @@ export function PublicFeaturesPage() {
         <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
           <div className="max-w-4xl rounded-lg border border-[#cbd5e1] bg-white/95 p-5 shadow-sm shadow-[#2563eb]/10 backdrop-blur sm:p-6 lg:p-8">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Features</p>
-            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">
+            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-5xl">
               A football-only workspace for clubs that need less chaos.
             </h1>
             <p className="mt-5 text-base font-semibold leading-7 text-[#475569] sm:mt-6 sm:text-lg sm:leading-8">
@@ -64,7 +64,7 @@ export function PublicFeaturesPage() {
             <ul className="mt-6 space-y-3">
               {feature.points.map((point) => (
                 <li key={point} className="flex gap-3 text-sm font-bold text-[#475569]">
-                  <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#2563eb]" />
+                  <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#2563eb]" />
                   <span>{point}</span>
                 </li>
               ))}

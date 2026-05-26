@@ -18,7 +18,7 @@ export function LoginHeroContent() {
           <div className="inline-flex rounded-lg border border-[#bfdbfe] bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb] shadow-sm shadow-[#2563eb]/10 backdrop-blur">
             Football club operations
           </div>
-          <h1 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#0f172a] min-[420px]:text-5xl sm:text-6xl xl:text-7xl">
+          <h1 className="mt-5 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-5xl">
             The football week, rebuilt around real club work.
           </h1>
           <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#475569] sm:text-lg sm:leading-8">
@@ -64,7 +64,7 @@ export function LoginHeroContent() {
           <div className="mt-5 grid gap-3">
             {setupSteps.map(([number, title, copy]) => (
               <article key={title} className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-lg border border-[#cbd5e1] bg-white p-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2563eb] text-sm font-black text-white">{number}</span>
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-black text-white">{number}</span>
                 <span>
                   <span className="block text-sm font-black text-[#0f172a]">{title}</span>
                   <span className="mt-1 block text-sm font-semibold leading-6 text-[#475569]">{copy}</span>

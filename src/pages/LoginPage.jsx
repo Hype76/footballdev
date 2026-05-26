@@ -209,7 +209,7 @@ export function LoginPage() {
         <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-8 lg:py-10">
           <section>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Football club workspace</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-5xl xl:text-6xl">
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-[#0f172a] sm:text-4xl xl:text-5xl">
               Run the football week from one practical club system.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569] sm:text-lg sm:leading-8">

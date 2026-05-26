@@ -138,7 +138,7 @@ export function PublicPricingPage() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Pricing</p>
-            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-6xl">Choose the workspace size that matches your football operation.</h1>
+            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-5xl">Choose the workspace size that matches your football operation.</h1>
             <p className="mt-5 text-base font-semibold leading-7 text-[#475569] sm:leading-8">
               Start with one team, then scale into a full club workspace with setup checks, staff roles, player records, parent communication, and audit logs.
             </p>
@@ -209,7 +209,7 @@ export function PublicPricingPage() {
                 <ul className="mt-6 grow space-y-3">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-[#475569]">
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#2563eb]" />
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#2563eb]" />
                       <span>{feature}</span>
                     </li>
                   ))}
