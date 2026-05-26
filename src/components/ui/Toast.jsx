@@ -49,7 +49,7 @@ function ToastMessage({ toast, onDismiss }) {
   const toneClassName =
     toast.tone === 'error'
       ? 'border-red-200 bg-red-50 text-red-800'
-      : 'border-emerald-200 bg-white text-slate-950'
+      : 'border-[#b7efce] bg-white text-[#101828]'
 
   return (
     <div className={`rounded-lg border px-4 py-3 ${toneClassName}`}>

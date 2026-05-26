@@ -21,7 +21,7 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-semibold text-[#5f7468] sm:flex-row sm:items-center sm:justify-between">
       <p>
         Showing {startItem} to {endItem} of {totalItems}
       </p>
@@ -31,11 +31,11 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
           onClick={() => handlePageChange(safePage - 1)}
           disabled={safePage <= 1}
           title={safePage <= 1 ? 'You are already on the first page.' : undefined}
-          className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-black text-slate-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 font-black text-[#101828] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Previous
         </button>
-        <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-center font-black text-slate-950 sm:px-4">
+        <span className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-3 text-center font-black text-[#101828] sm:px-4">
           {safePage} of {totalPages}
         </span>
         <button
@@ -43,7 +43,7 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
           onClick={() => handlePageChange(safePage + 1)}
           disabled={safePage >= totalPages}
           title={safePage >= totalPages ? 'You are already on the last page.' : undefined}
-          className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-black text-slate-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 font-black text-[#101828] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Next
         </button>

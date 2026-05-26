@@ -83,7 +83,7 @@ export function EmailPreview({
 
   return (
     <div className="print-container">
-      <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-slate-200 bg-white p-3 sm:p-6 lg:p-8">
+      <section className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-[#cfeedd] bg-white p-3 sm:p-6 lg:p-8">
         <div className="section flex flex-col gap-4 border-b border-[#e7ece3] pb-5 sm:gap-6 sm:pb-6 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#5a6b5b]">
@@ -94,7 +94,7 @@ export function EmailPreview({
               <img src={resolvedLogoUrl} alt={clubName} className="max-h-20 w-auto max-w-[150px] object-contain" />
             </div>
 
-            <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{clubName}</h2>
+            <h2 className="mt-3 text-xl font-semibold tracking-tight text-[#101828] sm:text-2xl">{clubName}</h2>
           </div>
 
           <div className="inline-flex min-h-11 items-center rounded-lg bg-[#eef3ea] px-4 py-3 text-sm font-medium text-[#4f6552] md:shrink-0">
@@ -104,22 +104,22 @@ export function EmailPreview({
 
         <div className="section mt-6 grid gap-4 sm:grid-cols-2">
           <div>
-            <p className="text-sm font-medium text-slate-500">Player</p>
-            <h3 className="mt-2 break-words text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{playerName}</h3>
+            <p className="text-sm font-medium text-[#5f7468]">Player</p>
+            <h3 className="mt-2 break-words text-2xl font-semibold tracking-tight text-[#101828] sm:text-3xl">{playerName}</h3>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="section rounded-lg border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Team</p>
-              <p className="mt-2 text-sm font-medium text-slate-700">{team || 'Not provided'}</p>
+              <p className="mt-2 text-sm font-medium text-[#456653]">{team || 'Not provided'}</p>
             </div>
             <div className="section rounded-lg border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Session</p>
-              <p className="mt-2 text-sm font-medium text-slate-700">{formatSessionForDisplay(session)}</p>
+              <p className="mt-2 text-sm font-medium text-[#456653]">{formatSessionForDisplay(session)}</p>
             </div>
             <div className="section rounded-lg border border-[#e7ece3] bg-[#fbfcf9] px-4 py-3 sm:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">Section</p>
-              <p className="mt-2 text-sm font-medium text-slate-700">{section}</p>
+              <p className="mt-2 text-sm font-medium text-[#456653]">{section}</p>
             </div>
           </div>
         </div>
@@ -129,7 +129,7 @@ export function EmailPreview({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">
               Email Subject
             </p>
-            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-[#456653]">
               {emailSubject || 'No email subject available.'}
             </p>
           </div>
@@ -140,13 +140,13 @@ export function EmailPreview({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Development Responses</p>
 
             {visibleResponseItems.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">No responses provided.</p>
+              <p className="mt-4 text-sm text-[#5f7468]">No responses provided.</p>
             ) : (
               <div className="mt-4 grid gap-3">
                 {visibleResponseItems.map((item) => (
                   <div key={item.label} className="section rounded-lg border border-[#e2e7de] bg-white px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">{item.label}</p>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[#456653]">
                       {formatPreviewValue(item.value)}
                     </p>
                   </div>
@@ -157,7 +157,7 @@ export function EmailPreview({
         ) : showEmailTemplate ? (
           <div className="section mt-6 rounded-lg border border-[#e7ece3] bg-[#fbfcf9] p-4 sm:rounded-lg sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Parent Message</p>
-            <div className="mt-4 overflow-hidden rounded-lg border border-[#e7ece3] bg-white text-sm leading-6 text-slate-700">
+            <div className="mt-4 overflow-hidden rounded-lg border border-[#e7ece3] bg-white text-sm leading-6 text-[#456653]">
               {emailBody ? (
                 <div dangerouslySetInnerHTML={{ __html: sharedEmailHtml }} />
               ) : (
@@ -170,13 +170,13 @@ export function EmailPreview({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5a6b5b]">Development Responses</p>
 
             {visibleResponseItems.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">No selected text fields were provided.</p>
+              <p className="mt-4 text-sm text-[#5f7468]">No selected text fields were provided.</p>
             ) : (
               <div className="mt-4 grid gap-3">
                 {visibleResponseItems.map((item) => (
                   <div key={item.label} className="section rounded-lg border border-[#e2e7de] bg-white px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5a6b5b]">{item.label}</p>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[#456653]">
                       {formatPreviewValue(item.value)}
                     </p>
                   </div>

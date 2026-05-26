@@ -85,11 +85,11 @@ export function ConfirmModal({
     : 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/55 px-4 py-6">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#06140d]/55 px-4 py-6">
       <div
         role="dialog"
         aria-modal="true"
-        className="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-950/20 sm:p-6"
+        className="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[#cfeedd] bg-white p-5 shadow-xl shadow-[#06140d]/20 sm:p-6"
       >
         <button
           type="button"
@@ -97,15 +97,15 @@ export function ConfirmModal({
           disabled={isBusy}
           title={isBusy ? 'Please wait while this action finishes.' : 'Close this window'}
           aria-label="Close this window"
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-[#f9fafb] text-sm font-black text-[#101828] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#cfeedd] bg-[#f8fdf9] text-sm font-black text-[#101828] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           X
         </button>
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Please confirm</p>
         <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
-        {message ? <p className="mt-3 text-sm font-semibold leading-6 text-[#667085]">{message}</p> : null}
+        {message ? <p className="mt-3 text-sm font-semibold leading-6 text-[#5f7468]">{message}</p> : null}
         {items.length > 0 ? (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+          <div className="mt-4 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
             <p className="text-sm font-black text-[#101828]">{itemsTitle}</p>
             <ul
               className={
@@ -115,13 +115,13 @@ export function ConfirmModal({
               }
             >
               {itemRows.map((item) => (
-                <li key={item.key} className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <li key={item.key} className="min-w-0 rounded-lg border border-[#cfeedd] bg-white px-3 py-2">
                   {item.label ? (
-                    <span className="block text-xs font-black uppercase tracking-[0.12em] text-[#667085]">
+                    <span className="block text-xs font-black uppercase tracking-[0.12em] text-[#5f7468]">
                       {item.label}
                     </span>
                   ) : null}
-                  <span className="mt-1 block min-w-0 break-words text-sm font-semibold leading-6 text-[#667085]">
+                  <span className="mt-1 block min-w-0 break-words text-sm font-semibold leading-6 text-[#5f7468]">
                     {item.value}
                   </span>
                 </li>
@@ -138,7 +138,7 @@ export function ConfirmModal({
               onChange={(event) => setReason(event.target.value)}
               placeholder={reasonPlaceholder}
               rows={4}
-              className="min-h-28 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-slate-400 focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+              className="min-h-28 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
             />
           </label>
         ) : null}
@@ -147,7 +147,7 @@ export function ConfirmModal({
             <span className="mb-2 block text-sm font-black text-[#101828]">
               Enter your password to confirm
             </span>
-            <div className="flex rounded-lg border border-slate-200 bg-[#f9fafb] focus-within:border-[#20a464] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#d7f8e5]">
+            <div className="flex rounded-lg border border-[#cfeedd] bg-[#f8fdf9] focus-within:border-[#20a464] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#d7f8e5]">
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
@@ -158,7 +158,7 @@ export function ConfirmModal({
               <button
                 type="button"
                 onClick={() => setIsPasswordVisible((current) => !current)}
-                className="min-h-11 border-l border-slate-200 px-4 py-3 text-sm font-black text-[#667085] transition hover:bg-slate-100"
+                className="min-h-11 border-l border-[#cfeedd] px-4 py-3 text-sm font-black text-[#5f7468] transition hover:bg-[#e8f7ee]"
               >
                 {isPasswordVisible ? 'Hide' : 'Show'}
               </button>
@@ -171,7 +171,7 @@ export function ConfirmModal({
             onClick={handleCancel}
             disabled={isBusy}
             title={cancelDisabledReason}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
           </button>
