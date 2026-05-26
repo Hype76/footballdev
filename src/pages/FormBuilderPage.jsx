@@ -47,7 +47,7 @@ const developmentFormRules = [
 ]
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const metricCardClass = 'rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/60'
+const metricCardClass = 'rounded-lg border border-[#cfeedd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60'
 
 export function FormBuilderPage() {
   const { user } = useAuth()
@@ -434,7 +434,7 @@ export function FormBuilderPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <section className="overflow-hidden rounded-lg border border-[#cfeedd] bg-white shadow-sm shadow-[#d7eadf]/80">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
             <p className={eyebrowClass}>Development form</p>
@@ -446,19 +446,19 @@ export function FormBuilderPage() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {developmentFormRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 shadow-sm shadow-slate-200/60">
+                <div key={rule.label} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
                   <p className="text-sm font-black text-[#101828]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">{rule.body}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-inner shadow-slate-200/60">
+          <div className="grid content-between rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-5 shadow-inner shadow-[#d7eadf]/60">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#667085]">Form state</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#5f7468]">Form state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{enabledFieldsCount} fields live for coaches</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
                 {defaultFields.length} default fields and {customFields.length} custom fields are configured for this club.
               </p>
             </div>
@@ -468,7 +468,7 @@ export function FormBuilderPage() {
               <FormMetric label="Enabled" value={enabledFieldsCount} />
               <FormMetric label="Total" value={fields.length} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#667085]">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#5f7468]">
               {canUseCustomFields ? 'Custom development fields are available.' : createFeatureUpgradeMessage('customFormFields')}
             </p>
           </div>

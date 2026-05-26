@@ -10,9 +10,9 @@ import {
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const fieldClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function CurrentFieldsSection({
   customFields,
@@ -91,7 +91,7 @@ export function CurrentFieldsSection({
             'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-black transition',
             fieldGroup === 'default'
               ? 'bg-[#067a46] text-white'
-              : 'border border-slate-200 bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]',
+              : 'border border-[#cfeedd] bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]',
           ].join(' ')}
         >
           Default Fields ({defaultFields.length})
@@ -106,7 +106,7 @@ export function CurrentFieldsSection({
             'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-black transition',
             fieldGroup === 'custom'
               ? 'bg-[#067a46] text-white'
-              : 'border border-slate-200 bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]',
+              : 'border border-[#cfeedd] bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]',
           ].join(' ')}
         >
           Custom Fields ({customFields.length})
@@ -122,7 +122,7 @@ export function CurrentFieldsSection({
           className={[
             'inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60',
             isDragLocked
-              ? 'border-slate-200 bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]'
+              ? 'border-[#cfeedd] bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]'
               : 'border-[#abefc6] bg-[#ecfdf3] text-[#067a46]',
           ].join(' ')}
         >
@@ -131,15 +131,15 @@ export function CurrentFieldsSection({
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/60">
+        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
           Loading fields...
         </div>
       ) : fields.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/60">
+        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
           No fields found for this club.
         </div>
       ) : visibleFields.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/60">
+        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-6 text-sm font-semibold text-[#5f7468] shadow-sm shadow-[#d7eadf]/60">
           {fieldGroup === 'default'
             ? 'No default fields are configured yet. Load the default form to start.'
             : 'No custom fields have been added yet.'}
@@ -256,22 +256,22 @@ function FormFieldCard({
         onDropField(sourceFieldId, field.id)
       }}
       className={[
-        'rounded-lg border bg-white p-4 shadow-sm shadow-slate-200/70 transition',
+        'rounded-lg border bg-white p-4 shadow-sm shadow-[#d7eadf]/70 transition',
         isSaving || isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
         isDragging ? 'opacity-60' : '',
-        isDragOver ? 'border-[#20a464] ring-2 ring-[#d7f8e5]' : 'border-slate-200',
+        isDragOver ? 'border-[#20a464] ring-2 ring-[#d7f8e5]' : 'border-[#cfeedd]',
       ].join(' ')}
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="grid gap-4 md:grid-cols-2">
           {field.isDefault ? (
             <>
-              <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Label</p>
+              <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Label</p>
                 <p className="mt-2 text-sm font-black text-[#101828]">{field.label}</p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Type</p>
+              <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Type</p>
                 <p className="mt-2 text-sm font-black text-[#101828]">{getFieldTypeLabel(field.type)}</p>
               </div>
             </>
@@ -315,18 +315,18 @@ function FormFieldCard({
               ) : null}
 
               {isScoreType(draft.type) ? (
-                <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 md:col-span-2">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Score options</p>
-                  <p className="mt-2 text-sm font-semibold text-[#667085]">{createScoreOptions(draft.type).join(', ')}</p>
+                <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 md:col-span-2">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Score options</p>
+                  <p className="mt-2 text-sm font-semibold text-[#5f7468]">{createScoreOptions(draft.type).join(', ')}</p>
                 </div>
               ) : null}
 
-              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-black text-[#101828]">
+              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-black text-[#101828]">
                 <input
                   type="checkbox"
                   checked={draft.required}
                   onChange={(event) => onDraftChange(field.id, 'required', event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 bg-white accent-[#067a46]"
+                  className="h-4 w-4 rounded border-[#9addb4] bg-white accent-[#067a46]"
                 />
                 <span>Required field</span>
               </label>
@@ -363,7 +363,7 @@ function FormFieldCard({
             {draft.isEnabled ? 'Disable' : 'Enable'}
           </button>
           {field.isDefault ? (
-            <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-black text-[#667085]">
+            <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-black text-[#5f7468]">
               Default field
             </div>
           ) : (
@@ -391,10 +391,10 @@ function FormFieldCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#667085]">
-        <span className="rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1">{field.isDefault ? 'Default' : 'Custom'}</span>
-        <span className="rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1">{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
-        <span className="rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-1">{draft.required ? 'Required' : 'Optional'}</span>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
+        <span className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1">{field.isDefault ? 'Default' : 'Custom'}</span>
+        <span className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1">{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
+        <span className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-1">{draft.required ? 'Required' : 'Optional'}</span>
       </div>
     </div>
   )

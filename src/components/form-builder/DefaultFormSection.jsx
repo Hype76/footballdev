@@ -1,8 +1,8 @@
 import { getFieldTypeLabel } from '../../hooks/form-builder/formBuilderUtils.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const defaultFieldCardClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 shadow-sm shadow-slate-200/60'
-const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
+const defaultFieldCardClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60'
+const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
 
 export function DefaultFormSection({
   defaultTemplateFields,
@@ -29,7 +29,7 @@ export function DefaultFormSection({
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold leading-6 text-[#667085]">
+          <p className="text-sm font-semibold leading-6 text-[#5f7468]">
             {fieldsCount === 0
               ? 'No fields are configured for this club yet. Load the default form to start.'
               : 'Default fields are already available below and can be enabled, disabled, and reordered.'}
