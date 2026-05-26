@@ -18,14 +18,14 @@ export function ConfiguredFieldsSection({
       }
     >
       {enabledFields.length === 0 ? (
-        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-6 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-6 text-sm font-semibold text-[#475569] shadow-sm shadow-[#2563eb]/10">
           No development fields are enabled for this club. Enable fields in Development Form first.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {enabledFields.map((field) => (
             <label key={field.id} className={field.type === 'textarea' ? 'block md:col-span-2' : 'block'}>
-              <span className="mb-2 block text-sm font-black text-[#10231a]">
+              <span className="mb-2 block text-sm font-black text-[#0f172a]">
                 {field.label}
                 {field.required ? ' *' : ''}
               </span>

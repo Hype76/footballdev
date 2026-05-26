@@ -90,8 +90,8 @@ function getReadyState(isReady) {
   return isReady
     ? {
         label: 'Ready',
-        className: 'border-[#abefc6] bg-[#ecfdf3] text-[#067a46]',
-        dotClassName: 'bg-[#067a46]',
+        className: 'border-[#bfdbfe] bg-[#eff6ff] text-[#2563eb]',
+        dotClassName: 'bg-[#2563eb]',
       }
     : {
         label: 'Missing',
@@ -104,7 +104,7 @@ function RecordReadinessItem({ isReady, label, value }) {
   const state = getReadyState(isReady)
 
   return (
-    <div className={`rounded-lg border px-4 py-3 shadow-sm shadow-[#067a46]/10 ${state.className}`}>
+    <div className={`rounded-lg border px-4 py-3 shadow-sm shadow-[#2563eb]/10 ${state.className}`}>
       <div className="flex items-start gap-3">
         <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${state.dotClassName}`} />
         <div className="min-w-0">
@@ -146,18 +146,18 @@ function DevelopmentRecordCommandPanel({
           : 'Save the development record.'
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
-      <div className="grid gap-5 border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+    <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+      <div className="grid gap-5 border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Record workspace</p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Build one clear football record.</h3>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Record workspace</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Build one clear football record.</h3>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
             Work top to bottom: player, football detail, then sharing choice. Save internal notes first unless the parent output is ready.
           </p>
         </div>
-        <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-3 shadow-sm shadow-[#067a46]/10">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#456653]">Next action</p>
-          <p className="mt-2 text-lg font-black text-[#10231a]">{nextAction}</p>
+        <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 shadow-sm shadow-[#2563eb]/10">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#475569]">Next action</p>
+          <p className="mt-2 text-lg font-black text-[#0f172a]">{nextAction}</p>
         </div>
       </div>
 
@@ -188,18 +188,18 @@ function DevelopmentRecordCommandPanel({
         />
       </div>
 
-      <div className="grid gap-3 border-t border-[#bddcca] bg-[#f6fbf8] px-5 py-4 text-sm font-semibold text-[#456653] md:grid-cols-3">
+      <div className="grid gap-3 border-t border-[#cbd5e1] bg-[#f8fafc] px-5 py-4 text-sm font-semibold text-[#475569] md:grid-cols-3">
         <p>
-          Session: <span className="font-black text-[#10231a]">{selectedSession}</span>
+          Session: <span className="font-black text-[#0f172a]">{selectedSession}</span>
         </p>
         <p>
-          Previous records: <span className="font-black text-[#10231a]">{previousEvaluationCount}</span>
+          Previous records: <span className="font-black text-[#0f172a]">{previousEvaluationCount}</span>
         </p>
         <p>
-          Output: <span className="font-black text-[#10231a]">{hasShareChoice ? `${isEmailEnabled ? 'Email' : ''}${isEmailEnabled && isPdfAttachmentApproved ? ' and ' : ''}${isPdfAttachmentApproved ? 'PDF' : ''}` : 'Internal only'}</span>
+          Output: <span className="font-black text-[#0f172a]">{hasShareChoice ? `${isEmailEnabled ? 'Email' : ''}${isEmailEnabled && isPdfAttachmentApproved ? ' and ' : ''}${isPdfAttachmentApproved ? 'PDF' : ''}` : 'Internal only'}</span>
         </p>
         <p className="md:col-span-3">
-          Recipients: <span className="font-black text-[#10231a]">{selectedContactCount} selected {contactNounPlural}</span>
+          Recipients: <span className="font-black text-[#0f172a]">{selectedContactCount} selected {contactNounPlural}</span>
         </p>
       </div>
     </section>
@@ -1439,12 +1439,12 @@ export function CreateEvaluationPage() {
         onConfirm={() => void handleSaveNextAssessmentReminder()}
       >
         <label className="block">
-          <span className="mb-2 block text-sm font-black text-[#10231a]">Reminder date</span>
+          <span className="mb-2 block text-sm font-black text-[#0f172a]">Reminder date</span>
           <input
             type="date"
             value={nextAssessmentReminderDate}
             onChange={(event) => setNextAssessmentReminderDate(event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+            className="min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]"
           />
         </label>
       </ConfirmModal>
@@ -1457,7 +1457,7 @@ export function CreateEvaluationPage() {
         />
 
         {isSaved ? (
-          <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
+          <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-black text-[#2563eb] shadow-sm shadow-[#2563eb]/10">
             Development record saved
           </div>
         ) : null}
@@ -1475,18 +1475,18 @@ export function CreateEvaluationPage() {
 
         {dataRefreshNotice ? <NoticeBanner title="Using available club data" message={dataRefreshNotice} tone="info" /> : null}
         {hasInvalidAssessmentSection || hasIncompleteSessionAssessmentLink ? (
-          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 text-sm text-[#10231a] shadow-sm shadow-[#067a46]/10">
+          <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 text-sm text-[#0f172a] shadow-sm shadow-[#2563eb]/10">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-black">Development link was adjusted</p>
-                <p className="mt-1 font-semibold leading-6 text-[#456653]">
+                <p className="mt-1 font-semibold leading-6 text-[#475569]">
                   The link had missing or unknown development details, so the form is using the nearest valid options.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={clearAssessmentLinkState}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
               >
                 Clear link details
               </button>

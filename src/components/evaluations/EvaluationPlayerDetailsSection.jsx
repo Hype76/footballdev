@@ -3,11 +3,11 @@ import { canManageUsers } from '../../lib/auth.js'
 import { PLAYER_CONTACT_TYPES } from '../../lib/supabase.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const eyebrowLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.12em] text-[#067a46]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const helperClass = 'mt-2 text-xs font-semibold leading-5 text-[#456653]'
-const contactCardClass = 'flex min-h-11 items-center gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] shadow-sm shadow-[#067a46]/10'
+const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
+const eyebrowLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.12em] text-[#2563eb]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
+const helperClass = 'mt-2 text-xs font-semibold leading-5 text-[#475569]'
+const contactCardClass = 'flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] shadow-sm shadow-[#2563eb]/10'
 
 export function EvaluationPlayerDetailsSection({
   availableTeams,
@@ -79,7 +79,7 @@ export function EvaluationPlayerDetailsSection({
         </label>
 
         <label className="block min-w-0">
-          <span className={labelClass}>Player Name</span>
+          <span className={labelClass}>Player name</span>
           <select
             name="playerName"
             value={formData.playerName}
@@ -106,12 +106,12 @@ export function EvaluationPlayerDetailsSection({
             name="coachName"
             value={formData.coachName}
             readOnly
-            className="min-h-11 w-full rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none"
+            className="min-h-11 w-full rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none"
           />
         </label>
 
         <div className="min-w-0 md:col-span-2">
-          <span className={labelClass}>{contactLabel} Email Recipients</span>
+          <span className={labelClass}>{contactLabel} email recipients</span>
           {parentContacts.length > 0 ? (
             <div className="grid gap-3 md:grid-cols-2">
               {parentContacts.map((contact, index) => (
@@ -123,11 +123,11 @@ export function EvaluationPlayerDetailsSection({
                     type="checkbox"
                     checked={selectedParentContactIndexes.includes(index)}
                     onChange={() => onToggleParentContact(index)}
-                    className="h-4 w-4 accent-[#067a46]"
+                    className="h-4 w-4 accent-[#2563eb]"
                   />
                   <span className="min-w-0">
                     <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}</span>
-                    <span className="block break-words text-xs font-semibold text-[#456653]">{contact.email || 'No email entered'}</span>
+                    <span className="block break-words text-xs font-semibold text-[#475569]">{contact.email || 'No email entered'}</span>
                   </span>
                 </label>
               ))}
@@ -136,7 +136,7 @@ export function EvaluationPlayerDetailsSection({
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block min-w-0">
                 <span className={eyebrowLabelClass}>
-                  {contactLabel} Name
+                  {contactLabel} name
                 </span>
                 <input
                   type="text"
@@ -148,7 +148,7 @@ export function EvaluationPlayerDetailsSection({
               </label>
               <label className="block min-w-0">
                 <span className={eyebrowLabelClass}>
-                  {contactLabel} Email
+                  {contactLabel} email
                 </span>
                 <input
                   type="email"
