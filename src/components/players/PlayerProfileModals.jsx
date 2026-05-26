@@ -2,11 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
 import { ScheduleDateTimePicker } from '../ui/ScheduleDateTimePicker.jsx'
 
-const optionPanelClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
-const choiceClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-[#cfeedd] bg-white px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/50'
-const checkboxClass = 'mt-1 h-4 w-4 rounded border-[#cfeedd] accent-[#067a46]'
-const titleClass = 'block text-sm font-black text-[#101828]'
-const bodyClass = 'mt-1 block text-sm font-semibold leading-6 text-[#5f7468]'
+const optionPanelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10'
+const choiceClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10'
+const checkboxClass = 'mt-1 h-4 w-4 rounded border-[#bddcca] accent-[#067a46]'
+const titleClass = 'block text-sm font-black text-[#10231a]'
+const bodyClass = 'mt-1 block text-sm font-semibold leading-6 text-[#456653]'
 
 export function PlayerProfileModals({
   emailSendMode,

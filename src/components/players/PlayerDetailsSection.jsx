@@ -8,10 +8,10 @@ import { isInviteEmailTemplate } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
 const smallLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#067a46]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#e8f7ee] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayerDetailsSection({
   directEmailSendingId,
@@ -62,7 +62,7 @@ export function PlayerDetailsSection({
             })
 
             return (
-              <div key={player.id} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+              <div key={player.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                 {isEditing ? (
                   <PlayerDetailsEditor
                     draft={draft}
@@ -164,8 +164,8 @@ function PlayerDetailsEditor({
       <div className="md:col-span-2 xl:col-span-3">
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <span className="block text-sm font-black text-[#101828]">Contacts</span>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#5f7468]">
+            <span className="block text-sm font-black text-[#10231a]">Contacts</span>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#456653]">
               Add parent or guardian contacts used for player communication.
             </p>
           </div>
@@ -179,7 +179,7 @@ function PlayerDetailsEditor({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {getDraftParentContacts(draft).map((contact, index) => (
-            <div key={index} className="rounded-lg border border-[#cfeedd] bg-white p-3 shadow-sm shadow-[#d7eadf]/60">
+            <div key={index} className="rounded-lg border border-[#bddcca] bg-white p-3 shadow-sm shadow-[#067a46]/10">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
                 Contact {index + 1}
               </p>
@@ -237,14 +237,14 @@ function PlayerDetailsEditor({
                 key={position}
                 type="button"
                 onClick={() => onRemovePlayerPosition(position)}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-[#e8f7ee]"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] transition hover:bg-[#f0fdf6]"
               >
                 {position} remove
               </button>
             ))}
           </div>
         ) : (
-          <p className="mt-2 rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] px-3 py-2 text-xs font-black leading-5 text-[#456653]">
+          <p className="mt-2 rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-3 py-2 text-xs font-black leading-5 text-[#456653]">
             Add at least one position so coaches can filter and compare the player properly.
           </p>
         )}
@@ -310,12 +310,12 @@ function PlayerDetailsSummary({
           <div className="mt-2 space-y-1">
             {contacts.length > 0 ? (
               contacts.map((contact, index) => (
-                <p key={index} className="break-words text-sm font-black text-[#101828]">
+                <p key={index} className="break-words text-sm font-black text-[#10231a]">
                   {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}{contact.email ? ` | ${contact.email}` : ''}
                 </p>
               ))
             ) : (
-              <p className="rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] px-3 py-2 text-sm font-black text-[#456653]">
+              <p className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-3 py-2 text-sm font-black text-[#456653]">
                 Add parent or player contact details before sending portal invites or direct emails.
               </p>
             )}
@@ -328,7 +328,7 @@ function PlayerDetailsSummary({
         <PlayerDetailItem label="Status" value={player.status === 'promoted' ? 'Promoted' : 'Active'} />
       </div>
 
-      <div className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/60">
+      <div className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(160px,0.45fr)_auto_auto_auto] lg:items-end">
           {directEmailTemplates.length > 0 ? (
             <label className="block">
@@ -414,7 +414,7 @@ function PlayerDetailItem({ label, value }) {
   return (
     <div>
       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{label}</p>
-      <p className="mt-2 text-sm font-black text-[#101828]">{value}</p>
+      <p className="mt-2 text-sm font-black text-[#10231a]">{value}</p>
     </div>
   )
 }
