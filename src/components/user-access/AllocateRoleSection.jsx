@@ -11,10 +11,10 @@ export function AllocateRoleSection({
   staffLimitMessage,
 }) {
   const inputClass =
-    'min-h-11 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition focus:border-[#067a46] focus:ring-2 focus:ring-[#d7f8e5]'
-  const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-  const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-  const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
+    'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-bold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]'
+  const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
+  const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
+  const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
 
   return (
     <SectionCard
@@ -22,24 +22,24 @@ export function AllocateRoleSection({
       tourId="allocate-role-section"
       description={
         canAddMoreUsers
-          ? 'Invite one staff member at a time and choose the role they need for club work.'
+          ? 'Invite one staff member at a time and choose the smallest role that covers their football work.'
           : staffLimitMessage
       }
     >
       {isLoading ? (
-        <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#456653]`}>
+        <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#475569]`}>
           Loading roles...
         </div>
       ) : assignableRoles.length === 0 ? (
-        <div className={`${panelClass} px-4 py-6 text-sm font-semibold text-[#456653]`}>
+        <div className={`${panelClass} px-4 py-6 text-sm font-semibold text-[#475569]`}>
           No role data entered yet, or role data could not be loaded.
         </div>
       ) : (
         <form className={`${panelClass} p-5`} onSubmit={onSubmit}>
           <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Invite details</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Invite details</p>
             <p className={`mt-2 ${bodyTextClass}`}>
-              Use the staff member email they will actually sign in with. Access should match the work they are expected to do this week.
+              Use the email they will actually sign in with. Access should match the work they are expected to do this week.
             </p>
           </div>
 
@@ -85,7 +85,7 @@ export function AllocateRoleSection({
                   required={formState.roleKey === '__custom__'}
                   className={inputClass}
                 />
-                <p className="mt-2 text-xs font-semibold leading-5 text-[#456653]">
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#475569]">
                   Custom roles are saved at the support level and can be reused later.
                 </p>
               </label>
@@ -101,7 +101,7 @@ export function AllocateRoleSection({
                   ? 'Please wait while this user access is being saved.'
                   : canAddMoreUsers ? undefined : staffLimitMessage
               }
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isSaving ? 'Sending...' : 'Send role invite'}
             </button>

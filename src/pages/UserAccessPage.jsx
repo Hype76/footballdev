@@ -28,21 +28,21 @@ import {
 
 const staffAccessRules = [
   {
-    label: 'Smallest role first',
-    body: 'Give coaches the lowest role that lets them do their football work this week.',
+    label: 'Smallest useful role',
+    body: 'Give every coach the lowest role that lets them complete their football work this week.',
   },
   {
-    label: 'Email owns access',
-    body: 'Invites and existing logins are matched by email, so one coach should use one address.',
+    label: 'One email owns access',
+    body: 'Invites and existing logins are matched by email, so each staff member should use one address.',
   },
   {
-    label: 'Remove stale access',
-    body: 'Lower or remove access when a coach changes teams or leaves the club.',
+    label: 'Keep access current',
+    body: 'Lower or remove access when staff change teams, stop coaching, or leave the club.',
   },
 ]
 
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
+const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
 
 export function UserAccessPage() {
   const { user } = useAuth()
@@ -401,30 +401,30 @@ export function UserAccessPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Staff control</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#10231a] sm:text-5xl">
-              Control who can run football work for the club.
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Staff access</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-5xl">
+              Give staff access only where the work needs it.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4d6458]">
-              Invite coaches by email, assign the role they need, and keep workspace access tidy as staff change teams or responsibilities.
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
+              Invite coaches by email, assign the smallest useful role, and keep workspace access tidy as responsibilities change.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {staffAccessRules.map((rule) => (
                 <div key={rule.label} className={`${panelClass} px-4 py-4`}>
-                  <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                  <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
                   <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-5 shadow-sm shadow-[#067a46]/10">
+          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Access state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{activeAndPendingEmailCount} staff emails tracked</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Access state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">{activeAndPendingEmailCount} staff emails tracked</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 Scope: {scopeLabel}. {pendingAccessCount} pending invites and {members.length} active users are visible to this account.
               </p>
@@ -443,7 +443,7 @@ export function UserAccessPage() {
       </section>
 
       {message ? (
-        <div className="rounded-lg border border-[#8bdcae] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#05603a] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-black text-[#1d4ed8] shadow-sm shadow-[#2563eb]/10">
           {message}
         </div>
       ) : null}
@@ -502,7 +502,7 @@ export function UserAccessPage() {
           `Email: ${memberRemoveTarget?.email || 'No email entered'}`,
           `Role: ${memberRemoveTarget ? getRoleLabel(memberRemoveTarget) : 'Unknown role'}`,
         ]}
-        confirmLabel="Remove User"
+        confirmLabel="Remove user"
         onCancel={() => setMemberRemoveTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmRemoveMember(password)}
@@ -517,7 +517,7 @@ export function UserAccessPage() {
           `Email: ${inviteDeleteTarget?.email || 'No email entered'}`,
           `Role: ${inviteDeleteTarget?.roleLabel || 'No role entered'}`,
         ]}
-        confirmLabel="Remove Pending Access"
+        confirmLabel="Remove pending access"
         onCancel={() => setInviteDeleteTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmDeleteInvite(password)}
@@ -528,9 +528,9 @@ export function UserAccessPage() {
 
 function AccessMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#10231a]">{value}</p>
+    <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#0f172a]">{value}</p>
     </div>
   )
 }

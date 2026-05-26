@@ -3,10 +3,10 @@ import { getRoleLabel } from '../../lib/auth.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const bodyTextClass = 'text-sm font-semibold text-[#456653]'
-const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10'
-const fieldClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#10231a] outline-none transition focus:border-[#067a46] focus:ring-2 focus:ring-[#d7f8e5]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const bodyTextClass = 'text-sm font-semibold text-[#475569]'
+const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-bold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#dbeafe]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function ActiveUsersSection({
   isLoading,
@@ -29,11 +29,11 @@ export function ActiveUsersSection({
       description="Review who already has workspace access and keep display names readable for staff records."
     >
       {isLoading ? (
-        <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#456653]`}>
+        <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#475569]`}>
           Loading active users...
         </div>
       ) : members.length === 0 ? (
-        <div className={`${panelClass} px-4 py-6 text-sm font-semibold text-[#456653]`}>
+        <div className={`${panelClass} px-4 py-6 text-sm font-semibold text-[#475569]`}>
           No active users found for this club.
         </div>
       ) : (
@@ -45,11 +45,11 @@ export function ActiveUsersSection({
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="break-words text-sm font-black text-[#10231a]">{member.email}</p>
+                  <p className="break-words text-sm font-black text-[#0f172a]">{member.email}</p>
                   <p className={`mt-1 ${bodyTextClass}`}>{member.name || 'No display name yet'}</p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="rounded-lg border border-[#bddcca] bg-[#ecfdf3] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">
+                  <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
                     {getRoleLabel(member)}
                   </div>
                   {canRemoveClubUser(user, member) ? (
@@ -68,7 +68,7 @@ export function ActiveUsersSection({
               {canUpdateClubUserName(user, member) ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                   <label className="block">
-                    <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
+                    <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
                       Display name
                     </span>
                     <input
