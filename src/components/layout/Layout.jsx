@@ -233,49 +233,48 @@ export function Layout() {
             <div className="mx-auto w-full max-w-[108rem]">
               <OnboardingProvider>
                 {needsAccessModeSelection ? (
-                  <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
-                    <WorkspaceSelection
-                      eyebrow="Choose Access"
-                      title="How do you want to open this account?"
-                      description="This login has both team access and parent access. Pick the area you want to use for this session."
-                      error={clubSelectionError || authError}
-                      isLoading={isProfileLoading}
-                      options={accessModeOptions}
-                      onSelect={handleAccessModeSelect}
-                    />
-                  </div>
+                  <WorkspaceSelection
+                    eyebrow="Workspace access"
+                    title="Choose the work area for this session."
+                    description="This login can open more than one football workspace. Pick the access mode before using team tools, parent messages, or setup actions."
+                    error={clubSelectionError || authError}
+                    isLoading={isProfileLoading}
+                    options={accessModeOptions.map((option) => ({
+                      ...option,
+                      action: 'Open access',
+                    }))}
+                    onSelect={handleAccessModeSelect}
+                  />
                 ) : needsClubSelection ? (
-                  <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
-                    <WorkspaceSelection
-                      eyebrow="Choose Club"
-                      title="Which club do you want to open?"
-                      description="This email is linked to more than one club. Pick the club workspace you want to use for this session."
-                      error={clubSelectionError || authError}
-                      isLoading={isProfileLoading}
-                      options={clubOptions.map((option) => ({
-                        id: option.clubId,
-                        label: option.clubName || 'Unnamed club',
-                        meta: option.roleLabel || option.role || 'Club user',
-                      }))}
-                      onSelect={handleClubSelect}
-                    />
-                  </div>
+                  <WorkspaceSelection
+                    eyebrow="Club access"
+                    title="Choose the club workspace to open."
+                    description="This email is linked to more than one club. Pick the club before changing players, teams, staff, parents, or billing details."
+                    error={clubSelectionError || authError}
+                    isLoading={isProfileLoading}
+                    options={clubOptions.map((option) => ({
+                      id: option.clubId,
+                      label: option.clubName || 'Unnamed club',
+                      meta: option.roleLabel || option.role || 'Club user',
+                      action: 'Open club',
+                    }))}
+                    onSelect={handleClubSelect}
+                  />
                 ) : needsTeamSelection ? (
-                  <div className="rounded-lg border border-[#bfe8cd] bg-white p-4 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
-                    <WorkspaceSelection
-                      eyebrow="Choose Team"
-                      title="Which team do you want to work with?"
-                      description="Your account is linked to more than one team. Pick the team workspace you want to use for player work in this session."
-                      error={clubSelectionError || authError}
-                      isLoading={isProfileLoading}
-                      options={teamOptions.map((option) => ({
-                        id: option.id,
-                        label: option.name || 'Unnamed team',
-                        meta: 'Team workspace',
-                      }))}
-                      onSelect={handleTeamSelect}
-                    />
-                  </div>
+                  <WorkspaceSelection
+                    eyebrow="Team access"
+                    title="Choose the team to work with."
+                    description="Your account is linked to more than one team. Pick the team before opening player records, sessions, availability, or match day."
+                    error={clubSelectionError || authError}
+                    isLoading={isProfileLoading}
+                    options={teamOptions.map((option) => ({
+                      id: option.id,
+                      label: option.name || 'Unnamed team',
+                      meta: 'Team workspace',
+                      action: 'Open team',
+                    }))}
+                    onSelect={handleTeamSelect}
+                  />
                 ) : (
                   <Outlet />
                 )}
@@ -290,39 +289,54 @@ export function Layout() {
 
 function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, options, title }) {
   return (
-    <div className="mx-auto max-w-3xl space-y-5 py-4 sm:py-8">
-      <div className="rounded-lg border border-[#bfe8cd] bg-white p-5 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
-        <p className="text-xs font-black uppercase tracking-[0.22em] text-[#067a46]">{eyebrow}</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">{title}</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#456653]">{description}</p>
-      </div>
-
-      <div className="space-y-3">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            onClick={() => onSelect(option.id)}
-            disabled={isLoading}
-            title={isLoading ? 'Please wait while the workspace opens.' : undefined}
-            className="flex min-h-16 w-full items-center justify-between gap-4 rounded-lg border border-[#bfe8cd] bg-white px-4 py-3 text-left shadow-sm shadow-[#d7eadf]/70 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-black text-[#101828]">{option.label}</span>
-              <span className="mt-1 block text-xs font-semibold text-[#5f7468]">{option.meta}</span>
-            </span>
-            <span className="shrink-0 text-sm font-black text-[#067a46]">
-              {isLoading ? 'Opening...' : 'Open'}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {error ? (
-        <div className="rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#b42318]">
-          {error}
+    <section className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="border-b border-[#d7eadf] bg-[#f0fdf6] p-5 sm:p-7 lg:border-b-0 lg:border-r">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#067a46]">{eyebrow}</p>
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">{title}</h1>
+          <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[#456653]">{description}</p>
+          <div className="mt-6 rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/70">
+            <p className="text-sm font-black text-[#101828]">Before you continue</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              The workspace selection controls what data loads, which actions are available, and where saved football records belong.
+            </p>
+          </div>
         </div>
-      ) : null}
-    </div>
+
+        <div className="p-4 sm:p-6">
+          <div className="grid gap-3">
+            {options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onSelect(option.id)}
+                disabled={isLoading}
+                title={isLoading ? 'Please wait while the workspace opens.' : undefined}
+                className="group flex min-h-20 w-full items-center justify-between gap-4 rounded-lg border border-[#bfe8cd] bg-white px-4 py-4 text-left shadow-sm shadow-[#d7eadf]/70 transition hover:border-[#20a464] hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] text-sm font-black text-[#067a46]">
+                    {String(option.label || 'W').slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-base font-black text-[#101828]">{option.label}</span>
+                    <span className="mt-1 block text-sm font-semibold text-[#5f7468]">{option.meta}</span>
+                  </span>
+                </span>
+                <span className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] px-4 text-sm font-black text-[#067a46] transition group-hover:border-[#067a46] group-hover:bg-[#067a46] group-hover:text-white">
+                  {isLoading ? 'Opening...' : option.action || 'Open'}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {error ? (
+            <div className="mt-4 rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#b42318]">
+              {error}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
   )
 }
