@@ -1,6 +1,7 @@
 import { formatTrendDate } from '../../hooks/players/playerProfileUtils.js'
 import { MicIcon } from '../icons/MicIcon.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
+import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
 const metricCardClass = 'rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
@@ -42,7 +43,7 @@ export function PlayerOverview({
               title={voiceNoteDisabledReason || (isRecordingVoiceNote ? 'Stop recording' : 'Voice note')}
               className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border px-3 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 isRecordingVoiceNote
-                  ? 'border-red-500/50 bg-red-600 text-white hover:bg-red-700'
+                  ? 'border-[#fecdca] bg-[#b42318] text-white hover:bg-[#912018]'
                   : 'border-[#cfeedd] bg-[#f8fdf9] text-[#101828] hover:bg-[#e8f7ee]'
               }`}
             >
@@ -74,9 +75,12 @@ export function PlayerOverview({
         description="Shows how the player's development scores are moving over time."
       >
         {ratingTrend.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-6 text-sm font-bold text-[#5f7468]">
-            No scored development records yet.
-          </div>
+          <PlayerStatePanel
+            action="Create or complete a development record with numeric scores to start the trend."
+            body="The trend needs at least one scored development record. Notes, messages, and profile details can exist before the first score."
+            eyebrow="Profile trend"
+            title="No scored development records are available yet."
+          />
         ) : (
           <div className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

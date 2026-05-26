@@ -6,6 +6,7 @@ import {
 import { getDraftParentContacts } from '../../hooks/players/playerProfileUtils.js'
 import { isInviteEmailTemplate } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
+import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
 const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -44,9 +45,12 @@ export function PlayerDetailsSection({
       description="Edit section, team, and parent contact details here."
     >
       {profilePlayers.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-bold text-[#5f7468]">
-          No saved player details yet. This profile was created from development history.
-        </div>
+        <PlayerStatePanel
+          action="Add the player to Trial or Squad so this profile has one saved football record to manage."
+          body="This profile was opened from development history. Team, parent contacts, positions, and section rules need a saved player record."
+          eyebrow="Profile setup"
+          title="Saved player details are not attached yet."
+        />
       ) : (
         <div className="space-y-4">
           {profilePlayers.map((player) => {
@@ -240,7 +244,9 @@ function PlayerDetailsEditor({
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-xs font-semibold leading-5 text-[#5f7468]">No positions entered.</p>
+          <p className="mt-2 rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] px-3 py-2 text-xs font-black leading-5 text-[#456653]">
+            Add at least one position so coaches can filter and compare the player properly.
+          </p>
         )}
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -309,7 +315,9 @@ function PlayerDetailsSummary({
                 </p>
               ))
             ) : (
-              <p className="text-sm font-black text-[#101828]">No contact details entered</p>
+              <p className="rounded-lg border border-[#bfe8cd] bg-[#f0fdf6] px-3 py-2 text-sm font-black text-[#456653]">
+                Add parent or player contact details before sending portal invites or direct emails.
+              </p>
             )}
           </div>
         </div>
@@ -339,9 +347,12 @@ function PlayerDetailsSummary({
               </select>
             </label>
           ) : (
-            <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-3 text-sm font-bold text-[#5f7468]">
-              Enable a template for Direct Email before sending.
-            </div>
+            <PlayerStatePanel
+              action="Open Message Templates and enable a Direct Email template for parents or players."
+              body="Direct email needs a saved template so staff send consistent football communication from the profile."
+              eyebrow="Email setup"
+              title="Direct email templates are not ready."
+            />
           )}
           {shouldShowInviteDate ? (
             <label className="block">
