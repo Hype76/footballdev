@@ -191,7 +191,7 @@ export function ActivityLogPage() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {activityRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
+                <div key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
                   <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{rule.body}</p>
                 </div>

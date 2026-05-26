@@ -203,7 +203,7 @@ export function BillingPage() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {billingRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
+                <div key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
                   <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{rule.body}</p>
                 </div>
@@ -256,21 +256,21 @@ export function BillingPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Tier</p>
               <p className="mt-3 text-2xl font-black text-[#10231a]">{getPlanName(visibleClub)}</p>
             </div>
-            <div className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Status</p>
               <p className="mt-3 text-2xl font-black text-[#10231a]">
                 {testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus)}
               </p>
             </div>
-            <div className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Next billing date</p>
               <p className="mt-3 text-2xl font-black text-[#10231a]">{formatDate(visibleClub?.currentPeriodEnd)}</p>
             </div>
-            <div className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Last updated</p>
               <p className="mt-3 text-2xl font-black text-[#10231a]">{formatDate(visibleClub?.planUpdatedAt)}</p>
             </div>
@@ -318,7 +318,7 @@ export function BillingPage() {
             {billing.invoices.map((invoice) => (
               <div
                 key={invoice.id}
-                className="grid gap-3 rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10 md:grid-cols-[1fr_auto_auto]"
+                className="grid gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10 md:grid-cols-[1fr_auto_auto]"
               >
                 <div>
                   <p className="font-black text-[#10231a]">{invoice.number}</p>

@@ -233,7 +233,7 @@ export function EmailQueuePage() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {queueRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
+                <div key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
                   <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{rule.body}</p>
                 </div>
@@ -264,7 +264,7 @@ export function EmailQueuePage() {
       {errorMessage ? <NoticeBanner title="Email queue action failed" message={errorMessage} /> : null}
 
       <div className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10 sm:p-5">
-        <div className="mb-4 flex flex-col gap-2 border-b border-[#d7eadf] pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-4 flex flex-col gap-2 border-b border-[#bddcca] pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Holding queue</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Scheduled messages</h2>
@@ -285,7 +285,7 @@ export function EmailQueuePage() {
         ) : (
           <div className="space-y-3">
             {sortedQueue.map((item) => (
-              <div key={item.id} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+              <div key={item.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
