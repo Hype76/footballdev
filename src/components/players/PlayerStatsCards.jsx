@@ -29,7 +29,7 @@ export function PlayerStatsCards({
       detail: `${evaluatedPlayerCount} players have coach history attached.`,
       to: '/assess-player/completed',
       action: 'Review records',
-      tone: 'border-[#bddcca] bg-[#ecfdf3] text-[#067a46]',
+      tone: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]',
     },
   ]
 
@@ -40,19 +40,19 @@ export function PlayerStatsCards({
           key={card.label}
           to={card.to}
           aria-label={card.action}
-          className="group block rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#20a464]"
+          className="group block rounded-lg border border-[#d8e3ee] bg-white p-5 shadow-sm shadow-[#0f172a]/5 transition hover:-translate-y-0.5 hover:border-[#2563eb] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#456653]">{card.label}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#475569]">{card.label}</p>
               <p className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{card.value}</p>
             </div>
             <span className={['inline-flex min-h-8 items-center rounded-lg border px-3 text-xs font-black', card.tone].join(' ')}>
               Register
             </span>
           </div>
-          <p className="mt-3 min-h-10 text-sm font-semibold leading-5 text-[#456653]">{card.detail}</p>
-          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#067a46] px-4 py-2 text-sm font-black text-white transition group-hover:bg-[#05603a]">
+          <p className="mt-3 min-h-10 text-sm font-semibold leading-5 text-[#475569]">{card.detail}</p>
+          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#0f172a] px-4 py-2 text-sm font-black text-white transition group-hover:bg-[#1d4ed8]">
             {card.action}
           </span>
         </Link>
