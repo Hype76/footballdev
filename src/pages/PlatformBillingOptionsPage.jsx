@@ -15,11 +15,11 @@ import {
 
 function BillingSuccessBanner({ message }) {
   return (
-    <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-4 shadow-sm shadow-[#d7eadf]/70">
+    <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-4 shadow-sm shadow-[#067a46]/10">
       <div className="flex gap-3">
         <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#067a46]" />
         <div>
-          <p className="text-sm font-black text-[#101828]">Billing change saved</p>
+          <p className="text-sm font-black text-[#10231a]">Billing change saved</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-[#456653]">{message}</p>
         </div>
       </div>

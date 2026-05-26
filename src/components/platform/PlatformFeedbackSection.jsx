@@ -10,11 +10,11 @@ const STATUS_OPTIONS = [
   { value: 'declined', label: 'Declined' },
 ]
 
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]'
+const emptyStateClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10'
 
 export function PlatformFeedbackSection({
   drafts,
@@ -35,7 +35,7 @@ export function PlatformFeedbackSection({
       description="Review product feedback, update status, add internal notes, or remove completed items."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-5 text-sm font-semibold text-[#5f7468]">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653] shadow-sm shadow-[#067a46]/10">
           Loading feedback...
         </div>
       ) : feedbackItems.length === 0 ? (
@@ -51,11 +51,11 @@ export function PlatformFeedbackSection({
             }
 
             return (
-              <div key={item.id} className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+              <div key={item.id} className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10">
                 <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
                   <div>
                     <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#456653]">{item.message}</p>
-                    <p className="mt-3 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
+                    <p className="mt-3 text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
                       {item.clubName} | {item.createdByEmail || 'No email'} | {item.voteCount} votes
                     </p>
                   </div>
@@ -76,13 +76,13 @@ export function PlatformFeedbackSection({
                 </div>
 
                 {item.comments?.length ? (
-                  <div className="mt-4 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
-                    <p className="text-sm font-black text-[#101828]">Visible comments</p>
+                  <div className="mt-4 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+                    <p className="text-sm font-black text-[#10231a]">Visible comments</p>
                     <div className="mt-3 space-y-3">
                       {item.comments.map((comment) => (
-                        <div key={comment.id} className="rounded-lg border border-[#cfeedd] bg-white px-4 py-3">
+                        <div key={comment.id} className="rounded-lg border border-[#bddcca] bg-white px-4 py-3">
                           <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#456653]">{comment.message}</p>
-                          <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]">
+                          <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#456653]">
                             Platform admin | {formatPlatformDate(comment.createdAt)}
                           </p>
                         </div>
