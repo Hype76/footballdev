@@ -4,13 +4,13 @@ import { hasPlanFeature } from '../../lib/plans.js'
 import { buildEvaluationSummary } from '../../hooks/players/playerProfileUtils.js'
 import { EvaluationExportFieldsSelector } from '../evaluations/EvaluationExportFieldsSelector.jsx'
 
-const panelClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60'
-const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
-const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const panelClass = 'rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const bodyClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
-const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#e8f7ee] disabled:cursor-not-allowed disabled:opacity-60'
-const smallButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:bg-[#e8f7ee]'
+const bodyClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const smallButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-xs font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]'
 
 export function EvaluationHistoryCard({
   availableEmailTemplates,
@@ -81,7 +81,7 @@ export function EvaluationHistoryCard({
   const removePlayerDisabledReason = isDeleting ? 'Please wait while this player is being removed.' : undefined
 
   return (
-    <div className="rounded-lg border border-[#cfeedd] bg-white p-4 shadow-sm shadow-[#d7eadf]/70 sm:p-5">
+    <div className="rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10 sm:p-5">
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
@@ -90,15 +90,15 @@ export function EvaluationHistoryCard({
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-lg font-black text-[#101828]">{evaluation.date || 'No date entered'}</p>
-            {evaluation.session ? <p className="mt-1 text-sm font-semibold text-[#5f7468]">Session: {evaluation.session}</p> : null}
-            <p className="mt-1 text-sm font-semibold text-[#5f7468]">Section: {evaluation.section || 'Trial'}</p>
+            <p className="text-lg font-black text-[#10231a]">{evaluation.date || 'No date entered'}</p>
+            {evaluation.session ? <p className="mt-1 text-sm font-semibold text-[#456653]">Session: {evaluation.session}</p> : null}
+            <p className="mt-1 text-sm font-semibold text-[#456653]">Section: {evaluation.section || 'Trial'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex min-h-9 items-center rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-3 py-2 text-sm font-black text-[#067a46]">
               Score: {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : '-'}
             </span>
-            <span className="inline-flex min-h-9 items-center rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-3 py-2 text-sm font-black text-[#101828]">
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-2 text-sm font-black text-[#10231a]">
               {isOpen ? 'Close' : 'Open'}
             </span>
           </div>
@@ -110,7 +110,7 @@ export function EvaluationHistoryCard({
       <div className={`mt-5 ${panelClass}`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-black text-[#101828]">Move report to another player</p>
+            <p className="text-sm font-black text-[#10231a]">Move report to another player</p>
             <p className={`mt-1 ${bodyClass}`}>
               Use this if a report was saved against the wrong player.
             </p>
@@ -179,7 +179,7 @@ export function EvaluationHistoryCard({
             </select>
           </label>
         ) : (
-          <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-3 text-sm font-bold text-[#5f7468]">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-bold text-[#456653] shadow-sm shadow-[#067a46]/10">
             Create a club email template before sending emails.
           </div>
         )}
@@ -250,7 +250,7 @@ export function EvaluationHistoryCard({
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 shadow-sm shadow-red-100/60">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-black text-[#101828]">No place offered</p>
+              <p className="text-sm font-black text-[#10231a]">No place offered</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-red-700">
                 If this player is no longer needed, you can remove them from the system after preparing the parent email.
               </p>
@@ -283,7 +283,7 @@ export function EvaluationHistoryCard({
 
       <div className="mt-5">
         <p className={eyebrowClass}>Summary</p>
-        <p className="mt-3 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#5f7468]">
+        <p className="mt-3 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#456653]">
           {buildEvaluationSummary(evaluation)}
         </p>
       </div>
@@ -293,9 +293,9 @@ export function EvaluationHistoryCard({
         <div className="mt-3 space-y-2">
           {responseItems.length > 0 ? (
             responseItems.map((item) => (
-              <div key={item.label} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 shadow-sm shadow-[#d7eadf]/60">
+              <div key={item.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 shadow-sm shadow-[#067a46]/10">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
-                <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#5f7468]">{String(item.value)}</p>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#456653]">{String(item.value)}</p>
               </div>
             ))
           ) : (
@@ -319,12 +319,12 @@ function EvaluationRecipients({
     <div>
       <span className={labelClass}>Email recipients</span>
       {contacts.length > 0 ? (
-        <div className="space-y-2 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-3 shadow-sm shadow-[#d7eadf]/60">
+        <div className="space-y-2 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-3 shadow-sm shadow-[#067a46]/10">
           {contacts.map((contact, index) => {
             const selectedIndexes = selectedParentContacts[evaluationId] ?? contacts.map((_, contactIndex) => contactIndex)
 
             return (
-              <label key={`${contact.email || contact.name}-${index}`} className="flex items-start gap-2 text-sm font-black text-[#101828]">
+              <label key={`${contact.email || contact.name}-${index}`} className="flex items-start gap-2 text-sm font-black text-[#10231a]">
                 <input
                   type="checkbox"
                   checked={selectedIndexes.includes(index)}
@@ -333,14 +333,14 @@ function EvaluationRecipients({
                 />
                 <span className="min-w-0">
                   <span className="block font-black">{contact.name || 'Parent/Guardian'}</span>
-                  <span className="block break-words text-xs font-semibold text-[#5f7468]">{contact.email || 'No email entered'}</span>
+                  <span className="block break-words text-xs font-semibold text-[#456653]">{contact.email || 'No email entered'}</span>
                 </span>
               </label>
             )
           })}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-[#9addb4] bg-[#f8fdf9] px-4 py-3 text-sm font-bold text-[#5f7468]">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-bold text-[#456653] shadow-sm shadow-[#067a46]/10">
           No parent contacts entered.
         </div>
       )}
@@ -364,7 +364,7 @@ function EvaluationExportFields({
       <div className={panelClass}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-black text-[#101828]">Development details to include</p>
+            <p className="text-sm font-black text-[#10231a]">Development details to include</p>
             <p className={`mt-1 ${bodyClass}`}>
               Choose what goes into the parent email. This choice is saved in this browser for {playerName}.
             </p>
@@ -397,12 +397,12 @@ function EvaluationExportFields({
             selectedExportLabels={selectedExportLabels}
           />
         ) : (
-          <p className="mt-4 rounded-lg border border-dashed border-[#9addb4] bg-white px-4 py-3 text-sm font-bold text-[#5f7468]">
+          <p className="mt-4 rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-bold text-[#456653] shadow-sm shadow-[#067a46]/10">
             No development responses above zero were entered for this record.
           </p>
         )}
 
-        <p className="mt-3 text-xs font-semibold leading-5 text-[#5f7468]">
+        <p className="mt-3 text-xs font-semibold leading-5 text-[#456653]">
           {selectedResponseItems.length} of {responseItems.length} field{responseItems.length === 1 ? '' : 's'} selected.
         </p>
       </div>
