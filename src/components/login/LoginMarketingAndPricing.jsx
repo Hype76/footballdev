@@ -1,26 +1,32 @@
 import { formatPrice, formatPriceLabel, getPromotionSummary, pricingPlans } from '../../lib/login-pricing.js'
 
-const capabilityCards = [
-  ['Create player development records', 'Score technical, tactical, physical, and attitude areas using your own club form.'],
-  ['Send parent reports', 'Turn coach notes into professional parent-ready feedback, with or without scores.'],
-  ['Manage trialists and squad players', 'Keep trial players separate from squad players while retaining full history.'],
-  ['Organise sessions', 'Create training and match sessions, then record players from the session list.'],
-  ['Manage teams and staff', 'Assign coaches to teams and keep access controlled by role.'],
-  ['Use it on mobile', 'Coaches can open it on phones, tablets, and desktops, with installable app support.'],
+const panelClass = 'rounded-lg border border-[#bfe8cd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70 sm:p-6'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const titleClass = 'mt-3 text-3xl font-black tracking-tight text-[#101828] sm:text-4xl'
+const copyClass = 'mt-3 text-sm font-semibold leading-6 text-[#456653]'
+const cardClass = 'rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/50'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f0fdf6]'
+
+const operatingSystemRows = [
+  ['Club setup', 'Create the club, first team, staff access, and parent contact rules before inviting wider use.'],
+  ['Match week', 'Track availability, build sessions, record match day notes, and keep actions tied to real players.'],
+  ['Parent comms', 'Send controlled updates, polls, invites, and reports without sharing staff logins.'],
+  ['Player memory', 'Keep development records, squad history, trial status, and assessment fields in one place.'],
 ]
 
-const workflowCards = [
-  ['Trial nights', 'Add trialists, collect coach ratings, choose invite back, no place offered, or offer place, then send the right parent message.'],
-  ['Training sessions', 'Build a session list, add players during the session, and complete development records when coaches are ready.'],
-  ['Squad reviews', 'Review previous development records, track progress over time, and keep private staff notes away from parent emails.'],
-  ['Match days', 'Keep match feedback linked to the correct session and player history.'],
+const switchCards = [
+  ['Less setup drag than Spond', 'Make the first useful action obvious: club, team, players, parents, then match week.'],
+  ['Less website weight than Pitchero', 'Prioritise the operating workspace before public-site content, news, and broad sports tooling.'],
+  ['Football-only decisions', 'Use football language, football roles, and football workflows everywhere in the product.'],
+  ['Cleaner club control', 'Separate platform admin, club admin, team staff, and parent access from the start.'],
 ]
 
-const trustCards = [
-  ['Club accounts', 'Each club has its own workspace, teams, staff roles, player records, and settings.'],
-  ['Professional output', 'Reports and emails use clean wording, club branding, and selected development fields.'],
-  ['No more lost notes', 'Player history, actions, and activity logs stay connected to the right club and team.'],
-  ['Easy onboarding', 'Start small with one team, then add more staff, teams, and custom forms when needed.'],
+const onboardingRules = [
+  'State is saved per account or workspace.',
+  'Setup can be skipped, reset, or reopened later.',
+  'Steps use real club data where the app can check it.',
+  'Manual completion is only for choices the system cannot infer.',
 ]
 
 export function LoginMarketingAndPricing({
@@ -35,65 +41,88 @@ export function LoginMarketingAndPricing({
   paymentsDisabled,
 }) {
   return (
-    <section className="space-y-5 pb-8 text-slate-950">
-      <div className="border border-slate-200 bg-white p-5 sm:p-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Why it exists</p>
-        <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Better feedback for players. Less admin for coaches.</h2>
-        <p className="mt-4 max-w-4xl text-base leading-8 text-slate-700">
-          Grassroots clubs work hard to give players a fair chance. Trial notes, parent messages, emails, and paper forms can quickly become messy. Football Player helps clubs keep development records organised, communicate properly with parents, and save coaches time after every session.
-        </p>
-      </div>
-
-      <div className="border border-slate-200 bg-white p-5 sm:p-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">What you can do</p>
-        <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Built to support the daily work of running football teams.</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {capabilityCards.map(([title, copy]) => (
-            <div key={title} className="border border-slate-200 bg-slate-50 p-5">
-              <p className="text-lg font-black text-slate-950">{title}</p>
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="border border-slate-200 bg-white p-5 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Real club workflows</p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Built around how football clubs actually work.</h2>
-          <div className="mt-6 space-y-4">
-            {workflowCards.map(([title, copy]) => (
-              <div key={title} className="border border-slate-200 bg-slate-50 p-4">
-                <p className="font-black text-slate-950">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
-              </div>
-            ))}
+    <section className="space-y-5 pb-8 text-[#101828]">
+      <div className={panelClass}>
+        <p className={eyebrowClass}>Football-only club OS</p>
+        <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_0.8fr] lg:items-end">
+          <div>
+            <h2 className="max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+              Built to move clubs away from scattered chats, paper forms, and generic team apps.
+            </h2>
+            <p className="mt-4 max-w-4xl text-base font-semibold leading-8 text-[#456653]">
+              Football Player should feel like the place a club opens first: who is available, who needs a parent reply, what coaches need to record, and what has to happen before match day.
+            </p>
           </div>
-        </div>
-
-        <div className="border border-slate-200 bg-white p-5 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Simple and trusted</p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Clear for coaches. Useful for parents.</h2>
-          <div className="mt-6 space-y-4">
-            {trustCards.map(([title, copy]) => (
-              <div key={title} className="border border-slate-200 bg-slate-50 p-4">
-                <p className="font-black text-slate-950">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{copy}</p>
-              </div>
-            ))}
+          <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-4">
+            <p className="text-sm font-black text-[#101828]">First useful action</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
+              Create the first team, add players, link parent contacts, then run availability or match day from live club records.
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 border border-slate-200 bg-white p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className={panelClass}>
+          <p className={eyebrowClass}>Operating system</p>
+          <h2 className={titleClass}>The product should teach the club how to run the week.</h2>
+          <div className="mt-6 grid gap-3">
+            {operatingSystemRows.map(([title, copy], index) => (
+              <article key={title} className="grid gap-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4 sm:grid-cols-[2.5rem_1fr]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#067a46] text-sm font-black text-white">
+                  {index + 1}
+                </span>
+                <span>
+                  <span className="block text-sm font-black text-[#101828]">{title}</span>
+                  <span className="mt-1 block text-sm font-semibold leading-6 text-[#5f7468]">{copy}</span>
+                </span>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className={panelClass}>
+          <p className={eyebrowClass}>Why clubs switch</p>
+          <h2 className={titleClass}>Sharper than generic sports tools, lighter than a full club website.</h2>
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
+            {switchCards.map(([title, copy]) => (
+              <article key={title} className={cardClass}>
+                <p className="text-sm font-black text-[#101828]">{title}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{copy}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className={panelClass}>
+        <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+          <div>
+            <p className={eyebrowClass}>Onboarding that belongs in the product</p>
+            <h2 className={titleClass}>No generic tour. A setup board that proves the workspace is ready.</h2>
+            <p className={copyClass}>
+              New clubs see short, practical setup checks inside the app. The flow explains constraints, records progress, and guides the first real workflow instead of showing welcome slides.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {onboardingRules.map((rule) => (
+              <div key={rule} className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-4 text-sm font-black leading-6 text-[#065f3b]">
+                {rule}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 rounded-lg border border-[#bfe8cd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Pricing</p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Simple plans for growing clubs</h2>
-          <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-            Start small, then move to a paid plan when your club needs more structure. Annual billing for paid plans is charged at 10 months.
+          <p className={eyebrowClass}>Pricing</p>
+          <h2 className={titleClass}>Start with one football group, then scale the club.</h2>
+          <p className={copyClass}>
+            Test the operating flow first. Paid plans add more structure as the club needs more teams, communication, and controlled access.
           </p>
         </div>
-        <div className="grid w-full max-w-xs grid-cols-2 border border-slate-200 bg-slate-100 p-1">
+        <div className="grid w-full max-w-xs grid-cols-2 rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-1">
           {[
             ['monthly', 'Monthly'],
             ['annual', 'Annual'],
@@ -103,8 +132,8 @@ export function LoginMarketingAndPricing({
               type="button"
               onClick={() => onBillingCycleChange(key)}
               className={[
-                'min-h-11 px-4 py-3 text-sm font-bold transition',
-                billingCycle === key ? 'bg-slate-950 text-white' : 'text-slate-600 hover:text-slate-950',
+                'min-h-11 rounded-lg px-4 py-3 text-sm font-black transition',
+                billingCycle === key ? 'bg-[#067a46] text-white shadow-sm' : 'text-[#5f7468] hover:bg-white hover:text-[#101828]',
               ].join(' ')}
             >
               {label}
@@ -114,25 +143,25 @@ export function LoginMarketingAndPricing({
       </div>
 
       {localError ? (
-        <div className="mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        <div className="rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318]">
           {localError}
         </div>
       ) : null}
 
       {localMessage ? (
-        <div className="mt-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+        <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-4 py-3 text-sm font-black text-[#05603a]">
           {localMessage}
         </div>
       ) : null}
 
       {paymentsDisabled ? (
-        <div className="mt-4 border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-800">
+        <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-5 py-4 text-sm font-black text-[#05603a]">
           Payments are disabled on this test site. New sign-ups create test club accounts without checkout.
         </div>
       ) : null}
 
       {livePromotion && !paymentsDisabled ? (
-        <div className="mt-4 border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-800">
+        <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-5 py-4 text-sm font-black text-[#05603a]">
           Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
         </div>
       ) : null}
@@ -141,49 +170,42 @@ export function LoginMarketingAndPricing({
         {pricingPlans.map((plan) => {
           const priceLabel = formatPriceLabel(plan, billingCycle)
           const showPromotion = livePromotion && !paymentsDisabled && typeof plan.price === 'number'
+          const isPopular = plan.name === 'Small Club'
 
           return (
-            <div
-              key={plan.name}
-              className="relative flex flex-col border border-slate-200 bg-white p-5"
-            >
-              {plan.name === 'Small Club' ? (
-                <span className="absolute right-5 top-5 whitespace-nowrap rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+            <div key={plan.name} className="relative flex flex-col rounded-lg border border-[#bfe8cd] bg-white p-5 shadow-sm shadow-[#d7eadf]/70">
+              {isPopular ? (
+                <span className="absolute right-5 top-5 whitespace-nowrap rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-3 py-1 text-xs font-black text-[#05603a]">
                   Popular
                 </span>
               ) : null}
               {showPromotion ? (
-                <div className="mb-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-emerald-800">
+                <div className="mb-4 rounded-lg border border-[#b7efce] bg-[#f0fdf6] px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-[#05603a]">
                   {getPromotionSummary(livePromotion)}
                 </div>
               ) : null}
               <div className="min-h-[132px] pr-16">
-                <p className="text-lg font-black text-slate-950">{plan.name}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{plan.description}</p>
+                <p className="text-lg font-black text-[#101828]">{plan.name}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{plan.description}</p>
               </div>
               <div className="min-h-[88px]">
-                <span
-                  className={[
-                    'whitespace-nowrap font-black text-slate-950',
-                    plan.price === 'Contact us' ? 'text-[2rem] leading-none 2xl:text-4xl' : 'text-4xl',
-                  ].join(' ')}
-                >
+                <span className={['whitespace-nowrap font-black text-[#101828]', plan.price === 'Contact us' ? 'text-[2rem] leading-none 2xl:text-4xl' : 'text-4xl'].join(' ')}>
                   {formatPrice(plan, billingCycle)}
                 </span>
-                {priceLabel ? <span className="ml-2 text-sm font-semibold text-slate-600">{priceLabel}</span> : null}
+                {priceLabel ? <span className="ml-2 text-sm font-semibold text-[#5f7468]">{priceLabel}</span> : null}
                 {typeof plan.price === 'number' && billingCycle === 'annual' ? (
-                  <p className="mt-2 text-xs font-semibold text-emerald-700">2 months free compared with monthly</p>
+                  <p className="mt-2 text-xs font-black text-[#067a46]">2 months free compared with monthly</p>
                 ) : null}
                 {showPromotion ? (
-                  <p className="mt-2 text-xs font-semibold text-emerald-700">
+                  <p className="mt-2 text-xs font-black text-[#067a46]">
                     Code {livePromotion.code} auto-applied at checkout
                   </p>
                 ) : null}
               </div>
               <ul className="mt-6 grow space-y-3">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-slate-600">
-                    <span className="mt-2 h-2 w-2 shrink-0 rounded-sm bg-emerald-600" />
+                  <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-[#5f7468]">
+                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#067a46]" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -194,23 +216,13 @@ export function LoginMarketingAndPricing({
                   disabled={isSubmitting}
                   title={isSubmitting ? 'Please wait while your plan request is being processed.' : undefined}
                   onClick={() => onChoosePlan(plan)}
-                  className={[
-                    'inline-flex min-h-12 items-center justify-center px-5 py-3 text-sm font-black transition',
-                    plan.name === 'Small Club'
-                      ? 'bg-emerald-700 text-white hover:bg-emerald-800'
-                      : 'border border-slate-200 bg-white text-slate-950 hover:bg-slate-50',
-                    isSubmitting ? 'cursor-not-allowed opacity-60' : '',
-                  ].join(' ')}
+                  className={[isPopular ? primaryButtonClass : secondaryButtonClass, isSubmitting ? 'cursor-not-allowed opacity-60' : ''].join(' ')}
                 >
-                  {paymentsDisabled ? 'Create Test Club' : plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' ? 'Request Demo' : 'Choose Plan'}
+                  {paymentsDisabled ? 'Create test club' : plan.name === 'Individual' ? 'Start free' : plan.name === 'Large Club' ? 'Request demo' : 'Choose plan'}
                 </button>
                 {plan.name !== 'Individual' && !paymentsDisabled ? (
-                  <button
-                    type="button"
-                    onClick={() => onRequestDemo(plan)}
-                    className="inline-flex min-h-12 items-center justify-center border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-slate-50"
-                  >
-                    Request Demo
+                  <button type="button" onClick={() => onRequestDemo(plan)} className={secondaryButtonClass}>
+                    Request demo
                   </button>
                 ) : null}
               </div>
@@ -219,11 +231,11 @@ export function LoginMarketingAndPricing({
         })}
       </div>
 
-      <footer className="flex flex-col gap-3 border-t border-slate-200 pt-6 text-sm font-semibold text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-        <p>Copyright 2026 Football Player. All rights reserved. Powered by <a href="https://pulseslabs.online" className="hover:text-slate-950" target="_blank" rel="noreferrer">pulseslabs.online</a>.</p>
+      <footer className="flex flex-col gap-3 border-t border-[#cfeedd] pt-6 text-sm font-semibold text-[#5f7468] sm:flex-row sm:items-center sm:justify-between">
+        <p>Copyright 2026 Football Player. All rights reserved. Powered by <a href="https://pulseslabs.online" className="hover:text-[#101828]" target="_blank" rel="noreferrer">pulseslabs.online</a>.</p>
         <div className="flex flex-wrap gap-4">
-          <a href="/gdpr" className="hover:text-slate-950">GDPR</a>
-          <a href="/terms" className="hover:text-slate-950">Terms of Service</a>
+          <a href="/gdpr" className="hover:text-[#101828]">GDPR</a>
+          <a href="/terms" className="hover:text-[#101828]">Terms of Service</a>
         </div>
       </footer>
     </section>

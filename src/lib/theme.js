@@ -8,9 +8,9 @@ export const THEME_ACCENTS = ['yellow', 'blue', 'green', 'red', 'purple']
 export const THEME_BUTTON_STYLES = ['solid', 'gradient']
 
 export const themeModeOptions = [
-  { value: 'system', label: 'System' },
-  { value: 'dark', label: 'Dark' },
   { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'Match device' },
 ]
 
 export const themeAccentOptions = [
@@ -28,7 +28,7 @@ export const themeButtonStyleOptions = [
 
 export function getStoredThemeMode() {
   const storedThemeMode = window.localStorage.getItem(THEME_MODE_STORAGE_KEY)
-  return THEME_MODES.includes(storedThemeMode) ? storedThemeMode : 'system'
+  return THEME_MODES.includes(storedThemeMode) ? storedThemeMode : 'light'
 }
 
 export function getStoredThemeAccent() {
@@ -46,7 +46,7 @@ export function getSystemTheme() {
 }
 
 export function normalizeThemeMode(value) {
-  return THEME_MODES.includes(value) ? value : 'system'
+  return THEME_MODES.includes(value) ? value : 'light'
 }
 
 export function normalizeThemeAccent(value) {
