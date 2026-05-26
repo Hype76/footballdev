@@ -76,7 +76,7 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
 
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#067a46] shadow-sm shadow-[#d7eadf]/80 ring-1 ring-[#bfe8cd]">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#067a46] shadow-sm shadow-[#d7eadf]/80 ring-1 ring-[#bddcca]">
         <NavIcon name={getNavIcon(item.path)} />
       </span>
       <span className="min-w-0 flex-1">
@@ -320,25 +320,25 @@ export function Sidebar({ isOpen, onClose }) {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-[min(20.5rem,calc(100vw-1rem))] max-w-[20.5rem] flex-col overflow-y-auto border-r border-[#cfeedd] bg-white px-3 py-4 shadow-2xl shadow-[#cfeedd]/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
+          'fixed inset-y-0 left-0 z-40 flex w-[min(20.5rem,calc(100vw-1rem))] max-w-[20.5rem] flex-col overflow-y-auto border-r border-[#bddcca] bg-white px-3 py-4 shadow-2xl shadow-[#bddcca]/50 transition sm:px-4 lg:fixed lg:translate-x-0 lg:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-3 shadow-sm shadow-[#d7eadf]/70">
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-3 shadow-sm shadow-[#d7eadf]/70">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/70">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70">
                 <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#067a46]">
                   {isParentPortal ? 'Family portal' : 'Football OS'}
                 </p>
-                <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#101828]">{clubLabel}</h2>
+                <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#10231a]">{clubLabel}</h2>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <span className="rounded-lg border border-[#bfe8cd] bg-white px-3 py-2 text-xs font-black text-[#065f3b]">
+              <span className="rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-xs font-black text-[#065f3b]">
                 {isParentPortal ? 'Family view' : 'Club workspace'}
               </span>
               <span className="rounded-lg border border-[#c7ddff] bg-[#eef6ff] px-3 py-2 text-xs font-black text-[#175cd3]">
@@ -350,7 +350,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#cfeedd] bg-white text-[#456653] shadow-sm lg:hidden"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#bddcca] bg-white text-[#456653] shadow-sm lg:hidden"
             aria-label="Close navigation"
           >
             X
@@ -358,7 +358,7 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
 
         <nav className="mt-4 space-y-3 pb-4">
-          <section className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70">
+          <section className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-2 shadow-sm shadow-[#d7eadf]/70">
             <div className="flex items-center justify-between px-2">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#456653]">
                 {isParentPortal ? 'Family actions' : 'Week operations'}
@@ -379,7 +379,7 @@ export function Sidebar({ isOpen, onClose }) {
                       'block rounded-lg px-3 py-3 transition',
                       isActive
                         ? 'bg-[#067a46] text-white shadow-sm shadow-[#b7efce]'
-                        : 'bg-white text-[#344054] shadow-sm shadow-[#d7eadf]/70 hover:bg-[#f0fdf6] hover:text-[#101828]',
+                        : 'bg-white text-[#456653] shadow-sm shadow-[#d7eadf]/70 hover:bg-[#f0fdf6] hover:text-[#10231a]',
                     ].join(' ')
                   }
                 >
@@ -414,7 +414,7 @@ export function Sidebar({ isOpen, onClose }) {
                     'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#d7eadf]/60',
                     isActive
                       ? 'border-[#20a464] bg-[#f0fdf6] text-[#065f3b]'
-                      : 'border-[#bfe8cd] bg-white text-[#344054] hover:bg-[#f8fdf9]',
+                      : 'border-[#bddcca] bg-white text-[#456653] hover:bg-[#f8fdf9]',
                   ].join(' ')
                 }
               >
@@ -430,7 +430,7 @@ export function Sidebar({ isOpen, onClose }) {
                       'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#d7eadf]/60',
                       isActive
                       ? 'border-[#20a464] bg-[#f0fdf6] text-[#065f3b]'
-                      : 'border-[#bfe8cd] bg-white text-[#344054] hover:bg-[#f8fdf9]',
+                      : 'border-[#bddcca] bg-white text-[#456653] hover:bg-[#f8fdf9]',
                     ].join(' ')
                   }
                 >
@@ -442,7 +442,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#d7eadf]/70 transition hover:bg-[#f8fdf9]"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#d7eadf]/70 transition hover:bg-[#f8fdf9]"
           >
             Sign out
           </button>
@@ -454,14 +454,14 @@ export function Sidebar({ isOpen, onClose }) {
 
 function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
   return (
-    <details className="group rounded-lg border border-[#cfeedd] bg-white p-2 shadow-sm shadow-[#d7eadf]/70">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#101828]">
+    <details className="group rounded-lg border border-[#bddcca] bg-white p-2 shadow-sm shadow-[#d7eadf]/70">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#10231a]">
         <span className="min-w-0 flex-1">
           <span className="block">{title}</span>
-          <span className="mt-0.5 block text-xs font-semibold text-[#5f7468]">{groupDescriptions[title] || 'Workspace tools'}</span>
+          <span className="mt-0.5 block text-xs font-semibold text-[#456653]">{groupDescriptions[title] || 'Workspace tools'}</span>
         </span>
-        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#5f7468] group-open:hidden">Show</span>
-        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#5f7468] group-open:inline-flex">Hide</span>
+        <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#456653] group-open:hidden">Show</span>
+        <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-2 py-1 text-xs font-black text-[#456653] group-open:inline-flex">Hide</span>
       </summary>
       <div className="mt-2 grid gap-1.5">
         {items.map((item) =>
@@ -478,7 +478,7 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
                   'block rounded-lg px-3 py-3 transition',
                   isActive
                     ? 'bg-[#f0fdf6] text-[#065f3b] ring-1 ring-[#20a464]'
-                    : 'text-[#344054] hover:bg-[#f8fdf9] hover:text-[#101828]',
+                    : 'text-[#456653] hover:bg-[#f8fdf9] hover:text-[#10231a]',
                 ].join(' ')
               }
             >
@@ -511,11 +511,11 @@ function DisabledNavItem({ item }) {
       title={item.disabledMessage}
       className="flex min-h-11 w-full cursor-not-allowed items-start gap-3 rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-3 py-3 text-left opacity-70"
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#5f7468] ring-1 ring-[#bfe8cd]">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#456653] ring-1 ring-[#bddcca]">
         <NavIcon name={getNavIcon(item.path)} />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-black text-[#5f7468]">{item.label}</span>
+        <span className="block text-sm font-black text-[#456653]">{item.label}</span>
         <span className="mt-1 block text-xs leading-5 text-[#6d8076]">{item.disabledMessage}</span>
       </span>
     </button>
