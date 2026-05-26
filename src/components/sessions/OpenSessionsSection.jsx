@@ -2,10 +2,10 @@ import { formatSessionDate, formatSessionType } from '../../lib/session-page-uti
 import { SessionStatePanel } from './SessionStatePanel.jsx'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
-const inputClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function OpenSessionsSection({
   canCompleteSessions,
@@ -25,9 +25,9 @@ export function OpenSessionsSection({
   return (
     <section
       data-tour-id="open-sessions-section"
-      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70"
+      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
     >
-      <div className="border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
         <p className={eyebrowClass}>Saved sessions</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Open existing sessions</h2>
         <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
@@ -52,7 +52,7 @@ export function OpenSessionsSection({
           />
         ) : (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
-          <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -66,7 +66,7 @@ export function OpenSessionsSection({
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">
                   {formatSessionType(selectedSession?.sessionType)} / {formatSessionDate(selectedSession?.sessionDate)}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-[#5f7468]">{selectedSession?.team || 'No team entered'}</p>
+                <p className="mt-1 text-sm font-semibold text-[#456653]">{selectedSession?.team || 'No team entered'}</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 {canCompleteSessions && selectedSession && !selectedSessionCompleted ? (

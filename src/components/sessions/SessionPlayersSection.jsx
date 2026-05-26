@@ -5,9 +5,9 @@ import { Pagination } from '../ui/Pagination.jsx'
 import { SessionStatePanel } from './SessionStatePanel.jsx'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-5 py-3 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 const recordingButtonClass = 'border-[#f04438] bg-[#d92d20] text-white hover:bg-[#b42318]'
 
@@ -47,9 +47,9 @@ export function SessionPlayersSection({
   return (
     <section
       data-tour-id="session-players-section"
-      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70"
+      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
     >
-      <div className="border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:px-6">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className={eyebrowClass}>Session players</p>
@@ -91,7 +91,7 @@ export function SessionPlayersSection({
         ) : (
           <div className="space-y-4">
           {selectedSessionCompleted ? (
-            <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#5f7468]">
+            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 text-sm font-semibold text-[#456653]">
               {canCompleteSessions
                 ? 'This session has been completed. Managers can still correct notes or development records if needed.'
                 : 'This session has been completed. Notes and development records are kept for review. The session is no longer editable.'}
@@ -103,7 +103,7 @@ export function SessionPlayersSection({
               <p className="text-sm font-black text-[#10231a]">
                 {selectedSession?.title || selectedSession?.team || 'Session'}
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#5f7468]">
+              <p className="mt-1 text-sm font-semibold text-[#456653]">
                 {formatSessionType(selectedSession?.sessionType)} / {formatSessionDate(selectedSession?.sessionDate)}
               </p>
             </div>
@@ -219,10 +219,10 @@ function SessionVoiceNotes({ deletingVoiceNoteId, notes, onDeleteVoiceNote, sele
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#d7eadf]/70">
+    <div className="space-y-3 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
       <p className="text-sm font-black text-[#10231a]">Team voice notes</p>
       {notes.map((note) => (
-        <div key={note.id} className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3">
+        <div key={note.id} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <p className="text-sm font-black text-[#10231a]">{note.note}</p>
             <button
@@ -246,10 +246,10 @@ function SessionVoiceNotes({ deletingVoiceNoteId, notes, onDeleteVoiceNote, sele
               Voice note audio
             </audio>
           ) : null}
-          <p className="mt-2 text-xs font-bold text-[#5f7468]">
+          <p className="mt-2 text-xs font-bold text-[#456653]">
             Deletes {formatRetentionDate(note.audioExpiresAt)} / {getRetentionCountdownLabel(note.audioExpiresAt)}
           </p>
-          <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-[#5f7468]">
+          <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-[#456653]">
             {note.userName || note.userEmail || 'Staff'} / {formatSessionDate(note.createdAt)}
           </p>
         </div>
@@ -282,11 +282,11 @@ function SessionPlayerCard({
     : undefined
 
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-base font-black text-[#10231a]">{player.playerName}</p>
-          <p className="mt-1 text-sm font-semibold text-[#5f7468]">{player.section} / {player.team || 'No team'}</p>
+          <p className="mt-1 text-sm font-semibold text-[#456653]">{player.section} / {player.team || 'No team'}</p>
           {completedPlayerNames.includes(normalizeProgressName(player.playerName)) ? (
             <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">
               Development record completed
