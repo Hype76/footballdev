@@ -369,7 +369,7 @@ export function AddPlayerPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#d7eadf]/70">
+      <section className="overflow-hidden rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-stretch">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Player intake</p>
@@ -381,14 +381,14 @@ export function AddPlayerPage() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {playerIntakeRules.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{item.body}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.body}</p>
                 </article>
               ))}
             </div>
           </div>
-          <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#effbf3] p-5 shadow-sm shadow-[#d7eadf]/70">
+          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-5 shadow-sm shadow-[#067a46]/10">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">Intake state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
@@ -419,7 +419,7 @@ export function AddPlayerPage() {
       ) : null}
 
       {message ? (
-        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#d7eadf]/60">
+        <div className="rounded-lg border border-[#b7efce] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-[#067a46]/10">
           {message}
         </div>
       ) : null}
@@ -471,7 +471,7 @@ export function AddPlayerPage() {
 
 function IntakeMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#bfe8cd] bg-white px-3 py-3 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm shadow-[#067a46]/10">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
     </div>

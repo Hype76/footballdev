@@ -3,9 +3,9 @@ import { formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageU
 import { Pagination } from '../ui/Pagination.jsx'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#789083] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#5f7468]'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#456653]'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayersListSection({
@@ -47,18 +47,18 @@ export function PlayersListSection({
   return (
     <section
       data-tour-id="players-list-section"
-      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80"
+      className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
     >
-      <div className="border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#d7eadf] bg-[#f6fbf8] px-5 py-5 sm:px-6">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Live register</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Find the footballer before you change the workflow</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">
               Search by player, team, or position. Filter by section, then open the profile when the decision needs parent or development context.
             </p>
           </div>
-          <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#456653] shadow-sm shadow-[#d7eadf]/60">
+          <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#456653] shadow-sm shadow-[#067a46]/10">
             {filteredPlayers.length} matching players
           </div>
         </div>
@@ -120,7 +120,7 @@ export function PlayersListSection({
             return (
               <div
                 key={getPlayerKey(player.playerName)}
-                className="relative overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/70 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:shadow-md"
+                className="relative overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10 transition hover:-translate-y-0.5 hover:border-[#20a464] hover:shadow-md"
               >
                 <div className={['absolute inset-y-0 left-0 w-1', stripeClass].join(' ')} />
                 <button
@@ -142,7 +142,7 @@ export function PlayersListSection({
                         </span>
                       </div>
                       <p className="mt-2 text-sm font-bold text-[#456653]">{player.team || 'No team entered'}</p>
-                      <p className="mt-1 text-sm font-semibold text-[#5f7468]">
+                      <p className="mt-1 text-sm font-semibold text-[#456653]">
                         {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
                       </p>
                     </div>
@@ -168,8 +168,8 @@ export function PlayersListSection({
                     </div>
                   </div>
                 </button>
-                <div className="grid gap-3 border-t border-[#d7eadf] bg-[#f8fdf9] px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                  <p className="text-sm font-semibold leading-6 text-[#5f7468]">
+                <div className="grid gap-3 border-t border-[#d7eadf] bg-[#f6fbf8] px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                  <p className="text-sm font-semibold leading-6 text-[#456653]">
                     {player.totalEvaluations > 0
                       ? `${player.totalEvaluations} development record${player.totalEvaluations === 1 ? '' : 's'} attached.`
                       : 'No development records yet. Start from a session or profile when the player is ready.'}

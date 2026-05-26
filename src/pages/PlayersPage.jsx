@@ -320,7 +320,7 @@ export function PlayersPage({
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#d7eadf]/80">
+      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
@@ -329,7 +329,7 @@ export function PlayersPage({
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">{headerDescription}</p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {playerRegisterRules.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
+                  <article key={item.label} className="rounded-lg border border-[#d7eadf] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{item.body}</p>
                   </article>
@@ -337,13 +337,13 @@ export function PlayersPage({
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#d7eadf] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Register state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
                 {playerRows.length} footballers tracked
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
                 {filteredPlayers.length} match the current search and filters.
               </p>
             </div>
@@ -362,11 +362,11 @@ export function PlayersPage({
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
       {!isValidViewFilter || !isValidSectionFilter ? (
-        <div className="rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-4 text-sm font-semibold text-[#10231a] shadow-sm shadow-[#d7eadf]/60">
+        <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 text-sm font-semibold text-[#10231a] shadow-sm shadow-[#067a46]/10">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-bold">Player filters were reset</p>
-              <p className="mt-1 leading-6 text-[#5f7468]">
+              <p className="mt-1 leading-6 text-[#456653]">
                 The link used an unknown filter, so the full player list is shown instead.
               </p>
             </div>
@@ -427,7 +427,7 @@ export function PlayersPage({
 
 function PlayerMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#bfe8cd] bg-white px-3 py-3 shadow-sm shadow-[#d7eadf]/60">
+    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm shadow-[#067a46]/10">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
     </div>
