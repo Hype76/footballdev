@@ -122,7 +122,7 @@ export function Topbar({ title, onMenuClick }) {
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-[#bddcca] bg-white text-[#456653] shadow-sm shadow-[#067a46]/10 lg:hidden"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white text-[#475569] shadow-sm shadow-[#2563eb]/10 lg:hidden"
             aria-label="Open navigation"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -130,16 +130,16 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#bddcca] bg-[#f6fbf8] shadow-sm shadow-[#067a46]/10">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
           </div>
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">
+              <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[#2563eb]">
                 {clubLabel}
               </p>
-              <span className="rounded-lg bg-[#ecfdf3] px-2 py-1 text-[11px] font-black text-[#047857] ring-1 ring-[#bbf7d0]">
+              <span className="rounded-lg bg-[#eff6ff] px-2 py-1 text-[11px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
                 {workspaceContext}
               </span>
               <span className="rounded-lg bg-[#eff6ff] px-2 py-1 text-[11px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
@@ -150,11 +150,11 @@ export function Topbar({ title, onMenuClick }) {
               {title}
             </h1>
             <div className="mt-2 flex flex-wrap gap-2 text-xs font-black">
-              <span className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf3] px-3 py-2 text-[#047857]">{workLaneLabel}</span>
+              <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-[#1d4ed8]">{workLaneLabel}</span>
               <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-[#1d4ed8]">{nextActionLabel}</span>
               <span className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-[#475569]">{roleLabel}</span>
             </div>
-            <p className="mt-2 text-sm font-semibold text-[#456653]">{userLabel} / {teamLabel}</p>
+            <p className="mt-2 text-sm font-semibold text-[#475569]">{userLabel} / {teamLabel}</p>
           </div>
         </div>
 
@@ -162,13 +162,13 @@ export function Topbar({ title, onMenuClick }) {
           <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
             {isDemoUser(displayUser) ? (
               <label className="col-span-2 grid gap-1 md:col-span-1">
-                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#456653]">
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
                   Demo role
                 </span>
                 <select
                   value={demoRoleKey || ''}
                   onChange={(event) => setDemoRolePreview(event.target.value)}
-                  className="min-h-11 rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#20a464]"
+                  className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#3b82f6]"
                 >
                   <option value="">Default role</option>
                   {DEMO_ROLE_OPTIONS.map((role) => (
@@ -181,7 +181,7 @@ export function Topbar({ title, onMenuClick }) {
             ) : null}
             {shouldShowWorkspaceSelector ? (
               <label className="col-span-2 grid gap-1 md:col-span-1">
-                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#456653]">
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
                   Workspace view
                 </span>
                 <select
@@ -189,7 +189,7 @@ export function Topbar({ title, onMenuClick }) {
                   onChange={handleTeamChange}
                   disabled={isSwitchingTeam}
                   title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
-                  className="min-h-11 rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#20a464] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#10231a] outline-none transition focus:border-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
                   {hasParentPortalAccess ? <option value="__parent_portal__">Parent Portal</option> : null}
@@ -212,11 +212,11 @@ export function Topbar({ title, onMenuClick }) {
             ) : null}
             <InstallAppButton
               wrapperClassName="col-span-2 lg:hidden"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#067a46] bg-[#067a46] px-3 py-3 text-sm font-black text-white"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#2563eb] bg-[#2563eb] px-3 py-3 text-sm font-black text-white"
             />
             <Link
               to="/user-settings"
-              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#bddcca] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:bg-[#f0fdf6]"
+              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#eff6ff]"
             >
               My Settings
             </Link>
@@ -225,7 +225,7 @@ export function Topbar({ title, onMenuClick }) {
               onClick={handleSignOut}
               disabled={isSigningOut}
               title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#10231a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? 'Signing out...' : 'Sign out'}
             </button>

@@ -67,10 +67,10 @@ const sessionRuleCards = [
   },
 ]
 
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#456653]'
-const primaryButtonClass = 'inline-flex min-h-14 items-center justify-center rounded-lg bg-[#067a46] px-5 py-4 text-base font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#1d4ed8]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
+const primaryButtonClass = 'inline-flex min-h-14 items-center justify-center rounded-lg bg-[#0f172a] px-5 py-4 text-base font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff]'
 
 export function SessionsPage({ setupOpen = false }) {
   const { user } = useAuth()
@@ -874,7 +874,7 @@ export function SessionsPage({ setupOpen = false }) {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+      <section className="overflow-hidden rounded-lg border border-[#d8e3ee] bg-white shadow-sm shadow-[#0f172a]/5">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
@@ -882,22 +882,22 @@ export function SessionsPage({ setupOpen = false }) {
               <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
                 Run training from plan to player record.
               </h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
+              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
                 Sessions connect the football calendar to the coaching record. Create the block, add the squad, capture notes, then work through the player queue.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {sessionRuleCards.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
+                  <article key={item.label} className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] p-4 shadow-sm shadow-[#0f172a]/5">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1d4ed8]">{item.label}</p>
                     <p className={`mt-2 ${bodyTextClass}`}>{item.body}</p>
                   </article>
                 ))}
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#bddcca] bg-[#f0fdf6] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bfdbfe] bg-[#eff6ff] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Current queue</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1d4ed8]">Current queue</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
                 {selectedSession?.title || selectedSession?.team || 'No session selected'}
               </p>
@@ -928,11 +928,11 @@ export function SessionsPage({ setupOpen = false }) {
       </section>
 
       {requestedSessionMissing ? (
-        <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-4 text-sm text-[#10231a] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-4 text-sm text-[#10231a] shadow-sm shadow-[#0f172a]/5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-black">Session link could not be opened</p>
-              <p className="mt-1 font-semibold leading-6 text-[#456653]">
+              <p className="mt-1 font-semibold leading-6 text-[#475569]">
                 The session in this link was not found, so the current available session is shown instead.
               </p>
             </div>
@@ -948,18 +948,18 @@ export function SessionsPage({ setupOpen = false }) {
       ) : null}
 
       {completedSessionId ? (
-        <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-4 text-sm text-[#10231a] shadow-sm shadow-[#067a46]/10">
+        <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-4 text-sm text-[#10231a] shadow-sm shadow-[#1d4ed8]/10">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-black">Session development records completed</p>
-              <p className="mt-1 font-semibold text-[#456653]">
+              <p className="mt-1 font-semibold text-[#475569]">
                 {completedCount > 0 ? `${completedCount} player development records were completed.` : 'All queued development records were completed.'}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setSearchParams({})}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#abefc6] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#ecfdf3]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfdbfe] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#eff6ff]"
             >
               Dismiss
             </button>
@@ -1016,11 +1016,11 @@ export function SessionsPage({ setupOpen = false }) {
       <details
         id="session-setup"
         open={setupOpen || sessions.length === 0}
-        className="rounded-lg border border-[#bddcca] bg-white p-3 shadow-sm shadow-[#067a46]/10 sm:p-4"
+        className="rounded-lg border border-[#d8e3ee] bg-white p-3 shadow-sm shadow-[#0f172a]/5 sm:p-4"
       >
         <summary className="flex min-h-12 cursor-pointer list-none flex-col justify-center gap-1 rounded-lg px-2 text-base font-black text-[#10231a] sm:flex-row sm:items-center sm:justify-between">
           Session setup
-          <span className="text-sm font-bold text-[#456653]">Create sessions, switch context, add players</span>
+          <span className="text-sm font-bold text-[#475569]">Create sessions, switch context, add players</span>
         </summary>
         <div className="mt-4 space-y-4">
           <CreateSessionSection
@@ -1163,7 +1163,7 @@ function MatchdayFocus({
   }
 
   return (
-    <section className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10 sm:p-6">
+    <section className="rounded-lg border border-[#d8e3ee] bg-white p-5 shadow-sm shadow-[#0f172a]/5 sm:p-6">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
           <p className={eyebrowClass}>
@@ -1173,13 +1173,13 @@ function MatchdayFocus({
             {selectedSession?.title || selectedSession?.team || 'Get the next session ready'}
           </h3>
           <div className="mt-3 flex flex-wrap gap-2 text-sm font-semibold">
-            <span className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-3 py-1 text-[#10231a]">
+            <span className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-1 text-[#10231a]">
               {progressLabel}
             </span>
             {selectedSessionCompleted ? (
-              <span className="rounded-lg bg-[#067a46] px-3 py-1 text-white">Completed</span>
+              <span className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-white">Completed</span>
             ) : (
-              <span className="rounded-lg bg-[#067a46] px-3 py-1 text-white">Open</span>
+              <span className="rounded-lg bg-[#0f172a] px-3 py-1 text-white">Open</span>
             )}
           </div>
           <p className={`mt-3 max-w-2xl ${bodyTextClass}`}>
@@ -1232,8 +1232,8 @@ function MatchdayFocus({
 
 function SessionMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-3 py-3 shadow-sm shadow-[#067a46]/10">
-      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
+    <div className="rounded-lg border border-[#bfdbfe] bg-white px-3 py-3 shadow-sm shadow-[#1d4ed8]/10">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#1d4ed8]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#10231a]">{isLoading ? '...' : value}</p>
     </div>
   )
@@ -1241,7 +1241,7 @@ function SessionMetric({ isLoading, label, value }) {
 
 function SessionSummaryCard({ caption, isLoading, label, value }) {
   return (
-    <article className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10">
+    <article className="rounded-lg border border-[#d8e3ee] bg-white p-5 shadow-sm shadow-[#0f172a]/5">
       <p className={eyebrowClass}>{label}</p>
       <p className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{isLoading ? '...' : value}</p>
       <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>

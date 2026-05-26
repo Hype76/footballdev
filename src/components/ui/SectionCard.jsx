@@ -73,12 +73,12 @@ export function SectionCard({
   return (
     <section
       data-tour-id={tourId}
-      className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10"
+      className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[#d8e3ee] bg-white shadow-sm shadow-[#0f172a]/5"
     >
-      <div className="flex flex-col gap-4 border-b border-[#bddcca] bg-[#f6fbf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+      <div className="flex flex-col gap-4 border-b border-[#d8e3ee] bg-[#f8fbfd] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div className="min-w-0">
           <h3 className="text-2xl font-black tracking-tight text-[#10231a]">{title}</h3>
-          {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">{description}</p> : null}
+          {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">{description}</p> : null}
         </div>
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           {actions ? <div className="w-full sm:w-auto">{actions}</div> : null}
@@ -87,7 +87,7 @@ export function SectionCard({
             onClick={handleToggle}
             aria-controls={contentId}
             aria-expanded={isOpen}
-            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#bddcca] bg-white px-4 py-2 text-sm font-black text-[#456653] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#d8e3ee] bg-white px-4 py-2 text-sm font-black text-[#475569] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
           >
             {isOpen ? 'Collapse' : 'Expand'}
           </button>
