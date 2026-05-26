@@ -191,37 +191,37 @@ export function BillingPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Club access</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Club access</p>
             <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
               Keep the club plan clear before coaches and parents rely on it.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#345343]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
               Review the current tier, subscription state, tester access, renewal date, and invoices that control this football workspace.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {billingRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
+                <div key={rule.label} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
                   <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{rule.body}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-5 shadow-sm shadow-[#067a46]/10">
+          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Access state</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Access state</p>
               <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#10231a]">
                 {isLoading ? 'Loading plan' : getPlanName(visibleClub)}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
                 {testerAccessExpired ? 'Tester access has ended for this club.' : 'This is the access currently enforced for the club.'}
               </p>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {planSummary.map((item) => (
                 <BillingMetric key={item.label} label={item.label} value={isLoading ? 'Loading...' : item.value} />
               ))}
@@ -251,27 +251,27 @@ export function BillingPage() {
         description="Your club access is controlled by the tier shown here."
       >
         {isLoading ? (
-          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653]">
+          <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#475569]">
             Loading billing details...
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Tier</p>
+            <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Tier</p>
               <p className="mt-3 text-2xl font-black text-[#10231a]">{getPlanName(visibleClub)}</p>
             </div>
-            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Status</p>
+            <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Status</p>
               <p className="mt-3 text-2xl font-black text-[#10231a]">
                 {testerAccessExpired ? 'Tester access ended' : visibleClub?.isPlanComped ? 'Free access' : getBillingStatusLabel(visibleClub?.planStatus)}
               </p>
             </div>
-            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Next billing date</p>
+            <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Next billing date</p>
               <p className="mt-3 text-2xl font-black text-[#10231a]">{formatDate(visibleClub?.currentPeriodEnd)}</p>
             </div>
-            <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Last updated</p>
+            <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Last updated</p>
               <p className="mt-3 text-2xl font-black text-[#10231a]">{formatDate(visibleClub?.planUpdatedAt)}</p>
             </div>
           </div>
@@ -291,7 +291,7 @@ export function BillingPage() {
                 disabled={Boolean(isCheckoutLoading)}
                 title={isCheckoutLoading ? 'Please wait while checkout opens.' : undefined}
                 onClick={() => void handleChoosePlan(planName)}
-                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCheckoutLoading === planName ? 'Opening checkout...' : `Choose ${planName}`}
               </button>
@@ -306,11 +306,11 @@ export function BillingPage() {
         description="Invoices appear here once billing has created them for this subscription."
       >
         {isLoading ? (
-          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653]">
+          <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#475569]">
             Loading invoices...
           </div>
         ) : (billing?.invoices ?? []).length === 0 ? (
-          <div className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-5 text-sm font-semibold text-[#456653]">
+          <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#475569]">
             No invoices are available yet.
           </div>
         ) : (
@@ -318,11 +318,11 @@ export function BillingPage() {
             {billing.invoices.map((invoice) => (
               <div
                 key={invoice.id}
-                className="grid gap-3 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10 md:grid-cols-[1fr_auto_auto]"
+                className="grid gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10 md:grid-cols-[1fr_auto_auto]"
               >
                 <div>
                   <p className="font-black text-[#10231a]">{invoice.number}</p>
-                  <p className="mt-1 text-sm font-semibold text-[#456653]">
+                  <p className="mt-1 text-sm font-semibold text-[#475569]">
                     {formatDate(invoice.createdAt)}, {getBillingStatusLabel(invoice.status)}
                   </p>
                 </div>
@@ -335,7 +335,7 @@ export function BillingPage() {
                       href={invoice.hostedInvoiceUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6]"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#10231a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
                     >
                       View
                     </a>
@@ -345,7 +345,7 @@ export function BillingPage() {
                       href={invoice.invoicePdf}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white transition hover:bg-[#05603a]"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8]"
                     >
                       Download
                     </a>
@@ -362,8 +362,8 @@ export function BillingPage() {
 
 function BillingMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
+    <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
       <p className="mt-2 break-words text-2xl font-black text-[#10231a]">{value}</p>
     </div>
   )

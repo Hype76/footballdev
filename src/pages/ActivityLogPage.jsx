@@ -179,37 +179,37 @@ export function ActivityLogPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10">
+      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Activity control</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Activity control</p>
             <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
               Review the club trail before a small issue becomes a phone call.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#345343]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
               Filter the audit window by user or event, then use the record details to answer parent, coach, or admin questions quickly.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {activityRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-4 shadow-sm shadow-[#067a46]/10">
+                <div key={rule.label} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
                   <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{rule.body}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f0fdf6] p-5 shadow-sm shadow-[#067a46]/10">
+          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Loaded window</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Loaded window</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">
                 {isLoading ? 'Loading activity' : `${filteredLogs.length} events visible`}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
                 {selectedActorId || selectedAction ? 'Filters are applied to the loaded audit window.' : 'Results follow your role and plan access.'}
               </p>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {activitySummary.map((item) => (
                 <ActivityMetric key={item.label} label={item.label} value={isLoading ? '...' : item.value} />
               ))}
@@ -261,18 +261,18 @@ export function ActivityLogPage() {
 
 function ActivityAccessState({ title, description }) {
   return (
-    <section className="rounded-lg border border-[#bddcca] bg-white px-5 py-6 shadow-sm shadow-[#067a46]/10 sm:px-6">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Activity control</p>
+    <section className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-6 shadow-sm shadow-[#2563eb]/10 sm:px-6">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Activity control</p>
       <h1 className="mt-3 text-4xl font-black tracking-tight text-[#10231a]">{title}</h1>
-      <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#456653]">{description}</p>
+      <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">{description}</p>
     </section>
   )
 }
 
 function ActivityMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#bddcca] bg-white px-4 py-4 shadow-sm shadow-[#067a46]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
+    <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
       <p className="mt-2 break-words text-2xl font-black text-[#10231a]">{value}</p>
     </div>
   )
