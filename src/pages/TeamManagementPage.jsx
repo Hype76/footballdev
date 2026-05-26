@@ -631,29 +631,31 @@ export function TeamManagementPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Team command</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-5xl">
-              Build the club structure before the season gets busy.
-            </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
-              Teams decide where players, staff access, sessions, and match day records live. Create each squad, then give coaches only the access they need.
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {teamSetupRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
-                  <p className="text-sm font-black text-[#101828]">{rule.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
-                </div>
-              ))}
+            <div className="px-5 py-6 sm:px-6 lg:px-8">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Team setup</p>
+              <h1 className="mt-3 max-w-5xl text-4xl font-black leading-[1.02] tracking-tight text-[#10231a] sm:text-5xl">
+                Create the football structure first.
+              </h1>
+              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">
+                Teams decide where players, staff access, sessions, and match day records live. Set up the squads first, then give coaches scoped access.
+              </p>
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {teamSetupRules.map((rule) => (
+                  <div key={rule.label} className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
+                    <p className="text-sm font-black text-[#10231a]">{rule.label}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{rule.body}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/70">
+          <div className="grid content-between border-t border-[#d7eadf] bg-[#effbf3] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#456653]">Setup state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{teams.length} teams configured</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">{teams.length} teams configured</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
                 {allocatedStaffCount} staff accounts are allocated to at least one team.
               </p>
@@ -762,7 +764,7 @@ function TeamSetupMetric({ label, value }) {
   return (
     <div className="rounded-lg border border-[#d7eadf] bg-white px-4 py-4 shadow-sm shadow-[#d7eadf]/60">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#101828]">{value}</p>
+      <p className="mt-2 text-2xl font-black text-[#10231a]">{value}</p>
     </div>
   )
 }

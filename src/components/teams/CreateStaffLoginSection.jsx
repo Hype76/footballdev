@@ -8,17 +8,17 @@ export function CreateStaffLoginSection({
   staffLimitMessage,
   teams,
 }) {
-  const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
-  const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+  const labelClass = 'mb-2 block text-sm font-black text-[#10231a]'
+  const fieldClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/70" data-tour-id="create-staff-section">
-      <div className="border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-4 sm:px-6">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#067a46]">Step 2</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invite staff with team access</h2>
+      <div className="border-b border-[#d7eadf] bg-[#f8fdf9] px-5 py-5 sm:px-6">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Step 2 / scoped access</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#10231a]">Invite staff with team access</h2>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#5f7468]">
           {canCreateMoreStaff
-            ? 'Send a staff invite, choose the role, and attach the login to one team. Staff should only see the teams they work with.'
+            ? 'Send a staff invite, choose the role, and attach the login to one team. Coaches should only see the squads they work with.'
             : staffLimitMessage}
         </p>
       </div>
@@ -98,7 +98,7 @@ export function CreateStaffLoginSection({
                 ? 'Create an assignable staff role before adding staff access.'
                 : canCreateMoreStaff ? undefined : staffLimitMessage
           }
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           Send staff invite
         </button>
