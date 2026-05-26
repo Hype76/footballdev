@@ -2,6 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
 import { ScheduleDateTimePicker } from '../ui/ScheduleDateTimePicker.jsx'
 
+const optionPanelClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60'
+const choiceClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/50'
+const checkboxClass = 'mt-1 h-4 w-4 rounded border-slate-200 accent-[#067a46]'
+const titleClass = 'block text-sm font-black text-[#101828]'
+const bodyClass = 'mt-1 block text-sm font-semibold leading-6 text-[#667085]'
+
 export function PlayerProfileModals({
   emailSendMode,
   emailConfirmTarget,
@@ -151,28 +157,28 @@ export function PlayerProfileModals({
         }}
         onConfirm={onConfirmEmail}
       >
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <span className="block text-sm font-semibold text-slate-950">Send timing</span>
+        <div className={optionPanelClass}>
+          <span className={titleClass}>Send timing</span>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950">
+            <label className={choiceClass}>
               <input
                 type="radio"
                 name="email-send-mode"
                 value="now"
                 checked={emailSendMode !== 'scheduled'}
                 onChange={() => onEmailSendModeChange('now')}
-                className="h-4 w-4 accent-emerald-700"
+                className="h-4 w-4 accent-[#067a46]"
               />
               Send now
             </label>
-            <label className="flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950">
+            <label className={choiceClass}>
               <input
                 type="radio"
                 name="email-send-mode"
                 value="scheduled"
                 checked={emailSendMode === 'scheduled'}
                 onChange={() => onEmailSendModeChange('scheduled')}
-                className="h-4 w-4 accent-emerald-700"
+                className="h-4 w-4 accent-[#067a46]"
               />
               Schedule
             </label>
@@ -187,32 +193,32 @@ export function PlayerProfileModals({
           ) : null}
         </div>
         {canAttachAssessmentFields ? (
-          <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <label className={`flex items-start gap-3 ${optionPanelClass}`}>
             <input
               type="checkbox"
               checked={Boolean(isAssessmentFieldsApproved)}
               onChange={(event) => onAssessmentFieldsApprovedChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-slate-200 accent-emerald-700"
+              className={checkboxClass}
             />
             <span>
-              <span className="block text-sm font-semibold text-slate-950">Attach development fields</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">
+              <span className={titleClass}>Attach development fields</span>
+              <span className={bodyClass}>
                 Include the selected development fields in the email body.
               </span>
             </span>
           </label>
         ) : null}
         {canAttachPdf ? (
-          <label className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <label className={`flex items-start gap-3 ${optionPanelClass}`}>
             <input
               type="checkbox"
               checked={Boolean(isPdfAttachmentApproved)}
               onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-slate-200 accent-emerald-700"
+              className={checkboxClass}
             />
             <span>
-              <span className="block text-sm font-semibold text-slate-950">Attach development PDF</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">
+              <span className={titleClass}>Attach development PDF</span>
+              <span className={bodyClass}>
                 Include the selected development details as a PDF attachment.
               </span>
             </span>
