@@ -32,12 +32,17 @@ const EMPTY_FORM = {
   options: ['Yes', 'No'],
 }
 
-const labelClass = 'mb-2 block text-sm font-bold text-slate-950'
-const inputClass = 'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
-const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-slate-400 focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-2 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
+const emptyStateClass = 'rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-5 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/60'
+const sectionHeaderClass = 'border-b border-slate-200 bg-[#f9fafb] px-5 py-5 sm:px-6'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#667085]'
+const panelClass = 'rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60'
+const chipClass = 'inline-flex w-fit rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black text-[#667085] shadow-sm shadow-slate-200/50'
 
 const pollRuleCards = [
   {
@@ -415,26 +420,26 @@ export function PollsPage() {
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Availability control</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+            <p className={eyebrowClass}>Availability control</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-[#101828] sm:text-5xl">
               Get the answer before you pick the squad.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475467]">
               Use polls as football decisions, not generic surveys. Ask the right people, collect the reply, then close the loop before training or match day.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {pollRuleCards.map((item) => (
-                <article key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{item.body}</p>
+                <article key={item.label} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-4 shadow-sm shadow-slate-200/60">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#067a46]">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">{item.body}</p>
                 </article>
               ))}
             </div>
           </div>
-          <div className="grid content-between rounded-lg border border-slate-200 bg-slate-50 p-5">
+          <div className="grid content-between rounded-lg border border-slate-200 bg-[#f9fafb] p-5 shadow-inner shadow-slate-200/60">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Reply state</p>
-              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#667085]">Reply state</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
                 {openPollCount} open / {responseCount} replies
               </p>
             </div>
@@ -444,7 +449,7 @@ export function PollsPage() {
               <DecisionMetric label="Closed" value={closedPollCount} isLoading={isLoading} />
               <DecisionMetric label="Visible" value={visiblePolls.length} isLoading={isLoading} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#667085]">
               Keep open polls current. Old decisions should be closed or deleted so the club board stays readable.
             </p>
           </div>
@@ -452,7 +457,7 @@ export function PollsPage() {
       </section>
 
       {successMessage ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+        <div className="rounded-lg border border-[#abefc6] bg-[#ecfdf3] px-4 py-3 text-sm font-black text-[#067a46] shadow-sm shadow-slate-200/60">
           {successMessage}
         </div>
       ) : null}
@@ -466,19 +471,19 @@ export function PollsPage() {
           { label: 'Staff route', value: staffPollCount, caption: 'Internal team staff decisions.' },
           { label: 'Total replies', value: responseCount, caption: 'Responses across all poll types.' },
         ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{item.label}</p>
-            <p className="mt-2 text-3xl font-black text-slate-950">{isLoading ? '...' : item.value}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{item.caption}</p>
+          <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">{item.label}</p>
+            <p className="mt-2 text-3xl font-black text-[#101828]">{isLoading ? '...' : item.value}</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#667085]">{item.caption}</p>
           </div>
         ))}
       </div>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Create request</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Create a football decision</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+        <div className={sectionHeaderClass}>
+          <p className={eyebrowClass}>Create request</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create a football decision</h2>
+          <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
             Choose the poll type, configure the options, and publish it to the right football audience.
           </p>
         </div>
@@ -494,8 +499,8 @@ export function PollsPage() {
                   onClick={() => handlePollTypeChange(option.value)}
                   className={`min-h-11 rounded-lg border px-4 py-3 text-sm font-black transition ${
                     form.pollType === option.value
-                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-900 shadow-sm hover:bg-emerald-50'
+                      ? 'border-[#067a46] bg-[#067a46] text-white shadow-sm shadow-emerald-200'
+                      : 'border-slate-200 bg-white text-[#101828] shadow-sm shadow-slate-200/60 hover:border-[#20a464] hover:bg-[#f0fdf6]'
                   }`}
                 >
                   {option.label}
@@ -559,13 +564,13 @@ export function PollsPage() {
             <textarea
               value={form.description}
               onChange={(event) => updateForm({ description: event.target.value })}
-              className="min-h-24 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="min-h-24 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-slate-400 focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
               placeholder="Description optional"
             />
           </label>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/60">
               <input
                 type="checkbox"
                 checked={form.allowMultiple}
@@ -573,58 +578,58 @@ export function PollsPage() {
                   allowMultiple: event.target.checked,
                   maxChoices: event.target.checked ? form.maxChoices : '',
                 })}
-                className="h-4 w-4 accent-emerald-700"
+                className="h-4 w-4 accent-[#067a46]"
               />
               Multiple choice
             </label>
             {form.allowMultiple ? (
-              <label className="block rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <span className="mb-1 block text-sm font-bold text-slate-950">Number of choices</span>
+              <label className="block rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 shadow-sm shadow-slate-200/60">
+                <span className="mb-1 block text-sm font-black text-[#101828]">Number of choices</span>
                 <input
                   type="number"
                   min="1"
                   max={Math.max(buildOptionsForSubmit(form).length, 1)}
                   value={form.maxChoices}
                   onChange={(event) => updateForm({ maxChoices: event.target.value })}
-                  className="min-h-9 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-600"
+                  className="min-h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5]"
                   placeholder="No limit"
                 />
               </label>
             ) : null}
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/60">
               <input
                 type="checkbox"
                 checked={form.hideVotes}
                 onChange={(event) => updateForm({ hideVotes: event.target.checked })}
-                className="h-4 w-4 accent-emerald-700"
+                className="h-4 w-4 accent-[#067a46]"
               />
               Hide votes
             </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/60">
               <input
                 type="checkbox"
                 checked={form.allowComments}
                 onChange={(event) => updateForm({ allowComments: event.target.checked })}
-                className="h-4 w-4 accent-emerald-700"
+                className="h-4 w-4 accent-[#067a46]"
               />
               Allow comments
             </label>
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/60">
               <input
                 type="checkbox"
                 checked={form.allowVoteChanges}
                 onChange={(event) => updateForm({ allowVoteChanges: event.target.checked })}
-                className="h-4 w-4 accent-emerald-700"
+                className="h-4 w-4 accent-[#067a46]"
               />
               Allow choice change
             </label>
             {form.audience === 'parents' ? (
-              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950">
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/60">
                 <input
                   type="checkbox"
                   checked={form.allowOwnChildVotes}
                   onChange={(event) => updateForm({ allowOwnChildVotes: event.target.checked })}
-                  className="h-4 w-4 accent-emerald-700"
+                  className="h-4 w-4 accent-[#067a46]"
                 />
                 Allow vote for own child
               </label>
@@ -655,18 +660,18 @@ export function PollsPage() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-4 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <div className="grid gap-4 border-b border-slate-200 bg-[#f9fafb] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Decision board</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Poll board</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            <p className={eyebrowClass}>Decision board</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Poll board</h2>
+            <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
               Review active and closed polls, answer staff polls, and see response totals.
             </p>
           </div>
           <select
             value={audienceFilter}
             onChange={(event) => setAudienceFilter(event.target.value)}
-            className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-950 outline-none transition focus:border-emerald-600"
+            className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#20a464] focus:ring-2 focus:ring-[#d7f8e5]"
           >
             <option value="all">All polls</option>
             <option value="parents">Parent polls</option>
@@ -675,7 +680,7 @@ export function PollsPage() {
         </div>
         <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
-          <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-600">
+          <p className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-5 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/60">
             Loading polls...
           </p>
         ) : visiblePolls.length > 0 ? (
@@ -706,9 +711,9 @@ export function PollsPage() {
 
 function DecisionMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
-      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
-      <p className="mt-2 text-2xl font-black text-slate-950">{isLoading ? '...' : value}</p>
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm shadow-slate-200/60">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#067a46]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
     </div>
   )
 }
@@ -728,7 +733,7 @@ function PollOptionsEditor({
     return (
       <div>
         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-bold text-slate-950">Award candidates</p>
+          <p className="text-sm font-black text-[#101828]">Award candidates</p>
           <button
             type="button"
             onClick={addAllPlayers}
@@ -742,7 +747,7 @@ function PollOptionsEditor({
           <select
             value={selectedPlayerId}
             onChange={(event) => setSelectedPlayerId(event.target.value)}
-            className="min-h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="min-h-11 flex-1 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
           >
             <option value="">Select a player</option>
             {awardPlayers.map((player) => (
@@ -762,8 +767,8 @@ function PollOptionsEditor({
         </div>
         <div className="mt-3 space-y-2">
           {form.options.length > 0 ? form.options.map((option, index) => (
-            <div key={option.id || `${option.label}-${index}`} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-              <span className="min-w-0 break-words text-sm font-bold text-slate-950">{option.label}</span>
+            <div key={option.id || `${option.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 shadow-sm shadow-slate-200/60">
+              <span className="min-w-0 break-words text-sm font-black text-[#101828]">{option.label}</span>
               <button
                 type="button"
                 onClick={() => onRemoveOption(index)}
@@ -785,7 +790,7 @@ function PollOptionsEditor({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-sm font-bold text-slate-950">{form.pollType === 'time' ? 'Time options' : 'Options'}</p>
+        <p className="text-sm font-black text-[#101828]">{form.pollType === 'time' ? 'Time options' : 'Options'}</p>
         <button
           type="button"
           onClick={addOption}
@@ -801,7 +806,7 @@ function PollOptionsEditor({
               type={form.pollType === 'time' ? 'datetime-local' : 'text'}
               value={option}
               onChange={(event) => onOptionChange(index, event.target.value)}
-              className="min-h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="min-h-11 flex-1 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
               placeholder={`Option ${index + 1}`}
             />
             <button
@@ -828,43 +833,43 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
   const isClosed = poll.status === 'closed'
 
   return (
-    <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+            <span className={chipClass}>
               {isStaffPoll ? 'Team staff' : 'Parent portal'}
             </span>
-            <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+            <span className={chipClass}>
               {poll.pollType === 'time' ? 'Time poll' : poll.pollType === 'awards' ? 'Awards poll' : 'Text poll'}
             </span>
             {poll.allowMultiple ? (
-              <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className={chipClass}>
                 {poll.maxChoices ? `Up to ${poll.maxChoices} choices` : 'Multiple choice'}
               </span>
             ) : null}
             {!isStaffPoll && poll.allowOwnChildVotes === false ? (
-              <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className={chipClass}>
                 Own child blocked
               </span>
             ) : null}
             {poll.allowVoteChanges === false ? (
-              <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className={chipClass}>
                 Vote locked after choice
               </span>
             ) : null}
-            <span className={`inline-flex w-fit rounded-md border px-3 py-1 text-xs font-bold ${isClosed ? 'border-slate-200 bg-slate-100 text-slate-600' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+            <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black shadow-sm ${isClosed ? 'border-slate-200 bg-[#f2f4f7] text-[#667085] shadow-slate-200/50' : 'border-[#abefc6] bg-[#ecfdf3] text-[#067a46] shadow-emerald-100'}`}>
               {isClosed ? 'Closed' : 'Open'}
             </span>
             {poll.teamName ? (
-              <span className="inline-flex w-fit rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+              <span className={chipClass}>
                 {poll.teamName}
               </span>
             ) : null}
           </div>
-          <h4 className="mt-3 text-lg font-black text-slate-950">{poll.title}</h4>
-          {poll.description ? <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{poll.description}</p> : null}
-          <p className="mt-2 text-xs font-medium text-slate-500">
+          <h4 className="mt-3 text-lg font-black text-[#101828]">{poll.title}</h4>
+          {poll.description ? <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#667085]">{poll.description}</p> : null}
+          <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-[#667085]">
             {totalVotes} {totalVotes === 1 ? 'response' : 'responses'}
           </p>
         </div>
@@ -897,29 +902,29 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
           const isSelected = ownOptionIds.includes(option.id)
 
           return (
-            <div key={option.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div key={option.id} className={panelClass}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-950">{option.label}</p>
-                  <p className="mt-1 text-xs font-medium text-slate-600">{count} votes | {percent}%</p>
+                  <p className="text-sm font-black text-[#101828]">{option.label}</p>
+                  <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#667085]">{count} votes / {percent}%</p>
                 </div>
                 {isStaffPoll && !isClosed ? (
                   <button
                     type="button"
                     onClick={() => onVote(poll, option.id)}
                     disabled={isBusy}
-                    className={`inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                       isSelected
-                        ? 'border border-emerald-700 bg-emerald-700 text-white'
-                        : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
+                        ? 'border-[#067a46] bg-[#067a46] text-white'
+                        : 'border-slate-200 bg-white text-[#101828] hover:border-[#20a464] hover:bg-[#f0fdf6]'
                     }`}
                   >
                     {isSelected ? 'Selected' : 'Vote'}
                   </button>
                 ) : null}
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-md bg-slate-200">
-                <div className="h-full rounded-md bg-emerald-600" style={{ width: `${percent}%` }} />
+              <div className="mt-3 h-2 overflow-hidden rounded-lg bg-slate-200">
+                <div className="h-full rounded-lg bg-[#20a464]" style={{ width: `${percent}%` }} />
               </div>
             </div>
           )
