@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
 
-const surfaceClass = 'overflow-hidden rounded-lg border border-[#bfe8cd] bg-white shadow-sm shadow-[#d7eadf]/80'
+const surfaceClass = 'overflow-hidden rounded-lg border border-[#bddcca] bg-white shadow-sm shadow-[#067a46]/10'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#067a46]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:border-[#20a464] hover:bg-[#f0fdf6] focus:outline-none focus:ring-2 focus:ring-[#20a464] focus:ring-offset-2 focus:ring-offset-white'
 
 function CoachActionMenuPage({ actions, description, primaryPath, title }) {
   const navigate = useNavigate()
@@ -16,7 +16,7 @@ function CoachActionMenuPage({ actions, description, primaryPath, title }) {
         <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-stretch">
           <div>
             <p className={eyebrowClass}>Football workflow</p>
-            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-[#101828] sm:text-5xl">{title}</h1>
+            <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight text-[#10231a] sm:text-5xl">{title}</h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#456653]">{description}</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {actions.map((action) => (
@@ -24,31 +24,31 @@ function CoachActionMenuPage({ actions, description, primaryPath, title }) {
                   key={action.path}
                   to={action.path}
                   className={[
-                    'rounded-lg border p-4 shadow-sm shadow-[#d7eadf]/60 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#20a464]',
+                    'rounded-lg border p-4 shadow-sm shadow-[#067a46]/10 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#20a464]',
                     action.primary
                       ? 'border-[#067a46] bg-[#067a46] text-white'
-                      : 'border-[#bfe8cd] bg-[#f8fdf9] text-[#101828] hover:border-[#20a464] hover:bg-white',
+                      : 'border-[#bddcca] bg-[#f6fbf8] text-[#10231a] hover:border-[#20a464] hover:bg-white',
                   ].join(' ')}
                 >
                   <span className="block text-sm font-black">{action.label}</span>
-                  <span className={['mt-2 block text-sm font-semibold leading-6', action.primary ? 'text-[#dcfae6]' : 'text-[#5f7468]'].join(' ')}>
+                  <span className={['mt-2 block text-sm font-semibold leading-6', action.primary ? 'text-[#dcfae6]' : 'text-[#456653]'].join(' ')}>
                     {action.description}
                   </span>
                 </Link>
               ))}
             </div>
           </div>
-          <div className="grid content-between rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] p-5 shadow-inner shadow-[#d7eadf]/60">
+          <div className="grid content-between rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-5 shadow-inner shadow-[#067a46]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#5f7468]">Next action</p>
-              <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#456653]">Next action</p>
+              <p className="mt-2 text-xl font-black tracking-tight text-[#10231a]">
                 {primaryAction?.label || 'Open workflow'}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
                 Open the working screen and complete the real step that moves the football week forward.
               </p>
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#5f7468]">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#456653]">
               {secondaryActions.length > 0
                 ? `${secondaryActions.length} supporting view${secondaryActions.length === 1 ? '' : 's'} available.`
                 : 'This workflow opens directly into the working screen.'}
