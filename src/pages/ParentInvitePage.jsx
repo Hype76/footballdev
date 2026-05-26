@@ -6,9 +6,9 @@ import { buildParentAppUrl, isParentPortalHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 import { acceptParentPortalInvite } from '../lib/supabase.js'
 
-const inputClass = 'min-h-12 w-full rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] read-only:text-[#5f7468] read-only:focus:border-[#bfe8cd] read-only:focus:ring-0'
-const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bfe8cd] bg-white px-5 py-3 text-sm font-bold text-[#101828] transition hover:bg-[#f0fdf6]'
+const inputClass = 'min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#789083] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5] read-only:text-[#456653] read-only:focus:border-[#bddcca] read-only:focus:ring-0'
+const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6]'
 
 function getFriendlySignupError(error) {
   const rawMessage = String(error?.message ?? '').trim()
@@ -40,8 +40,8 @@ async function withTimeout(promise, message, timeoutMs = 15000) {
 
 function ParentShell({ children }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#fbfdfb] px-4 py-8 text-[#101828]">
-      <div className="w-full max-w-xl rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
+    <main className="flex min-h-screen items-center justify-center bg-[#f6fbf8] px-4 py-8 text-[#10231a]">
+      <div className="w-full max-w-xl rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10 sm:p-6">
         {children}
       </div>
     </main>
@@ -272,15 +272,15 @@ export function ParentInvitePage() {
 
   return (
     <ParentShell>
-      <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#bfe8cd] bg-[#101828] object-contain p-1" />
+      <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#bddcca] bg-[#06140d] object-contain p-1" />
       <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Parent Portal</p>
       <h1 className="mt-3 text-2xl font-black tracking-tight">Create parent access</h1>
-      <p className="mt-3 text-sm font-semibold leading-6 text-[#5f7468]">
+      <p className="mt-3 text-sm font-semibold leading-6 text-[#456653]">
         Create your parent login for this child only. Parent accounts do not open staff tools or other club records.
       </p>
 
       {isInviteLoading || isLoading || isAccepting ? (
-        <p className="mt-5 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#5f7468]">
+        <p className="mt-5 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#456653]">
           Opening parent invite...
         </p>
       ) : null}
@@ -289,12 +289,12 @@ export function ParentInvitePage() {
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Child link</p>
-            <p className="text-sm font-bold text-[#101828]">{invite.playerName || 'Child access'}</p>
-            <p className="mt-1 text-xs font-semibold text-[#5f7468]">{invite.teamName || 'Team'} | {invite.clubName || 'Club'}</p>
+            <p className="text-sm font-bold text-[#10231a]">{invite.playerName || 'Child access'}</p>
+            <p className="mt-1 text-xs font-semibold text-[#456653]">{invite.teamName || 'Team'} | {invite.clubName || 'Club'}</p>
           </div>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#101828]">Email</span>
+            <span className="mb-2 block text-sm font-bold text-[#10231a]">Email</span>
             <input
               type="email"
               value={email}
@@ -312,8 +312,8 @@ export function ParentInvitePage() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#101828]">Create password</span>
-            <div className="flex rounded-lg border border-[#bfe8cd] bg-[#f8fdf9] focus-within:border-[#20a464] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#d7f8e5]">
+            <span className="mb-2 block text-sm font-bold text-[#10231a]">Create password</span>
+            <div className="flex rounded-lg border border-[#bddcca] bg-[#f6fbf8] focus-within:border-[#20a464] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#d7f8e5]">
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
@@ -326,12 +326,12 @@ export function ParentInvitePage() {
                 minLength={6}
                 autoComplete="new-password"
                 placeholder="Create a password"
-                className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none placeholder:text-[#8da59a]"
+                className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#10231a] outline-none placeholder:text-[#789083]"
               />
               <button
                 type="button"
                 onClick={() => setIsPasswordVisible((current) => !current)}
-                className="min-h-12 border-l border-[#bfe8cd] px-4 py-3 text-sm font-bold text-[#067a46] transition hover:bg-[#f0fdf6]"
+                className="min-h-12 border-l border-[#bddcca] px-4 py-3 text-sm font-bold text-[#067a46] transition hover:bg-[#f0fdf6]"
               >
                 {isPasswordVisible ? 'Hide' : 'Show'}
               </button>
@@ -368,12 +368,12 @@ export function ParentInvitePage() {
       {acceptedLink ? (
         <div className="mt-5 space-y-4">
           <div className="rounded-lg border border-[#b7efce] bg-[#f0fdf6] p-4">
-            <p className="text-sm font-bold text-[#101828]">{acceptedLink.playerName}</p>
-            <p className="mt-1 text-xs font-semibold text-[#5f7468]">{acceptedLink.teamName || 'No team'} | {acceptedLink.clubName || 'No club'}</p>
+            <p className="text-sm font-bold text-[#10231a]">{acceptedLink.playerName}</p>
+            <p className="mt-1 text-xs font-semibold text-[#456653]">{acceptedLink.teamName || 'No team'} | {acceptedLink.clubName || 'No club'}</p>
           </div>
           <a
             href={buildParentAppUrl('/parent-portal')}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#05603a]"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a]"
           >
             Open Parent Portal
           </a>

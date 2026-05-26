@@ -220,12 +220,12 @@ export function ParentLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fbfdfb] px-4 py-6 text-[#101828] sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#f6fbf8] px-4 py-6 text-[#10231a] sm:px-6 lg:px-8">
       <section className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-center">
-        <div className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/80 sm:p-6 lg:p-8">
-          <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#cfeedd] bg-[#06140d] object-contain p-1" />
+        <div className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10 sm:p-6 lg:p-8">
+          <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#bddcca] bg-[#06140d] object-contain p-1" />
           <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Parent portal</p>
-          <h1 className="mt-3 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-5xl">
+          <h1 className="mt-3 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-[#10231a] sm:text-5xl">
             Open the football updates linked to your child.
           </h1>
           <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#456653]">
@@ -238,23 +238,23 @@ export function ParentLoginPage() {
               ['Club controlled', 'Staff decide what is shared and when parent actions are available.'],
               ['Match ready', 'Use this on the device you want for live match day notifications.'],
             ].map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-[#cfeedd] bg-[#f8fdf9] p-4">
-                <p className="text-sm font-black text-[#101828]">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{copy}</p>
+              <article key={title} className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-4 shadow-sm shadow-[#067a46]/10">
+                <p className="text-sm font-black text-[#10231a]">{title}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{copy}</p>
               </article>
             ))}
           </div>
         </div>
 
-        <div className="rounded-lg border border-[#cfeedd] bg-white p-5 shadow-sm shadow-[#d7eadf]/80 sm:p-6">
+        <div className="rounded-lg border border-[#bddcca] bg-white p-5 shadow-sm shadow-[#067a46]/10 sm:p-6">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Secure access</p>
-          <h2 className="mt-3 text-2xl font-black tracking-tight text-[#101828]">Parent login</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+          <h2 className="mt-3 text-2xl font-black tracking-tight text-[#10231a]">Parent login</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">
             Log in with the same email that received the club invite.
           </p>
 
         {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? (
-          <p className="mt-5 rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#5f7468]">
+          <p className="mt-5 rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#456653]">
             Preparing parent login...
           </p>
         ) : null}
@@ -262,7 +262,7 @@ export function ParentLoginPage() {
         {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) ? null : (
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#101828]">Email</span>
+            <span className="mb-2 block text-sm font-bold text-[#10231a]">Email</span>
             <input
               type="email"
               value={email}
@@ -274,13 +274,13 @@ export function ParentLoginPage() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="min-h-12 w-full rounded-lg border border-[#cfeedd] bg-[#f8fdf9] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#8da59a] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
+              className="min-h-12 w-full rounded-lg border border-[#bddcca] bg-[#f6fbf8] px-4 py-3 text-sm font-semibold text-[#10231a] outline-none transition placeholder:text-[#789083] focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#101828]">Password</span>
-            <div className="flex overflow-hidden rounded-lg border border-[#cfeedd] bg-[#f8fdf9] focus-within:border-[#20a464] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#d7f8e5]">
+            <span className="mb-2 block text-sm font-bold text-[#10231a]">Password</span>
+            <div className="flex overflow-hidden rounded-lg border border-[#bddcca] bg-[#f6fbf8] focus-within:border-[#20a464] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#d7f8e5]">
               <input
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
@@ -292,12 +292,12 @@ export function ParentLoginPage() {
                 required
                 autoComplete="current-password"
                 placeholder="Enter password"
-                className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none placeholder:text-[#8da59a]"
+                className="min-h-12 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#10231a] outline-none placeholder:text-[#789083]"
               />
               <button
                 type="button"
                 onClick={() => setIsPasswordVisible((current) => !current)}
-                className="min-h-12 border-l border-[#cfeedd] px-4 py-3 text-sm font-bold text-[#067a46] transition hover:bg-[#f2fbf6]"
+                className="min-h-12 border-l border-[#bddcca] px-4 py-3 text-sm font-bold text-[#067a46] transition hover:bg-[#f0fdf6]"
               >
                 {isPasswordVisible ? 'Hide' : 'Show'}
               </button>
@@ -315,7 +315,7 @@ export function ParentLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting || isSigningOutConfirmedSession}
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#067a46]/20 transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Logging in...' : 'Login'}
           </button>
@@ -324,7 +324,7 @@ export function ParentLoginPage() {
             type="button"
             disabled={isSubmitting || isSigningOutConfirmedSession}
             onClick={handlePasswordReset}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cfeedd] bg-white px-5 py-3 text-sm font-bold text-[#101828] transition hover:bg-[#f8fdf9] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] shadow-sm shadow-[#067a46]/10 transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Forgot password
           </button>
