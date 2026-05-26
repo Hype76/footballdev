@@ -9,6 +9,16 @@ export async function claimStripeCheckoutForProfile(session, profile) {
     return profile
   }
 
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    const port = window.location.port
+    const isLoopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+
+    if (isLoopback && port !== '8888') {
+      return profile
+    }
+  }
+
   try {
     const response = await fetch('/.netlify/functions/claim-stripe-checkout', {
       method: 'POST',

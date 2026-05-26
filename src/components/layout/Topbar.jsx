@@ -116,7 +116,7 @@ export function Topbar({ title, onMenuClick }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[#bddcca] bg-white/95 px-4 py-3 shadow-sm shadow-[#067a46]/10 backdrop-blur sm:px-6 md:px-8 xl:px-10">
+    <header className="sticky top-0 z-20 border-b border-[#d8e3ee] bg-white/95 px-4 py-3 shadow-sm shadow-[#0f172a]/5 backdrop-blur sm:px-6 md:px-8 xl:px-10">
       <div className="mx-auto flex max-w-[108rem] flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <button
@@ -139,10 +139,10 @@ export function Topbar({ title, onMenuClick }) {
               <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[#067a46]">
                 {clubLabel}
               </p>
-              <span className="rounded-lg bg-[#f0fdf6] px-2 py-1 text-[11px] font-black text-[#065f3b] ring-1 ring-[#bddcca]">
+              <span className="rounded-lg bg-[#ecfdf3] px-2 py-1 text-[11px] font-black text-[#047857] ring-1 ring-[#bbf7d0]">
                 {workspaceContext}
               </span>
-              <span className="rounded-lg bg-[#eef6ff] px-2 py-1 text-[11px] font-black text-[#175cd3] ring-1 ring-[#c7ddff]">
+              <span className="rounded-lg bg-[#eff6ff] px-2 py-1 text-[11px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
                 {todayLabel}
               </span>
             </div>
@@ -150,15 +150,15 @@ export function Topbar({ title, onMenuClick }) {
               {title}
             </h1>
             <div className="mt-2 flex flex-wrap gap-2 text-xs font-black">
-              <span className="rounded-lg border border-[#bddcca] bg-[#f0fdf6] px-3 py-2 text-[#065f3b]">{workLaneLabel}</span>
-              <span className="rounded-lg border border-[#c7ddff] bg-[#eef6ff] px-3 py-2 text-[#175cd3]">{nextActionLabel}</span>
-              <span className="rounded-lg border border-[#d8efe2] bg-white px-3 py-2 text-[#456653]">{roleLabel}</span>
+              <span className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf3] px-3 py-2 text-[#047857]">{workLaneLabel}</span>
+              <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-[#1d4ed8]">{nextActionLabel}</span>
+              <span className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-[#475569]">{roleLabel}</span>
             </div>
             <p className="mt-2 text-sm font-semibold text-[#456653]">{userLabel} / {teamLabel}</p>
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-2 shadow-sm shadow-[#067a46]/10 2xl:w-auto 2xl:min-w-[36rem]">
+        <div className="grid w-full gap-2 rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] p-2 shadow-sm shadow-[#0f172a]/5 2xl:w-auto 2xl:min-w-[36rem]">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
             {isDemoUser(displayUser) ? (
               <label className="col-span-2 grid gap-1 md:col-span-1">

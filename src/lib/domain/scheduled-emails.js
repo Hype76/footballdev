@@ -3,7 +3,25 @@ import { supabase } from '../supabase-client.js'
 let lastQueueProcessAt = 0
 let queueProcessPromise = null
 
+function shouldSkipNetlifyFunctionRequest() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const hostname = window.location.hostname
+  const port = window.location.port
+  const isLoopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+
+  return isLoopback && port !== '8888'
+}
+
 async function postScheduledEmailAction(payload) {
+  if (shouldSkipNetlifyFunctionRequest()) {
+    const error = new Error('Email queue functions are not available in this local preview.')
+    error.status = 404
+    throw error
+  }
+
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token || ''
   const response = await fetch('/.netlify/functions/manage-scheduled-emails', {
@@ -17,13 +35,19 @@ async function postScheduledEmailAction(payload) {
   const result = await response.json().catch(() => ({}))
 
   if (!response.ok || result.success === false) {
-    throw new Error(result.message || 'Email queue action failed.')
+    const error = new Error(result.message || 'Email queue action failed.')
+    error.status = response.status
+    throw error
   }
 
   return result
 }
 
 export async function processDueScheduledEmails({ force = false } = {}) {
+  if (shouldSkipNetlifyFunctionRequest()) {
+    return null
+  }
+
   const now = Date.now()
 
   if (!force && now - lastQueueProcessAt < 45000) {
@@ -41,8 +65,14 @@ export async function processDueScheduledEmails({ force = false } = {}) {
     .then(async (response) => {
       const result = await response.json().catch(() => ({}))
 
+      if (response.status === 404) {
+        return null
+      }
+
       if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Scheduled emails could not be processed.')
+        const error = new Error(result.message || 'Scheduled emails could not be processed.')
+        error.status = response.status
+        throw error
       }
 
       if ((result.sent || result.duplicate || result.failed) > 0) {
@@ -58,15 +88,23 @@ export async function processDueScheduledEmails({ force = false } = {}) {
   return queueProcessPromise
 }
 
-export async function getScheduledEmails({ user }) {
-  await processDueScheduledEmails().catch((error) => {
-    console.error(error)
-  })
+export async function getScheduledEmails({ silentUnavailable = false, user }) {
+  await processDueScheduledEmails().catch(() => null)
 
-  const result = await postScheduledEmailAction({
-    action: 'list',
-    clubId: user?.clubId,
-  })
+  let result
+
+  try {
+    result = await postScheduledEmailAction({
+      action: 'list',
+      clubId: user?.clubId,
+    })
+  } catch (error) {
+    if (silentUnavailable && error?.status === 404) {
+      return []
+    }
+
+    throw error
+  }
 
   return result.queue ?? []
 }

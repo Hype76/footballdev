@@ -166,7 +166,7 @@ export function Sidebar({ isOpen, onClose }) {
       }
 
       try {
-        const queuedEmails = await getScheduledEmails({ user })
+        const queuedEmails = await getScheduledEmails({ silentUnavailable: true, user })
 
         if (isMounted) {
           setQueuedEmailCount(queuedEmails.length)
@@ -341,7 +341,7 @@ export function Sidebar({ isOpen, onClose }) {
               <span className="rounded-lg border border-[#bddcca] bg-white px-3 py-2 text-xs font-black text-[#065f3b]">
                 {isParentPortal ? 'Family view' : 'Club workspace'}
               </span>
-              <span className="rounded-lg border border-[#c7ddff] bg-[#eef6ff] px-3 py-2 text-xs font-black text-[#175cd3]">
+              <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-xs font-black text-[#1d4ed8]">
                 Match week
               </span>
             </div>
@@ -358,12 +358,12 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
 
         <nav className="mt-4 space-y-3 pb-4">
-          <section className="rounded-lg border border-[#bddcca] bg-[#f6fbf8] p-2 shadow-sm shadow-[#067a46]/10">
+          <section className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] p-2 shadow-sm shadow-[#0f172a]/5">
             <div className="flex items-center justify-between px-2">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#456653]">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
                 {isParentPortal ? 'Family actions' : 'Week operations'}
               </p>
-              <span className="rounded-lg bg-[#067a46] px-2 py-1 text-[11px] font-black text-white">
+              <span className="rounded-lg bg-[#0f172a] px-2 py-1 text-[11px] font-black text-white">
                 Live
               </span>
             </div>
@@ -378,8 +378,8 @@ export function Sidebar({ isOpen, onClose }) {
                     [
                       'block rounded-lg px-3 py-3 transition',
                       isActive
-                        ? 'bg-[#067a46] text-white shadow-sm shadow-[#067a46]/20'
-                        : 'bg-white text-[#456653] shadow-sm shadow-[#067a46]/10 hover:bg-[#f0fdf6] hover:text-[#10231a]',
+                        ? 'bg-[#0f172a] text-white shadow-sm shadow-[#0f172a]/20'
+                        : 'bg-white text-[#475569] shadow-sm shadow-[#0f172a]/5 hover:bg-[#eff6ff] hover:text-[#0f172a]',
                     ].join(' ')
                   }
                 >

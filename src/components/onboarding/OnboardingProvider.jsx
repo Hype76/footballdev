@@ -167,8 +167,8 @@ function CompactOnboardingPanel({
           </div>
         </div>
 
-        <aside className="border-t border-[#bddcca] bg-[#f0fdf6] px-5 py-5 sm:px-6 lg:border-l lg:border-t-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Next required action</p>
+        <aside className="border-t border-[#bfdbfe] bg-[#eff6ff] px-5 py-5 sm:px-6 lg:border-l lg:border-t-0">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">Next required action</p>
           <p className="mt-2 text-xl font-black leading-6 text-[#10231a]">{nextStep?.title}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{nextStep?.detail}</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
@@ -386,9 +386,9 @@ export function OnboardingProvider({ children }) {
                   <span>Setup progress</span>
                   <span>{progress.completedCount} of {progress.totalCount}</span>
                 </div>
-                <div className="mt-4 h-3 overflow-hidden rounded-lg bg-white ring-1 ring-[#bddcca]">
+                <div className="mt-4 h-3 overflow-hidden rounded-lg bg-white ring-1 ring-[#d8e3ee]">
                   <div
-                    className="h-full rounded-lg bg-[#067a46] transition-all"
+                    className="h-full rounded-lg bg-[#1d4ed8] transition-all"
                     style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
                   />
                 </div>
@@ -396,8 +396,8 @@ export function OnboardingProvider({ children }) {
                   {isLoading ? 'Refreshing workspace data.' : 'Progress uses real workspace data where possible.'}
                 </p>
               </div>
-              <div className="mt-5 rounded-lg border border-[#bddcca] bg-white p-4 shadow-sm shadow-[#067a46]/10">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#067a46]">Next required action</p>
+              <div className="mt-5 rounded-lg border border-[#bfdbfe] bg-white p-4 shadow-sm shadow-[#1d4ed8]/10">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">Next required action</p>
                 <p className="mt-2 text-xl font-black leading-6 text-[#10231a]">{nextStep?.title}</p>
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#456653]">{nextStep?.detail}</p>
                 <div className="mt-4 grid gap-2">
