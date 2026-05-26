@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+const surfaceClass = 'rounded-lg border border-[#d7eadf] bg-white shadow-sm shadow-[#d7eadf]/70'
+const insetSurfaceClass = 'rounded-lg border border-[#d7eadf] bg-[#f8fdf9] shadow-sm shadow-[#d7eadf]/60'
+const labelClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#067a46]'
+const titleClass = 'text-base font-black text-[#10231a]'
+const bodyClass = 'text-sm font-semibold leading-6 text-[#5f7468]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#bddcca] bg-white px-5 py-3 text-sm font-black text-[#10231a] transition hover:bg-[#f8fdf9]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a]'
+
 export function InfoCard({ title, children }) {
   return (
-    <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-4 shadow-sm shadow-[#d7eadf]/60">
-      <h3 className="text-base font-black text-[#10231a]">{title}</h3>
-      <div className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{children}</div>
+    <div className={`${insetSurfaceClass} p-4`}>
+      <h3 className={titleClass}>{title}</h3>
+      <div className={`mt-2 ${bodyClass}`}>{children}</div>
     </div>
   )
 }
@@ -14,7 +22,8 @@ function DetailList({ items }) {
   return (
     <div className="mt-4 space-y-2">
       {items.map((item) => (
-        <div key={item} className="rounded-lg border border-[#d7eadf] bg-white px-4 py-3">
+        <div key={item} className="flex gap-3 rounded-lg border border-[#d7eadf] bg-white px-4 py-3">
+          <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#067a46]" />
           <p className="text-sm font-semibold leading-6 text-[#4d6458]">{item}</p>
         </div>
       ))}
@@ -24,7 +33,7 @@ function DetailList({ items }) {
 
 export function PlanCard({ plan, isCurrent }) {
   return (
-    <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/60">
+    <div className={`${insetSurfaceClass} p-5`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-black text-[#10231a]">{plan.label}</h3>
@@ -43,7 +52,7 @@ export function PlanCard({ plan, isCurrent }) {
 
 export function RoleCard({ guide }) {
   return (
-    <div className="rounded-lg border border-[#d7eadf] bg-[#f8fdf9] p-5 shadow-sm shadow-[#d7eadf]/60">
+    <div className={`${insetSurfaceClass} p-5`}>
       <h3 className="text-lg font-black text-[#10231a]">{guide.label}</h3>
       <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{guide.summary}</p>
       <DetailList items={guide.capabilities} />
@@ -66,12 +75,7 @@ export function QuickLinks({ links }) {
         <Link
           key={link.path}
           to={link.path}
-          className={[
-            'inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-3 text-sm font-bold transition',
-            link.primary
-              ? 'bg-[#067a46] text-white hover:bg-[#05603a]'
-              : 'border border-[#bddcca] bg-white text-[#10231a] hover:bg-[#f8fdf9]',
-          ].join(' ')}
+          className={link.primary ? primaryButtonClass : secondaryButtonClass}
         >
           {link.label}
         </Link>
@@ -85,10 +89,13 @@ function VideoMedia({ guide }) {
 
   if (hasVideoError) {
     return (
-      <div className="relative aspect-video w-full overflow-hidden bg-slate-950">
-        <img className="h-full w-full object-cover" src={guide.poster} alt="" />
-        <div className="absolute inset-x-0 bottom-0 bg-slate-950/80 px-4 py-3 text-sm font-bold text-white">
-          Video file will appear here after recording.
+      <div className="grid aspect-video w-full place-items-center bg-[#f0fdf6] p-5">
+        <div className="w-full max-w-md rounded-lg border border-[#bfe8cd] bg-white p-5 text-center shadow-sm shadow-[#d7eadf]/70">
+          <img className="mx-auto h-16 w-16 rounded-lg border border-[#d7eadf] bg-[#10231a] object-cover p-1" src={guide.poster} alt="" />
+          <p className="mt-4 text-sm font-black text-[#10231a]">Walkthrough pending</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">
+            This guide has a task checklist now. The recorded video can be added without changing the page layout.
+          </p>
         </div>
       </div>
     )
@@ -96,7 +103,7 @@ function VideoMedia({ guide }) {
 
   return (
     <video
-      className="aspect-video w-full bg-slate-950"
+      className="aspect-video w-full bg-[#f0fdf6]"
       controls
       preload="metadata"
       poster={guide.poster}
@@ -111,15 +118,16 @@ function VideoMedia({ guide }) {
 
 export function VideoGuideCard({ guide }) {
   return (
-    <article className="overflow-hidden rounded-lg border border-[#d7eadf] bg-[#f8fdf9] shadow-sm shadow-[#d7eadf]/60">
-      <div className="bg-slate-950">
+    <article className={`overflow-hidden ${surfaceClass}`}>
+      <div className="border-b border-[#d7eadf] bg-[#f0fdf6]">
         <VideoMedia guide={guide} />
       </div>
-      <div className="p-4">
+      <div className="p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="text-base font-black text-[#10231a]">{guide.title}</h3>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#5f7468]">{guide.caption}</p>
+            <p className={labelClass}>Walkthrough</p>
+            <h3 className="mt-2 text-lg font-black text-[#10231a]">{guide.title}</h3>
+            <p className={`mt-2 ${bodyClass}`}>{guide.caption}</p>
           </div>
           <span className="inline-flex w-fit shrink-0 rounded-lg border border-[#bddcca] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#067a46]">
             {guide.duration}
