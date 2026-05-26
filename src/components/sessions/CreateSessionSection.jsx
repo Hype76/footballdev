@@ -1,6 +1,11 @@
 import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const emptyClass = 'rounded-lg border border-dashed border-[#d0d5dd] bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085]'
+const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+
 export function CreateSessionSection({
   form,
   isLoading,
@@ -9,9 +14,6 @@ export function CreateSessionSection({
   onSubmit,
   teams,
 }) {
-  const inputClass =
-    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
-
   return (
     <SectionCard
       title="Create session"
@@ -19,17 +21,17 @@ export function CreateSessionSection({
       description="Use a date only. Times are not required for development records."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+        <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold text-[#667085]">
           Loading session setup...
         </div>
       ) : teams.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className={emptyClass}>
           No teams are available yet. Create a team first, then sessions can be planned.
         </div>
       ) : (
         <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={onSubmit}>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Team</span>
+            <span className={labelClass}>Team</span>
             <select
               name="teamId"
               value={form.teamId}
@@ -47,7 +49,7 @@ export function CreateSessionSection({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Session Type</span>
+            <span className={labelClass}>Session Type</span>
             <select
               name="sessionType"
               value={form.sessionType}
@@ -63,7 +65,7 @@ export function CreateSessionSection({
 
           {form.sessionType === 'match' ? (
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-950">Opponent</span>
+              <span className={labelClass}>Opponent</span>
               <input
                 type="text"
                 name="opponent"
@@ -76,7 +78,7 @@ export function CreateSessionSection({
           ) : null}
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Date</span>
+            <span className={labelClass}>Date</span>
             <input
               type="date"
               name="sessionDate"
@@ -88,7 +90,7 @@ export function CreateSessionSection({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-950">Player list</span>
+            <span className={labelClass}>Player list</span>
             <select
               name="section"
               value={form.section}
@@ -108,7 +110,7 @@ export function CreateSessionSection({
               type="submit"
               disabled={isSaving}
               title={isSaving ? 'Please wait while this session is being created.' : undefined}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className={primaryButtonClass}
             >
               {isSaving ? 'Saving...' : 'Create session'}
             </button>

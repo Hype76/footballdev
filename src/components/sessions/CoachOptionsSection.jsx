@@ -3,6 +3,12 @@ import { AVAILABLE_PLAYER_PAGE_SIZE, formatSessionDate, formatSessionType } from
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const emptyClass = 'rounded-lg border border-dashed border-[#d0d5dd] bg-[#f9fafb] px-4 py-6 text-sm font-semibold text-[#667085]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#20a464] hover:bg-[#f0fdf6] disabled:cursor-not-allowed disabled:opacity-60'
+
 export function CoachOptionsSection({
   activePlayerSection,
   activePlayerTeam,
@@ -23,8 +29,6 @@ export function CoachOptionsSection({
   selectedSessionLocked,
   sessions,
 }) {
-  const inputClass =
-    'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
   const addAllDisabledReason = isSaving
     ? 'Please wait while the session is being updated.'
     : selectedSessionLocked
@@ -46,14 +50,14 @@ export function CoachOptionsSection({
       description="Select any saved session and add more players to its list when needed."
     >
       {sessions.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+        <div className={emptyClass}>
           No sessions created yet.
         </div>
       ) : (
         <div className="space-y-5">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-950">Active session</span>
+              <span className={labelClass}>Active session</span>
               <select
                 value={selectedSessionId}
                 onChange={(event) => onOpenSession(event.target.value)}
@@ -68,7 +72,7 @@ export function CoachOptionsSection({
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-950">Player list</span>
+              <span className={labelClass}>Player list</span>
               <select
                 name="section"
                 value={activePlayerSection}
@@ -84,10 +88,10 @@ export function CoachOptionsSection({
             </label>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+          <div className="rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-semibold text-[#667085] shadow-sm shadow-slate-200/60">
             Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
             {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
-              <span className="mt-2 block text-xs font-bold text-emerald-700">
+              <span className="mt-2 block text-xs font-black text-[#067a46]">
                 This session has {selectedSessionAssessmentCount} development records, so it cannot be deleted.
               </span>
             ) : null}
@@ -97,7 +101,7 @@ export function CoachOptionsSection({
             {paginatedPlayers.items.map((player) => (
               <label
                 key={player.id}
-                className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-950"
+                className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-slate-200/50"
               >
                 <input
                   type="checkbox"
@@ -117,7 +121,7 @@ export function CoachOptionsSection({
           />
 
           {filteredPlayers.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+            <div className={emptyClass}>
               No {String(activePlayerSection || 'selected').toLowerCase()} players are available for {activePlayerTeam || 'this team'}.
             </div>
           ) : null}
@@ -128,7 +132,7 @@ export function CoachOptionsSection({
               disabled={isSaving || filteredPlayers.length === 0 || selectedSessionLocked}
               title={addAllDisabledReason}
               onClick={() => void onImportPlayers('all')}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className={primaryButtonClass}
             >
               Add all {activePlayerSection} players
             </button>
@@ -137,7 +141,7 @@ export function CoachOptionsSection({
               disabled={isSaving || selectedPlayerIds.length === 0 || selectedSessionLocked}
               title={addSelectedDisabledReason}
               onClick={() => void onImportPlayers('selected')}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className={secondaryButtonClass}
             >
               Add selected players
             </button>
