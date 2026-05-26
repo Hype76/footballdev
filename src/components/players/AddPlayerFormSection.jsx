@@ -1,6 +1,10 @@
 import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { CONTACT_TYPE_OPTIONS } from '../../hooks/players/addPlayerUtils.js'
 
+const fieldClass = 'min-h-12 w-full rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-slate-400 focus:border-[#20a464] focus:bg-white focus:ring-2 focus:ring-[#d7f8e5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-black text-[#101828] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+
 export function AddPlayerFormSection({
   availableTeams,
   canAddMorePlayers,
@@ -27,59 +31,59 @@ export function AddPlayerFormSection({
       <div className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Player details</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Create the football record</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#067a46]">Player details</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create the football record</h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#667085]">
               {canAddMorePlayers ? 'Add the player once, then use their profile for development records, parent links, and match day work.' : playerLimitMessage}
             </p>
           </div>
-          <span className="inline-flex min-h-10 w-fit items-center rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
+          <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-slate-200 bg-[#f9fafb] px-4 text-sm font-black text-[#475467]">
             Trial or Squad
           </span>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="m-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-600 sm:m-6">
+        <div className="m-5 rounded-lg border border-slate-200 bg-[#f9fafb] px-4 py-4 text-sm font-bold text-[#667085] sm:m-6">
           Loading player setup...
         </div>
       ) : availableTeams.length === 0 ? (
-        <div className="m-5 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm font-bold text-slate-600 sm:m-6">
+        <div className="m-5 rounded-lg border border-dashed border-slate-300 bg-[#f9fafb] px-4 py-6 text-sm font-bold text-[#667085] sm:m-6">
           No teams are available yet. Create a team first, then add players into Trial or Squad.
         </div>
       ) : (
         <form className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4" onSubmit={onAddPlayer}>
           <label className="block xl:col-span-2">
-            <span className="mb-2 block text-sm font-black text-slate-900">Player name</span>
+            <span className={labelClass}>Player name</span>
             <input
               type="text"
               name="playerName"
               value={playerForm.playerName}
               onChange={onChange}
               required
-              className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-black text-slate-900">Shirt number</span>
+            <span className={labelClass}>Shirt number</span>
             <input
               type="text"
               name="shirtNumber"
               value={playerForm.shirtNumber}
               onChange={onChange}
               inputMode="numeric"
-              className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-black text-slate-900">Section</span>
+            <span className={labelClass}>Section</span>
             <select
               name="section"
               value={playerForm.section}
               onChange={onChange}
-              className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             >
               {EVALUATION_SECTIONS.map((section) => (
                 <option key={section} value={section}>
@@ -90,13 +94,13 @@ export function AddPlayerFormSection({
           </label>
 
           <label className="block xl:col-span-2">
-            <span className="mb-2 block text-sm font-black text-slate-900">Team</span>
+            <span className={labelClass}>Team</span>
             <select
               name="team"
               value={playerForm.teamId || ''}
               onChange={onChange}
               required
-              className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className={fieldClass}
             >
               <option value="">Select team</option>
               {availableTeams.map((team) => (
@@ -112,22 +116,22 @@ export function AddPlayerFormSection({
               type="submit"
               disabled={isAddingPlayer || !canAddMorePlayers}
               title={canAddMorePlayers ? undefined : playerLimitMessage}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-md bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#067a46] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05603a] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isAddingPlayer ? 'Adding...' : 'Add player'}
             </button>
           </div>
 
           <div className="md:col-span-2 xl:col-span-4">
-            <span className="mb-2 block text-sm font-black text-slate-900">Primary contact type</span>
+            <span className={labelClass}>Primary contact type</span>
             <div className="grid gap-3 md:grid-cols-3">
               {CONTACT_TYPE_OPTIONS.map((option) => (
                 <label
                   key={option.value}
-                  className={`flex min-h-12 items-start gap-3 rounded-md border px-4 py-3 text-sm transition ${
+                  className={`flex min-h-12 items-start gap-3 rounded-lg border px-4 py-3 text-sm font-semibold transition ${
                     normalizedContactType === option.value
-                      ? 'border-emerald-500 bg-emerald-50 text-slate-950'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                      ? 'border-[#20a464] bg-[#ecfdf3] text-[#101828] shadow-sm shadow-slate-200/60'
+                      : 'border-slate-200 bg-[#f9fafb] text-[#667085]'
                   }`}
                 >
                   <input
@@ -160,14 +164,14 @@ export function AddPlayerFormSection({
                   <button
                     type="button"
                     onClick={() => onAddParentContact(group.type)}
-                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-slate-100"
+                    className={`${secondaryButtonClass} min-h-10 px-3 py-2 text-xs`}
                   >
                     {group.addLabel}
                   </button>
                 </div>
                 <div className="space-y-3">
                   {contacts.map((contact, index) => (
-                    <div key={`${group.type}-${index}`} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <div key={`${group.type}-${index}`} className="rounded-lg border border-slate-200 bg-[#f9fafb] p-3 shadow-sm shadow-slate-200/60">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block">
                           <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">
@@ -177,7 +181,7 @@ export function AddPlayerFormSection({
                             type="text"
                             value={contact.name}
                             onChange={(event) => onParentContactChange(group.type, index, 'name', event.target.value)}
-                            className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                            className={fieldClass}
                           />
                         </label>
                         <label className="block">
@@ -188,14 +192,14 @@ export function AddPlayerFormSection({
                             type="email"
                             value={contact.email}
                             onChange={(event) => onParentContactChange(group.type, index, 'email', event.target.value)}
-                            className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                            className={fieldClass}
                           />
                         </label>
                       </div>
                       <button
                         type="button"
                         onClick={() => onRemoveParentContact(group.type, index)}
-                        className="mt-3 inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-slate-100"
+                        className={`${secondaryButtonClass} mt-3 min-h-10 px-3 py-2 text-xs`}
                       >
                         {group.removeLabel}
                       </button>
@@ -207,7 +211,7 @@ export function AddPlayerFormSection({
           })}
 
           <div className="md:col-span-2 xl:col-span-4">
-            <span className="mb-2 block text-sm font-black text-slate-900">Player positions</span>
+            <span className={labelClass}>Player positions</span>
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 type="text"
@@ -215,12 +219,12 @@ export function AddPlayerFormSection({
                 value={playerForm.positionDraft}
                 onChange={onChange}
                 placeholder="Add position, for example Striker"
-                className="min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                className={fieldClass}
               />
               <button
                 type="button"
                 onClick={onAddPosition}
-                className="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-slate-100 sm:w-auto"
+                className={`${secondaryButtonClass} min-h-12 w-full px-5 py-3 sm:w-auto`}
               >
                 Add position
               </button>
@@ -232,7 +236,7 @@ export function AddPlayerFormSection({
                     key={position}
                     type="button"
                     onClick={() => onRemovePosition(position)}
-                    className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-slate-100"
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-[#f9fafb] px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-slate-100"
                   >
                     Remove {position}
                   </button>
