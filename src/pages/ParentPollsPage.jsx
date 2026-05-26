@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { PageHeader } from '../components/ui/PageHeader.jsx'
-import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
 import { getParentPortalPolls, submitParentPortalPollVote } from '../lib/supabase.js'
@@ -142,74 +140,149 @@ export function ParentPollsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <PageHeader
-        eyebrow="Parent Portal"
-        title="Polls"
-        description="Answer quick polls shared by the club for your linked child."
+      <ParentPollsHero
+        answeredPollCount={answeredPollCount}
+        isLoading={isLoadingPolls}
+        polls={polls}
+        selectedLink={selectedLink}
+        summary={pollSummary}
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {pollSummary.map((item) => (
-          <article key={item.label} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-            <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoadingPolls ? '...' : item.value}</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.caption}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="rounded-md border border-amber-200 bg-amber-50 p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Poll rule</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-          Polls are controlled by the club. Some allow one answer, some allow multiple answers, and some lock your response after voting.
-        </p>
-      </section>
-
-      <SectionCard title="Polls" description="Select a child, then choose an answer for each open poll.">
-        {links.length > 1 ? (
-          <div className="mb-4">
-            <label htmlFor="parent-poll-child" className="mb-2 block text-sm font-bold text-slate-950">
-              Child
-            </label>
-            <select
-              id="parent-poll-child"
-              value={selectedLink?.id || ''}
-              onChange={(event) => setSelectedLinkId(event.target.value)}
-              className="min-h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
-            >
-              {links.map((link) => (
-                <option key={link.id} value={link.id}>
-                  {link.playerName} | {link.teamName || 'No team'} | {link.clubName || 'No club'}
-                </option>
-              ))}
-            </select>
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+        <div className="grid gap-5 border-b border-slate-200 bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent polls</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Answer club questions</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              Select the right child, read the voting rule, then answer only the polls that are open for that link.
+            </p>
           </div>
-        ) : null}
 
-        {errorMessage ? (
-          <NoticeBanner title="Poll action failed" message={errorMessage} />
-        ) : isLoadingPolls ? (
-          <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-            Loading polls...
+          <div className="rounded-lg border border-emerald-200 bg-[#f2fbf6] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Poll rule</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+              Polls are controlled by the club. Some allow one answer, some allow multiple answers, and some lock your response after voting.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-5 bg-[#fbfdfb] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+          <aside className="space-y-4">
+            <ParentPollChildSelector
+              links={links}
+              onSelect={setSelectedLinkId}
+              selectedLink={selectedLink}
+            />
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Selected child</p>
+              <p className="mt-2 text-lg font-black text-slate-950">{selectedLink?.playerName || 'No child selected'}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-600">{selectedLink?.teamName || 'No team'} / {selectedLink?.clubName || 'No club'}</p>
+            </div>
+          </aside>
+
+          <div className="min-w-0">
+            {errorMessage ? (
+              <NoticeBanner title="Poll action failed" message={errorMessage} />
+            ) : isLoadingPolls ? (
+              <p className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-slate-600">
+                Loading polls...
+              </p>
+            ) : polls.length > 0 ? (
+              <div className="space-y-4">
+                {polls.map((poll) => (
+                  <ParentPollCard
+                    key={poll.id}
+                    activePollId={activePollId}
+                    onVote={handleVote}
+                    poll={poll}
+                    selectedLink={selectedLink}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-5 text-sm font-semibold text-slate-600">
+                No parent polls are open for this child right now.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function ParentPollsHero({ answeredPollCount, isLoading, polls, selectedLink, summary }) {
+  const nextPoll = polls.find((poll) => getSelectedOptionIds(poll).length === 0) ?? polls[0]
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/80">
+      <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Parent portal</p>
+          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-slate-950 sm:text-5xl">
+            Polls for {selectedLink?.playerName || 'your child'}.
+          </h1>
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-700">
+            Answer club questions without searching through chat threads. Each poll shows the voting constraint before you choose.
           </p>
-        ) : polls.length > 0 ? (
-          <div className="space-y-4">
-            {polls.map((poll) => (
-              <ParentPollCard
-                key={poll.id}
-                activePollId={activePollId}
-                onVote={handleVote}
-                poll={poll}
-                selectedLink={selectedLink}
-              />
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {summary.map((item) => (
+              <ParentPollMetric key={item.label} isLoading={isLoading} {...item} />
             ))}
           </div>
-        ) : (
-          <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600">
-            No parent polls are open for this child right now.
-          </p>
-        )}
-      </SectionCard>
+        </div>
+
+        <div className="grid content-between rounded-lg border border-slate-200 bg-[#f8fafc] p-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next poll</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+              {nextPoll ? nextPoll.title : 'No open poll'}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              {nextPoll ? `${answeredPollCount} answered from ${polls.length} shared polls.` : 'The club has not shared a poll for this child yet.'}
+            </p>
+          </div>
+          <div className="mt-5 rounded-lg border border-emerald-200 bg-white px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Next action</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
+              Read the lock rule before voting. If changes are blocked, the first saved answer is final.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ParentPollMetric({ caption, isLoading, label, value }) {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-[#f8fafc] p-4 shadow-sm shadow-slate-200/60">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{label}</p>
+      <p className="mt-3 text-4xl font-black tracking-tight text-slate-950">{isLoading ? '...' : value}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{caption}</p>
+    </article>
+  )
+}
+
+function ParentPollChildSelector({ links, onSelect, selectedLink }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
+      <label htmlFor="parent-poll-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+        Child
+      </label>
+      <select
+        id="parent-poll-child"
+        value={selectedLink?.id || ''}
+        onChange={(event) => onSelect(event.target.value)}
+        className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+      >
+        {links.map((link) => (
+          <option key={link.id} value={link.id}>
+            {link.playerName} - {link.teamName || 'No team'} - {link.clubName || 'No club'}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }
@@ -225,24 +298,24 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
   const selectedPlayerId = String(selectedLink?.playerId ?? '').trim()
 
   return (
-    <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex w-fit rounded-sm border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+          <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
             {poll.pollType === 'time' ? 'Time poll' : poll.pollType === 'awards' ? 'Awards poll' : 'Text poll'}
           </span>
           {poll.allowMultiple ? (
-            <span className="inline-flex w-fit rounded-sm border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
               {poll.maxChoices ? `Choose up to ${poll.maxChoices}` : 'Choose more than one'}
             </span>
           ) : null}
           {poll.allowOwnChildVotes === false ? (
-            <span className="inline-flex w-fit rounded-sm border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
               Own child not available
             </span>
           ) : null}
           {poll.allowVoteChanges === false ? (
-            <span className="inline-flex w-fit rounded-sm border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+            <span className="inline-flex w-fit whitespace-nowrap rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1 text-xs font-black text-slate-600">
               Vote locked after choice
             </span>
           ) : null}
@@ -267,10 +340,10 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
           return (
             <div
               key={option.id}
-              className={`rounded-md border p-3 ${
+              className={`rounded-lg border p-3 ${
                 isOwnChildOption
                   ? 'border-slate-200 bg-slate-100 opacity-60'
-                  : 'border-slate-200 bg-slate-50'
+                  : 'border-slate-200 bg-[#f8fafc]'
               }`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -279,15 +352,13 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
                   {isOwnChildOption ? (
                     <p className="mt-1 text-xs font-bold text-slate-500">Own child not available for this poll</p>
                   ) : null}
-                  {shouldShowVotes ? (
-                    <p className="mt-1 text-xs font-semibold text-slate-500">{count} votes | {percent}%</p>
-                  ) : null}
+                  {shouldShowVotes ? <p className="mt-1 text-xs font-semibold text-slate-500">{count} votes / {percent}%</p> : null}
                 </div>
                 <button
                   type="button"
                   onClick={() => onVote(poll, option.id)}
                   disabled={isDisabled}
-                  className={`inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     isSelected
                       ? 'border border-emerald-700 bg-emerald-700 text-white'
                       : 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
@@ -297,8 +368,8 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
                 </button>
               </div>
               {shouldShowVotes ? (
-                <div className="mt-3 h-2 overflow-hidden rounded-sm bg-slate-200">
-                  <div className="h-full rounded-sm bg-emerald-700" style={{ width: `${percent}%` }} />
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-emerald-700" style={{ width: `${percent}%` }} />
                 </div>
               ) : null}
             </div>
