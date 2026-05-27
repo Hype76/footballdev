@@ -23,8 +23,38 @@ export const MATCH_DAY_HOME_AWAY_OPTIONS = [
   { value: 'neutral', label: 'Neutral' },
 ]
 
+export const MATCH_DAY_ARRIVAL_OPTIONS = [
+  { value: '15', label: '15 mins before kick off' },
+  { value: '30', label: '30 mins before kick off' },
+  { value: '45', label: '45 mins before kick off' },
+  { value: '60', label: '60 mins before kick off' },
+  { value: 'custom', label: 'Custom arrival time' },
+]
+
 function normalizeText(value) {
   return String(value ?? '').trim()
+}
+
+function normalizeTime(value) {
+  const normalizedValue = normalizeText(value)
+  return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : ''
+}
+
+export function calculateArrivalTime(kickoffTime, offsetMinutes) {
+  const normalizedKickoffTime = normalizeTime(kickoffTime)
+  const minutesBeforeKickoff = Number(offsetMinutes ?? 0)
+
+  if (!normalizedKickoffTime || !Number.isFinite(minutesBeforeKickoff) || minutesBeforeKickoff <= 0) {
+    return ''
+  }
+
+  const [hours, minutes] = normalizedKickoffTime.split(':').map(Number)
+  const kickoffMinutes = hours * 60 + minutes
+  const arrivalMinutes = (kickoffMinutes - minutesBeforeKickoff + 1440) % 1440
+  const arrivalHours = Math.floor(arrivalMinutes / 60)
+  const arrivalMinutePart = arrivalMinutes % 60
+
+  return `${String(arrivalHours).padStart(2, '0')}:${String(arrivalMinutePart).padStart(2, '0')}`
 }
 
 function normalizeMatchDayEvent(row) {
@@ -105,6 +135,7 @@ export function normalizeMatchDay(row) {
     opponent: normalizeText(row.opponent),
     matchDate: row.match_date ?? row.matchDate ?? '',
     kickoffTime: row.kickoff_time ?? row.kickoffTime ?? '',
+    arrivalTime: row.arrival_time ?? row.arrivalTime ?? '',
     homeAway: normalizeText(row.home_away ?? row.homeAway) || 'home',
     venueName: normalizeText(row.venue_name ?? row.venueName),
     venueAddress: normalizeText(row.venue_address ?? row.venueAddress),
@@ -153,6 +184,14 @@ function buildMatchSelect() {
     match_day_scorer_assignments (*),
     match_day_events (*)
   `
+}
+
+function normalizeTeamIdForMatch(user, match) {
+  if (user.activeTeamId) {
+    return user.activeTeamId
+  }
+
+  return normalizeText(match?.teamId) || null
 }
 
 export async function getMatchDays({ user } = {}) {
@@ -208,7 +247,7 @@ export async function createMatchDay({ user, match }) {
   const opponent = normalizeText(match?.opponent)
   const venueName = normalizeText(match?.venueName)
   const venueAddress = normalizeText(match?.venueAddress)
-  const teamId = normalizeText(match?.teamId) || user.activeTeamId || null
+  const teamId = normalizeTeamIdForMatch(user, match)
 
   if (!opponent) {
     throw new Error('Opponent is required.')
@@ -234,7 +273,8 @@ export async function createMatchDay({ user, match }) {
       location_id: locationId || null,
       opponent,
       match_date: normalizeText(match?.matchDate) || null,
-      kickoff_time: normalizeText(match?.kickoffTime) || null,
+      kickoff_time: normalizeTime(match?.kickoffTime) || null,
+      arrival_time: normalizeTime(match?.arrivalTime) || null,
       home_away: normalizeHomeAway(match?.homeAway),
       venue_name: venueName,
       venue_address: venueAddress,
@@ -281,7 +321,8 @@ export async function updateMatchDay({ user, matchId, updates }) {
 
   if (updates.opponent !== undefined) payload.opponent = normalizeText(updates.opponent)
   if (updates.matchDate !== undefined) payload.match_date = normalizeText(updates.matchDate) || null
-  if (updates.kickoffTime !== undefined) payload.kickoff_time = normalizeText(updates.kickoffTime) || null
+  if (updates.kickoffTime !== undefined) payload.kickoff_time = normalizeTime(updates.kickoffTime) || null
+  if (updates.arrivalTime !== undefined) payload.arrival_time = normalizeTime(updates.arrivalTime) || null
   if (updates.homeAway !== undefined) payload.home_away = normalizeHomeAway(updates.homeAway)
   if (updates.venueName !== undefined) payload.venue_name = normalizeText(updates.venueName)
   if (updates.venueAddress !== undefined) payload.venue_address = normalizeText(updates.venueAddress)

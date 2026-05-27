@@ -7,11 +7,13 @@ import { canManageMatchDay, useAuth } from '../lib/auth.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import {
   addStaffMatchDayGoal,
+  calculateArrivalTime,
   createMatchDay,
   getMatchDays,
   getMatchLocations,
   getPlayers,
   getTeams,
+  MATCH_DAY_ARRIVAL_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
@@ -24,6 +26,8 @@ const EMPTY_MATCH_FORM = {
   opponent: '',
   matchDate: '',
   kickoffTime: '',
+  arrivalTime: '',
+  arrivalPreset: '30',
   homeAway: 'home',
   teamId: '',
   venueName: '',
@@ -43,6 +47,12 @@ const EMPTY_GOAL_FORM = {
   assistName: '',
   assistShirtNumber: '',
   notes: '',
+}
+
+const EMPTY_SQUAD_SELECTION = {
+  isOpen: false,
+  selectedPlayerIds: [],
+  mode: 'full',
 }
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -159,7 +169,7 @@ function sortMatches(matches) {
 }
 
 export function MatchDayPage() {
-  const { user } = useAuth()
+  const { session, user } = useAuth()
   const { showToast } = useToast()
   const [matches, setMatches] = useState([])
   const [teams, setTeams] = useState([])
@@ -173,6 +183,7 @@ export function MatchDayPage() {
   const [activeMatchId, setActiveMatchId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
+  const [squadSelection, setSquadSelection] = useState(EMPTY_SQUAD_SELECTION)
 
   const activeMatches = useMemo(() => sortMatches(matches.filter((match) => !isPreviousMatch(match))), [matches])
   const previousMatches = useMemo(() => sortMatches(matches.filter(isPreviousMatch)).reverse(), [matches])
@@ -221,6 +232,21 @@ export function MatchDayPage() {
         .filter((player) => String(player.status ?? 'active') !== 'archived')
         .sort((left, right) => String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))),
     [players],
+  )
+  const selectedFixtureTeamId = form.teamId || user.activeTeamId || ''
+  const isTeamScopedFixture = Boolean(user.activeTeamId) || Number(user.roleRank ?? 0) < 50
+  const selectedFixtureTeamName = user.activeTeamName || teams.find((team) => String(team.id) === String(selectedFixtureTeamId))?.name || ''
+  const fixturePlayers = useMemo(
+    () =>
+      squadPlayers.filter((player) => {
+        if (!selectedFixtureTeamId && !selectedFixtureTeamName) {
+          return true
+        }
+
+        return String(player.teamId || '') === String(selectedFixtureTeamId)
+          || String(player.team || '').trim().toLowerCase() === String(selectedFixtureTeamName || '').trim().toLowerCase()
+      }),
+    [selectedFixtureTeamId, selectedFixtureTeamName, squadPlayers],
   )
 
   async function loadData() {
@@ -294,6 +320,21 @@ export function MatchDayPage() {
     setErrorMessage('')
   }
 
+  const updateArrivalFromPreset = (arrivalPreset, kickoffTime = form.kickoffTime) => {
+    const nextArrivalTime = arrivalPreset === 'custom' ? form.arrivalTime : calculateArrivalTime(kickoffTime, arrivalPreset)
+    updateForm({
+      arrivalPreset,
+      arrivalTime: nextArrivalTime,
+    })
+  }
+
+  const updateKickoffTime = (kickoffTime) => {
+    updateForm({
+      kickoffTime,
+      arrivalTime: form.arrivalPreset === 'custom' ? form.arrivalTime : calculateArrivalTime(kickoffTime, form.arrivalPreset),
+    })
+  }
+
   const applyLocation = (locationId) => {
     const location = locations.find((candidate) => String(candidate.id) === String(locationId))
 
@@ -310,7 +351,25 @@ export function MatchDayPage() {
   const handleCreateMatch = async (event) => {
     event.preventDefault()
 
-    if (!confirmMatchDayAction('Create this Match Day and publish the scorer request to the family portal?')) {
+    const availablePlayerIds = fixturePlayers.map((player) => player.id)
+
+    if (availablePlayerIds.length === 0) {
+      setErrorMessage('Add active squad players to this team before requesting fixture availability.')
+      return
+    }
+
+    setSquadSelection({
+      isOpen: true,
+      mode: 'full',
+      selectedPlayerIds: availablePlayerIds,
+    })
+  }
+
+  const handleConfirmCreateMatch = async () => {
+    const selectedPlayerIds = squadSelection.selectedPlayerIds
+
+    if (selectedPlayerIds.length === 0) {
+      setErrorMessage('Select at least one player before creating the fixture.')
       return
     }
 
@@ -319,13 +378,34 @@ export function MatchDayPage() {
 
     try {
       const createdMatch = await createMatchDay({ user, match: form })
+      const response = await fetch('/.netlify/functions/send-match-day-availability-requests', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          matchDayId: createdMatch.id,
+          playerIds: selectedPlayerIds,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || 'Fixture availability requests could not be sent.')
+      }
+
       void sendMatchDayPushNotification({
         matchDayId: createdMatch.id,
         type: 'scorer_request',
       })
       setForm(EMPTY_MATCH_FORM)
+      setSquadSelection(EMPTY_SQUAD_SELECTION)
       await loadData()
-      showToast({ title: 'Match Day created', message: 'The scorer request is available in the family portal.' })
+      showToast({
+        title: 'Fixture created',
+        message: `${result.sentCount ?? 0} availability requests sent. ${result.missingContactCount ?? 0} players need contact details.`,
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Match Day could not be created.')
@@ -568,7 +648,7 @@ export function MatchDayPage() {
           <p className={eyebrowClass}>Fixture setup</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create fixture</h2>
           <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-            Set the opponent, team, venue, and parent-facing scorer request before the fixture appears on the live board.
+            Set the opponent, arrival, venue, and parent-facing scorer request before choosing the players who need availability requests.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleCreateMatch}>
@@ -584,19 +664,28 @@ export function MatchDayPage() {
               />
             </label>
 
-            <label className="block">
-              <span className={labelClass}>Team</span>
-              <select
-                value={form.teamId}
-                onChange={(event) => updateForm({ teamId: event.target.value })}
-                className={inputClass}
-              >
-                <option value="">Current or all teams</option>
-                {teams.map((team) => (
-                  <option key={team.id} value={team.id}>{team.name}</option>
-                ))}
-              </select>
-            </label>
+            {isTeamScopedFixture ? (
+              <div className="block">
+                <span className={labelClass}>Team</span>
+                <div className={`${inputClass} flex items-center`}>
+                  {selectedFixtureTeamName || user.activeTeamName || user.team || 'Current team'}
+                </div>
+              </div>
+            ) : (
+              <label className="block">
+                <span className={labelClass}>Team</span>
+                <select
+                  value={form.teamId}
+                  onChange={(event) => updateForm({ teamId: event.target.value })}
+                  className={inputClass}
+                >
+                  <option value="">Club-wide fixture</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <label className="block">
               <span className={labelClass}>Date</span>
@@ -613,10 +702,42 @@ export function MatchDayPage() {
               <input
                 type="time"
                 value={form.kickoffTime}
-                onChange={(event) => updateForm({ kickoffTime: event.target.value })}
+                onChange={(event) => updateKickoffTime(event.target.value)}
                 className={inputClass}
               />
             </label>
+
+            <label className="block">
+              <span className={labelClass}>Arrival</span>
+              <select
+                value={form.arrivalPreset}
+                onChange={(event) => updateArrivalFromPreset(event.target.value)}
+                className={inputClass}
+              >
+                {MATCH_DAY_ARRIVAL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+
+            {form.arrivalPreset === 'custom' ? (
+              <label className="block">
+                <span className={labelClass}>Custom arrival time</span>
+                <input
+                  type="time"
+                  value={form.arrivalTime}
+                  onChange={(event) => updateForm({ arrivalTime: event.target.value })}
+                  className={inputClass}
+                />
+              </label>
+            ) : (
+              <div className="block">
+                <span className={labelClass}>Arrival time</span>
+                <div className={`${inputClass} flex items-center`}>
+                  {form.arrivalTime || 'Set kick off to calculate arrival'}
+                </div>
+              </div>
+            )}
 
             <label className="block">
               <span className={labelClass}>Home or away</span>
@@ -717,6 +838,52 @@ export function MatchDayPage() {
           </div>
         </form>
       </section>
+
+      {squadSelection.isOpen ? (
+        <FixtureSquadSelectionModal
+          isSaving={isSaving}
+          players={fixturePlayers}
+          selectedPlayerIds={squadSelection.selectedPlayerIds}
+          selectionMode={squadSelection.mode}
+          teamName={selectedFixtureTeamName || user.activeTeamName || 'this team'}
+          onCancel={() => setSquadSelection(EMPTY_SQUAD_SELECTION)}
+          onConfirm={handleConfirmCreateMatch}
+          onSelectionModeChange={(mode) => {
+            setSquadSelection((current) => ({
+              ...current,
+              mode,
+              selectedPlayerIds: mode === 'full' ? fixturePlayers.map((player) => player.id) : current.selectedPlayerIds,
+            }))
+          }}
+          onTogglePlayer={(playerId) => {
+            setSquadSelection((current) => {
+              const selectedIds = new Set(current.selectedPlayerIds)
+
+              if (selectedIds.has(playerId)) {
+                selectedIds.delete(playerId)
+              } else {
+                selectedIds.add(playerId)
+              }
+
+              return {
+                ...current,
+                mode: 'individual',
+                selectedPlayerIds: [...selectedIds],
+              }
+            })
+          }}
+          onSelectAll={() => setSquadSelection((current) => ({
+            ...current,
+            mode: 'full',
+            selectedPlayerIds: fixturePlayers.map((player) => player.id),
+          }))}
+          onClearAll={() => setSquadSelection((current) => ({
+            ...current,
+            mode: 'individual',
+            selectedPlayerIds: [],
+          }))}
+        />
+      ) : null}
 
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className={sectionHeaderClass}>
@@ -847,6 +1014,7 @@ function MatchDayCard({
           </div>
           <h4 className="mt-3 text-lg font-black text-[#101828]">{match.teamName || 'Our team'} v {match.opponent}</h4>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
+          {match.arrivalTime ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Arrival {match.arrivalTime}</p> : null}
           {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{match.venueName}</p> : null}
           {match.notes ? <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">{match.notes}</p> : null}
         </div>
@@ -1071,6 +1239,112 @@ function MatchMetric({ isLoading, label, value }) {
     <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 shadow-sm">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
+    </div>
+  )
+}
+
+function FixtureSquadSelectionModal({
+  isSaving,
+  onCancel,
+  onClearAll,
+  onConfirm,
+  onSelectAll,
+  onSelectionModeChange,
+  onTogglePlayer,
+  players,
+  selectedPlayerIds,
+  selectionMode,
+  teamName,
+}) {
+  const selectedIds = new Set(selectedPlayerIds)
+  const selectedCount = selectedIds.size
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fixture-squad-title"
+        className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl"
+      >
+        <div className="border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6">
+          <p className={eyebrowClass}>Squad availability</p>
+          <h3 id="fixture-squad-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+            Choose who should be asked.
+          </h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            Requests go to parent contacts for parent-managed players and directly to player contacts for adult player records. Mobile push can use these same request records later.
+          </p>
+        </div>
+
+        <div className="max-h-[58vh] overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onSelectionModeChange('full')}
+              className={`rounded-lg border px-4 py-4 text-left shadow-sm transition ${
+                selectionMode === 'full'
+                  ? 'border-[#047857] bg-[#ecfdf5]'
+                  : 'border-[#d7e5dc] bg-white hover:border-[#0f9f6e]'
+              }`}
+            >
+              <span className="block text-sm font-black text-[#101828]">Full squad</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">Ask every active squad player in {teamName}.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelectionModeChange('individual')}
+              className={`rounded-lg border px-4 py-4 text-left shadow-sm transition ${
+                selectionMode === 'individual'
+                  ? 'border-[#047857] bg-[#ecfdf5]'
+                  : 'border-[#d7e5dc] bg-white hover:border-[#0f9f6e]'
+              }`}
+            >
+              <span className="block text-sm font-black text-[#101828]">Individual players</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">Pick only the players needed for this fixture.</span>
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-black text-[#101828]">{selectedCount} of {players.length} selected</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Select full squad</button>
+              <button type="button" onClick={onClearAll} className={secondaryButtonClass}>Clear</button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {players.map((player) => (
+              <label
+                key={player.id}
+                className="flex min-h-16 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(player.id)}
+                  onChange={() => onTogglePlayer(player.id)}
+                  className="mt-1 h-4 w-4 accent-[#047857]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-[#101828]">{player.playerName}</span>
+                  <span className="mt-1 block text-xs font-semibold text-[#4b5f55]">
+                    {player.section || 'Squad'} | {player.contactType === 'self' ? 'Player contact' : 'Parent contact'}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={isSaving || selectedCount === 0} className={primaryButtonClass}>
+            {isSaving ? 'Creating...' : 'Create fixture and request availability'}
+          </button>
+        </div>
+      </section>
     </div>
   )
 }
