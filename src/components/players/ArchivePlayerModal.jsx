@@ -53,7 +53,7 @@ export function ArchivePlayerModal({
         <div className="px-5 py-5 sm:px-6">
           <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 text-sm font-semibold text-[#475569] shadow-sm shadow-[#2563eb]/10">
             <p className="font-black text-[#0f172a]">{player?.playerName || 'Selected player'}</p>
-            <p className="mt-1">{player?.team || 'No team entered'} | {player?.section || 'No section entered'}</p>
+            <p className="mt-1">Team: {player?.team || 'No team entered'}, Section: {player?.section || 'No section entered'}</p>
           </div>
           <label className="mt-4 block">
             <span className="mb-2 block text-sm font-black text-[#0f172a]">Archive reason *</span>

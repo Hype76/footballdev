@@ -278,7 +278,7 @@ function AddExistingStaffPanel({
           <option value="">Select staff member</option>
           {availableStaff.map((member) => (
             <option key={member.id} value={member.id}>
-              {getStaffDisplayName(member)} / {member.email} / {getRoleLabel(member)}
+              {getStaffDisplayName(member)}, Email: {member.email}, Role: {getRoleLabel(member)}
             </option>
           ))}
         </select>

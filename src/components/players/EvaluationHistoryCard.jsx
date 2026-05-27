@@ -145,7 +145,7 @@ export function EvaluationHistoryCard({
               </option>
               {availablePlayers.map((player) => (
                 <option key={player.id} value={player.id}>
-                  {player.playerName} | {player.section || 'Trial'} | {player.team || 'No team'}
+                  {player.playerName}, Section: {player.section || 'Trial'}, Team: {player.team || 'No team assigned'}
                 </option>
               ))}
             </select>

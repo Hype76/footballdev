@@ -106,7 +106,7 @@ export function ArchivedPlayersSection({
                 <div className="md:col-span-2">
                   <p className="text-base font-black text-[#0f172a]">{player.playerName}</p>
                   <p className={`mt-1 ${detailClass}`}>
-                    {player.team || 'No team entered'} | {player.section || 'No section entered'}
+                    Team: {player.team || 'No team entered'}, Section: {player.section || 'No section entered'}
                   </p>
                   <p className={`mt-1 ${detailClass}`}>
                     {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
