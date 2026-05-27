@@ -14,10 +14,10 @@ export function Topbar({ title, onMenuClick }) {
   const canUseClubAdminView = isClubAdmin(displayUser)
   const clubLabel = displayUser?.role === 'super_admin'
     ? 'Platform'
-    : displayUser?.clubName || displayUser?.team || (isProfileLoading ? 'Opening workspace' : 'No club')
+    : displayUser?.clubName || displayUser?.team || (isProfileLoading ? 'Opening workspace' : 'Workspace not loaded')
   const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
   const userLabel = displayUser?.email || authUser?.email || displayUser?.name || 'Loading user'
-  const teamLabel = displayUser?.activeTeamName ? `Team: ${displayUser.activeTeamName}` : clubLabel
+  const teamLabel = displayUser?.activeTeamName || (canUseClubAdminView ? 'Club-wide' : clubLabel)
   const isPlatformAdminView = displayUser?.role === 'super_admin'
   const isParentPortalView = displayUser?.role === 'parent_portal'
   const hasParentPortalAccess = Array.isArray(displayUser?.parentPortalLinks) && displayUser.parentPortalLinks.length > 0
@@ -29,22 +29,22 @@ export function Topbar({ title, onMenuClick }) {
     : displayUser?.activeTeamName
       ? displayUser.activeTeamName
       : canUseClubAdminView
-        ? 'Club operations'
-        : isProfileLoading ? 'Opening workspace' : 'Choose a team'
+        ? 'Club-wide view'
+        : isProfileLoading ? 'Opening workspace' : 'Team required'
   const workLaneLabel = isPlatformAdminView
-    ? 'Platform lane'
+    ? 'Platform tools'
     : isParentPortalView
-      ? 'Family lane'
+      ? 'Family tools'
       : canUseClubAdminView && !displayUser?.activeTeamName
-        ? 'Club lane'
-        : 'Team lane'
+        ? 'Club tools'
+        : 'Team tools'
   const nextActionLabel = isParentPortalView
     ? 'Check fixtures and replies'
     : isPlatformAdminView
       ? 'Review clubs and support'
       : displayUser?.activeTeamName
-        ? 'Run players, parents, and match day'
-        : 'Choose a team to focus actions'
+        ? 'Run players, parent updates, and match day'
+        : 'Select a team before team actions'
   const todayLabel = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
     day: '2-digit',
@@ -154,7 +154,10 @@ export function Topbar({ title, onMenuClick }) {
               <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-[#1d4ed8]">{nextActionLabel}</span>
               <span className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-[#475569]">{roleLabel}</span>
             </div>
-            <p className="mt-2 text-sm font-semibold text-[#475569]">{userLabel} / {teamLabel}</p>
+            <p className="mt-2 flex flex-wrap gap-2 text-sm font-semibold text-[#475569]">
+              <span>Signed in: {userLabel}</span>
+              <span>Focus: {teamLabel}</span>
+            </p>
           </div>
         </div>
 
