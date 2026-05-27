@@ -117,8 +117,8 @@ export function Topbar({ title, onMenuClick }) {
 
   return (
     <header className="sticky top-0 z-20 border-b border-[#d8e3ee] bg-white/95 px-4 py-3 shadow-sm shadow-[#0f172a]/5 backdrop-blur sm:px-6 md:px-8 xl:px-10">
-      <div className="mx-auto flex max-w-[108rem] flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="mx-auto grid max-w-[108rem] gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,36rem)] xl:items-center">
+        <div className="flex min-w-0 items-center gap-3 rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-3 shadow-sm shadow-[#2563eb]/10 sm:px-4">
           <button
             type="button"
             onClick={onMenuClick}
@@ -130,108 +130,122 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
           </div>
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[#2563eb]">
-                {clubLabel}
-              </p>
-              <span className="rounded-lg bg-[#eff6ff] px-2 py-1 text-[11px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
-                {workspaceContext}
-              </span>
-              <span className="rounded-lg bg-[#eff6ff] px-2 py-1 text-[11px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em]">
+              <span className="truncate text-[#2563eb]">{clubLabel}</span>
+              <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[#166534]">
                 {todayLabel}
               </span>
             </div>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-[#0f172a] sm:text-3xl">
               {title}
             </h1>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs font-black">
-              <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-[#1d4ed8]">{workLaneLabel}</span>
-              <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-[#1d4ed8]">{nextActionLabel}</span>
-              <span className="rounded-lg border border-[#e2e8f0] bg-white px-3 py-2 text-[#475569]">{roleLabel}</span>
-            </div>
-            <p className="mt-2 flex flex-wrap gap-2 text-sm font-semibold text-[#475569]">
-              <span>Signed in: {userLabel}</span>
-              <span>Focus: {teamLabel}</span>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#475569]">
+              {nextActionLabel}
             </p>
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] p-2 shadow-sm shadow-[#0f172a]/5 2xl:w-auto 2xl:min-w-[36rem]">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_auto_auto] md:items-end">
-            {isDemoUser(displayUser) ? (
-              <label className="col-span-2 grid gap-1 md:col-span-1">
-                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
-                  Demo role
-                </span>
-                <select
-                  value={demoRoleKey || ''}
-                  onChange={(event) => setDemoRolePreview(event.target.value)}
-                  className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6]"
-                >
-                  <option value="">Default role</option>
-                  {DEMO_ROLE_OPTIONS.map((role) => (
-                    <option key={role.role} value={role.role}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            {shouldShowWorkspaceSelector ? (
-              <label className="col-span-2 grid gap-1 md:col-span-1">
-                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
-                  Workspace view
-                </span>
-                <select
-                  value={isPlatformAdminView ? '__platform_admin__' : isParentPortalView ? '__parent_portal__' : displayUser?.activeTeamId || ''}
-                  onChange={handleTeamChange}
-                  disabled={isSwitchingTeam}
-                  title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
-                  className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
-                  {hasParentPortalAccess ? <option value="__parent_portal__">Parent Portal</option> : null}
-                  {isPlatformAdminView
-                    ? clubOptions.map((club) => (
-                        <option key={club.clubId} value={`__club__:${club.clubId}`}>
-                          Club: {club.clubName || 'Unnamed club'}
-                        </option>
-                      ))
-                    : null}
-                  {shouldShowClubAdminOption ? <option value="">Club admin view</option> : null}
-                  {shouldShowTeamPlaceholder ? <option value="">Select team</option> : null}
-                  {teamOptions.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      Team: {team.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <InstallAppButton
-              wrapperClassName="col-span-2 lg:hidden"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#2563eb] bg-[#2563eb] px-3 py-3 text-sm font-black text-white"
-            />
-            <Link
-              to="/user-settings"
-              className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-sm font-black leading-none text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#eff6ff]"
-            >
-              My Settings
-            </Link>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-              title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-              className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSigningOut ? 'Signing out...' : 'Sign out'}
-            </button>
+        <div className="grid w-full gap-2 rounded-lg border border-[#d8e3ee] bg-white p-2 shadow-sm shadow-[#2563eb]/10">
+          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-2">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">View</p>
+                <p className="mt-1 truncate text-sm font-black text-[#0f172a]">{workspaceContext}</p>
+              </div>
+              <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-2">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">Focus</p>
+                <p className="mt-1 truncate text-sm font-black text-[#0f172a]">{teamLabel}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-[auto_auto]">
+              <Link
+                to="/user-settings"
+                className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-sm font-black leading-none text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#eff6ff]"
+              >
+                Settings
+              </Link>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
+                className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSigningOut ? 'Signing out...' : 'Sign out'}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-2 border-t border-[#e2e8f0] pt-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div className="grid gap-2 md:grid-cols-2">
+              {isDemoUser(displayUser) ? (
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
+                    Demo role
+                  </span>
+                  <select
+                    value={demoRoleKey || ''}
+                    onChange={(event) => setDemoRolePreview(event.target.value)}
+                    className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6]"
+                  >
+                    <option value="">Default role</option>
+                    {DEMO_ROLE_OPTIONS.map((role) => (
+                      <option key={role.role} value={role.role}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {shouldShowWorkspaceSelector ? (
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
+                    Workspace view
+                  </span>
+                  <select
+                    value={isPlatformAdminView ? '__platform_admin__' : isParentPortalView ? '__parent_portal__' : displayUser?.activeTeamId || ''}
+                    onChange={handleTeamChange}
+                    disabled={isSwitchingTeam}
+                    title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
+                    className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
+                    {hasParentPortalAccess ? <option value="__parent_portal__">Parent Portal</option> : null}
+                    {isPlatformAdminView
+                      ? clubOptions.map((club) => (
+                          <option key={club.clubId} value={`__club__:${club.clubId}`}>
+                            Club: {club.clubName || 'Unnamed club'}
+                          </option>
+                        ))
+                      : null}
+                    {shouldShowClubAdminOption ? <option value="">Club admin view</option> : null}
+                    {shouldShowTeamPlaceholder ? <option value="">Select team</option> : null}
+                    {teamOptions.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        Team: {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto] md:min-w-[16rem]">
+              <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-2">
+                <p className="truncate text-xs font-black text-[#0f172a]">{workLaneLabel}</p>
+                <p className="mt-1 truncate text-[11px] font-semibold text-[#64748b]">{roleLabel}, {userLabel}</p>
+              </div>
+              <InstallAppButton
+                wrapperClassName="lg:hidden"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#2563eb] bg-[#2563eb] px-3 py-3 text-sm font-black text-white"
+              />
+            </div>
           </div>
         </div>
       </div>
