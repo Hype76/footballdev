@@ -1,5 +1,26 @@
 import { SectionCard } from '../ui/SectionCard.jsx'
 
+function getEvaluationSourceLabel(evaluation, { includeScore = false, includeValue = false, valueLabel = '' } = {}) {
+  const parts = [
+    `Date: ${evaluation.date || 'No date entered'}`,
+    `Session: ${evaluation.session || 'No session entered'}`,
+  ]
+
+  if (evaluation.section) {
+    parts.push(`Section: ${evaluation.section}`)
+  }
+
+  if (includeScore) {
+    parts.push(`Score: ${evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : 'No score'}`)
+  }
+
+  if (includeValue) {
+    parts.push(`${valueLabel || 'Value'}: ${String(evaluation.formResponses?.[valueLabel] ?? 'No value')}`)
+  }
+
+  return parts.join(', ')
+}
+
 export function PlayerMergeAssessments({
   evaluations,
   isMergingEvaluations,
@@ -39,7 +60,7 @@ export function PlayerMergeAssessments({
               <span className="min-w-0">
                 <span className="block font-semibold">{evaluation.date || 'No date entered'}</span>
                 <span className="mt-1 block text-xs font-semibold leading-5 text-[#475569]">
-                  {evaluation.session || 'No session entered'} | {evaluation.section || 'Trial'} | Score {evaluation.averageScore !== null ? evaluation.averageScore.toFixed(1) : 'No score'}
+                  {getEvaluationSourceLabel(evaluation, { includeScore: true })}
                 </span>
               </span>
             </label>
@@ -57,7 +78,7 @@ export function PlayerMergeAssessments({
               >
                 {mergeSelectedEvaluations.map((evaluation) => (
                   <option key={evaluation.id} value={evaluation.id}>
-                    {evaluation.date || 'No date entered'} | {evaluation.session || 'No session entered'} | {evaluation.section || 'Trial'}
+                    {getEvaluationSourceLabel(evaluation)}
                   </option>
                 ))}
               </select>
@@ -88,7 +109,7 @@ export function PlayerMergeAssessments({
                       >
                         {mergeSelectedEvaluations.map((evaluation) => (
                           <option key={evaluation.id} value={evaluation.id}>
-                            {evaluation.date || 'No date entered'} | {evaluation.session || 'No session entered'}
+                            {getEvaluationSourceLabel(evaluation)}
                           </option>
                         ))}
                       </select>
@@ -127,7 +148,7 @@ export function PlayerMergeAssessments({
                         .filter((evaluation) => Object.prototype.hasOwnProperty.call(evaluation.formResponses ?? {}, label))
                         .map((evaluation) => (
                           <option key={evaluation.id} value={evaluation.id}>
-                            {evaluation.date || 'No date entered'} | {String(evaluation.formResponses?.[label] ?? 'No value')}
+                            {getEvaluationSourceLabel(evaluation, { includeValue: true, valueLabel: label })}
                           </option>
                         ))}
                     </select>

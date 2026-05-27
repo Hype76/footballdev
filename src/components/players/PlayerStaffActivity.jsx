@@ -71,7 +71,7 @@ export function PlayerStaffActivity({
       <div className={`${panelClass} mb-5 px-4 py-4`}>
         <p className="text-sm font-black text-[#0f172a]">Staff notes and player activity</p>
         <p className={`mt-1 ${bodyClass}`}>
-          {staffNotes.length} staff {staffNotes.length === 1 ? 'note' : 'notes'} | {activityLogs.length} activity{' '}
+          Staff notes: {staffNotes.length}, Activity: {activityLogs.length}{' '}
           {activityLogs.length === 1 ? 'item' : 'items'}
         </p>
       </div>
@@ -147,11 +147,11 @@ export function PlayerStaffActivity({
                   ) : null}
                   {note.audioPath || note.audioUrl ? (
                     <p className="mt-2 text-xs font-black text-[#2563eb]">
-                      Deletes {formatRetentionDate(note.audioExpiresAt)} | {getRetentionCountdownLabel(note.audioExpiresAt)}
+                      Deletes: {formatRetentionDate(note.audioExpiresAt)}, Retention: {getRetentionCountdownLabel(note.audioExpiresAt)}
                     </p>
                   ) : null}
                   <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
-                    {note.userName || note.userEmail || 'Staff'} | {formatActivityDate(note.createdAt)}
+                    Staff: {note.userName || note.userEmail || 'Staff'}, Created: {formatActivityDate(note.createdAt)}
                   </p>
                 </div>
               ))
@@ -213,7 +213,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
       <div className={`${cardClass} px-4 py-3`}>
         <p className="text-sm font-black text-[#0f172a]">{getActivityLabel(log)}</p>
         <p className={`mt-1 ${bodyClass}`}>
-          {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
+          Staff: {log.userName || log.userEmail || 'Staff'}, Created: {formatActivityDate(log.createdAt)}
         </p>
         {log.recipientEmail ? (
           <p className="mt-1 break-words text-xs font-semibold text-[#475569]">Recipient: {log.recipientEmail}</p>
@@ -243,7 +243,7 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
           <div className="min-w-0">
             <p className="text-sm font-black text-[#0f172a]">{subject}</p>
             <p className={`mt-1 ${bodyClass}`}>
-              {log.userName || log.userEmail || 'Staff'} | {formatActivityDate(log.createdAt)}
+              Staff: {log.userName || log.userEmail || 'Staff'}, Created: {formatActivityDate(log.createdAt)}
             </p>
             {log.recipientEmail ? (
               <p className="mt-1 break-words text-xs font-semibold text-[#475569]">Recipient: {log.recipientEmail}</p>
