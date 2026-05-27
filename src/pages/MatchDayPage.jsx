@@ -103,6 +103,22 @@ function getOpponentScore(match) {
   return match.homeAway === 'away' ? match.homeScore : match.awayScore
 }
 
+function getMatchEventTitle(event) {
+  return `${event.eventType === 'goal' ? 'Goal' : 'Update'}, Score: ${event.homeScore} - ${event.awayScore}`
+}
+
+function getMatchEventDetail(event) {
+  const detailParts = [
+    event.minute !== null ? `Minute: ${event.minute}` : '',
+    `Player: ${event.scorerInitials || event.scorerName || 'Score update'}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}`,
+    event.assistInitials || event.assistName
+      ? `Assist: ${event.assistInitials || event.assistName}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}`
+      : '',
+  ]
+
+  return detailParts.filter(Boolean).join(', ')
+}
+
 function getCurrentMatchMinute(match, now = Date.now()) {
   if (match.status === 'scheduled' || match.status === 'scorer_request') {
     return null
@@ -1037,14 +1053,10 @@ function MatchDayCard({
           {match.events.slice(0, 6).map((event) => (
             <div key={event.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 shadow-sm shadow-[#2563eb]/10">
               <p className="text-sm font-black text-[#0f172a]">
-                {event.eventType === 'goal' ? 'Goal' : 'Update'} / {event.homeScore} - {event.awayScore}
+                {getMatchEventTitle(event)}
               </p>
               <p className="mt-1 text-xs font-semibold text-[#475569]">
-                {event.minute !== null ? `${event.minute} min / ` : ''}
-                {event.scorerInitials || event.scorerName || 'Score update'}
-                {event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}
-                {event.assistInitials || event.assistName ? ` / Assist ${event.assistInitials || event.assistName}` : ''}
-                {event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}
+                {getMatchEventDetail(event)}
               </p>
             </div>
           ))}

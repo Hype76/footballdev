@@ -56,15 +56,15 @@ function formatGoalLine(event) {
   const scorer = event.scorerInitials || event.scorerName || 'Player'
   const assist = event.assistInitials || event.assistName
   const score = Number.isFinite(Number(event.homeScore)) && Number.isFinite(Number(event.awayScore))
-    ? ` / ${event.homeScore} - ${event.awayScore}`
+    ? `Score: ${event.homeScore} - ${event.awayScore}`
     : ''
 
   return [
-    event.minute !== null && event.minute !== undefined ? `${event.minute} min` : '',
+    event.minute !== null && event.minute !== undefined ? `Minute: ${event.minute}` : '',
     `Goal: ${scorer}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}`,
-    assist ? `Assist ${assist}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` : '',
+    assist ? `Assist: ${assist}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}` : '',
     score,
-  ].filter(Boolean).join(' / ')
+  ].filter(Boolean).join(', ')
 }
 
 const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10'
