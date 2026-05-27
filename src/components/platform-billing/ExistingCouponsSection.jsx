@@ -15,35 +15,35 @@ export function ExistingCouponsSection({
       description="Use these promotion codes when applying discounts during checkout."
     >
       {isLoading ? (
-        <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#475569] shadow-sm shadow-[#2563eb]/10">
+        <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
           Loading coupons...
         </div>
       ) : sortedCoupons.length === 0 ? (
-        <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#475569] shadow-sm shadow-[#2563eb]/10">
+        <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
           No coupons have been created yet.
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {sortedCoupons.map((coupon) => (
-            <div key={coupon.id} className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10">
+            <div key={coupon.id} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-[#0f172a]">{coupon.name || coupon.id}</p>
-                  <p className="mt-1 text-sm font-semibold text-[#475569]">{formatDiscount(coupon)}</p>
+                  <p className="font-black text-[#101828]">{coupon.name || coupon.id}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatDiscount(coupon)}</p>
                 </div>
-                <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
+                <span className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
                   {coupon.liveOnWebsite ? 'Live' : coupon.active ? 'Active' : 'Inactive'}
                 </span>
               </div>
-              <p className="mt-4 text-sm font-black text-[#0f172a]">{coupon.code || 'No code'}</p>
-              <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
+              <p className="mt-4 text-sm font-black text-[#101828]">{coupon.code || 'No code'}</p>
+              <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
                 Duration: {coupon.duration}{coupon.durationInMonths ? `, Months: ${coupon.durationInMonths}` : ''}, Created: {formatDate(coupon.createdAt)}
               </p>
-              <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
+              <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
                 {formatExpiry(coupon)}
               </p>
               {coupon.firstTimeOnly ? (
-                <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
+                <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
                   First purchase only
                 </p>
               ) : null}
@@ -59,7 +59,7 @@ export function ExistingCouponsSection({
                         : undefined
                   }
                   onClick={() => onSetLivePromotion(coupon)}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {livePromotionId === coupon.promotionCodeId ? 'Saving...' : coupon.liveOnWebsite ? 'Hide From Website' : 'Show Live'}
                 </button>

@@ -88,15 +88,15 @@ const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'U
 const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx'), 'UserSettingsPage')
 
 const primaryActionClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 const secondaryActionClassName =
-  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff] focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 function LoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)]">
-      <div className="rounded-lg border border-[#cbd5e1] bg-white px-6 py-5 text-sm font-bold text-[#475569] shadow-sm shadow-[#2563eb]/10">
+      <div className="rounded-lg border border-[#d7e5dc] bg-white px-6 py-5 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
         Loading...
       </div>
     </main>
@@ -119,16 +119,16 @@ function NavigateToParentInvite() {
 function RouteContentSkeleton() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-8 shadow-sm shadow-[#2563eb]/10">
-        <div className="h-4 w-28 rounded-lg bg-[#dbeafe]" />
-        <div className="mt-5 h-10 w-64 max-w-full rounded-lg bg-[#e0f2fe]" />
-        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[#e0f2fe]" />
+      <div className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-8 shadow-sm shadow-[#047857]/10">
+        <div className="h-4 w-28 rounded-lg bg-[#d1fae5]" />
+        <div className="mt-5 h-10 w-64 max-w-full rounded-lg bg-[#ccfbf1]" />
+        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[#ccfbf1]" />
       </div>
-      <div className="rounded-lg border border-[#cbd5e1] bg-white px-5 py-8 shadow-sm shadow-[#2563eb]/10">
-        <div className="h-8 w-40 rounded-lg bg-[#e0f2fe]" />
+      <div className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-8 shadow-sm shadow-[#047857]/10">
+        <div className="h-8 w-40 rounded-lg bg-[#ccfbf1]" />
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="h-28 rounded-lg bg-[#e0f2fe]" />
-          <div className="h-28 rounded-lg bg-[#e0f2fe]" />
+          <div className="h-28 rounded-lg bg-[#ccfbf1]" />
+          <div className="h-28 rounded-lg bg-[#ccfbf1]" />
         </div>
       </div>
     </div>
@@ -153,23 +153,23 @@ const accountRecoveryRules = [
 function RouteGateState({ title, message, eyebrow = 'Workspace', actions = null, rules = [] }) {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="px-5 py-6 sm:px-6 lg:px-8">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">{eyebrow}</p>
-            <h1 className="mt-3 text-3xl font-black leading-[1.05] tracking-tight text-[#0f172a] sm:text-4xl">{title}</h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">{message}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">{eyebrow}</p>
+            <h1 className="mt-3 text-3xl font-black leading-[1.05] tracking-tight text-[#101828] sm:text-4xl">{title}</h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">{message}</p>
             {actions ? <div className="mt-6 flex flex-col gap-3 sm:flex-row">{actions}</div> : null}
           </div>
 
           {rules.length > 0 ? (
-            <aside className="border-t border-[#dbeafe] bg-[#eff6ff] p-5 sm:p-6 xl:border-l xl:border-t-0">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">What this means</p>
+            <aside className="border-t border-[#d1fae5] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">What this means</p>
               <div className="mt-4 space-y-2">
                 {rules.map((rule) => (
-                  <article key={rule.title} className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10">
-                    <p className="text-sm font-black text-[#0f172a]">{rule.title}</p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{rule.body}</p>
+                  <article key={rule.title} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
+                    <p className="text-sm font-black text-[#101828]">{rule.title}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{rule.body}</p>
                   </article>
                 ))}
               </div>
@@ -1089,7 +1089,7 @@ export const router = createBrowserRouter([
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Parent Portal',
+                  title: 'Family portal',
                 },
               },
               {

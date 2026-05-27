@@ -50,7 +50,7 @@ export function getPushSupportState() {
   if (isIosDevice() && !isStandaloneMode()) {
     return {
       isSupported: false,
-      reason: 'On iPhone, add Parent Portal to your Home Screen first, then open it from the app icon.',
+      reason: 'On iPhone, add the family portal to your Home Screen first, then open it from the app icon.',
       needsIosInstall: true,
     }
   }

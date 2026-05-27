@@ -28,12 +28,12 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0f172a]/45 px-4 py-6">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#101828]/45 px-4 py-6">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="contact-us-title"
-        className="relative w-full max-w-xl rounded-lg border border-[#cbd5e1] bg-white p-5 text-[#0f172a] shadow-xl shadow-[#0f172a]/10 sm:p-6"
+        className="relative w-full max-w-xl rounded-lg border border-[#d7e5dc] bg-white p-5 text-[#101828] shadow-xl shadow-[#101828]/10 sm:p-6"
       >
         <button
           type="button"
@@ -41,19 +41,19 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
           disabled={isSubmitting}
           title={isSubmitting ? 'Please wait while your message is sent.' : 'Close this window'}
           aria-label="Close this window"
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#f8fafc] text-sm font-bold text-[#475569] transition hover:border-[#2563eb] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] text-sm font-bold text-[#4b5f55] transition hover:border-[#047857] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           X
         </button>
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Contact us</p>
-        <h2 id="contact-us-title" className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#0f172a]">Tell us about your club</h2>
-        <p className="mt-3 text-sm font-semibold leading-6 text-[#475569]">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Contact us</p>
+        <h2 id="contact-us-title" className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">Tell us about your club</h2>
+        <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
           Share the number of teams, who needs access, and what is currently slowing the football week down.
         </p>
 
         <form className="mt-5 grid gap-4" onSubmit={onSubmit}>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#0f172a]">Name *</span>
+            <span className="mb-2 block text-sm font-bold text-[#101828]">Name *</span>
             <input
               type="text"
               name="name"
@@ -61,11 +61,11 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               onChange={onChange}
               required
               autoComplete="name"
-              className="min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]"
+              className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#0f172a]">Email *</span>
+            <span className="mb-2 block text-sm font-bold text-[#101828]">Email *</span>
             <input
               type="email"
               name="email"
@@ -73,28 +73,28 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               onChange={onChange}
               required
               autoComplete="email"
-              className="min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]"
+              className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#0f172a]">Phone Number</span>
+            <span className="mb-2 block text-sm font-bold text-[#101828]">Phone Number</span>
             <input
               type="tel"
               name="phone"
               value={formData.phone}
               onChange={onChange}
               autoComplete="tel"
-              className="min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]"
+              className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#0f172a]">Message</span>
+            <span className="mb-2 block text-sm font-bold text-[#101828]">Message</span>
             <textarea
               name="message"
               value={formData.message}
               onChange={onChange}
               rows={5}
-              className="min-h-32 w-full resize-y rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]"
+              className="min-h-32 w-full resize-y rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
             />
           </label>
 
@@ -105,7 +105,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
           ) : null}
 
           {message ? (
-            <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-semibold text-[#1d4ed8]">
+            <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#065f46]">
               {message}
             </div>
           ) : null}
@@ -116,7 +116,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               disabled={isSubmitting}
               title={isSubmitting ? 'Please wait while your message is sent.' : undefined}
               onClick={onCancel}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-bold text-[#0f172a] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-bold text-[#101828] transition hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
@@ -124,7 +124,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               type="submit"
               disabled={isSubmitting}
               title={isSubmitting ? 'Please wait while your message is sent.' : undefined}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? 'Sending...' : 'Send Message'}
             </button>
@@ -213,34 +213,34 @@ export function LoginHeader({ logo }) {
 
   return (
     <>
-      <header className="border-b border-[#cbd5e1] bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-[#0f172a] shadow-sm shadow-[#2563eb]/5 backdrop-blur sm:px-6 sm:py-4 lg:px-8">
+      <header className="border-b border-[#d7e5dc] bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-[#101828] shadow-sm shadow-[#047857]/5 backdrop-blur sm:px-6 sm:py-4 lg:px-8">
         <div className="flex items-center justify-between gap-3">
           <a href="/" className="flex min-w-0 items-center gap-3 lg:order-1">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10 sm:h-16 sm:w-16">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10 sm:h-16 sm:w-16">
               <img src={logo} alt="Football Player" className="h-full w-full object-contain p-1" />
             </div>
             <div className="min-w-0">
               <p className="truncate text-base font-black tracking-tight sm:text-xl">Football Player</p>
-              <p className="hidden truncate text-xs font-semibold text-[#475569] min-[420px]:block sm:text-sm">Football club management software</p>
+              <p className="hidden truncate text-xs font-semibold text-[#4b5f55] min-[420px]:block sm:text-sm">Football club management software</p>
             </div>
           </a>
           <div className="flex items-center gap-2 lg:order-3">
             <button
               type="button"
               onClick={openContactModal}
-              className="hidden min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] transition hover:bg-[#eff6ff] sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5] sm:inline-flex"
             >
               Contact Us
             </button>
             <a
               href="/sign-in"
-              className="hidden min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] sm:inline-flex"
             >
               Login
             </a>
             <InstallAppButton
               wrapperClassName="lg:hidden"
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-xs font-black text-[#0f172a] sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-black text-[#101828] sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
             />
           </div>
           <nav className="hidden items-center gap-1 lg:flex">
@@ -248,7 +248,7 @@ export function LoginHeader({ logo }) {
               <a
                 key={href}
                 href={href}
-                className="rounded-lg px-3 py-2 text-sm font-bold text-[#475569] transition hover:bg-[#eff6ff] hover:text-[#0f172a]"
+                className="rounded-lg px-3 py-2 text-sm font-bold text-[#4b5f55] transition hover:bg-[#ecfdf5] hover:text-[#101828]"
               >
                 {label}
               </a>
@@ -257,20 +257,20 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
-      <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-[#cbd5e1] bg-white p-1.5 shadow-lg shadow-[#0f172a]/10 sm:mx-6 lg:hidden">
+      <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-[#d7e5dc] bg-white p-1.5 shadow-lg shadow-[#101828]/10 sm:mx-6 lg:hidden">
         <div className="grid w-full grid-cols-5 gap-1">
           {navItems.map(([href, label]) => (
             <a
               key={href}
               href={href}
-              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 py-2 text-center text-[11px] font-black leading-none text-[#475569] transition hover:bg-[#eff6ff] hover:text-[#0f172a] min-[390px]:text-xs"
+              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 py-2 text-center text-[11px] font-black leading-none text-[#4b5f55] transition hover:bg-[#ecfdf5] hover:text-[#101828] min-[390px]:text-xs"
             >
               <span className="block" style={mobileNavLabelStyle}>{label}</span>
             </a>
           ))}
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[#2563eb] px-1 py-2 text-center text-[11px] font-black leading-none text-white transition hover:bg-[#1d4ed8] min-[390px]:text-xs"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[#047857] px-1 py-2 text-center text-[11px] font-black leading-none text-white transition hover:bg-[#065f46] min-[390px]:text-xs"
           >
             <span className="block" style={mobileNavLabelStyle}>Login</span>
           </a>

@@ -3,11 +3,11 @@ import { canManageUsers } from '../../lib/auth.js'
 import { PLAYER_CONTACT_TYPES } from '../../lib/supabase.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const eyebrowLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.12em] text-[#2563eb]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
-const helperClass = 'mt-2 text-xs font-semibold leading-5 text-[#475569]'
-const contactCardClass = 'flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] shadow-sm shadow-[#2563eb]/10'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const eyebrowLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.12em] text-[#047857]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
+const helperClass = 'mt-2 text-xs font-semibold leading-5 text-[#4b5f55]'
+const contactCardClass = 'flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] shadow-sm shadow-[#047857]/10'
 
 export function EvaluationPlayerDetailsSection({
   availableTeams,
@@ -106,7 +106,7 @@ export function EvaluationPlayerDetailsSection({
             name="coachName"
             value={formData.coachName}
             readOnly
-            className="min-h-11 w-full rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none"
+            className="min-h-11 w-full rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#101828] outline-none"
           />
         </label>
 
@@ -123,11 +123,11 @@ export function EvaluationPlayerDetailsSection({
                     type="checkbox"
                     checked={selectedParentContactIndexes.includes(index)}
                     onChange={() => onToggleParentContact(index)}
-                    className="h-4 w-4 accent-[#2563eb]"
+                    className="h-4 w-4 accent-[#047857]"
                   />
                   <span className="min-w-0">
                     <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}</span>
-                    <span className="block break-words text-xs font-semibold text-[#475569]">{contact.email || 'No email entered'}</span>
+                    <span className="block break-words text-xs font-semibold text-[#4b5f55]">{contact.email || 'No email entered'}</span>
                   </span>
                 </label>
               ))}

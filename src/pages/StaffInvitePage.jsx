@@ -3,8 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]'
-const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
+const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function StaffInvitePage() {
   const { token } = useParams()
@@ -108,21 +108,21 @@ export function StaffInvitePage() {
   const logoUrl = invite?.logoUrl || fallbackLogo
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] px-4 py-10 text-[#0f172a]">
-      <div className="mx-auto w-full max-w-xl rounded-lg border border-[#cbd5e1] bg-white p-6 shadow-sm shadow-[#2563eb]/10 sm:p-8">
+    <main className="min-h-screen bg-[#f7faf8] px-4 py-10 text-[#101828]">
+      <div className="mx-auto w-full max-w-xl rounded-lg border border-[#d7e5dc] bg-white p-6 shadow-sm shadow-[#047857]/10 sm:p-8">
         <img
           src={logoUrl}
           alt=""
-          className="mb-6 h-16 w-16 rounded-lg border border-[#cbd5e1] bg-white object-contain p-1 shadow-sm shadow-[#2563eb]/10"
+          className="mb-6 h-16 w-16 rounded-lg border border-[#d7e5dc] bg-white object-contain p-1 shadow-sm shadow-[#047857]/10"
         />
-        <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Staff invite</p>
-        <h1 className="text-2xl font-black text-[#0f172a]">Create staff access</h1>
-        <p className="mt-3 text-sm font-semibold leading-6 text-[#475569]">
+        <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Staff invite</p>
+        <h1 className="text-2xl font-black text-[#101828]">Create staff access</h1>
+        <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
           Create your own login for the club role shown below. Do not share another staff member's account.
         </p>
 
         {isLoading ? (
-          <p className="mt-6 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 text-sm font-semibold text-[#475569]">
+          <p className="mt-6 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold text-[#4b5f55]">
             Opening staff invite...
           </p>
         ) : errorMessage && !invite ? (
@@ -131,16 +131,16 @@ export function StaffInvitePage() {
           </div>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">Access details</p>
-              <p className="text-sm font-black text-[#0f172a]">{invite.clubName || 'Football Player'}</p>
-              <p className="mt-1 text-sm font-semibold text-[#475569]">Team: {invite.teamName || 'Team access'}, Role: {invite.roleLabel || 'Staff'}</p>
-              <p className="mt-3 break-words text-sm font-semibold text-[#2563eb]">{invite.email}</p>
+            <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Access details</p>
+              <p className="text-sm font-black text-[#101828]">{invite.clubName || 'Football Player'}</p>
+              <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Team: {invite.teamName || 'Team access'}, Role: {invite.roleLabel || 'Staff'}</p>
+              <p className="mt-3 break-words text-sm font-semibold text-[#047857]">{invite.email}</p>
             </div>
 
             {errorMessage ? <NoticeBanner title="Staff access not created" message={errorMessage} /> : null}
             {successMessage ? (
-              <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-bold text-[#1d4ed8]">
+              <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#065f46]">
                 {successMessage}
               </div>
             ) : null}
@@ -148,8 +148,8 @@ export function StaffInvitePage() {
             {!successMessage ? (
               <>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#0f172a]">Create password</span>
-                  <div className="flex rounded-lg border border-[#cbd5e1] bg-[#f8fafc] focus-within:border-[#2563eb] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#bfdbfe]">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Create password</span>
+                  <div className="flex rounded-lg border border-[#d7e5dc] bg-[#f7faf8] focus-within:border-[#047857] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#bbf7d0]">
                     <input
                       type={isPasswordVisible ? 'text' : 'password'}
                       value={password}
@@ -157,13 +157,13 @@ export function StaffInvitePage() {
                       required
                       minLength={8}
                       autoComplete="new-password"
-                      className="min-h-11 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none"
+                      className="min-h-11 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none"
                       placeholder="Create a password"
                     />
                     <button
                       type="button"
                       onClick={() => setIsPasswordVisible((value) => !value)}
-                      className="min-h-11 border-l border-[#cbd5e1] px-4 py-3 text-sm font-black text-[#2563eb] transition hover:bg-[#eff6ff]"
+                      className="min-h-11 border-l border-[#d7e5dc] px-4 py-3 text-sm font-black text-[#047857] transition hover:bg-[#ecfdf5]"
                     >
                       {isPasswordVisible ? 'Hide' : 'Show'}
                     </button>
@@ -171,7 +171,7 @@ export function StaffInvitePage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#0f172a]">Confirm password</span>
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Confirm password</span>
                   <input
                     type={isPasswordVisible ? 'text' : 'password'}
                     value={confirmPassword}

@@ -1,11 +1,11 @@
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]'
-const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-9 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-50'
-const emptyStateClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#475569] shadow-sm shadow-[#2563eb]/10'
+const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 
 export function PlatformAdminStaffSection({
   currentUserId,
@@ -66,13 +66,13 @@ export function PlatformAdminStaffSection({
           >
             {isSaving ? 'Saving...' : 'Add platform admin'}
           </button>
-          <p className="text-sm font-semibold leading-6 text-[#475569]">
+          <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
             This creates or promotes the account to platform admin access on this environment.
           </p>
         </form>
 
         <div>
-          <p className="text-sm font-black text-[#0f172a]">Current platform admins</p>
+          <p className="text-sm font-black text-[#101828]">Current platform admins</p>
           <div className="mt-3 space-y-2">
             {platformAdmins.length === 0 ? (
               <p className={emptyStateClass}>
@@ -83,13 +83,13 @@ export function PlatformAdminStaffSection({
                 const isCurrentUser = String(admin.id) === String(currentUserId)
 
                   return (
-                <div key={admin.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 shadow-sm shadow-[#2563eb]/10">
+                <div key={admin.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="break-words text-sm font-black text-[#0f172a]">
+                      <p className="break-words text-sm font-black text-[#101828]">
                         {admin.name || 'No name entered'}
                       </p>
-                      <p className="mt-1 break-words text-sm font-semibold text-[#475569]">{admin.email}</p>
+                      <p className="mt-1 break-words text-sm font-semibold text-[#4b5f55]">{admin.email}</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                       <StatusPill status={admin.status} />

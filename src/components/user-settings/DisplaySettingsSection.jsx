@@ -2,8 +2,8 @@ import { createFeatureUpgradeMessage } from '../../lib/plans.js'
 import { themeAccentOptions, themeButtonStyleOptions, themeModeOptions } from '../../lib/theme.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const selectClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe] disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const selectClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function DisplaySettingsSection({
   canUseThemes,
@@ -72,22 +72,22 @@ export function DisplaySettingsSection({
           </select>
         </label>
       </div>
-      <div className="mt-4 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Preview</p>
+      <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Preview</p>
         <div className="mt-3 flex flex-wrap gap-3">
           <span
             aria-hidden="true"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8]"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46]"
           >
             Primary action
           </span>
-          <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10">
+          <span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
             Accent state
           </span>
         </div>
       </div>
       {!canUseThemes ? (
-        <p className="mt-3 text-xs font-semibold leading-5 text-[#475569]">{createFeatureUpgradeMessage('themes')}</p>
+        <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">{createFeatureUpgradeMessage('themes')}</p>
       ) : null}
     </SectionCard>
   )

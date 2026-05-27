@@ -8,15 +8,15 @@ export function CreateStaffLoginSection({
   staffLimitMessage,
   teams,
 }) {
-  const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-  const fieldClass = 'min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
+  const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+  const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10" data-tour-id="create-staff-section">
-      <div className="border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Step 2: Scoped access</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Invite staff with team access</h2>
-        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
+    <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10" data-tour-id="create-staff-section">
+      <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Step 2: Scoped access</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invite staff with team access</h2>
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
           {canCreateMoreStaff
             ? 'Send a staff invite, choose the role, and attach the login to one team. Coaches should only see the squads they work with.'
             : staffLimitMessage}
@@ -98,7 +98,7 @@ export function CreateStaffLoginSection({
                 ? 'Create an assignable staff role before adding staff access.'
                 : canCreateMoreStaff ? undefined : staffLimitMessage
           }
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           Send staff invite
         </button>

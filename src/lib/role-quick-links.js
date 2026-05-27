@@ -64,7 +64,7 @@ export function getRoleQuickLinks(user) {
     links.push({ label: 'Platform Feedback', path: '/platform-feedback' })
   }
 
-  links.push({ label: 'My Settings', path: '/user-settings' })
+  links.push({ label: 'Settings', path: '/user-settings' })
 
   return links
 }

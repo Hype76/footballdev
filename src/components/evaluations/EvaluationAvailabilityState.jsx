@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom'
 import { canManageUsers, canCreateEvaluation } from '../../lib/auth.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const statePanelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 text-sm font-semibold leading-6 text-[#475569] shadow-sm shadow-[#2563eb]/10'
-const emptyPanelClass = 'space-y-4 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold leading-6 text-[#475569] shadow-sm shadow-[#2563eb]/10'
-const secondaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]'
-const primaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8]'
+const statePanelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold leading-6 text-[#4b5f55] shadow-sm shadow-[#047857]/10'
+const emptyPanelClass = 'space-y-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold leading-6 text-[#4b5f55] shadow-sm shadow-[#047857]/10'
+const secondaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]'
+const primaryLinkClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46]'
 
 export function EvaluationAvailabilityState({
   availableTeams,

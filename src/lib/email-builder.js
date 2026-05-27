@@ -156,7 +156,7 @@ export function buildEmailHtml({
   const resolvedTeam = teamName || team
   const resolvedClub = clubName || club
   const resolvedPlayer = playerName || 'Player'
-  const resolvedParent = parentName || 'Parent/Guardian'
+  const resolvedParent = parentName || 'Parent or guardian'
   const resolvedSession = formatSessionForDisplay(session)
   const safeLogoUrl = getSafeLogoUrl(logoUrl)
 

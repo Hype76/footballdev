@@ -12,10 +12,10 @@ import {
   saveOnboardingStep,
 } from '../../lib/onboarding.js'
 
-const eyebrowClass = 'text-[11px] font-black uppercase tracking-[0.18em] text-[#2563eb]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff]'
+const eyebrowClass = 'text-[11px] font-black uppercase tracking-[0.18em] text-[#047857]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
 
 function patchUserOnboarding(user, scope, patch = {}) {
   if (scope === 'workspace') {
@@ -51,8 +51,8 @@ function StepMarker({ index, complete }) {
       className={[
         'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-xs font-black',
         complete
-          ? 'border-[#2563eb] bg-[#2563eb] text-white'
-          : 'border-[#cbd5e1] bg-white text-[#475569]',
+          ? 'border-[#047857] bg-[#047857] text-white'
+          : 'border-[#d7e5dc] bg-white text-[#4b5f55]',
       ].join(' ')}
       aria-label={complete ? 'Complete' : 'Not complete'}
     >
@@ -63,24 +63,24 @@ function StepMarker({ index, complete }) {
 
 function ConstraintRule({ body, title }) {
   return (
-    <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
-      <p className="text-sm font-black text-[#0f172a]">{title}</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{body}</p>
+    <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10">
+      <p className="text-sm font-black text-[#101828]">{title}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{body}</p>
     </div>
   )
 }
 
 function FirstActionCard({ nextStep, plan }) {
   return (
-    <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-4 shadow-sm shadow-[#1d4ed8]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">First useful action</p>
-      <p className="mt-2 text-lg font-black leading-6 text-[#0f172a]">{nextStep?.title || plan.title}</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+    <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-4 shadow-sm shadow-[#065f46]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">First useful action</p>
+      <p className="mt-2 text-lg font-black leading-6 text-[#101828]">{nextStep?.title || plan.title}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
         {nextStep?.detail || plan.description}
       </p>
       <Link
         to={nextStep?.href || plan.firstAction}
-        className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2"
+        className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2"
       >
         {nextStep?.actionLabel || 'Start setup'}
       </Link>
@@ -94,28 +94,28 @@ function SetupStepCard({ index, onComplete, step }) {
       className={[
         'rounded-lg border p-4 shadow-sm transition',
         step.complete
-          ? 'border-[#cbd5e1] bg-[#eff6ff] shadow-[#2563eb]/10'
-          : 'border-[#cbd5e1] bg-white shadow-[#2563eb]/10 hover:border-[#3b82f6]',
+          ? 'border-[#d7e5dc] bg-[#ecfdf5] shadow-[#047857]/10'
+          : 'border-[#d7e5dc] bg-white shadow-[#047857]/10 hover:border-[#0f9f6e]',
       ].join(' ')}
     >
       <div className="flex gap-3">
         <StepMarker complete={step.complete} index={index} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-black leading-6 text-[#0f172a]">{step.title}</h3>
+            <h3 className="text-base font-black leading-6 text-[#101828]">{step.title}</h3>
             <span
               className={[
                 'rounded-lg border px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em]',
                 step.complete
-                  ? 'border-[#cbd5e1] bg-white text-[#1d4ed8]'
+                  ? 'border-[#d7e5dc] bg-white text-[#065f46]'
                   : 'border-[#fedf89] bg-[#fffbeb] text-[#93370d]',
               ].join(' ')}
             >
               {step.complete ? 'Ready' : 'Needed'}
             </span>
           </div>
-          <p className="mt-2 text-sm font-black leading-6 text-[#475569]">{step.rule}</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{step.detail}</p>
+          <p className="mt-2 text-sm font-black leading-6 text-[#4b5f55]">{step.rule}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{step.detail}</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Link
               to={step.href}
@@ -127,7 +127,7 @@ function SetupStepCard({ index, onComplete, step }) {
               <button
                 type="button"
                 onClick={() => onComplete(step.id)}
-                className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff]"
+                className="inline-flex min-h-10 min-w-[7rem] items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
               >
                 {step.manualLabel}
               </button>
@@ -150,14 +150,14 @@ function CompactOnboardingPanel({
   progress,
 }) {
   return (
-    <section className="mb-6 overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+    <section className="mb-6 overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
       <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
         <div className="px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <p className={eyebrowClass}>First run setup</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">{plan.title}</h2>
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
                 {isLoading ? 'Refreshing workspace data.' : `${progress.completedCount} of ${progress.totalCount} setup checks are complete.`}
               </p>
             </div>
@@ -178,18 +178,18 @@ function CompactOnboardingPanel({
               </button>
             </div>
           </div>
-          <div className="mt-4 h-3 overflow-hidden rounded-lg bg-[#e0f2fe] ring-1 ring-[#cbd5e1]">
+          <div className="mt-4 h-3 overflow-hidden rounded-lg bg-[#ccfbf1] ring-1 ring-[#d7e5dc]">
             <div
-              className="h-full rounded-lg bg-[#2563eb] transition-all"
+              className="h-full rounded-lg bg-[#047857] transition-all"
               style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
             />
           </div>
         </div>
 
-        <aside className="border-t border-[#bfdbfe] bg-[#eff6ff] px-5 py-5 sm:px-6 lg:border-l lg:border-t-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">Next required action</p>
-          <p className="mt-2 text-xl font-black leading-6 text-[#0f172a]">{nextStep?.title}</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{nextStep?.detail}</p>
+        <aside className="border-t border-[#bbf7d0] bg-[#ecfdf5] px-5 py-5 sm:px-6 lg:border-l lg:border-t-0">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">Next required action</p>
+          <p className="mt-2 text-xl font-black leading-6 text-[#101828]">{nextStep?.title}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{nextStep?.detail}</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
             <Link
               to={nextStep?.href || plan.firstAction}
@@ -384,37 +384,37 @@ export function OnboardingProvider({ children }) {
         />
       ) : null}
       {shouldShowOnboarding && shouldUseFullSetup ? (
-        <section className="mb-6 overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
-          <div className="border-b border-[#dbe6ef] bg-[#f8fbfd] px-5 py-5 sm:px-6 lg:px-8">
+        <section className="mb-6 overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+          <div className="border-b border-[#dbe6ef] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
               <div className="min-w-0">
                 <p className={eyebrowClass}>First run setup</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a] sm:text-3xl">
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
                   {plan.title}
                 </h2>
-                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">{plan.description}</p>
+                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">{plan.description}</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)] xl:min-w-[34rem]">
-                <div className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10">
-                  <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
+                <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
+                  <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
                     <span>Setup progress</span>
                     <span>{progress.completedCount} of {progress.totalCount}</span>
                   </div>
-                  <div className="mt-3 h-3 overflow-hidden rounded-lg bg-[#e0f2fe] ring-1 ring-[#cbd5e1]">
+                  <div className="mt-3 h-3 overflow-hidden rounded-lg bg-[#ccfbf1] ring-1 ring-[#d7e5dc]">
                     <div
-                      className="h-full rounded-lg bg-[#2563eb] transition-all"
+                      className="h-full rounded-lg bg-[#047857] transition-all"
                       style={{ width: `${progress.totalCount ? (progress.completedCount / progress.totalCount) * 100 : 0}%` }}
                     />
                   </div>
-                  <p className="mt-3 text-xs font-semibold leading-5 text-[#64748b]">
+                  <p className="mt-3 text-xs font-semibold leading-5 text-[#66756c]">
                     {isLoading ? 'Refreshing workspace data.' : 'Uses live workspace records where possible.'}
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] p-4 shadow-sm shadow-[#1d4ed8]/10">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">Next action</p>
-                  <p className="mt-2 text-lg font-black leading-6 text-[#0f172a]">{nextStep?.title}</p>
+                <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4 shadow-sm shadow-[#065f46]/10">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">Next action</p>
+                  <p className="mt-2 text-lg font-black leading-6 text-[#101828]">{nextStep?.title}</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <Link to={nextStep?.href || plan.firstAction} className={primaryButtonClass}>
                       {nextStep?.actionLabel || 'Start setup'}
@@ -442,7 +442,7 @@ export function OnboardingProvider({ children }) {
               ))}
             </div>
 
-            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 shadow-sm shadow-[#2563eb]/10 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between">
               <p className={bodyTextClass}>
                 Skip pauses setup. Reset starts this first-run path again for a fresh club launch or testing.
               </p>
@@ -464,19 +464,19 @@ export function OnboardingProvider({ children }) {
         </section>
       ) : null}
       {shouldShowReopenOnboarding ? (
-        <section className="mb-6 rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10 sm:px-5">
+        <section className="mb-6 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10 sm:px-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <p className={eyebrowClass}>Setup paused</p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-[#0f172a]">{plan.title}</h2>
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
+              <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
                 {progress.completedCount} of {progress.totalCount} setup checks are complete. Reopen setup when the club is ready to finish the next real action.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[24rem]">
               <Link
                 to={nextStep?.href || plan.firstAction}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
               >
                 {nextStep?.actionLabel || 'Open next step'}
               </Link>

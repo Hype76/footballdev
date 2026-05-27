@@ -16,11 +16,11 @@ export function SetupChecklistSettingsSection({
           type="button"
           onClick={onRestart}
           disabled={isRestarting}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isRestarting ? 'Opening setup...' : 'Open setup checklist'}
         </button>
-        <p className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-xs font-semibold leading-5 text-[#475569] shadow-sm shadow-[#2563eb]/10">
+        <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-xs font-semibold leading-5 text-[#4b5f55] shadow-sm shadow-[#047857]/10">
           This resets setup state for this {scopeLabel} and shows the checklist above the page again.
         </p>
       </div>

@@ -6,9 +6,9 @@ import {
 import { createFeatureUpgradeMessage } from '../../lib/plans.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto'
 
 export function AddFieldSection({
   canUseCustomFields,
@@ -33,10 +33,10 @@ export function AddFieldSection({
           : createFeatureUpgradeMessage('customFormFields')
       }
     >
-      <form className="rounded-lg border border-[#cbd5e1] bg-white p-5 shadow-sm shadow-[#2563eb]/10" onSubmit={onAddField}>
+      <form className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10" onSubmit={onAddField}>
         <div className="mb-5">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">New field</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">New field</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
             Name the exact information coaches need, then choose the lowest-friction input type.
           </p>
         </div>
@@ -85,19 +85,19 @@ export function AddFieldSection({
           ) : null}
 
           {isScoreType(fieldForm.type) ? (
-            <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 shadow-sm shadow-[#2563eb]/10 md:col-span-2">
-              <p className="text-sm font-black text-[#0f172a]">Score options</p>
-              <p className="mt-2 text-sm font-semibold text-[#475569]">{createScoreOptions(fieldForm.type).join(', ')}</p>
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10 md:col-span-2">
+              <p className="text-sm font-black text-[#101828]">Score options</p>
+              <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{createScoreOptions(fieldForm.type).join(', ')}</p>
             </div>
           ) : null}
 
-          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-black text-[#0f172a]">
+          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
             <input
               type="checkbox"
               name="required"
               checked={fieldForm.required}
               onChange={onFormChange}
-              className="h-4 w-4 rounded border-[#cbd5e1] bg-white accent-[#2563eb]"
+              className="h-4 w-4 rounded border-[#d7e5dc] bg-white accent-[#047857]"
             />
             <span>Required field</span>
           </label>

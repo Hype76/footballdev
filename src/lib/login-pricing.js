@@ -4,7 +4,7 @@ export const pricingPlans = [
     price: 'Free',
     priceLabel: 'No card needed',
     description: 'For one coach running a small team with the core tools.',
-    features: ['1 team', '1 staff login', '5 players', '10 development records per month', 'Parent Portal', 'Match Day fully unlocked', 'Basic development form'],
+    features: ['1 team', '1 staff login', '5 players', '10 development records per month', 'Family portal', 'Match Day fully unlocked', 'Basic development form'],
   },
   {
     name: 'Single Team',

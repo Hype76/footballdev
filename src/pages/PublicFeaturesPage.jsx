@@ -37,16 +37,16 @@ export function PublicFeaturesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#0f172a] lg:pb-0">
+    <main className="min-h-screen bg-[#f7faf8] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#101828] lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="relative overflow-hidden">
         <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-100" />
         <div className="absolute inset-0 bg-white/88" />
-        <div className="absolute inset-0 bg-[#eff6ff]/58" />
+        <div className="absolute inset-0 bg-[#ecfdf5]/58" />
         <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
           <div className="max-w-4xl">
-            <p className="inline-flex rounded-lg border border-[#bfdbfe] bg-white/95 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb] shadow-sm shadow-[#2563eb]/10 backdrop-blur">Features</p>
-            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight text-[#0f172a] min-[420px]:text-4xl sm:mt-5 sm:text-5xl">
+            <p className="inline-flex rounded-lg border border-[#bbf7d0] bg-white/95 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#047857] shadow-sm shadow-[#047857]/10 backdrop-blur">Features</p>
+            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight text-[#101828] min-[420px]:text-4xl sm:mt-5 sm:text-5xl">
               A football-only workspace for clearer match weeks.
             </h1>
             <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#334155] sm:mt-6 sm:text-lg sm:leading-8">
@@ -58,13 +58,13 @@ export function PublicFeaturesPage() {
 
       <section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-8 sm:gap-5 sm:px-6 sm:py-12 md:grid-cols-2 lg:px-8">
         {featureGroups.map((feature) => (
-          <article key={feature.title} className="rounded-lg border border-[#cbd5e1] bg-white p-5 shadow-sm shadow-[#2563eb]/10 sm:p-6">
+          <article key={feature.title} className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
             <h2 className="text-xl font-black tracking-tight sm:text-2xl">{feature.title}</h2>
-            <p className="mt-4 text-sm font-semibold leading-7 text-[#475569]">{feature.copy}</p>
+            <p className="mt-4 text-sm font-semibold leading-7 text-[#4b5f55]">{feature.copy}</p>
             <ul className="mt-6 space-y-3">
               {feature.points.map((point) => (
-                <li key={point} className="flex gap-3 text-sm font-bold text-[#475569]">
-                  <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#2563eb]" />
+                <li key={point} className="flex gap-3 text-sm font-bold text-[#4b5f55]">
+                  <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#047857]" />
                   <span>{point}</span>
                 </li>
               ))}
@@ -74,32 +74,32 @@ export function PublicFeaturesPage() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
-        <div className="mb-5 grid gap-3 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10 sm:p-6 lg:grid-cols-3">
+        <div className="mb-5 grid gap-3 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10 sm:p-6 lg:grid-cols-3">
           {operatingRules.map(([title, copy]) => (
-            <article key={title} className="rounded-lg border border-[#cbd5e1] bg-white p-4">
-              <h2 className="text-sm font-black text-[#0f172a]">{title}</h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{copy}</p>
+            <article key={title} className="rounded-lg border border-[#d7e5dc] bg-white p-4">
+              <h2 className="text-sm font-black text-[#101828]">{title}</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</p>
             </article>
           ))}
         </div>
 
-        <div className="grid gap-5 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="grid gap-5 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <h2 className="text-xl font-black tracking-tight sm:text-2xl">Try it now, or contact us.</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">Open the demo account, ask a question, or choose a plan that matches your club size.</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">Open the demo account, ask a question, or choose a plan that matches your club size.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8]">
+            <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46]">
               Try Now
             </a>
             <button
               type="button"
               onClick={openContactModal}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-black text-[#0f172a] transition hover:bg-[#f8fafc]"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]"
             >
               Contact Us
             </button>
-            <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-black text-[#0f172a] transition hover:bg-[#f8fafc]">
+            <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]">
               View Pricing
             </a>
           </div>

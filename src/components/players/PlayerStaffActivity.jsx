@@ -18,14 +18,14 @@ import {
 import { exportPdfHtml } from '../../lib/pdf.js'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
-const cardClass = 'rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10'
-const fieldClass = 'w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]'
-const bodyClass = 'text-sm font-semibold leading-6 text-[#475569]'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
+const cardClass = 'rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10'
+const fieldClass = 'w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#66756c] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#047857]'
+const bodyClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayerStaffActivity({
   activityLogs,
@@ -69,7 +69,7 @@ export function PlayerStaffActivity({
       defaultCollapsed
     >
       <div className={`${panelClass} mb-5 px-4 py-4`}>
-        <p className="text-sm font-black text-[#0f172a]">Staff notes and player activity</p>
+        <p className="text-sm font-black text-[#101828]">Staff notes and player activity</p>
         <p className={`mt-1 ${bodyClass}`}>
           Staff notes: {staffNotes.length}, Activity: {activityLogs.length}{' '}
           {activityLogs.length === 1 ? 'item' : 'items'}
@@ -107,7 +107,7 @@ export function PlayerStaffActivity({
                 className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   isRecordingVoiceNote
                     ? 'border-[#fecdca] bg-[#b42318] text-white hover:bg-[#912018]'
-                    : 'border-[#cbd5e1] bg-white text-[#0f172a] shadow-sm shadow-[#2563eb]/10 hover:border-[#2563eb] hover:bg-[#eff6ff]'
+                    : 'border-[#d7e5dc] bg-white text-[#101828] shadow-sm shadow-[#047857]/10 hover:border-[#047857] hover:bg-[#ecfdf5]'
                 }`}
               >
                 <MicIcon />
@@ -127,7 +127,7 @@ export function PlayerStaffActivity({
               staffNotes.map((note) => (
                 <div key={note.id} className={`${cardClass} px-4 py-3`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#0f172a]">{note.note}</p>
+                    <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#101828]">{note.note}</p>
                     {note.audioPath || note.audioUrl ? (
                       <button
                         type="button"
@@ -146,11 +146,11 @@ export function PlayerStaffActivity({
                     </audio>
                   ) : null}
                   {note.audioPath || note.audioUrl ? (
-                    <p className="mt-2 text-xs font-black text-[#2563eb]">
+                    <p className="mt-2 text-xs font-black text-[#047857]">
                       Deletes: {formatRetentionDate(note.audioExpiresAt)}, Retention: {getRetentionCountdownLabel(note.audioExpiresAt)}
                     </p>
                   ) : null}
-                  <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
+                  <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
                     Staff: {note.userName || note.userEmail || 'Staff'}, Created: {formatActivityDate(note.createdAt)}
                   </p>
                 </div>
@@ -160,7 +160,7 @@ export function PlayerStaffActivity({
         </div>
 
         <div>
-          <p className="text-sm font-black text-[#0f172a]">Player activity</p>
+          <p className="text-sm font-black text-[#101828]">Player activity</p>
           <div className="mt-3 space-y-3">
             {activityLogs.length === 0 ? (
               <PlayerStatePanel
@@ -211,12 +211,12 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
   if (!isEmail) {
     return (
       <div className={`${cardClass} px-4 py-3`}>
-        <p className="text-sm font-black text-[#0f172a]">{getActivityLabel(log)}</p>
+        <p className="text-sm font-black text-[#101828]">{getActivityLabel(log)}</p>
         <p className={`mt-1 ${bodyClass}`}>
           Staff: {log.userName || log.userEmail || 'Staff'}, Created: {formatActivityDate(log.createdAt)}
         </p>
         {log.recipientEmail ? (
-          <p className="mt-1 break-words text-xs font-semibold text-[#475569]">Recipient: {log.recipientEmail}</p>
+          <p className="mt-1 break-words text-xs font-semibold text-[#4b5f55]">Recipient: {log.recipientEmail}</p>
         ) : null}
       </div>
     )
@@ -237,25 +237,25 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="block w-full px-4 py-3 text-left transition hover:bg-[#eff6ff]"
+        className="block w-full px-4 py-3 text-left transition hover:bg-[#ecfdf5]"
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-black text-[#0f172a]">{subject}</p>
+            <p className="text-sm font-black text-[#101828]">{subject}</p>
             <p className={`mt-1 ${bodyClass}`}>
               Staff: {log.userName || log.userEmail || 'Staff'}, Created: {formatActivityDate(log.createdAt)}
             </p>
             {log.recipientEmail ? (
-              <p className="mt-1 break-words text-xs font-semibold text-[#475569]">Recipient: {log.recipientEmail}</p>
+              <p className="mt-1 break-words text-xs font-semibold text-[#4b5f55]">Recipient: {log.recipientEmail}</p>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             {messageHasAttachment(log) ? (
-              <span className="inline-flex w-fit rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-3 py-1 text-xs font-black text-[#2563eb]">
+              <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#047857]">
                 PDF attached
               </span>
             ) : null}
-            <span className="inline-flex w-fit rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-1 text-xs font-black text-[#2563eb]">
+            <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#047857]">
               {isOpen ? 'Hide email' : 'View email'}
             </span>
           </div>
@@ -263,17 +263,17 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
       </button>
 
       {isOpen ? (
-        <div className="border-t border-[#cbd5e1] px-4 py-4">
-          <div className="grid gap-2 text-xs font-semibold text-[#475569] sm:grid-cols-2">
+        <div className="border-t border-[#d7e5dc] px-4 py-4">
+          <div className="grid gap-2 text-xs font-semibold text-[#4b5f55] sm:grid-cols-2">
             {templateName ? <InfoLine label="Template" value={templateName} /> : null}
             {playerLabel ? <InfoLine label="Player" value={playerLabel} /> : null}
             {teamLabel ? <InfoLine label="Team" value={teamLabel} /> : null}
             {clubLabel ? <InfoLine label="Club" value={clubLabel} /> : null}
           </div>
 
-          <div className="mt-4 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 shadow-sm shadow-[#2563eb]/10">
+          <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
             {body ? (
-              <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#475569]">{body}</p>
+              <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-[#4b5f55]">{body}</p>
             ) : (
               <PlayerStatePanel
                 action="Use the message subject, recipient, and attachment record to confirm what was sent."
@@ -288,11 +288,11 @@ function ActivityCard({ downloadError, isDownloading, isOpen, log, onDownloadPdf
             <div className="mt-4 space-y-2">
               <p className={eyebrowClass}>Development details</p>
               {assessmentFields.map((field) => (
-                <div key={field.label} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 shadow-sm shadow-[#2563eb]/10">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
+                <div key={field.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 shadow-sm shadow-[#047857]/10">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
                     {field.label}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-[#475569]">
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-[#4b5f55]">
                     {String(field.value ?? '')}
                   </p>
                 </div>
@@ -343,7 +343,7 @@ function buildActivityPdfFilename(log) {
 function InfoLine({ label, value }) {
   return (
     <p className="break-words">
-      <span className="font-black text-[#2563eb]">{label}: </span>
+      <span className="font-black text-[#047857]">{label}: </span>
       {value}
     </p>
   )

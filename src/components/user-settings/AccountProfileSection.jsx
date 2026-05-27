@@ -1,13 +1,13 @@
 import { getRoleLabel } from '../../lib/auth.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe] disabled:cursor-not-allowed disabled:opacity-60'
-const infoCardClass = 'rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 shadow-sm shadow-[#2563eb]/10'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]'
-const valueClass = 'mt-2 break-words text-sm font-semibold text-[#0f172a]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
-const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
+const infoCardClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#047857]'
+const valueClass = 'mt-2 break-words text-sm font-semibold text-[#101828]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
+const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 
 export function AccountProfileSection({
   authUser,
@@ -65,7 +65,7 @@ export function AccountProfileSection({
 
         {showEmailIdentity ? (
           <div className={`${panelClass} p-4`}>
-            <p className="text-sm font-black text-[#0f172a]">Parent email identity</p>
+            <p className="text-sm font-black text-[#101828]">Parent email identity</p>
             <p className={`mt-2 ${bodyTextClass}`}>
               Emails will be sent from feedback@footballplayer.online. Parent replies will go to your reply-to email.
             </p>
@@ -111,7 +111,7 @@ export function AccountProfileSection({
                 className={inputClass}
               />
               {!canEditEmailClubName ? (
-                <span className="mt-2 block text-xs font-semibold leading-5 text-[#475569]">
+                <span className="mt-2 block text-xs font-semibold leading-5 text-[#4b5f55]">
                   Only the top role for this plan can change the club name used in sender details.
                 </span>
               ) : null}
@@ -131,9 +131,9 @@ export function AccountProfileSection({
             </label>
           </div>
 
-          <div className="mt-4 rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 shadow-sm shadow-[#2563eb]/10">
+          <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
             <p className={eyebrowClass}>Sender preview</p>
-            <p className="mt-2 break-words text-sm font-black text-[#0f172a]">
+            <p className="mt-2 break-words text-sm font-black text-[#101828]">
               {senderPreview} &lt;feedback@footballplayer.online&gt;
             </p>
           </div>
@@ -171,7 +171,7 @@ export function AccountProfileSection({
                 ? 'Demo accounts cannot change account details.'
                 : undefined
           }
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isSavingProfile ? 'Saving...' : 'Save account'}
         </button>

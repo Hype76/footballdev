@@ -41,8 +41,8 @@ const staffAccessRules = [
   },
 ]
 
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
-const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
+const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 
 export function UserAccessPage() {
   const { user } = useAuth()
@@ -401,30 +401,30 @@ export function UserAccessPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Staff access</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-4xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Staff access</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-4xl">
               Give staff access only where the work needs it.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
               Invite coaches by email, assign the smallest useful role, and keep workspace access tidy as responsibilities change.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {staffAccessRules.map((rule) => (
                 <div key={rule.label} className={`${panelClass} px-4 py-4`}>
-                  <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
+                  <p className="text-sm font-black text-[#101828]">{rule.label}</p>
                   <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
+          <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Access state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">{activeAndPendingEmailCount} staff emails tracked</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Access state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{activeAndPendingEmailCount} staff emails tracked</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 Scope: {scopeLabel}. {pendingAccessCount} pending invites and {members.length} active users are visible to this account.
               </p>
@@ -443,7 +443,7 @@ export function UserAccessPage() {
       </section>
 
       {message ? (
-        <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-sm font-black text-[#1d4ed8] shadow-sm shadow-[#2563eb]/10">
+        <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#065f46] shadow-sm shadow-[#047857]/10">
           {message}
         </div>
       ) : null}
@@ -528,9 +528,9 @@ export function UserAccessPage() {
 
 function AccessMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#0f172a]">{value}</p>
+    <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#101828]">{value}</p>
     </div>
   )
 }

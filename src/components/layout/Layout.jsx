@@ -289,15 +289,15 @@ export function Layout() {
 
 function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, options, title }) {
   return (
-    <section className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+    <section className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
       <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="border-b border-[#cbd5e1] bg-[#eff6ff] p-5 sm:p-7 lg:border-b-0 lg:border-r">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2563eb]">{eyebrow}</p>
-          <h1 className="mt-4 text-3xl font-black tracking-tight text-[#0f172a] sm:text-4xl">{title}</h1>
-          <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[#475569]">{description}</p>
-          <div className="mt-6 rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
-            <p className="text-sm font-black text-[#0f172a]">Before you continue</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+        <div className="border-b border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-7 lg:border-b-0 lg:border-r">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#047857]">{eyebrow}</p>
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">{title}</h1>
+          <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[#4b5f55]">{description}</p>
+          <div className="mt-6 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10">
+            <p className="text-sm font-black text-[#101828]">Before you continue</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
               The workspace selection controls what data loads, which actions are available, and where saved football records belong.
             </p>
           </div>
@@ -312,18 +312,18 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
                 onClick={() => onSelect(option.id)}
                 disabled={isLoading}
                 title={isLoading ? 'Please wait while the workspace opens.' : undefined}
-                className="group flex min-h-20 w-full items-center justify-between gap-4 rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 text-left shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex min-h-20 w-full items-center justify-between gap-4 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 text-left shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="flex min-w-0 items-center gap-3">
-                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#eff6ff] text-sm font-black text-[#2563eb]">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] text-sm font-black text-[#047857]">
                     {String(option.label || 'W').slice(0, 1).toUpperCase()}
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-base font-black text-[#0f172a]">{option.label}</span>
-                    <span className="mt-1 block text-sm font-semibold text-[#475569]">{option.meta}</span>
+                    <span className="block truncate text-base font-black text-[#101828]">{option.label}</span>
+                    <span className="mt-1 block text-sm font-semibold text-[#4b5f55]">{option.meta}</span>
                   </span>
                 </span>
-                <span className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 text-sm font-black text-[#2563eb] transition group-hover:border-[#2563eb] group-hover:bg-[#2563eb] group-hover:text-white">
+                <span className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 text-sm font-black text-[#047857] transition group-hover:border-[#047857] group-hover:bg-[#047857] group-hover:text-white">
                   {isLoading ? 'Opening...' : option.action || 'Open'}
                 </span>
               </button>

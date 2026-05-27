@@ -8,10 +8,10 @@ import { isInviteEmailTemplate } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const fieldClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#dbeafe]'
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const smallLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] transition hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const smallLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#047857]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayerDetailsSection({
   directEmailSendingId,
@@ -62,7 +62,7 @@ export function PlayerDetailsSection({
             })
 
             return (
-              <div key={player.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
+              <div key={player.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
                 {isEditing ? (
                   <PlayerDetailsEditor
                     draft={draft}
@@ -164,8 +164,8 @@ function PlayerDetailsEditor({
       <div className="md:col-span-2 xl:col-span-3">
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <span className="block text-sm font-black text-[#0f172a]">Contacts</span>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#475569]">
+            <span className="block text-sm font-black text-[#101828]">Contacts</span>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
               Add parent or guardian contacts used for player communication.
             </p>
           </div>
@@ -179,8 +179,8 @@ function PlayerDetailsEditor({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {getDraftParentContacts(draft).map((contact, index) => (
-            <div key={index} className="rounded-lg border border-[#cbd5e1] bg-white p-3 shadow-sm shadow-[#2563eb]/10">
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
+            <div key={index} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
                 Contact {index + 1}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -237,14 +237,14 @@ function PlayerDetailsEditor({
                 key={position}
                 type="button"
                 onClick={() => onRemovePlayerPosition(position)}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] transition hover:bg-[#eff6ff]"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5]"
               >
                 {position} remove
               </button>
             ))}
           </div>
         ) : (
-          <p className="mt-2 rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-3 py-2 text-xs font-black leading-5 text-[#475569]">
+          <p className="mt-2 rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-3 py-2 text-xs font-black leading-5 text-[#4b5f55]">
             Add at least one position so coaches can filter and compare the player properly.
           </p>
         )}
@@ -255,7 +255,7 @@ function PlayerDetailsEditor({
           disabled={isSavingPlayer}
           title={savingDisabledReason}
           onClick={onSavePlayer}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
         >
           Save
         </button>
@@ -306,16 +306,16 @@ function PlayerDetailsSummary({
         <PlayerDetailItem label="Team" value={player.team || 'No team entered'} />
         <PlayerDetailItem label="Shirt Number" value={player.shirtNumber || 'Not entered'} />
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Contacts</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Contacts</p>
           <div className="mt-2 space-y-1">
             {contacts.length > 0 ? (
               contacts.map((contact, index) => (
-                <p key={index} className="break-words text-sm font-black text-[#0f172a]">
+                <p key={index} className="break-words text-sm font-black text-[#101828]">
                   Contact: {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}{contact.email ? `, Email: ${contact.email}` : ''}
                 </p>
               ))
             ) : (
-              <p className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-3 py-2 text-sm font-black text-[#475569]">
+              <p className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-3 py-2 text-sm font-black text-[#4b5f55]">
                 Add parent or player contact details before sending portal invites or direct emails.
               </p>
             )}
@@ -328,7 +328,7 @@ function PlayerDetailsSummary({
         <PlayerDetailItem label="Status" value={player.status === 'promoted' ? 'Promoted' : 'Active'} />
       </div>
 
-      <div className="rounded-lg border border-[#cbd5e1] bg-white p-4 shadow-sm shadow-[#2563eb]/10">
+      <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(160px,0.45fr)_auto_auto_auto] lg:items-end">
           {directEmailTemplates.length > 0 ? (
             <label className="block">
@@ -392,7 +392,7 @@ function PlayerDetailsSummary({
               disabled={isPromoting}
               title={promotionDisabledReason}
               onClick={onPromotePlayer}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
             >
               {isPromoting ? 'Promoting...' : 'Promote to Squad'}
             </button>
@@ -413,8 +413,8 @@ function PlayerDetailsSummary({
 function PlayerDetailItem({ label, value }) {
   return (
     <div>
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">{label}</p>
-      <p className="mt-2 text-sm font-black text-[#0f172a]">{value}</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{label}</p>
+      <p className="mt-2 text-sm font-black text-[#101828]">{value}</p>
     </div>
   )
 }

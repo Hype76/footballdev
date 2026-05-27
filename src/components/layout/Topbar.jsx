@@ -116,13 +116,13 @@ export function Topbar({ title, onMenuClick }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[#d8e3ee] bg-white/95 px-4 py-3 shadow-sm shadow-[#0f172a]/5 backdrop-blur sm:px-6 md:px-8 xl:px-10">
+    <header className="sticky top-0 z-20 border-b border-[#d7e5dc] bg-white/95 px-4 py-3 shadow-sm shadow-[#101828]/5 backdrop-blur sm:px-6 md:px-8 xl:px-10">
       <div className="mx-auto grid max-w-[108rem] gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,36rem)] xl:items-center">
-        <div className="flex min-w-0 items-center gap-3 rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-3 shadow-sm shadow-[#2563eb]/10 sm:px-4">
+        <div className="flex min-w-0 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 shadow-sm shadow-[#047857]/10 sm:px-4">
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white text-[#475569] shadow-sm shadow-[#2563eb]/10 lg:hidden"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-[#4b5f55] shadow-sm shadow-[#047857]/10 lg:hidden"
             aria-label="Open navigation"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -130,43 +130,43 @@ export function Topbar({ title, onMenuClick }) {
             </svg>
           </button>
 
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
             <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
           </div>
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em]">
-              <span className="truncate text-[#2563eb]">{clubLabel}</span>
+              <span className="truncate text-[#047857]">{clubLabel}</span>
               <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[#166534]">
                 {todayLabel}
               </span>
             </div>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-[#0f172a] sm:text-3xl">
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
               {title}
             </h1>
-            <p className="mt-1 text-sm font-semibold leading-6 text-[#475569]">
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
               {nextActionLabel}
             </p>
           </div>
         </div>
 
-        <div className="grid w-full gap-2 rounded-lg border border-[#d8e3ee] bg-white p-2 shadow-sm shadow-[#2563eb]/10">
+        <div className="grid w-full gap-2 rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-sm shadow-[#047857]/10">
           <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-2">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">View</p>
-                <p className="mt-1 truncate text-sm font-black text-[#0f172a]">{workspaceContext}</p>
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">View</p>
+                <p className="mt-1 truncate text-sm font-black text-[#101828]">{workspaceContext}</p>
               </div>
-              <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-2">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">Focus</p>
-                <p className="mt-1 truncate text-sm font-black text-[#0f172a]">{teamLabel}</p>
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">Focus</p>
+                <p className="mt-1 truncate text-sm font-black text-[#101828]">{teamLabel}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 md:grid-cols-[auto_auto]">
               <Link
                 to="/user-settings"
-                className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-sm font-black leading-none text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#eff6ff]"
+                className="inline-flex min-h-11 min-w-[7.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black leading-none text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#ecfdf5]"
               >
                 Settings
               </Link>
@@ -175,7 +175,7 @@ export function Topbar({ title, onMenuClick }) {
                 onClick={handleSignOut}
                 disabled={isSigningOut}
                 title={isSigningOut ? 'Please wait while you are signed out.' : undefined}
-                className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#f4b6b6] bg-white px-3 py-3 text-sm font-black leading-none text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSigningOut ? 'Signing out...' : 'Sign out'}
               </button>
@@ -186,13 +186,13 @@ export function Topbar({ title, onMenuClick }) {
             <div className="grid gap-2 md:grid-cols-2">
               {isDemoUser(displayUser) ? (
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
+                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
                     Demo role
                   </span>
                   <select
                     value={demoRoleKey || ''}
                     onChange={(event) => setDemoRolePreview(event.target.value)}
-                    className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6]"
+                    className="min-h-11 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#0f9f6e]"
                   >
                     <option value="">Default role</option>
                     {DEMO_ROLE_OPTIONS.map((role) => (
@@ -205,18 +205,18 @@ export function Topbar({ title, onMenuClick }) {
               ) : null}
               {shouldShowWorkspaceSelector ? (
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
-                    Workspace view
+                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
+                    Access view
                   </span>
                   <select
                     value={isPlatformAdminView ? '__platform_admin__' : isParentPortalView ? '__parent_portal__' : displayUser?.activeTeamId || ''}
                     onChange={handleTeamChange}
                     disabled={isSwitchingTeam}
                     title={isSwitchingTeam ? 'Please wait while the workspace changes.' : undefined}
-                    className="min-h-11 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] outline-none transition focus:border-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="min-h-11 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] outline-none transition focus:border-[#0f9f6e] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
-                    {hasParentPortalAccess ? <option value="__parent_portal__">Parent Portal</option> : null}
+                    {hasParentPortalAccess ? <option value="__parent_portal__">Family portal</option> : null}
                     {isPlatformAdminView
                       ? clubOptions.map((club) => (
                           <option key={club.clubId} value={`__club__:${club.clubId}`}>
@@ -237,13 +237,13 @@ export function Topbar({ title, onMenuClick }) {
             </div>
 
             <div className="grid gap-2 sm:grid-cols-[1fr_auto] md:min-w-[16rem]">
-              <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-3 py-2">
-                <p className="truncate text-xs font-black text-[#0f172a]">{workLaneLabel}</p>
-                <p className="mt-1 truncate text-[11px] font-semibold text-[#64748b]">{roleLabel}, {userLabel}</p>
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                <p className="truncate text-xs font-black text-[#101828]">{workLaneLabel}</p>
+                <p className="mt-1 truncate text-[11px] font-semibold text-[#66756c]">{roleLabel}, {userLabel}</p>
               </div>
               <InstallAppButton
                 wrapperClassName="lg:hidden"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#2563eb] bg-[#2563eb] px-3 py-3 text-sm font-black text-white"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#047857] bg-[#047857] px-3 py-3 text-sm font-black text-white"
               />
             </div>
           </div>

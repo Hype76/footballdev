@@ -48,8 +48,8 @@ export function EvaluationExportFieldsSelector({
           className={[
             'inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-xs font-black transition',
             isDragLocked
-              ? 'border-[#cbd5e1] bg-white text-[#0f172a] hover:border-[#2563eb] hover:bg-[#eff6ff]'
-              : 'border-[#bfdbfe] bg-[#eff6ff] text-[#2563eb]',
+              ? 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857] hover:bg-[#ecfdf5]'
+              : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]',
           ].join(' ')}
         >
           {isDragLocked ? 'Unlock drag' : 'Lock drag'}
@@ -105,23 +105,23 @@ export function EvaluationExportFieldsSelector({
                 onReorderExportField(sourceLabel, itemLabel, responseItems)
               }}
               className={[
-                'flex min-h-11 items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm font-semibold text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition',
+                'flex min-h-11 items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm font-semibold text-[#101828] shadow-sm shadow-[#047857]/10 transition',
                 isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
                 draggedLabel === itemLabel ? 'opacity-60' : '',
                 dragOverLabel === itemLabel
-                  ? 'border-[#2563eb] ring-2 ring-[#dbeafe]'
-                  : 'border-[#cbd5e1]',
+                  ? 'border-[#047857] ring-2 ring-[#d1fae5]'
+                  : 'border-[#d7e5dc]',
               ].join(' ')}
             >
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => onToggleExportField(itemLabel, responseItems)}
-                className="mt-1 h-4 w-4 accent-[#2563eb]"
+                className="mt-1 h-4 w-4 accent-[#047857]"
               />
               <span className="min-w-0">
                 <span className="block font-black">{itemLabel}</span>
-                <span className="block break-words text-xs font-semibold leading-5 text-[#475569]">
+                <span className="block break-words text-xs font-semibold leading-5 text-[#4b5f55]">
                   {String(item.value ?? '').trim() || 'No data entered'}
                 </span>
               </span>

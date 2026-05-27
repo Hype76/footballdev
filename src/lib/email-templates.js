@@ -453,7 +453,7 @@ export function buildParentEmailTemplate({
   decision = 'Progress',
   templateKey = '',
 } = {}) {
-  const resolvedParentName = normalizeText(parentName, 'Parent/Guardian')
+  const resolvedParentName = normalizeText(parentName, 'Parent or guardian')
   const resolvedPlayerName = normalizeText(playerName, 'the player')
   const resolvedPlayerFirstName = normalizeText(splitPlayerName(resolvedPlayerName).playerFirstName, resolvedPlayerName)
   const resolvedCoachName = normalizeText(coachName, 'Coaching Team')

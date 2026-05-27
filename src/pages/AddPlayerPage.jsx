@@ -369,32 +369,32 @@ export function AddPlayerPage() {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Player intake</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-4xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Player intake</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-4xl">
               Register the footballer before anything else starts.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
               Create one usable record with team, status, positions, and parent contacts so sessions, match day, and family messages all point to the same player.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {playerIntakeRules.map((item) => (
-                <article key={item.label} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">{item.label}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{item.body}</p>
+                <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{item.label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.body}</p>
                 </article>
               ))}
             </div>
           </div>
-          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
+          <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Intake state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Intake state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
                 {players.length} footballers already registered
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
                 Current intake target: {activeTeamLabel}. Check the register, then add the next player once.
               </p>
             </div>
@@ -404,7 +404,7 @@ export function AddPlayerPage() {
               <IntakeMetric label="Contacts" value={playerContactCount} isLoading={isLoading} />
               <IntakeMetric label="Capacity" value={remainingPlayerCapacity} isLoading={isLoading} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#475569]">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
               Squad players with contact emails can be invited to the parent portal straight after save.
             </p>
           </div>
@@ -419,7 +419,7 @@ export function AddPlayerPage() {
       ) : null}
 
       {message ? (
-        <div className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-3 text-sm font-black text-[#2563eb] shadow-sm shadow-[#2563eb]/10">
+        <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] shadow-sm shadow-[#047857]/10">
           {message}
         </div>
       ) : null}
@@ -471,9 +471,9 @@ export function AddPlayerPage() {
 
 function IntakeMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 shadow-sm shadow-[#2563eb]/10">
-      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#0f172a]">{isLoading ? '...' : value}</p>
+    <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 shadow-sm shadow-[#047857]/10">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
     </div>
   )
 }

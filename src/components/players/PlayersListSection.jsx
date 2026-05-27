@@ -3,10 +3,10 @@ import { formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageU
 import { Pagination } from '../ui/Pagination.jsx'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:ring-2 focus:ring-[#bfdbfe]'
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#475569]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#101828]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayersListSection({
   actionLoadingKey,
@@ -47,24 +47,24 @@ export function PlayersListSection({
   return (
     <section
       data-tour-id="players-list-section"
-      className="overflow-hidden rounded-lg border border-[#d8e3ee] bg-white shadow-sm shadow-[#0f172a]/5"
+      className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5"
     >
-      <div className="border-b border-[#d8e3ee] bg-[#f8fbfd] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1d4ed8]">Live register</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Find the footballer before you change the workflow</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#065f46]">Live register</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Find the footballer before you change the workflow</h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
               Search by player, team, or position. Filter by section, then open the profile when the decision needs parent or development context.
             </p>
           </div>
-          <div className="rounded-lg border border-[#bfdbfe] bg-white px-4 py-3 text-sm font-black text-[#1d4ed8] shadow-sm shadow-[#1d4ed8]/10">
+          <div className="rounded-lg border border-[#bbf7d0] bg-white px-4 py-3 text-sm font-black text-[#065f46] shadow-sm shadow-[#065f46]/10">
             {filteredPlayers.length} matching players
           </div>
         </div>
       </div>
 
-      <div className="grid gap-4 border-b border-[#d8e3ee] bg-white px-5 py-5 sm:px-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 border-b border-[#d7e5dc] bg-white px-5 py-5 sm:px-6 md:grid-cols-2 lg:grid-cols-3">
         <label className="block md:col-span-2">
           <span className={labelClass}>Search player register</span>
           <input
@@ -120,19 +120,19 @@ export function PlayersListSection({
             return (
               <div
                 key={getPlayerKey(player.playerName)}
-                className="relative overflow-hidden rounded-lg border border-[#d8e3ee] bg-white shadow-sm shadow-[#0f172a]/5 transition hover:-translate-y-0.5 hover:border-[#2563eb] hover:shadow-md"
+                className="relative overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5 transition hover:-translate-y-0.5 hover:border-[#047857] hover:shadow-md"
               >
                 <div className={['absolute inset-y-0 left-0 w-1', stripeClass].join(' ')} />
                 <button
                   type="button"
                   onClick={() => onOpenPlayer(player)}
-                  className="w-full px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#2563eb]"
+                  className="w-full px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#047857]"
                 >
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(7rem,1fr))] xl:items-center">
                     <div>
                       <div className="flex max-w-full flex-col gap-2 sm:flex-row sm:items-center">
                         <p
-                          className="min-w-0 truncate text-lg font-black text-[#0f172a]"
+                          className="min-w-0 truncate text-lg font-black text-[#101828]"
                           title={player.playerName}
                         >
                           {player.playerName}
@@ -141,35 +141,35 @@ export function PlayersListSection({
                           {isSquadPlayer ? 'Squad player' : 'Trial player'}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm font-bold text-[#475569]">{player.team || 'No team entered'}</p>
-                      <p className="mt-1 text-sm font-semibold text-[#475569]">
+                      <p className="mt-2 text-sm font-bold text-[#4b5f55]">{player.team || 'No team entered'}</p>
+                      <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
                         {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
                       </p>
                     </div>
                     <div>
                       <p className={eyebrowClass}>Section</p>
-                      <p className="mt-2 text-sm font-black text-[#0f172a]">{player.section}</p>
+                      <p className="mt-2 text-sm font-black text-[#101828]">{player.section}</p>
                     </div>
                     <div>
                       <p className={eyebrowClass}>Last Score</p>
-                      <p className="mt-2 text-sm font-black text-[#0f172a]">
+                      <p className="mt-2 text-sm font-black text-[#101828]">
                         {player.latestScore !== null ? player.latestScore.toFixed(1) : '-'}
                       </p>
                     </div>
                     <div>
                       <p className={eyebrowClass}>Average</p>
-                      <p className="mt-2 text-sm font-black text-[#0f172a]">
+                      <p className="mt-2 text-sm font-black text-[#101828]">
                         {player.averageScore !== null ? player.averageScore.toFixed(1) : '-'}
                       </p>
                     </div>
                     <div>
                       <p className={eyebrowClass}>Last Seen</p>
-                      <p className="mt-2 text-sm font-black text-[#0f172a]">{formatPlayerDate(player.latestDate)}</p>
+                      <p className="mt-2 text-sm font-black text-[#101828]">{formatPlayerDate(player.latestDate)}</p>
                     </div>
                   </div>
                 </button>
-                <div className="grid gap-3 border-t border-[#d8e3ee] bg-[#f8fbfd] px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                  <p className="text-sm font-semibold leading-6 text-[#475569]">
+                <div className="grid gap-3 border-t border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                  <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
                     {player.totalEvaluations > 0
                       ? `${player.totalEvaluations} development record${player.totalEvaluations === 1 ? '' : 's'} attached.`
                       : 'No development records yet. Start from a session or profile when the player is ready.'}
@@ -198,7 +198,7 @@ export function PlayersListSection({
                   <button
                     type="button"
                     onClick={() => onOpenPlayer(player)}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46]"
                   >
                     Open profile
                   </button>

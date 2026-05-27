@@ -196,11 +196,11 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f8fafc] text-[#0f172a]">
+    <main className="min-h-screen overflow-hidden bg-[#f7faf8] text-[#101828]">
       <div className="fixed inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-white/88" />
-        <div className="absolute inset-0 bg-[#f8fafc]/70" />
+        <div className="absolute inset-0 bg-[#f7faf8]/70" />
       </div>
 
       <div className="relative flex min-h-screen w-full flex-col">
@@ -208,11 +208,11 @@ export function LoginPage() {
 
         <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-8 lg:py-10">
           <section>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Football club workspace</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-[#0f172a] sm:text-4xl xl:text-5xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Football club workspace</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-[#101828] sm:text-4xl xl:text-5xl">
               Run the football week from one practical club system.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569] sm:text-lg sm:leading-8">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55] sm:text-lg sm:leading-8">
               Manage players, teams, availability, match day, parent communication, and development records without scattering work across chats and spreadsheets.
             </p>
 
@@ -222,23 +222,23 @@ export function LoginPage() {
                 ['Use real records', 'Every workflow starts from football data the club already understands.'],
                 ['Keep roles clear', 'Club admins, team staff, and parents only see the actions their access allows.'],
               ].map(([title, copy]) => (
-                <article key={title} className="rounded-lg border border-[#cbd5e1] bg-white/95 p-4 shadow-sm shadow-[#2563eb]/10 backdrop-blur">
-                  <p className="text-sm font-black text-[#0f172a]">{title}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{copy}</p>
+                <article key={title} className="rounded-lg border border-[#d7e5dc] bg-white/95 p-4 shadow-sm shadow-[#047857]/10 backdrop-blur">
+                  <p className="text-sm font-black text-[#101828]">{title}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</p>
                 </article>
               ))}
             </div>
 
-            <div className="mt-7 grid gap-3 rounded-lg border border-[#cbd5e1] bg-[#eff6ff]/95 p-4 shadow-sm shadow-[#2563eb]/10 backdrop-blur sm:grid-cols-[0.9fr_1.1fr] sm:p-5">
+            <div className="mt-7 grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#ecfdf5]/95 p-4 shadow-sm shadow-[#047857]/10 backdrop-blur sm:grid-cols-[0.9fr_1.1fr] sm:p-5">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">First useful action</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">First useful action</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
                   Log in, open the setup board, then complete the first team and player checks before running sessions or parent messages.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-black text-[#0f172a] sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 text-xs font-black text-[#101828] sm:grid-cols-4">
                 {['Club', 'Team', 'Players', 'Parents'].map((item) => (
-                  <span key={item} className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-3 text-center">
+                  <span key={item} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-center">
                     {item}
                   </span>
                 ))}

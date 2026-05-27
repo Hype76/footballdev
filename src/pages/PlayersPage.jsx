@@ -320,30 +320,30 @@ export function PlayersPage({
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#d8e3ee] bg-white shadow-sm shadow-[#0f172a]/5">
+      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5">
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div>
             <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">{headerEyebrow}</p>
-              <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-4xl">{headerTitle}</h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">{headerDescription}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">{headerEyebrow}</p>
+              <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">{headerTitle}</h1>
+              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">{headerDescription}</p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {playerRegisterRules.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] p-4 shadow-sm shadow-[#0f172a]/5">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1d4ed8]">{item.label}</p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{item.body}</p>
+                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#101828]/5">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">{item.label}</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.body}</p>
                   </article>
                 ))}
               </div>
             </div>
           </div>
-          <div className="grid content-between border-t border-[#bfdbfe] bg-[#eff6ff] p-5 sm:p-6 xl:border-l xl:border-t-0">
+          <div className="grid content-between border-t border-[#bbf7d0] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1d4ed8]">Register state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Register state</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
                 {playerRows.length} footballers tracked
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
                 {filteredPlayers.length} match the current search and filters.
               </p>
             </div>
@@ -353,7 +353,7 @@ export function PlayersPage({
               <PlayerMetric label="Records" value={totalEvaluations} isLoading={isLoading} />
               <PlayerMetric label="No record" value={playersWithoutRecords} isLoading={isLoading} />
             </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#475569]">
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
               Add players once, then let every football workflow point back to the same record.
             </p>
           </div>
@@ -362,18 +362,18 @@ export function PlayersPage({
 
       {errorMessage ? <NoticeBanner title="Player data is partly available" message={errorMessage} tone="info" /> : null}
       {!isValidViewFilter || !isValidSectionFilter ? (
-        <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-4 py-4 text-sm font-semibold text-[#0f172a] shadow-sm shadow-[#0f172a]/5">
+        <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold text-[#101828] shadow-sm shadow-[#101828]/5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-bold">Player filters were reset</p>
-              <p className="mt-1 leading-6 text-[#475569]">
+              <p className="mt-1 leading-6 text-[#4b5f55]">
                 The link used an unknown filter, so the full player list is shown instead.
               </p>
             </div>
             <button
               type="button"
               onClick={clearInvalidFilters}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-bold text-[#0f172a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-bold text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
             >
               Clear filters
             </button>
@@ -381,7 +381,7 @@ export function PlayersPage({
         </div>
       ) : null}
       {message ? (
-        <div className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-3 text-sm font-bold text-[#2563eb]">
+        <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#047857]">
           {message}
         </div>
       ) : null}
@@ -427,9 +427,9 @@ export function PlayersPage({
 
 function PlayerMetric({ isLoading, label, value }) {
   return (
-    <div className="rounded-lg border border-[#bfdbfe] bg-white px-3 py-3 shadow-sm shadow-[#1d4ed8]/10">
-      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#1d4ed8]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#0f172a]">{isLoading ? '...' : value}</p>
+    <div className="rounded-lg border border-[#bbf7d0] bg-white px-3 py-3 shadow-sm shadow-[#065f46]/10">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#065f46]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
     </div>
   )
 }

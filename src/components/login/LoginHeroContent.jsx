@@ -15,34 +15,34 @@ export function LoginHeroContent() {
     <section className="order-2 lg:order-1">
       <div className="grid max-w-6xl gap-6 lg:grid-cols-[1fr_23rem] lg:items-end">
         <div>
-          <div className="inline-flex rounded-lg border border-[#bfdbfe] bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb] shadow-sm shadow-[#2563eb]/10 backdrop-blur">
+          <div className="inline-flex rounded-lg border border-[#bbf7d0] bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#047857] shadow-sm shadow-[#047857]/10 backdrop-blur">
             Football club operations
           </div>
-          <h1 className="mt-5 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#0f172a] sm:text-5xl">
+          <h1 className="mt-5 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-5xl">
             The football week, rebuilt around real club work.
           </h1>
-          <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#475569] sm:text-lg sm:leading-8">
+          <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55] sm:text-lg sm:leading-8">
             Set up the club, teams, players, staff access, parent links, availability, sessions, match day, and development records in one practical operating system.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a
               href="/sign-in"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8]"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46]"
             >
               Open workspace
             </a>
             <a
               href="/features"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white/95 px-5 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:bg-[#eff6ff]"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white/95 px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#ecfdf5]"
             >
               Explore features
             </a>
           </div>
         </div>
 
-        <aside className="rounded-lg border border-[#cbd5e1] bg-white/94 p-4 shadow-lg shadow-[#0f172a]/10 backdrop-blur sm:p-5">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Club week board</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+        <aside className="rounded-lg border border-[#d7e5dc] bg-white/94 p-4 shadow-lg shadow-[#101828]/10 backdrop-blur sm:p-5">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Club week board</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
             The first screen should show what needs doing, what data is missing, and where staff should go next.
           </p>
           <div className="mt-4 grid gap-3">
@@ -52,9 +52,9 @@ export function LoginHeroContent() {
               ['Match day', 'Squad not locked'],
               ['Coach records', 'Notes due'],
             ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-3">
-                <span className="text-sm font-black text-[#0f172a]">{label}</span>
-                <span className="text-xs font-black text-[#2563eb]">{value}</span>
+              <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
+                <span className="text-sm font-black text-[#101828]">{label}</span>
+                <span className="text-xs font-black text-[#047857]">{value}</span>
               </div>
             ))}
           </div>
@@ -62,28 +62,28 @@ export function LoginHeroContent() {
       </div>
 
       <div className="mt-7 grid max-w-6xl gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff]/95 p-5 shadow-sm shadow-[#2563eb]/10 backdrop-blur sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">First run setup</p>
+        <section className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5]/95 p-5 shadow-sm shadow-[#047857]/10 backdrop-blur sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">First run setup</p>
           <div className="mt-5 grid gap-3">
             {setupSteps.map(([number, title, copy]) => (
-              <article key={title} className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-lg border border-[#cbd5e1] bg-white p-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-black text-white">{number}</span>
+              <article key={title} className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-lg border border-[#d7e5dc] bg-white p-4">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#047857] text-sm font-black text-white">{number}</span>
                 <span>
-                  <span className="block text-sm font-black text-[#0f172a]">{title}</span>
-                  <span className="mt-1 block text-sm font-semibold leading-6 text-[#475569]">{copy}</span>
+                  <span className="block text-sm font-black text-[#101828]">{title}</span>
+                  <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</span>
                 </span>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="rounded-lg border border-[#cbd5e1] bg-white/95 p-5 shadow-sm shadow-[#2563eb]/10 backdrop-blur sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Run the week</p>
+        <section className="rounded-lg border border-[#d7e5dc] bg-white/95 p-5 shadow-sm shadow-[#047857]/10 backdrop-blur sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Run the week</p>
           <div className="mt-5 grid gap-3">
             {weeklyTools.map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4">
-                <p className="text-sm font-black text-[#0f172a]">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">{copy}</p>
+              <article key={title} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <p className="text-sm font-black text-[#101828]">{title}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</p>
               </article>
             ))}
           </div>

@@ -5,12 +5,12 @@ import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewEndSeasonStats, useAuth } from '../lib/auth.js'
 import { getEndSeasonStats, getTeams, withRequestTimeout } from '../lib/supabase.js'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#3b82f6] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]'
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
-const emptyStateClass = 'rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-5 text-sm font-bold text-[#475569] shadow-sm shadow-[#2563eb]/10'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
-const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#eff6ff] shadow-sm shadow-[#2563eb]/10'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
+const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
+const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] shadow-sm shadow-[#047857]/10'
 
 const seasonRules = [
   {
@@ -162,30 +162,30 @@ export function EndSeasonStatsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Season review</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-[#0f172a] sm:text-4xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Season review</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-[#101828] sm:text-4xl">
               Turn match day records into a clear end-of-season football review.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
               Review year-to-date goals, assists, and Player of the Match votes before you publish awards or plan next season.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {seasonRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
-                  <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
+                <div key={rule.label} className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 shadow-sm shadow-[#047857]/10">
+                  <p className="text-sm font-black text-[#101828]">{rule.label}</p>
                   <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-5 shadow-sm shadow-[#2563eb]/10">
+          <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Selected view</p>
-              <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#0f172a]">{selectedTeamName}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Selected view</p>
+              <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#101828]">{selectedTeamName}</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 {isLoading ? 'Loading current season stats.' : `${activePlayers} squad players included in this review.`}
               </p>
@@ -254,11 +254,11 @@ export function EndSeasonStatsPage() {
             Loading end of season stats...
           </p>
         ) : sortedStats.length > 0 ? (
-          <div className="overflow-hidden rounded-lg border border-[#cbd5e1] shadow-sm shadow-[#2563eb]/10">
+          <div className="overflow-hidden rounded-lg border border-[#d7e5dc] shadow-sm shadow-[#047857]/10">
             <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-[#eff6ff] text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
-                <tr className="border-b border-[#cbd5e1]">
+              <thead className="bg-[#ecfdf5] text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
+                <tr className="border-b border-[#d7e5dc]">
                   <SortableHeader field="playerName" label="Player" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader field="teamName" label="Team" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader align="right" field="goals" label="Goals" sortConfig={sortConfig} onSort={updateSort} />
@@ -268,14 +268,14 @@ export function EndSeasonStatsPage() {
               </thead>
               <tbody>
                 {sortedStats.map((player) => (
-                  <tr key={player.playerId} className="border-b border-[#cbd5e1] bg-white last:border-0 hover:bg-[#eff6ff]">
-                    <td className="px-3 py-3 font-black text-[#0f172a]">
+                  <tr key={player.playerId} className="border-b border-[#d7e5dc] bg-white last:border-0 hover:bg-[#ecfdf5]">
+                    <td className="px-3 py-3 font-black text-[#101828]">
                       {player.shirtNumber ? `#${player.shirtNumber} ` : ''}{player.playerName}
                     </td>
-                    <td className="px-3 py-3 font-semibold text-[#475569]">{player.teamName || 'No team'}</td>
-                    <td className="px-3 py-3 text-right font-black text-[#0f172a]">{player.goals}</td>
-                    <td className="px-3 py-3 text-right font-black text-[#0f172a]">{player.assists}</td>
-                    <td className="px-3 py-3 text-right font-black text-[#0f172a]">{player.motmVotes}</td>
+                    <td className="px-3 py-3 font-semibold text-[#4b5f55]">{player.teamName || 'No team'}</td>
+                    <td className="px-3 py-3 text-right font-black text-[#101828]">{player.goals}</td>
+                    <td className="px-3 py-3 text-right font-black text-[#101828]">{player.assists}</td>
+                    <td className="px-3 py-3 text-right font-black text-[#101828]">{player.motmVotes}</td>
                   </tr>
                 ))}
               </tbody>
@@ -295,17 +295,17 @@ export function EndSeasonStatsPage() {
 function AwardCard({ title, value }) {
   return (
     <article className={`${panelClass} p-4`}>
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{title}</p>
-      <p className="mt-3 text-lg font-black text-[#0f172a]">{value}</p>
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{title}</p>
+      <p className="mt-3 text-lg font-black text-[#101828]">{value}</p>
     </article>
   )
 }
 
 function SeasonMetric({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">{label}</p>
-      <p className="mt-2 break-words text-2xl font-black text-[#0f172a]">{value}</p>
+    <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{label}</p>
+      <p className="mt-2 break-words text-2xl font-black text-[#101828]">{value}</p>
     </div>
   )
 }
@@ -321,9 +321,9 @@ function SortableHeader({ align = 'left', field, label, onSort, sortConfig }) {
         type="button"
         onClick={() => onSort(field)}
         aria-label={`Sort ${label} ${directionLabel}`}
-        className={`inline-flex items-center gap-1 font-black uppercase tracking-[0.14em] transition hover:text-[#0f172a] ${
+        className={`inline-flex items-center gap-1 font-black uppercase tracking-[0.14em] transition hover:text-[#101828] ${
           align === 'right' ? 'justify-end' : 'justify-start'
-        } ${isActive ? 'text-[#2563eb]' : 'text-[#475569]'}`}
+        } ${isActive ? 'text-[#047857]' : 'text-[#4b5f55]'}`}
       >
         <span>{label}</span>
         <span aria-hidden="true" className="text-[0.62rem]">{sortLabel}</span>

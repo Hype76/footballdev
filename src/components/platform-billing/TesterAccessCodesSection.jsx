@@ -13,7 +13,7 @@ export function TesterAccessCodesSection({
       description="These codes grant temporary access. Expired tester accounts keep their data and must choose a paid plan to continue."
     >
       {sortedTesterCodes.length === 0 ? (
-        <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-[#475569] shadow-sm shadow-[#2563eb]/10">
+        <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
           No tester access codes have been created yet.
         </div>
       ) : (
@@ -23,28 +23,28 @@ export function TesterAccessCodesSection({
             const hasExpired = code.expiresAt && new Date(code.expiresAt).getTime() <= currentTime
 
             return (
-              <div key={code.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10">
+              <div key={code.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-[#0f172a]">{code.label || code.code}</p>
-                    <p className="mt-1 text-sm font-black uppercase tracking-[0.14em] text-[#2563eb]">{code.code}</p>
+                    <p className="font-black text-[#101828]">{code.label || code.code}</p>
+                    <p className="mt-1 text-sm font-black uppercase tracking-[0.14em] text-[#047857]">{code.code}</p>
                   </div>
-                  <span className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb] shadow-sm shadow-[#2563eb]/10">
+                  <span className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#047857] shadow-sm shadow-[#047857]/10">
                     {hasExpired ? 'Expired' : code.isActive ? 'Active' : 'Disabled'}
                   </span>
                 </div>
-                <div className="mt-4 space-y-2 text-sm font-semibold text-[#475569]">
-                  <p><span className="font-black text-[#0f172a]">Plan:</span> {planLabel}</p>
-                  <p><span className="font-black text-[#0f172a]">Email:</span> {code.assignedEmail || 'Any email'}</p>
-                  <p><span className="font-black text-[#0f172a]">Uses:</span> {code.redeemedCount} of {code.maxUses}</p>
-                  <p><span className="font-black text-[#0f172a]">Expires:</span> {formatDate(code.expiresAt)}</p>
+                <div className="mt-4 space-y-2 text-sm font-semibold text-[#4b5f55]">
+                  <p><span className="font-black text-[#101828]">Plan:</span> {planLabel}</p>
+                  <p><span className="font-black text-[#101828]">Email:</span> {code.assignedEmail || 'Any email'}</p>
+                  <p><span className="font-black text-[#101828]">Uses:</span> {code.redeemedCount} of {code.maxUses}</p>
+                  <p><span className="font-black text-[#101828]">Expires:</span> {formatDate(code.expiresAt)}</p>
                 </div>
                 <button
                   type="button"
                   disabled={updatingTesterCodeId === code.id}
                   title={updatingTesterCodeId === code.id ? 'Please wait while this tester code is being updated.' : undefined}
                   onClick={() => onToggleTesterCode(code)}
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {updatingTesterCodeId === code.id ? 'Saving...' : code.isActive ? 'Disable code' : 'Enable code'}
                 </button>

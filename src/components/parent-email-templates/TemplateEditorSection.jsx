@@ -2,12 +2,12 @@ import { useEffect, useRef } from 'react'
 import { EMAIL_TEMPLATE_FIELDS, EMAIL_TEMPLATE_SECTIONS } from '../../lib/email-templates.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]'
-const textareaClass = 'w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-semibold leading-6 text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white focus:ring-2 focus:ring-[#bfdbfe]'
-const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 shadow-sm shadow-[#2563eb]/10'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-5 py-3 text-sm font-black text-[#0f172a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
+const textareaClass = 'w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
+const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-5 py-3 text-sm font-black text-[#b42318] transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function TemplateEditorSection({
@@ -97,7 +97,7 @@ export function TemplateEditorSection({
   if (isLoading) {
     return (
       <SectionCard title="Templates" description="Loading club templates.">
-        <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 text-sm font-semibold text-[#475569]">
+        <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold text-[#4b5f55]">
           Loading templates...
         </div>
       </SectionCard>
@@ -133,13 +133,13 @@ export function TemplateEditorSection({
                   : `Save this default before it can be used for ${audience} emails.`
             }
           >
-            <div className="space-y-4 rounded-lg border border-[#cbd5e1] bg-white p-5 shadow-sm shadow-[#2563eb]/10">
-              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-sm font-black text-[#0f172a]">
+            <div className="space-y-4 rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
                 <input
                   type="checkbox"
                   checked={template.isEnabled !== false}
                   onChange={(event) => onTemplateChange(template.key, 'isEnabled', event.target.checked)}
-                  className="h-4 w-4 rounded border-[#cbd5e1] accent-[#2563eb]"
+                  className="h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
                 />
                 <span>Available for this club</span>
               </label>
@@ -158,7 +158,7 @@ export function TemplateEditorSection({
             ) : null}
 
             <div className={panelClass}>
-              <p className="text-sm font-black text-[#0f172a]">Available for sections</p>
+              <p className="text-sm font-black text-[#101828]">Available for sections</p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {EMAIL_TEMPLATE_SECTIONS.map((section) => {
                   const selectedSections = Array.isArray(template.sectionAvailability)
@@ -168,13 +168,13 @@ export function TemplateEditorSection({
                   return (
                     <label
                       key={section}
-                      className="flex min-h-10 items-center gap-2 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a]"
+                      className="flex min-h-10 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828]"
                     >
                       <input
                         type="checkbox"
                         checked={selectedSections.includes(section)}
                         onChange={(event) => onSectionToggle(template.key, section, event.target.checked)}
-                        className="h-4 w-4 rounded border-[#cbd5e1] accent-[#2563eb]"
+                        className="h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
                       />
                       <span>{section}</span>
                     </label>
@@ -211,7 +211,7 @@ export function TemplateEditorSection({
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => insertFieldAtCursor(template, field.key)}
-                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-xs font-black text-[#0f172a] transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
                 >
                   {`Add {${field.key}}`}
                 </button>

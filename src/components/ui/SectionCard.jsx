@@ -73,12 +73,12 @@ export function SectionCard({
   return (
     <section
       data-tour-id={tourId}
-      className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/5"
+      className="min-w-0 scroll-mt-28 overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/5"
     >
-      <div className="flex flex-col gap-4 border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+      <div className="flex flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div className="min-w-0">
-          <h3 className="text-2xl font-black tracking-tight text-[#0f172a]">{title}</h3>
-          {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">{description}</p> : null}
+          <h3 className="text-2xl font-black tracking-tight text-[#101828]">{title}</h3>
+          {description ? <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">{description}</p> : null}
         </div>
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           {actions ? <div className="w-full sm:w-auto">{actions}</div> : null}
@@ -87,7 +87,7 @@ export function SectionCard({
             onClick={handleToggle}
             aria-controls={contentId}
             aria-expanded={isOpen}
-            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#cbd5e1] bg-white px-4 py-2 text-sm font-black text-[#475569] shadow-sm shadow-[#2563eb]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
+            className="inline-flex min-h-10 min-w-[6.25rem] items-center justify-center whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-black text-[#4b5f55] shadow-sm shadow-[#047857]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5]"
           >
             {isOpen ? 'Collapse' : 'Expand'}
           </button>

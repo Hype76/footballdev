@@ -31,9 +31,9 @@ const templateRules = [
   },
 ]
 
-const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]'
-const bodyTextClass = 'text-sm font-semibold leading-6 text-[#475569]'
-const statCardClass = 'rounded-lg border border-[#cbd5e1] bg-white px-4 py-4 shadow-sm shadow-[#2563eb]/10'
+const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
+const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
+const statCardClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10'
 
 export function ParentEmailTemplatesPage() {
   const { user } = useAuth()
@@ -234,30 +234,30 @@ export function ParentEmailTemplatesPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
             <p className={eyebrowClass}>Message templates</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.02] tracking-tight text-[#0f172a] sm:text-4xl">
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
               Build the match week messages the club can trust.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#475569]">
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
               Prepare short parent and player updates with approved fields, clear audience rules, and team-specific saved copy.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {templateRules.map((rule) => (
-                <div key={rule.label} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-4 shadow-sm shadow-[#2563eb]/10">
-                  <p className="text-sm font-black text-[#0f172a]">{rule.label}</p>
+                <div key={rule.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 shadow-sm shadow-[#047857]/10">
+                  <p className="text-sm font-black text-[#101828]">{rule.label}</p>
                   <p className={`mt-2 ${bodyTextClass}`}>{rule.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid content-between rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-5 shadow-inner shadow-[#2563eb]/10">
+          <div className="grid content-between rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-5 shadow-inner shadow-[#047857]/10">
             <div>
               <p className={eyebrowClass}>Template state</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">{enabledTemplateCount} enabled for {audienceLabel} emails</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{enabledTemplateCount} enabled for {audienceLabel} emails</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 {templates.length} templates are loaded for the current audience.
               </p>
@@ -310,7 +310,7 @@ function TemplateMetric({ label, value }) {
   return (
     <div className={statCardClass}>
       <p className={eyebrowClass}>{label}</p>
-      <p className="mt-2 break-words text-2xl font-black text-[#0f172a]">{value}</p>
+      <p className="mt-2 break-words text-2xl font-black text-[#101828]">{value}</p>
     </div>
   )
 }

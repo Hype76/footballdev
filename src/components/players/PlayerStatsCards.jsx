@@ -29,7 +29,7 @@ export function PlayerStatsCards({
       detail: `${evaluatedPlayerCount} players have coach history attached.`,
       to: '/assess-player/completed',
       action: 'Review records',
-      tone: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]',
+      tone: 'border-[#bbf7d0] bg-[#ecfdf5] text-[#065f46]',
     },
   ]
 
@@ -40,19 +40,19 @@ export function PlayerStatsCards({
           key={card.label}
           to={card.to}
           aria-label={card.action}
-          className="group block rounded-lg border border-[#d8e3ee] bg-white p-5 shadow-sm shadow-[#0f172a]/5 transition hover:-translate-y-0.5 hover:border-[#2563eb] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
+          className="group block rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#101828]/5 transition hover:-translate-y-0.5 hover:border-[#047857] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#047857]"
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#475569]">{card.label}</p>
-              <p className="mt-3 text-4xl font-black tracking-tight text-[#0f172a]">{card.value}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">{card.label}</p>
+              <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{card.value}</p>
             </div>
             <span className={['inline-flex min-h-8 items-center rounded-lg border px-3 text-xs font-black', card.tone].join(' ')}>
               Register
             </span>
           </div>
-          <p className="mt-3 min-h-10 text-sm font-semibold leading-5 text-[#475569]">{card.detail}</p>
-          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition group-hover:bg-[#1d4ed8]">
+          <p className="mt-3 min-h-10 text-sm font-semibold leading-5 text-[#4b5f55]">{card.detail}</p>
+          <span className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition group-hover:bg-[#065f46]">
             {card.action}
           </span>
         </Link>

@@ -1,8 +1,8 @@
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const panelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] shadow-sm shadow-[#2563eb]/10'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#3b82f6] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PendingAllocationsSection({
   invitePage,
@@ -21,11 +21,11 @@ export function PendingAllocationsSection({
       description="Invited emails receive the saved role when they sign in. Remove stale invites before sending new ones."
     >
       {isLoading ? (
-        <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#475569]`}>
+        <div className={`${panelClass} px-4 py-4 text-sm font-semibold text-[#4b5f55]`}>
           Loading pending allocations...
         </div>
       ) : pendingInvites.length === 0 ? (
-        <div className={`${panelClass} px-4 py-6 text-sm font-semibold text-[#475569]`}>
+        <div className={`${panelClass} px-4 py-6 text-sm font-semibold text-[#4b5f55]`}>
           No pending allocations.
         </div>
       ) : (
@@ -37,8 +37,8 @@ export function PendingAllocationsSection({
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="break-words text-sm font-black text-[#0f172a]">{invite.email}</p>
-                  <p className="mt-1 text-sm font-semibold text-[#2563eb]">{invite.roleLabel}</p>
+                  <p className="break-words text-sm font-black text-[#101828]">{invite.email}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#047857]">{invite.roleLabel}</p>
                 </div>
                 <button
                   type="button"

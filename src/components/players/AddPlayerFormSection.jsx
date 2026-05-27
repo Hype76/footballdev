@@ -2,9 +2,9 @@ import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { CONTACT_TYPE_OPTIONS } from '../../hooks/players/addPlayerUtils.js'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
-const fieldClass = 'min-h-12 w-full rounded-lg border border-[#cbd5e1] bg-white px-4 py-3 text-sm font-bold text-[#0f172a] outline-none transition placeholder:text-[#64748b] focus:border-[#2563eb] focus:ring-2 focus:ring-[#cbd5e1]'
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#cbd5e1] bg-white text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60'
+const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-bold text-[#101828] outline-none transition placeholder:text-[#66756c] focus:border-[#047857] focus:ring-2 focus:ring-[#d7e5dc]'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function AddPlayerFormSection({
   availableTeams,
@@ -27,18 +27,18 @@ export function AddPlayerFormSection({
   return (
     <section
       data-tour-id="add-player-form-section"
-      className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10"
+      className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10"
     >
-      <div className="border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6">
+      <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Player details</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Create the football record</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Player details</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create the football record</h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
               {canAddMorePlayers ? 'Add the player once, then use their profile for development records, parent links, and match day work.' : playerLimitMessage}
             </p>
           </div>
-          <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-[#cbd5e1] bg-white px-4 text-sm font-black text-[#0f172a]">
+          <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-[#d7e5dc] bg-white px-4 text-sm font-black text-[#101828]">
             Trial or Squad
           </span>
         </div>
@@ -127,7 +127,7 @@ export function AddPlayerFormSection({
               type="submit"
               disabled={isAddingPlayer || !canAddMorePlayers}
               title={canAddMorePlayers ? undefined : playerLimitMessage}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isAddingPlayer ? 'Adding...' : 'Add player'}
             </button>
@@ -141,8 +141,8 @@ export function AddPlayerFormSection({
                   key={option.value}
                   className={`flex min-h-12 items-start gap-3 rounded-lg border px-4 py-3 text-sm font-semibold transition ${
                     normalizedContactType === option.value
-                      ? 'border-[#2563eb] bg-[#eff6ff] text-[#0f172a] shadow-sm shadow-[#2563eb]/10'
-                      : 'border-[#cbd5e1] bg-[#f8fafc] text-[#475569] shadow-sm shadow-[#2563eb]/10'
+                      ? 'border-[#047857] bg-[#ecfdf5] text-[#101828] shadow-sm shadow-[#047857]/10'
+                      : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55] shadow-sm shadow-[#047857]/10'
                   }`}
                 >
                   <input
@@ -151,10 +151,10 @@ export function AddPlayerFormSection({
                     value={option.value}
                     checked={normalizedContactType === option.value}
                     onChange={onChange}
-                    className="mt-1 h-4 w-4 accent-[#2563eb]"
+                    className="mt-1 h-4 w-4 accent-[#047857]"
                   />
                   <span>
-                    <span className="block font-black text-[#0f172a]">{option.label}</span>
+                    <span className="block font-black text-[#101828]">{option.label}</span>
                     <span className="mt-1 block text-xs leading-5">{option.description}</span>
                   </span>
                 </label>
@@ -169,8 +169,8 @@ export function AddPlayerFormSection({
               <div key={group.type} className="md:col-span-2 xl:col-span-2">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
-                    <span className="block text-sm font-black text-[#0f172a]">{group.title}</span>
-                    <span className="mt-1 block text-xs font-semibold leading-5 text-[#475569]">{group.description}</span>
+                    <span className="block text-sm font-black text-[#101828]">{group.title}</span>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">{group.description}</span>
                   </div>
                   <button
                     type="button"
@@ -182,10 +182,10 @@ export function AddPlayerFormSection({
                 </div>
                 <div className="space-y-3">
                   {contacts.map((contact, index) => (
-                    <div key={`${group.type}-${index}`} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-3 shadow-sm shadow-[#2563eb]/10">
+                    <div key={`${group.type}-${index}`} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3 shadow-sm shadow-[#047857]/10">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block">
-                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
+                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
                             {group.nameLabel}
                           </span>
                           <input
@@ -196,7 +196,7 @@ export function AddPlayerFormSection({
                           />
                         </label>
                         <label className="block">
-                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
+                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
                             {group.emailLabel}
                           </span>
                           <input
@@ -247,14 +247,14 @@ export function AddPlayerFormSection({
                     key={position}
                     type="button"
                     onClick={() => onRemovePosition(position)}
-                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-black text-[#0f172a] transition hover:bg-[#eff6ff]"
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5]"
                   >
                     Remove {position}
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-xs font-bold leading-5 text-[#475569]">Add one or more positions for this player.</p>
+              <p className="mt-2 text-xs font-bold leading-5 text-[#4b5f55]">Add one or more positions for this player.</p>
             )}
           </div>
         </form>

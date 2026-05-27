@@ -3,11 +3,11 @@ import { AVAILABLE_PLAYER_PAGE_SIZE, formatSessionDate, formatSessionType } from
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-const labelClass = 'mb-2 block text-sm font-black text-[#0f172a]'
-const inputClass = 'min-h-11 w-full rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#bfdbfe]'
-const emptyClass = 'rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-4 py-6 text-sm font-semibold text-[#475569] shadow-sm shadow-[#0f172a]/5'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d8e3ee] bg-white px-5 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60'
+const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
+const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0]'
+const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-6 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#101828]/5'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#101828]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function CoachOptionsSection({
   activePlayerSection,
@@ -51,7 +51,7 @@ export function CoachOptionsSection({
     >
       {sessions.length === 0 ? (
         <div className={emptyClass}>
-          <p className="font-black text-[#0f172a]">No sessions have been created yet.</p>
+          <p className="font-black text-[#101828]">No sessions have been created yet.</p>
           <p className="mt-2 leading-6">Create the first training or match block before adding a player queue.</p>
         </div>
       ) : (
@@ -89,10 +89,10 @@ export function CoachOptionsSection({
             </label>
           </div>
 
-          <div className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] px-4 py-4 text-sm font-semibold text-[#475569] shadow-sm shadow-[#0f172a]/5">
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#101828]/5">
             Adding players from {activePlayerSection || 'the selected list'} for {activePlayerTeam || 'this team'}.
             {selectedSessionAssessmentCount > 0 && canDeleteSessions ? (
-              <span className="mt-2 block text-xs font-black text-[#1d4ed8]">
+              <span className="mt-2 block text-xs font-black text-[#065f46]">
                 This session has {selectedSessionAssessmentCount} development records, so it cannot be deleted.
               </span>
             ) : null}
@@ -102,7 +102,7 @@ export function CoachOptionsSection({
             {paginatedPlayers.items.map((player) => (
               <label
                 key={player.id}
-                className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d8e3ee] bg-white px-4 py-3 text-sm font-black text-[#0f172a] shadow-sm shadow-[#0f172a]/5 transition hover:border-[#2563eb] hover:bg-[#eff6ff]"
+                className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#101828]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5]"
               >
                 <input
                   type="checkbox"
@@ -123,7 +123,7 @@ export function CoachOptionsSection({
 
           {filteredPlayers.length === 0 ? (
             <div className={emptyClass}>
-              <p className="font-black text-[#0f172a]">No players match this session list.</p>
+              <p className="font-black text-[#101828]">No players match this session list.</p>
               <p className="mt-2 leading-6">
                 No {String(activePlayerSection || 'selected').toLowerCase()} players are available for {activePlayerTeam || 'this team'}.
               </p>

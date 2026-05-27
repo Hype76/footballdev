@@ -2,11 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
 import { ScheduleDateTimePicker } from '../ui/ScheduleDateTimePicker.jsx'
 
-const optionPanelClass = 'rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-4 shadow-sm shadow-[#2563eb]/10'
-const choiceClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-black text-[#0f172a] shadow-sm shadow-[#2563eb]/10'
-const checkboxClass = 'mt-1 h-4 w-4 rounded border-[#cbd5e1] accent-[#2563eb]'
-const titleClass = 'block text-sm font-black text-[#0f172a]'
-const bodyClass = 'mt-1 block text-sm font-semibold leading-6 text-[#475569]'
+const optionPanelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
+const choiceClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10'
+const checkboxClass = 'mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]'
+const titleClass = 'block text-sm font-black text-[#101828]'
+const bodyClass = 'mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]'
 
 export function PlayerProfileModals({
   emailSendMode,
@@ -167,7 +167,7 @@ export function PlayerProfileModals({
                 value="now"
                 checked={emailSendMode !== 'scheduled'}
                 onChange={() => onEmailSendModeChange('now')}
-                className="h-4 w-4 accent-[#2563eb]"
+                className="h-4 w-4 accent-[#047857]"
               />
               Send now
             </label>
@@ -178,7 +178,7 @@ export function PlayerProfileModals({
                 value="scheduled"
                 checked={emailSendMode === 'scheduled'}
                 onChange={() => onEmailSendModeChange('scheduled')}
-                className="h-4 w-4 accent-[#2563eb]"
+                className="h-4 w-4 accent-[#047857]"
               />
               Schedule
             </label>

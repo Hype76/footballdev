@@ -303,7 +303,7 @@ function normalizeParentPortalProfile(authUser, parentLinks) {
     planStatus: 'active',
     isPlanComped: false,
     clubId: selectedLink?.clubId ?? '',
-    clubName: selectedLink?.clubName ?? 'Parent Portal',
+    clubName: selectedLink?.clubName ?? 'Family portal',
     clubLogoUrl: selectedLink?.clubLogoUrl ?? '',
     activeTeamId: selectedLink?.teamId ?? '',
     activeTeamName: selectedLink?.teamName ?? '',
