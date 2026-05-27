@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto'
-import { supabaseAdmin } from './_supabase.js'
+import process from 'node:process'
+import { createClient } from '@supabase/supabase-js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
+const STAGING_SUPABASE_URL = 'https://llpufwzvgxyczxcjwupu.supabase.co'
+const STAGING_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_4b2Gtqn6MFrPBrrxwnXzQA_cFfnd8BZ'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -9,6 +12,28 @@ function normalizeText(value) {
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
+}
+
+function isStagingHost(event) {
+  const host = normalizeText(event.headers['x-forwarded-host'] || event.headers.host).toLowerCase()
+  return host.includes('staging.footballplayer.online') || host.includes('football-os-staging')
+}
+
+function createPublicSupabaseClient(event) {
+  const useStaging = isStagingHost(event)
+  const supabaseUrl = useStaging ? STAGING_SUPABASE_URL : process.env.VITE_SUPABASE_URL
+  const publishableKey = useStaging ? STAGING_SUPABASE_PUBLISHABLE_KEY : process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+
+  if (!supabaseUrl || !publishableKey) {
+    throw new Error('Supabase environment is not configured.')
+  }
+
+  return createClient(supabaseUrl, publishableKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
 }
 
 function htmlResponse(statusCode, body) {
@@ -51,53 +76,37 @@ export async function handler(event) {
       }))
     }
 
-    const { data: request, error: requestError } = await supabaseAdmin
-      .from('match_day_availability_requests')
-      .select('id, player_name, expires_at, status')
-      .eq('token_hash', hashToken(token))
-      .maybeSingle()
+    const supabase = createPublicSupabaseClient(event)
+    const { data: responseRows, error: responseError } = await supabase.rpc('confirm_match_day_availability', {
+      token_hash_value: hashToken(token),
+      status_value: status,
+    })
 
-    if (requestError) {
-      throw requestError
+    if (responseError) {
+      throw responseError
     }
 
-    if (!request?.id) {
+    const response = responseRows?.[0] ?? null
+
+    if (!response?.request_id) {
       return htmlResponse(404, page({
         title: 'This response link was not found',
         message: 'Ask the club to send a new fixture availability request.',
       }))
     }
 
-    if (request.expires_at && new Date(request.expires_at).getTime() < Date.now()) {
-      await supabaseAdmin
-        .from('match_day_availability_requests')
-        .update({ status: 'expired', updated_at: new Date().toISOString() })
-        .eq('id', request.id)
-
+    if (response.response_status === 'expired') {
       return htmlResponse(410, page({
         title: 'This response link has expired',
         message: 'Ask the club to send a new fixture availability request.',
       }))
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from('match_day_availability_requests')
-      .update({
-        status,
-        responded_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', request.id)
-
-    if (updateError) {
-      throw updateError
-    }
-
     const statusLabel = status === 'unavailable' ? 'not available' : status
 
     return htmlResponse(200, page({
       title: 'Availability confirmed',
-      message: `${request.player_name || 'The player'} is marked as ${statusLabel}. You can close this page.`,
+      message: `${response.player_name || 'The player'} is marked as ${statusLabel}. You can close this page.`,
     }))
   } catch (error) {
     console.error(error)

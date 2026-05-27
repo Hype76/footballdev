@@ -1,8 +1,11 @@
 import process from 'node:process'
 import { createHash, randomBytes } from 'node:crypto'
 import { Resend } from 'resend'
-import { supabaseAdmin } from './_supabase.js'
+import { createClient } from '@supabase/supabase-js'
 import { json } from './_stripe-billing.js'
+
+const STAGING_SUPABASE_URL = 'https://llpufwzvgxyczxcjwupu.supabase.co'
+const STAGING_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_4b2Gtqn6MFrPBrrxwnXzQA_cFfnd8BZ'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -31,6 +34,33 @@ function getAppOrigin(event) {
   const protocol = event.headers['x-forwarded-proto'] || 'https'
   const requestOrigin = `${protocol}://${host}`.replace(/\/$/, '')
   return requestOrigin || normalizeText(process.env.VITE_APP_URL || process.env.URL).replace(/\/$/, '')
+}
+
+function isStagingHost(event) {
+  const host = normalizeText(event.headers['x-forwarded-host'] || event.headers.host).toLowerCase()
+  return host.includes('staging.footballplayer.online') || host.includes('football-os-staging')
+}
+
+function createRequestSupabaseClient(event, token) {
+  const useStaging = isStagingHost(event)
+  const supabaseUrl = useStaging ? STAGING_SUPABASE_URL : process.env.VITE_SUPABASE_URL
+  const publishableKey = useStaging ? STAGING_SUPABASE_PUBLISHABLE_KEY : process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+
+  if (!supabaseUrl || !publishableKey) {
+    throw Object.assign(new Error('Supabase environment is not configured.'), { statusCode: 500 })
+  }
+
+  return createClient(supabaseUrl, publishableKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  })
 }
 
 function getPlayerContacts(player) {
@@ -116,20 +146,20 @@ function buildAvailabilityEmail({ match, player, recipient, links }) {
   }
 }
 
-async function getAuthenticatedProfile(event) {
+async function getAuthenticatedProfile(event, supabase) {
   const token = getBearerToken(event)
 
   if (!token) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token)
+  const { data: authData, error: authError } = await supabase.auth.getUser(token)
 
   if (authError || !authData?.user?.id) {
     throw Object.assign(new Error('Login is required.'), { statusCode: 401 })
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const { data: profile, error: profileError } = await supabase
     .from('users')
     .select('id, email, name, display_name, role, role_label, role_rank, club_id')
     .eq('id', authData.user.id)
@@ -152,7 +182,9 @@ export async function handler(event) {
   }
 
   try {
-    const profile = await getAuthenticatedProfile(event)
+    const token = getBearerToken(event)
+    const supabase = createRequestSupabaseClient(event, token)
+    const profile = await getAuthenticatedProfile(event, supabase)
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
     const playerIds = Array.isArray(body.playerIds) ? body.playerIds.map(normalizeText).filter(Boolean) : []
@@ -165,7 +197,7 @@ export async function handler(event) {
       throw Object.assign(new Error('Select at least one player.'), { statusCode: 400 })
     }
 
-    const { data: match, error: matchError } = await supabaseAdmin
+    const { data: match, error: matchError } = await supabase
       .from('match_days')
       .select('*, teams:team_id (name)')
       .eq('id', matchDayId)
@@ -180,7 +212,7 @@ export async function handler(event) {
       throw Object.assign(new Error('Fixture was not found.'), { statusCode: 404 })
     }
 
-    const { data: players, error: playersError } = await supabaseAdmin
+    const { data: players, error: playersError } = await supabase
       .from('players')
       .select('id, club_id, team_id, player_name, section, status, parent_name, parent_email, parent_contacts, contact_type')
       .eq('club_id', profile.club_id)
@@ -211,7 +243,7 @@ export async function handler(event) {
       for (const contact of contacts) {
         const token = randomBytes(32).toString('hex')
         const tokenHash = hashToken(token)
-        const { data: request, error: requestError } = await supabaseAdmin
+        const { data: request, error: requestError } = await supabase
           .from('match_day_availability_requests')
           .upsert({
             match_day_id: match.id,
@@ -254,7 +286,7 @@ export async function handler(event) {
           })
 
           sentCount += 1
-          await supabaseAdmin
+          await supabase
             .from('match_day_availability_requests')
             .update({ sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
             .eq('id', request.id)
