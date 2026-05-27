@@ -290,7 +290,7 @@ export function ParentInvitePage() {
           <div className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">Player access</p>
             <p className="text-sm font-bold text-[#0f172a]">{invite.playerName || 'Child access'}</p>
-            <p className="mt-1 text-xs font-semibold text-[#475569]">{invite.teamName || 'Team'} | {invite.clubName || 'Club'}</p>
+            <p className="mt-1 text-xs font-semibold text-[#475569]">Team: {invite.teamName || 'Team'}, Club: {invite.clubName || 'Club'}</p>
           </div>
 
           <label className="block">

@@ -359,7 +359,7 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
                   {isOwnChildOption ? (
                     <p className="mt-1 text-xs font-bold text-[#475569]">Own child not available for this poll</p>
                   ) : null}
-                  {shouldShowVotes ? <p className="mt-1 text-xs font-semibold text-[#475569]">{count} votes / {percent}%</p> : null}
+                  {shouldShowVotes ? <p className="mt-1 text-xs font-semibold text-[#475569]">Votes: {count}, Share: {percent}%</p> : null}
                 </div>
                 <button
                   type="button"

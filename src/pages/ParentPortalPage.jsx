@@ -89,6 +89,22 @@ function getOpponentScore(match) {
   return match.homeAway === 'away' ? match.homeScore : match.awayScore
 }
 
+function getParentMatchEventTitle(event) {
+  return `${event.eventType === 'goal' ? 'Goal' : 'Score update'}, Score: ${event.homeScore} - ${event.awayScore}`
+}
+
+function getParentMatchEventDetail(event) {
+  const detailParts = [
+    event.minute !== null ? `Minute: ${event.minute}` : '',
+    `Player: ${event.scorerInitials || event.scorerName || 'Score update'}${event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}`,
+    event.assistInitials || event.assistName
+      ? `Assist: ${event.assistInitials || event.assistName}${event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}`
+      : '',
+  ]
+
+  return detailParts.filter(Boolean).join(', ')
+}
+
 function isPreviousMatch(match) {
   if (match.status === 'full_time') {
     return true
@@ -1018,14 +1034,10 @@ function ParentMatchCard({
           {match.events.slice(0, 8).map((event) => (
             <div key={event.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3">
               <p className="text-sm font-semibold text-[#0f172a]">
-                {event.eventType === 'goal' ? 'Goal' : 'Score update'} / {event.homeScore} - {event.awayScore}
+                {getParentMatchEventTitle(event)}
               </p>
               <p className="mt-1 text-xs font-semibold text-[#475569]">
-                {event.minute !== null ? `${event.minute} min / ` : ''}
-                {event.scorerInitials || event.scorerName || 'Score update'}
-                {event.scorerShirtNumber ? ` #${event.scorerShirtNumber}` : ''}
-                {event.assistInitials || event.assistName ? ` / Assist ${event.assistInitials || event.assistName}` : ''}
-                {event.assistShirtNumber ? ` #${event.assistShirtNumber}` : ''}
+                {getParentMatchEventDetail(event)}
               </p>
             </div>
           ))}

@@ -351,7 +351,7 @@ function MessageCard({ isOpen, message, onDownloadPdf, onToggle }) {
               {subject}
             </p>
             <p className="mt-1 text-xs font-semibold text-[#475569]">
-              {formatMessageDate(message.createdAt)} | {message.senderName || message.senderEmail || 'Club staff'}
+              Date: {formatMessageDate(message.createdAt)}, Sender: {message.senderName || message.senderEmail || 'Club staff'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

@@ -134,7 +134,7 @@ export function StaffInvitePage() {
             <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-4">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">Access details</p>
               <p className="text-sm font-black text-[#0f172a]">{invite.clubName || 'Football Player'}</p>
-              <p className="mt-1 text-sm font-semibold text-[#475569]">{invite.teamName || 'Team access'} | {invite.roleLabel || 'Staff'}</p>
+              <p className="mt-1 text-sm font-semibold text-[#475569]">Team: {invite.teamName || 'Team access'}, Role: {invite.roleLabel || 'Staff'}</p>
               <p className="mt-3 break-words text-sm font-semibold text-[#2563eb]">{invite.email}</p>
             </div>
 
