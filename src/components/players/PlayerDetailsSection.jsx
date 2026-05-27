@@ -311,7 +311,7 @@ function PlayerDetailsSummary({
             {contacts.length > 0 ? (
               contacts.map((contact, index) => (
                 <p key={index} className="break-words text-sm font-black text-[#0f172a]">
-                  {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}{contact.email ? ` | ${contact.email}` : ''}
+                  Contact: {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}{contact.email ? `, Email: ${contact.email}` : ''}
                 </p>
               ))
             ) : (

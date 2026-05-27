@@ -928,7 +928,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-sm font-black text-[#0f172a]">{option.label}</p>
-                  <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#475569]">{count} votes / {percent}%</p>
+                  <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#475569]">Votes: {count}, Share: {percent}%</p>
                 </div>
                 {isStaffPoll && !isClosed ? (
                   <button

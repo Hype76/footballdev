@@ -274,7 +274,7 @@ export function EvaluationHistoryCard({
           <div className="mt-3 space-y-1">
             {evaluationParentContacts.map((contact, index) => (
               <p key={index} className={bodyClass}>
-                {contact.name || 'Parent/Guardian'}{contact.email ? ` | ${contact.email}` : ''}
+                Contact: {contact.name || 'Parent or guardian'}{contact.email ? `, Email: ${contact.email}` : ''}
               </p>
             ))}
           </div>
@@ -332,7 +332,7 @@ function EvaluationRecipients({
                   className="mt-1 h-4 w-4 accent-[#2563eb]"
                 />
                 <span className="min-w-0">
-                  <span className="block font-black">{contact.name || 'Parent/Guardian'}</span>
+                  <span className="block font-black">{contact.name || 'Parent or guardian'}</span>
                   <span className="block break-words text-xs font-semibold text-[#475569]">{contact.email || 'No email entered'}</span>
                 </span>
               </label>

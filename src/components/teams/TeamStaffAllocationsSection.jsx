@@ -41,7 +41,7 @@ export function TeamStaffAllocationsSection({
   return (
     <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10" data-tour-id="team-staff-section">
       <div className="border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Step 3 / access audit</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Step 3: Access audit</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Control team access</h2>
         <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
           Select one club team, rename it if needed, then check exactly which staff can work inside that team.

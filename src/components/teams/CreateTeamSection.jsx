@@ -9,7 +9,7 @@ export function CreateTeamSection({
   return (
     <section className="overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10" data-tour-id="create-team-section">
       <div className="border-b border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 sm:px-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Step 1 / squad base</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Step 1: Squad base</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0f172a]">Create the first team</h2>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#475569]">
           {canCreateMoreTeams
