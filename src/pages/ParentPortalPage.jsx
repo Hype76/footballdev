@@ -727,7 +727,7 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
       >
         {links.map((link) => (
           <option key={link.id} value={link.id}>
-            {link.playerName} | {link.teamName || 'No team'} | {link.clubName || 'No club'}
+            {link.playerName}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
           </option>
         ))}
       </select>
@@ -742,7 +742,7 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
               className="block w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-left transition hover:border-[#2563eb] hover:bg-white"
             >
               <p className="text-sm font-black text-[#0f172a]">{link.playerName}</p>
-              <p className="mt-1 text-xs font-semibold text-[#475569]">{link.teamName || 'No team'} | {link.clubName || 'No club'}</p>
+              <p className="mt-1 text-xs font-semibold text-[#475569]">Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}</p>
             </button>
           ))}
         </div>

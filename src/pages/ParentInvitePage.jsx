@@ -369,7 +369,7 @@ export function ParentInvitePage() {
         <div className="mt-5 space-y-4">
           <div className="rounded-lg border border-[#cbd5e1] bg-[#eff6ff] p-4">
             <p className="text-sm font-bold text-[#0f172a]">{acceptedLink.playerName}</p>
-            <p className="mt-1 text-xs font-semibold text-[#475569]">{acceptedLink.teamName || 'No team'} | {acceptedLink.clubName || 'No club'}</p>
+            <p className="mt-1 text-xs font-semibold text-[#475569]">Team: {acceptedLink.teamName || 'No team assigned'}, Club: {acceptedLink.clubName || 'No club assigned'}</p>
           </div>
           <a
             href={buildParentAppUrl('/parent-portal')}

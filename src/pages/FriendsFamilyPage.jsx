@@ -182,7 +182,7 @@ export function FriendsFamilyPage() {
             >
               {links.map((link) => (
                 <option key={link.id} value={link.id}>
-                  {link.playerName} | {link.teamName || 'No team'} | {link.clubName || 'No club'}
+                  {link.playerName}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
                 </option>
               ))}
             </select>

@@ -219,7 +219,7 @@ export function ParentMessagesPage() {
                 >
                   {links.map((link) => (
                     <option key={link.id} value={link.id}>
-                      {link.playerName} | {link.teamName || 'No team'} | {link.clubName || 'No club'}
+                      {link.playerName}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
                     </option>
                   ))}
                 </select>
@@ -236,7 +236,7 @@ export function ParentMessagesPage() {
             <div className={panelClass}>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#475569]">Selected player</p>
               <p className="mt-2 text-lg font-black text-[#0f172a]">{selectedLink?.playerName || 'No player selected'}</p>
-              <p className="mt-1 text-sm font-semibold text-[#475569]">{selectedLink?.teamName || 'No team'} | {selectedLink?.clubName || 'No club'}</p>
+              <p className="mt-1 text-sm font-semibold text-[#475569]">Team: {selectedLink?.teamName || 'No team assigned'}, Club: {selectedLink?.clubName || 'No club assigned'}</p>
             </div>
           </aside>
 
