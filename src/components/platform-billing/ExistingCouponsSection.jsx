@@ -37,7 +37,7 @@ export function ExistingCouponsSection({
               </div>
               <p className="mt-4 text-sm font-black text-[#0f172a]">{coupon.code || 'No code'}</p>
               <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
-                {coupon.duration}{coupon.durationInMonths ? ` | ${coupon.durationInMonths} months` : ''} | {formatDate(coupon.createdAt)}
+                Duration: {coupon.duration}{coupon.durationInMonths ? `, Months: ${coupon.durationInMonths}` : ''}, Created: {formatDate(coupon.createdAt)}
               </p>
               <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
                 {formatExpiry(coupon)}

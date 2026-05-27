@@ -56,7 +56,7 @@ export function PlatformFeedbackSection({
                   <div>
                     <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#475569]">{item.message}</p>
                     <p className="mt-3 text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
-                      {item.clubName} | {item.createdByEmail || 'No email'} | {item.voteCount} votes
+                      Club: {item.clubName}, Email: {item.createdByEmail || 'No email'}, Votes: {item.voteCount}
                     </p>
                   </div>
                   <label className="block">
@@ -83,7 +83,7 @@ export function PlatformFeedbackSection({
                         <div key={comment.id} className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-3">
                           <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#475569]">{comment.message}</p>
                           <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#475569]">
-                            Platform admin | {formatPlatformDate(comment.createdAt)}
+                            Author: Platform admin, Date: {formatPlatformDate(comment.createdAt)}
                           </p>
                         </div>
                       ))}

@@ -144,7 +144,7 @@ function ClubSummary({
       </div>
       <p className="mt-2 text-sm font-semibold text-[#475569]">
         Contact: {club.contactEmail || 'No email entered'}
-        {club.contactPhone ? ` | ${club.contactPhone}` : ''}
+        {club.contactPhone ? `, Phone: ${club.contactPhone}` : ''}
       </p>
       <p className="mt-2 text-sm font-semibold text-[#475569]">
         Latest activity: {formatPlatformDate(club.latestActivityAt)}
@@ -194,7 +194,7 @@ function ClubSummary({
         </label>
       </div>
       <p className="mt-2 text-sm font-semibold text-[#475569]">
-        Current plan: {getPlanName(club)}{club.isPlanComped ? ' | Free access enabled' : ''}
+        Current plan: {getPlanName(club)}{club.isPlanComped ? ', Billing override: free access' : ''}
       </p>
       {club.suspendedAt ? (
         <p className="mt-2 text-sm font-semibold text-[#475569]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>

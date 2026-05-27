@@ -29,7 +29,7 @@ export function PlatformFeedbackBoardSection({
                 <div className="min-w-0">
                   <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#0f172a]">{item.message}</p>
                   <p className="mt-3 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
-                    {item.clubName} | {formatFeedbackDate(item.createdAt)} | {item.status}
+                    Club: {item.clubName}, Date: {formatFeedbackDate(item.createdAt)}, Status: {item.status}
                   </p>
                 </div>
                 <button
@@ -57,7 +57,7 @@ export function PlatformFeedbackBoardSection({
                       <div key={comment.id} className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3">
                         <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-[#0f172a]">{comment.message}</p>
                         <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#2563eb]">
-                          Platform admin | {formatFeedbackDate(comment.createdAt)}
+                          Author: Platform admin, Date: {formatFeedbackDate(comment.createdAt)}
                         </p>
                       </div>
                     ))}

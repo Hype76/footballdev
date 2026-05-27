@@ -126,7 +126,7 @@ export function EvaluationPlayerDetailsSection({
                     className="h-4 w-4 accent-[#2563eb]"
                   />
                   <span className="min-w-0">
-                    <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent/Guardian')}</span>
+                    <span className="block font-semibold">{contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}</span>
                     <span className="block break-words text-xs font-semibold text-[#475569]">{contact.email || 'No email entered'}</span>
                   </span>
                 </label>
