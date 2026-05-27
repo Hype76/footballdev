@@ -906,14 +906,22 @@ export function AuthProvider({ children }) {
 
     setAuthError('')
 
-    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: getPasswordResetRedirectUrl(),
+    const response = await fetch('/.netlify/functions/send-password-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        redirectTo: getPasswordResetRedirectUrl(),
+      }),
     })
 
-    if (error) {
-      console.error(error)
-      setAuthError(error.message || 'Password reset failed.')
-      throw error
+    const result = await response.json().catch(() => ({}))
+
+    if (!response.ok || result.success === false) {
+      const message = result.message || 'Password reset failed.'
+      console.error(result)
+      setAuthError(message)
+      throw new Error(message)
     }
   }
 
