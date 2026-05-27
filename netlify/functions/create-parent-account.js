@@ -43,9 +43,11 @@ function getBaseUrl(event) {
 
   if (normalizedHost === 'staging.footballplayer.online'
     || normalizedHost === 'parent-staging.footballplayer.online'
+    || normalizedHost === 'parent-staging.staging.footballplayer.online'
+    || normalizedHost === 'football-os-staging.staging.footballplayer.online'
     || normalizedHost === 'staging.playerfeedback.online'
     || normalizedHost === 'parent-staging.playerfeedback.online') {
-    return 'https://parent-staging.footballplayer.online'
+    return 'https://parent-staging.staging.footballplayer.online'
   }
 
   if (normalizedHost === 'footballplayer.online'
