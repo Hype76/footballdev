@@ -30,7 +30,7 @@ export function FriendsFamilyPage() {
   const [revokeLinkId, setRevokeLinkId] = useState('')
   const selectedLink = links.find((link) => link.id === selectedLinkId) ?? links[0]
   const selectedChildLabel = selectedLink
-    ? [selectedLink.playerName, selectedLink.teamName, selectedLink.clubName].filter(Boolean).join(' | ')
+    ? selectedLink.playerName
     : 'No child selected'
   const familySummary = [
     {
@@ -46,7 +46,7 @@ export function FriendsFamilyPage() {
     {
       label: 'Selected child',
       value: selectedLink?.playerName || 'Not selected',
-      caption: selectedLink?.teamName || 'Choose a child before sharing.',
+      caption: selectedLink ? `Team: ${selectedLink.teamName || 'No team assigned'}, Club: ${selectedLink.clubName || 'No club assigned'}` : 'Choose a child before sharing.',
     },
   ]
   const accessRules = [
@@ -289,6 +289,9 @@ function FamilyAccessHero({ accessRules, familySummary, isLoading, selectedChild
           <div className={panelClass}>
             <p className={eyebrowClass}>Current child</p>
             <p className="mt-3 break-words text-2xl font-black tracking-tight text-[#0f172a]">{selectedChildLabel}</p>
+            <p className="mt-2 text-sm font-black text-[#475569]">
+              {familySummary.find((item) => item.label === 'Selected child')?.caption}
+            </p>
             <p className={`mt-3 ${bodyTextClass}`}>
               Choose the child before creating a link. Each accepted family account stays tied to that child until access is revoked.
             </p>

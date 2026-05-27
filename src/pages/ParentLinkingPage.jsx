@@ -374,7 +374,7 @@ export function ParentLinkingPage() {
                   >
                     {players.map((player) => (
                       <option key={player.id} value={player.id}>
-                        {player.playerName} / {player.team || 'No team'} / {player.section || 'Trial'}
+                        {player.playerName}, Team: {player.team || 'No team assigned'}, Section: {player.section || 'Trial'}
                       </option>
                     ))}
                   </select>
@@ -445,7 +445,7 @@ export function ParentLinkingPage() {
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
                           <p className="break-words text-sm font-black text-[#0f172a]">{link.email || 'Link only'}</p>
-                          <p className="mt-1 text-xs font-semibold text-[#475569]">{link.status} / {link.linkType}</p>
+                          <p className="mt-1 text-xs font-semibold text-[#475569]">Status: {link.status}, Access: {link.linkType}</p>
                         </div>
                         <button
                           type="button"
