@@ -6,9 +6,9 @@ export function LoginHeroContent() {
   ]
 
   const weeklyTools = [
-    ['Availability', 'Know who can train or play before team choices are made.'],
-    ['Match day', 'Keep squads, scorers, minutes, and parent updates attached to the fixture.'],
-    ['Development', 'Record coach notes against real players, teams, and sessions.'],
+    ['Monday', 'Close weekend notes and flag players who need a coach action.'],
+    ['Midweek', 'Run training with attendance, session notes, and player records attached.'],
+    ['Weekend', 'Confirm availability, publish match day, and capture the result.'],
   ]
 
   return (
@@ -41,13 +41,16 @@ export function LoginHeroContent() {
         </div>
 
         <aside className="rounded-lg border border-[#cbd5e1] bg-white/94 p-4 shadow-lg shadow-[#0f172a]/10 backdrop-blur sm:p-5">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Today board</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2563eb]">Club week board</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+            The first screen should show what needs doing, what data is missing, and where staff should go next.
+          </p>
           <div className="mt-4 grid gap-3">
             {[
-              ['Availability', '18 replies needed'],
-              ['Match day', '2 squads to confirm'],
-              ['Parents', '6 invites ready'],
-              ['Players', '4 records due'],
+              ['Next action', 'Create session'],
+              ['Missing data', 'Parent links'],
+              ['Match day', 'Squad not locked'],
+              ['Coach records', 'Notes due'],
             ].map(([label, value]) => (
               <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-3">
                 <span className="text-sm font-black text-[#0f172a]">{label}</span>

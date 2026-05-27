@@ -44,12 +44,12 @@ export function PublicFeaturesPage() {
         <div className="absolute inset-0 bg-white/88" />
         <div className="absolute inset-0 bg-[#eff6ff]/58" />
         <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
-          <div className="max-w-4xl rounded-lg border border-[#cbd5e1] bg-white/95 p-5 shadow-sm shadow-[#2563eb]/10 backdrop-blur sm:p-6 lg:p-8">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2563eb]">Features</p>
-            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight min-[420px]:text-4xl sm:mt-5 sm:text-5xl">
+          <div className="max-w-4xl">
+            <p className="inline-flex rounded-lg border border-[#bfdbfe] bg-white/95 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb] shadow-sm shadow-[#2563eb]/10 backdrop-blur">Features</p>
+            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight text-[#0f172a] min-[420px]:text-4xl sm:mt-5 sm:text-5xl">
               A football-only workspace for clubs that need less chaos.
             </h1>
-            <p className="mt-5 text-base font-semibold leading-7 text-[#475569] sm:mt-6 sm:text-lg sm:leading-8">
+            <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#334155] sm:mt-6 sm:text-lg sm:leading-8">
               Build the operating layer clubs actually need: setup, staff roles, players, availability, match day, development records, and parent communication.
             </p>
           </div>
