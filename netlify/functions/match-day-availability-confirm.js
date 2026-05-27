@@ -44,7 +44,7 @@ export async function handler(event) {
     const token = normalizeText(event.queryStringParameters?.token)
     const status = normalizeText(event.queryStringParameters?.status).toLowerCase()
 
-    if (!token || !VALID_STATUSES.has(status)) {
+    if (!/^[a-f0-9]{64}$/i.test(token) || !VALID_STATUSES.has(status)) {
       return htmlResponse(400, page({
         title: 'This response link is not valid',
         message: 'Ask the club to send a new fixture availability request.',
