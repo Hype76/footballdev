@@ -35,3 +35,10 @@ supabase/backups/
 apps/mobile-release-evidence/
 apps/*release-evidence-private*
 apps/*store-review-private*
+
+# Local QA evidence
+output/
+apps/*/assets/assets for android/
+apps/*/assets/ios-screenshots/
+scripts/check-real-ui-login.mjs
+scripts/create-demo-superadmin.mjs
