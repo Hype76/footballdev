@@ -47,7 +47,7 @@ export function PublicFeaturesPage() {
           <div className="max-w-4xl">
             <p className="inline-flex rounded-lg border border-[#bfdbfe] bg-white/95 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#2563eb] shadow-sm shadow-[#2563eb]/10 backdrop-blur">Features</p>
             <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight text-[#0f172a] min-[420px]:text-4xl sm:mt-5 sm:text-5xl">
-              A football-only workspace for clubs that need less chaos.
+              A football-only workspace for clearer match weeks.
             </h1>
             <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#334155] sm:mt-6 sm:text-lg sm:leading-8">
               Build the operating layer clubs actually need: setup, staff roles, players, availability, match day, development records, and parent communication.
