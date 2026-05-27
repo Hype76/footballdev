@@ -1,11 +1,8 @@
 import process from 'node:process'
 import { createHash, randomBytes } from 'node:crypto'
 import { Resend } from 'resend'
-import { createClient } from '@supabase/supabase-js'
 import { json } from './_stripe-billing.js'
-
-const STAGING_SUPABASE_URL = 'https://llpufwzvgxyczxcjwupu.supabase.co'
-const STAGING_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_4b2Gtqn6MFrPBrrxwnXzQA_cFfnd8BZ'
+import { createPublicSupabaseClient } from './_supabase.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -36,25 +33,8 @@ function getAppOrigin(event) {
   return requestOrigin || normalizeText(process.env.VITE_APP_URL || process.env.URL).replace(/\/$/, '')
 }
 
-function isStagingHost(event) {
-  const host = normalizeText(event.headers['x-forwarded-host'] || event.headers.host).toLowerCase()
-  return host.includes('staging.footballplayer.online') || host.includes('football-os-staging')
-}
-
 function createRequestSupabaseClient(event, token) {
-  const useStaging = isStagingHost(event)
-  const supabaseUrl = useStaging ? STAGING_SUPABASE_URL : process.env.VITE_SUPABASE_URL
-  const publishableKey = useStaging ? STAGING_SUPABASE_PUBLISHABLE_KEY : process.env.VITE_SUPABASE_PUBLISHABLE_KEY
-
-  if (!supabaseUrl || !publishableKey) {
-    throw Object.assign(new Error('Supabase environment is not configured.'), { statusCode: 500 })
-  }
-
-  return createClient(supabaseUrl, publishableKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
+  return createPublicSupabaseClient(event, {
     global: {
       headers: {
         Authorization: `Bearer ${token}`,

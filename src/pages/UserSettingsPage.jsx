@@ -68,6 +68,9 @@ export function UserSettingsPage() {
   const [themeButtonStyle, setThemeButtonStyle] = useState(getStoredThemeButtonStyle)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const currentLoginEmail = String(user?.email || authUser?.email || '').trim().toLowerCase()
+  const requestedLoginEmail = String(email || '').trim().toLowerCase()
+  const isLoginEmailUnchanged = Boolean(currentLoginEmail) && requestedLoginEmail === currentLoginEmail
 
   useEffect(() => {
     setUsername(user?.username || user?.name || '')
@@ -161,6 +164,10 @@ export function UserSettingsPage() {
     setErrorMessage('')
 
     try {
+      if (isLoginEmailUnchanged) {
+        throw new Error('No change made. Enter a different login email.')
+      }
+
       const result = await requestLoginEmailChange({
         authUser,
         email,
@@ -169,6 +176,9 @@ export function UserSettingsPage() {
       if (result.pendingConfirmation) {
         setSuccessMessage('Email change requested. Confirm the change from your email inbox.')
         showToast({ title: 'Email change requested', message: 'Check your inbox to confirm the new login email.' })
+      } else if (result.unchanged) {
+        setErrorMessage('No change made. Enter a different login email.')
+        showToast({ title: 'Email not changed', message: 'Enter a different login email.', tone: 'error' })
       } else {
         updateCurrentUserDetails({
           email: result.email,
@@ -481,7 +491,9 @@ export function UserSettingsPage() {
           ) : null}
 
           <LoginEmailSection
+            currentEmail={currentLoginEmail}
             email={email}
+            isEmailUnchanged={isLoginEmailUnchanged}
             isDemoSettings={isDemoSettings}
             isSavingEmail={isSavingEmail}
             onEmailChange={setEmail}

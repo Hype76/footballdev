@@ -166,6 +166,22 @@ export function canCreateEvaluation(user) {
   return Boolean(user.clubId) && !isSuperAdmin(user) && (!isClubAdmin(user) || Boolean(user.activeTeamId)) && isPlanAccessActive(user)
 }
 
+export function hasTeamWorkflowContext(user) {
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && isPlanAccessActive(user)
+    && Boolean(user?.activeTeamId)
+}
+
+export function needsTeamWorkflowContext(user) {
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && isPlanAccessActive(user)
+    && !user?.activeTeamId
+}
+
 export function canManageParentLinks(user) {
   return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user)
 }

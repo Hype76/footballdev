@@ -886,6 +886,7 @@ export async function requestLoginEmailChange({ authUser, email }) {
     return {
       email: normalizedEmail,
       pendingConfirmation: false,
+      unchanged: true,
     }
   }
 

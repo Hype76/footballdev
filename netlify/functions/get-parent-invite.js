@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './_supabase.js'
+import { createSupabaseAdminClient } from './_supabase.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -28,6 +28,7 @@ export async function handler(event) {
   }
 
   try {
+    const supabaseAdmin = createSupabaseAdminClient(event)
     const { data, error } = await supabaseAdmin
       .from('parent_player_links')
       .select('id, email, status, invite_token, accepted_at, expires_at, link_type, players:player_id (player_name), teams:team_id (name), clubs:club_id (name, logo_url)')

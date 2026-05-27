@@ -182,6 +182,7 @@ export function MatchDayPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [isFixtureFormOpen, setIsFixtureFormOpen] = useState(false)
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [squadSelection, setSquadSelection] = useState(EMPTY_SQUAD_SELECTION)
 
@@ -400,6 +401,7 @@ export function MatchDayPage() {
         type: 'scorer_request',
       })
       setForm(EMPTY_MATCH_FORM)
+      setIsFixtureFormOpen(false)
       setSquadSelection(EMPTY_SQUAD_SELECTION)
       await loadData()
       showToast({
@@ -651,193 +653,48 @@ export function MatchDayPage() {
             Set the opponent, arrival, venue, and parent-facing scorer request before choosing the players who need availability requests.
           </p>
         </div>
-        <form className="space-y-4" onSubmit={handleCreateMatch}>
-          <div className="space-y-4 px-5 py-5 sm:px-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className={labelClass}>Opponent</span>
-              <input
-                value={form.opponent}
-                onChange={(event) => updateForm({ opponent: event.target.value })}
-                className={inputClass}
-                required
-              />
-            </label>
-
-            {isTeamScopedFixture ? (
-              <div className="block">
-                <span className={labelClass}>Team</span>
-                <div className={`${inputClass} flex items-center`}>
-                  {selectedFixtureTeamName || user.activeTeamName || user.team || 'Current team'}
-                </div>
-              </div>
-            ) : (
-              <label className="block">
-                <span className={labelClass}>Team</span>
-                <select
-                  value={form.teamId}
-                  onChange={(event) => updateForm({ teamId: event.target.value })}
-                  className={inputClass}
-                >
-                  <option value="">Club-wide fixture</option>
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>{team.name}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-
-            <label className="block">
-              <span className={labelClass}>Date</span>
-              <input
-                type="date"
-                value={form.matchDate}
-                onChange={(event) => updateForm({ matchDate: event.target.value })}
-                className={inputClass}
-              />
-            </label>
-
-            <label className="block">
-              <span className={labelClass}>Kick off</span>
-              <input
-                type="time"
-                value={form.kickoffTime}
-                onChange={(event) => updateKickoffTime(event.target.value)}
-                className={inputClass}
-              />
-            </label>
-
-            <label className="block">
-              <span className={labelClass}>Arrival</span>
-              <select
-                value={form.arrivalPreset}
-                onChange={(event) => updateArrivalFromPreset(event.target.value)}
-                className={inputClass}
-              >
-                {MATCH_DAY_ARRIVAL_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-
-            {form.arrivalPreset === 'custom' ? (
-              <label className="block">
-                <span className={labelClass}>Custom arrival time</span>
-                <input
-                  type="time"
-                  value={form.arrivalTime}
-                  onChange={(event) => updateForm({ arrivalTime: event.target.value })}
-                  className={inputClass}
-                />
-              </label>
-            ) : (
-              <div className="block">
-                <span className={labelClass}>Arrival time</span>
-                <div className={`${inputClass} flex items-center`}>
-                  {form.arrivalTime || 'Set kick off to calculate arrival'}
-                </div>
-              </div>
-            )}
-
-            <label className="block">
-              <span className={labelClass}>Home or away</span>
-              <select
-                value={form.homeAway}
-                onChange={(event) => updateForm({ homeAway: event.target.value })}
-                className={inputClass}
-              >
-                {MATCH_DAY_HOME_AWAY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className={labelClass}>Reuse location</span>
-              <select
-                value=""
-                onChange={(event) => applyLocation(event.target.value)}
-                className={inputClass}
-              >
-                <option value="">Choose saved location</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>{location.name}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className={labelClass}>Venue</span>
-              <input
-                value={form.venueName}
-                onChange={(event) => updateForm({ venueName: event.target.value })}
-                className={inputClass}
-              />
-            </label>
-
-            <label className="block">
-              <span className={labelClass}>Address</span>
-              <input
-                value={form.venueAddress}
-                onChange={(event) => updateForm({ venueAddress: event.target.value })}
-                className={inputClass}
-              />
-            </label>
+        <div className="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className={panelClass}>
+              <p className={smallLabelClass}>Team</p>
+              <p className="text-sm font-black text-[#101828]">{selectedFixtureTeamName || user.activeTeamName || 'Choose in setup'}</p>
+            </div>
+            <div className={panelClass}>
+              <p className={smallLabelClass}>Squad</p>
+              <p className="text-sm font-black text-[#101828]">{fixturePlayers.length} active players</p>
+            </div>
+            <div className={panelClass}>
+              <p className={smallLabelClass}>Next step</p>
+              <p className="text-sm font-black text-[#101828]">Open setup, then pick who gets asked.</p>
+            </div>
           </div>
-
-          <label className="block">
-            <span className={labelClass}>Scorer request message</span>
-            <textarea
-              value={form.scorerRequestMessage}
-              onChange={(event) => updateForm({ scorerRequestMessage: event.target.value })}
-              className={`${inputClass} min-h-24`}
-            />
-          </label>
-
-          <label className="block">
-            <span className={labelClass}>Match notes</span>
-            <textarea
-              value={form.notes}
-              onChange={(event) => updateForm({ notes: event.target.value })}
-              className={`${inputClass} min-h-24`}
-            />
-          </label>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
-              <input
-                type="checkbox"
-                checked={form.enableMotmPoll}
-                onChange={(event) => updateForm({ enableMotmPoll: event.target.checked })}
-                className="h-4 w-4 accent-[#047857]"
-              />
-              <span className="text-sm font-black text-[#101828]">Create Player of the Match vote at full time</span>
-            </label>
-
-            <label className="block">
-              <span className={labelClass}>Vote expiry hours</span>
-              <input
-                type="number"
-                min="1"
-                max="72"
-                value={form.motmPollExpiryHours}
-                onChange={(event) => updateForm({ motmPollExpiryHours: event.target.value })}
-                disabled={!form.enableMotmPoll}
-                className={inputClass}
-              />
-            </label>
-          </div>
-
           <button
-            type="submit"
-            disabled={isSaving}
-            className={`${primaryButtonClass} w-full sm:w-auto`}
+            type="button"
+            onClick={() => setIsFixtureFormOpen(true)}
+            className={`${primaryButtonClass} w-full lg:w-auto`}
           >
-            {isSaving ? 'Creating...' : 'Create fixture'}
+            Create fixture
           </button>
-          </div>
-        </form>
+        </div>
       </section>
+
+      {isFixtureFormOpen ? (
+        <FixtureSetupModal
+          applyLocation={applyLocation}
+          form={form}
+          handleCreateMatch={handleCreateMatch}
+          isSaving={isSaving}
+          isTeamScopedFixture={isTeamScopedFixture}
+          locations={locations}
+          selectedFixtureTeamName={selectedFixtureTeamName}
+          teams={teams}
+          updateArrivalFromPreset={updateArrivalFromPreset}
+          updateForm={updateForm}
+          updateKickoffTime={updateKickoffTime}
+          user={user}
+          onClose={() => setIsFixtureFormOpen(false)}
+        />
+      ) : null}
 
       {squadSelection.isOpen ? (
         <FixtureSquadSelectionModal
@@ -1239,6 +1096,161 @@ function MatchMetric({ isLoading, label, value }) {
     <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 shadow-sm">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#101828]">{isLoading ? '...' : value}</p>
+    </div>
+  )
+}
+
+function FixtureSetupModal({
+  applyLocation,
+  form,
+  handleCreateMatch,
+  isSaving,
+  isTeamScopedFixture,
+  locations,
+  onClose,
+  selectedFixtureTeamName,
+  teams,
+  updateArrivalFromPreset,
+  updateForm,
+  updateKickoffTime,
+  user,
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fixture-setup-title"
+        className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl"
+      >
+        <div className="flex flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+          <div>
+            <p className={eyebrowClass}>Fixture setup</p>
+            <h3 id="fixture-setup-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create fixture</h3>
+            <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
+              Set the opponent, arrival, and venue. The squad selector opens after this step.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} disabled={isSaving} className={secondaryButtonClass}>
+            Close
+          </button>
+        </div>
+
+        <form className="max-h-[70vh] overflow-y-auto" onSubmit={handleCreateMatch}>
+          <div className="space-y-4 px-5 py-5 sm:px-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className={labelClass}>Opponent</span>
+                <input value={form.opponent} onChange={(event) => updateForm({ opponent: event.target.value })} className={inputClass} required />
+              </label>
+
+              {isTeamScopedFixture ? (
+                <div className="block">
+                  <span className={labelClass}>Team</span>
+                  <div className={`${inputClass} flex items-center`}>{selectedFixtureTeamName || user.activeTeamName || user.team || 'Current team'}</div>
+                </div>
+              ) : (
+                <label className="block">
+                  <span className={labelClass}>Team</span>
+                  <select value={form.teamId} onChange={(event) => updateForm({ teamId: event.target.value })} className={inputClass}>
+                    <option value="">Club-wide fixture</option>
+                    {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                  </select>
+                </label>
+              )}
+
+              <label className="block">
+                <span className={labelClass}>Date</span>
+                <input type="date" value={form.matchDate} onChange={(event) => updateForm({ matchDate: event.target.value })} className={inputClass} />
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Kick off</span>
+                <input type="time" value={form.kickoffTime} onChange={(event) => updateKickoffTime(event.target.value)} className={inputClass} />
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Arrival</span>
+                <select value={form.arrivalPreset} onChange={(event) => updateArrivalFromPreset(event.target.value)} className={inputClass}>
+                  {MATCH_DAY_ARRIVAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+
+              {form.arrivalPreset === 'custom' ? (
+                <label className="block">
+                  <span className={labelClass}>Custom arrival time</span>
+                  <input type="time" value={form.arrivalTime} onChange={(event) => updateForm({ arrivalTime: event.target.value })} className={inputClass} />
+                </label>
+              ) : (
+                <div className="block">
+                  <span className={labelClass}>Arrival time</span>
+                  <div className={`${inputClass} flex items-center`}>{form.arrivalTime || 'Set kick off to calculate arrival'}</div>
+                </div>
+              )}
+
+              <label className="block">
+                <span className={labelClass}>Home or away</span>
+                <select value={form.homeAway} onChange={(event) => updateForm({ homeAway: event.target.value })} className={inputClass}>
+                  {MATCH_DAY_HOME_AWAY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Reuse location</span>
+                <select value="" onChange={(event) => applyLocation(event.target.value)} className={inputClass}>
+                  <option value="">Choose saved location</option>
+                  {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Venue</span>
+                <input value={form.venueName} onChange={(event) => updateForm({ venueName: event.target.value })} className={inputClass} />
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Address</span>
+                <input value={form.venueAddress} onChange={(event) => updateForm({ venueAddress: event.target.value })} className={inputClass} />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className={labelClass}>Scorer request message</span>
+              <textarea value={form.scorerRequestMessage} onChange={(event) => updateForm({ scorerRequestMessage: event.target.value })} className={`${inputClass} min-h-24`} />
+            </label>
+
+            <label className="block">
+              <span className={labelClass}>Match notes</span>
+              <textarea value={form.notes} onChange={(event) => updateForm({ notes: event.target.value })} className={`${inputClass} min-h-24`} />
+            </label>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+                <input type="checkbox" checked={form.enableMotmPoll} onChange={(event) => updateForm({ enableMotmPoll: event.target.checked })} className="h-4 w-4 accent-[#047857]" />
+                <span className="text-sm font-black text-[#101828]">Create Player of the Match vote at full time</span>
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Vote expiry hours</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="72"
+                  value={form.motmPollExpiryHours}
+                  onChange={(event) => updateForm({ motmPollExpiryHours: event.target.value })}
+                  disabled={!form.enableMotmPoll}
+                  className={inputClass}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+            <button type="button" onClick={onClose} disabled={isSaving} className={secondaryButtonClass}>Cancel</button>
+            <button type="submit" disabled={isSaving} className={primaryButtonClass}>{isSaving ? 'Creating...' : 'Continue to squad'}</button>
+          </div>
+        </form>
+      </section>
     </div>
   )
 }

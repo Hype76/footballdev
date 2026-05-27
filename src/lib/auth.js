@@ -35,11 +35,13 @@ export {
   canViewEvaluation,
   canViewPlatformFeedback,
   getRoleLabel,
+  hasTeamWorkflowContext,
   isClubAdmin,
   isDemoAccount,
   isSuperAdmin,
   isParentPortalUser,
   isTesterAccessExpired,
+  needsTeamWorkflowContext,
 } from './auth-permissions.js'
 
 const AuthContext = createContext(null)

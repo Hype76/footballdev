@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { Resend } from 'resend'
-import { supabaseAdmin } from './_supabase.js'
+import { createSupabaseAdminClient } from './_supabase.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -94,7 +94,7 @@ function buildConfirmationEmailHtml({ actionLink, invite, email }) {
   `
 }
 
-async function getInvite(token) {
+async function getInvite(supabaseAdmin, token) {
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
     .select('id, email, status, expires_at, players:player_id (player_name), teams:team_id (name), clubs:club_id (name)')
@@ -125,7 +125,7 @@ async function getInvite(token) {
   }
 }
 
-async function findAuthUserByEmail(email) {
+async function findAuthUserByEmail(supabaseAdmin, email) {
   let page = 1
 
   while (page <= 10) {
@@ -155,8 +155,8 @@ async function findAuthUserByEmail(email) {
   return null
 }
 
-async function deleteUnconfirmedAuthUser(email, user) {
-  const authUser = user || await findAuthUserByEmail(email)
+async function deleteUnconfirmedAuthUser(supabaseAdmin, email, user) {
+  const authUser = user || await findAuthUserByEmail(supabaseAdmin, email)
 
   if (!authUser?.id || authUser.email_confirmed_at || authUser.confirmed_at) {
     return false
@@ -181,6 +181,7 @@ export async function handler(event) {
   }
 
   try {
+    const supabaseAdmin = createSupabaseAdminClient(event)
     const body = JSON.parse(event.body || '{}')
     const email = String(body.email ?? '').trim().toLowerCase()
     const password = String(body.password ?? '')
@@ -198,7 +199,7 @@ export async function handler(event) {
       return failureResponse(400, 'Parent invite token is required.')
     }
 
-    const invite = await getInvite(inviteToken)
+    const invite = await getInvite(supabaseAdmin, inviteToken)
     const lockedEmail = String(invite.email ?? '').trim().toLowerCase()
 
     if (lockedEmail && lockedEmail !== email) {
@@ -227,7 +228,7 @@ export async function handler(event) {
     let { data, error } = await createSignupLink()
 
     if (error && isExistingUserError(error)) {
-      const removedUnconfirmedUser = await deleteUnconfirmedAuthUser(email).catch((deleteError) => {
+      const removedUnconfirmedUser = await deleteUnconfirmedAuthUser(supabaseAdmin, email).catch((deleteError) => {
         console.error(deleteError)
         return false
       })
@@ -262,7 +263,7 @@ export async function handler(event) {
 
     if (sendResult.error) {
       console.error(sendResult.error)
-      await deleteUnconfirmedAuthUser(email, data?.user).catch((deleteError) => console.error(deleteError))
+      await deleteUnconfirmedAuthUser(supabaseAdmin, email, data?.user).catch((deleteError) => console.error(deleteError))
       return failureResponse(502, sendResult.error.message || 'Parent confirmation email could not be sent.')
     }
 

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { Component, Suspense, lazy } from 'react'
+import { Component, Suspense, lazy, useEffect } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
@@ -16,9 +16,11 @@ import {
   canViewActivityLog,
   canViewBilling,
   canViewEndSeasonStats,
+  hasTeamWorkflowContext,
   isSuperAdmin,
   isParentPortalUser,
   isTesterAccessExpired,
+  needsTeamWorkflowContext,
   useAuth,
 } from '../lib/auth.js'
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
@@ -286,6 +288,62 @@ function PlanAccessRequiredState() {
           className={primaryActionClassName}
         >
           View billing options
+        </a>
+      )}
+    />
+  )
+}
+
+function TeamContextRequiredState() {
+  const { isProfileLoading, selectTeam, teamOptions } = useAuth()
+
+  const handleTeamSelect = async (teamId) => {
+    try {
+      await selectTeam(teamId)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const hasTeams = teamOptions.length > 0
+
+  useEffect(() => {
+    if (teamOptions.length !== 1 || isProfileLoading) {
+      return
+    }
+
+    void handleTeamSelect(teamOptions[0].id)
+  // Auto-select applies only while this blocked route is mounted.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProfileLoading, teamOptions])
+
+  return (
+    <RouteGateState
+      eyebrow="Team context"
+      title="Choose a team before using this workflow"
+      message="Sessions, players, parent linking, match day, and player profiles need an active team so records are saved in the right place."
+      rules={[
+        { title: 'Club-wide view', body: 'Use club-wide view for setup, staff, billing, and club settings.' },
+        { title: 'Team tools need a team', body: 'Pick a team before opening player records, sessions, availability, or match day.' },
+        { title: hasTeams ? 'Choose below' : 'No team linked', body: hasTeams ? 'Open the team you want to work with for this session.' : 'Ask a club admin to add this account to a team before using team workflows.' },
+      ]}
+      actions={hasTeams ? (
+        <div className="grid w-full gap-2 sm:grid-cols-2">
+          {teamOptions.map((team) => (
+            <button
+              key={team.id}
+              type="button"
+              onClick={() => void handleTeamSelect(team.id)}
+              disabled={isProfileLoading}
+              className={primaryActionClassName}
+            >
+              {isProfileLoading ? 'Opening...' : `Open ${team.name || 'team'}`}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <a href="/coach" className={secondaryActionClassName}>
+          Return to club home
         </a>
       )}
     />
@@ -589,6 +647,10 @@ function RequirePlayerWorkflowAccess() {
     return element
   }
 
+  if (needsTeamWorkflowContext(user) || !hasTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
+  }
+
   if (!canCreateEvaluation(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -620,6 +682,10 @@ function RequireParentLinkingAccess() {
     return element
   }
 
+  if (needsTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
+  }
+
   if (!canManageParentLinks(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -632,6 +698,10 @@ function RequireEmailQueueAccess() {
 
   if (element) {
     return element
+  }
+
+  if (needsTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
   }
 
   if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
@@ -648,6 +718,10 @@ function RequirePollAccess() {
     return element
   }
 
+  if (needsTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
+  }
+
   if (!canManagePolls(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -660,6 +734,10 @@ function RequireMatchDayAccess() {
 
   if (element) {
     return element
+  }
+
+  if (needsTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
   }
 
   if (!canManageMatchDay(user)) {

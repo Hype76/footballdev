@@ -1,10 +1,7 @@
 import { createHash } from 'node:crypto'
-import process from 'node:process'
-import { createClient } from '@supabase/supabase-js'
+import { createPublicSupabaseClient } from './_supabase.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
-const STAGING_SUPABASE_URL = 'https://llpufwzvgxyczxcjwupu.supabase.co'
-const STAGING_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_4b2Gtqn6MFrPBrrxwnXzQA_cFfnd8BZ'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -12,28 +9,6 @@ function normalizeText(value) {
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
-}
-
-function isStagingHost(event) {
-  const host = normalizeText(event.headers['x-forwarded-host'] || event.headers.host).toLowerCase()
-  return host.includes('staging.footballplayer.online') || host.includes('football-os-staging')
-}
-
-function createPublicSupabaseClient(event) {
-  const useStaging = isStagingHost(event)
-  const supabaseUrl = useStaging ? STAGING_SUPABASE_URL : process.env.VITE_SUPABASE_URL
-  const publishableKey = useStaging ? STAGING_SUPABASE_PUBLISHABLE_KEY : process.env.VITE_SUPABASE_PUBLISHABLE_KEY
-
-  if (!supabaseUrl || !publishableKey) {
-    throw new Error('Supabase environment is not configured.')
-  }
-
-  return createClient(supabaseUrl, publishableKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  })
 }
 
 function htmlResponse(statusCode, body) {

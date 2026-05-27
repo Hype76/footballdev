@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './_supabase.js'
+import { createSupabaseAdminClient } from './_supabase.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -18,6 +18,7 @@ export async function handler(event) {
   }
 
   try {
+    const supabaseAdmin = createSupabaseAdminClient(event)
     const token = String(event.queryStringParameters?.token ?? '').trim()
 
     if (!token) {

@@ -16,6 +16,7 @@ import {
   canViewActivityLog,
   canViewBilling,
   canViewEndSeasonStats,
+  hasTeamWorkflowContext,
   canViewPlatformFeedback,
   isParentPortalUser,
   isSuperAdmin,
@@ -92,18 +93,22 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
   )
 }
 
-function OperationsStrip({ isParentPortal, onClose }) {
+function OperationsStrip({ canUseTeamWorkflow, isParentPortal, onClose }) {
   const actions = isParentPortal
     ? [
         { label: 'Fixtures', path: '/parent-portal', icon: 'calendar' },
         { label: 'Messages', path: '/parent-messages', icon: 'mail' },
         { label: 'Replies', path: '/parent-polls', icon: 'availability' },
       ]
-    : [
+    : canUseTeamWorkflow ? [
         { label: 'Session', path: '/sessions/start', icon: 'calendar' },
         { label: 'Players', path: '/players/current', icon: 'players' },
         { label: 'Parents', path: '/parent-linking', icon: 'parents' },
-      ]
+      ] : []
+
+  if (actions.length === 0) {
+    return null
+  }
 
   return (
     <div className="mt-3 grid grid-cols-3 gap-2">
@@ -129,6 +134,7 @@ export function Sidebar({ isOpen, onClose }) {
   const displayUser = user
   const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
   const isParentPortal = isParentPortalUser(displayUser)
+  const canUseTeamWorkflow = hasTeamWorkflowContext(displayUser)
   const clubLabel = displayUser?.role === 'super_admin' ? 'Platform' : displayUser?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(displayUser)
   const [openPollCount, setOpenPollCount] = useState(0)
@@ -251,23 +257,23 @@ export function Sidebar({ isOpen, onClose }) {
       item.path === '/players' ||
       item.path === '/archived-players'
     ) {
-      return canCreateEvaluation(displayUser)
+      return canUseTeamWorkflow && canCreateEvaluation(displayUser)
     }
 
     if (item.path === '/parent-linking') {
-      return canManageParentLinks(displayUser)
+      return canUseTeamWorkflow && canManageParentLinks(displayUser)
     }
 
     if (item.path === '/email-queue') {
-      return canManageEmailQueue(displayUser) && hasPlanFeature(displayUser, 'parentEmail') && queuedEmailCount > 0
+      return canUseTeamWorkflow && canManageEmailQueue(displayUser) && hasPlanFeature(displayUser, 'parentEmail') && queuedEmailCount > 0
     }
 
     if (item.path === '/polls') {
-      return canManagePolls(displayUser)
+      return canUseTeamWorkflow && canManagePolls(displayUser)
     }
 
     if (item.path === '/match-day') {
-      return canManageMatchDay(displayUser)
+      return canUseTeamWorkflow && canManageMatchDay(displayUser)
     }
 
     if (item.path === '/user-access') {
@@ -390,7 +396,7 @@ export function Sidebar({ isOpen, onClose }) {
           </div>
         </div>
 
-        <OperationsStrip isParentPortal={isParentPortal} onClose={onClose} />
+        <OperationsStrip canUseTeamWorkflow={canUseTeamWorkflow} isParentPortal={isParentPortal} onClose={onClose} />
 
         <nav className="mt-4 space-y-3 pb-4">
           <section className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2 shadow-sm shadow-[#101828]/5">
