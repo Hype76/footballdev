@@ -11,10 +11,14 @@
     "doctor": "npx expo-doctor",
     "build:android:internal": "node ../scripts/mobile-build-guard.mjs parent internal android",
     "build:android:store-test": "node ../scripts/mobile-build-guard.mjs parent store-test android",
+    "build:android:store-live": "node ../scripts/mobile-build-guard.mjs parent store-live android",
     "build:ios:store-test": "node ../scripts/mobile-build-guard.mjs parent store-test ios",
+    "build:ios:store-live": "node ../scripts/mobile-build-guard.mjs parent store-live ios",
     "export:web": "expo export --platform web --output-dir dist-web-check",
     "submit:android:store-test": "node ../scripts/mobile-submit-guard.mjs parent android",
-    "submit:ios:store-test": "node ../scripts/mobile-submit-guard.mjs parent ios"
+    "submit:android:store-live": "node ../scripts/mobile-submit-guard.mjs parent android store-live",
+    "submit:ios:store-test": "node ../scripts/mobile-submit-guard.mjs parent ios",
+    "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs parent ios store-live"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

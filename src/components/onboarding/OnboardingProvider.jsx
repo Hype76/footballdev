@@ -217,6 +217,26 @@ function CompactOnboardingPanel({
   )
 }
 
+function WaitingForSetupPanel({ plan }) {
+  return (
+    <section className="mb-6 rounded-lg border border-[#fedf89] bg-[#fffbeb] px-5 py-5 shadow-sm shadow-[#f79009]/10 sm:px-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#b54708]">Team setup needed</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">{plan.description}</p>
+        </div>
+        <Link
+          to={plan.firstAction}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fedf89] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#f79009]/10 transition hover:border-[#f79009] hover:bg-[#fff7ed]"
+        >
+          Open team workspace
+        </Link>
+      </div>
+    </section>
+  )
+}
+
 export function OnboardingProvider({ children }) {
   const location = useLocation()
   const { updateCurrentUserDetails, user } = useAuth()
@@ -277,16 +297,19 @@ export function OnboardingProvider({ children }) {
   const nextStep = plan?.steps?.find((step) => !step.complete) ?? plan?.steps?.[0]
   const shouldShowOnboarding = Boolean(
     plan &&
+      plan.kind !== 'waiting' &&
       plan.manualState?.enabled &&
       !plan.manualState?.dismissedAt &&
       !progress.isComplete,
   )
   const shouldShowReopenOnboarding = Boolean(
     plan &&
+      plan.kind !== 'waiting' &&
       plan.manualState?.enabled &&
       plan.manualState?.dismissedAt &&
       !progress.isComplete,
   )
+  const shouldShowWaitingForSetup = Boolean(plan?.kind === 'waiting')
   const currentPath = location.pathname || '/'
   const fullSetupPaths = new Set(['/', '/coach', '/club-settings', '/user-settings'])
   const shouldUseFullSetup = showFullSetup || fullSetupPaths.has(currentPath)
@@ -371,6 +394,7 @@ export function OnboardingProvider({ children }) {
 
   return (
     <>
+      {shouldShowWaitingForSetup ? <WaitingForSetupPanel plan={plan} /> : null}
       {shouldShowOnboarding && !shouldUseFullSetup ? (
         <CompactOnboardingPanel
           errorMessage={errorMessage}

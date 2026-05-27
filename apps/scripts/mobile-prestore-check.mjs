@@ -271,8 +271,9 @@ for (const app of apps) {
     assertIncludes(easConfig, '"environment": "production"', `${app.name} EAS store-test environment`)
     assertIncludes(easConfig, '"distribution": "store"', `${app.name} EAS store-test profile`)
     assertIncludes(easConfig, '"autoIncrement": true', `${app.name} EAS config`)
-    assertNotIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "live"', `${app.name} EAS config`)
-    assertNotIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS config`)
+    assertIncludes(easConfig, '"store-live"', `${app.name} EAS live store profile`)
+    assertIncludes(easConfig, '"EXPO_PUBLIC_SUPABASE_ENV": "live"', `${app.name} EAS live store profile`)
+    assertIncludes(easConfig, '"EXPO_PUBLIC_ALLOW_LIVE_SUPABASE": "true"', `${app.name} EAS live store profile`)
   }
 
   if (existsSync(join(repoRoot, app.packageJson))) {
@@ -483,7 +484,7 @@ assertIncludes(mobileSubmitGuard, 'final external QA is confirmed', 'Mobile subm
 assertIncludes(mobileSubmitGuard, 'assertEasLogin()', 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, 'loadMobileLocalEnv(repoRoot, app.path)', 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'submit'", 'Mobile submit guard')
-assertIncludes(mobileSubmitGuard, "'--profile', 'store-test'", 'Mobile submit guard')
+assertIncludes(mobileSubmitGuard, "'--profile', profile", 'Mobile submit guard')
 assertIncludes(mobileSubmitGuard, "'--platform', platform", 'Mobile submit guard')
 assertIncludes(mobileSubmitPreflight, 'Football Player Mobile Submit Preflight', 'Mobile submit preflight helper')
 assertIncludes(mobileSubmitPreflight, 'This command does not call EAS, Apple, Google, Netlify, Supabase, or any live service.', 'Mobile submit preflight helper')

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { router } from './app/router.jsx'
 import { TestSiteBanner } from './components/layout/TestSiteBanner.jsx'
+import { AppUpdatePrompt } from './components/pwa/AppUpdatePrompt.jsx'
 import GlobalInstallAppButton from './components/pwa/GlobalInstallAppButton.jsx'
 import OfflineDraftSync from './components/pwa/OfflineDraftSync.jsx'
 import { ToastProvider } from './components/ui/Toast.jsx'
@@ -17,12 +18,14 @@ window.addEventListener('vite:preloadError', (event) => {
 
 if (import.meta.env.MODE === 'production') {
   void import('virtual:pwa-register').then(({ registerSW }) => {
-    registerSW({
+    const updateServiceWorker = registerSW({
       immediate: true,
       onNeedRefresh() {
-        window.location.reload()
+        window.dispatchEvent(new Event('football-player:update-ready'))
       },
     })
+
+    window.footballPlayerApplyUpdate = () => updateServiceWorker(true)
   })
 } else if ('serviceWorker' in navigator) {
   void navigator.serviceWorker.getRegistrations().then((registrations) => {
@@ -48,6 +51,7 @@ createRoot(document.getElementById('root')).render(
       <ToastProvider>
         <TestSiteBanner />
         <OfflineDraftSync />
+        <AppUpdatePrompt />
         <GlobalInstallAppButton />
         <RouterProvider router={router} />
       </ToastProvider>

@@ -6,9 +6,10 @@ import { mobileApps } from './mobile-apps.mjs'
 import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const [appRole, platform] = process.argv.slice(2)
+const [appRole, platform, profile = 'store-test'] = process.argv.slice(2)
 
 const allowedPlatforms = new Set(['android', 'ios'])
+const allowedProfiles = new Set(['store-test', 'store-live'])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim().toLowerCase() === 'true'
 
@@ -22,6 +23,11 @@ if (!allowedPlatforms.has(platform)) {
   process.exit(1)
 }
 
+if (!allowedProfiles.has(profile)) {
+  console.error('Unknown submit profile. Expected store-test or store-live.')
+  process.exit(1)
+}
+
 if (!submissionConfirmed) {
   console.error('Mobile store submission is blocked until final external QA is confirmed.')
   console.error('Complete store records, reviewer credentials, screenshots, reviewer notes, physical device QA, notification QA, and private release evidence first.')
@@ -31,15 +37,15 @@ if (!submissionConfirmed) {
 
 assertEasLogin()
 
-console.log(`Running mobile release gate before ${app.expectedName} ${platform} submit.`)
+console.log(`Running mobile release gate before ${app.expectedName} ${profile} ${platform} submit.`)
 execFileSync('npm', ['run', 'mobile:release-check'], {
   cwd: repoRoot,
   stdio: 'inherit',
   shell: process.platform === 'win32',
 })
 
-console.log(`Release gate passed. Starting EAS submit for ${app.expectedName} ${platform}.`)
-execFileSync('npx', ['eas-cli', 'submit', '--profile', 'store-test', '--platform', platform], {
+console.log(`Release gate passed. Starting EAS submit for ${app.expectedName} ${profile} ${platform}.`)
+execFileSync('npx', ['eas-cli', 'submit', '--profile', profile, '--platform', platform], {
   cwd: resolve(repoRoot, app.path),
   env: {
     ...process.env,
