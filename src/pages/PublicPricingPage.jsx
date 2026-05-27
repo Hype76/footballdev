@@ -224,7 +224,7 @@ export function PublicPricingPage() {
                       plan.name === 'Small Club' ? 'bg-[#047857] text-white hover:bg-[#065f46]' : 'border border-[#d7e5dc] bg-white text-[#101828] hover:bg-[#f7faf8]',
                     ].join(' ')}
                   >
-                    {paymentsDisabled ? 'Create Test Club' : plan.name === 'Individual' ? 'Start Free' : plan.name === 'Large Club' ? 'Request Demo' : 'Choose Plan'}
+                    {paymentsDisabled ? 'Create test club' : plan.name === 'Individual' ? 'Start free' : plan.name === 'Large Club' ? 'Request demo' : 'Choose plan'}
                   </button>
                   {plan.name !== 'Individual' && !paymentsDisabled ? (
                     <button
@@ -232,7 +232,7 @@ export function PublicPricingPage() {
                       onClick={plan.name === 'Large Club' ? openContactModal : () => setDemoPlan(plan)}
                       className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]"
                     >
-                      {plan.name === 'Large Club' ? 'Contact Us' : 'Request Demo'}
+                      {plan.name === 'Large Club' ? 'Contact us' : 'Request demo'}
                     </button>
                   ) : null}
                 </div>

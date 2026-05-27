@@ -45,7 +45,7 @@ export function PublicParentsPage() {
               href="/pricing"
               className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm transition hover:bg-[#f7faf8]"
             >
-              View Pricing
+              View pricing
             </a>
           </div>
           <div className="mt-8 grid gap-4 sm:grid-cols-3">

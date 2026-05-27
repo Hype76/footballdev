@@ -90,17 +90,17 @@ export function PublicFeaturesPage() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46]">
-              Try Now
+              Try now
             </a>
             <button
               type="button"
               onClick={openContactModal}
               className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]"
             >
-              Contact Us
+              Contact us
             </button>
             <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]">
-              View Pricing
+              View pricing
             </a>
           </div>
         </div>

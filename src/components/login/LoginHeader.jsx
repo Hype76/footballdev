@@ -77,7 +77,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-[#101828]">Phone Number</span>
+            <span className="mb-2 block text-sm font-bold text-[#101828]">Phone number</span>
             <input
               type="tel"
               name="phone"
@@ -126,7 +126,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
               title={isSubmitting ? 'Please wait while your message is sent.' : undefined}
               className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Sending...' : 'Send Message'}
+              {isSubmitting ? 'Sending...' : 'Send message'}
             </button>
           </div>
         </form>
@@ -230,13 +230,13 @@ export function LoginHeader({ logo }) {
               onClick={openContactModal}
               className="hidden min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5] sm:inline-flex"
             >
-              Contact Us
+              Contact us
             </button>
             <a
               href="/sign-in"
               className="hidden min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] sm:inline-flex"
             >
-              Login
+              Log in
             </a>
             <InstallAppButton
               wrapperClassName="lg:hidden"
@@ -272,7 +272,7 @@ export function LoginHeader({ logo }) {
             href="/sign-in"
             className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[#047857] px-1 py-2 text-center text-[11px] font-black leading-none text-white transition hover:bg-[#065f46] min-[390px]:text-xs"
           >
-            <span className="block" style={mobileNavLabelStyle}>Login</span>
+            <span className="block" style={mobileNavLabelStyle}>Log in</span>
           </a>
         </div>
       </nav>
