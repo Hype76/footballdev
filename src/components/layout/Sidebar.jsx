@@ -414,7 +414,14 @@ export function Sidebar({ isOpen, onClose }) {
                   key={item.path}
                   to={item.path}
                   data-tour-id={getSidebarTourId(item.path)}
-                  onClick={onClose}
+                  onClick={(event) => {
+                    if (event.currentTarget.getAttribute('aria-current') === 'page') {
+                      event.preventDefault()
+                      return
+                    }
+
+                    onClose()
+                  }}
                   className={({ isActive }) =>
                     [
                       'block rounded-lg px-3 py-3 transition',
@@ -449,7 +456,14 @@ export function Sidebar({ isOpen, onClose }) {
               <NavLink
                 to="/information"
                 data-tour-id="sidebar-information"
-                onClick={onClose}
+                onClick={(event) => {
+                  if (event.currentTarget.getAttribute('aria-current') === 'page') {
+                    event.preventDefault()
+                    return
+                  }
+
+                  onClose()
+                }}
                 className={({ isActive }) =>
                   [
                     'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
@@ -465,7 +479,14 @@ export function Sidebar({ isOpen, onClose }) {
                 <NavLink
                   to="/platform-feedback"
                   data-tour-id="sidebar-platform-feedback"
-                  onClick={onClose}
+                  onClick={(event) => {
+                    if (event.currentTarget.getAttribute('aria-current') === 'page') {
+                      event.preventDefault()
+                      return
+                    }
+
+                    onClose()
+                  }}
                   className={({ isActive }) =>
                     [
                       'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
@@ -513,7 +534,14 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
               key={item.path}
               to={item.path}
               data-tour-id={getSidebarTourId(item.path)}
-              onClick={onClose}
+              onClick={(event) => {
+                if (event.currentTarget.getAttribute('aria-current') === 'page') {
+                  event.preventDefault()
+                  return
+                }
+
+                onClose()
+              }}
               className={({ isActive }) =>
                 [
                   'block rounded-lg px-3 py-3 transition',
