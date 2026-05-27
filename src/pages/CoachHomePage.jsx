@@ -139,6 +139,18 @@ function getEvaluationSummary(evaluation) {
   return 'No summary added yet.'
 }
 
+function getSessionContextLabel(session) {
+  if (!session) {
+    return 'Create or open a session to start coach work.'
+  }
+
+  return `Type: ${formatSessionType(session.sessionType)}, Date: ${formatSessionDate(session.sessionDate)}`
+}
+
+function getEvaluationContextLabel(evaluation, user) {
+  return `Team: ${evaluation.team || user?.activeTeamName || 'Team not set'}, Score: ${evaluation.averageScore ?? 'Not scored'}`
+}
+
 export function CoachHomePage() {
   const { user } = useAuth()
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
@@ -376,8 +388,8 @@ export function CoachHomePage() {
                 </h2>
                 <p className={`mt-2 ${bodyTextClass}`}>
                   {activeSession
-                    ? `${formatSessionType(activeSession.sessionType)} | ${formatSessionDate(activeSession.sessionDate)}`
-                    : 'Create or open a session to start coach work.'}
+                    ? getSessionContextLabel(activeSession)
+                    : getSessionContextLabel(null)}
                 </p>
               </div>
               <Link
@@ -479,7 +491,7 @@ export function CoachHomePage() {
           {recentEvaluations.map((evaluation) => (
             <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-lg border border-[#d8e3ee] bg-[#eff6ff] p-4 shadow-sm shadow-[#2563eb]/10">
               <p className="truncate text-sm font-black text-[#0f172a]">{evaluation.playerName}</p>
-              <p className="mt-2 text-xs font-semibold text-[#475569]">{evaluation.team || user?.activeTeamName || 'Team'} / score {evaluation.averageScore ?? 'Not scored'}</p>
+              <p className="mt-2 text-xs font-semibold text-[#475569]">{getEvaluationContextLabel(evaluation, user)}</p>
               <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-[#475569]">
                 {getEvaluationSummary(evaluation)}
               </p>

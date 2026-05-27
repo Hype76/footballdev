@@ -70,6 +70,24 @@ function ConstraintRule({ body, title }) {
   )
 }
 
+function FirstActionCard({ nextStep, plan }) {
+  return (
+    <div className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-4 py-4 shadow-sm shadow-[#1d4ed8]/10">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1d4ed8]">First useful action</p>
+      <p className="mt-2 text-lg font-black leading-6 text-[#0f172a]">{nextStep?.title || plan.title}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+        {nextStep?.detail || plan.description}
+      </p>
+      <Link
+        to={nextStep?.href || plan.firstAction}
+        className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#2563eb]/20 transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2"
+      >
+        {nextStep?.actionLabel || 'Start setup'}
+      </Link>
+    </div>
+  )
+}
+
 function SetupStepCard({ index, onComplete, step }) {
   return (
     <article
@@ -409,7 +427,8 @@ export function OnboardingProvider({ children }) {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <FirstActionCard nextStep={nextStep} plan={plan} />
               <ConstraintRule title="Use real club data" body="Create or confirm the records needed for this week of football." />
               <ConstraintRule title="Respect role limits" body="Only complete setup work this account is allowed to manage." />
               <ConstraintRule title="Do one real action" body="Each setup step should make the workspace ready for a real session, match, or parent update." />
