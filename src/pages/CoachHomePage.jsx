@@ -403,7 +403,7 @@ export function CoachHomePage() {
                 <div key={player.id} className="flex items-center justify-between gap-3 rounded-lg border border-[#d8e3ee] bg-[#eff6ff] px-4 py-3 shadow-sm shadow-[#2563eb]/10">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-[#0f172a]">{player.playerName}</p>
-                    <p className="mt-1 text-xs font-semibold text-[#475569]">{player.section} / {player.team || 'No team'}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#475569]">Section: {player.section || 'Trial'}, Team: {player.team || 'No team assigned'}</p>
                   </div>
                   <Link
                     to="/sessions/start"

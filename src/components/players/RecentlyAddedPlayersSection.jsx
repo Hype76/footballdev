@@ -41,7 +41,7 @@ export function RecentlyAddedPlayersSection({
             >
               <p className="text-base font-black text-[#0f172a]">{player.playerName}</p>
               <p className="mt-2 text-sm font-bold text-[#1d4ed8]">
-                {player.section} / {player.team || 'No team'}
+                Section: {player.section || 'Trial'}, Team: {player.team || 'No team assigned'}
               </p>
               <p className="mt-1 text-sm font-semibold leading-5 text-[#475569]">
                 {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}

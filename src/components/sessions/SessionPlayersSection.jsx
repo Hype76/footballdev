@@ -104,7 +104,7 @@ export function SessionPlayersSection({
                 {selectedSession?.title || selectedSession?.team || 'Session'}
               </p>
           <p className="mt-1 text-sm font-semibold text-[#475569]">
-                {formatSessionType(selectedSession?.sessionType)} / {formatSessionDate(selectedSession?.sessionDate)}
+                Type: {formatSessionType(selectedSession?.sessionType)}, Date: {formatSessionDate(selectedSession?.sessionDate)}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -247,10 +247,10 @@ function SessionVoiceNotes({ deletingVoiceNoteId, notes, onDeleteVoiceNote, sele
             </audio>
           ) : null}
           <p className="mt-2 text-xs font-bold text-[#475569]">
-            Deletes {formatRetentionDate(note.audioExpiresAt)} / {getRetentionCountdownLabel(note.audioExpiresAt)}
+            Deletes: {formatRetentionDate(note.audioExpiresAt)}, Retention: {getRetentionCountdownLabel(note.audioExpiresAt)}
           </p>
           <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-[#475569]">
-            {note.userName || note.userEmail || 'Staff'} / {formatSessionDate(note.createdAt)}
+            Staff: {note.userName || note.userEmail || 'Staff'}, Created: {formatSessionDate(note.createdAt)}
           </p>
         </div>
       ))}
@@ -286,7 +286,7 @@ function SessionPlayerCard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-base font-black text-[#0f172a]">{player.playerName}</p>
-          <p className="mt-1 text-sm font-semibold text-[#475569]">{player.section} / {player.team || 'No team'}</p>
+          <p className="mt-1 text-sm font-semibold text-[#475569]">Section: {player.section || 'Trial'}, Team: {player.team || 'No team assigned'}</p>
           {completedPlayerNames.includes(normalizeProgressName(player.playerName)) ? (
             <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#1d4ed8]">
               Development record completed

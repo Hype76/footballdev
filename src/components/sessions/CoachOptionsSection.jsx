@@ -66,7 +66,7 @@ export function CoachOptionsSection({
               >
                 {combinedSessions.map((session) => (
                   <option key={session.id} value={session.id}>
-                    {formatSessionType(session.sessionType)} / {session.title || session.team} / {formatSessionDate(session.sessionDate)} / {session.status === 'completed' ? 'Completed' : 'Open'}
+                    {formatSessionType(session.sessionType)}, Title: {session.title || session.team}, Date: {formatSessionDate(session.sessionDate)}, Status: {session.status === 'completed' ? 'Completed' : 'Open'}
                   </option>
                 ))}
               </select>
@@ -110,7 +110,7 @@ export function CoachOptionsSection({
                   onChange={(event) => onPlayerSelection(player.id, event.target.checked)}
                   className="h-4 w-4"
                 />
-                <span>{player.playerName} / {player.team || 'No team'}</span>
+                <span>{player.playerName}, Team: {player.team || 'No team assigned'}</span>
               </label>
             ))}
           </div>

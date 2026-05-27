@@ -69,9 +69,9 @@ export function OpenSessionsSection({
                   </span>
                 </div>
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#1d4ed8]">
-                  {formatSessionType(selectedSession?.sessionType)} / {formatSessionDate(selectedSession?.sessionDate)}
+                  Type: {formatSessionType(selectedSession?.sessionType)}, Date: {formatSessionDate(selectedSession?.sessionDate)}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-[#475569]">{selectedSession?.team || 'No team entered'}</p>
+                <p className="mt-1 text-sm font-semibold text-[#475569]">Team: {selectedSession?.team || 'No team entered'}</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 {canCompleteSessions && selectedSession && !selectedSessionCompleted ? (
@@ -123,7 +123,7 @@ export function OpenSessionsSection({
               </option>
               {previousSessions.map((session) => (
                 <option key={session.id} value={session.id}>
-                  {formatSessionType(session.sessionType)} / {session.title || session.team} / {formatSessionDate(session.sessionDate)} / {session.status === 'completed' ? 'Completed' : 'Open'}
+                  {formatSessionType(session.sessionType)}, Title: {session.title || session.team}, Date: {formatSessionDate(session.sessionDate)}, Status: {session.status === 'completed' ? 'Completed' : 'Open'}
                 </option>
               ))}
             </select>
