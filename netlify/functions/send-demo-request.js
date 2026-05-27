@@ -43,7 +43,7 @@ function buildDemoRequestHtml({ name, email, phone, clubTeamName, planName, bill
   const rows = [
     ['Name', name],
     ['Email', email],
-    ['Phone Number', phone || 'Not provided'],
+    ['Phone number', phone || 'Not provided'],
     ['Club/Team Name', clubTeamName],
     ['Requested Plan', planName || 'Not selected'],
     ['Billing Choice', billingCycle || 'Not selected'],

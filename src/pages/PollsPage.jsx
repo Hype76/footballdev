@@ -80,7 +80,7 @@ function getAudienceLabel(value) {
     return 'Team staff'
   }
 
-  return 'Parent portal'
+  return 'Family portal'
 }
 
 function formatDateTimeLabel(value) {
@@ -860,7 +860,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <span className={chipClass}>
-              {isStaffPoll ? 'Team staff' : 'Parent portal'}
+              {isStaffPoll ? 'Team staff' : 'Family portal'}
             </span>
             <span className={chipClass}>
               {poll.pollType === 'time' ? 'Time request' : poll.pollType === 'awards' ? 'Award vote' : 'Availability request'}

@@ -150,7 +150,7 @@ export function LoginAuthPanel({
               title={isSubmitting ? 'Please wait while your request is being checked.' : undefined}
               className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Login'}
+              {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Log in'}
             </button>
             {mode === 'login' ? (
               <>
@@ -161,7 +161,7 @@ export function LoginAuthPanel({
                   onClick={onDemoLogin}
                   className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-5 py-3 text-sm font-black text-[#065f46] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Open Demo Account
+                  Open demo account
                 </button>
                 <button
                   type="button"

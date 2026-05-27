@@ -55,7 +55,7 @@ export function FriendsFamilyPage() {
       description: 'The link opens the selected child and nothing else.',
     },
     {
-      title: 'Parent portal access',
+      title: 'Family portal access',
       description: 'Family members cannot see staff tools, club settings, or another child.',
     },
     {
@@ -275,7 +275,7 @@ function FamilyAccessHero({ accessRules, familySummary, isLoading, selectedChild
               Share one child without opening the whole club.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Create controlled parent-portal access for a grandparent, carer, or trusted family member who needs match day and development updates.
+              Create controlled family access for a grandparent, carer, or trusted family member who needs match day and development updates.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {familySummary.map((item) => (

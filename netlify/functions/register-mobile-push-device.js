@@ -85,7 +85,7 @@ async function buildDevicePayload({ authUser, body }) {
     const parentLink = await getParentLink(parentLinkId, authUser.id)
 
     if (!parentLink) {
-      throw Object.assign(new Error('This parent portal link could not be opened.'), { statusCode: 403 })
+      throw Object.assign(new Error('This family portal link could not be opened.'), { statusCode: 403 })
     }
 
     return {

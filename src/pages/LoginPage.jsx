@@ -158,7 +158,7 @@ export function LoginPage() {
         }
       } else {
         if (isDemoEmail(formData.email)) {
-          throw new Error('Use the Open Demo Account button for demo access.')
+          throw new Error('Use the Open demo account button for demo access.')
         }
 
         await signInWithPassword({

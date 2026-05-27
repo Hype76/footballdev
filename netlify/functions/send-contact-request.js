@@ -43,7 +43,7 @@ function buildContactRequestHtml({ name, email, phone, message, sourcePath }) {
   const rows = [
     ['Name', name],
     ['Email', email],
-    ['Phone Number', phone || 'Not provided'],
+    ['Phone number', phone || 'Not provided'],
     ['Page', sourcePath || 'Not recorded'],
   ]
 

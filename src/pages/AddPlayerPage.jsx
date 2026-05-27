@@ -319,7 +319,7 @@ export function AddPlayerPage() {
           teamName: invite.teamName,
           clubName: invite.clubName || user.clubName,
           playerName: invite.playerName,
-          subject: `Parent portal invite for ${invite.playerName}`,
+          subject: `Family portal invite for ${invite.playerName}`,
           inviteUrl: invite.inviteUrl,
         }),
       ),
@@ -347,7 +347,7 @@ export function AddPlayerPage() {
       setParentPortalInviteTarget(null)
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Parent portal invite could not be sent.')
+      setErrorMessage(error.message || 'Family portal invite could not be sent.')
     } finally {
       setIsSendingParentPortalLink(false)
     }

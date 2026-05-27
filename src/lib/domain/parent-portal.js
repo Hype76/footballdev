@@ -257,7 +257,7 @@ export async function createParentPortalInvites({ user, player, contacts }) {
   }
 
   if (String(player.section ?? '').trim().toLowerCase() !== 'squad') {
-    throw new Error('Parent portal links can only be sent for squad players.')
+    throw new Error('Family portal links can only be sent for squad players.')
   }
 
   const normalizedContacts = (contacts ?? [])

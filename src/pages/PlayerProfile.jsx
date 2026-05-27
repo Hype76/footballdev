@@ -1291,7 +1291,7 @@ export function PlayerProfile() {
           teamName: invite.teamName,
           clubName: invite.clubName || user.clubName,
           playerName: invite.playerName,
-          subject: `Parent portal invite for ${invite.playerName}`,
+          subject: `Family portal invite for ${invite.playerName}`,
           inviteUrl: invite.inviteUrl,
         }),
       ),

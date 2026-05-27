@@ -72,11 +72,11 @@ function buildConfirmationEmailHtml({ actionLink, invite, email }) {
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
       <div style="border: 1px solid #e5eadf; border-radius: 12px; overflow: hidden;">
         <div style="background: #101510; color: #ffffff; padding: 24px;">
-          <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Parent Portal</p>
+          <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Family portal</p>
           <h1 style="margin: 0; font-size: 24px;">Confirm parent access</h1>
         </div>
         <div style="padding: 24px;">
-          <p style="margin: 0 0 16px;">Confirm ${escapeHtml(email)} to open parent portal access for ${escapeHtml(childName)}.</p>
+          <p style="margin: 0 0 16px;">Confirm ${escapeHtml(email)} to open family portal access for ${escapeHtml(childName)}.</p>
           <div style="margin: 0 0 20px; padding: 14px 16px; border: 1px solid #e5eadf; border-radius: 10px; background: #f8faf5;">
             <p style="margin: 0; font-weight: 700;">${escapeHtml(childName)}</p>
             <p style="margin: 4px 0 0; color: #52645a; font-size: 14px;">${escapeHtml(teamCopy)}</p>
@@ -110,7 +110,7 @@ async function getInvite(token) {
   }
 
   if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
-    throw Object.assign(new Error('This parent invite has expired. Ask the team to send a new parent portal link.'), { statusCode: 410 })
+    throw Object.assign(new Error('This parent invite has expired. Ask the team to send a new family portal link.'), { statusCode: 410 })
   }
 
   const player = Array.isArray(data.players) ? data.players[0] : data.players
@@ -256,7 +256,7 @@ export async function handler(event) {
     const sendResult = await resend.emails.send({
       from: 'Football Player <feedback@footballplayer.online>',
       to: [email],
-      subject: 'Confirm your parent portal account',
+      subject: 'Confirm your family portal account',
       html: buildConfirmationEmailHtml({ actionLink, invite, email }),
     })
 

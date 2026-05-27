@@ -938,7 +938,7 @@ function MatchDayCard({
                       <div className="min-w-0">
                         <p className="text-sm font-black text-[#101828]">{interest.parentEmail || interest.parentName || 'Parent'}</p>
                         <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
-                          {interest.playerName ? `Linked to ${interest.playerName}` : 'Parent portal volunteer'}
+                          {interest.playerName ? `Linked to ${interest.playerName}` : 'Family portal volunteer'}
                         </p>
                         {interest.message ? <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{interest.message}</p> : null}
                       </div>

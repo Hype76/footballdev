@@ -44,7 +44,7 @@ async function getParentLink(parentLinkId, authUserId) {
     .maybeSingle()
 
   if (error || !data) {
-    throw Object.assign(new Error('This parent portal link could not be opened.'), { statusCode: 403 })
+    throw Object.assign(new Error('This family portal link could not be opened.'), { statusCode: 403 })
   }
 
   return data

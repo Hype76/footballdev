@@ -84,8 +84,8 @@ function buildEmailPayload({
     from: `${fromName} <feedback@footballplayer.online>`,
     to: [recipient],
     replyTo: safeReplyTo || undefined,
-    subject: String(subject ?? '').trim() || 'Parent Portal Invite',
-    html: String(emailHtml ?? '').trim() || '<p>You have been invited to the parent portal.</p>',
+    subject: String(subject ?? '').trim() || 'Family portal invite',
+    html: String(emailHtml ?? '').trim() || '<p>You have been invited to the family portal.</p>',
   }
 
   if (senderCopyEmails.length > 0) {
@@ -99,7 +99,7 @@ async function getInviteLink(linkId) {
   const normalizedLinkId = String(linkId ?? '').trim()
 
   if (!normalizedLinkId) {
-    throw Object.assign(new Error('Parent portal invite details are required.'), { statusCode: 400 })
+    throw Object.assign(new Error('Family portal invite details are required.'), { statusCode: 400 })
   }
 
   const { data, error } = await supabaseAdmin
@@ -109,15 +109,15 @@ async function getInviteLink(linkId) {
     .maybeSingle()
 
   if (error || !data) {
-    throw Object.assign(new Error('Parent portal invite could not be found.'), { statusCode: 404 })
+    throw Object.assign(new Error('Family portal invite could not be found.'), { statusCode: 404 })
   }
 
   if (data.status === 'revoked') {
-    throw Object.assign(new Error('This parent portal invite is no longer available.'), { statusCode: 403 })
+    throw Object.assign(new Error('This family portal invite is no longer available.'), { statusCode: 403 })
   }
 
   if (String(data.players?.section ?? '').trim().toLowerCase() !== 'squad') {
-    throw Object.assign(new Error('Parent portal invites can only be sent for squad players.'), { statusCode: 403 })
+    throw Object.assign(new Error('Family portal invites can only be sent for squad players.'), { statusCode: 403 })
   }
 
   return data
@@ -148,7 +148,7 @@ async function assertCanSendInvite({ event, inviteLink }) {
     .maybeSingle()
 
   if (error || !teamStaff) {
-    throw Object.assign(new Error('You need access to this team before sending parent portal invites.'), { statusCode: 403 })
+    throw Object.assign(new Error('You need access to this team before sending family portal invites.'), { statusCode: 403 })
   }
 
   return planProfile
@@ -158,7 +158,7 @@ async function createEmailAuditLog(payload) {
   try {
     await createServerAuditLog(payload)
   } catch (error) {
-    console.error('Parent portal invite audit logging failed', error)
+    console.error('Family portal invite audit logging failed', error)
   }
 }
 
@@ -168,7 +168,7 @@ export async function handler(event) {
   }
 
   let recipient = ''
-  let emailSubject = 'Parent Portal Invite'
+  let emailSubject = 'Family portal invite'
   let emailLogRecord = null
 
   try {
@@ -198,7 +198,7 @@ export async function handler(event) {
     }
 
     if (requestUser.email === DEMO_EMAIL) {
-      return failureResponse(403, 'Parent portal invites are disabled for the demo account.')
+      return failureResponse(403, 'Family portal invites are disabled for the demo account.')
     }
 
     recipient = normaliseEmail(parentEmail || inviteLink.email)
@@ -229,7 +229,7 @@ export async function handler(event) {
       return failureResponse(400, 'Email content is too large.')
     }
 
-    emailSubject = String(subject ?? '').trim() || 'Parent Portal Invite'
+    emailSubject = String(subject ?? '').trim() || 'Family portal invite'
     const emailPayload = buildEmailPayload({
       fromName,
       recipient,
@@ -286,7 +286,7 @@ export async function handler(event) {
       .eq('id', inviteLink.id)
 
     if (inviteSentUpdateError) {
-      console.error('Parent portal invite sent timestamp update failed', inviteSentUpdateError)
+      console.error('Family portal invite sent timestamp update failed', inviteSentUpdateError)
     }
 
     await createEmailAuditLog({
@@ -324,6 +324,6 @@ export async function handler(event) {
       },
     })
 
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Parent portal invite could not be sent.')
+    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Family portal invite could not be sent.')
   }
 }

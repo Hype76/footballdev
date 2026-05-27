@@ -163,7 +163,7 @@ export function ParentLinkingPage() {
           teamName: invite.teamName,
           clubName: invite.clubName || user.clubName,
           playerName: invite.playerName,
-          subject: `Parent portal invite for ${invite.playerName}`,
+          subject: `Family portal invite for ${invite.playerName}`,
           inviteUrl: invite.inviteUrl,
         }),
       ),
@@ -358,7 +358,7 @@ export function ParentLinkingPage() {
           ) : players.length === 0 ? (
             <ParentAccessStatePanel
               action="Move the first player into Squad, add parent emails, then return here to invite families."
-              body="Parent portal access is limited to squad players so families only see footballers who are part of the active team."
+              body="Family portal access is limited to squad players so families only see footballers who are part of the active team."
               eyebrow="Setup required"
               title="No squad players are ready for parent access."
             />

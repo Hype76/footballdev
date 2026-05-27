@@ -43,7 +43,7 @@ export async function handler(event) {
     }
 
     if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
-      return failureResponse(410, 'This parent invite has expired. Ask the team to send a new parent portal link.')
+      return failureResponse(410, 'This parent invite has expired. Ask the team to send a new family portal link.')
     }
 
     const player = Array.isArray(data.players) ? data.players[0] : data.players
