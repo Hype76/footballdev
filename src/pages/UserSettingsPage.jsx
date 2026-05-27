@@ -357,7 +357,7 @@ export function UserSettingsPage() {
   const canEditEmailClubName = showSenderIdentity && canEditClubIdentity(user)
   const pageTitle = isParentSettings ? 'Parent account' : 'My account'
   const pageDescription = isParentSettings
-    ? 'Manage your parent portal login and password.'
+    ? 'Manage your family portal login and password.'
     : isClubAdminSettings
       ? 'Manage your personal account and sign-in details. Club details stay in Club Settings.'
       : 'Manage your username, password, and personal account details.'
@@ -372,7 +372,7 @@ export function UserSettingsPage() {
     {
       label: 'Workspace',
       value: workspaceLabel,
-      caption: isParentSettings ? 'Parent portal access.' : 'The account context currently in use.',
+      caption: isParentSettings ? 'Family portal access.' : 'The account context currently in use.',
     },
     {
       label: 'Role',

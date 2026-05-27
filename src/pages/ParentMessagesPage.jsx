@@ -263,7 +263,7 @@ export function ParentMessagesPage() {
               </div>
             ) : (
               <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
-                No emails have been shared in the parent portal for this child yet.
+                No emails have been shared in the family portal for this child yet.
               </p>
             )}
           </div>

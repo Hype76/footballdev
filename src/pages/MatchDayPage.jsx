@@ -310,7 +310,7 @@ export function MatchDayPage() {
   const handleCreateMatch = async (event) => {
     event.preventDefault()
 
-    if (!confirmMatchDayAction('Create this Match Day and publish the scorer request to the parent portal?')) {
+    if (!confirmMatchDayAction('Create this Match Day and publish the scorer request to the family portal?')) {
       return
     }
 
@@ -325,7 +325,7 @@ export function MatchDayPage() {
       })
       setForm(EMPTY_MATCH_FORM)
       await loadData()
-      showToast({ title: 'Match Day created', message: 'The scorer request is available in the parent portal.' })
+      showToast({ title: 'Match Day created', message: 'The scorer request is available in the family portal.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Match Day could not be created.')
@@ -371,7 +371,7 @@ export function MatchDayPage() {
       awayScore: match.awayScore,
     }
 
-    if (!confirmMatchDayAction(`Save this score as ${draft.homeScore || 0} - ${draft.awayScore || 0} for the parent portal?`)) {
+    if (!confirmMatchDayAction(`Save this score as ${draft.homeScore || 0} - ${draft.awayScore || 0} for the family portal?`)) {
       return
     }
 
@@ -388,7 +388,7 @@ export function MatchDayPage() {
         },
       })
       await loadData()
-      showToast({ title: 'Score updated', message: 'The parent portal score has been updated.' })
+      showToast({ title: 'Score updated', message: 'The family portal score has been updated.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Score could not be updated.')
@@ -455,7 +455,7 @@ export function MatchDayPage() {
       minute: getCurrentMatchMinute(match, Date.now()) ?? '',
     }
 
-    if (!confirmMatchDayAction('Add this goal to the live feed and update the parent portal score?')) {
+    if (!confirmMatchDayAction('Add this goal to the live feed and update the family portal score?')) {
       return
     }
 
@@ -484,7 +484,7 @@ export function MatchDayPage() {
   }
 
   const handleResetPrevious = async () => {
-    const confirmed = confirmMatchDayAction('Reset previous games for the season? This hides full time results from the parent portal previous games list.')
+    const confirmed = confirmMatchDayAction('Reset previous games for the season? This hides full time results from the family portal previous games list.')
 
     if (!confirmed) {
       return
@@ -496,7 +496,7 @@ export function MatchDayPage() {
     try {
       await resetPreviousMatchDayResults({ user })
       await loadData()
-      showToast({ title: 'Previous games reset', message: 'Old full time results have been hidden from the parent portal.' })
+      showToast({ title: 'Previous games reset', message: 'Old full time results have been hidden from the family portal.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Previous games could not be reset.')

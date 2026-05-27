@@ -71,9 +71,9 @@ export function ParentPortalLoginBox() {
   return (
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 text-[#101828] shadow-sm shadow-[#047857]/10 sm:p-5">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Parent login</p>
-      <h2 className="mt-3 text-2xl font-black tracking-tight">Open the parent portal</h2>
+      <h2 className="mt-3 text-2xl font-black tracking-tight">Open the family portal</h2>
       <p className="mt-2 text-sm font-semibold leading-7 text-[#4b5f55]">
-        Use the parent account confirmed by email. You will be taken to the dedicated parent portal after login.
+        Use the parent account confirmed by email. You will be taken to the dedicated family portal after login.
       </p>
 
       <form className="mt-5 space-y-4" onSubmit={handleSubmit}>

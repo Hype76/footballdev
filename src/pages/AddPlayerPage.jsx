@@ -405,7 +405,7 @@ export function AddPlayerPage() {
               <IntakeMetric label="Capacity" value={remainingPlayerCapacity} isLoading={isLoading} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Squad players with contact emails can be invited to the parent portal straight after save.
+              Squad players with contact emails can be invited to the family portal straight after save.
             </p>
           </div>
         </div>
@@ -454,8 +454,8 @@ export function AddPlayerPage() {
       <ConfirmModal
         isOpen={Boolean(parentPortalInviteTarget)}
         isBusy={isSendingParentPortalLink}
-        title="Send parent portal link"
-        message="This player has been added straight to Squad. Send the parent portal invite now?"
+        title="Send family portal link"
+        message="This player has been added straight to Squad. Send the family portal invite now?"
         items={[
           `Player: ${parentPortalInviteTarget?.playerName || 'Selected player'}`,
           `Team: ${parentPortalInviteTarget?.team || 'No team entered'}`,

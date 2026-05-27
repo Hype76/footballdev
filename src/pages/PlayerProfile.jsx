@@ -1328,7 +1328,7 @@ export function PlayerProfile() {
         } catch (error) {
           console.error(error)
           inviteError = error
-          setErrorMessage(error.message || 'Player was promoted, but the parent portal invite could not be sent.')
+          setErrorMessage(error.message || 'Player was promoted, but the family portal invite could not be sent.')
         }
       }
 
@@ -1592,7 +1592,7 @@ export function PlayerProfile() {
             <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
               {getPlayerPortalContacts(promoteConfirmTarget).length > 0
                 ? 'Parent contacts saved on this player will receive the portal invite.'
-                : 'Add a parent email before sending a parent portal link.'}
+                : 'Add a parent email before sending a family portal link.'}
             </span>
           </span>
         </label>

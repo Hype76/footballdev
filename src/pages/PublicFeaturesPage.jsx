@@ -20,7 +20,7 @@ const featureGroups = [
   },
   {
     title: 'Keep parents informed',
-    copy: 'Share the right updates through a controlled parent portal without staff losing control of records.',
+    copy: 'Share the right updates through a controlled family portal without staff losing control of records.',
     points: ['Messages and attachments', 'Parent polls', 'Linked child access'],
   },
 ]

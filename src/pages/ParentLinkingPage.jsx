@@ -253,7 +253,7 @@ export function ParentLinkingPage() {
       setLinks(nextLinks)
       showToast({
         title: 'Parent access removed',
-        message: `${revokeTarget.email || 'Parent'} can no longer access this player in the parent portal.`,
+        message: `${revokeTarget.email || 'Parent'} can no longer access this player in the family portal.`,
       })
       setRevokeTarget(null)
     } catch (error) {
@@ -477,7 +477,7 @@ export function ParentLinkingPage() {
         isOpen={Boolean(revokeTarget)}
         isBusy={isRevokingLink}
         title="Remove parent access"
-        message="This removes this parent from the parent portal for the selected player."
+        message="This removes this parent from the family portal for the selected player."
         items={[
           `Parent: ${revokeTarget?.email || 'Selected parent'}`,
           `Player: ${selectedPlayer?.playerName || 'Selected player'}`,

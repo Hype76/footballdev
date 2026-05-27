@@ -92,7 +92,7 @@ export function ParentLoginPage() {
     const openParentSession = async () => {
       setIsSubmitting(true)
       setErrorMessage('')
-      setMessage('Opening parent portal...')
+      setMessage('Opening family portal...')
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')
 
       try {
@@ -226,7 +226,7 @@ export function ParentLoginPage() {
       <section className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-center">
         <div className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6 lg:p-8">
           <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#d7e5dc] bg-white object-contain p-1 shadow-sm shadow-[#047857]/10" />
-          <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Parent portal</p>
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Family portal</p>
           <h1 className="mt-3 max-w-3xl text-3xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-4xl">
             Open the football updates linked to your child.
           </h1>

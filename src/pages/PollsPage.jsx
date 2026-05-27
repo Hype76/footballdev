@@ -51,7 +51,7 @@ const pollRuleCards = [
   },
   {
     label: 'Send to the right lane',
-    body: 'Parent questions go to the parent portal. Staff questions stay inside the team workspace.',
+    body: 'Parent questions go to the family portal. Staff questions stay inside the team workspace.',
   },
   {
     label: 'Close the loop',
@@ -489,7 +489,7 @@ export function PollsPage() {
       <div className="grid gap-3 sm:grid-cols-4">
         {[
           { label: 'Open requests', value: openPollCount, caption: 'Still waiting for replies or action.' },
-          { label: 'Parent lane', value: parentPollCount, caption: 'Questions sent to parent portal.' },
+          { label: 'Parent lane', value: parentPollCount, caption: 'Questions sent to family portal.' },
           { label: 'Staff lane', value: staffPollCount, caption: 'Internal team staff decisions.' },
           { label: 'Total replies', value: responseCount, caption: 'Responses across availability requests.' },
         ].map((item) => (

@@ -218,7 +218,7 @@ export function FriendsFamilyPage() {
 
       <SectionCard
         title="Accepted Friends and Family"
-        description="These people can currently open the selected child in the parent portal."
+        description="These people can currently open the selected child in the family portal."
       >
         {isLoadingFamilyLinks ? (
           <p className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 text-sm font-bold text-[#4b5f55]">

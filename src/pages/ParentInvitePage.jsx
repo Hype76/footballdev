@@ -274,7 +274,7 @@ export function ParentInvitePage() {
     <ParentShell>
       <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#d7e5dc] bg-white object-contain p-1 shadow-sm shadow-[#047857]/10" />
       <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Guardian access</p>
-      <h1 className="mt-3 text-2xl font-black tracking-tight">Create your parent portal login</h1>
+      <h1 className="mt-3 text-2xl font-black tracking-tight">Create your family portal login</h1>
       <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
         Use this login only for the child shown below. Parent accounts do not open staff tools or other club records.
       </p>
@@ -375,7 +375,7 @@ export function ParentInvitePage() {
             href={buildParentAppUrl('/parent-portal')}
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46]"
           >
-            Open parent portal
+            Open family portal
           </a>
         </div>
       ) : null}
