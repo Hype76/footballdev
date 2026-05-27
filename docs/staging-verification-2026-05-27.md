@@ -31,7 +31,8 @@ Scope: staging only. Live was not deployed.
 
 ## Residual Item
 
-- `https://parent-staging.footballplayer.online` still returns 404 for the valid staging parent invite token. Netlify shows this host is configured as a production domain alias. The working branch alias is `https://parent-staging.staging.footballplayer.online`.
+- `https://parent-staging.footballplayer.online` still returns 404 for the valid staging parent invite token. Netlify shows this host is configured as a production domain alias under `domain_aliases`, while `staging.footballplayer.online` is the configured branch deploy custom domain. The working branch alias is `https://parent-staging.staging.footballplayer.online`.
+- Because that older host is a production domain alias, another staging alias deploy cannot move it. Fixing that exact host requires a Netlify domain routing change or a live deploy that contains host-aware staging routing. Neither was done in this staging-only pass.
 
 ## Notes
 
