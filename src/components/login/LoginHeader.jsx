@@ -41,7 +41,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
           disabled={isSubmitting}
           title={isSubmitting ? 'Please wait while your message is sent.' : 'Close this window'}
           aria-label="Close this window"
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] text-sm font-bold text-[#4b5f55] transition hover:border-[#047857] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] text-sm font-bold text-[#4b5f55] transition hover:border-[#047857] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           X
         </button>
@@ -248,7 +248,7 @@ export function LoginHeader({ logo }) {
               <a
                 key={href}
                 href={href}
-                className="rounded-lg px-3 py-2 text-sm font-bold text-[#4b5f55] transition hover:bg-[#ecfdf5] hover:text-[#101828]"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold text-[#4b5f55] transition hover:bg-[#ecfdf5] hover:text-[#101828]"
               >
                 {label}
               </a>
