@@ -419,7 +419,7 @@ export function CoachHomePage() {
                   </div>
                   <Link
                     to="/sessions/start"
-                    className="shrink-0 rounded-lg border border-[#bbf7d0] bg-white px-3 py-2 text-sm font-black text-[#065f46] transition hover:bg-[#ecfdf5] hover:text-[#101828]"
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#bbf7d0] bg-white px-4 py-3 text-sm font-black text-[#065f46] transition hover:bg-[#ecfdf5] hover:text-[#101828]"
                   >
                     Record
                   </Link>
