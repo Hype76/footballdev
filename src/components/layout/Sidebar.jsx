@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.png'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
@@ -89,6 +89,38 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
         </span>
       ) : null}
     </span>
+  )
+}
+
+function OperationsStrip({ isParentPortal, onClose }) {
+  const actions = isParentPortal
+    ? [
+        { label: 'Fixtures', path: '/parent-portal', icon: 'calendar' },
+        { label: 'Messages', path: '/parent-messages', icon: 'mail' },
+        { label: 'Replies', path: '/parent-polls', icon: 'availability' },
+      ]
+    : [
+        { label: 'Session', path: '/sessions/start', icon: 'calendar' },
+        { label: 'Players', path: '/players/current', icon: 'players' },
+        { label: 'Parents', path: '/parent-linking', icon: 'parents' },
+      ]
+
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-2">
+      {actions.map((action) => (
+        <Link
+          key={action.path}
+          to={action.path}
+          onClick={onClose}
+          className="group grid min-h-20 place-items-center rounded-lg border border-[#d8e3ee] bg-white px-2 py-3 text-center text-[#475569] shadow-sm shadow-[#2563eb]/10 transition hover:border-[#2563eb] hover:bg-[#eff6ff] hover:text-[#0f172a]"
+        >
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] transition group-hover:bg-white">
+            <NavIcon name={action.icon} />
+          </span>
+          <span className="mt-2 text-xs font-black leading-4">{action.label}</span>
+        </Link>
+      ))}
+    </div>
   )
 }
 
@@ -324,44 +356,47 @@ export function Sidebar({ isOpen, onClose }) {
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-3 shadow-sm shadow-[#2563eb]/10">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
-                <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2563eb]">
-                  {isParentPortal ? 'Family portal' : 'Football OS'}
-                </p>
-                <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#0f172a]">{clubLabel}</h2>
+        <div className="rounded-lg border border-[#cbd5e1] bg-[#f8fafc] p-3 shadow-sm shadow-[#2563eb]/10">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#cbd5e1] bg-white shadow-sm shadow-[#2563eb]/10">
+                  <img src={logoUrl} alt={clubLabel} className="h-full w-full object-contain p-1.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2563eb]">
+                    {isParentPortal ? 'Family portal' : 'Football OS'}
+                  </p>
+                  <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#0f172a]">{clubLabel}</h2>
+                </div>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <span className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-xs font-black text-[#1e3a8a]">
-                {isParentPortal ? 'Family view' : 'Club workspace'}
-              </span>
-              <span className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-xs font-black text-[#1d4ed8]">
-                Match week
-              </span>
-            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white text-[#475569] shadow-sm lg:hidden"
+              aria-label="Close navigation"
+            >
+              X
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#cbd5e1] bg-white text-[#475569] shadow-sm lg:hidden"
-            aria-label="Close navigation"
-          >
-            X
-          </button>
+          <div className="mt-3 rounded-lg border border-[#d8e3ee] bg-white px-3 py-2">
+            <p className="text-xs font-black text-[#0f172a]">{isParentPortal ? 'Family view' : 'Club workspace'}</p>
+            <p className="mt-1 text-[11px] font-semibold leading-5 text-[#64748b]">
+              {isParentPortal ? 'Fixtures, messages, and replies.' : 'Players, training, parents, and match day.'}
+            </p>
+          </div>
         </div>
+
+        <OperationsStrip isParentPortal={isParentPortal} onClose={onClose} />
 
         <nav className="mt-4 space-y-3 pb-4">
           <section className="rounded-lg border border-[#d8e3ee] bg-[#f8fbfd] p-2 shadow-sm shadow-[#0f172a]/5">
             <div className="flex items-center justify-between px-2">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#475569]">
-                {isParentPortal ? 'Family actions' : 'Week operations'}
+                {isParentPortal ? 'Family actions' : 'Club week'}
               </p>
               <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[11px] font-black text-[#166534]">
                 Live
