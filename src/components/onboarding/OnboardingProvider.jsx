@@ -771,11 +771,11 @@ function OnboardingActionModal({
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={modalLabelClass}>Contact email</span>
-                  <input type="email" value={clubForm.contactEmail} onChange={(event) => setClubForm((current) => ({ ...current, contactEmail: event.target.value }))} className={modalInputClass} />
+                  <input type="email" value={clubForm.contactEmail} onChange={(event) => setClubForm((current) => ({ ...current, contactEmail: event.target.value }))} className={modalInputClass} required={actionType === 'club-details'} />
                 </label>
                 <label className="block">
                   <span className={modalLabelClass}>Contact phone</span>
-                  <input value={clubForm.contactPhone} onChange={(event) => setClubForm((current) => ({ ...current, contactPhone: event.target.value }))} className={modalInputClass} />
+                  <input value={clubForm.contactPhone} onChange={(event) => setClubForm((current) => ({ ...current, contactPhone: event.target.value }))} className={modalInputClass} required={actionType === 'club-details'} />
                 </label>
               </div>
               {actionType === 'branding-theme' ? (

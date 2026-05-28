@@ -328,6 +328,15 @@ function isCoachOnly(user) {
   return Boolean(user?.clubId) && !isParentPortalUser(user) && !isClubOwnerOrAdmin(user) && !isTeamManager(user) && canCreateEvaluation(user)
 }
 
+function hasClubProfileDetails(user) {
+  return Boolean(
+    String(user?.clubName ?? '').trim() &&
+      user.clubName !== 'Unassigned Club' &&
+      String(user?.clubContactEmail ?? '').trim() &&
+      String(user?.clubContactPhone ?? '').trim(),
+  )
+}
+
 function buildClubAdminSteps(user, snapshot, scope) {
   return [
     makeStep({
@@ -339,7 +348,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       actionLabel: 'Set details',
       actionType: 'club-details',
       targetSelector: '[data-tour-id="club-profile-settings"]',
-      complete: Boolean(user.clubName && user.clubName !== 'Unassigned Club') || hasCompletedStep(user, scope, 'club-profile'),
+      complete: hasClubProfileDetails(user) || hasCompletedStep(user, scope, 'club-profile'),
     }),
     makeStep({
       id: 'branding-theme',
