@@ -17,6 +17,43 @@ import {
   normalizeTeamStaffRow,
 } from './team-normalizers.js'
 import { assertClubFeature } from './plan-gates.js'
+
+async function getAccessToken() {
+  const { data, error } = await supabase.auth.getSession()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  const accessToken = data?.session?.access_token
+
+  if (!accessToken) {
+    throw new Error('Login is required.')
+  }
+
+  return accessToken
+}
+
+async function manageTeamRequest(payload) {
+  const accessToken = await getAccessToken()
+  const response = await fetch('/.netlify/functions/manage-team', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result?.success === false) {
+    throw new Error(result?.message || 'Team could not be managed.')
+  }
+
+  return result
+}
+
 export async function getTeams(user) {
   if (!user?.clubId && user?.role !== 'super_admin') {
     return []
@@ -47,6 +84,24 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
 
   if (!teamId) {
     throw new Error('Team ID is required.')
+  }
+
+  const onlyNameUpdate = data && Object.keys(data).length === 1 && data.name !== undefined
+
+  if (onlyNameUpdate && user?.clubId && (user.role === 'admin' || user.role === 'super_admin')) {
+    const result = await manageTeamRequest({
+      action: 'update',
+      clubId: user.clubId,
+      teamId,
+      name: data.name,
+    })
+
+    invalidateMemoryCacheByPrefix(`teams:${user.clubId}`)
+    invalidateMemoryCacheByPrefix('available-teams:')
+    invalidateMemoryCacheByPrefix('assigned-teams:')
+    invalidateMemoryCacheByPrefix('team-assignments:')
+
+    return normalizeTeamRow(result.team)
   }
 
   const { data: currentTeam, error: currentTeamError } = await supabase
@@ -256,6 +311,21 @@ export async function createTeam({ user, name }) {
     throw new Error('Team name is required.')
   }
 
+  if (user.role === 'admin' || user.role === 'super_admin') {
+    const result = await manageTeamRequest({
+      action: 'create',
+      clubId: user.clubId,
+      name: teamName,
+    })
+
+    invalidateMemoryCacheByPrefix(`teams:${user.clubId}`)
+    invalidateMemoryCacheByPrefix('available-teams:')
+    invalidateMemoryCacheByPrefix('assigned-teams:')
+    invalidateMemoryCacheByPrefix('team-assignments:')
+
+    return normalizeTeamRow(result.team)
+  }
+
   const teamLimit = getPlanKey(user) === PLAN_KEYS.largeClub ? null : getPlanLimit(user, 'teams')
 
   if (teamLimit !== null && teamLimit !== undefined) {
@@ -321,6 +391,21 @@ export async function createTeam({ user, name }) {
 
 export async function deleteTeam(teamId, user = null) {
   await blockDemoMutation(user)
+
+  if (user?.clubId && (user.role === 'admin' || user.role === 'super_admin')) {
+    const result = await manageTeamRequest({
+      action: 'delete',
+      clubId: user.clubId,
+      teamId,
+    })
+
+    invalidateMemoryCacheByPrefix('teams:')
+    invalidateMemoryCacheByPrefix('available-teams:')
+    invalidateMemoryCacheByPrefix('assigned-teams:')
+    invalidateMemoryCacheByPrefix('team-assignments:')
+
+    return normalizeTeamRow(result.team)
+  }
 
   const { data: teamRow, error: teamError } = await supabase
     .from('teams')
@@ -395,6 +480,26 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
   if (teamError) {
     console.error(teamError)
     throw teamError
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+
+  if (!sessionError && accessToken && teamRow?.club_id) {
+    const result = await manageTeamRequest({
+      action: 'replace-staff',
+      clubId: teamRow.club_id,
+      teamId,
+      userIds: normalizedUserIds,
+    })
+
+    invalidateMemoryCacheByPrefix('available-teams:')
+    invalidateMemoryCacheByPrefix('assigned-teams:')
+    invalidateMemoryCacheByPrefix('assessment-sessions:')
+    invalidateMemoryCacheByPrefix('team-assignments:')
+    invalidateMemoryCacheByPrefix('visible-club-users:')
+
+    return (result.assignments ?? []).map(normalizeTeamStaffRow)
   }
 
   if (normalizedUserIds.length > 0) {
