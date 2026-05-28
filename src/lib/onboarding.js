@@ -201,6 +201,24 @@ async function safeAssignedRoleCount(user, roles = [], { activeTeamOnly = false 
   return Number(count ?? 0)
 }
 
+async function safeUserAssignedTeamCount(user) {
+  if (!user?.id || !user?.clubId) {
+    return 0
+  }
+
+  const { count, error } = await supabase
+    .from('team_staff')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error(error)
+    return 0
+  }
+
+  return Number(count ?? 0)
+}
+
 export async function loadOnboardingSnapshot(user) {
   if (!user) {
     return {
@@ -219,6 +237,7 @@ export async function loadOnboardingSnapshot(user) {
       teamAssignments: 0,
       assignedTeamAdmins: 0,
       teamCoaches: 0,
+      userAssignedTeams: 0,
     }
   }
 
@@ -241,6 +260,7 @@ export async function loadOnboardingSnapshot(user) {
     teamAssignments,
     assignedTeamAdmins,
     teamCoaches,
+    userAssignedTeams,
   ] = await Promise.all([
     safeCount('teams', clubFilter),
     safeCount('clubs', user.clubId ? [['id', user.clubId]] : []),
@@ -257,6 +277,7 @@ export async function loadOnboardingSnapshot(user) {
     safeTeamAssignmentCount(user),
     safeAssignedRoleCount(user, ['head_manager'], { activeTeamOnly: false }),
     safeAssignedRoleCount(user, ['manager', 'coach', 'assistant_coach'], { activeTeamOnly: true }),
+    safeUserAssignedTeamCount(user),
   ])
 
   return {
@@ -275,6 +296,7 @@ export async function loadOnboardingSnapshot(user) {
     teamAssignments,
     assignedTeamAdmins,
     teamCoaches,
+    userAssignedTeams,
   }
 }
 
@@ -625,6 +647,18 @@ export function buildOnboardingPlan(user, snapshot = {}) {
     const scope = 'user'
     const manualState = getManualState(user, scope)
 
+    if (!user.activeTeamId && Number(snapshot.userAssignedTeams ?? 0) === 0) {
+      return {
+        description: 'This team admin account is active, but a club admin needs to assign a team before setup can continue.',
+        firstAction: '/coach',
+        kind: 'waiting',
+        manualState,
+        scope,
+        title: 'Waiting for team assignment',
+        steps: buildTeamManagerSteps(user, snapshot, scope),
+      }
+    }
+
     return {
       description: 'Confirm the assigned team is ready for this week without changing club-wide setup.',
       firstAction: user.activeTeamId ? '/players/current' : '/coach',
@@ -639,14 +673,16 @@ export function buildOnboardingPlan(user, snapshot = {}) {
     const scope = 'user'
     const manualState = getManualState(user, scope)
 
-    return {
-      description: 'This coach account is active, but a team admin needs to finish team setup before useful work can start.',
-      firstAction: '/coach',
-      kind: 'waiting',
-      manualState,
-      scope,
-      title: 'Waiting for team assignment',
-      steps: buildCoachSteps(user, snapshot, scope),
+    if (Number(snapshot.userAssignedTeams ?? 0) === 0) {
+      return {
+        description: 'This coach account is active, but a team admin needs to assign a team before useful work can start.',
+        firstAction: '/coach',
+        kind: 'waiting',
+        manualState,
+        scope,
+        title: 'Waiting for team assignment',
+        steps: buildCoachSteps(user, snapshot, scope),
+      }
     }
   }
 
