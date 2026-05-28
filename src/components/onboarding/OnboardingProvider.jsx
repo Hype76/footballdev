@@ -33,6 +33,8 @@ const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
 const ONBOARDING_TARGET_STORAGE_KEY = 'football-onboarding-target-selector'
+const FIXTURE_SETUP_STORAGE_KEY = 'football-open-fixture-setup'
+const FIXTURE_SETUP_EVENT = 'football-open-fixture-setup'
 
 function scrollToTarget(selector) {
   const targetSelector = String(selector ?? '').trim()
@@ -1007,6 +1009,17 @@ export function OnboardingProvider({ children }) {
       const hasTeamContext = await ensureTeamContextForAction(step)
 
       if (!hasTeamContext) {
+        return
+      }
+
+      if (step?.actionType === 'create-fixture') {
+        if (currentPath === '/match-day') {
+          window.dispatchEvent(new CustomEvent(FIXTURE_SETUP_EVENT))
+          return
+        }
+
+        window.sessionStorage.setItem(FIXTURE_SETUP_STORAGE_KEY, '1')
+        navigate('/match-day')
         return
       }
 

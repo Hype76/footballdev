@@ -22,6 +22,9 @@ import {
   withRequestTimeout,
 } from '../lib/supabase.js'
 
+const FIXTURE_SETUP_STORAGE_KEY = 'football-open-fixture-setup'
+const FIXTURE_SETUP_EVENT = 'football-open-fixture-setup'
+
 const EMPTY_MATCH_FORM = {
   opponent: '',
   matchDate: '',
@@ -249,6 +252,23 @@ export function MatchDayPage() {
       }),
     [selectedFixtureTeamId, selectedFixtureTeamName, squadPlayers],
   )
+
+  useEffect(() => {
+    const openFixtureSetup = () => {
+      setIsFixtureFormOpen(true)
+    }
+
+    if (window.sessionStorage.getItem(FIXTURE_SETUP_STORAGE_KEY)) {
+      window.sessionStorage.removeItem(FIXTURE_SETUP_STORAGE_KEY)
+      window.setTimeout(openFixtureSetup, 120)
+    }
+
+    window.addEventListener(FIXTURE_SETUP_EVENT, openFixtureSetup)
+
+    return () => {
+      window.removeEventListener(FIXTURE_SETUP_EVENT, openFixtureSetup)
+    }
+  }, [])
 
   async function loadData() {
     const [nextMatches, nextTeams, nextPlayers, nextLocations] = await Promise.all([
