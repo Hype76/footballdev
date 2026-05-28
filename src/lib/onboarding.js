@@ -1,6 +1,6 @@
 import {
   canCreateEvaluation,
-  canManageClubSettings,
+  isClubAdmin,
   isParentPortalUser,
   isSuperAdmin,
 } from './auth-permissions.js'
@@ -143,7 +143,7 @@ function makeStep({ actionLabel, complete, detail, href, id, manualLabel = '', r
 }
 
 function isClubOwnerOrAdmin(user) {
-  return canManageClubSettings(user)
+  return isClubAdmin(user)
 }
 
 function isTeamManager(user) {
@@ -178,7 +178,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
     }),
     makeStep({
       id: 'first-team',
-      title: isSingleTeam ? 'Confirm the team' : 'Create first teams',
+      title: snapshot.teams > 0 ? (isSingleTeam ? 'Confirm the team' : 'Confirm teams') : (isSingleTeam ? 'Create the team' : 'Create first teams'),
       rule: isSingleTeam
         ? 'This tier runs one team, so setup should confirm the assigned squad rather than create a multi-team structure.'
         : 'Players, sessions, staff access, and match day records need team spaces.',
@@ -186,7 +186,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
         ? 'Create or confirm the single team before adding players and sessions.'
         : 'Create the first teams or confirm the imported team list.',
       href: '/teams',
-      actionLabel: 'Open teams',
+      actionLabel: snapshot.teams > 0 ? 'Open teams' : 'Create team',
       complete: snapshot.teams > 0 || hasCompletedStep(user, scope, 'first-team'),
     }),
   ]
