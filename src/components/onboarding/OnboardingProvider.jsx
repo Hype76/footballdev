@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { ConfirmModal } from '../ui/ConfirmModal.jsx'
 import { useAuth } from '../../lib/auth.js'
 import {
   createAssessmentSession,
@@ -1041,6 +1042,8 @@ export function OnboardingProvider({ children }) {
   const [errorMessage, setErrorMessage] = useState('')
   const [activeAction, setActiveAction] = useState(null)
   const [showFullSetup, setShowFullSetup] = useState(false)
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
   const [stateVersion, setStateVersion] = useState(0)
 
   useEffect(() => {
@@ -1240,10 +1243,17 @@ export function OnboardingProvider({ children }) {
     }
   }
 
+  const handleResetRequest = () => {
+    setErrorMessage('')
+    setIsResetConfirmOpen(true)
+  }
+
   const handleReset = async () => {
     if (!plan || !user) {
       return
     }
+
+    setIsResetting(true)
 
     try {
       const resetAt = new Date().toISOString()
@@ -1256,9 +1266,12 @@ export function OnboardingProvider({ children }) {
           resetAt,
         }),
       )
+      setIsResetConfirmOpen(false)
     } catch (error) {
       console.error(error)
       setErrorMessage('Onboarding could not be reset.')
+    } finally {
+      setIsResetting(false)
     }
   }
 
@@ -1285,7 +1298,7 @@ export function OnboardingProvider({ children }) {
           handleAction={handleAction}
           handleDismiss={handleDismiss}
           handleReopenFull={() => setShowFullSetup(true)}
-          handleReset={handleReset}
+          handleReset={handleResetRequest}
           isLoading={isLoading}
           nextStep={nextStep}
           plan={plan}
@@ -1361,7 +1374,7 @@ export function OnboardingProvider({ children }) {
               </p>
               <button
                 type="button"
-                onClick={handleReset}
+                onClick={handleResetRequest}
                 className={secondaryButtonClass}
               >
                 Reset setup
@@ -1439,6 +1452,16 @@ export function OnboardingProvider({ children }) {
           user={user}
         />
       ) : null}
+      <ConfirmModal
+        cancelLabel="Keep setup"
+        confirmLabel="Reset setup"
+        isBusy={isResetting}
+        isOpen={isResetConfirmOpen}
+        message="This clears the saved onboarding progress for this setup flow. Live club, team, player, session, and invite records are not deleted."
+        onCancel={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleReset}
+        title="Reset onboarding setup?"
+      />
       {children}
     </>
   )
