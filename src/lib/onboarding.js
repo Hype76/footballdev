@@ -129,7 +129,7 @@ export async function loadOnboardingSnapshot(user) {
   }
 }
 
-function makeStep({ actionLabel, complete, detail, href, id, manualLabel = '', rule, title }) {
+function makeStep({ actionLabel, complete, detail, href, id, manualLabel = '', rule, targetSelector = '', title }) {
   return {
     actionLabel,
     complete: Boolean(complete),
@@ -138,6 +138,7 @@ function makeStep({ actionLabel, complete, detail, href, id, manualLabel = '', r
     id,
     manualLabel,
     rule,
+    targetSelector,
     title,
   }
 }
@@ -174,6 +175,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       detail: 'Check the club identity before inviting staff or parents.',
       href: '/club-settings',
       actionLabel: 'Open settings',
+      targetSelector: '[data-tour-id="club-profile-settings"]',
       complete: Boolean(user.clubName && user.clubName !== 'Unassigned Club') || hasCompletedStep(user, scope, 'club-profile'),
     }),
     makeStep({
@@ -187,6 +189,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
         : 'Create the first teams or confirm the imported team list.',
       href: '/teams',
       actionLabel: snapshot.teams > 0 ? 'Open teams' : 'Create team',
+      targetSelector: '[data-tour-id="create-team-section"]',
       complete: snapshot.teams > 0 || hasCompletedStep(user, scope, 'first-team'),
     }),
   ]
@@ -200,6 +203,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       href: '/user-access',
       actionLabel: 'Open access',
       manualLabel: 'Admin only for now',
+      targetSelector: '[data-tour-id="allocate-role-section"]',
       complete: snapshot.staff > 1 || hasCompletedStep(user, scope, 'staff-access'),
     }))
   }
@@ -212,6 +216,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       detail: 'Add one player or import the first squad.',
       href: '/add-player',
       actionLabel: 'Add player',
+      targetSelector: '[data-tour-id="add-player-form-section"]',
       complete: snapshot.players > 0 || hasCompletedStep(user, scope, 'players'),
     }),
     makeStep({
@@ -221,6 +226,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       detail: 'Create the next training session and attach the relevant players.',
       href: '/sessions/start',
       actionLabel: 'Create session',
+      targetSelector: '#session-setup',
       complete: snapshot.sessions > 0 || hasCompletedStep(user, scope, 'first-session'),
     }),
     makeStep({
@@ -231,6 +237,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       href: '/match-day',
       actionLabel: 'Open match day',
       manualLabel: 'Training only for now',
+      targetSelector: '#fixture-setup-title',
       complete: snapshot.matchDays > 0 || hasCompletedStep(user, scope, 'first-match'),
     }),
   )
@@ -244,6 +251,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
         detail: 'Add at least one parent or guardian contact.',
         href: '/players/current',
         actionLabel: 'Open players',
+        targetSelector: '[data-tour-id="players-list-section"]',
         complete: snapshot.playersWithParentContacts > 0 || hasCompletedStep(user, scope, 'parent-contacts'),
       }),
       makeStep({
@@ -254,6 +262,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
         href: '/parent-linking',
         actionLabel: 'Open linking',
         manualLabel: 'No parent access yet',
+        targetSelector: '[data-tour-id="parent-linking-section"]',
         complete: snapshot.parentLinks > 0 || hasCompletedStep(user, scope, 'parent-invites'),
       }),
     )
@@ -268,6 +277,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       href: '/club-settings',
       actionLabel: 'Open branding',
       manualLabel: 'Defaults are fine',
+      targetSelector: '[data-tour-id="club-profile-settings"]',
       complete: Boolean(user.logoUrl || user.clubLogoUrl) || hasCompletedStep(user, scope, 'branding-theme'),
     }))
   }

@@ -248,6 +248,12 @@ export async function createTeam({ user, name }) {
     throw new Error('Club ID is required.')
   }
 
+  const teamName = String(name ?? '').trim()
+
+  if (!teamName) {
+    throw new Error('Team name is required.')
+  }
+
   const teamLimit = getPlanLimit(user, 'teams')
 
   if (teamLimit !== null && teamLimit !== undefined) {
@@ -261,7 +267,10 @@ export async function createTeam({ user, name }) {
       throw countError
     }
 
-    if (Number(count ?? 0) >= Number(teamLimit)) {
+    const currentTeamCount = Number(count ?? 0)
+    const isFirstRunClubAdminTeam = user?.role === 'admin' && currentTeamCount === 0 && Number(teamLimit) === 0
+
+    if (currentTeamCount >= Number(teamLimit) && !isFirstRunClubAdminTeam) {
       throw new Error(createLimitUpgradeMessage(user, 'teams', 'Teams'))
     }
   }
@@ -270,7 +279,7 @@ export async function createTeam({ user, name }) {
     .from('teams')
     .insert({
       club_id: user.clubId,
-      name: String(name ?? '').trim(),
+      name: teamName,
       created_by: getEntryUserId(user),
       ...getEntryIdentity(user),
       updated_by: getEntryUserId(user),

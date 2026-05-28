@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
+import { createTeam } from '../../lib/supabase.js'
 import {
   ONBOARDING_EVENT,
   buildOnboardingPlan,
@@ -16,6 +17,31 @@ const eyebrowClass = 'text-[11px] font-black uppercase tracking-[0.18em] text-[#
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
+const ONBOARDING_TARGET_STORAGE_KEY = 'football-onboarding-target-selector'
+
+function scrollToTarget(selector) {
+  const targetSelector = String(selector ?? '').trim()
+
+  if (!targetSelector) {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    return false
+  }
+
+  const target = document.querySelector(targetSelector)
+
+  if (!target) {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    return false
+  }
+
+  if (!target.hasAttribute('tabindex')) {
+    target.setAttribute('tabindex', '-1')
+  }
+
+  target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
+  target.focus({ preventScroll: true })
+  return true
+}
 
 function patchUserOnboarding(user, scope, patch = {}) {
   if (scope === 'workspace') {
@@ -259,13 +285,86 @@ function WaitingForSetupPanel({ plan }) {
   )
 }
 
+function CreateTeamSetupModal({
+  errorMessage,
+  isCreating,
+  onCancel,
+  onChange,
+  onSubmit,
+  teamName,
+}) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#101828]/60 px-4 py-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-create-team-title"
+        className="w-full max-w-xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-2xl shadow-[#101828]/30"
+      >
+        <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
+          <p className={eyebrowClass}>First run setup</p>
+          <h2 id="onboarding-create-team-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+            Create team
+          </h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            Create the first team space before adding players, sessions, staff access, or match day records.
+          </p>
+        </div>
+
+        <form onSubmit={onSubmit} className="px-5 py-5 sm:px-6">
+          <label className="block">
+            <span className="mb-2 block text-sm font-black text-[#101828]">Team name</span>
+            <input
+              autoFocus
+              type="text"
+              value={teamName}
+              onChange={(event) => onChange(event.target.value)}
+              required
+              placeholder="Example: U13 Bandits"
+              className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
+            />
+          </label>
+
+          {errorMessage ? (
+            <div className="mt-4 rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318]">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              type="submit"
+              disabled={isCreating}
+              className={primaryButtonClass}
+            >
+              {isCreating ? 'Creating team...' : 'Create team'}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isCreating}
+              className={secondaryButtonClass}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export function OnboardingProvider({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { selectTeam, teamOptions, updateCurrentUserDetails, user } = useAuth()
+  const { refreshTeamSelection, selectTeam, teamOptions, updateCurrentUserDetails, user } = useAuth()
   const [snapshot, setSnapshot] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [createTeamError, setCreateTeamError] = useState('')
+  const [createTeamName, setCreateTeamName] = useState('')
+  const [createTeamStep, setCreateTeamStep] = useState(null)
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false)
   const [showFullSetup, setShowFullSetup] = useState(false)
   const [stateVersion, setStateVersion] = useState(0)
 
@@ -341,6 +440,21 @@ export function OnboardingProvider({ children }) {
     setShowFullSetup(false)
   }, [currentPath, user?.id])
 
+  useEffect(() => {
+    const targetSelector = window.sessionStorage.getItem(ONBOARDING_TARGET_STORAGE_KEY)
+
+    if (!targetSelector) {
+      return undefined
+    }
+
+    window.sessionStorage.removeItem(ONBOARDING_TARGET_STORAGE_KEY)
+    const timeoutId = window.setTimeout(() => {
+      scrollToTarget(targetSelector)
+    }, 180)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [currentPath])
+
   const handleCompleteStep = async (stepId) => {
     if (!plan || !user) {
       return
@@ -387,9 +501,17 @@ export function OnboardingProvider({ children }) {
 
   const handleAction = async (step) => {
     const targetHref = String(step?.href || plan?.firstAction || '/coach').trim() || '/coach'
+    const targetSelector = String(step?.targetSelector || '').trim()
 
     try {
       setErrorMessage('')
+
+      if (step?.id === 'first-team' && Number(snapshot?.teams ?? 0) === 0) {
+        setCreateTeamError('')
+        setCreateTeamName('')
+        setCreateTeamStep(step)
+        return
+      }
 
       const hasTeamContext = await ensureTeamContextForAction(step)
 
@@ -398,14 +520,50 @@ export function OnboardingProvider({ children }) {
       }
 
       if (targetHref === currentPath) {
-        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+        scrollToTarget(targetSelector)
         return
+      }
+
+      if (targetSelector) {
+        window.sessionStorage.setItem(ONBOARDING_TARGET_STORAGE_KEY, targetSelector)
       }
 
       navigate(targetHref)
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'This setup action could not be opened.')
+    }
+  }
+
+  const handleCreateInitialTeam = async (event) => {
+    event.preventDefault()
+
+    if (!user) {
+      return
+    }
+
+    setIsCreatingTeam(true)
+    setCreateTeamError('')
+
+    try {
+      const createdTeam = await createTeam({ user, name: createTeamName })
+
+      if (createdTeam?.id) {
+        await selectTeam(createdTeam.id)
+      }
+
+      await refreshTeamSelection?.()
+      setCreateTeamStep(null)
+      setCreateTeamName('')
+      window.dispatchEvent(new Event(ONBOARDING_EVENT))
+      window.setTimeout(() => {
+        scrollToTarget(createTeamStep?.targetSelector)
+      }, 180)
+    } catch (error) {
+      console.error(error)
+      setCreateTeamError(error.message || 'Team could not be created.')
+    } finally {
+      setIsCreatingTeam(false)
     }
   }
 
@@ -593,6 +751,20 @@ export function OnboardingProvider({ children }) {
             </div>
           ) : null}
         </section>
+      ) : null}
+      {createTeamStep ? (
+        <CreateTeamSetupModal
+          errorMessage={createTeamError}
+          isCreating={isCreatingTeam}
+          onCancel={() => {
+            setCreateTeamStep(null)
+            setCreateTeamError('')
+            setCreateTeamName('')
+          }}
+          onChange={setCreateTeamName}
+          onSubmit={handleCreateInitialTeam}
+          teamName={createTeamName}
+        />
       ) : null}
       {children}
     </>
