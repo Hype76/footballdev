@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
 import {
   createAssessmentSession,
+  createParentPortalInvites,
   createPlayer,
   createStaffInvite,
   createTeam,
   deleteTeam,
   getAssignedTeamsForUser,
   getClubSettings,
+  getParentLinkingPlayers,
   getTeams,
   getTeamStaffAssignments,
   getVisibleClubUsers,
@@ -16,6 +18,7 @@ import {
   updateClubSettings,
   updateTeamSettings,
 } from '../../lib/supabase.js'
+import { sendParentPortalInvite } from '../../lib/email-builder.js'
 import {
   ONBOARDING_EVENT,
   buildOnboardingPlan,
@@ -320,6 +323,24 @@ const roleOptions = {
 const modalInputClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
 const modalLabelClass = 'mb-2 block text-sm font-black text-[#101828]'
 
+function getPlayerContacts(player) {
+  const contacts = Array.isArray(player?.parentContacts) && player.parentContacts.length > 0
+    ? player.parentContacts
+    : [{ name: player?.parentName || '', email: player?.parentEmail || '' }]
+
+  return contacts
+    .map((contact, index) => ({
+      id: `${player?.id || 'player'}:${index}`,
+      name: String(contact?.name ?? '').trim(),
+      email: String(contact?.email ?? '').trim().toLowerCase(),
+    }))
+    .filter((contact) => contact.email)
+}
+
+function isSquadPlayer(player) {
+  return String(player?.section ?? '').trim().toLowerCase() === 'squad'
+}
+
 function OnboardingActionModal({
   action,
   onCancel,
@@ -346,6 +367,9 @@ function OnboardingActionModal({
   const [playerSection, setPlayerSection] = useState('Squad')
   const [parentContactName, setParentContactName] = useState('')
   const [parentContactEmail, setParentContactEmail] = useState('')
+  const [parentInvitePlayers, setParentInvitePlayers] = useState([])
+  const [parentInvitePlayerId, setParentInvitePlayerId] = useState('')
+  const [parentInviteContactIds, setParentInviteContactIds] = useState([])
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [sessionType, setSessionType] = useState('training')
   const [teamName, setTeamName] = useState('')
@@ -374,13 +398,17 @@ function OnboardingActionModal({
       setErrorMessage('')
 
       try {
-        const shouldLoadTeams = ['branding-theme', 'manage-teams', 'assign-team-admin', 'invite-team-staff', 'add-player', 'create-session', 'create-assessment'].includes(actionType)
+        const shouldLoadTeams = ['branding-theme', 'manage-teams', 'assign-team-admin', 'invite-team-staff', 'add-player', 'send-parent-invite', 'create-session', 'create-assessment'].includes(actionType)
         const shouldLoadStaff = actionType === 'assign-team-admin'
+        const shouldLoadParentInvitePlayers = actionType === 'send-parent-invite'
         const [rawTeams, nextUsers, clubSettings] = await Promise.all([
           shouldLoadTeams ? (canManageClubWide ? getTeams(user) : getAssignedTeamsForUser(user)) : Promise.resolve([]),
           shouldLoadStaff ? getVisibleClubUsers(user) : Promise.resolve([]),
           ['club-details', 'branding-theme'].includes(actionType) && user?.clubId ? getClubSettings(user.clubId) : Promise.resolve(null),
         ])
+        const nextParentInvitePlayers = shouldLoadParentInvitePlayers
+          ? (await getParentLinkingPlayers({ user })).filter(isSquadPlayer)
+          : []
 
         if (!isMounted) {
           return
@@ -400,6 +428,8 @@ function OnboardingActionModal({
         }
 
         setTeams(nextTeams)
+        setParentInvitePlayers(nextParentInvitePlayers)
+        setParentInvitePlayerId((current) => current || nextParentInvitePlayers.find((player) => getPlayerContacts(player).length > 0)?.id || nextParentInvitePlayers[0]?.id || '')
         const firstTeam = nextTeams[0]
         const currentThemeTeam = nextTeams.find((team) => String(team.id) === String(user.activeTeamId)) || firstTeam
         setTeamEditId((current) => current || firstTeam?.id || '')
@@ -433,12 +463,19 @@ function OnboardingActionModal({
     }
   }, [actionType, canManageClubWide, user])
 
+  useEffect(() => {
+    const selectedPlayer = parentInvitePlayers.find((player) => String(player.id) === String(parentInvitePlayerId))
+    setParentInviteContactIds(getPlayerContacts(selectedPlayer).map((contact) => contact.id))
+  }, [parentInvitePlayerId, parentInvitePlayers])
+
   if (!action) {
     return null
   }
 
   const title = action.title || 'Setup action'
   const selectedTeam = teams.find((team) => String(team.id) === String(selectedTeamId))
+  const selectedParentInvitePlayer = parentInvitePlayers.find((player) => String(player.id) === String(parentInvitePlayerId)) ?? null
+  const selectedParentInviteContacts = getPlayerContacts(selectedParentInvitePlayer)
 
   const handleSave = async (event) => {
     event.preventDefault()
@@ -527,6 +564,39 @@ function OnboardingActionModal({
               : [],
           },
         })
+      } else if (actionType === 'send-parent-invite') {
+        if (!selectedParentInvitePlayer) {
+          throw new Error('Choose a squad player before sending parent invites.')
+        }
+
+        const contacts = selectedParentInviteContacts.filter((contact) => parentInviteContactIds.includes(contact.id))
+
+        if (contacts.length === 0) {
+          throw new Error('Choose at least one saved parent or guardian email.')
+        }
+
+        const invites = await createParentPortalInvites({
+          user,
+          player: selectedParentInvitePlayer,
+          contacts,
+        })
+
+        await Promise.all(
+          invites.map((invite) =>
+            sendParentPortalInvite({
+              clubId: invite.clubId,
+              inviteLinkId: invite.id,
+              parentEmail: invite.email,
+              senderEmail: user.email,
+              displayName: user.displayName || user.username || user.name,
+              teamName: invite.teamName,
+              clubName: invite.clubName || user.clubName,
+              playerName: invite.playerName,
+              subject: `Family portal invite for ${invite.playerName}`,
+              inviteUrl: invite.inviteUrl,
+            }),
+          ),
+        )
       } else if (actionType === 'create-session' || actionType === 'create-assessment') {
         if (!selectedTeamId) {
           throw new Error('Choose a team before creating a session.')
@@ -656,6 +726,8 @@ function OnboardingActionModal({
           ? 'Confirm team'
           : actionType === 'create-assessment'
             ? 'Create assessment session'
+            : actionType === 'send-parent-invite'
+              ? 'Send parent invite'
             : action.actionLabel
 
   return (
@@ -842,6 +914,63 @@ function OnboardingActionModal({
                 <span className={modalLabelClass}>Parent or guardian email</span>
                 <input type="email" value={parentContactEmail} onChange={(event) => setParentContactEmail(event.target.value)} className={modalInputClass} />
               </label>
+            </div>
+          ) : null}
+
+          {actionType === 'send-parent-invite' ? (
+            <div className="grid gap-4">
+              {renderTeamSelect()}
+              {parentInvitePlayers.length > 0 ? (
+                <label className="block">
+                  <span className={modalLabelClass}>Squad player</span>
+                  <select
+                    value={parentInvitePlayerId}
+                    onChange={(event) => setParentInvitePlayerId(event.target.value)}
+                    className={modalInputClass}
+                    required
+                  >
+                    <option value="">Choose player</option>
+                    {parentInvitePlayers.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.playerName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="rounded-lg border border-[#fedf89] bg-[#fffbeb] px-4 py-3 text-sm font-black text-[#b54708]">
+                  Add a squad player before sending parent invites.
+                </div>
+              )}
+              {selectedParentInvitePlayer && selectedParentInviteContacts.length > 0 ? (
+                <div className="grid gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                  <p className="text-sm font-black text-[#101828]">Parent or guardian emails</p>
+                  {selectedParentInviteContacts.map((contact) => (
+                    <label key={contact.id} className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={parentInviteContactIds.includes(contact.id)}
+                        onChange={(event) => {
+                          setParentInviteContactIds((current) =>
+                            event.target.checked
+                              ? [...new Set([...current, contact.id])]
+                              : current.filter((contactId) => contactId !== contact.id),
+                          )
+                        }}
+                        className="mt-1 h-4 w-4 rounded border-[#d7e5dc] text-[#047857] focus:ring-[#047857]"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-black text-[#101828]">{contact.name || 'Parent contact'}</span>
+                        <span className="block break-words text-sm font-semibold text-[#4b5f55]">{contact.email}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              ) : selectedParentInvitePlayer ? (
+                <div className="rounded-lg border border-[#fedf89] bg-[#fffbeb] px-4 py-3 text-sm font-black text-[#b54708]">
+                  This player has no saved parent or guardian email. Add the contact on the player record first.
+                </div>
+              ) : null}
             </div>
           ) : null}
 
