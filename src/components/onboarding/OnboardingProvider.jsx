@@ -344,6 +344,8 @@ function OnboardingActionModal({
   const [inviteRoleKey, setInviteRoleKey] = useState(action?.roleKey || 'coach')
   const [playerName, setPlayerName] = useState('')
   const [playerSection, setPlayerSection] = useState('Squad')
+  const [parentContactName, setParentContactName] = useState('')
+  const [parentContactEmail, setParentContactEmail] = useState('')
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [sessionType, setSessionType] = useState('training')
   const [teamName, setTeamName] = useState('')
@@ -372,7 +374,7 @@ function OnboardingActionModal({
       setErrorMessage('')
 
       try {
-        const shouldLoadTeams = ['branding-theme', 'manage-teams', 'assign-team-admin', 'invite-team-staff', 'add-player', 'create-session'].includes(actionType)
+        const shouldLoadTeams = ['branding-theme', 'manage-teams', 'assign-team-admin', 'invite-team-staff', 'add-player', 'create-session', 'create-assessment'].includes(actionType)
         const shouldLoadStaff = actionType === 'assign-team-admin'
         const [rawTeams, nextUsers, clubSettings] = await Promise.all([
           shouldLoadTeams ? (canManageClubWide ? getTeams(user) : getAssignedTeamsForUser(user)) : Promise.resolve([]),
@@ -520,10 +522,12 @@ function OnboardingActionModal({
             section: playerSection,
             teamId: selectedTeamId,
             team: selectedTeam?.name || user.activeTeamName || '',
-            parentContacts: [{ name: '', email: '' }],
+            parentContacts: parentContactName || parentContactEmail
+              ? [{ name: parentContactName, email: parentContactEmail }]
+              : [],
           },
         })
-      } else if (actionType === 'create-session') {
+      } else if (actionType === 'create-session' || actionType === 'create-assessment') {
         if (!selectedTeamId) {
           throw new Error('Choose a team before creating a session.')
         }
@@ -532,7 +536,7 @@ function OnboardingActionModal({
           user,
           session: {
             sessionDate,
-            sessionType,
+            sessionType: actionType === 'create-assessment' ? 'training' : sessionType,
             teamId: selectedTeamId,
             team: selectedTeam?.name || user.activeTeamName || '',
           },
@@ -650,7 +654,9 @@ function OnboardingActionModal({
         ? 'Save branding'
         : actionType === 'confirm-team'
           ? 'Confirm team'
-          : action.actionLabel
+          : actionType === 'create-assessment'
+            ? 'Create assessment session'
+            : action.actionLabel
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#101828]/60 px-4 py-6">
@@ -828,23 +834,37 @@ function OnboardingActionModal({
                   <option value="Trial">Trial</option>
                 </select>
               </label>
+              <label className="block">
+                <span className={modalLabelClass}>Parent or guardian name</span>
+                <input value={parentContactName} onChange={(event) => setParentContactName(event.target.value)} className={modalInputClass} />
+              </label>
+              <label className="block">
+                <span className={modalLabelClass}>Parent or guardian email</span>
+                <input type="email" value={parentContactEmail} onChange={(event) => setParentContactEmail(event.target.value)} className={modalInputClass} />
+              </label>
             </div>
           ) : null}
 
-          {actionType === 'create-session' ? (
+          {actionType === 'create-session' || actionType === 'create-assessment' ? (
             <div className="grid gap-4 sm:grid-cols-2">
               {renderTeamSelect()}
               <label className="block">
                 <span className={modalLabelClass}>Date</span>
                 <input type="date" value={sessionDate} onChange={(event) => setSessionDate(event.target.value)} className={modalInputClass} required />
               </label>
-              <label className="block">
-                <span className={modalLabelClass}>Type</span>
-                <select value={sessionType} onChange={(event) => setSessionType(event.target.value)} className={modalInputClass}>
-                  <option value="training">Training</option>
-                  <option value="match">Match</option>
-                </select>
-              </label>
+              {actionType === 'create-session' ? (
+                <label className="block">
+                  <span className={modalLabelClass}>Type</span>
+                  <select value={sessionType} onChange={(event) => setSessionType(event.target.value)} className={modalInputClass}>
+                    <option value="training">Training</option>
+                    <option value="match">Match</option>
+                  </select>
+                </label>
+              ) : (
+                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55] sm:col-span-2">
+                  This creates a training context for assessment work. Use the assessment workspace to score players and save results.
+                </div>
+              )}
             </div>
           ) : null}
 

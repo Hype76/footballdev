@@ -134,6 +134,73 @@ async function safeTeamAssignmentCount(user) {
   return Number(count ?? 0)
 }
 
+async function safeAssignedRoleCount(user, roles = [], { activeTeamOnly = false } = {}) {
+  const normalizedRoles = roles.map((role) => String(role ?? '').trim()).filter(Boolean)
+
+  if (!user?.clubId || normalizedRoles.length === 0) {
+    return 0
+  }
+
+  let teamQuery = supabase
+    .from('teams')
+    .select('id')
+    .eq('club_id', user.clubId)
+
+  if (activeTeamOnly && user.activeTeamId) {
+    teamQuery = teamQuery.eq('id', user.activeTeamId)
+  }
+
+  const { data: teams, error: teamsError } = await teamQuery
+
+  if (teamsError) {
+    console.error(teamsError)
+    return 0
+  }
+
+  const teamIds = (teams ?? []).map((team) => team.id).filter(Boolean)
+
+  if (teamIds.length === 0) {
+    return 0
+  }
+
+  const { data: assignments, error: assignmentError } = await supabase
+    .from('team_staff')
+    .select('user_id')
+    .in('team_id', teamIds)
+
+  if (assignmentError) {
+    console.error(assignmentError)
+    return 0
+  }
+
+  const userIds = [...new Set((assignments ?? []).map((assignment) => assignment.user_id).filter(Boolean))]
+
+  if (userIds.length === 0) {
+    return 0
+  }
+
+  let userQuery = supabase
+    .from('users')
+    .select('id', { count: 'exact', head: true })
+    .eq('club_id', user.clubId)
+    .in('id', userIds)
+
+  if (normalizedRoles.length === 1) {
+    userQuery = userQuery.eq('role', normalizedRoles[0])
+  } else {
+    userQuery = userQuery.in('role', normalizedRoles)
+  }
+
+  const { count, error } = await userQuery
+
+  if (error) {
+    console.error(error)
+    return 0
+  }
+
+  return Number(count ?? 0)
+}
+
 export async function loadOnboardingSnapshot(user) {
   if (!user) {
     return {
@@ -150,6 +217,7 @@ export async function loadOnboardingSnapshot(user) {
       clubAdmins: 0,
       teamAdmins: 0,
       teamAssignments: 0,
+      assignedTeamAdmins: 0,
       teamCoaches: 0,
     }
   }
@@ -171,6 +239,7 @@ export async function loadOnboardingSnapshot(user) {
     clubAdmins,
     teamAdmins,
     teamAssignments,
+    assignedTeamAdmins,
     teamCoaches,
   ] = await Promise.all([
     safeCount('teams', clubFilter),
@@ -186,7 +255,8 @@ export async function loadOnboardingSnapshot(user) {
     safeRoleCount(user, ['admin']),
     safeRoleCount(user, ['head_manager']),
     safeTeamAssignmentCount(user),
-    safeRoleCount(user, ['manager', 'coach', 'assistant_coach']),
+    safeAssignedRoleCount(user, ['head_manager'], { activeTeamOnly: false }),
+    safeAssignedRoleCount(user, ['manager', 'coach', 'assistant_coach'], { activeTeamOnly: true }),
   ])
 
   return {
@@ -203,6 +273,7 @@ export async function loadOnboardingSnapshot(user) {
     clubAdmins,
     teamAdmins,
     teamAssignments,
+    assignedTeamAdmins,
     teamCoaches,
   }
 }
@@ -305,7 +376,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       actionLabel: 'Assign admin',
       actionType: 'assign-team-admin',
       targetSelector: '[data-tour-id="team-staff-section"]',
-      complete: snapshot.teamAssignments > 0 || hasCompletedStep(user, scope, 'assign-team-admin'),
+      complete: snapshot.assignedTeamAdmins > 0 || hasCompletedStep(user, scope, 'assign-team-admin'),
     }),
   ]
 }
@@ -337,9 +408,9 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       title: 'Check squad',
       rule: 'Sessions, match day, parent updates, and development records need current players.',
       detail: 'Add missing players or confirm the imported squad.',
-      href: snapshot.players > 0 ? '/players/current' : '/add-player',
-      actionLabel: snapshot.players > 0 ? 'Open squad' : 'Add player',
-      actionType: snapshot.players > 0 ? '' : 'add-player',
+      href: '/players/current',
+      actionLabel: 'Add player',
+      actionType: 'add-player',
       complete: snapshot.players > 0 || hasCompletedStep(user, scope, 'team-squad'),
     }),
     makeStep({
@@ -359,7 +430,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       detail: 'Create the first assessment context, then score players from the assessment workspace.',
       href: '/sessions/start',
       actionLabel: 'Set up assessment',
-      actionType: 'create-session',
+      actionType: 'create-assessment',
       complete: snapshot.evaluations > 0 || hasCompletedStep(user, scope, 'team-assessment'),
     }),
     makeStep({
@@ -406,9 +477,9 @@ function buildCoachSteps(user, snapshot, scope) {
       title: 'Add or update players',
       rule: 'Player records must exist before sessions and assessments can be useful.',
       detail: 'Add a player if your role allows it, or open the squad to review the records.',
-      href: snapshot.players > 0 ? '/players/current' : '/add-player',
-      actionLabel: snapshot.players > 0 ? 'Open squad' : 'Add player',
-      actionType: snapshot.players > 0 ? '' : 'add-player',
+      href: '/players/current',
+      actionLabel: 'Add player',
+      actionType: 'add-player',
       complete: snapshot.players > 0 || hasCompletedStep(user, scope, 'coach-players'),
     }),
     makeStep({
@@ -428,7 +499,7 @@ function buildCoachSteps(user, snapshot, scope) {
       detail: 'Set up the assessment context, then score players from the assessment workspace.',
       href: '/sessions/start',
       actionLabel: 'Set up assessment',
-      actionType: 'create-session',
+      actionType: 'create-assessment',
       complete: snapshot.evaluations > 0 || hasCompletedStep(user, scope, 'coach-assessment'),
     }),
   ]
