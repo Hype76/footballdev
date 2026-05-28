@@ -340,6 +340,7 @@ function OnboardingActionModal({
   const [teamName, setTeamName] = useState('')
   const [teamEditId, setTeamEditId] = useState('')
   const [teamEditName, setTeamEditName] = useState('')
+  const [deleteTeamConfirmId, setDeleteTeamConfirmId] = useState('')
   const [teams, setTeams] = useState([])
   const [staffUsers, setStaffUsers] = useState([])
   const [selectedTeamId, setSelectedTeamId] = useState(user?.activeTeamId || '')
@@ -581,7 +582,8 @@ function OnboardingActionModal({
       return
     }
 
-    if (!window.confirm('Delete this team? This cannot be undone.')) {
+    if (String(deleteTeamConfirmId) !== String(teamEditId)) {
+      setDeleteTeamConfirmId(teamEditId)
       return
     }
 
@@ -590,6 +592,7 @@ function OnboardingActionModal({
 
     try {
       await deleteTeam(teamEditId, user)
+      setDeleteTeamConfirmId('')
       await refreshModalTeams()
       window.dispatchEvent(new Event(ONBOARDING_EVENT))
     } catch (error) {
@@ -719,6 +722,7 @@ function OnboardingActionModal({
                         const nextTeam = teams.find((team) => String(team.id) === String(event.target.value))
                         setTeamEditId(event.target.value)
                         setTeamEditName(nextTeam?.name || '')
+                        setDeleteTeamConfirmId('')
                       }}
                       className={modalInputClass}
                     >
@@ -737,9 +741,14 @@ function OnboardingActionModal({
                       Save team edit
                     </button>
                     <button type="button" onClick={handleDeleteTeam} disabled={isSaving || !teamEditId} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] shadow-sm transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60">
-                      Delete team
+                      {String(deleteTeamConfirmId) === String(teamEditId) ? 'Confirm delete team' : 'Delete team'}
                     </button>
                   </div>
+                  {String(deleteTeamConfirmId) === String(teamEditId) ? (
+                    <div className="rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318]">
+                      Press Confirm delete team to permanently delete {teamEditName || 'this team'}.
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </>
