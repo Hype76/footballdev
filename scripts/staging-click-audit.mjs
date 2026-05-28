@@ -95,12 +95,26 @@ async function openDemoAccount(page) {
 }
 
 async function chooseRoleAndTeam(page, roleValue) {
-  const selects = page.locator('select')
-  const count = await selects.count()
+  if (roleValue) {
+    const roleSelectorChanged = await page.evaluate((nextRoleValue) => {
+      const roleSelect = Array.from(document.querySelectorAll('select')).find((select) =>
+        Array.from(select.options).some((option) => option.value === nextRoleValue))
 
-  if (count > 0 && roleValue) {
-    await selects.nth(0).selectOption(roleValue).catch(() => {})
-    await page.waitForTimeout(350)
+      if (!roleSelect) {
+        window.sessionStorage.setItem('player-feedback-demo-role', nextRoleValue)
+        return false
+      }
+
+      roleSelect.value = nextRoleValue
+      roleSelect.dispatchEvent(new Event('change', { bubbles: true }))
+      return true
+    }, roleValue)
+
+    if (!roleSelectorChanged) {
+      await page.reload({ waitUntil: 'domcontentloaded' })
+    }
+
+    await page.waitForTimeout(900)
   }
 
   const teamSelectIndex = await page.evaluate((teamLabel) => {
@@ -114,6 +128,7 @@ async function chooseRoleAndTeam(page, roleValue) {
   }, defaultTeamLabel)
 
   if (teamSelectIndex >= 0) {
+    const selects = page.locator('select')
     const teamValue = await page.evaluate((payload) => {
       const select = Array.from(document.querySelectorAll('select'))[payload.teamSelectIndex]
       return Array.from(select?.options ?? []).find((option) =>
@@ -122,9 +137,15 @@ async function chooseRoleAndTeam(page, roleValue) {
 
     if (teamValue) {
       await selects.nth(teamSelectIndex).selectOption(teamValue).catch(() => {})
-      await page.waitForTimeout(350)
+      await page.waitForTimeout(900)
     }
   }
+
+  await page.waitForFunction((expectedRoleValue) => {
+    const roleSelect = Array.from(document.querySelectorAll('select')).find((select) =>
+      Array.from(select.options).some((option) => option.value === expectedRoleValue))
+    return !expectedRoleValue || roleSelect?.value === expectedRoleValue
+  }, roleValue, { timeout: 5000 }).catch(() => {})
 }
 
 async function collectState(page) {

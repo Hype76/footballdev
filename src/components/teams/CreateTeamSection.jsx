@@ -1,9 +1,7 @@
 export function CreateTeamSection({
   canCreateMoreTeams,
   isSaving,
-  newTeamName,
-  onCreateTeam,
-  onTeamNameChange,
+  onOpenCreateTeam,
   teamLimitMessage,
 }) {
   return (
@@ -18,27 +16,20 @@ export function CreateTeamSection({
         </p>
       </div>
 
-      <form className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end" onSubmit={onCreateTeam}>
-        <label className="block">
-          <span className="mb-2 block text-sm font-black text-[#101828]">Team name</span>
-          <input
-            type="text"
-            value={newTeamName}
-            onChange={(event) => onTeamNameChange(event.target.value)}
-            placeholder="U12 Blue, U14 Girls, First Team"
-            required
-            className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#66756c] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
-          />
-        </label>
+      <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+          Keep team creation focused. Add the team name first, then assign staff and players after the team exists.
+        </p>
         <button
-          type="submit"
+          type="button"
+          onClick={onOpenCreateTeam}
           disabled={isSaving || !canCreateMoreTeams}
           title={canCreateMoreTeams ? undefined : teamLimitMessage}
           className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
         >
           Add team
         </button>
-      </form>
+      </div>
     </section>
   )
 }

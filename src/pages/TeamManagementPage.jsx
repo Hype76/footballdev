@@ -93,6 +93,7 @@ export function TeamManagementPage() {
   const [teamPage, setTeamPage] = useState(1)
   const [staffPage, setStaffPage] = useState(1)
   const [teamDeleteTarget, setTeamDeleteTarget] = useState(null)
+  const [isCreateTeamModalOpen, setIsCreateTeamModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(() => teams.length === 0 && users.length === 0 && assignments.length === 0 && roles.length === 0)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -345,10 +346,13 @@ export function TeamManagementPage() {
       await refreshTeamSelection?.()
       setMessage('Team created.')
       showToast({ title: 'Team created', message: `${createdTeam.name} has been added.` })
+      setIsCreateTeamModalOpen(false)
+      return true
     } catch (error) {
       console.error(error)
       setErrorMessage('Could not create team.')
       showToast({ title: 'Team not created', message: error.message || 'Could not create team.', tone: 'error' })
+      return false
     } finally {
       setIsSaving(false)
     }
@@ -694,9 +698,7 @@ export function TeamManagementPage() {
       <CreateTeamSection
         canCreateMoreTeams={canCreateMoreTeams}
         isSaving={isSaving}
-        newTeamName={newTeamName}
-        onCreateTeam={handleCreateTeam}
-        onTeamNameChange={setNewTeamName}
+        onOpenCreateTeam={() => setIsCreateTeamModalOpen(true)}
         teamLimitMessage={teamLimitMessage}
       />
 
@@ -759,6 +761,88 @@ export function TeamManagementPage() {
         requirePassword
         onConfirm={(password) => void confirmDeleteTeam(password)}
       />
+
+      <CreateTeamModal
+        canCreateMoreTeams={canCreateMoreTeams}
+        isBusy={isSaving}
+        isOpen={isCreateTeamModalOpen}
+        newTeamName={newTeamName}
+        onCancel={() => setIsCreateTeamModalOpen(false)}
+        onCreateTeam={handleCreateTeam}
+        onTeamNameChange={setNewTeamName}
+        teamLimitMessage={teamLimitMessage}
+      />
+    </div>
+  )
+}
+
+function CreateTeamModal({
+  canCreateMoreTeams,
+  isBusy,
+  isOpen,
+  newTeamName,
+  onCancel,
+  onCreateTeam,
+  onTeamNameChange,
+  teamLimitMessage,
+}) {
+  if (!isOpen) {
+    return null
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-team-title"
+        className="w-full max-w-lg overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl"
+      >
+        <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Team setup</p>
+          <h2 id="create-team-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create team</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            Create the team space before adding players, sessions, staff access, or match day records.
+          </p>
+        </div>
+
+        <form onSubmit={onCreateTeam}>
+          <div className="px-5 py-5 sm:px-6">
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-[#101828]">Team name</span>
+              <input
+                type="text"
+                value={newTeamName}
+                onChange={(event) => onTeamNameChange(event.target.value)}
+                placeholder="U12 Blue, U14 Girls, First Team"
+                required
+                className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#66756c] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
+              />
+            </label>
+            {!canCreateMoreTeams ? (
+              <p className="mt-3 rounded-lg border border-[#fedf89] bg-[#fffbeb] px-4 py-3 text-sm font-black text-[#93370d]">{teamLimitMessage}</p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 sm:grid-cols-2 sm:px-6">
+            <button
+              type="submit"
+              disabled={isBusy || !canCreateMoreTeams}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isBusy ? 'Creating...' : 'Create team'}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isBusy}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
     </div>
   )
 }
