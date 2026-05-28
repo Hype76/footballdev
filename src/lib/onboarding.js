@@ -4,7 +4,7 @@ import {
   isParentPortalUser,
   isSuperAdmin,
 } from './auth-permissions.js'
-import { PLAN_KEYS, getPlanKey, getPlanLimit, hasPlanFeature } from './plans.js'
+import { PLAN_KEYS, getPlanKey, hasPlanFeature } from './plans.js'
 import { supabase } from './supabase-client.js'
 
 export const ONBOARDING_EVENT = 'football-onboarding-state-changed'
@@ -72,6 +72,68 @@ async function loadPlayersWithParentContacts(user) {
   }).length
 }
 
+async function safeRoleCount(user, roles = []) {
+  const normalizedRoles = roles.map((role) => String(role ?? '').trim()).filter(Boolean)
+
+  if (!user?.clubId || normalizedRoles.length === 0) {
+    return 0
+  }
+
+  let query = supabase
+    .from('users')
+    .select('id', { count: 'exact', head: true })
+    .eq('club_id', user.clubId)
+
+  if (normalizedRoles.length === 1) {
+    query = query.eq('role', normalizedRoles[0])
+  } else {
+    query = query.in('role', normalizedRoles)
+  }
+
+  const { count, error } = await query
+
+  if (error) {
+    console.error(error)
+    return 0
+  }
+
+  return Number(count ?? 0)
+}
+
+async function safeTeamAssignmentCount(user) {
+  if (!user?.clubId) {
+    return 0
+  }
+
+  const { data: teams, error: teamsError } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('club_id', user.clubId)
+
+  if (teamsError) {
+    console.error(teamsError)
+    return 0
+  }
+
+  const teamIds = (teams ?? []).map((team) => team.id).filter(Boolean)
+
+  if (teamIds.length === 0) {
+    return 0
+  }
+
+  const { count, error } = await supabase
+    .from('team_staff')
+    .select('id', { count: 'exact', head: true })
+    .in('team_id', teamIds)
+
+  if (error) {
+    console.error(error)
+    return 0
+  }
+
+  return Number(count ?? 0)
+}
+
 export async function loadOnboardingSnapshot(user) {
   if (!user) {
     return {
@@ -85,6 +147,10 @@ export async function loadOnboardingSnapshot(user) {
       parentLinks: 0,
       polls: 0,
       matchDays: 0,
+      clubAdmins: 0,
+      teamAdmins: 0,
+      teamAssignments: 0,
+      teamCoaches: 0,
     }
   }
 
@@ -102,6 +168,10 @@ export async function loadOnboardingSnapshot(user) {
     parentLinks,
     polls,
     matchDays,
+    clubAdmins,
+    teamAdmins,
+    teamAssignments,
+    teamCoaches,
   ] = await Promise.all([
     safeCount('teams', clubFilter),
     safeCount('clubs', user.clubId ? [['id', user.clubId]] : []),
@@ -113,6 +183,10 @@ export async function loadOnboardingSnapshot(user) {
     safeCount('parent_player_links', clubFilter),
     safeCount('polls', clubFilter),
     safeCount('match_days', clubFilter),
+    safeRoleCount(user, ['admin']),
+    safeRoleCount(user, ['head_manager']),
+    safeTeamAssignmentCount(user),
+    safeRoleCount(user, ['manager', 'coach', 'assistant_coach']),
   ])
 
   return {
@@ -126,17 +200,23 @@ export async function loadOnboardingSnapshot(user) {
     parentLinks,
     polls,
     matchDays,
+    clubAdmins,
+    teamAdmins,
+    teamAssignments,
+    teamCoaches,
   }
 }
 
-function makeStep({ actionLabel, complete, detail, href, id, manualLabel = '', rule, targetSelector = '', title }) {
+function makeStep({ actionLabel, actionType = '', complete, detail, href, id, manualLabel = '', roleKey = '', rule, targetSelector = '', title }) {
   return {
     actionLabel,
+    actionType,
     complete: Boolean(complete),
     detail,
     href,
     id,
     manualLabel,
+    roleKey,
     rule,
     targetSelector,
     title,
@@ -155,147 +235,79 @@ function isCoachOnly(user) {
   return Boolean(user?.clubId) && !isParentPortalUser(user) && !isClubOwnerOrAdmin(user) && !isTeamManager(user) && canCreateEvaluation(user)
 }
 
-function shouldIncludeParentSetup(user) {
-  return hasPlanFeature(user, 'parentEmail')
-}
-
-function shouldIncludeStaffSetup(user) {
-  const staffLimit = getPlanLimit(user, 'staffLogins')
-  return staffLimit === null || Number(staffLimit ?? 0) > 1
-}
-
 function buildClubAdminSteps(user, snapshot, scope) {
-  const planKey = getPlanKey(user)
-  const isSingleTeam = planKey === PLAN_KEYS.individual || planKey === PLAN_KEYS.singleTeam
-  const steps = [
+  return [
     makeStep({
       id: 'club-profile',
-      title: 'Confirm club profile',
+      title: 'Set club details',
       rule: 'Club name, logo, and contacts are shared across teams and parent communication.',
-      detail: 'Check the club identity before inviting staff or parents.',
+      detail: 'Set the club identity and contact details before inviting staff or parents.',
       href: '/club-settings',
-      actionLabel: 'Open settings',
+      actionLabel: 'Set details',
+      actionType: 'club-details',
       targetSelector: '[data-tour-id="club-profile-settings"]',
       complete: Boolean(user.clubName && user.clubName !== 'Unassigned Club') || hasCompletedStep(user, scope, 'club-profile'),
     }),
     makeStep({
-      id: 'first-team',
-      title: snapshot.teams > 0 ? (isSingleTeam ? 'Confirm the team' : 'Confirm teams') : (isSingleTeam ? 'Create the team' : 'Create first teams'),
-      rule: isSingleTeam
-        ? 'This tier runs one team, so setup should confirm the assigned squad rather than create a multi-team structure.'
-        : 'Players, sessions, staff access, and match day records need team spaces.',
-      detail: isSingleTeam
-        ? 'Create or confirm the single team before adding players and sessions.'
-        : 'Create the first teams or confirm the imported team list.',
-      href: '/teams',
-      actionLabel: snapshot.teams > 0 ? 'Open teams' : 'Create team',
-      targetSelector: '[data-tour-id="create-team-section"]',
-      complete: snapshot.teams > 0 || hasCompletedStep(user, scope, 'first-team'),
-    }),
-  ]
-
-  if (shouldIncludeStaffSetup(user)) {
-    steps.push(makeStep({
-      id: 'staff-access',
-      title: 'Add staff access',
-      rule: 'Coaches only see the teams and tools their role allows.',
-      detail: 'Add staff or confirm the first admin account is enough for testing.',
-      href: '/user-access',
-      actionLabel: 'Open access',
-      manualLabel: 'Admin only for now',
-      targetSelector: '[data-tour-id="allocate-role-section"]',
-      complete: snapshot.staff > 1 || hasCompletedStep(user, scope, 'staff-access'),
-    }))
-  }
-
-  steps.push(
-    makeStep({
-      id: 'players',
-      title: 'Add players',
-      rule: 'Parent links, sessions, match day, and development records all start from player records.',
-      detail: 'Add one player or import the first squad.',
-      href: '/add-player',
-      actionLabel: 'Add player',
-      targetSelector: '[data-tour-id="add-player-form-section"]',
-      complete: snapshot.players > 0 || hasCompletedStep(user, scope, 'players'),
-    }),
-    makeStep({
-      id: 'first-session',
-      title: 'Create first session',
-      rule: 'Attendance and player notes need a real training or match session.',
-      detail: 'Create the next training session and attach the relevant players.',
-      href: '/sessions/start',
-      actionLabel: 'Create session',
-      targetSelector: '#session-setup',
-      complete: snapshot.sessions > 0 || hasCompletedStep(user, scope, 'first-session'),
-    }),
-    makeStep({
-      id: 'first-match',
-      title: 'Create first match day',
-      rule: 'Match day should collect squads, scorers, minutes, and parent updates.',
-      detail: 'Create the next fixture or mark this step done if the club is training only.',
-      href: '/match-day',
-      actionLabel: 'Open match day',
-      manualLabel: 'Training only for now',
-      targetSelector: '#fixture-setup-title',
-      complete: snapshot.matchDays > 0 || hasCompletedStep(user, scope, 'first-match'),
-    }),
-  )
-
-  if (shouldIncludeParentSetup(user)) {
-    steps.push(
-      makeStep({
-        id: 'parent-contacts',
-        title: 'Add parent contacts',
-        rule: 'Parents cannot receive invites or updates until contacts exist on player records.',
-        detail: 'Add at least one parent or guardian contact.',
-        href: '/players/current',
-        actionLabel: 'Open players',
-        targetSelector: '[data-tour-id="players-list-section"]',
-        complete: snapshot.playersWithParentContacts > 0 || hasCompletedStep(user, scope, 'parent-contacts'),
-      }),
-      makeStep({
-        id: 'parent-invites',
-        title: 'Invite parents',
-        rule: 'Parents need their own portal access. Do not share staff logins with parents.',
-        detail: 'Send the first parent invite or confirm parent access is not used yet.',
-        href: '/parent-linking',
-        actionLabel: 'Open linking',
-        manualLabel: 'No parent access yet',
-        targetSelector: '[data-tour-id="parent-linking-section"]',
-        complete: snapshot.parentLinks > 0 || hasCompletedStep(user, scope, 'parent-invites'),
-      }),
-    )
-  }
-
-  if (!isSingleTeam && hasPlanFeature(user, 'themes')) {
-    steps.push(makeStep({
       id: 'branding-theme',
-      title: 'Confirm club branding',
-      rule: 'Small Club and higher tiers can carry club branding and team themes across the workspace.',
-      detail: 'Set the club badge, colours, or confirm defaults before wider rollout.',
+      title: 'Set branding and theme',
+      rule: 'Branding should be decided before team admins start inviting parents or creating match day updates.',
+      detail: 'Set the club logo and brand defaults, or confirm the current defaults are enough for launch.',
       href: '/club-settings',
-      actionLabel: 'Open branding',
+      actionLabel: 'Set branding',
+      actionType: 'branding-theme',
       manualLabel: 'Defaults are fine',
       targetSelector: '[data-tour-id="club-profile-settings"]',
       complete: Boolean(user.logoUrl || user.clubLogoUrl) || hasCompletedStep(user, scope, 'branding-theme'),
-    }))
-  }
-
-  if (!isSingleTeam && hasPlanFeature(user, 'auditLogs')) {
-    steps.push(makeStep({
-      id: 'audit-check',
-      title: 'Review activity controls',
-      rule: 'Audit logs help managers check who changed player, staff, and parent records.',
-      detail: 'Open activity logs once so admins know where accountability checks live.',
-      href: '/activity-log',
-      actionLabel: 'Open activity',
-      manualLabel: 'Review later',
-      complete: hasCompletedStep(user, scope, 'audit-check'),
-    }))
-  }
-
-  return steps
+    }),
+    makeStep({
+      id: 'club-admins',
+      title: 'Add club admin users',
+      rule: 'Club admins control club setup, billing, teams, and staff access.',
+      detail: 'Invite at least one other club admin if the club needs shared ownership.',
+      href: '/user-access',
+      actionLabel: 'Invite club admin',
+      actionType: 'invite-staff',
+      manualLabel: 'One admin is enough',
+      roleKey: 'admin',
+      targetSelector: '[data-tour-id="allocate-role-section"]',
+      complete: snapshot.clubAdmins > 1 || hasCompletedStep(user, scope, 'club-admins'),
+    }),
+    makeStep({
+      id: 'team-admins',
+      title: 'Add team admin users',
+      rule: 'Team admins run assigned teams without changing club-wide setup.',
+      detail: 'Invite team admins before assigning them to their team spaces.',
+      href: '/user-access',
+      actionLabel: 'Invite team admin',
+      actionType: 'invite-staff',
+      roleKey: 'head_manager',
+      targetSelector: '[data-tour-id="allocate-role-section"]',
+      complete: snapshot.teamAdmins > 0 || hasCompletedStep(user, scope, 'team-admins'),
+    }),
+    makeStep({
+      id: 'first-team',
+      title: snapshot.teams > 0 ? 'Manage teams' : 'Create a team',
+      rule: 'Teams are the containers for staff access, players, sessions, assessments, and match day.',
+      detail: 'Create, review, edit, or delete team records before team admins start work.',
+      href: '/teams',
+      actionLabel: snapshot.teams > 0 ? 'Manage teams' : 'Create team',
+      actionType: 'manage-teams',
+      targetSelector: '[data-tour-id="create-team-section"]',
+      complete: snapshot.teams > 0 || hasCompletedStep(user, scope, 'first-team'),
+    }),
+    makeStep({
+      id: 'assign-team-admin',
+      title: 'Assign team admin to team',
+      rule: 'A team admin should only see the team or teams they are responsible for.',
+      detail: 'Choose a team and attach the correct team admin account.',
+      href: '/teams',
+      actionLabel: 'Assign admin',
+      actionType: 'assign-team-admin',
+      targetSelector: '[data-tour-id="team-staff-section"]',
+      complete: snapshot.teamAssignments > 0 || hasCompletedStep(user, scope, 'assign-team-admin'),
+    }),
+  ]
 }
 
 function buildTeamManagerSteps(user, snapshot, scope) {
@@ -307,7 +319,18 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       detail: 'Open the team workspace and confirm the team selector is correct.',
       href: '/coach',
       actionLabel: 'Open team',
+      actionType: 'confirm-team',
       complete: Boolean(user.activeTeamId || user.activeTeamName) || hasCompletedStep(user, scope, 'assigned-team'),
+    }),
+    makeStep({
+      id: 'team-staff',
+      title: 'Add managers and coaches',
+      rule: 'Managers and coaches should be assigned to this team only.',
+      detail: 'Invite managers and coaches who can add players, run sessions, and perform assessments.',
+      href: '/teams',
+      actionLabel: 'Invite staff',
+      actionType: 'invite-team-staff',
+      complete: snapshot.teamCoaches > 0 || hasCompletedStep(user, scope, 'team-staff'),
     }),
     makeStep({
       id: 'team-squad',
@@ -316,6 +339,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       detail: 'Add missing players or confirm the imported squad.',
       href: snapshot.players > 0 ? '/players/current' : '/add-player',
       actionLabel: snapshot.players > 0 ? 'Open squad' : 'Add player',
+      actionType: snapshot.players > 0 ? '' : 'add-player',
       complete: snapshot.players > 0 || hasCompletedStep(user, scope, 'team-squad'),
     }),
     makeStep({
@@ -325,7 +349,18 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       detail: 'Create the next training session for this team.',
       href: '/sessions/start',
       actionLabel: 'Create session',
+      actionType: 'create-session',
       complete: snapshot.sessions > 0 || hasCompletedStep(user, scope, 'team-session'),
+    }),
+    makeStep({
+      id: 'team-assessment',
+      title: 'Perform assessments',
+      rule: 'Assessment work starts from a real session and the current team squad.',
+      detail: 'Create the first assessment context, then score players from the assessment workspace.',
+      href: '/sessions/start',
+      actionLabel: 'Set up assessment',
+      actionType: 'create-session',
+      complete: snapshot.evaluations > 0 || hasCompletedStep(user, scope, 'team-assessment'),
     }),
     makeStep({
       id: 'team-match-day',
@@ -337,7 +372,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       manualLabel: 'Training only for now',
       complete: snapshot.matchDays > 0 || hasCompletedStep(user, scope, 'team-match-day'),
     }),
-    ...(shouldIncludeParentSetup(user)
+    ...(hasPlanFeature(user, 'parentEmail')
       ? [
           makeStep({
             id: 'team-parent-contacts',
@@ -350,6 +385,51 @@ function buildTeamManagerSteps(user, snapshot, scope) {
           }),
         ]
       : []),
+  ]
+}
+
+function buildCoachSteps(user, snapshot, scope) {
+  return [
+    makeStep({
+      id: 'coach-team',
+      title: 'Confirm team access',
+      rule: 'Coaches work only inside teams assigned by a team admin or club admin.',
+      detail: 'Confirm the team selector before adding players or recording football activity.',
+      href: '/coach',
+      actionLabel: 'Open team',
+      actionType: 'confirm-team',
+      complete: Boolean(user.activeTeamId || user.activeTeamName) || hasCompletedStep(user, scope, 'coach-team'),
+    }),
+    makeStep({
+      id: 'coach-players',
+      title: 'Add or update players',
+      rule: 'Player records must exist before sessions and assessments can be useful.',
+      detail: 'Add a player if your role allows it, or open the squad to review the records.',
+      href: snapshot.players > 0 ? '/players/current' : '/add-player',
+      actionLabel: snapshot.players > 0 ? 'Open squad' : 'Add player',
+      actionType: snapshot.players > 0 ? '' : 'add-player',
+      complete: snapshot.players > 0 || hasCompletedStep(user, scope, 'coach-players'),
+    }),
+    makeStep({
+      id: 'coach-session',
+      title: 'Run a session',
+      rule: 'Sessions are the coach workspace for attendance, notes, and development context.',
+      detail: 'Create the next training or match session for this team.',
+      href: '/sessions/start',
+      actionLabel: 'Create session',
+      actionType: 'create-session',
+      complete: snapshot.sessions > 0 || hasCompletedStep(user, scope, 'coach-session'),
+    }),
+    makeStep({
+      id: 'coach-assessment',
+      title: 'Perform assessments',
+      rule: 'Assessments should use the current squad and a real football session.',
+      detail: 'Set up the assessment context, then score players from the assessment workspace.',
+      href: '/sessions/start',
+      actionLabel: 'Set up assessment',
+      actionType: 'create-session',
+      complete: snapshot.evaluations > 0 || hasCompletedStep(user, scope, 'coach-assessment'),
+    }),
   ]
 }
 
@@ -458,9 +538,9 @@ export function buildOnboardingPlan(user, snapshot = {}) {
 
     return {
       description: planKey === PLAN_KEYS.singleTeam || planKey === PLAN_KEYS.individual
-        ? 'Set up the single-team workspace so coaches and parents can use it this week.'
-        : 'Set up enough club data that teams, coaches, and parents can use the workspace this week.',
-      firstAction: snapshot.teams > 0 ? '/add-player' : '/teams',
+        ? 'Set up club details, one team, and the team admin who will run it.'
+        : 'Set up club details, branding, club admins, team admins, teams, and team assignments.',
+      firstAction: '/club-settings',
       scope,
       title: 'Club launch setup',
       manualState,
@@ -482,13 +562,32 @@ export function buildOnboardingPlan(user, snapshot = {}) {
     }
   }
 
-  if (isCoachOnly(user) && (!user.activeTeamId || snapshot.players === 0)) {
+  if (isCoachOnly(user) && !user.activeTeamId) {
+    const scope = 'user'
+    const manualState = getManualState(user, scope)
+
     return {
-      description: 'This account is ready for coach work, but the assigned team still needs admin setup before useful records can be created.',
+      description: 'This coach account is active, but a team admin needs to finish team setup before useful work can start.',
       firstAction: '/coach',
       kind: 'waiting',
-      title: 'Waiting for team setup',
-      steps: [],
+      manualState,
+      scope,
+      title: 'Waiting for team assignment',
+      steps: buildCoachSteps(user, snapshot, scope),
+    }
+  }
+
+  if (isCoachOnly(user)) {
+    const scope = 'user'
+    const manualState = getManualState(user, scope)
+
+    return {
+      description: 'Use only the coach tools assigned to this team.',
+      firstAction: '/coach',
+      scope,
+      title: 'Coach setup',
+      manualState,
+      steps: buildCoachSteps(user, snapshot, scope),
     }
   }
 

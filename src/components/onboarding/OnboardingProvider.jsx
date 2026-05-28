@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
-import { createTeam } from '../../lib/supabase.js'
+import {
+  createAssessmentSession,
+  createPlayer,
+  createStaffInvite,
+  createTeam,
+  deleteTeam,
+  getAssignedTeamsForUser,
+  getClubSettings,
+  getTeams,
+  getTeamStaffAssignments,
+  getVisibleClubUsers,
+  replaceTeamStaffAssignments,
+  updateClubSettings,
+  updateTeamSettings,
+} from '../../lib/supabase.js'
 import {
   ONBOARDING_EVENT,
   buildOnboardingPlan,
@@ -12,6 +26,7 @@ import {
   resetOnboarding,
   saveOnboardingStep,
 } from '../../lib/onboarding.js'
+import { themeAccentOptions, themeButtonStyleOptions, themeModeOptions } from '../../lib/theme.js'
 
 const eyebrowClass = 'text-[11px] font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
@@ -285,66 +300,537 @@ function WaitingForSetupPanel({ plan }) {
   )
 }
 
-function CreateTeamSetupModal({
-  errorMessage,
-  isCreating,
+const roleOptions = {
+  admin: { roleKey: 'admin', roleLabel: 'Club Admin', roleRank: 90 },
+  head_manager: { roleKey: 'head_manager', roleLabel: 'Team Admin', roleRank: 70 },
+  manager: { roleKey: 'manager', roleLabel: 'Manager', roleRank: 50 },
+  coach: { roleKey: 'coach', roleLabel: 'Coach', roleRank: 30 },
+  assistant_coach: { roleKey: 'assistant_coach', roleLabel: 'Assistant Coach', roleRank: 20 },
+}
+
+const modalInputClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
+const modalLabelClass = 'mb-2 block text-sm font-black text-[#101828]'
+
+function OnboardingActionModal({
+  action,
   onCancel,
-  onChange,
-  onSubmit,
-  teamName,
+  onSaved,
+  refreshTeamSelection,
+  selectTeam,
+  updateCurrentUserDetails,
+  user,
 }) {
+  const [clubForm, setClubForm] = useState({
+    name: user?.clubName || '',
+    logoUrl: user?.clubLogoUrl || '',
+    contactEmail: user?.clubContactEmail || '',
+    contactPhone: user?.clubContactPhone || '',
+  })
+  const [themeForm, setThemeForm] = useState({
+    mode: user?.themeMode || 'light',
+    accent: user?.themeAccent || 'green',
+    buttonStyle: user?.themeButtonStyle || 'solid',
+  })
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRoleKey, setInviteRoleKey] = useState(action?.roleKey || 'coach')
+  const [playerName, setPlayerName] = useState('')
+  const [playerSection, setPlayerSection] = useState('Squad')
+  const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [sessionType, setSessionType] = useState('training')
+  const [teamName, setTeamName] = useState('')
+  const [teamEditId, setTeamEditId] = useState('')
+  const [teamEditName, setTeamEditName] = useState('')
+  const [teams, setTeams] = useState([])
+  const [staffUsers, setStaffUsers] = useState([])
+  const [selectedTeamId, setSelectedTeamId] = useState(user?.activeTeamId || '')
+  const [selectedStaffId, setSelectedStaffId] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const actionType = action?.actionType || ''
+  const canManageClubWide = user?.role === 'super_admin' || user?.role === 'admin'
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadModalData() {
+      if (!user) {
+        return
+      }
+
+      setIsLoading(true)
+      setErrorMessage('')
+
+      try {
+        const shouldLoadTeams = ['branding-theme', 'manage-teams', 'assign-team-admin', 'invite-team-staff', 'add-player', 'create-session'].includes(actionType)
+        const shouldLoadStaff = actionType === 'assign-team-admin'
+        const [rawTeams, nextUsers, clubSettings] = await Promise.all([
+          shouldLoadTeams ? (canManageClubWide ? getTeams(user) : getAssignedTeamsForUser(user)) : Promise.resolve([]),
+          shouldLoadStaff ? getVisibleClubUsers(user) : Promise.resolve([]),
+          ['club-details', 'branding-theme'].includes(actionType) && user?.clubId ? getClubSettings(user.clubId) : Promise.resolve(null),
+        ])
+
+        if (!isMounted) {
+          return
+        }
+
+        const nextTeams = canManageClubWide || !user.activeTeamId
+          ? rawTeams
+          : rawTeams.filter((team) => String(team.id) === String(user.activeTeamId))
+
+        if (clubSettings) {
+          setClubForm({
+            name: clubSettings.name || user.clubName || '',
+            logoUrl: clubSettings.logoUrl || user.clubLogoUrl || '',
+            contactEmail: clubSettings.contactEmail || user.clubContactEmail || '',
+            contactPhone: clubSettings.contactPhone || user.clubContactPhone || '',
+          })
+        }
+
+        setTeams(nextTeams)
+        const firstTeam = nextTeams[0]
+        const currentThemeTeam = nextTeams.find((team) => String(team.id) === String(user.activeTeamId)) || firstTeam
+        setTeamEditId((current) => current || firstTeam?.id || '')
+        setTeamEditName((current) => current || firstTeam?.name || '')
+        setStaffUsers(nextUsers.filter((staffUser) => String(staffUser.role ?? '') === 'head_manager' || Number(staffUser.roleRank ?? 0) >= 70))
+        setThemeForm({
+          mode: currentThemeTeam?.themeMode || user.themeMode || 'light',
+          accent: currentThemeTeam?.themeAccent || user.themeAccent || 'green',
+          buttonStyle: currentThemeTeam?.themeButtonStyle || user.themeButtonStyle || 'solid',
+        })
+
+        const fallbackTeamId = user.activeTeamId || nextTeams[0]?.id || ''
+        setSelectedTeamId((current) => current || fallbackTeamId)
+        setSelectedStaffId((current) => current || nextUsers.find((staffUser) => String(staffUser.role ?? '') === 'head_manager')?.id || '')
+      } catch (error) {
+        console.error(error)
+        if (isMounted) {
+          setErrorMessage(error.message || 'Setup details could not be loaded.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadModalData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [actionType, canManageClubWide, user])
+
+  if (!action) {
+    return null
+  }
+
+  const title = action.title || 'Setup action'
+  const selectedTeam = teams.find((team) => String(team.id) === String(selectedTeamId))
+
+  const handleSave = async (event) => {
+    event.preventDefault()
+
+    if (!user) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      if (actionType === 'club-details' || actionType === 'branding-theme') {
+        const updatedClub = await updateClubSettings({
+          clubId: user.clubId,
+          data: clubForm,
+          user,
+        })
+
+        if (actionType === 'branding-theme' && teams.length > 0) {
+          await Promise.all(
+            teams.map((team) =>
+              updateTeamSettings({
+                teamId: team.id,
+                data: {
+                  themeMode: themeForm.mode,
+                  themeAccent: themeForm.accent,
+                  themeButtonStyle: themeForm.buttonStyle,
+                },
+                user,
+              }),
+            ),
+          )
+        }
+
+        updateCurrentUserDetails({
+          ...user,
+          clubName: updatedClub.name,
+          clubLogoUrl: updatedClub.logoUrl,
+          clubContactEmail: updatedClub.contactEmail,
+          clubContactPhone: updatedClub.contactPhone,
+          themeMode: themeForm.mode,
+          themeAccent: themeForm.accent,
+          themeButtonStyle: themeForm.buttonStyle,
+        })
+      } else if (actionType === 'manage-teams') {
+        const createdTeam = await createTeam({ user, name: teamName })
+        await refreshTeamSelection?.()
+        if (createdTeam?.id) {
+          await selectTeam(createdTeam.id)
+        }
+      } else if (actionType === 'invite-staff' || actionType === 'invite-team-staff') {
+        const roleKey = actionType === 'invite-team-staff' ? inviteRoleKey : action.roleKey || inviteRoleKey
+        const role = roleOptions[roleKey] || roleOptions.coach
+        await createStaffInvite({
+          user,
+          email: inviteEmail,
+          role,
+          teamId: actionType === 'invite-team-staff' ? selectedTeamId : '',
+        })
+      } else if (actionType === 'assign-team-admin') {
+        if (!selectedTeamId || !selectedStaffId) {
+          throw new Error('Choose a team and a team admin.')
+        }
+
+        const currentAssignments = await getTeamStaffAssignments(user)
+        const existingUserIds = currentAssignments
+          .filter((assignment) => String(assignment.teamId) === String(selectedTeamId))
+          .map((assignment) => assignment.userId)
+        await replaceTeamStaffAssignments(selectedTeamId, [...new Set([...existingUserIds, selectedStaffId])])
+        await refreshTeamSelection?.()
+      } else if (actionType === 'add-player') {
+        if (!selectedTeamId) {
+          throw new Error('Choose a team before adding a player.')
+        }
+
+        await createPlayer({
+          user,
+          player: {
+            playerName,
+            section: playerSection,
+            teamId: selectedTeamId,
+            team: selectedTeam?.name || user.activeTeamName || '',
+            parentContacts: [{ name: '', email: '' }],
+          },
+        })
+      } else if (actionType === 'create-session') {
+        if (!selectedTeamId) {
+          throw new Error('Choose a team before creating a session.')
+        }
+
+        await createAssessmentSession({
+          user,
+          session: {
+            sessionDate,
+            sessionType,
+            teamId: selectedTeamId,
+            team: selectedTeam?.name || user.activeTeamName || '',
+          },
+        })
+      } else {
+        onCancel()
+        return
+      }
+
+      await onSaved?.(action)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'This setup action could not be saved.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const refreshModalTeams = async () => {
+    const nextTeams = await getTeams(user)
+    setTeams(nextTeams)
+    if (!nextTeams.some((team) => String(team.id) === String(teamEditId))) {
+      setTeamEditId(nextTeams[0]?.id || '')
+      setTeamEditName(nextTeams[0]?.name || '')
+    }
+  }
+
+  const handleUpdateTeam = async () => {
+    if (!teamEditId) {
+      setErrorMessage('Choose a team to edit.')
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await updateTeamSettings({
+        teamId: teamEditId,
+        data: { name: teamEditName },
+        user,
+      })
+      await refreshModalTeams()
+      window.dispatchEvent(new Event(ONBOARDING_EVENT))
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Team could not be updated.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDeleteTeam = async () => {
+    if (!teamEditId) {
+      setErrorMessage('Choose a team to delete.')
+      return
+    }
+
+    if (!window.confirm('Delete this team? This cannot be undone.')) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await deleteTeam(teamEditId, user)
+      await refreshModalTeams()
+      window.dispatchEvent(new Event(ONBOARDING_EVENT))
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Team could not be deleted.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const renderTeamSelect = () => (
+    <label className="block">
+      <span className={modalLabelClass}>Team</span>
+      {!canManageClubWide && selectedTeamId ? (
+        <div className="min-h-12 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
+          {selectedTeam?.name || user.activeTeamName || 'Assigned team'}
+        </div>
+      ) : (
+        <select
+          value={selectedTeamId}
+          onChange={(event) => setSelectedTeamId(event.target.value)}
+          className={modalInputClass}
+          required
+        >
+          <option value="">Choose team</option>
+          {teams.map((team) => (
+            <option key={team.id} value={team.id}>{team.name}</option>
+          ))}
+        </select>
+      )}
+    </label>
+  )
+
+  const submitLabel =
+    actionType === 'manage-teams'
+      ? 'Create team'
+      : actionType === 'branding-theme'
+        ? 'Save branding'
+        : action.actionLabel
+
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#101828]/60 px-4 py-6">
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="onboarding-create-team-title"
-        className="w-full max-w-xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-2xl shadow-[#101828]/30"
+        aria-labelledby="onboarding-action-title"
+        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white shadow-2xl shadow-[#101828]/30"
       >
         <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
           <p className={eyebrowClass}>First run setup</p>
-          <h2 id="onboarding-create-team-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-            Create team
-          </h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Create the first team space before adding players, sessions, staff access, or match day records.
-          </p>
+          <h2 id="onboarding-action-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{action.detail}</p>
         </div>
 
-        <form onSubmit={onSubmit} className="px-5 py-5 sm:px-6">
-          <label className="block">
-            <span className="mb-2 block text-sm font-black text-[#101828]">Team name</span>
-            <input
-              autoFocus
-              type="text"
-              value={teamName}
-              onChange={(event) => onChange(event.target.value)}
-              required
-              placeholder="Example: U13 Bandits"
-              className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
-            />
-          </label>
+        <form onSubmit={handleSave} className="grid gap-4 px-5 py-5 sm:px-6">
+          {isLoading ? (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-black text-[#4b5f55]">
+              Loading setup details.
+            </div>
+          ) : null}
+
+          {actionType === 'club-details' || actionType === 'branding-theme' ? (
+            <>
+              <label className="block">
+                <span className={modalLabelClass}>Club name</span>
+                <input value={clubForm.name} onChange={(event) => setClubForm((current) => ({ ...current, name: event.target.value }))} className={modalInputClass} required />
+              </label>
+              <label className="block">
+                <span className={modalLabelClass}>Logo URL</span>
+                <input value={clubForm.logoUrl} onChange={(event) => setClubForm((current) => ({ ...current, logoUrl: event.target.value }))} className={modalInputClass} />
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className={modalLabelClass}>Contact email</span>
+                  <input type="email" value={clubForm.contactEmail} onChange={(event) => setClubForm((current) => ({ ...current, contactEmail: event.target.value }))} className={modalInputClass} />
+                </label>
+                <label className="block">
+                  <span className={modalLabelClass}>Contact phone</span>
+                  <input value={clubForm.contactPhone} onChange={(event) => setClubForm((current) => ({ ...current, contactPhone: event.target.value }))} className={modalInputClass} />
+                </label>
+              </div>
+              {actionType === 'branding-theme' ? (
+                <div className="grid gap-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 sm:grid-cols-3">
+                  <label className="block">
+                    <span className={modalLabelClass}>Theme</span>
+                    <select value={themeForm.mode} onChange={(event) => setThemeForm((current) => ({ ...current, mode: event.target.value }))} className={modalInputClass}>
+                      {themeModeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className={modalLabelClass}>Accent colour</span>
+                    <select value={themeForm.accent} onChange={(event) => setThemeForm((current) => ({ ...current, accent: event.target.value }))} className={modalInputClass}>
+                      {themeAccentOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className={modalLabelClass}>Button style</span>
+                    <select value={themeForm.buttonStyle} onChange={(event) => setThemeForm((current) => ({ ...current, buttonStyle: event.target.value }))} className={modalInputClass}>
+                      {themeButtonStyleOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {actionType === 'manage-teams' ? (
+            <>
+              <label className="block">
+                <span className={modalLabelClass}>New team name</span>
+                <input value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="Example: U15 Whites" className={modalInputClass} required />
+              </label>
+              {teams.length > 0 ? (
+                <div className="grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                  <p className="text-sm font-black text-[#101828]">Edit or delete existing team</p>
+                  <label className="block">
+                    <span className={modalLabelClass}>Existing team</span>
+                    <select
+                      value={teamEditId}
+                      onChange={(event) => {
+                        const nextTeam = teams.find((team) => String(team.id) === String(event.target.value))
+                        setTeamEditId(event.target.value)
+                        setTeamEditName(nextTeam?.name || '')
+                      }}
+                      className={modalInputClass}
+                    >
+                      <option value="">Choose team</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>{team.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className={modalLabelClass}>Team name</span>
+                    <input value={teamEditName} onChange={(event) => setTeamEditName(event.target.value)} className={modalInputClass} />
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button type="button" onClick={handleUpdateTeam} disabled={isSaving || !teamEditId} className={secondaryButtonClass}>
+                      Save team edit
+                    </button>
+                    <button type="button" onClick={handleDeleteTeam} disabled={isSaving || !teamEditId} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318] shadow-sm transition hover:border-[#fda29b] hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60">
+                      Delete team
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {actionType === 'invite-staff' || actionType === 'invite-team-staff' ? (
+            <>
+              <label className="block">
+                <span className={modalLabelClass}>Email</span>
+                <input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} className={modalInputClass} required />
+              </label>
+              {actionType === 'invite-team-staff' ? (
+                <>
+                  {renderTeamSelect()}
+                  <label className="block">
+                    <span className={modalLabelClass}>Role</span>
+                    <select value={inviteRoleKey} onChange={(event) => setInviteRoleKey(event.target.value)} className={modalInputClass}>
+                      <option value="manager">Manager</option>
+                      <option value="coach">Coach</option>
+                      <option value="assistant_coach">Assistant Coach</option>
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
+                  Role: {(roleOptions[action.roleKey] || roleOptions.coach).roleLabel}
+                </div>
+              )}
+            </>
+          ) : null}
+
+          {actionType === 'assign-team-admin' ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {renderTeamSelect()}
+              <label className="block">
+                <span className={modalLabelClass}>Team admin</span>
+                <select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className={modalInputClass} required>
+                  <option value="">Choose team admin</option>
+                  {staffUsers.map((staffUser) => (
+                    <option key={staffUser.id} value={staffUser.id}>{staffUser.name || staffUser.email}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
+
+          {actionType === 'add-player' ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {renderTeamSelect()}
+              <label className="block">
+                <span className={modalLabelClass}>Player name</span>
+                <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} className={modalInputClass} required />
+              </label>
+              <label className="block">
+                <span className={modalLabelClass}>Section</span>
+                <select value={playerSection} onChange={(event) => setPlayerSection(event.target.value)} className={modalInputClass}>
+                  <option value="Squad">Squad</option>
+                  <option value="Trial">Trial</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+
+          {actionType === 'create-session' ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {renderTeamSelect()}
+              <label className="block">
+                <span className={modalLabelClass}>Date</span>
+                <input type="date" value={sessionDate} onChange={(event) => setSessionDate(event.target.value)} className={modalInputClass} required />
+              </label>
+              <label className="block">
+                <span className={modalLabelClass}>Type</span>
+                <select value={sessionType} onChange={(event) => setSessionType(event.target.value)} className={modalInputClass}>
+                  <option value="training">Training</option>
+                  <option value="match">Match</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
 
           {errorMessage ? (
-            <div className="mt-4 rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318]">
+            <div className="rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318]">
               {errorMessage}
             </div>
           ) : null}
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <button
-              type="submit"
-              disabled={isCreating}
-              className={primaryButtonClass}
-            >
-              {isCreating ? 'Creating team...' : 'Create team'}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button type="submit" disabled={isSaving || isLoading} className={primaryButtonClass}>
+              {isSaving ? 'Saving...' : submitLabel}
             </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isCreating}
-              className={secondaryButtonClass}
-            >
+            <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>
               Cancel
             </button>
           </div>
@@ -361,10 +847,7 @@ export function OnboardingProvider({ children }) {
   const [snapshot, setSnapshot] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [createTeamError, setCreateTeamError] = useState('')
-  const [createTeamName, setCreateTeamName] = useState('')
-  const [createTeamStep, setCreateTeamStep] = useState(null)
-  const [isCreatingTeam, setIsCreatingTeam] = useState(false)
+  const [activeAction, setActiveAction] = useState(null)
   const [showFullSetup, setShowFullSetup] = useState(false)
   const [stateVersion, setStateVersion] = useState(0)
 
@@ -479,7 +962,13 @@ export function OnboardingProvider({ children }) {
   }
 
   const ensureTeamContextForAction = async (step) => {
-    const isTeamAction = plan?.title === 'Team manager setup' || String(step?.id ?? '').startsWith('team-') || step?.id === 'assigned-team'
+    const stepId = String(step?.id ?? '')
+    const isTeamAction =
+      plan?.title === 'Team manager setup' ||
+      plan?.title === 'Coach setup' ||
+      stepId.startsWith('team-') ||
+      stepId.startsWith('coach-') ||
+      stepId === 'assigned-team'
 
     if (!isTeamAction || user?.activeTeamId) {
       return true
@@ -506,16 +995,14 @@ export function OnboardingProvider({ children }) {
     try {
       setErrorMessage('')
 
-      if (step?.id === 'first-team' && Number(snapshot?.teams ?? 0) === 0) {
-        setCreateTeamError('')
-        setCreateTeamName('')
-        setCreateTeamStep(step)
-        return
-      }
-
       const hasTeamContext = await ensureTeamContextForAction(step)
 
       if (!hasTeamContext) {
+        return
+      }
+
+      if (step?.actionType && step.actionType !== 'confirm-team') {
+        setActiveAction(step)
         return
       }
 
@@ -532,38 +1019,6 @@ export function OnboardingProvider({ children }) {
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'This setup action could not be opened.')
-    }
-  }
-
-  const handleCreateInitialTeam = async (event) => {
-    event.preventDefault()
-
-    if (!user) {
-      return
-    }
-
-    setIsCreatingTeam(true)
-    setCreateTeamError('')
-
-    try {
-      const createdTeam = await createTeam({ user, name: createTeamName })
-
-      if (createdTeam?.id) {
-        await selectTeam(createdTeam.id)
-      }
-
-      await refreshTeamSelection?.()
-      setCreateTeamStep(null)
-      setCreateTeamName('')
-      window.dispatchEvent(new Event(ONBOARDING_EVENT))
-      window.setTimeout(() => {
-        scrollToTarget(createTeamStep?.targetSelector)
-      }, 180)
-    } catch (error) {
-      console.error(error)
-      setCreateTeamError(error.message || 'Team could not be created.')
-    } finally {
-      setIsCreatingTeam(false)
     }
   }
 
@@ -752,18 +1207,24 @@ export function OnboardingProvider({ children }) {
           ) : null}
         </section>
       ) : null}
-      {createTeamStep ? (
-        <CreateTeamSetupModal
-          errorMessage={createTeamError}
-          isCreating={isCreatingTeam}
-          onCancel={() => {
-            setCreateTeamStep(null)
-            setCreateTeamError('')
-            setCreateTeamName('')
+      {activeAction ? (
+        <OnboardingActionModal
+          action={activeAction}
+          onCancel={() => setActiveAction(null)}
+          onSaved={async (step) => {
+            setActiveAction(null)
+            if (step?.id && step.manualLabel) {
+              await handleCompleteStep(step.id)
+            }
+            window.dispatchEvent(new Event(ONBOARDING_EVENT))
+            window.setTimeout(() => {
+              scrollToTarget(step?.targetSelector)
+            }, 180)
           }}
-          onChange={setCreateTeamName}
-          onSubmit={handleCreateInitialTeam}
-          teamName={createTeamName}
+          refreshTeamSelection={refreshTeamSelection}
+          selectTeam={selectTeam}
+          updateCurrentUserDetails={updateCurrentUserDetails}
+          user={user}
         />
       ) : null}
       {children}
