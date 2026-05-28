@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
 import {
   createAssessmentSession,
@@ -282,7 +282,13 @@ function CompactOnboardingPanel({
   )
 }
 
-function WaitingForSetupPanel({ plan }) {
+function WaitingForSetupPanel({ nextStep, onAction, plan }) {
+  const actionStep = nextStep || {
+    actionLabel: 'Open team workspace',
+    href: plan.firstAction,
+    id: 'waiting-action',
+  }
+
   return (
     <section className="mb-6 rounded-lg border border-[#fedf89] bg-[#fffbeb] px-5 py-5 shadow-sm shadow-[#f79009]/10 sm:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -291,12 +297,13 @@ function WaitingForSetupPanel({ plan }) {
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">{plan.description}</p>
         </div>
-        <Link
-          to={plan.firstAction}
+        <button
+          type="button"
+          onClick={() => onAction(actionStep)}
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fedf89] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#f79009]/10 transition hover:border-[#f79009] hover:bg-[#fff7ed]"
         >
-          Open team workspace
-        </Link>
+          {actionStep.actionLabel || 'Open team workspace'}
+        </button>
       </div>
     </section>
   )
@@ -530,6 +537,14 @@ function OnboardingActionModal({
             team: selectedTeam?.name || user.activeTeamName || '',
           },
         })
+      } else if (actionType === 'confirm-team') {
+        if (!selectedTeamId && !user.activeTeamId) {
+          throw new Error('No team is assigned to this account yet.')
+        }
+
+        if (selectedTeamId && String(selectedTeamId) !== String(user.activeTeamId || '')) {
+          await selectTeam?.(selectedTeamId)
+        }
       } else {
         onCancel()
         return
@@ -633,7 +648,9 @@ function OnboardingActionModal({
       ? 'Create team'
       : actionType === 'branding-theme'
         ? 'Save branding'
-        : action.actionLabel
+        : actionType === 'confirm-team'
+          ? 'Confirm team'
+          : action.actionLabel
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#101828]/60 px-4 py-6">
@@ -831,6 +848,15 @@ function OnboardingActionModal({
             </div>
           ) : null}
 
+          {actionType === 'confirm-team' ? (
+            <div className="grid gap-4">
+              {renderTeamSelect()}
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+                Confirm this is the team workspace you should use before adding players, creating sessions, or preparing match day.
+              </div>
+            </div>
+          ) : null}
+
           {errorMessage ? (
             <div className="rounded-lg border border-[#fecdca] bg-[#fff1f3] px-4 py-3 text-sm font-black text-[#b42318]">
               {errorMessage}
@@ -1023,7 +1049,7 @@ export function OnboardingProvider({ children }) {
         return
       }
 
-      if (step?.actionType && step.actionType !== 'confirm-team') {
+      if (step?.actionType) {
         setActiveAction(step)
         return
       }
@@ -1097,7 +1123,7 @@ export function OnboardingProvider({ children }) {
 
   return (
     <>
-      {shouldShowWaitingForSetup ? <WaitingForSetupPanel plan={plan} /> : null}
+      {shouldShowWaitingForSetup ? <WaitingForSetupPanel nextStep={nextStep} onAction={handleAction} plan={plan} /> : null}
       {shouldShowOnboarding && !shouldUseFullSetup ? (
         <CompactOnboardingPanel
           errorMessage={errorMessage}

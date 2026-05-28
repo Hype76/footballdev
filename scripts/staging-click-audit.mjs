@@ -8,11 +8,13 @@ const repeatClicksPerTarget = Number(process.env.REPEAT_CLICKS_PER_TARGET || 1)
 const defaultTeamLabel = process.env.AUDIT_TEAM_LABEL || 'U12 Demo'
 const roleFilter = cleanText(process.env.AUDIT_ROLE || '')
 const pageFilter = cleanText(process.env.AUDIT_PATHS || '')
+const authMode = cleanText(process.env.AUDIT_AUTH_MODE || 'demo').toLowerCase()
+const realAccountPassword = process.env.AUDIT_REAL_PASSWORD || ''
 
 const roleProfiles = [
-  { label: 'Club Admin', value: 'admin' },
-  { label: 'Team Admin', value: 'head_manager' },
-  { label: 'Coach', value: 'coach' },
+  { label: 'Club Admin', value: 'admin', emailEnv: 'AUDIT_CLUB_ADMIN_EMAIL' },
+  { label: 'Team Admin', value: 'head_manager', emailEnv: 'AUDIT_TEAM_ADMIN_EMAIL' },
+  { label: 'Coach', value: 'coach', emailEnv: 'AUDIT_COACH_EMAIL' },
 ]
 
 const pagePaths = [
@@ -51,6 +53,20 @@ function samePath(left, right) {
 
 async function waitForSettled(page) {
   await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(500)
+}
+
+async function waitForWorkspace(page) {
+  await page.waitForFunction(() => {
+    const text = document.body.textContent || ''
+    return text.includes('First run setup') ||
+      text.includes('Account details unavailable') ||
+      text.includes('Club launch setup') ||
+      text.includes('Team manager setup') ||
+      text.includes('Coach setup') ||
+      text.includes('Team setup needed') ||
+      text.includes('Waiting for team assignment')
+  }, { timeout: 30000 }).catch(() => {})
   await page.waitForTimeout(500)
 }
 
@@ -94,7 +110,36 @@ async function openDemoAccount(page) {
   throw new Error('Demo login did not open the authenticated workspace.')
 }
 
+function getRealAccountEmail(role) {
+  return cleanText(process.env[role.emailEnv] || '')
+}
+
+async function openRealAccount(page, role) {
+  const email = getRealAccountEmail(role)
+
+  if (!email) {
+    throw new Error(`${role.emailEnv} is required when AUDIT_AUTH_MODE=real.`)
+  }
+
+  if (!realAccountPassword) {
+    throw new Error('AUDIT_REAL_PASSWORD is required when AUDIT_AUTH_MODE=real.')
+  }
+
+  await gotoWithRetry(page, `${baseUrl}/sign-in?audit=${Date.now()}`)
+  await waitForSettled(page)
+  await page.locator('input[name="email"]').fill(email)
+  await page.locator('input[name="password"]').fill(realAccountPassword)
+  await page.locator('button[type="submit"]').filter({ hasText: /^Log in$/i }).click()
+  await page.waitForURL((url) => !url.pathname.includes('/sign-in'), { timeout: 30000 })
+  await waitForWorkspace(page)
+}
+
 async function chooseRoleAndTeam(page, roleValue) {
+  if (authMode === 'real') {
+    await waitForWorkspace(page)
+    return
+  }
+
   if (roleValue) {
     const roleSelectorChanged = await page.evaluate((nextRoleValue) => {
       const roleSelect = Array.from(document.querySelectorAll('select')).find((select) =>
@@ -219,7 +264,7 @@ async function closeDialog(page) {
     return
   }
 
-  const cancelButton = dialog.getByRole('button', { name: /^Cancel$/i })
+  const cancelButton = dialog.getByRole('button', { name: /^Cancel$|^Close$/i })
 
   if (await cancelButton.count()) {
     await cancelButton.first().click().catch(() => {})
@@ -237,6 +282,7 @@ async function preparePage(page, path, roleValue) {
     throw new Error(`Route ${path} redirected to sign-in before audit could run.`)
   }
   await chooseRoleAndTeam(page, roleValue)
+  await waitForWorkspace(page)
   await page.waitForTimeout(250)
 }
 
@@ -296,10 +342,10 @@ async function clickTarget(page, path, role, target) {
 
 async function run() {
   const browser = await chromium.launch({ headless: true })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } })
   const report = {
     baseUrl,
     createdAt: new Date().toISOString(),
+    authMode,
     pagePaths: selectedPagePaths,
     roleProfiles: selectedRoleProfiles.map((role) => role.label),
     maxTargetsPerPage,
@@ -309,8 +355,6 @@ async function run() {
   }
 
   try {
-    await openDemoAccount(page)
-
     if (!selectedRoleProfiles.length) {
       throw new Error(`No role matched AUDIT_ROLE=${roleFilter}`)
     }
@@ -320,29 +364,42 @@ async function run() {
     }
 
     for (const role of selectedRoleProfiles) {
-      for (const path of selectedPagePaths) {
-        await preparePage(page, path, role.value)
-        const state = await collectState(page)
-        const targets = getSafeTargets(state)
+      const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } })
+      const page = await context.newPage()
 
-        report.pageStates.push({
-          role: role.label,
-          path,
-          url: state.url,
-          scrollY: state.scrollY,
-          headings: state.headings,
-          alerts: state.alerts,
-          accountUnavailable: state.accountUnavailable,
-          safeTargetCount: targets.length,
-          targets,
-        })
+      try {
+        if (authMode === 'real') {
+          await openRealAccount(page, role)
+        } else {
+          await openDemoAccount(page)
+        }
 
-        for (const target of targets) {
-          for (let repeat = 1; repeat <= repeatClicksPerTarget; repeat += 1) {
-            const clickResult = await clickTarget(page, path, role, target)
-            report.clicks.push({ ...clickResult, repeat })
+        for (const path of selectedPagePaths) {
+          await preparePage(page, path, role.value)
+          const state = await collectState(page)
+          const targets = getSafeTargets(state)
+
+          report.pageStates.push({
+            role: role.label,
+            path,
+            url: state.url,
+            scrollY: state.scrollY,
+            headings: state.headings,
+            alerts: state.alerts,
+            accountUnavailable: state.accountUnavailable,
+            safeTargetCount: targets.length,
+            targets,
+          })
+
+          for (const target of targets) {
+            for (let repeat = 1; repeat <= repeatClicksPerTarget; repeat += 1) {
+              const clickResult = await clickTarget(page, path, role, target)
+              report.clicks.push({ ...clickResult, repeat })
+            }
           }
         }
+      } finally {
+        await context.close()
       }
     }
   } finally {
