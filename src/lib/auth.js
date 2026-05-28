@@ -656,7 +656,14 @@ export function AuthProvider({ children }) {
       return
     }
 
-    const selectedTeam = teamOptions.find((team) => String(team.id) === String(teamId))
+    let selectedTeam = teamOptions.find((team) => String(team.id) === String(teamId))
+
+    if (!selectedTeam && userRef.current) {
+      const { getAssignedTeamsForUser } = await loadTeamDataModule()
+      const nextTeamOptions = await getAssignedTeamsForUser(userRef.current)
+      setTeamOptions(nextTeamOptions)
+      selectedTeam = nextTeamOptions.find((team) => String(team.id) === String(teamId))
+    }
 
     if (!selectedTeam) {
       throw new Error('This team is not linked to your account.')

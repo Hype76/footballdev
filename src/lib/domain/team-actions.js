@@ -1,7 +1,9 @@
 import { supabase } from '../supabase-client.js'
 import {
   createLimitUpgradeMessage,
+  getPlanKey,
   getPlanLimit,
+  PLAN_KEYS,
 } from '../plans.js'
 import { getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { createAuditLog } from './audit.js'
@@ -254,7 +256,7 @@ export async function createTeam({ user, name }) {
     throw new Error('Team name is required.')
   }
 
-  const teamLimit = getPlanLimit(user, 'teams')
+  const teamLimit = getPlanKey(user) === PLAN_KEYS.largeClub ? null : getPlanLimit(user, 'teams')
 
   if (teamLimit !== null && teamLimit !== undefined) {
     const { count, error: countError } = await supabase
