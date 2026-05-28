@@ -49,6 +49,7 @@ const ArchivedPlayersPage = lazyRoute(() => import('../pages/ArchivedPlayersPage
 const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'BillingPage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
+const ClubOwnerInvitePage = lazyRoute(() => import('../pages/ClubOwnerInvitePage.jsx'), 'ClubOwnerInvitePage')
 const AssessmentsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'AssessmentsMenuPage')
 const PlayersMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'PlayersMenuPage')
 const SessionsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'SessionsMenuPage')
@@ -920,6 +921,14 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={null}>
         <StaffInvitePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/club-invite/:token',
+    element: (
+      <Suspense fallback={null}>
+        <ClubOwnerInvitePage />
       </Suspense>
     ),
   },

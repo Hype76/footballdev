@@ -5,9 +5,17 @@ import { createAuditLog } from './audit.js'
 import { blockDemoMutation } from './demo-guards.js'
 import { normalizePlatformClubRow } from './platform-normalizers.js'
 import { normalizeUserProfile } from './profile-normalizers.js'
-import { seedDefaultClubRolesForClub } from './core-seeding.js'
 
-export async function createPlatformClub({ user, name, contactEmail = '', contactPhone = '' }) {
+export async function createPlatformClub({
+  user,
+  name,
+  contactEmail = '',
+  contactPhone = '',
+  ownerEmail = '',
+  planKey = 'small_club',
+  billingMode = 'paid',
+  accessToken = '',
+}) {
   await blockDemoMutation(user)
 
   if (user?.role !== 'super_admin') {
@@ -20,38 +28,30 @@ export async function createPlatformClub({ user, name, contactEmail = '', contac
     throw new Error('Club name is required.')
   }
 
-  const { data, error } = await supabase
-    .from('clubs')
-    .insert({
+  const response = await fetch('/.netlify/functions/platform-create-club', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken || ''}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
       name: normalizedName,
-      contact_email: String(contactEmail ?? '').trim(),
-      contact_phone: String(contactPhone ?? '').trim(),
-      plan_key: 'small_club',
-      plan_status: 'active',
-      is_plan_comped: false,
-      status: 'active',
-    })
-    .select(`${CLUB_SELECT}, created_at`)
-    .single()
+      contactEmail,
+      contactPhone,
+      ownerEmail,
+      planKey,
+      billingMode,
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
 
-  if (error) {
-    console.error(error)
-    throw error
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Club could not be created and invited.')
   }
 
-  await seedDefaultClubRolesForClub(data.id)
   invalidateMemoryCacheByPrefix('platform-stats')
-  await createAuditLog({
-    user,
-    action: 'club_created',
-    entityType: 'club',
-    entityId: data.id,
-    metadata: {
-      clubName: data.name,
-    },
-  })
 
-  return normalizePlatformClubRow(data)
+  return normalizePlatformClubRow(result.club)
 }
 
 export async function updatePlatformClubStatus({ user, clubId, status }) {

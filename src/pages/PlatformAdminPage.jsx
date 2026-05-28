@@ -87,6 +87,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     name: '',
     contactEmail: '',
     contactPhone: '',
+    ownerEmail: '',
+    planKey: 'small_club',
+    billingMode: 'paid',
   })
   const [platformAdminForm, setPlatformAdminForm] = useState({
     name: '',
@@ -336,6 +339,9 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setNewClubForm((current) => ({
       ...current,
       [fieldName]: value,
+      ...(fieldName === 'billingMode' && value === 'paid' && current.planKey === 'individual'
+        ? { planKey: 'single_team' }
+        : {}),
     }))
     setErrorMessage('')
     setSuccessMessage('')
@@ -444,14 +450,21 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         name: newClubForm.name,
         contactEmail: newClubForm.contactEmail,
         contactPhone: newClubForm.contactPhone,
+        ownerEmail: newClubForm.ownerEmail,
+        planKey: newClubForm.planKey,
+        billingMode: newClubForm.billingMode,
+        accessToken: session?.access_token || '',
       })
       setNewClubForm({
         name: '',
         contactEmail: '',
         contactPhone: '',
+        ownerEmail: '',
+        planKey: 'small_club',
+        billingMode: 'paid',
       })
-      setSuccessMessage('Club created.')
-      showToast({ title: 'Club saved', message: 'The club has been created.' })
+      setSuccessMessage('Club created and invite sent.')
+      showToast({ title: 'Club saved', message: 'The club admin invite has been sent.' })
       refreshStats()
     } catch (error) {
       console.error(error)
