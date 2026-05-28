@@ -51,7 +51,10 @@ export async function createPlatformClub({
 
   invalidateMemoryCacheByPrefix('platform-stats')
 
-  return normalizePlatformClubRow(result.club)
+  return {
+    ...normalizePlatformClubRow(result.club),
+    ownerInvite: result.invite || null,
+  }
 }
 
 export async function updatePlatformClubStatus({ user, clubId, status }) {

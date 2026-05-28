@@ -83,6 +83,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [createdClubInviteUrl, setCreatedClubInviteUrl] = useState('')
   const [newClubForm, setNewClubForm] = useState({
     name: '',
     contactEmail: '',
@@ -345,6 +346,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     }))
     setErrorMessage('')
     setSuccessMessage('')
+    setCreatedClubInviteUrl('')
   }
 
   const handlePlatformAdminChange = (fieldName, value) => {
@@ -354,6 +356,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     }))
     setErrorMessage('')
     setSuccessMessage('')
+    setCreatedClubInviteUrl('')
   }
 
   const handleCreatePlatformAdmin = async (event) => {
@@ -443,9 +446,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setIsSavingClub(true)
     setErrorMessage('')
     setSuccessMessage('')
+    setCreatedClubInviteUrl('')
 
     try {
-      await createPlatformClub({
+      const createdClub = await createPlatformClub({
         user,
         name: newClubForm.name,
         contactEmail: newClubForm.contactEmail,
@@ -455,6 +459,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         billingMode: newClubForm.billingMode,
         accessToken: session?.access_token || '',
       })
+      const inviteUrl = String(createdClub?.ownerInvite?.url ?? '').trim()
       setNewClubForm({
         name: '',
         contactEmail: '',
@@ -463,8 +468,12 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         planKey: 'small_club',
         billingMode: 'paid',
       })
-      setSuccessMessage('Club created and invite sent.')
-      showToast({ title: 'Club saved', message: 'The club admin invite has been sent.' })
+      setCreatedClubInviteUrl(inviteUrl)
+      setSuccessMessage(createdClub?.ownerInvite?.sent ? 'Club created and invite sent.' : 'Club created. Use the invite link below for staging.')
+      showToast({
+        title: 'Club saved',
+        message: createdClub?.ownerInvite?.sent ? 'The club admin invite has been sent.' : 'The staging invite link is ready.',
+      })
       refreshStats()
     } catch (error) {
       console.error(error)
@@ -737,6 +746,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
       {showClubManagement ? (
         <ManageClubsSection
+          createdInviteUrl={createdClubInviteUrl}
           form={newClubForm}
           isSaving={isSavingClub}
           onChange={handleNewClubChange}

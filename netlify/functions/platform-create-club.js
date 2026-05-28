@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
 import { Resend } from 'resend'
-import { createSupabaseAdminClient } from './_supabase.js'
+import { createSupabaseAdminClient, isStagingRequest } from './_supabase.js'
 
 const VALID_PLAN_KEYS = new Set(['individual', 'single_team', 'small_club', 'large_club'])
 const VALID_BILLING_MODES = new Set(['paid', 'unpaid'])
@@ -215,19 +215,26 @@ export async function handler(event) {
       throw inviteError || new Error('Club owner invite could not be created.')
     }
 
-    const emailResponse = await sendOwnerInviteEmail({
-      baseUrl: getBaseUrl(event),
-      billingMode,
-      clubName: name,
-      inviteToken,
-      ownerEmail,
-      planKey,
-    })
+    const baseUrl = getBaseUrl(event)
+    const inviteUrl = `${baseUrl}/club-invite/${encodeURIComponent(inviteToken)}`
+    const shouldSendEmail = !isStagingRequest(event)
+    let emailResponse = null
 
-    await supabaseAdmin
-      .from('club_owner_invites')
-      .update({ invite_sent_at: new Date().toISOString() })
-      .eq('id', invite.id)
+    if (shouldSendEmail) {
+      emailResponse = await sendOwnerInviteEmail({
+        baseUrl,
+        billingMode,
+        clubName: name,
+        inviteToken,
+        ownerEmail,
+        planKey,
+      })
+
+      await supabaseAdmin
+        .from('club_owner_invites')
+        .update({ invite_sent_at: new Date().toISOString() })
+        .eq('id', invite.id)
+    }
 
     await supabaseAdmin
       .from('audit_logs')
@@ -247,6 +254,8 @@ export async function handler(event) {
           billingMode,
           planKey,
           inviteId: invite.id,
+          inviteUrl,
+          inviteEmailSent: shouldSendEmail,
           emailId: emailResponse?.data?.id || emailResponse?.id || '',
         },
       })
@@ -259,7 +268,8 @@ export async function handler(event) {
         email: ownerEmail,
         billingMode,
         planKey,
-        sent: true,
+        sent: shouldSendEmail,
+        url: inviteUrl,
       },
     })
   } catch (error) {

@@ -6,11 +6,20 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function ManageClubsSection({
+  createdInviteUrl = '',
   form,
   isSaving,
   onChange,
   onSubmit,
 }) {
+  const handleCopyInviteUrl = async () => {
+    if (!createdInviteUrl || !navigator?.clipboard?.writeText) {
+      return
+    }
+
+    await navigator.clipboard.writeText(createdInviteUrl)
+  }
+
   return (
     <SectionCard
       title="Manage clubs"
@@ -87,6 +96,37 @@ export function ManageClubsSection({
           {isSaving ? 'Sending invite...' : 'Add club and invite'}
         </button>
       </form>
+      {createdInviteUrl ? (
+        <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4">
+          <p className="text-sm font-black text-[#101828]">Staging invite link</p>
+          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
+            Emails are skipped on staging. Send this link manually to test setup.
+          </p>
+          <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+            <input
+              readOnly
+              value={createdInviteUrl}
+              className={fieldClass}
+              onFocus={(event) => event.target.select()}
+            />
+            <button
+              type="button"
+              onClick={() => void handleCopyInviteUrl()}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#f7faf8]"
+            >
+              Copy link
+            </button>
+            <a
+              href={createdInviteUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={primaryButtonClass}
+            >
+              Open invite
+            </a>
+          </div>
+        </div>
+      ) : null}
     </SectionCard>
   )
 }
