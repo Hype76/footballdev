@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth.js'
 import {
   ONBOARDING_EVENT,
@@ -70,7 +70,25 @@ function ConstraintRule({ body, title }) {
   )
 }
 
-function FirstActionCard({ nextStep, plan }) {
+function ActionButton({ children, className, onAction, step }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onAction(step)}
+      className={className}
+    >
+      {children}
+    </button>
+  )
+}
+
+function FirstActionCard({ nextStep, onAction, plan }) {
+  const actionStep = nextStep || {
+    actionLabel: 'Start setup',
+    href: plan.firstAction,
+    id: 'first-action',
+  }
+
   return (
     <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-4 shadow-sm shadow-[#065f46]/10">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">First useful action</p>
@@ -78,17 +96,18 @@ function FirstActionCard({ nextStep, plan }) {
       <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
         {nextStep?.detail || plan.description}
       </p>
-      <Link
-        to={nextStep?.href || plan.firstAction}
+      <ActionButton
+        onAction={onAction}
+        step={actionStep}
         className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2"
       >
         {nextStep?.actionLabel || 'Start setup'}
-      </Link>
+      </ActionButton>
     </div>
   )
 }
 
-function SetupStepCard({ index, onComplete, step }) {
+function SetupStepCard({ index, onAction, onComplete, step }) {
   return (
     <article
       className={[
@@ -117,12 +136,13 @@ function SetupStepCard({ index, onComplete, step }) {
           <p className="mt-2 text-sm font-black leading-6 text-[#4b5f55]">{step.rule}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{step.detail}</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Link
-              to={step.href}
+            <ActionButton
+              onAction={onAction}
+              step={step}
               className={primaryButtonClass}
             >
               {step.actionLabel}
-            </Link>
+            </ActionButton>
             {!step.complete && step.manualLabel ? (
               <button
                 type="button"
@@ -141,6 +161,7 @@ function SetupStepCard({ index, onComplete, step }) {
 
 function CompactOnboardingPanel({
   errorMessage,
+  handleAction,
   handleDismiss,
   handleReopenFull,
   handleReset,
@@ -191,12 +212,13 @@ function CompactOnboardingPanel({
           <p className="mt-2 text-xl font-black leading-6 text-[#101828]">{nextStep?.title}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{nextStep?.detail}</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-            <Link
-              to={nextStep?.href || plan.firstAction}
+            <ActionButton
+              onAction={handleAction}
+              step={nextStep || { href: plan.firstAction }}
               className={primaryButtonClass}
             >
               {nextStep?.actionLabel || 'Start setup'}
-            </Link>
+            </ActionButton>
             <button
               type="button"
               onClick={handleReset}
@@ -239,7 +261,8 @@ function WaitingForSetupPanel({ plan }) {
 
 export function OnboardingProvider({ children }) {
   const location = useLocation()
-  const { updateCurrentUserDetails, user } = useAuth()
+  const navigate = useNavigate()
+  const { selectTeam, teamOptions, updateCurrentUserDetails, user } = useAuth()
   const [snapshot, setSnapshot] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -341,6 +364,51 @@ export function OnboardingProvider({ children }) {
     }
   }
 
+  const ensureTeamContextForAction = async (step) => {
+    const isTeamAction = plan?.title === 'Team manager setup' || String(step?.id ?? '').startsWith('team-') || step?.id === 'assigned-team'
+
+    if (!isTeamAction || user?.activeTeamId) {
+      return true
+    }
+
+    if (teamOptions.length === 1) {
+      await selectTeam(teamOptions[0].id)
+      return true
+    }
+
+    if (teamOptions.length > 1) {
+      setErrorMessage('Select a team from the Access view selector before opening this setup action.')
+      return false
+    }
+
+    setErrorMessage('No team is assigned to this account yet. A club admin needs to assign a team before team setup can continue.')
+    return false
+  }
+
+  const handleAction = async (step) => {
+    const targetHref = String(step?.href || plan?.firstAction || '/coach').trim() || '/coach'
+
+    try {
+      setErrorMessage('')
+
+      const hasTeamContext = await ensureTeamContextForAction(step)
+
+      if (!hasTeamContext) {
+        return
+      }
+
+      if (targetHref === currentPath) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+        return
+      }
+
+      navigate(targetHref)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'This setup action could not be opened.')
+    }
+  }
+
   const handleDismiss = async () => {
     if (!plan || !user) {
       return
@@ -398,6 +466,7 @@ export function OnboardingProvider({ children }) {
       {shouldShowOnboarding && !shouldUseFullSetup ? (
         <CompactOnboardingPanel
           errorMessage={errorMessage}
+          handleAction={handleAction}
           handleDismiss={handleDismiss}
           handleReopenFull={() => setShowFullSetup(true)}
           handleReset={handleReset}
@@ -440,9 +509,13 @@ export function OnboardingProvider({ children }) {
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">Next action</p>
                   <p className="mt-2 text-lg font-black leading-6 text-[#101828]">{nextStep?.title}</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <Link to={nextStep?.href || plan.firstAction} className={primaryButtonClass}>
+                    <ActionButton
+                      onAction={handleAction}
+                      step={nextStep || { href: plan.firstAction }}
+                      className={primaryButtonClass}
+                    >
                       {nextStep?.actionLabel || 'Start setup'}
-                    </Link>
+                    </ActionButton>
                     <button type="button" onClick={handleDismiss} className={secondaryButtonClass}>
                       Skip for now
                     </button>
@@ -452,7 +525,7 @@ export function OnboardingProvider({ children }) {
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <FirstActionCard nextStep={nextStep} plan={plan} />
+              <FirstActionCard nextStep={nextStep} onAction={handleAction} plan={plan} />
               <ConstraintRule title="Use real club data" body="Create or confirm the records needed for this week of football." />
               <ConstraintRule title="Respect role limits" body="Only complete setup work this account is allowed to manage." />
               <ConstraintRule title="Do one real action" body="Each setup step should make the workspace ready for a real session, match, or parent update." />
@@ -462,7 +535,7 @@ export function OnboardingProvider({ children }) {
           <div className="bg-white px-5 py-5 sm:px-6 lg:px-8">
             <div className="grid gap-3 lg:grid-cols-2">
               {plan.steps.map((step, index) => (
-                <SetupStepCard key={step.id} index={index} onComplete={handleCompleteStep} step={step} />
+                <SetupStepCard key={step.id} index={index} onAction={handleAction} onComplete={handleCompleteStep} step={step} />
               ))}
             </div>
 
@@ -498,12 +571,13 @@ export function OnboardingProvider({ children }) {
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[24rem]">
-              <Link
-                to={nextStep?.href || plan.firstAction}
+              <ActionButton
+                onAction={handleAction}
+                step={nextStep || { href: plan.firstAction }}
                 className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]"
               >
                 {nextStep?.actionLabel || 'Open next step'}
-              </Link>
+              </ActionButton>
               <button
                 type="button"
                 onClick={handleReopen}
