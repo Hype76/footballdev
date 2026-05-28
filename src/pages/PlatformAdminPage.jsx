@@ -63,6 +63,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   })
   const [feedbackDrafts, setFeedbackDrafts] = useState({})
   const [selectedClubId, setSelectedClubId] = useState('All')
+  const [clubSearchTerm, setClubSearchTerm] = useState('')
   const [feedbackPage, setFeedbackPage] = useState(1)
   const [clubPage, setClubPage] = useState(1)
   const [feedbackDeleteTarget, setFeedbackDeleteTarget] = useState(null)
@@ -189,8 +190,30 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
   const visibleClubs = useMemo(() => {
     const clubs = stats?.clubs ?? []
-    return selectedClubId === 'All' ? clubs : clubs.filter((club) => club.id === selectedClubId)
-  }, [selectedClubId, stats])
+    const selectedClubs = selectedClubId === 'All' ? clubs : clubs.filter((club) => club.id === selectedClubId)
+    const normalizedSearchTerm = clubSearchTerm.trim().toLowerCase()
+
+    if (!normalizedSearchTerm) {
+      return selectedClubs
+    }
+
+    return selectedClubs.filter((club) => {
+      const searchableText = [
+        club.name,
+        club.contactEmail,
+        club.contactPhone,
+        club.status,
+        club.planKey,
+        club.planStatus,
+        ...(club.users ?? []).flatMap((member) => [member.name, member.email, member.roleLabel]),
+        ...(club.teams ?? []).map((team) => team.name),
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      return searchableText.includes(normalizedSearchTerm)
+    })
+  }, [clubSearchTerm, selectedClubId, stats])
   const paginatedFeedbackItems = useMemo(
     () => getPaginatedItems(feedbackItems, feedbackPage, PLATFORM_FEEDBACK_PAGE_SIZE),
     [feedbackItems, feedbackPage],
@@ -751,9 +774,14 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             setSelectedClubId(nextClubId)
             setClubPage(1)
           }}
+          onClubSearchChange={(nextSearchTerm) => {
+            setClubSearchTerm(nextSearchTerm)
+            setClubPage(1)
+          }}
           onToggleClubStatus={handleToggleClubStatus}
           paginatedClubs={paginatedVisibleClubs}
           pageSize={CLUB_PAGE_SIZE}
+          clubSearchTerm={clubSearchTerm}
           selectedClubId={selectedClubId}
           stats={stats}
           updatingClubId={updatingClubId}

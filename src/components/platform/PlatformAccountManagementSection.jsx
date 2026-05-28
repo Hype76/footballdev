@@ -13,8 +13,10 @@ const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py
 
 export function PlatformAccountManagementSection({
   clubPage,
+  clubSearchTerm,
   isLoading,
   onAccountAction,
+  onClubSearchChange,
   onClubPageChange,
   onClubPlanChange,
   onDeleteClub,
@@ -30,12 +32,24 @@ export function PlatformAccountManagementSection({
   updatingUserId,
   visibleClubs,
 }) {
+  const searchValue = String(clubSearchTerm ?? '')
+  const normalizedSearchValue = searchValue.trim().toLowerCase()
+  const clubSuggestions = (stats?.clubs ?? [])
+    .filter((club) => {
+      if (!normalizedSearchValue) {
+        return true
+      }
+
+      return String(club.name ?? '').toLowerCase().includes(normalizedSearchValue)
+    })
+    .slice(0, 12)
+
   return (
     <SectionCard
       title="Account management"
       description="Manage clubs, teams, and adult user access. Player names and child contact details are intentionally excluded."
     >
-      <div className="mb-5 max-w-sm">
+      <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(220px,360px)_minmax(260px,1fr)]">
         <label className="block">
           <span className={labelClass}>Club filter</span>
           <select
@@ -51,6 +65,22 @@ export function PlatformAccountManagementSection({
             ))}
           </select>
         </label>
+        <label className="block">
+          <span className={labelClass}>Search clubs</span>
+          <input
+            type="search"
+            list="platform-club-search-suggestions"
+            value={searchValue}
+            onChange={(event) => onClubSearchChange(event.target.value)}
+            placeholder="Search by club, contact, team, user, plan, or status"
+            className={fieldClass}
+          />
+          <datalist id="platform-club-search-suggestions">
+            {clubSuggestions.map((club) => (
+              <option key={club.id} value={club.name} />
+            ))}
+          </datalist>
+        </label>
       </div>
 
       {isLoading ? (
@@ -59,7 +89,7 @@ export function PlatformAccountManagementSection({
         </div>
       ) : visibleClubs.length === 0 ? (
         <div className={emptyStateClass}>
-          No clubs found yet.
+          {searchValue.trim() ? 'No clubs match that search.' : 'No clubs found yet.'}
         </div>
       ) : (
         <div className="space-y-4">

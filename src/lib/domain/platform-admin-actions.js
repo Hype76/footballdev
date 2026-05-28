@@ -161,13 +161,34 @@ export async function deletePlatformClub({ user, clubId }) {
     throw clubError
   }
 
-  const { error: deleteClubError } = await supabase.rpc('delete_platform_club_cascade', {
+  const { data: deleteClubData, error: deleteClubError } = await supabase.rpc('delete_platform_club_cascade', {
     target_club_id: clubId,
   })
 
   if (deleteClubError) {
     console.error(deleteClubError)
     throw deleteClubError
+  }
+
+  const deleteResult = Array.isArray(deleteClubData) ? deleteClubData[0] : deleteClubData
+
+  if (deleteResult && deleteResult.deleted !== true) {
+    throw new Error('Club workspace could not be deleted.')
+  }
+
+  const { data: remainingClub, error: remainingClubError } = await supabase
+    .from('clubs')
+    .select('id')
+    .eq('id', clubId)
+    .maybeSingle()
+
+  if (remainingClubError) {
+    console.error(remainingClubError)
+    throw remainingClubError
+  }
+
+  if (remainingClub?.id) {
+    throw new Error('Club workspace could not be deleted.')
   }
 
   invalidateMemoryCacheByPrefix('platform-stats')
