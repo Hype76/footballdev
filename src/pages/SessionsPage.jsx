@@ -120,6 +120,7 @@ export function SessionsPage({ setupOpen = false }) {
   const [isSavingVoiceNote, setIsSavingVoiceNote] = useState(false)
   const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] = useState(false)
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
@@ -451,13 +452,13 @@ export function SessionsPage({ setupOpen = false }) {
     if (!sessionForm.sessionType) {
       setErrorMessage('Select a session type before creating the session.')
       setIsSaving(false)
-      return
+      return false
     }
 
     if (!sessionForm.sessionDate) {
       setErrorMessage('Select a session date before creating the session.')
       setIsSaving(false)
-      return
+      return false
     }
 
     try {
@@ -482,13 +483,35 @@ export function SessionsPage({ setupOpen = false }) {
         selectedPlayerIds: [],
       })
       showToast({ title: 'Session created', message: createdSession.title || 'Session added.' })
+      return true
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not create session.')
       showToast({ title: 'Session not created', message: error.message || 'Could not create session.', tone: 'error' })
+      return false
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleCreateSessionFromModal = async (event) => {
+    const created = await handleCreateSession(event)
+
+    if (created) {
+      setIsCreateSessionModalOpen(false)
+    }
+  }
+
+  const handleSessionSetupFocus = () => {
+    const setupSection = document.getElementById('session-setup')
+
+    if (setupSection && 'open' in setupSection) {
+      setupSection.open = true
+    }
+
+    window.requestAnimationFrame(() => {
+      setupSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   const handlePlayerSelection = (playerId, checked) => {
@@ -971,6 +994,8 @@ export function SessionsPage({ setupOpen = false }) {
         assessedPlayerCount={assessedPlayerCount}
         isLoading={isLoading || isSessionPlayersLoading}
         onAssessAll={handleAssessAll}
+        onOpenCreateSession={() => setIsCreateSessionModalOpen(true)}
+        onOpenSessionSetup={handleSessionSetupFocus}
         selectedSession={selectedSession}
         selectedSessionCompleted={selectedSessionCompleted}
         selectedSessionLocked={selectedSessionLocked}
@@ -1131,6 +1156,74 @@ export function SessionsPage({ setupOpen = false }) {
         onCancel={() => setCompleteSessionTarget(null)}
         onConfirm={() => void confirmCompleteSession()}
       />
+      <CreateSessionModal
+        form={sessionForm}
+        isLoading={isLoading}
+        isOpen={isCreateSessionModalOpen}
+        isSaving={isSaving}
+        onCancel={() => setIsCreateSessionModalOpen(false)}
+        onChange={handleSessionFormChange}
+        onSubmit={handleCreateSessionFromModal}
+        teams={teams}
+      />
+    </div>
+  )
+}
+
+function CreateSessionModal({
+  form,
+  isLoading,
+  isOpen,
+  isSaving,
+  onCancel,
+  onChange,
+  onSubmit,
+  teams,
+}) {
+  if (!isOpen) {
+    return null
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-session-modal-title"
+        className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
+          <div className="min-w-0">
+            <p className={eyebrowClass}>Session setup</p>
+            <h2 id="create-session-modal-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+              Create session
+            </h2>
+            <p className={`mt-2 max-w-2xl ${bodyTextClass}`}>
+              Create one training or match block before adding the player queue.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSaving}
+            title={isSaving ? 'Please wait while this session is saving.' : 'Close this window'}
+            aria-label="Close this window"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            X
+          </button>
+        </div>
+        <div className="px-5 py-5 sm:px-6">
+          <CreateSessionSection
+            form={form}
+            isLoading={isLoading}
+            isSaving={isSaving}
+            onChange={onChange}
+            onSubmit={onSubmit}
+            teams={teams}
+          />
+        </div>
+      </div>
     </div>
   )
 }
@@ -1139,6 +1232,8 @@ function MatchdayFocus({
   assessedPlayerCount,
   isLoading,
   onAssessAll,
+  onOpenCreateSession,
+  onOpenSessionSetup,
   selectedSession,
   selectedSessionCompleted,
   selectedSessionLocked,
@@ -1157,10 +1252,6 @@ function MatchdayFocus({
       : unassessedPlayerCount > 0
         ? assessedPlayerCount > 0 ? 'Continue records' : 'Start records'
         : 'Review completed session'
-
-  const handleSetupScroll = () => {
-    document.getElementById('session-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 
   return (
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#101828]/5 sm:p-6">
@@ -1207,7 +1298,7 @@ function MatchdayFocus({
           ) : (
             <button
               type="button"
-              onClick={handleSetupScroll}
+              onClick={hasSession ? onOpenSessionSetup : onOpenCreateSession}
               disabled={isLoading}
               title={isLoading ? 'Please wait while the session loads.' : undefined}
               className={primaryButtonClass}
@@ -1218,7 +1309,7 @@ function MatchdayFocus({
           {hasSession ? (
             <button
               type="button"
-              onClick={handleSetupScroll}
+              onClick={onOpenSessionSetup}
               className={secondaryButtonClass}
             >
               Session setup

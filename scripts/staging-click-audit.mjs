@@ -311,7 +311,8 @@ async function clickTarget(page, path, role, target) {
   const after = await collectState(page)
   const openedDialog = after.dialogs.length > 0
   const navigated = !samePath(before.url, after.url)
-  const stayedPut = !openedDialog && !navigated
+  const scrolled = Math.abs(after.scrollY - before.scrollY) > 20
+  const stayedPut = !openedDialog && !navigated && !scrolled
   const clickRecoveredAfterTimeout = Boolean(error) && (openedDialog || navigated || stayedPut)
 
   if (clickRecoveredAfterTimeout) {
@@ -333,6 +334,7 @@ async function clickTarget(page, path, role, target) {
     startedAtTop,
     openedDialog,
     navigated,
+    scrolled,
     stayedPut,
     afterHeadings: after.headings.slice(0, 5),
     alerts: after.alerts,
@@ -411,11 +413,12 @@ async function run() {
   const failures = report.clicks.filter((click) =>
     click.error ||
     click.accountUnavailable ||
-    (!click.openedDialog && !click.navigated && !click.stayedPut) ||
+    (!click.openedDialog && !click.navigated && !click.scrolled && !click.stayedPut) ||
     !click.startedAtTop)
 
   const modalOpenCount = report.clicks.filter((click) => click.openedDialog).length
   const navigationCount = report.clicks.filter((click) => click.navigated).length
+  const scrollCount = report.clicks.filter((click) => click.scrolled).length
   const stayedPutCount = report.clicks.filter((click) => click.stayedPut).length
 
   console.log(JSON.stringify({
@@ -424,6 +427,7 @@ async function run() {
     clicks: report.clicks.length,
     modalOpenCount,
     navigationCount,
+    scrollCount,
     stayedPutCount,
     repeatClicksPerTarget,
     failureCount: failures.length,
