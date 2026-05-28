@@ -40,7 +40,7 @@ const selectedPagePaths = pageFilter
   ? pagePaths.filter((path) => pageFilter.split(',').map((value) => cleanText(value)).includes(path))
   : pagePaths
 
-const skipTextPattern = /\b(sign out|delete|confirm|archive|move to trial|move to squad|reset setup|reset previous|clear session|record all|save|upload|choose file|start records|send|mark done|training only|defaults are fine|one admin is enough|skip for now|expand|collapse)\b/i
+const skipTextPattern = /\b(sign out|delete|remove|revoke|confirm|archive|move to trial|move to squad|reset setup|reset previous|clear session|record all|save|upload|choose file|start records|send|mark done|training only|defaults are fine|one admin is enough|skip for now|expand|collapse)\b/i
 const skipHrefPattern = /^#|^mailto:|^tel:/i
 
 function cleanText(value) {
