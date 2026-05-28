@@ -10,6 +10,7 @@ const roleFilter = cleanText(process.env.AUDIT_ROLE || '')
 const pageFilter = cleanText(process.env.AUDIT_PATHS || '')
 const authMode = cleanText(process.env.AUDIT_AUTH_MODE || 'demo').toLowerCase()
 const realAccountPassword = process.env.AUDIT_REAL_PASSWORD || ''
+const partialReportInterval = Number(process.env.AUDIT_PARTIAL_REPORT_INTERVAL || 1)
 
 const roleProfiles = [
   { label: 'Club Admin', value: 'admin', emailEnv: 'AUDIT_CLUB_ADMIN_EMAIL' },
@@ -257,6 +258,14 @@ function getSafeTargets(state) {
   return [...buttonTargets, ...linkTargets].slice(0, maxTargetsPerPage)
 }
 
+async function saveReport(report, status = 'running') {
+  await writeFile(reportPath, JSON.stringify({
+    ...report,
+    updatedAt: new Date().toISOString(),
+    status,
+  }, null, 2))
+}
+
 async function closeDialog(page) {
   const dialog = page.locator('[role="dialog"]:visible')
 
@@ -392,11 +401,15 @@ async function run() {
             safeTargetCount: targets.length,
             targets,
           })
+          await saveReport(report)
 
           for (const target of targets) {
             for (let repeat = 1; repeat <= repeatClicksPerTarget; repeat += 1) {
               const clickResult = await clickTarget(page, path, role, target)
               report.clicks.push({ ...clickResult, repeat })
+              if (partialReportInterval > 0 && report.clicks.length % partialReportInterval === 0) {
+                await saveReport(report)
+              }
             }
           }
         }
@@ -408,7 +421,7 @@ async function run() {
     await browser.close()
   }
 
-  await writeFile(reportPath, JSON.stringify(report, null, 2))
+  await saveReport(report, 'complete')
 
   const failures = report.clicks.filter((click) =>
     click.error ||
