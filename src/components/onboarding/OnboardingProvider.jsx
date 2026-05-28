@@ -488,6 +488,8 @@ function OnboardingActionModal({
     setErrorMessage('')
 
     try {
+      let saveMeta = {}
+
       if (actionType === 'club-details' || actionType === 'branding-theme') {
         const updatedClub = await updateClubSettings({
           clubId: user.clubId,
@@ -602,7 +604,7 @@ function OnboardingActionModal({
           throw new Error('Choose a team before creating a session.')
         }
 
-        await createAssessmentSession({
+        const createdSession = await createAssessmentSession({
           user,
           session: {
             sessionDate,
@@ -611,6 +613,10 @@ function OnboardingActionModal({
             team: selectedTeam?.name || user.activeTeamName || '',
           },
         })
+        saveMeta = {
+          navigateTo: `/sessions/start?sessionId=${encodeURIComponent(createdSession.id)}`,
+          targetSelector: '[data-tour-id="session-players-section"]',
+        }
       } else if (actionType === 'confirm-team') {
         if (!selectedTeamId && !user.activeTeamId) {
           throw new Error('No team is assigned to this account yet.')
@@ -624,7 +630,7 @@ function OnboardingActionModal({
         return
       }
 
-      await onSaved?.(action)
+      await onSaved?.(action, saveMeta)
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'This setup action could not be saved.')
@@ -1408,14 +1414,23 @@ export function OnboardingProvider({ children }) {
         <OnboardingActionModal
           action={activeAction}
           onCancel={() => setActiveAction(null)}
-          onSaved={async (step) => {
+          onSaved={async (step, meta = {}) => {
             setActiveAction(null)
             if (step?.id && step.manualLabel) {
               await handleCompleteStep(step.id)
             }
             window.dispatchEvent(new Event(ONBOARDING_EVENT))
+
+            if (meta.navigateTo) {
+              if (meta.targetSelector) {
+                window.sessionStorage.setItem(ONBOARDING_TARGET_STORAGE_KEY, meta.targetSelector)
+              }
+              navigate(meta.navigateTo)
+              return
+            }
+
             window.setTimeout(() => {
-              scrollToTarget(step?.targetSelector)
+              scrollToTarget(meta.targetSelector || step?.targetSelector)
             }, 180)
           }}
           refreshTeamSelection={refreshTeamSelection}
