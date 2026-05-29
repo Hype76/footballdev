@@ -353,6 +353,11 @@ function mergeStaffUsersWithPendingInvites(users, invites) {
   return [...users, ...pendingUsers]
 }
 
+function isAssignableTeamAdmin(staffUser) {
+  const role = String(staffUser?.role ?? '')
+  return role !== 'admin' && role !== 'super_admin' && (role === 'head_manager' || Number(staffUser?.roleRank ?? 0) >= 70)
+}
+
 const modalInputClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
 const modalLabelClass = 'mb-2 block text-sm font-black text-[#101828]'
 
@@ -471,7 +476,7 @@ function OnboardingActionModal({
         setTeamEditId((current) => current || firstTeam?.id || '')
         setTeamEditName((current) => current || firstTeam?.name || '')
         const assignableStaffUsers = mergeStaffUsersWithPendingInvites(nextUsers, pendingInvites)
-          .filter((staffUser) => String(staffUser.role ?? '') === 'head_manager' || Number(staffUser.roleRank ?? 0) >= 70)
+          .filter(isAssignableTeamAdmin)
         setStaffUsers(assignableStaffUsers)
         setThemeForm({
           mode: currentThemeTeam?.themeMode || user.themeMode || 'light',

@@ -89,6 +89,10 @@ function mergeUsersWithPendingInvites(userRows, inviteRows) {
   return [...userRows, ...pendingMembers]
 }
 
+function isTeamScopedStaffMember(member) {
+  return !['admin', 'super_admin'].includes(String(member?.role ?? ''))
+}
+
 export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
   const { showToast } = useToast()
@@ -227,13 +231,23 @@ export function TeamManagementPage() {
     }
   }, [cacheKey, user, userScopeKey])
 
+  const teamScopedUsers = useMemo(
+    () => users.filter(isTeamScopedStaffMember),
+    [users],
+  )
+
   const teamAssignments = useMemo(
-    () =>
-      teams.map((team) => ({
+    () => {
+      const teamScopedStaffIds = new Set(teamScopedUsers.map((member) => member.id))
+
+      return teams.map((team) => ({
         ...team,
-        staffIds: assignments.filter((assignment) => assignment.teamId === team.id).map((assignment) => assignment.userId),
-      })),
-    [assignments, teams],
+        staffIds: assignments
+          .filter((assignment) => assignment.teamId === team.id && teamScopedStaffIds.has(assignment.userId))
+          .map((assignment) => assignment.userId),
+      }))
+    },
+    [assignments, teamScopedUsers, teams],
   )
 
   const assignableRoles = useMemo(
@@ -247,11 +261,11 @@ export function TeamManagementPage() {
   const selectedTeamStaff = useMemo(
     () =>
       selectedTeam
-        ? users
+        ? teamScopedUsers
             .filter((member) => selectedTeam.staffIds.includes(member.id))
             .sort((left, right) => getStaffDisplayName(left).localeCompare(getStaffDisplayName(right)))
         : [],
-    [selectedTeam, users],
+    [selectedTeam, teamScopedUsers],
   )
   const selectedTeamStaffEmails = useMemo(
     () => new Set(selectedTeamStaff.map((member) => normalizeStaffEmail(member)).filter(Boolean)),
@@ -260,7 +274,7 @@ export function TeamManagementPage() {
   const availableStaffForSelectedTeam = useMemo(
     () =>
       selectedTeam
-        ? users
+        ? teamScopedUsers
             .filter((member) => {
               if (selectedTeam.staffIds.includes(member.id)) {
                 return false
@@ -274,7 +288,7 @@ export function TeamManagementPage() {
             })
             .sort((left, right) => getStaffDisplayName(left).localeCompare(getStaffDisplayName(right)))
         : [],
-    [selectedTeam, selectedTeamStaffEmails, users],
+    [selectedTeam, selectedTeamStaffEmails, teamScopedUsers],
   )
   const filteredAvailableStaffForSelectedTeam = useMemo(
     () => {
@@ -311,10 +325,13 @@ export function TeamManagementPage() {
   const teamLimitMessage = createLimitUpgradeMessage(user, 'teams', 'Teams')
   const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
   const allocatedStaffCount = useMemo(
-    () => new Set(assignments.map((assignment) => assignment.userId).filter(Boolean)).size,
-    [assignments],
+    () => {
+      const teamScopedStaffIds = new Set(teamScopedUsers.map((member) => member.id))
+      return new Set(assignments.map((assignment) => assignment.userId).filter((staffId) => teamScopedStaffIds.has(staffId))).size
+    },
+    [assignments, teamScopedUsers],
   )
-  const unallocatedStaffCount = Math.max(0, users.length - allocatedStaffCount)
+  const unallocatedStaffCount = Math.max(0, teamScopedUsers.length - allocatedStaffCount)
   const playerTotal = useMemo(
     () => Object.values(teamStats).reduce((total, stats) => total + Number(stats?.playerCount ?? 0), 0),
     [teamStats],
@@ -713,7 +730,7 @@ export function TeamManagementPage() {
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <TeamSetupMetric label="Teams" value={teams.length} />
-              <TeamSetupMetric label="Staff" value={users.length} />
+              <TeamSetupMetric label="Staff" value={teamScopedUsers.length} />
               <TeamSetupMetric label="Allocated" value={allocatedStaffCount} />
               <TeamSetupMetric label="Players" value={playerTotal} />
             </div>

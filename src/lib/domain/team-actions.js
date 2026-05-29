@@ -370,22 +370,6 @@ export async function createTeam({ user, name }) {
   invalidateMemoryCacheByPrefix('assigned-teams:')
   invalidateMemoryCacheByPrefix('team-assignments:')
 
-  if (data?.id && user?.id) {
-    const { error: staffError } = await supabase.from('team_staff').upsert(
-      {
-        team_id: data.id,
-        user_id: user.id,
-      },
-      {
-        onConflict: 'team_id,user_id',
-      },
-    )
-
-    if (staffError) {
-      console.error(staffError)
-    }
-  }
-
   return normalizeTeamRow(data)
 }
 
@@ -532,7 +516,7 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
   if (acceptedUserIds.length > 0) {
     const { data: userRows, error: usersError } = await supabase
       .from('users')
-      .select('id, club_id')
+      .select('id, club_id, role')
       .in('id', acceptedUserIds)
 
     if (usersError) {
@@ -542,13 +526,13 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
 
     const allowedUserIds = new Set(
       (userRows ?? [])
-        .filter((row) => String(row.club_id ?? '') === String(teamRow.club_id ?? ''))
+        .filter((row) => String(row.club_id ?? '') === String(teamRow.club_id ?? '') && !['admin', 'super_admin'].includes(String(row.role ?? '')))
         .map((row) => String(row.id ?? '')),
     )
     const invalidUserIds = acceptedUserIds.filter((userId) => !allowedUserIds.has(String(userId)))
 
     if (invalidUserIds.length > 0) {
-      throw new Error('One or more selected staff members do not belong to this club.')
+      throw new Error('One or more selected staff members cannot be assigned to a team.')
     }
   }
 

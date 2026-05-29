@@ -136,24 +136,6 @@ async function createTeam({ name, profile }) {
     throw error
   }
 
-  if (data?.id && profile?.id) {
-    const { error: staffError } = await supabaseAdmin
-      .from('team_staff')
-      .upsert(
-        {
-          team_id: data.id,
-          user_id: profile.id,
-        },
-        {
-          onConflict: 'team_id,user_id',
-        },
-      )
-
-    if (staffError) {
-      console.error('Team creator assignment failed', staffError)
-    }
-  }
-
   return normalizeTeamRow(data)
 }
 
@@ -226,7 +208,7 @@ async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [
   if (normalizedUserIds.length > 0) {
     const { data: userRows, error: usersError } = await supabaseAdmin
       .from('users')
-      .select('id, club_id')
+      .select('id, club_id, role')
       .in('id', normalizedUserIds)
 
     if (usersError) {
@@ -235,13 +217,13 @@ async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [
 
     const allowedUserIds = new Set(
       (userRows ?? [])
-        .filter((row) => String(row.club_id ?? '') === String(profile.clubId))
+        .filter((row) => String(row.club_id ?? '') === String(profile.clubId) && !['admin', 'super_admin'].includes(String(row.role ?? '')))
         .map((row) => String(row.id ?? '')),
     )
     const invalidUserIds = normalizedUserIds.filter((userId) => !allowedUserIds.has(userId))
 
     if (invalidUserIds.length > 0) {
-      throw Object.assign(new Error('One or more selected staff members do not belong to this club.'), { statusCode: 403 })
+      throw Object.assign(new Error('One or more selected staff members cannot be assigned to a team.'), { statusCode: 403 })
     }
   }
 
