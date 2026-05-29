@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
-import { useAuth } from '../../lib/auth.js'
+import { getRoleLabel, useAuth } from '../../lib/auth.js'
 import {
   createAssessmentSession,
   createParentPortalInvites,
@@ -10,6 +10,7 @@ import {
   createTeam,
   deleteTeam,
   getAssignedTeamsForUser,
+  getClubUserInvites,
   getClubSettings,
   getParentLinkingPlayers,
   getTeams,
@@ -323,6 +324,35 @@ const roleOptions = {
   assistant_coach: { roleKey: 'assistant_coach', roleLabel: 'Assistant Coach', roleRank: 20 },
 }
 
+const PENDING_INVITE_PREFIX = 'invite:'
+
+function pendingInviteToStaffUser(invite) {
+  const inviteId = String(invite?.id ?? '').trim()
+
+  return {
+    id: `${PENDING_INVITE_PREFIX}${inviteId}`,
+    clubId: invite.clubId,
+    email: invite.email,
+    username: invite.email,
+    name: invite.email,
+    role: invite.roleKey,
+    roleLabel: `${invite.roleLabel} Pending invite`,
+    roleRank: invite.roleRank,
+    teamId: invite.teamId,
+    pendingInvite: true,
+    inviteId,
+  }
+}
+
+function mergeStaffUsersWithPendingInvites(users, invites) {
+  const acceptedEmails = new Set(users.map((member) => String(member?.email ?? '').trim().toLowerCase()).filter(Boolean))
+  const pendingUsers = invites
+    .filter((invite) => !invite.acceptedAt && !acceptedEmails.has(String(invite.email ?? '').trim().toLowerCase()))
+    .map(pendingInviteToStaffUser)
+
+  return [...users, ...pendingUsers]
+}
+
 const modalInputClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
 const modalLabelClass = 'mb-2 block text-sm font-black text-[#101828]'
 
@@ -406,9 +436,10 @@ function OnboardingActionModal({
         const shouldLoadTeams = ['branding-theme', 'manage-teams', 'assign-team-admin', 'invite-team-staff', 'add-player', 'send-parent-invite', 'create-session', 'create-assessment'].includes(actionType)
         const shouldLoadStaff = actionType === 'assign-team-admin'
         const shouldLoadParentInvitePlayers = actionType === 'send-parent-invite'
-        const [rawTeams, nextUsers, clubSettings] = await Promise.all([
+        const [rawTeams, nextUsers, pendingInvites, clubSettings] = await Promise.all([
           shouldLoadTeams ? (canManageClubWide ? getTeams(user) : getAssignedTeamsForUser(user)) : Promise.resolve([]),
           shouldLoadStaff ? getVisibleClubUsers(user) : Promise.resolve([]),
+          shouldLoadStaff ? getClubUserInvites(user) : Promise.resolve([]),
           ['club-details', 'branding-theme'].includes(actionType) && user?.clubId ? getClubSettings(user.clubId) : Promise.resolve(null),
         ])
         const nextParentInvitePlayers = shouldLoadParentInvitePlayers
@@ -439,7 +470,9 @@ function OnboardingActionModal({
         const currentThemeTeam = nextTeams.find((team) => String(team.id) === String(user.activeTeamId)) || firstTeam
         setTeamEditId((current) => current || firstTeam?.id || '')
         setTeamEditName((current) => current || firstTeam?.name || '')
-        setStaffUsers(nextUsers.filter((staffUser) => String(staffUser.role ?? '') === 'head_manager' || Number(staffUser.roleRank ?? 0) >= 70))
+        const assignableStaffUsers = mergeStaffUsersWithPendingInvites(nextUsers, pendingInvites)
+          .filter((staffUser) => String(staffUser.role ?? '') === 'head_manager' || Number(staffUser.roleRank ?? 0) >= 70)
+        setStaffUsers(assignableStaffUsers)
         setThemeForm({
           mode: currentThemeTeam?.themeMode || user.themeMode || 'light',
           accent: currentThemeTeam?.themeAccent || user.themeAccent || 'green',
@@ -448,7 +481,7 @@ function OnboardingActionModal({
 
         const fallbackTeamId = user.activeTeamId || nextTeams[0]?.id || ''
         setSelectedTeamId((current) => current || fallbackTeamId)
-        setSelectedStaffId((current) => current || nextUsers.find((staffUser) => String(staffUser.role ?? '') === 'head_manager')?.id || '')
+        setSelectedStaffId((current) => current || assignableStaffUsers.find((staffUser) => String(staffUser.role ?? '') === 'head_manager')?.id || '')
       } catch (error) {
         console.error(error)
         if (isMounted) {
@@ -951,7 +984,9 @@ function OnboardingActionModal({
                 <select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className={modalInputClass} required>
                   <option value="">Choose team admin</option>
                   {staffUsers.map((staffUser) => (
-                    <option key={staffUser.id} value={staffUser.id}>{staffUser.name || staffUser.email}</option>
+                    <option key={staffUser.id} value={staffUser.id}>
+                      {staffUser.name || staffUser.email}, Role: {staffUser.pendingInvite ? staffUser.roleLabel : getRoleLabel(staffUser)}
+                    </option>
                   ))}
                 </select>
               </label>

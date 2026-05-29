@@ -37,6 +37,7 @@ export function normalizeClubInviteRow(row) {
     teamId: row.team_id ?? row.teamId ?? '',
     inviteToken: row.invite_token ?? row.inviteToken ?? '',
     expiresAt: row.expires_at ?? row.expiresAt ?? '',
+    acceptedAt: row.accepted_at ?? row.acceptedAt ?? '',
     inviteSentAt: row.invite_sent_at ?? row.inviteSentAt ?? '',
     createdBy: row.created_by ?? row.createdBy ?? '',
     createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),

@@ -462,7 +462,28 @@ export async function getTeamStaffAssignments(user) {
       throw error
     }
 
-    return (data ?? []).map(normalizeTeamStaffRow)
+    const acceptedAssignments = (data ?? []).map(normalizeTeamStaffRow)
+
+    const { data: pendingInvites, error: pendingInvitesError } = await supabase
+      .from('club_user_invites')
+      .select('id, team_id, created_at')
+      .eq('club_id', user.clubId)
+      .is('accepted_at', null)
+      .in('team_id', teamIds)
+
+    if (pendingInvitesError) {
+      console.error(pendingInvitesError)
+      throw pendingInvitesError
+    }
+
+    const pendingAssignments = (pendingInvites ?? []).map((invite) => ({
+      id: `invite:${invite.id}`,
+      teamId: invite.team_id ?? '',
+      userId: `invite:${invite.id}`,
+      createdAt: invite.created_at ?? '',
+    }))
+
+    return [...acceptedAssignments, ...pendingAssignments]
   })
 }
 
@@ -470,6 +491,11 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
   await blockDemoMutation()
 
   const normalizedUserIds = [...new Set((userIds ?? []).map((userId) => String(userId).trim()).filter(Boolean))]
+  const pendingInviteIds = normalizedUserIds
+    .filter((userId) => userId.startsWith('invite:'))
+    .map((userId) => userId.replace(/^invite:/, '').trim())
+    .filter(Boolean)
+  const acceptedUserIds = normalizedUserIds.filter((userId) => !userId.startsWith('invite:'))
 
   const { data: teamRow, error: teamError } = await supabase
     .from('teams')
@@ -490,7 +516,8 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
       action: 'replace-staff',
       clubId: teamRow.club_id,
       teamId,
-      userIds: normalizedUserIds,
+      userIds: acceptedUserIds,
+      inviteIds: pendingInviteIds,
     })
 
     invalidateMemoryCacheByPrefix('available-teams:')
@@ -502,11 +529,11 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
     return (result.assignments ?? []).map(normalizeTeamStaffRow)
   }
 
-  if (normalizedUserIds.length > 0) {
+  if (acceptedUserIds.length > 0) {
     const { data: userRows, error: usersError } = await supabase
       .from('users')
       .select('id, club_id')
-      .in('id', normalizedUserIds)
+      .in('id', acceptedUserIds)
 
     if (usersError) {
       console.error(usersError)
@@ -518,7 +545,7 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
         .filter((row) => String(row.club_id ?? '') === String(teamRow.club_id ?? ''))
         .map((row) => String(row.id ?? '')),
     )
-    const invalidUserIds = normalizedUserIds.filter((userId) => !allowedUserIds.has(String(userId)))
+    const invalidUserIds = acceptedUserIds.filter((userId) => !allowedUserIds.has(String(userId)))
 
     if (invalidUserIds.length > 0) {
       throw new Error('One or more selected staff members do not belong to this club.')
@@ -538,13 +565,44 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
   invalidateMemoryCacheByPrefix('team-assignments:')
   invalidateMemoryCacheByPrefix('visible-club-users:')
 
-  if (normalizedUserIds.length === 0) {
-    return []
+  const { error: clearPendingInvitesError } = await supabase
+    .from('club_user_invites')
+    .update({ team_id: null })
+    .eq('club_id', teamRow.club_id)
+    .eq('team_id', teamId)
+    .is('accepted_at', null)
+
+  if (clearPendingInvitesError) {
+    console.error(clearPendingInvitesError)
+    throw clearPendingInvitesError
+  }
+
+  if (pendingInviteIds.length > 0) {
+    const { error: pendingInviteError } = await supabase
+      .from('club_user_invites')
+      .update({ team_id: teamId })
+      .eq('club_id', teamRow.club_id)
+      .is('accepted_at', null)
+      .in('id', pendingInviteIds)
+
+    if (pendingInviteError) {
+      console.error(pendingInviteError)
+      throw pendingInviteError
+    }
+  }
+
+  if (acceptedUserIds.length === 0) {
+    return pendingInviteIds.map((inviteId) => ({
+      id: `invite:${inviteId}`,
+      teamId,
+      userId: `invite:${inviteId}`,
+      createdAt: '',
+    }))
   }
 
   const { data, error } = await supabase
     .from('team_staff')
-    .insert(normalizedUserIds.map((userId) => ({ team_id: teamId, user_id: userId })))
+    .insert(acceptedUserIds.map((userId) => ({ team_id: teamId, user_id: userId })))
     .select('*')
 
   if (error) {
@@ -552,5 +610,13 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
     throw error
   }
 
-  return (data ?? []).map(normalizeTeamStaffRow)
+  return [
+    ...(data ?? []).map(normalizeTeamStaffRow),
+    ...pendingInviteIds.map((inviteId) => ({
+      id: `invite:${inviteId}`,
+      teamId,
+      userId: `invite:${inviteId}`,
+      createdAt: '',
+    })),
+  ]
 }

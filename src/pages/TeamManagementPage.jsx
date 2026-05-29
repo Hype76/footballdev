@@ -29,6 +29,7 @@ import {
   createTeam,
   deleteTeam,
   getClubRoles,
+  getClubUserInvites,
   getClubUsers,
   getEvaluations,
   getPlayers,
@@ -59,6 +60,34 @@ const teamSetupRules = [
 
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
+const PENDING_INVITE_PREFIX = 'invite:'
+
+function pendingInviteToStaffMember(invite) {
+  const inviteId = String(invite?.id ?? '').trim()
+
+  return {
+    id: `${PENDING_INVITE_PREFIX}${inviteId}`,
+    clubId: invite.clubId,
+    email: invite.email,
+    username: invite.email,
+    name: invite.email,
+    role: invite.roleKey,
+    roleLabel: `${invite.roleLabel} Pending invite`,
+    roleRank: invite.roleRank,
+    teamId: invite.teamId,
+    pendingInvite: true,
+    inviteId,
+  }
+}
+
+function mergeUsersWithPendingInvites(userRows, inviteRows) {
+  const acceptedEmails = new Set(userRows.map((member) => normalizeStaffEmail(member)).filter(Boolean))
+  const pendingMembers = inviteRows
+    .filter((invite) => !invite.acceptedAt && !acceptedEmails.has(normalizeStaffEmail(invite)))
+    .map(pendingInviteToStaffMember)
+
+  return [...userRows, ...pendingMembers]
+}
 
 export function TeamManagementPage() {
   const { refreshTeamSelection, user } = useAuth()
@@ -107,9 +136,10 @@ export function TeamManagementPage() {
       setErrorMessage('')
 
       try {
-        const [teamsResult, usersResult, assignmentsResult, rolesResult, playersResult, evaluationsResult] = await Promise.allSettled([
+        const [teamsResult, usersResult, invitesResult, assignmentsResult, rolesResult, playersResult, evaluationsResult] = await Promise.allSettled([
           withRequestTimeout(() => getTeams(user), 'Could not load teams.'),
           withRequestTimeout(() => getClubUsers(user), 'Could not load club users.'),
+          withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending staff invites.'),
           withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
@@ -117,7 +147,9 @@ export function TeamManagementPage() {
         ])
 
         const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []
-        const nextUsers = usersResult.status === 'fulfilled' ? usersResult.value : []
+        const nextAcceptedUsers = usersResult.status === 'fulfilled' ? usersResult.value : []
+        const nextInvites = invitesResult.status === 'fulfilled' ? invitesResult.value : []
+        const nextUsers = mergeUsersWithPendingInvites(nextAcceptedUsers, nextInvites)
         const nextAssignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : []
         const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : []
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : []
@@ -126,6 +158,7 @@ export function TeamManagementPage() {
         const hasFailure =
           teamsResult.status === 'rejected' ||
           usersResult.status === 'rejected' ||
+          invitesResult.status === 'rejected' ||
           assignmentsResult.status === 'rejected' ||
           rolesResult.status === 'rejected' ||
           playersResult.status === 'rejected' ||
@@ -141,6 +174,10 @@ export function TeamManagementPage() {
 
         if (usersResult.status === 'rejected') {
           console.error(usersResult.reason)
+        }
+
+        if (invitesResult.status === 'rejected') {
+          console.error(invitesResult.reason)
         }
 
         if (assignmentsResult.status === 'rejected') {
@@ -369,16 +406,23 @@ export function TeamManagementPage() {
   }
 
   const refreshUsersAndRoles = async () => {
-    const [usersResult, rolesResult] = await Promise.allSettled([
+    const [usersResult, invitesResult, rolesResult] = await Promise.allSettled([
       withRequestTimeout(() => getClubUsers(user), 'Could not load club users.'),
+      withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending staff invites.'),
       withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
     ])
 
-    const nextUsers = usersResult.status === 'fulfilled' ? usersResult.value.filter((member) => member.role !== 'super_admin') : users
+    const nextAcceptedUsers = usersResult.status === 'fulfilled' ? usersResult.value.filter((member) => member.role !== 'super_admin') : users.filter((member) => !member.pendingInvite)
+    const nextInvites = invitesResult.status === 'fulfilled' ? invitesResult.value : []
+    const nextUsers = mergeUsersWithPendingInvites(nextAcceptedUsers, nextInvites)
     const nextRoles = rolesResult.status === 'fulfilled' ? rolesResult.value : roles
 
     if (usersResult.status === 'rejected') {
       console.error(usersResult.reason)
+    }
+
+    if (invitesResult.status === 'rejected') {
+      console.error(invitesResult.reason)
     }
 
     if (rolesResult.status === 'rejected') {
@@ -447,9 +491,9 @@ export function TeamManagementPage() {
         teamId: selectedTeamId,
       })
 
-      let nextAssignments = assignments
-
       await refreshUsersAndRoles()
+      const nextAssignments = await getTeamStaffAssignments(user)
+      setAssignments(nextAssignments)
       setCoachForm({
         email: '',
         teamId: '',

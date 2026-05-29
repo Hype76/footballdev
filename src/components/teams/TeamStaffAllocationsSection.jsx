@@ -5,6 +5,10 @@ function getStaffDisplayName(member) {
   return String(member?.name || member?.username || member?.email || 'Unnamed staff').trim()
 }
 
+function getStaffRoleLabel(member) {
+  return member?.pendingInvite ? member.roleLabel : getRoleLabel(member)
+}
+
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#66756c] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
 const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
@@ -278,7 +282,7 @@ function AddExistingStaffPanel({
           <option value="">Select staff member</option>
           {availableStaff.map((member) => (
             <option key={member.id} value={member.id}>
-              {getStaffDisplayName(member)}, Email: {member.email}, Role: {getRoleLabel(member)}
+              {getStaffDisplayName(member)}, Email: {member.email}, Role: {getStaffRoleLabel(member)}
             </option>
           ))}
         </select>
@@ -335,7 +339,7 @@ function AllocatedStaffList({
                   </p>
                   <p className="mt-1 break-words text-sm font-semibold text-[#4b5f55]">{member.email}</p>
                   <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
-                    {getRoleLabel(member)}
+                    {getStaffRoleLabel(member)}
                   </p>
                 </div>
                 <button

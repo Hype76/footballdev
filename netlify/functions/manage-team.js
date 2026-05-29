@@ -205,10 +205,22 @@ async function deleteTeam({ profile, teamId }) {
   return normalizeTeamRow(currentTeam)
 }
 
-async function replaceStaffAssignments({ profile, teamId, userIds }) {
+function normalizeInviteAssignment(invite) {
+  return {
+    id: `invite:${invite.id}`,
+    team_id: invite.team_id,
+    user_id: `invite:${invite.id}`,
+    created_at: invite.created_at,
+  }
+}
+
+async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [] }) {
   const currentTeam = await getTeamForClub(teamId, profile.clubId)
   const normalizedUserIds = [...new Set((Array.isArray(userIds) ? userIds : [])
     .map((userId) => normalizeText(userId))
+    .filter(Boolean))]
+  const normalizedInviteIds = [...new Set((Array.isArray(inviteIds) ? inviteIds : [])
+    .map((inviteId) => normalizeText(inviteId).replace(/^invite:/, ''))
     .filter(Boolean))]
 
   if (normalizedUserIds.length > 0) {
@@ -233,6 +245,26 @@ async function replaceStaffAssignments({ profile, teamId, userIds }) {
     }
   }
 
+  if (normalizedInviteIds.length > 0) {
+    const { data: inviteRows, error: invitesError } = await supabaseAdmin
+      .from('club_user_invites')
+      .select('id, club_id, accepted_at')
+      .eq('club_id', profile.clubId)
+      .is('accepted_at', null)
+      .in('id', normalizedInviteIds)
+
+    if (invitesError) {
+      throw invitesError
+    }
+
+    const allowedInviteIds = new Set((inviteRows ?? []).map((row) => String(row.id ?? '')))
+    const invalidInviteIds = normalizedInviteIds.filter((inviteId) => !allowedInviteIds.has(inviteId))
+
+    if (invalidInviteIds.length > 0) {
+      throw Object.assign(new Error('One or more selected pending invites do not belong to this club.'), { statusCode: 403 })
+    }
+  }
+
   const { error: deleteError } = await supabaseAdmin
     .from('team_staff')
     .delete()
@@ -242,8 +274,37 @@ async function replaceStaffAssignments({ profile, teamId, userIds }) {
     throw deleteError
   }
 
+  const { error: clearPendingError } = await supabaseAdmin
+    .from('club_user_invites')
+    .update({ team_id: null })
+    .eq('club_id', profile.clubId)
+    .eq('team_id', currentTeam.id)
+    .is('accepted_at', null)
+
+  if (clearPendingError) {
+    throw clearPendingError
+  }
+
+  let pendingAssignments = []
+
+  if (normalizedInviteIds.length > 0) {
+    const { data: updatedInvites, error: updateInvitesError } = await supabaseAdmin
+      .from('club_user_invites')
+      .update({ team_id: currentTeam.id })
+      .eq('club_id', profile.clubId)
+      .is('accepted_at', null)
+      .in('id', normalizedInviteIds)
+      .select('id, team_id, created_at')
+
+    if (updateInvitesError) {
+      throw updateInvitesError
+    }
+
+    pendingAssignments = (updatedInvites ?? []).map(normalizeInviteAssignment)
+  }
+
   if (normalizedUserIds.length === 0) {
-    return []
+    return pendingAssignments
   }
 
   const { data, error } = await supabaseAdmin
@@ -255,7 +316,7 @@ async function replaceStaffAssignments({ profile, teamId, userIds }) {
     throw error
   }
 
-  return data ?? []
+  return [...(data ?? []), ...pendingAssignments]
 }
 
 export async function handler(event) {
@@ -284,7 +345,7 @@ export async function handler(event) {
     } else if (action === 'delete') {
       team = await deleteTeam({ profile, teamId: body.teamId })
     } else if (action === 'replace-staff') {
-      const assignments = await replaceStaffAssignments({ profile, teamId: body.teamId, userIds: body.userIds })
+      const assignments = await replaceStaffAssignments({ profile, teamId: body.teamId, userIds: body.userIds, inviteIds: body.inviteIds })
       return jsonResponse(200, { success: true, assignments })
     } else {
       return jsonResponse(400, { success: false, message: 'Team action is required.' })
