@@ -5,10 +5,12 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { buildParentAppUrl, isParentPortalHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 import { acceptParentPortalInvite } from '../lib/supabase.js'
+import { supabase } from '../lib/supabase-client.js'
 
 const inputClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] read-only:text-[#4b5f55] read-only:focus:border-[#d7e5dc] read-only:focus:ring-0'
 const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
+const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
 
 function getFriendlySignupError(error) {
   const rawMessage = String(error?.message ?? '').trim()
@@ -54,9 +56,11 @@ export function ParentInvitePage() {
   const shouldAcceptSignedInSession = searchParams.get('accept') === '1'
   const { isLoading, selectAccessMode, session, signOut, signUpParentAccount } = useAuth()
   const acceptAttemptedRef = useRef(false)
+  const directSessionCheckedRef = useRef(false)
   const signOutAttemptedRef = useRef(false)
   const submitLockRef = useRef(false)
   const [acceptedLink, setAcceptedLink] = useState(null)
+  const [directSessionReady, setDirectSessionReady] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [invite, setInvite] = useState(null)
   const [isAccepting, setIsAccepting] = useState(false)
@@ -67,6 +71,7 @@ export function ParentInvitePage() {
   const [message, setMessage] = useState('')
   const [password, setPassword] = useState('')
   const isParentHost = isParentPortalHost()
+  const canAcceptSignedInSession = Boolean(session?.user || directSessionReady)
 
   useEffect(() => {
     if (isParentHost) {
@@ -180,11 +185,63 @@ export function ParentInvitePage() {
   useEffect(() => {
     let isMounted = true
 
+    const resolveSessionForAccept = async () => {
+      if (
+        !isParentHost ||
+        !shouldAcceptSignedInSession ||
+        session?.user ||
+        !token ||
+        isInviteLoading ||
+        !invite ||
+        directSessionCheckedRef.current
+      ) {
+        return
+      }
+
+      directSessionCheckedRef.current = true
+
+      try {
+        const sessionResult = await withTimeout(
+          supabase.auth.getSession(),
+          'Parent login session took too long to open. Log in again to continue.',
+          8000,
+        )
+        const nextSession = sessionResult?.data?.session
+
+        if (!isMounted) {
+          return
+        }
+
+        if (nextSession?.user) {
+          window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')
+          setDirectSessionReady(true)
+          return
+        }
+
+        window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&confirmed=1`))
+      } catch (error) {
+        console.error(error)
+        if (isMounted) {
+          setErrorMessage(error.message || 'Parent login session could not be opened. Log in again to continue.')
+        }
+      }
+    }
+
+    void resolveSessionForAccept()
+
+    return () => {
+      isMounted = false
+    }
+  }, [invite, isInviteLoading, isParentHost, session?.user, shouldAcceptSignedInSession, token])
+
+  useEffect(() => {
+    let isMounted = true
+
     const acceptInvite = async () => {
       if (
         !isParentHost ||
         !shouldAcceptSignedInSession ||
-        !session?.user ||
+        !canAcceptSignedInSession ||
         !token ||
         isInviteLoading ||
         !invite ||
@@ -203,7 +260,9 @@ export function ParentInvitePage() {
           'Parent access took too long to open. Refresh the page and try again.',
         )
         await withTimeout(
-          selectAccessMode('parent'),
+          session?.user
+            ? selectAccessMode('parent')
+            : Promise.resolve(window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')),
           'Parent workspace took too long to open. Refresh the page and try again.',
         )
         if (isMounted) {
@@ -227,7 +286,7 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [invite, isInviteLoading, isParentHost, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
+  }, [canAcceptSignedInSession, directSessionReady, invite, isInviteLoading, isParentHost, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
