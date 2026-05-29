@@ -278,7 +278,7 @@ export function UserSettingsPage() {
 
   const handleThemeModeChange = (nextThemeMode) => {
     if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes'), tone: 'error' })
+      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
       return
     }
 
@@ -296,7 +296,7 @@ export function UserSettingsPage() {
 
   const handleThemeAccentChange = (nextThemeAccent) => {
     if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes'), tone: 'error' })
+      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
       return
     }
 
@@ -314,7 +314,7 @@ export function UserSettingsPage() {
 
   const handleThemeButtonStyleChange = (nextThemeButtonStyle) => {
     if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes'), tone: 'error' })
+      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
       return
     }
 
@@ -476,6 +476,7 @@ export function UserSettingsPage() {
               onThemeAccentChange={handleThemeAccentChange}
               onThemeButtonStyleChange={handleThemeButtonStyleChange}
               onThemeModeChange={handleThemeModeChange}
+              themeUnavailableMessage={createFeatureUpgradeMessage('themes', user)}
               themeAccent={themeAccent}
               themeButtonStyle={themeButtonStyle}
               themeMode={themeMode}

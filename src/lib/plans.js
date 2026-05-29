@@ -160,6 +160,28 @@ export function isPlanAccessActive(value) {
   return status === 'active' || status === 'trialing'
 }
 
+export function getPlanStatusLabel(value) {
+  const status = String(value?.planStatus ?? value?.plan_status ?? '').trim()
+
+  if (status === 'active') {
+    return 'Active'
+  }
+
+  if (status === 'trialing') {
+    return 'Trialing'
+  }
+
+  if (status === 'past_due') {
+    return 'Past due'
+  }
+
+  if (status === 'cancelled') {
+    return 'Cancelled'
+  }
+
+  return status || 'Not active'
+}
+
 export function getPlanName(planOrUser) {
   return getPlan(planOrUser).name
 }
@@ -238,10 +260,14 @@ export function getUpgradePlanForLimit(limitName) {
   return matchedPlan?.name || 'a higher plan'
 }
 
-export function createFeatureUpgradeMessage(featureName) {
+export function createFeatureUpgradeMessage(featureName, planOrUser = null) {
   const featureCopy = FEATURE_UPGRADE_COPY[featureName] ?? {
     label: 'This feature',
     action: 'use it',
+  }
+
+  if (planOrUser && !isPlanAccessActive(planOrUser)) {
+    return `${featureCopy.label} is included in ${getPlanName(planOrUser)}, but this workspace billing status is ${getPlanStatusLabel(planOrUser)}. Update billing or mark the club as active before changing it.`
   }
 
   return `${featureCopy.label} is not available in your current billing tier. Upgrade to ${getUpgradePlanForFeature(featureName)} to ${featureCopy.action}.`
@@ -250,5 +276,10 @@ export function createFeatureUpgradeMessage(featureName) {
 export function createLimitUpgradeMessage(user, limitName, label) {
   const limit = getPlanLimit(user, limitName)
   const targetPlan = getUpgradePlanForLimit(limitName)
+
+  if (user && !isPlanAccessActive(user)) {
+    return `${label} is included in ${getPlanName(user)}, but this workspace billing status is ${getPlanStatusLabel(user)}. Update billing or mark the club as active before adding more.`
+  }
+
   return `${label} has reached the limit for your current billing tier (${limit}). Upgrade to ${targetPlan} to add more.`
 }

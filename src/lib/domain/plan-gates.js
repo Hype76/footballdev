@@ -43,7 +43,7 @@ export async function assertClubFeature({ user = null, clubId = '', featureName 
   const planUser = await getClubPlanGateUser({ user, clubId })
 
   if (!hasPlanFeature(planUser, featureName)) {
-    throw new Error(createFeatureUpgradeMessage(featureName))
+    throw new Error(createFeatureUpgradeMessage(featureName, planUser))
   }
 }
 

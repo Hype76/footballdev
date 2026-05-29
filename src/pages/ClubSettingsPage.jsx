@@ -172,7 +172,7 @@ export function ClubSettingsPage() {
     if (!canUseBasicBranding) {
       setSelectedLogoFile(null)
       setErrorTitle('Logo upload problem')
-      setErrorMessage(createFeatureUpgradeMessage('basicBranding'))
+      setErrorMessage(createFeatureUpgradeMessage('basicBranding', user))
       return
     }
 
@@ -244,7 +244,7 @@ export function ClubSettingsPage() {
 
     if (!canUseBasicBranding) {
       setErrorTitle('Logo upload problem')
-      setErrorMessage(createFeatureUpgradeMessage('basicBranding'))
+      setErrorMessage(createFeatureUpgradeMessage('basicBranding', user))
       return
     }
 
@@ -332,6 +332,7 @@ export function ClubSettingsPage() {
       <ClubProfileSettingsSection
         canChangeClubLogo={canChangeClubLogo}
         canUseBasicBranding={canUseBasicBranding}
+        brandingUnavailableMessage={createFeatureUpgradeMessage('basicBranding', user)}
         formData={formData}
         isLoading={isLoading}
         isSaving={isSaving}

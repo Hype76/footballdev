@@ -1,4 +1,3 @@
-import { createFeatureUpgradeMessage } from '../../lib/plans.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -8,6 +7,7 @@ const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-c
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 
 export function ClubProfileSettingsSection({
+  brandingUnavailableMessage,
   canChangeClubLogo,
   canUseBasicBranding,
   formData,
@@ -76,7 +76,7 @@ export function ClubProfileSettingsSection({
               </div>
             ) : (
               <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-                {canUseBasicBranding ? 'Only club admins can change the club logo.' : createFeatureUpgradeMessage('basicBranding')}
+                {canUseBasicBranding ? 'Only club admins can change the club logo.' : brandingUnavailableMessage}
               </div>
             )}
           </div>

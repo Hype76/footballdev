@@ -1,4 +1,3 @@
-import { createFeatureUpgradeMessage } from '../../lib/plans.js'
 import { themeAccentOptions, themeButtonStyleOptions, themeModeOptions } from '../../lib/theme.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
@@ -10,6 +9,7 @@ export function DisplaySettingsSection({
   onThemeAccentChange,
   onThemeButtonStyleChange,
   onThemeModeChange,
+  themeUnavailableMessage,
   themeButtonStyle,
   themeAccent,
   themeMode,
@@ -27,7 +27,7 @@ export function DisplaySettingsSection({
             value={themeMode}
             onChange={(event) => onThemeModeChange(event.target.value)}
             disabled={!canUseThemes}
-            title={!canUseThemes ? createFeatureUpgradeMessage('themes') : undefined}
+            title={!canUseThemes ? themeUnavailableMessage : undefined}
             className={selectClass}
           >
             {themeModeOptions.map((option) => (
@@ -44,7 +44,7 @@ export function DisplaySettingsSection({
             value={themeAccent}
             onChange={(event) => onThemeAccentChange(event.target.value)}
             disabled={!canUseThemes}
-            title={!canUseThemes ? createFeatureUpgradeMessage('themes') : undefined}
+            title={!canUseThemes ? themeUnavailableMessage : undefined}
             className={selectClass}
           >
             {themeAccentOptions.map((option) => (
@@ -61,7 +61,7 @@ export function DisplaySettingsSection({
             value={themeButtonStyle}
             onChange={(event) => onThemeButtonStyleChange(event.target.value)}
             disabled={!canUseThemes}
-            title={!canUseThemes ? createFeatureUpgradeMessage('themes') : undefined}
+            title={!canUseThemes ? themeUnavailableMessage : undefined}
             className={selectClass}
           >
             {themeButtonStyleOptions.map((option) => (
@@ -87,7 +87,7 @@ export function DisplaySettingsSection({
         </div>
       </div>
       {!canUseThemes ? (
-        <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">{createFeatureUpgradeMessage('themes')}</p>
+        <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">{themeUnavailableMessage}</p>
       ) : null}
     </SectionCard>
   )
