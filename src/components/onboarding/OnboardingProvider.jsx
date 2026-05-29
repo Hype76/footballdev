@@ -15,9 +15,11 @@ import {
   getTeams,
   getTeamStaffAssignments,
   getVisibleClubUsers,
+  importClubLogoFromUrl,
   replaceTeamStaffAssignments,
   updateClubSettings,
   updateTeamSettings,
+  uploadClubLogo,
 } from '../../lib/supabase.js'
 import { sendParentPortalInvite } from '../../lib/email-builder.js'
 import {
@@ -357,6 +359,7 @@ function OnboardingActionModal({
     contactEmail: user?.clubContactEmail || '',
     contactPhone: user?.clubContactPhone || '',
   })
+  const [selectedLogoFile, setSelectedLogoFile] = useState(null)
   const [themeForm, setThemeForm] = useState({
     mode: user?.themeMode || 'light',
     accent: user?.themeAccent || 'green',
@@ -492,9 +495,28 @@ function OnboardingActionModal({
       let saveMeta = {}
 
       if (actionType === 'club-details' || actionType === 'branding-theme') {
+        let nextLogoUrl = clubForm.logoUrl
+
+        if (selectedLogoFile) {
+          nextLogoUrl = await uploadClubLogo({
+            clubId: user.clubId,
+            file: selectedLogoFile,
+            user,
+          })
+        } else if (clubForm.logoUrl) {
+          nextLogoUrl = await importClubLogoFromUrl({
+            clubId: user.clubId,
+            logoUrl: clubForm.logoUrl,
+            user,
+          })
+        }
+
         const updatedClub = await updateClubSettings({
           clubId: user.clubId,
-          data: clubForm,
+          data: {
+            ...clubForm,
+            logoUrl: nextLogoUrl,
+          },
           user,
         })
 
@@ -524,6 +546,7 @@ function OnboardingActionModal({
           themeAccent: themeForm.accent,
           themeButtonStyle: themeForm.buttonStyle,
         })
+        setSelectedLogoFile(null)
       } else if (actionType === 'manage-teams') {
         const createdTeam = await createTeam({ user, name: teamName })
         await refreshTeamSelection?.()
@@ -768,6 +791,23 @@ function OnboardingActionModal({
                 <span className={modalLabelClass}>Logo URL</span>
                 <input value={clubForm.logoUrl} onChange={(event) => setClubForm((current) => ({ ...current, logoUrl: event.target.value }))} className={modalInputClass} />
               </label>
+              <label className="block">
+                <span className={modalLabelClass}>Upload logo image</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setSelectedLogoFile(event.target.files?.[0] || null)}
+                  className="block min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#101828] file:mr-4 file:rounded-lg file:border-0 file:bg-[#047857] file:px-3 file:py-2 file:text-sm file:font-black file:text-white"
+                />
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">
+                  PNG, JPG, SVG, or WebP. Maximum file size 2MB.
+                </p>
+              </label>
+              {selectedLogoFile ? (
+                <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#065f46]">
+                  Selected logo: {selectedLogoFile.name}
+                </div>
+              ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className={modalLabelClass}>Contact email</span>
