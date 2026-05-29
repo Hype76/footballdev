@@ -384,6 +384,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       actionLabel: 'Invite team admin',
       actionType: 'invite-staff',
       roleKey: 'head_manager',
+      manualLabel: 'No team admins needed',
       targetSelector: '[data-tour-id="allocate-role-section"]',
       complete: snapshot.teamAdmins > 0 || hasCompletedStep(user, scope, 'team-admins'),
     }),
@@ -406,6 +407,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       href: '/teams',
       actionLabel: 'Assign admin',
       actionType: 'assign-team-admin',
+      manualLabel: 'Assign later',
       targetSelector: '[data-tour-id="team-staff-section"]',
       complete: snapshot.assignedTeamAdmins > 0 || hasCompletedStep(user, scope, 'assign-team-admin'),
     }),
@@ -432,6 +434,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       href: '/teams',
       actionLabel: 'Invite staff',
       actionType: 'invite-team-staff',
+      manualLabel: 'No extra staff needed',
       complete: snapshot.teamCoaches > 0 || hasCompletedStep(user, scope, 'team-staff'),
     }),
     makeStep({
@@ -462,6 +465,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       href: '/sessions/start',
       actionLabel: 'Set up assessment',
       actionType: 'create-assessment',
+      manualLabel: 'Assess later',
       complete: snapshot.evaluations > 0 || hasCompletedStep(user, scope, 'team-assessment'),
     }),
     makeStep({
@@ -485,6 +489,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
             href: '/parent-linking',
             actionLabel: 'Send invite',
             actionType: 'send-parent-invite',
+            manualLabel: 'Invite parents later',
             complete: snapshot.parentLinks > 0 || hasCompletedStep(user, scope, 'team-parent-contacts'),
           }),
         ]
@@ -532,6 +537,7 @@ function buildCoachSteps(user, snapshot, scope) {
       href: '/sessions/start',
       actionLabel: 'Set up assessment',
       actionType: 'create-assessment',
+      manualLabel: 'Assess later',
       complete: snapshot.evaluations > 0 || hasCompletedStep(user, scope, 'coach-assessment'),
     }),
   ]

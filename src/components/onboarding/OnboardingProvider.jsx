@@ -179,7 +179,7 @@ function SetupStepCard({ index, onAction, onComplete, step }) {
                   : 'border-[#fedf89] bg-[#fffbeb] text-[#93370d]',
               ].join(' ')}
             >
-              {step.complete ? 'Ready' : 'Needed'}
+              {step.complete ? 'Ready' : step.manualLabel ? 'Optional' : 'Needed'}
             </span>
           </div>
           <p className="mt-2 text-sm font-black leading-6 text-[#4b5f55]">{step.rule}</p>
@@ -348,6 +348,7 @@ function OnboardingActionModal({
   action,
   onCancel,
   onSaved,
+  onSkipStep,
   refreshTeamSelection,
   selectTeam,
   updateCurrentUserDetails,
@@ -658,6 +659,24 @@ function OnboardingActionModal({
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'This setup action could not be saved.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSkipStep = async () => {
+    if (!action?.manualLabel) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await onSkipStep?.(action)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('This setup step could not be skipped.')
     } finally {
       setIsSaving(false)
     }
@@ -1059,10 +1078,21 @@ function OnboardingActionModal({
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          {action.manualLabel ? (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+              This step can be marked as not needed if it does not fit how this club or team is launching now.
+            </div>
+          ) : null}
+
+          <div className={action.manualLabel ? 'grid gap-3 lg:grid-cols-3' : 'grid gap-3 sm:grid-cols-2'}>
             <button type="submit" disabled={isSaving || isLoading} className={primaryButtonClass}>
               {isSaving ? 'Saving...' : submitLabel}
             </button>
+            {action.manualLabel ? (
+              <button type="button" onClick={handleSkipStep} disabled={isSaving || isLoading} className={secondaryButtonClass}>
+                {action.manualLabel}
+              </button>
+            ) : null}
             <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>
               Cancel
             </button>
@@ -1485,6 +1515,13 @@ export function OnboardingProvider({ children }) {
             window.setTimeout(() => {
               scrollToTarget(meta.targetSelector || step?.targetSelector)
             }, 180)
+          }}
+          onSkipStep={async (step) => {
+            if (step?.id) {
+              await handleCompleteStep(step.id)
+            }
+            setActiveAction(null)
+            window.dispatchEvent(new Event(ONBOARDING_EVENT))
           }}
           refreshTeamSelection={refreshTeamSelection}
           selectTeam={selectTeam}
