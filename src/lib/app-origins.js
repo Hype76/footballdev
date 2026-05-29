@@ -1,7 +1,9 @@
 const PRODUCTION_APP_ORIGIN = 'https://footballplayer.online'
 const STAGING_APP_ORIGIN = 'https://staging.footballplayer.online'
+const STAGING_ALIAS_APP_ORIGIN = 'https://football-os-staging.staging.footballplayer.online'
 const PRODUCTION_PARENT_ORIGIN = 'https://parent.footballplayer.online'
 const STAGING_PARENT_ORIGIN = 'https://parent-staging.staging.footballplayer.online'
+const STAGING_ALIAS_APP_HOST = 'football-os-staging.staging.footballplayer.online'
 const LEGACY_PRODUCTION_APP_HOST = 'playerfeedback.online'
 const LEGACY_STAGING_APP_HOST = 'staging.playerfeedback.online'
 const LEGACY_PRODUCTION_PARENT_HOST = 'parent.playerfeedback.online'
@@ -17,6 +19,7 @@ export function isParentPortalHost(hostname = globalThis.location?.hostname ?? '
   return normalizedHost === 'parent.footballplayer.online'
     || normalizedHost === 'parent-staging.footballplayer.online'
     || normalizedHost === 'parent-staging.staging.footballplayer.online'
+    || normalizedHost === STAGING_ALIAS_APP_HOST
     || normalizedHost === LEGACY_PRODUCTION_PARENT_HOST
     || normalizedHost === LEGACY_STAGING_PARENT_HOST
 }
@@ -32,12 +35,13 @@ export function getMainAppOrigin() {
   if (isParentPortalHost(currentHost)) {
     return currentHost === 'parent-staging.footballplayer.online'
       || currentHost === 'parent-staging.staging.footballplayer.online'
+      || currentHost === STAGING_ALIAS_APP_HOST
       || currentHost === LEGACY_STAGING_PARENT_HOST
-      ? STAGING_APP_ORIGIN
+      ? (currentHost === STAGING_ALIAS_APP_HOST ? STAGING_ALIAS_APP_ORIGIN : STAGING_APP_ORIGIN)
       : PRODUCTION_APP_ORIGIN
   }
 
-  if (currentHost === 'staging.footballplayer.online' || currentHost === LEGACY_STAGING_APP_HOST) {
+  if (currentHost === 'staging.footballplayer.online' || currentHost === STAGING_ALIAS_APP_HOST || currentHost === LEGACY_STAGING_APP_HOST) {
     return STAGING_APP_ORIGIN
   }
 
@@ -69,6 +73,7 @@ export function getParentAppOrigin() {
   }
 
   if (currentHost === 'staging.footballplayer.online'
+    || currentHost === STAGING_ALIAS_APP_HOST
     || currentHost === 'parent-staging.footballplayer.online'
     || currentHost === 'parent-staging.staging.footballplayer.online'
     || currentHost === LEGACY_STAGING_APP_HOST
