@@ -1,8 +1,19 @@
+import process from 'node:process'
 import { createSupabaseAdminClient, resolveSupabaseEnvironment } from './_supabase.js'
 import { arePaymentsDisabled, json, normalizePlanKey } from './_stripe-billing.js'
 
 const STAGING_PROJECT_REF = 'llpufwzvgxyczxcjwupu'
+const LIVE_PROJECT_REF = 'hvapkizujvsahvgspser'
 const STAGING_SIGNUP_PLAN_KEYS = new Set(['individual', 'single_team', 'small_club', 'large_club'])
+const STAGING_BRANCHES = new Set(['football-os-staging', 'staging', 'codex/football-club-os-staging-rebuild'])
+
+function envValue(name) {
+  return globalThis.Netlify?.env?.get?.(name) || process.env[name]
+}
+
+function normalizeText(value) {
+  return String(value ?? '').trim()
+}
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -22,19 +33,77 @@ function getDisplayName(email) {
   return normalizeWords(emailPrefix) || 'Test User'
 }
 
-function assertStagingTestEnvironment(event) {
+function getSupabaseProjectRef(supabaseUrl) {
+  const match = String(supabaseUrl ?? '').match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)
+  return match?.[1] || ''
+}
+
+export function getStagingTestModeDiagnostics(event = {}) {
   const environment = resolveSupabaseEnvironment(event)
   const supabaseUrl = String(environment.supabaseUrl ?? '')
+  const supabaseRef = getSupabaseProjectRef(supabaseUrl)
+  const host = normalizeText(event.headers?.['x-forwarded-host'] || event.headers?.host).toLowerCase()
+  const context = normalizeText(envValue('CONTEXT')).toLowerCase()
+  const branch = normalizeText(envValue('BRANCH')).toLowerCase()
+  const paymentsDisabled = arePaymentsDisabled() || normalizeText(envValue('VITE_PAYMENTS_DISABLED')).toLowerCase() === 'true'
+  const isProductionContext = context === 'production'
+  const isMainBranch = branch === 'main'
+  const isLiveSupabase = supabaseRef === LIVE_PROJECT_REF || supabaseUrl.includes(`${LIVE_PROJECT_REF}.supabase.co`)
+  const isStagingSupabase = supabaseRef === STAGING_PROJECT_REF || supabaseUrl.includes(`${STAGING_PROJECT_REF}.supabase.co`)
+  const hasStagingRuntimeEvidence = Boolean(
+    environment.useStaging ||
+      paymentsDisabled ||
+      context === 'branch-deploy' ||
+      context === 'deploy-preview' ||
+      STAGING_BRANCHES.has(branch) ||
+      branch.includes('staging') ||
+      host.includes('football-os-staging') ||
+      host.includes('staging.footballplayer.online'),
+  )
 
-  if (!environment.useStaging || !supabaseUrl.includes(`${STAGING_PROJECT_REF}.supabase.co`)) {
-    throw new Error('Staging test signup is not available for this environment.')
+  return {
+    branch,
+    context,
+    host,
+    paymentsDisabled,
+    supabaseRef,
+    useStaging: Boolean(environment.useStaging),
+    isProductionContext,
+    isMainBranch,
+    isLiveSupabase,
+    isStagingSupabase,
+    hasStagingRuntimeEvidence,
+    allowed: Boolean(
+      isStagingSupabase &&
+        hasStagingRuntimeEvidence &&
+        !isLiveSupabase &&
+        !isProductionContext &&
+        !isMainBranch,
+    ),
+  }
+}
+
+function formatStagingDiagnostic(diagnostics) {
+  const fields = {
+    context: diagnostics.context || 'unset',
+    branch: diagnostics.branch || 'unset',
+    host: diagnostics.host || 'unset',
+    supabaseRef: diagnostics.supabaseRef || 'unknown',
+    paymentsDisabled: diagnostics.paymentsDisabled,
+    useStaging: diagnostics.useStaging,
   }
 
-  if (!arePaymentsDisabled()) {
-    throw new Error('Staging test signup is available only when payments are disabled.')
-  }
+  return Object.entries(fields)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(', ')
+}
 
-  return environment
+function assertStagingTestEnvironment(event) {
+  const diagnostics = getStagingTestModeDiagnostics(event)
+
+  if (!diagnostics.allowed) {
+    throw new Error(`Staging test signup is not available for this environment. ${formatStagingDiagnostic(diagnostics)}`)
+  }
 }
 
 export async function handler(event) {
