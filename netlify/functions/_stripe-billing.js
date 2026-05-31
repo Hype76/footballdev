@@ -77,7 +77,9 @@ export function getSubscriptionPeriodEnd(subscription) {
 }
 
 export function arePaymentsDisabled() {
-  return String(process.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
+  const value = globalThis.Netlify?.env?.get?.('VITE_PAYMENTS_DISABLED') ?? process.env.VITE_PAYMENTS_DISABLED
+
+  return String(value ?? '').trim().toLowerCase() === 'true'
 }
 
 export function json(statusCode, body) {
