@@ -1,5 +1,9 @@
 import process from 'node:process'
 
+const STAGING_PROJECT_REF = 'llpufwzvgxyczxcjwupu'
+const LIVE_PROJECT_REF = 'hvapkizujvsahvgspser'
+const STAGING_BRANCHES = new Set(['football-os-staging', 'staging', 'codex/football-club-os-staging-rebuild'])
+
 export const PLAN_BY_NAME = {
   'Single Team': 'single_team',
   'Small Club': 'small_club',
@@ -77,9 +81,32 @@ export function getSubscriptionPeriodEnd(subscription) {
 }
 
 export function arePaymentsDisabled() {
-  const value = globalThis.Netlify?.env?.get?.('VITE_PAYMENTS_DISABLED') ?? process.env.VITE_PAYMENTS_DISABLED
+  const envValue = (name) => globalThis.Netlify?.env?.get?.(name) ?? process.env[name]
+  const value = envValue('VITE_PAYMENTS_DISABLED')
 
-  return String(value ?? '').trim().toLowerCase() === 'true'
+  if (String(value ?? '').trim().toLowerCase() === 'true') {
+    return true
+  }
+
+  const context = String(envValue('CONTEXT') ?? '').trim().toLowerCase()
+  const branch = String(envValue('BRANCH') ?? '').trim().toLowerCase()
+  const supabaseUrl = String(envValue('STAGING_SUPABASE_URL') || envValue('VITE_SUPABASE_URL') || '').trim()
+  const isStagingSupabase = supabaseUrl.includes(`${STAGING_PROJECT_REF}.supabase.co`)
+  const isLiveSupabase = supabaseUrl.includes(`${LIVE_PROJECT_REF}.supabase.co`)
+  const hasStagingRuntimeEvidence = Boolean(
+    context === 'branch-deploy' ||
+      context === 'deploy-preview' ||
+      STAGING_BRANCHES.has(branch) ||
+      branch.includes('staging'),
+  )
+
+  return Boolean(
+    isStagingSupabase &&
+      hasStagingRuntimeEvidence &&
+      !isLiveSupabase &&
+      context !== 'production' &&
+      branch !== 'main',
+  )
 }
 
 export function json(statusCode, body) {
