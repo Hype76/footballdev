@@ -47,6 +47,24 @@ Hard recovery rule:
 
 No production deploys, no live database writes, no live migration runs, and no staging-to-live data copies until the staged plan is verified and the user explicitly approves promotion.
 
+Netlify deploy safety rule:
+
+Before any Netlify deploy command, run `npm run check:netlify-deploy-safety` and print the deployment target evidence. The output must include the current git branch, target branch, Netlify site id when available, deploy context, intended URL or context, whether the command can trigger production, whether `main` is involved, and whether the live Supabase ref could be used.
+
+The safety check must stop the work when any of these are true:
+
+- Target branch is `main`.
+- Deploy context is `production`, unless the user explicitly approved a production deploy in that exact prompt.
+- The live Supabase ref `hvapkizujvsahvgspser` appears in the staging build or staging deploy target.
+- The staging Supabase ref `llpufwzvgxyczxcjwupu` is not proven for staging.
+- Netlify CLI cannot prove the target context.
+- A staging deploy targets anything other than `football-os-staging`, unless the user explicitly approves another staging branch in that exact prompt.
+- The command uses `--prod` during staging work.
+
+Known deploy ambiguity:
+
+An earlier `netlify deploy --trigger` attempt with a branch context republished the existing `main` commit in production context. It did not deploy staging setup-guide work to live and did not touch live Supabase, but it proved the CLI trigger path is unsafe for staging work unless the target context is independently proven. Future staging work must use the safety check first and must not use `netlify deploy --trigger` when the intended result is a staging branch deploy.
+
 ## 3. Current App Inventory
 
 ### Web App Areas

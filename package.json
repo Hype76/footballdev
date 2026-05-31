@@ -10,6 +10,7 @@
     "build:staging": "vite build --mode staging",
     "postbuild": "node scripts/verify-web-build-env.mjs",
     "verify:build-env": "node scripts/verify-web-build-env.mjs",
+    "check:netlify-deploy-safety": "node scripts/netlify-deploy-safety-check.mjs --target-branch football-os-staging --context branch-deploy --intended-url https://football-os-staging.staging.footballplayer.online",
     "audit:staging-clicks": "node scripts/staging-click-audit.mjs",
     "onboarding:videos": "node scripts/generate-onboarding-videos.mjs",
     "deploy:live": "npm run build:live && npm run verify:build-env && netlify deploy --prod --dir=dist",
