@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
-import { buildParentAppUrl, isParentPortalHost } from '../lib/app-origins.js'
+import { buildParentAppUrl, isParentInviteHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
 import { acceptParentPortalInvite } from '../lib/supabase.js'
 import { supabase } from '../lib/supabase-client.js'
@@ -70,7 +70,7 @@ export function ParentInvitePage() {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [password, setPassword] = useState('')
-  const isParentHost = isParentPortalHost()
+  const isParentHost = isParentInviteHost()
   const canAcceptSignedInSession = Boolean(session?.user || directSessionReady)
 
   useEffect(() => {
