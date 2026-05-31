@@ -26,6 +26,7 @@ import { getScheduledEmails } from '../../lib/domain/scheduled-emails.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
+import { isPhaseSetupGuideEnabled, openPhaseSetupGuide } from '../../lib/phase-setup-guide.js'
 
 const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
 
@@ -142,6 +143,7 @@ export function Sidebar({ isOpen, onClose }) {
   const clubLabel = displayUser?.role === 'super_admin' ? 'Platform' : displayUser?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(displayUser)
   const feedbackRoute = `/feedback/new?route=${encodeURIComponent(`${location.pathname}${location.search}`)}`
+  const canShowPhaseSetupGuide = isPhaseSetupGuideEnabled() && Boolean(displayUser) && !isParentPortal
   const [openPollCount, setOpenPollCount] = useState(0)
   const [queuedEmailCount, setQueuedEmailCount] = useState(0)
 
@@ -462,6 +464,18 @@ export function Sidebar({ isOpen, onClose }) {
         <div className="mt-auto space-y-3 pt-4">
           {!isParentPortal ? (
             <>
+              {canShowPhaseSetupGuide ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    openPhaseSetupGuide()
+                    onClose()
+                  }}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#f7faf8]"
+                >
+                  Open setup guide
+                </button>
+              ) : null}
               <NavLink
                 to="/information"
                 data-tour-id="sidebar-information"

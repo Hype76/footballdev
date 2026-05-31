@@ -18,6 +18,7 @@ import {
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
+import { PhaseSetupGuide } from '../setup/PhaseSetupGuide.jsx'
 
 export function Layout() {
   const { accessModeOptions, authError, clubOptions, isProfileLoading, selectAccessMode, selectClub, selectTeam, teamOptions, user } = useAuth()
@@ -231,6 +232,7 @@ export function Layout() {
 
           <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-10">
             <div className="mx-auto w-full max-w-[108rem]">
+              {!needsAccessModeSelection && !needsClubSelection && !needsTeamSelection ? <PhaseSetupGuide /> : null}
               <OnboardingProvider>
                 {needsAccessModeSelection ? (
                   <WorkspaceSelection
