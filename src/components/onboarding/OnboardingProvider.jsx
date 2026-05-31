@@ -1280,12 +1280,16 @@ export function OnboardingProvider({ children }) {
 
   const ensureTeamContextForAction = async (step) => {
     const stepId = String(step?.id ?? '')
+    const isClubWideSetup = plan?.title === 'Club launch setup'
     const isTeamAction =
-      plan?.title === 'Team manager setup' ||
-      plan?.title === 'Coach setup' ||
-      stepId.startsWith('team-') ||
-      stepId.startsWith('coach-') ||
-      stepId === 'assigned-team'
+      !isClubWideSetup &&
+      (
+        plan?.title === 'Team manager setup' ||
+        plan?.title === 'Coach setup' ||
+        stepId.startsWith('team-') ||
+        stepId.startsWith('coach-') ||
+        stepId === 'assigned-team'
+      )
 
     if (!isTeamAction || user?.activeTeamId) {
       return true
