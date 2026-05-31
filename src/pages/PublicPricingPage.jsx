@@ -93,8 +93,13 @@ export function PublicPricingPage() {
     setMessage('')
     setErrorMessage('')
 
-    if (plan.name === 'Individual' || paymentsDisabled) {
-      window.location.assign('/sign-in')
+    if (paymentsDisabled) {
+      window.location.assign(`/sign-in?plan=${encodeURIComponent(plan.name)}`)
+      return
+    }
+
+    if (plan.name === 'Individual') {
+      window.location.assign('/sign-in?plan=Individual')
       return
     }
 

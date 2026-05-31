@@ -36,9 +36,6 @@ import {
   uploadStaffVoiceNote,
 } from './staff-voice-notes.js'
 import {
-  seedDefaultClubRolesForClub,
-} from './core-seeding.js'
-import {
   canEditClubIdentity,
 } from '../plans.js'
 import {
@@ -412,7 +409,7 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '') {
   return applyActiveMembership(authUser, selectedMembership)
 }
 
-async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '', forceNewClub = false }) {
+async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '', planKey = '', forceNewClub = false, signupIntent = false }) {
   await blockDemoMutation(authUser)
 
   const { data: sessionData } = await supabase.auth.getSession()
@@ -431,7 +428,9 @@ async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCod
     body: JSON.stringify({
       clubName: String(clubName ?? '').trim(),
       accessCode: String(accessCode ?? '').trim(),
+      planKey: String(planKey ?? '').trim(),
       forceNewClub: Boolean(forceNewClub),
+      signupIntent: Boolean(signupIntent),
     }),
   })
   const result = await response.json().catch(() => ({}))
@@ -652,73 +651,22 @@ export async function fetchUserProfile(authUser, options = {}) {
   })
 }
 
-export async function createClubAndManagerProfile({ authUser, clubName, accessCode = '', forceNewClub = false }) {
+export async function createClubAndManagerProfile({ authUser, clubName, accessCode = '', planKey = '', forceNewClub = false }) {
   await blockDemoMutation(authUser)
 
   try {
-    return await ensureSignupClubProfileWithServer({ authUser, clubName, accessCode, forceNewClub })
+    return await ensureSignupClubProfileWithServer({
+      authUser,
+      clubName,
+      accessCode,
+      planKey,
+      forceNewClub,
+      signupIntent: forceNewClub || Boolean(String(accessCode ?? '').trim()),
+    })
   } catch (serverError) {
     console.error(serverError)
-    if (forceNewClub) {
-      throw serverError
-    }
-
-    if (String(accessCode ?? '').trim()) {
-      throw serverError
-    }
+    throw serverError
   }
-
-  const { data: club, error: clubError } = await supabase
-    .from('clubs')
-    .insert({
-      name: String(clubName ?? '').trim(),
-      plan_key: 'individual',
-      plan_status: 'active',
-    })
-    .select(CLUB_SELECT)
-    .single()
-
-  if (clubError) {
-    console.error(clubError)
-    throw clubError
-  }
-
-  await seedDefaultClubRolesForClub(club.id)
-
-  const { data: userProfile, error: userError } = await supabase
-    .from('users')
-    .upsert(
-      {
-        id: authUser.id,
-        email: authUser.email,
-        username: getDisplayName(authUser),
-        name: getDisplayName(authUser),
-        display_name: getDisplayName(authUser),
-        club_name: String(clubName ?? '').trim(),
-        reply_to_email: String(authUser.email ?? '').trim().toLowerCase(),
-        role: 'head_manager',
-        role_label: 'Team Admin',
-        role_rank: 70,
-        club_id: club.id,
-      },
-      {
-        onConflict: 'id',
-      },
-    )
-    .select(USER_PROFILE_SELECT)
-    .single()
-
-  if (userError) {
-    console.error(userError)
-    throw userError
-  }
-
-  await syncMembershipFromUserRow(userProfile, authUser)
-
-  return normalizeUserProfile({
-    ...userProfile,
-    clubs: club,
-  })
 }
 
 export async function updateOwnUserSettings({

@@ -26,6 +26,7 @@ import {
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
 import { hasPlanFeature, isPlanAccessActive } from '../lib/plans.js'
 import { getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible } from '../lib/recovery-phase.js'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -86,6 +87,7 @@ const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
+const TesterFeedbackPage = lazyRoute(() => import('../pages/TesterFeedbackPage.jsx'), 'TesterFeedbackPage')
 const TermsPage = lazyRoute(() => import('../pages/TermsPage.jsx'), 'TermsPage')
 const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
 const UserSettingsPage = lazyRoute(() => import('../pages/UserSettingsPage.jsx'), 'UserSettingsPage')
@@ -289,6 +291,25 @@ function PlanAccessRequiredState() {
           className={primaryActionClassName}
         >
           View billing options
+        </a>
+      )}
+    />
+  )
+}
+
+function RecoveryPhaseBlockedState() {
+  return (
+    <RouteGateState
+      eyebrow="Recovery"
+      title="This area is hidden during Phase 1"
+      message={`Football Player is in Phase ${CURRENT_RECOVERY_PHASE} recovery. This module is not part of the current test surface, so it is hidden until the core workflow is trusted.`}
+      rules={[
+        { title: 'Core workflow first', body: 'Phase 1 is limited to setup, teams, players, sessions, and development records.' },
+        { title: 'No data changed', body: 'This block only prevents access to an unfinished recovery surface.' },
+      ]}
+      actions={(
+        <a href="/coach" className={primaryActionClassName}>
+          Return to workspace
         </a>
       )}
     />
@@ -673,6 +694,10 @@ function RequireParentPortalAccess() {
     return <RedirectToWorkspaceHome user={user} />
   }
 
+  if (!isRecoveryModuleVisible('parentPortal', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   return <Outlet />
 }
 
@@ -685,6 +710,10 @@ function RequireParentLinkingAccess() {
 
   if (needsTeamWorkflowContext(user)) {
     return <TeamContextRequiredState />
+  }
+
+  if (!isRecoveryModuleVisible('parentInvites', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   if (!canManageParentLinks(user)) {
@@ -705,6 +734,10 @@ function RequireEmailQueueAccess() {
     return <TeamContextRequiredState />
   }
 
+  if (!isRecoveryModuleVisible('emailMessages', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -723,6 +756,10 @@ function RequirePollAccess() {
     return <TeamContextRequiredState />
   }
 
+  if (!isRecoveryModuleVisible('pollsAvailability', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   if (!canManagePolls(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -739,6 +776,10 @@ function RequireMatchDayAccess() {
 
   if (needsTeamWorkflowContext(user)) {
     return <TeamContextRequiredState />
+  }
+
+  if (!isRecoveryModuleVisible('matchDay', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   if (!canManageMatchDay(user)) {
@@ -773,6 +814,10 @@ function RequireFormBuilderAccess() {
     return <RedirectToWorkspaceHome user={user} />
   }
 
+  if (!isRecoveryModuleVisible('formBuilder', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   if (!hasPlanFeature(user, 'customFormFields')) {
     return <RedirectToWorkspaceHome user={user} />
   }
@@ -789,6 +834,10 @@ function RequireParentEmailTemplatesAccess() {
 
   if (!canManageParentEmailTemplates(user)) {
     return <RedirectToWorkspaceHome user={user} />
+  }
+
+  if (!isRecoveryModuleVisible('emailMessages', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   if (!hasPlanFeature(user, 'parentEmail')) {
@@ -823,6 +872,10 @@ function RequireBillingAccess() {
 
   if (!canViewBilling(user)) {
     return <RedirectToWorkspaceHome user={user} />
+  }
+
+  if (!isRecoveryModuleVisible('billing', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   return <Outlet />
@@ -867,6 +920,10 @@ function RequireEndSeasonStatsAccess() {
     return <RedirectToWorkspaceHome user={user} />
   }
 
+  if (!isRecoveryModuleVisible('reports', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   return <Outlet />
 }
 
@@ -883,8 +940,42 @@ function RequireActivityLogAccess() {
     return <RedirectToWorkspaceHome user={user} />
   }
 
+  if (!isRecoveryModuleVisible('activityLog', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   if (!isSuperAdmin(user) && !hasPlanFeature(user, 'auditLogs')) {
     return <RedirectToWorkspaceHome user={user} />
+  }
+
+  return <Outlet />
+}
+
+function RequirePlatformFeedbackAccess() {
+  const { element, user } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+    blockExpiredTester: false,
+  })
+
+  if (element) {
+    return element
+  }
+
+  if (!isRecoveryModuleVisible('platformFeedback', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
+  return <Outlet />
+}
+
+function RequireTesterFeedbackAccess() {
+  const { element } = useWorkspaceRouteGate({
+    redirectSuperAdmin: false,
+    blockExpiredTester: false,
+  })
+
+  if (element) {
+    return element
   }
 
   return <Outlet />
@@ -1117,15 +1208,36 @@ export const router = createBrowserRouter([
             ],
           },
           {
-            path: 'platform-feedback',
-            element: (
-              <PageSuspense>
-                <PlatformFeedbackPage />
-              </PageSuspense>
-            ),
-            handle: {
-              title: 'Platform Feedback',
-            },
+            element: <RequirePlatformFeedbackAccess />,
+            children: [
+              {
+                path: 'platform-feedback',
+                element: (
+                  <PageSuspense>
+                    <PlatformFeedbackPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Platform Feedback',
+                },
+              },
+            ],
+          },
+          {
+            element: <RequireTesterFeedbackAccess />,
+            children: [
+              {
+                path: 'feedback/new',
+                element: (
+                  <PageSuspense>
+                    <TesterFeedbackPage />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Report Tester Feedback',
+                },
+              },
+            ],
           },
           {
             element: <RequireActivityLogAccess />,

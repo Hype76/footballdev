@@ -728,12 +728,82 @@ export function AuthProvider({ children }) {
     setUser(applyDemoRolePreview(profileWithTeam))
   }
 
-  const signUpWithClub = async ({ email, password, clubName, accessCode = '' }) => {
+  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = 'small_club' }) => {
     setAuthError('')
     const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
     const normalizedEmail = String(email ?? '').trim()
     const normalizedClubName = String(clubName ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
+    const normalizedPlanKey = ['individual', 'single_team', 'small_club', 'large_club'].includes(planKey)
+      ? planKey
+      : 'small_club'
+
+    if (testSignupWithoutPayment) {
+      const prepareResponse = await fetch('/.netlify/functions/prepare-staging-test-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password,
+          clubName: normalizedClubName,
+          accessCode: String(accessCode ?? '').trim(),
+          planKey: normalizedPlanKey,
+        }),
+      })
+      const prepareResult = await prepareResponse.json().catch(() => ({}))
+
+      if (!prepareResponse.ok || prepareResult.success === false) {
+        const prepareError = new Error(prepareResult.message || 'Staging test signup could not be prepared.')
+        console.error(prepareError)
+        setAuthError(prepareError.message)
+        throw prepareError
+      }
+
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
+
+      if (signInError) {
+        console.error(signInError)
+        setAuthError(signInError.message || 'Login failed.')
+        throw signInError
+      }
+
+      if (!signInData?.session || !signInData?.user) {
+        const sessionError = new Error('Login session was not created.')
+        console.error(sessionError)
+        setAuthError(sessionError.message)
+        throw sessionError
+      }
+
+      const { createClubAndManagerProfile } = await loadAuthDataModule()
+      const profile = await createClubAndManagerProfile({
+        authUser: signInData.user,
+        clubName: normalizedClubName,
+        accessCode,
+        planKey: normalizedPlanKey,
+        forceNewClub: true,
+      })
+
+      setSession(signInData.session)
+      setAuthUser(signInData.user)
+      setUser(profile)
+      void refreshPlatformAdminAccess(signInData.user)
+      if (profile?.clubId) {
+        window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
+      }
+      setClubOptions([])
+      setTeamOptions([])
+      setIsProfileLoading(false)
+      setAuthError('')
+
+      return {
+        needsEmailVerification: false,
+        user: profile,
+        message: prepareResult.message || 'Staging tester access is ready. Continue into your test workspace.',
+      }
+    }
 
     const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/sign-in`
     const { data, error } = await supabase.auth.signUp({
@@ -747,6 +817,7 @@ export function AuthProvider({ children }) {
           display_name: signupDisplayName,
           club_name: normalizedClubName,
           tester_access_code: String(accessCode ?? '').trim().toUpperCase(),
+          test_signup_plan_key: testSignupWithoutPayment ? normalizedPlanKey : undefined,
         },
       },
     })
@@ -785,6 +856,7 @@ export function AuthProvider({ children }) {
             authUser: signInData.user,
             clubName: normalizedClubName,
             accessCode,
+            planKey: normalizedPlanKey,
             forceNewClub: true,
           })
 
@@ -830,6 +902,7 @@ export function AuthProvider({ children }) {
           authUser: data.user,
           clubName: normalizedClubName,
           accessCode,
+          planKey: normalizedPlanKey,
           forceNewClub: testSignupWithoutPayment,
         })
         : await fetchUserProfile(data.user)

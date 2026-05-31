@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.png'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
@@ -25,6 +25,7 @@ import {
 import { getScheduledEmails } from '../../lib/domain/scheduled-emails.js'
 import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
+import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
 const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
 
@@ -55,6 +56,7 @@ const navIcons = {
   '/platform-clubs': 'teams',
   '/platform-billing-options': 'card',
   '/platform-feedback': 'note',
+  '/feedback/new': 'note',
 }
 
 const groupDescriptions = {
@@ -93,7 +95,7 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
   )
 }
 
-function OperationsStrip({ canUseTeamWorkflow, isParentPortal, onClose }) {
+function OperationsStrip({ canUseTeamWorkflow, displayUser, isParentPortal, onClose }) {
   const actions = isParentPortal
     ? [
         { label: 'Fixtures', path: '/parent-portal', icon: 'calendar' },
@@ -105,14 +107,15 @@ function OperationsStrip({ canUseTeamWorkflow, isParentPortal, onClose }) {
         { label: 'Players', path: '/players/current', icon: 'players' },
         { label: 'Parents', path: '/parent-linking', icon: 'parents' },
       ] : []
+  const visibleActions = actions.filter((action) => isRecoveryPathVisible(action.path, { user: displayUser }))
 
-  if (actions.length === 0) {
+  if (visibleActions.length === 0) {
     return null
   }
 
   return (
     <div className="mt-3 grid grid-cols-3 gap-2">
-      {actions.map((action) => (
+      {visibleActions.map((action) => (
         <Link
           key={action.path}
           to={action.path}
@@ -131,12 +134,14 @@ function OperationsStrip({ canUseTeamWorkflow, isParentPortal, onClose }) {
 
 export function Sidebar({ isOpen, onClose }) {
   const { signOut, user } = useAuth()
+  const location = useLocation()
   const displayUser = user
   const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
   const isParentPortal = isParentPortalUser(displayUser)
   const canUseTeamWorkflow = hasTeamWorkflowContext(displayUser)
   const clubLabel = displayUser?.role === 'super_admin' ? 'Platform' : displayUser?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(displayUser)
+  const feedbackRoute = `/feedback/new?route=${encodeURIComponent(`${location.pathname}${location.search}`)}`
   const [openPollCount, setOpenPollCount] = useState(0)
   const [queuedEmailCount, setQueuedEmailCount] = useState(0)
 
@@ -242,6 +247,10 @@ export function Sidebar({ isOpen, onClose }) {
   }
 
   const getVisibleNavigationItems = (items) => items.filter((item) => {
+    if (!isRecoveryPathVisible(item.path, { user: displayUser })) {
+      return false
+    }
+
     if (isSuperAdmin(displayUser)) {
       return item.path === '/activity-log'
     }
@@ -340,11 +349,11 @@ export function Sidebar({ isOpen, onClose }) {
         { label: 'Messages', path: '/parent-messages', helper: 'Club notices' },
         { label: 'Polls', path: '/parent-polls', helper: 'Reply requests' },
         { label: 'Friends and Family', path: '/friends-family', helper: 'Shared access' },
-      ]
+      ].filter((item) => isRecoveryPathVisible(item.path, { user: displayUser }))
     }
 
     return [{ label: 'Home', path: '/coach', helper: 'Today and next actions' }, ...coachNavigationItems]
-  }, [coachNavigationItems, isParentPortal])
+  }, [coachNavigationItems, displayUser, isParentPortal])
 
   return (
     <>
@@ -396,7 +405,7 @@ export function Sidebar({ isOpen, onClose }) {
           </div>
         </div>
 
-        <OperationsStrip canUseTeamWorkflow={canUseTeamWorkflow} isParentPortal={isParentPortal} onClose={onClose} />
+        <OperationsStrip canUseTeamWorkflow={canUseTeamWorkflow} displayUser={displayUser} isParentPortal={isParentPortal} onClose={onClose} />
 
         <nav className="mt-4 space-y-3 pb-4">
           <section className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2 shadow-sm shadow-[#101828]/5">
@@ -475,7 +484,29 @@ export function Sidebar({ isOpen, onClose }) {
               >
                 How to use
               </NavLink>
-              {!isSuperAdmin(displayUser) && canAccessPlatformFeedback ? (
+              <NavLink
+                to={feedbackRoute}
+                data-tour-id="sidebar-tester-feedback"
+                onClick={(event) => {
+                  if (event.currentTarget.getAttribute('aria-current') === 'page') {
+                    event.preventDefault()
+                    return
+                  }
+
+                  onClose()
+                }}
+                className={({ isActive }) =>
+                  [
+                    'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
+                    isActive
+                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#1e3a8a]'
+                      : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
+                  ].join(' ')
+                }
+              >
+                Report issue
+              </NavLink>
+              {!isSuperAdmin(displayUser) && canAccessPlatformFeedback && isRecoveryModuleVisible('platformFeedback', { user: displayUser }) ? (
                 <NavLink
                   to="/platform-feedback"
                   data-tour-id="sidebar-platform-feedback"
@@ -500,6 +531,30 @@ export function Sidebar({ isOpen, onClose }) {
                 </NavLink>
               ) : null}
             </>
+          ) : null}
+          {isParentPortal ? (
+            <NavLink
+              to={feedbackRoute}
+              data-tour-id="sidebar-tester-feedback"
+              onClick={(event) => {
+                if (event.currentTarget.getAttribute('aria-current') === 'page') {
+                  event.preventDefault()
+                  return
+                }
+
+                onClose()
+              }}
+              className={({ isActive }) =>
+                [
+                  'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
+                  isActive
+                    ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#1e3a8a]'
+                    : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
+                ].join(' ')
+              }
+            >
+              Report issue
+            </NavLink>
           ) : null}
           <button
             type="button"

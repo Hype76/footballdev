@@ -29,6 +29,8 @@ const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_a
 const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
 const FREE_PLAN_KEY = 'individual'
 const TEST_SIGNUP_PLAN_KEY = 'small_club'
+const TEST_SIGNUP_PLAN_KEYS = new Set(['individual', 'single_team', 'small_club', 'large_club'])
+const ORPHAN_STAGING_ACCOUNT_MESSAGE = 'This staging account is not linked to an active test workspace. Ask the platform admin for a fresh test invite or create a new staging test account.'
 const TEAM_MANAGER_ROLE = {
   role: 'head_manager',
   roleLabel: 'Team Admin',
@@ -129,6 +131,32 @@ function getSignupAccessCode(authUser, requestedAccessCode) {
   )
 }
 
+function getTestSignupPlanKey(authUser, requestedPlanKey) {
+  return getExplicitTestSignupPlanKey(authUser, requestedPlanKey) || TEST_SIGNUP_PLAN_KEY
+}
+
+function getExplicitTestSignupPlanKey(authUser, requestedPlanKey) {
+  const explicitPlanKey = String(requestedPlanKey ?? '').trim()
+
+  if (TEST_SIGNUP_PLAN_KEYS.has(explicitPlanKey)) {
+    return explicitPlanKey
+  }
+
+  const metadataPlanKey = String(
+    authUser?.user_metadata?.test_signup_plan_key ??
+      authUser?.user_metadata?.plan_key ??
+      authUser?.raw_user_meta_data?.test_signup_plan_key ??
+      authUser?.raw_user_meta_data?.plan_key ??
+      '',
+  ).trim()
+
+  if (TEST_SIGNUP_PLAN_KEYS.has(metadataPlanKey)) {
+    return metadataPlanKey
+  }
+
+  return ''
+}
+
 function hasPublicSignupClubMetadata(authUser) {
   return Boolean(
     String(
@@ -139,6 +167,25 @@ function hasPublicSignupClubMetadata(authUser) {
         '',
     ).trim(),
   )
+}
+
+function hasExplicitSignupIntent(authUser, body, testerAccessCode, checkoutRecord) {
+  if (testerAccessCode?.id || checkoutRecord?.id) {
+    return true
+  }
+
+  const requestedClubName = String(body?.clubName ?? '').trim()
+  const hasFormSignupIntent = Boolean(body?.signupIntent) && Boolean(requestedClubName)
+  const requestedPlanKey = String(body?.planKey ?? '').trim()
+
+  if (arePaymentsDisabled()) {
+    return Boolean(
+      (hasFormSignupIntent && TEST_SIGNUP_PLAN_KEYS.has(requestedPlanKey)) ||
+        (hasPublicSignupClubMetadata(authUser) && getExplicitTestSignupPlanKey(authUser)),
+    )
+  }
+
+  return hasFormSignupIntent && Boolean(checkoutRecord?.id)
 }
 
 function getClubFromMembership(membership) {
@@ -514,14 +561,23 @@ async function applyInvite(authUser, invite) {
   return applyMembership(authUser, membership)
 }
 
-async function createSignupWorkspace(authUser, requestedClubName, requestedAccessCode = '') {
+async function createSignupWorkspace(authUser, requestedClubName, requestedAccessCode = '', requestedPlanKey = '', options = {}) {
   const email = normalizeEmail(authUser.email)
   const clubName = getSignupClubName(authUser, requestedClubName)
   const displayName = getDisplayName(authUser)
   const testSignupWithoutPayment = arePaymentsDisabled()
   const testerAccessCode = await redeemTesterAccessCode(authUser, requestedAccessCode)
   const checkoutRecord = testerAccessCode || testSignupWithoutPayment ? null : await getLatestCheckoutRecord(authUser)
-  const planKey = testerAccessCode?.plan_key || (testSignupWithoutPayment ? TEST_SIGNUP_PLAN_KEY : checkoutRecord?.plan_key) || FREE_PLAN_KEY
+
+  if (!hasExplicitSignupIntent(authUser, {
+    clubName: requestedClubName,
+    planKey: requestedPlanKey,
+    signupIntent: options.signupIntent,
+  }, testerAccessCode, checkoutRecord)) {
+    throw new Error(ORPHAN_STAGING_ACCOUNT_MESSAGE)
+  }
+
+  const planKey = testerAccessCode?.plan_key || (testSignupWithoutPayment ? getTestSignupPlanKey(authUser, requestedPlanKey) : checkoutRecord?.plan_key) || FREE_PLAN_KEY
   const planStatus = checkoutRecord?.plan_status || 'active'
   const signupRole = getSignupRole(planKey)
   const club = await insertClubWithUniqueName(clubName, {
@@ -646,7 +702,7 @@ async function repairExistingSignupWorkspace(authUser, existingProfile) {
     const { data: repairedClub, error: clubError } = await supabaseAdmin
       .from('clubs')
       .update({
-        plan_key: TEST_SIGNUP_PLAN_KEY,
+        plan_key: getTestSignupPlanKey(authUser),
         plan_status: 'active',
         is_plan_comped: true,
         plan_updated_at: new Date().toISOString(),
@@ -728,10 +784,15 @@ export async function handler(event) {
     const authUser = await getAuthenticatedUser(event)
     const body = JSON.parse(event.body || '{}')
     const existingProfile = await getUserProfile(authUser.id)
-    const forceNewTestClub = arePaymentsDisabled() && Boolean(body.forceNewClub) && Boolean(String(body.clubName ?? '').trim())
+    const forceNewTestClub = arePaymentsDisabled()
+      && Boolean(body.signupIntent)
+      && Boolean(body.forceNewClub)
+      && Boolean(String(body.clubName ?? '').trim())
 
     if (forceNewTestClub) {
-      const result = await createSignupWorkspace(authUser, body.clubName, body.accessCode)
+      const result = await createSignupWorkspace(authUser, body.clubName, body.accessCode, body.planKey, {
+        signupIntent: true,
+      })
       return json(200, { success: true, ...result })
     }
 
@@ -746,7 +807,9 @@ export async function handler(event) {
       ? await applyMembership(authUser, membership)
       : invite
         ? await applyInvite(authUser, invite)
-        : await createSignupWorkspace(authUser, body.clubName, body.accessCode)
+        : await createSignupWorkspace(authUser, body.clubName, body.accessCode, body.planKey, {
+          signupIntent: Boolean(body.signupIntent),
+        })
 
     return json(200, { success: true, ...result })
   } catch (error) {

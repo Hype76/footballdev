@@ -11,6 +11,14 @@ const initialFormData = {
   password: '',
   clubName: '',
   accessCode: '',
+  planKey: 'small_club',
+}
+
+const testPlanByName = {
+  Individual: 'individual',
+  'Single Team': 'single_team',
+  'Small Club': 'small_club',
+  'Large Club': 'large_club',
 }
 
 function getFriendlyAuthErrorMessage(error, mode) {
@@ -32,6 +40,7 @@ function getFriendlyAuthErrorMessage(error, mode) {
 
 export function LoginPage() {
   const { authError, resetPassword, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
+  const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const signupBoxRef = useRef(null)
   const submitLockRef = useRef(false)
   const [mode, setMode] = useState('login')
@@ -60,7 +69,21 @@ export function LoginPage() {
     if (checkoutStatus === 'cancelled') {
       setLocalMessage('Checkout was cancelled. You can choose a plan again when ready.')
     }
-  }, [])
+
+    if (paymentsDisabled) {
+      const selectedPlanName = String(params.get('plan') ?? '').trim()
+      const selectedPlanKey = testPlanByName[selectedPlanName]
+
+      if (selectedPlanKey) {
+        setMode('signup')
+        setFormData((current) => ({
+          ...current,
+          planKey: selectedPlanKey,
+        }))
+        setLocalMessage(`${selectedPlanName} test access selected. Payments are disabled on staging.`)
+      }
+    }
+  }, [paymentsDisabled])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -142,6 +165,7 @@ export function LoginPage() {
             password: formData.password,
             clubName: formData.clubName.trim(),
             accessCode: formData.accessCode.trim(),
+            planKey: formData.planKey,
           })
 
         if (signupResult?.needsEmailVerification) {
@@ -153,6 +177,8 @@ export function LoginPage() {
           setLocalMessage(parentInviteToken
             ? 'Parent account created. Please check your email to verify it, then open the parent invite link again.'
             : 'Account created. Please check your email to verify your account before logging in.')
+        } else if (signupResult?.message) {
+          setLocalMessage(signupResult.message)
         } else if (parentInviteToken) {
           window.location.assign(`/parent-invite/${parentInviteToken}`)
         }
@@ -262,6 +288,7 @@ export function LoginPage() {
             onSubmit={handleSubmit}
             onTogglePasswordVisibility={() => setIsPasswordVisible((current) => !current)}
             parentInviteMode={Boolean(parentInviteToken)}
+            paymentsDisabled={paymentsDisabled}
             signupBoxRef={signupBoxRef}
           />
         </div>

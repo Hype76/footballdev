@@ -14,6 +14,7 @@ export function LoginAuthPanel({
   onSubmit,
   onTogglePasswordVisibility,
   parentInviteMode = false,
+  paymentsDisabled = false,
   signupBoxRef,
 }) {
   return (
@@ -90,6 +91,26 @@ export function LoginAuthPanel({
               />
               <span className="mt-2 block text-xs leading-5 text-[#4b5f55]">
                 Use this only if you have been given temporary tester access.
+              </span>
+            </label>
+          ) : null}
+
+          {mode === 'signup' && !parentInviteMode && paymentsDisabled ? (
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold text-[#101828]">Test tier</span>
+              <select
+                name="planKey"
+                value={formData.planKey}
+                onChange={onChange}
+                className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
+              >
+                <option value="individual">Individual</option>
+                <option value="single_team">Single Team</option>
+                <option value="small_club">Small Club</option>
+                <option value="large_club">Large Club</option>
+              </select>
+              <span className="mt-2 block text-xs leading-5 text-[#4b5f55]">
+                Staging only. No payment checkout is used for this account.
               </span>
             </label>
           ) : null}

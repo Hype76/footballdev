@@ -5,6 +5,7 @@ import {
   isSuperAdmin,
 } from './auth-permissions.js'
 import { PLAN_KEYS, getPlanKey, hasPlanFeature } from './plans.js'
+import { isRecoveryModuleVisible } from './recovery-phase.js'
 import { supabase } from './supabase-client.js'
 
 export const ONBOARDING_EVENT = 'football-onboarding-state-changed'
@@ -479,7 +480,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
       manualLabel: 'Training only for now',
       complete: snapshot.matchDays > 0 || hasCompletedStep(user, scope, 'team-match-day'),
     }),
-    ...(hasPlanFeature(user, 'parentEmail')
+    ...(hasPlanFeature(user, 'parentEmail') && isRecoveryModuleVisible('parentInvites', { user })
       ? [
           makeStep({
             id: 'team-parent-contacts',
@@ -494,7 +495,7 @@ function buildTeamManagerSteps(user, snapshot, scope) {
           }),
         ]
       : []),
-  ]
+  ].filter((step) => step.id !== 'team-match-day' || isRecoveryModuleVisible('matchDay', { user }))
 }
 
 function buildCoachSteps(user, snapshot, scope) {
@@ -600,6 +601,10 @@ export function buildOnboardingPlan(user, snapshot = {}) {
   }
 
   if (isParentPortalUser(user)) {
+    if (!isRecoveryModuleVisible('parentPortal', { user })) {
+      return null
+    }
+
     const scope = 'user'
     const manualState = getManualState(user, scope)
 

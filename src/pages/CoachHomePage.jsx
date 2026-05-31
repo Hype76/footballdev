@@ -16,6 +16,7 @@ import {
   getCompletedPlayerNamesFromEvaluations,
   normalizeProgressName,
 } from '../lib/session-page-utils.js'
+import { isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
 const quickActions = [
   {
@@ -93,6 +94,12 @@ const rhythmItems = [
     body: 'Record score, scorers, notes, and player of the match for the team history.',
     path: '/match-day',
   },
+]
+
+const matchReadinessActions = [
+  { label: 'Availability gaps', value: 'Check parent replies before naming the squad.', path: '/polls' },
+  { label: 'Match day board', value: 'Scorers, minutes, notes, and player of the match.', path: '/match-day' },
+  { label: 'Parent update', value: 'Send the practical details before kick off.', path: '/parent-linking' },
 ]
 
 const surfaceClass = 'overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10'
@@ -176,6 +183,10 @@ export function CoachHomePage() {
   const visiblePlayers = players.length > 0 ? players : sessionPlayers
   const trialPlayerCount = visiblePlayers.filter((player) => player.section === 'Trial').length
   const squadPlayerCount = visiblePlayers.filter((player) => player.section === 'Squad').length
+  const visibleQuickActions = useMemo(() => quickActions.filter((action) => isRecoveryPathVisible(action.path, { user })), [user])
+  const visibleOperatingLanes = useMemo(() => operatingLanes.filter((lane) => isRecoveryPathVisible(lane.path, { user })), [user])
+  const visibleRhythmItems = useMemo(() => rhythmItems.filter((item) => isRecoveryPathVisible(item.path, { user })), [user])
+  const visibleMatchReadinessActions = useMemo(() => matchReadinessActions.filter((action) => isRecoveryPathVisible(action.path, { user })), [user])
   const readinessItems = useMemo(() => [
     {
       label: 'Squad base',
@@ -205,7 +216,7 @@ export function CoachHomePage() {
       path: '/polls',
       tone: 'watch',
     },
-  ], [activeSession, completedNames.length, sessionPlayers.length, visiblePlayers.length])
+  ].filter((item) => isRecoveryPathVisible(item.path, { user })), [activeSession, completedNames.length, sessionPlayers.length, user, visiblePlayers.length])
 
   useEffect(() => {
     let isMounted = true
@@ -287,7 +298,7 @@ export function CoachHomePage() {
                 This board is built around the work that moves a club week forward: players, training, parents, and match day.
               </p>
               <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {operatingLanes.map((lane) => (
+                {visibleOperatingLanes.map((lane) => (
                   <Link
                     key={lane.label}
                     to={lane.path}
@@ -308,7 +319,7 @@ export function CoachHomePage() {
 
             <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:px-8">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {quickActions.map((action) => (
+                {visibleQuickActions.map((action) => (
                   <Link
                     key={action.path}
                     to={action.path}
@@ -434,32 +445,30 @@ export function CoachHomePage() {
           </div>
         </section>
 
-        <section className={surfaceClass}>
-          <div className={sectionHeaderClass}>
-            <p className={eyebrowClass}>Match readiness</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Before the weekend</h2>
-          </div>
-          <div className="grid gap-3 px-5 py-5 sm:px-6">
-            {[
-              { label: 'Availability gaps', value: 'Check parent replies before naming the squad.', path: '/polls' },
-              { label: 'Match day board', value: 'Scorers, minutes, notes, and player of the match.', path: '/match-day' },
-              { label: 'Parent update', value: 'Send the practical details before kick off.', path: '/parent-linking' },
-            ].map((action) => (
-              <Link
-                key={action.label}
-                to={action.path}
-                className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-              >
-                <span className="block text-sm font-black">{action.label}</span>
-                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">{action.value}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
+        {visibleMatchReadinessActions.length > 0 ? (
+          <section className={surfaceClass}>
+            <div className={sectionHeaderClass}>
+              <p className={eyebrowClass}>Match readiness</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Before the weekend</h2>
+            </div>
+            <div className="grid gap-3 px-5 py-5 sm:px-6">
+              {visibleMatchReadinessActions.map((action) => (
+                <Link
+                  key={action.label}
+                  to={action.path}
+                  className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+                >
+                  <span className="block text-sm font-black">{action.label}</span>
+                  <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">{action.value}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {rhythmItems.map((item) => (
+        {visibleRhythmItems.map((item) => (
           <Link
             key={item.label}
             to={item.path}
