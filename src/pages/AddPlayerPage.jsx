@@ -107,9 +107,14 @@ export function AddPlayerPage() {
 
         setPlayers(nextPlayers)
         setAvailableTeams(nextTeams)
+        const defaultTeam =
+          nextTeams.find((team) => String(team.id) === String(user?.activeTeamId || '')) ||
+          nextTeams[0] ||
+          null
         setPlayerForm((current) => ({
           ...current,
-          team: current.team || nextTeams[0]?.name || '',
+          teamId: current.teamId || defaultTeam?.id || '',
+          team: current.team || defaultTeam?.name || '',
         }))
         writeViewCache(cacheKey, {
           players: nextPlayers,
