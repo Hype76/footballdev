@@ -169,7 +169,7 @@ function hasPublicSignupClubMetadata(authUser) {
   )
 }
 
-function hasExplicitSignupIntent(authUser, body, testerAccessCode, checkoutRecord) {
+function hasExplicitSignupIntent(authUser, body, testerAccessCode, checkoutRecord, paymentsDisabled = arePaymentsDisabled()) {
   if (testerAccessCode?.id || checkoutRecord?.id) {
     return true
   }
@@ -178,7 +178,7 @@ function hasExplicitSignupIntent(authUser, body, testerAccessCode, checkoutRecor
   const hasFormSignupIntent = Boolean(body?.signupIntent) && Boolean(requestedClubName)
   const requestedPlanKey = String(body?.planKey ?? '').trim()
 
-  if (arePaymentsDisabled()) {
+  if (paymentsDisabled) {
     return Boolean(
       (hasFormSignupIntent && TEST_SIGNUP_PLAN_KEYS.has(requestedPlanKey)) ||
         (hasPublicSignupClubMetadata(authUser) && getExplicitTestSignupPlanKey(authUser)),
@@ -565,7 +565,7 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
   const email = normalizeEmail(authUser.email)
   const clubName = getSignupClubName(authUser, requestedClubName)
   const displayName = getDisplayName(authUser)
-  const testSignupWithoutPayment = arePaymentsDisabled()
+  const testSignupWithoutPayment = options.testSignupWithoutPayment ?? arePaymentsDisabled()
   const testerAccessCode = await redeemTesterAccessCode(authUser, requestedAccessCode)
   const checkoutRecord = testerAccessCode || testSignupWithoutPayment ? null : await getLatestCheckoutRecord(authUser)
 
@@ -573,7 +573,7 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
     clubName: requestedClubName,
     planKey: requestedPlanKey,
     signupIntent: options.signupIntent,
-  }, testerAccessCode, checkoutRecord)) {
+  }, testerAccessCode, checkoutRecord, testSignupWithoutPayment)) {
     throw new Error(ORPHAN_STAGING_ACCOUNT_MESSAGE)
   }
 
@@ -784,7 +784,8 @@ export async function handler(event) {
     const authUser = await getAuthenticatedUser(event)
     const body = JSON.parse(event.body || '{}')
     const existingProfile = await getUserProfile(authUser.id)
-    const forceNewTestClub = arePaymentsDisabled()
+    const paymentsDisabledForRequest = arePaymentsDisabled(event)
+    const forceNewTestClub = paymentsDisabledForRequest
       && Boolean(body.signupIntent)
       && Boolean(body.forceNewClub)
       && Boolean(String(body.clubName ?? '').trim())
@@ -792,6 +793,7 @@ export async function handler(event) {
     if (forceNewTestClub) {
       const result = await createSignupWorkspace(authUser, body.clubName, body.accessCode, body.planKey, {
         signupIntent: true,
+        testSignupWithoutPayment: paymentsDisabledForRequest,
       })
       return json(200, { success: true, ...result })
     }
@@ -809,6 +811,7 @@ export async function handler(event) {
         ? await applyInvite(authUser, invite)
         : await createSignupWorkspace(authUser, body.clubName, body.accessCode, body.planKey, {
           signupIntent: Boolean(body.signupIntent),
+          testSignupWithoutPayment: paymentsDisabledForRequest,
         })
 
     return json(200, { success: true, ...result })

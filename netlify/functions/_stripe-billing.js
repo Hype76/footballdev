@@ -80,7 +80,7 @@ export function getSubscriptionPeriodEnd(subscription) {
   return periodEnd ? new Date(periodEnd * 1000).toISOString() : null
 }
 
-export function arePaymentsDisabled() {
+export function arePaymentsDisabled(event = {}) {
   const envValue = (name) => globalThis.Netlify?.env?.get?.(name) ?? process.env[name]
   const value = envValue('VITE_PAYMENTS_DISABLED')
 
@@ -90,6 +90,7 @@ export function arePaymentsDisabled() {
 
   const context = String(envValue('CONTEXT') ?? '').trim().toLowerCase()
   const branch = String(envValue('BRANCH') ?? '').trim().toLowerCase()
+  const host = String(event.headers?.['x-forwarded-host'] || event.headers?.host || '').trim().toLowerCase()
   const supabaseUrl = String(envValue('STAGING_SUPABASE_URL') || envValue('VITE_SUPABASE_URL') || '').trim()
   const isStagingSupabase = supabaseUrl.includes(`${STAGING_PROJECT_REF}.supabase.co`)
   const isLiveSupabase = supabaseUrl.includes(`${LIVE_PROJECT_REF}.supabase.co`)
@@ -97,7 +98,9 @@ export function arePaymentsDisabled() {
     context === 'branch-deploy' ||
       context === 'deploy-preview' ||
       STAGING_BRANCHES.has(branch) ||
-      branch.includes('staging'),
+      branch.includes('staging') ||
+      host.includes('football-os-staging') ||
+      host.includes('staging.footballplayer.online'),
   )
 
   return Boolean(
