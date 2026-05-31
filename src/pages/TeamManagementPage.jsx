@@ -94,7 +94,7 @@ function isTeamScopedStaffMember(member) {
 }
 
 export function TeamManagementPage() {
-  const { refreshTeamSelection, user } = useAuth()
+  const { refreshTeamSelection, selectTeam, user } = useAuth()
   const { showToast } = useToast()
   const cacheKey = user?.clubId ? `team-management:${user.clubId}` : ''
   const [teams, setTeams] = useState(() => {
@@ -398,6 +398,7 @@ export function TeamManagementPage() {
       }))
       setSelectedTeamId(createdTeam.id)
       await refreshTeamSelection?.()
+      await selectTeam?.(createdTeam.id)
       setMessage('Team created.')
       showToast({ title: 'Team created', message: `${createdTeam.name} has been added.` })
       setIsCreateTeamModalOpen(false)

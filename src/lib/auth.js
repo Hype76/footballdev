@@ -152,8 +152,8 @@ export function AuthProvider({ children }) {
       return profile
     }
 
-    const { getAssignedTeamsForUser } = await loadTeamDataModule()
-    const assignedTeams = await getAssignedTeamsForUser(profile)
+    const { getAssignedTeamsForUser, getTeams } = await loadTeamDataModule()
+    const assignedTeams = isClubAdmin(profile) ? await getTeams(profile) : await getAssignedTeamsForUser(profile)
 
     if (isClubAdmin(profile)) {
       setTeamOptions(assignedTeams)
@@ -659,8 +659,10 @@ export function AuthProvider({ children }) {
     let selectedTeam = teamOptions.find((team) => String(team.id) === String(teamId))
 
     if (!selectedTeam && userRef.current) {
-      const { getAssignedTeamsForUser } = await loadTeamDataModule()
-      const nextTeamOptions = await getAssignedTeamsForUser(userRef.current)
+      const { getAssignedTeamsForUser, getTeams } = await loadTeamDataModule()
+      const nextTeamOptions = isClubAdmin(userRef.current)
+        ? await getTeams(userRef.current)
+        : await getAssignedTeamsForUser(userRef.current)
       setTeamOptions(nextTeamOptions)
       selectedTeam = nextTeamOptions.find((team) => String(team.id) === String(teamId))
     }
