@@ -708,12 +708,12 @@ function RequireParentLinkingAccess() {
     return element
   }
 
-  if (needsTeamWorkflowContext(user)) {
-    return <TeamContextRequiredState />
-  }
-
   if (!isRecoveryModuleVisible('parentInvites', { user })) {
     return <RecoveryPhaseBlockedState />
+  }
+
+  if (needsTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
   }
 
   if (!canManageParentLinks(user)) {
@@ -730,12 +730,12 @@ function RequireEmailQueueAccess() {
     return element
   }
 
-  if (needsTeamWorkflowContext(user)) {
-    return <TeamContextRequiredState />
-  }
-
   if (!isRecoveryModuleVisible('emailMessages', { user })) {
     return <RecoveryPhaseBlockedState />
+  }
+
+  if (needsTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
   }
 
   if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
@@ -752,12 +752,12 @@ function RequirePollAccess() {
     return element
   }
 
-  if (needsTeamWorkflowContext(user)) {
-    return <TeamContextRequiredState />
-  }
-
   if (!isRecoveryModuleVisible('pollsAvailability', { user })) {
     return <RecoveryPhaseBlockedState />
+  }
+
+  if (needsTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
   }
 
   if (!canManagePolls(user)) {
@@ -774,12 +774,12 @@ function RequireMatchDayAccess() {
     return element
   }
 
-  if (needsTeamWorkflowContext(user)) {
-    return <TeamContextRequiredState />
-  }
-
   if (!isRecoveryModuleVisible('matchDay', { user })) {
     return <RecoveryPhaseBlockedState />
+  }
+
+  if (needsTeamWorkflowContext(user)) {
+    return <TeamContextRequiredState />
   }
 
   if (!canManageMatchDay(user)) {
