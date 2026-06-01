@@ -312,6 +312,7 @@ export async function createStaffInvite({ user, email, role, teamId = '' }) {
   invalidateMemoryCacheByPrefix(`club-users:${user.clubId}`)
   invalidateMemoryCacheByPrefix(`user-access:${user.clubId}`)
   invalidateMemoryCacheByPrefix('visible-club-users:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
 
   return {
     kind: 'invite',

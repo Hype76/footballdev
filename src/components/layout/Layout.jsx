@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatches } from 'react-router-dom'
-import { isClubAdmin, isSuperAdmin, useAuth } from '../../lib/auth.js'
+import { isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import { createAuditLog } from '../../lib/supabase.js'
+import {
+  getPhaseSetupGuideStorageKey,
+  isPhaseSetupGuideEnabled,
+  PHASE_SETUP_GUIDE_STATE_EVENT,
+} from '../../lib/phase-setup-guide.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
   THEME_BUTTON_STYLE_STORAGE_KEY,
@@ -28,6 +33,7 @@ export function Layout() {
   const [themeAccent, setThemeAccent] = useState(getStoredThemeAccent)
   const [themeButtonStyle, setThemeButtonStyle] = useState(getStoredThemeButtonStyle)
   const [systemTheme, setSystemTheme] = useState(getSystemTheme)
+  const [isPhaseSetupActive, setIsPhaseSetupActive] = useState(false)
   const lastClickAuditRef = useRef({ key: '', timestamp: 0 })
   const location = useLocation()
   const matches = useMatches()
@@ -49,6 +55,22 @@ export function Layout() {
       mediaQuery.removeEventListener('change', handleSystemThemeChange)
     }
   }, [])
+
+  useEffect(() => {
+    const handlePhaseSetupState = (event) => {
+      if (typeof event.detail?.isActive === 'boolean') {
+        setIsPhaseSetupActive(event.detail.isActive)
+        return
+      }
+
+      setIsPhaseSetupActive(false)
+    }
+
+    window.addEventListener(PHASE_SETUP_GUIDE_STATE_EVENT, handlePhaseSetupState)
+    return () => {
+      window.removeEventListener(PHASE_SETUP_GUIDE_STATE_EVENT, handlePhaseSetupState)
+    }
+  }, [user])
 
   useEffect(() => {
     const handleThemeChange = (event) => {
@@ -217,6 +239,15 @@ export function Layout() {
   const needsAccessModeSelection = !user && accessModeOptions.length > 0
   const needsClubSelection = !needsAccessModeSelection && !isSuperAdmin(user) && clubOptions.length > 1
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
+  const shouldSuppressOnboardingSetup = Boolean(
+    isPhaseSetupActive ||
+      (
+        isPhaseSetupGuideEnabled() &&
+        user &&
+        !isParentPortalUser(user) &&
+        window.localStorage.getItem(getPhaseSetupGuideStorageKey(user)) !== 'true'
+      ),
+  )
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
@@ -233,7 +264,7 @@ export function Layout() {
           <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 xl:px-10">
             <div className="mx-auto w-full max-w-[108rem]">
               {!needsAccessModeSelection && !needsClubSelection && !needsTeamSelection ? <PhaseSetupGuide /> : null}
-              <OnboardingProvider>
+              <OnboardingProvider suppressSetup={shouldSuppressOnboardingSetup}>
                 {needsAccessModeSelection ? (
                   <WorkspaceSelection
                     eyebrow="Workspace access"

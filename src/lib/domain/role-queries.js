@@ -190,7 +190,7 @@ export async function getClubUserInvites(user) {
 
   const { data, error } = await supabase
     .from('club_user_invites')
-    .select('*')
+    .select('*, teams:team_id (name)')
     .eq('club_id', user.clubId)
     .order('created_at', { ascending: false })
 

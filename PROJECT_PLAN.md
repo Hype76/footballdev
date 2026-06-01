@@ -619,3 +619,26 @@ Staging payment suspension:
 Open evidence gap:
 
 - Exact before-reset row counts were not captured before the delete migration was applied. The after-reset counts above were verified after the reset completed.
+
+## 12. Staff Invite and Allocation Steering
+
+Reference: FOOTBALL-STAFF-INVITE-FLOW-STEER-01
+
+Status on 1 June 2026:
+
+- Phase 1 setup must not wait for invited staff to accept email before the Club Admin can continue.
+- Pending means invited or created but not accepted yet.
+- Assigned means allocated to a team or role by the Club Admin.
+- Active means accepted and able to sign in or use the assigned access.
+- Pending assigned staff should appear in assignment lists and team staffing views, clearly marked as pending invited and assigned.
+- Pending assigned Team Admin invites count as valid progress for the optional Phase 1 setup wizard staff step.
+- Pending invites remain separate from active auth users and must not allow login or route access until accepted.
+- Staging staff invite acceptance is treated as enough confirmation for testing because `create-staff-account` creates or updates the auth user with `email_confirm: true` after the invite token is accepted.
+- Production remains protected by invite token checks, expiration checks, accepted invite checks, role assignment rules, and the fact that pending invite rows do not create active login access by themselves.
+- No Stripe, payment, Phase 3, or Phase 4 exposure is included in this steering update.
+
+Verification status:
+
+- Code checks should verify that pending assigned staff are visible in user access and team staff allocation UI.
+- Code checks should verify the setup wizard optional Team Admin step counts pending assigned Team Admin invites.
+- Manual staging QA is still required for invite, assign, continue to Add Player, assessment setup, and invite acceptance.

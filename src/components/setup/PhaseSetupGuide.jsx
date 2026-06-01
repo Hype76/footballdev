@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   canCreateEvaluation,
   canManageClubSettings,
@@ -9,22 +9,48 @@ import {
   isSuperAdmin,
   useAuth,
 } from '../../lib/auth.js'
-import { getAvailableTeamsForUser, getClubUsers, getEvaluations, getPlayers } from '../../lib/supabase.js'
+import { getAvailableTeamsForUser, getClubUserInvites, getClubUsers, getEvaluations, getPlayers } from '../../lib/supabase.js'
 import {
   CURRENT_RECOVERY_PHASE,
   isRecoveryPathVisible,
 } from '../../lib/recovery-phase.js'
 import {
+  emitPhaseSetupGuideState,
   getPhaseSetupGuideStorageKey,
+  isPhaseSetupGuideDismissed,
   isPhaseSetupGuideEnabled,
   PHASE_SETUP_GUIDE_OPEN_EVENT,
+  PHASE_SETUP_GUIDE_TARGET_STORAGE_KEY,
 } from '../../lib/phase-setup-guide.js'
 
-const cardClass = 'mb-5 overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
-const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46]'
-const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#f7faf8]'
+const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2'
+const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#f7faf8] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2'
+
+function scrollToTarget(selector) {
+  const targetSelector = String(selector ?? '').trim()
+
+  if (!targetSelector) {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    return false
+  }
+
+  const target = document.querySelector(targetSelector)
+
+  if (!target) {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    return false
+  }
+
+  if (!target.hasAttribute('tabindex')) {
+    target.setAttribute('tabindex', '-1')
+  }
+
+  target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
+  target.focus({ preventScroll: true })
+  return true
+}
 
 function getUserGuideType(user) {
   if (isSuperAdmin(user)) {
@@ -58,6 +84,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
       body: 'Check the club name, contact details, and badge used inside the test workspace.',
       href: '/club-settings',
       action: 'Open club settings',
+      targetSelector: '[data-tour-id="club-profile-settings"]',
       complete: counts.clubDetailsComplete,
     },
     {
@@ -66,14 +93,16 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
       body: 'Create or confirm one team before adding players or development records.',
       href: '/teams',
       action: 'Open teams',
+      targetSelector: '[data-tour-id="create-team-section"]',
       complete: counts.teamCount > 0,
     },
     {
       id: 'team-admin',
       title: 'Invite or assign team admin',
-      body: 'Use staff access when this club needs another person connected to the team.',
+      body: 'Invite or assign a Team Admin when this club needs another person connected to the team. Pending assigned invites count for staging setup, so the club can keep moving while the person accepts later.',
       href: '/user-access',
       action: 'Open staff access',
+      targetSelector: '[data-tour-id="allocate-role-section"]',
       complete: counts.teamAdminCount > 0,
       optional: true,
     },
@@ -83,6 +112,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
       body: 'Create one footballer record linked to the active team.',
       href: '/add-player',
       action: 'Add player',
+      targetSelector: '[data-tour-id="add-player-form-section"]',
       complete: counts.playerCount > 0,
       ready: canEvaluate,
     },
@@ -92,6 +122,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
       body: 'Use the player profile to confirm the record, team, and development history.',
       href: '/players/current',
       action: 'Open players',
+      targetSelector: '[data-tour-id="players-list-section"]',
       complete: counts.playerCount > 0,
       ready: canEvaluate,
     },
@@ -101,6 +132,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
       body: 'Save one internal development record for the player.',
       href: '/assess-player/new',
       action: 'Open assessment',
+      targetSelector: '[data-tour-id="create-evaluation-form"]',
       complete: counts.evaluationCount > 0,
       ready: canEvaluate && counts.playerCount > 0,
     },
@@ -110,6 +142,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
       body: 'Report anything confusing from this Phase 1 setup path.',
       href: '/feedback/new?route=/phase-1-setup-guide',
       action: 'Report issue',
+      targetSelector: '[data-tour-id="tester-feedback-form"]',
       complete: false,
     },
   ]
@@ -125,6 +158,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
       body: hasTeam ? 'Check that the active team is the one you should test.' : 'A club admin needs to assign a team before team setup can continue.',
       href: '/coach',
       action: 'Open workspace',
+      targetSelector: '[data-tour-id="coach-active-team"]',
       complete: hasTeam,
     },
     {
@@ -133,6 +167,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
       body: 'Open the player register for the assigned team.',
       href: '/players/current',
       action: 'Open players',
+      targetSelector: '[data-tour-id="players-list-section"]',
       complete: counts.playerCount > 0,
       ready: hasTeam,
     },
@@ -142,6 +177,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
       body: 'Add one player when this test account is allowed to create player records.',
       href: '/add-player',
       action: 'Add player',
+      targetSelector: '[data-tour-id="add-player-form-section"]',
       complete: counts.playerCount > 0,
       ready: hasTeam && canEvaluate,
     },
@@ -151,6 +187,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
       body: 'Confirm the player record opens before creating a development record.',
       href: '/players/current',
       action: 'Open players',
+      targetSelector: '[data-tour-id="players-list-section"]',
       complete: counts.playerCount > 0,
       ready: hasTeam,
     },
@@ -160,6 +197,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
       body: 'Save one internal development record for the player.',
       href: '/assess-player/new',
       action: 'Open assessment',
+      targetSelector: '[data-tour-id="create-evaluation-form"]',
       complete: counts.evaluationCount > 0,
       ready: hasTeam && canEvaluate && counts.playerCount > 0,
     },
@@ -169,6 +207,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
       body: 'Report anything confusing from this Phase 1 team workflow.',
       href: '/feedback/new?route=/phase-1-setup-guide',
       action: 'Report issue',
+      targetSelector: '[data-tour-id="tester-feedback-form"]',
       complete: false,
     },
   ]
@@ -182,6 +221,7 @@ function buildPlatformSteps() {
       body: 'Open platform admin and confirm this is the staging test workspace.',
       href: '/platform-admin',
       action: 'Open platform admin',
+      targetSelector: '[data-tour-id="platform-admin-overview"]',
       complete: false,
     },
     {
@@ -190,49 +230,47 @@ function buildPlatformSteps() {
       body: 'Phase 1 should show setup, teams, players, sessions, and development records only.',
       href: '/platform-admin',
       action: 'Review admin',
-      complete: false,
-    },
-    {
-      id: 'clubs',
-      title: 'Monitor test clubs',
-      body: 'Use current admin tools to review staging clubs created by tester signup.',
-      href: '/platform-clubs',
-      action: 'Open clubs',
+      targetSelector: '[data-tour-id="platform-admin-phase-gates"]',
       complete: false,
     },
     {
       id: 'feedback',
-      title: 'Review or submit feedback',
+      title: 'Submit or review tester feedback',
       body: 'Use tester feedback to capture issues found during the Phase 1 loop.',
       href: '/feedback/new?route=/phase-1-setup-guide',
       action: 'Report issue',
+      targetSelector: '[data-tour-id="tester-feedback-form"]',
+      complete: false,
+    },
+    {
+      id: 'clubs',
+      title: 'Monitor test accounts and clubs',
+      body: 'Use current admin tools to review staging clubs created by tester signup.',
+      href: '/platform-clubs',
+      action: 'Open clubs',
+      targetSelector: '[data-tour-id="platform-clubs-list"]',
       complete: false,
     },
   ]
 }
 
-function getGuideTitle(type) {
-  if (type === 'platform') {
-    return 'Platform admin test guide'
-  }
-
-  if (type === 'club-admin') {
-    return 'Club admin setup guide'
-  }
-
-  if (type === 'team-admin') {
-    return 'Team admin setup guide'
-  }
-
-  return 'Coach setup guide'
+function getGuideTitle() {
+  return 'Phase 1 staging setup'
 }
 
-function buildCounts({ clubUsers, evaluations, players, teams, user }) {
+function isTeamAdminRole(entry) {
+  return (entry.role === 'head_manager' || entry.roleKey === 'head_manager' || Number(entry.roleRank ?? 0) >= 70) && entry.role !== 'admin' && entry.roleKey !== 'admin'
+}
+
+function buildCounts({ clubUsers, evaluations, pendingInvites, players, teams, user }) {
+  const activeTeamAdmins = clubUsers.filter(isTeamAdminRole).length
+  const pendingAssignedTeamAdmins = pendingInvites.filter((invite) => !invite.acceptedAt && invite.teamId && isTeamAdminRole(invite)).length
+
   return {
     clubDetailsComplete: Boolean(user?.clubName) && Boolean(user?.clubContactEmail || user?.clubContactPhone || user?.clubLogoUrl),
     evaluationCount: evaluations.length,
     playerCount: players.length,
-    teamAdminCount: clubUsers.filter((clubUser) => clubUser.role === 'head_manager' || Number(clubUser.roleRank ?? 0) >= 70 && clubUser.role !== 'admin').length,
+    teamAdminCount: activeTeamAdmins + pendingAssignedTeamAdmins,
     teamCount: teams.length,
   }
 }
@@ -240,10 +278,13 @@ function buildCounts({ clubUsers, evaluations, players, teams, user }) {
 export function PhaseSetupGuide() {
   const { user } = useAuth()
   const location = useLocation()
-  const guideRef = useRef(null)
+  const navigate = useNavigate()
+  const dialogRef = useRef(null)
   const storageKey = useMemo(() => getPhaseSetupGuideStorageKey(user), [user])
   const isEnabled = isPhaseSetupGuideEnabled()
-  const [isDismissed, setIsDismissed] = useState(() => window.localStorage.getItem(storageKey) === 'true')
+  const [isDismissed, setIsDismissed] = useState(() => isPhaseSetupGuideDismissed(user))
+  const [isOpen, setIsOpen] = useState(() => isEnabled && Boolean(user) && !isParentPortalUser(user) && !isPhaseSetupGuideDismissed(user))
+  const [activeStepIndex, setActiveStepIndex] = useState(0)
   const [counts, setCounts] = useState({
     clubDetailsComplete: false,
     evaluationCount: 0,
@@ -254,16 +295,18 @@ export function PhaseSetupGuide() {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    setIsDismissed(window.localStorage.getItem(storageKey) === 'true')
-  }, [storageKey])
+    const dismissed = isPhaseSetupGuideDismissed(user)
+    setIsDismissed(dismissed)
+    setIsOpen(isEnabled && Boolean(user) && !isParentPortalUser(user) && !dismissed)
+    emitPhaseSetupGuideState(isEnabled && Boolean(user) && !isParentPortalUser(user) && !dismissed)
+  }, [isEnabled, storageKey, user])
 
   useEffect(() => {
     const handleOpen = () => {
       window.localStorage.removeItem(storageKey)
       setIsDismissed(false)
-      window.setTimeout(() => {
-        guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 50)
+      setIsOpen(true)
+      emitPhaseSetupGuideState(true)
     }
 
     window.addEventListener(PHASE_SETUP_GUIDE_OPEN_EVENT, handleOpen)
@@ -271,6 +314,33 @@ export function PhaseSetupGuide() {
       window.removeEventListener(PHASE_SETUP_GUIDE_OPEN_EVENT, handleOpen)
     }
   }, [storageKey])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      dialogRef.current?.focus()
+    }, 50)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [isOpen, activeStepIndex])
+
+  useEffect(() => {
+    const targetSelector = window.sessionStorage.getItem(PHASE_SETUP_GUIDE_TARGET_STORAGE_KEY)
+
+    if (!targetSelector) {
+      return undefined
+    }
+
+    window.sessionStorage.removeItem(PHASE_SETUP_GUIDE_TARGET_STORAGE_KEY)
+    const timeoutId = window.setTimeout(() => {
+      scrollToTarget(targetSelector)
+    }, 220)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [location.pathname])
 
   useEffect(() => {
     let isMounted = true
@@ -283,11 +353,12 @@ export function PhaseSetupGuide() {
       setIsLoading(true)
 
       try {
-        const [teamsResult, playersResult, evaluationsResult, clubUsersResult] = await Promise.allSettled([
+        const [teamsResult, playersResult, evaluationsResult, clubUsersResult, invitesResult] = await Promise.allSettled([
           getAvailableTeamsForUser(user),
           getPlayers({ user }),
           getEvaluations({ user }),
           canManageUsers(user) ? getClubUsers(user) : Promise.resolve([]),
+          canManageUsers(user) ? getClubUserInvites(user) : Promise.resolve([]),
         ])
 
         if (!isMounted) {
@@ -297,6 +368,7 @@ export function PhaseSetupGuide() {
         setCounts(buildCounts({
           clubUsers: clubUsersResult.status === 'fulfilled' ? clubUsersResult.value : [],
           evaluations: evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : [],
+          pendingInvites: invitesResult.status === 'fulfilled' ? invitesResult.value : [],
           players: playersResult.status === 'fulfilled' ? playersResult.value : [],
           teams: teamsResult.status === 'fulfilled' ? teamsResult.value : [],
           user,
@@ -330,79 +402,169 @@ export function PhaseSetupGuide() {
       : buildTeamSteps({ canEvaluate, counts, user })
   const safeSteps = steps.filter((step) => isRecoveryPathVisible(step.href, { user }))
   const completedCount = safeSteps.filter((step) => step.complete).length
+  const activeStep = safeSteps[Math.min(activeStepIndex, Math.max(safeSteps.length - 1, 0))]
 
   const handleDismiss = () => {
     window.localStorage.setItem(storageKey, 'true')
     setIsDismissed(true)
+    setIsOpen(false)
+    emitPhaseSetupGuideState(false)
+  }
+
+  const handleClose = () => {
+    setIsOpen(false)
+    emitPhaseSetupGuideState(true)
+  }
+
+  const handleBack = () => {
+    setActiveStepIndex((current) => Math.max(current - 1, 0))
+  }
+
+  const handleNext = () => {
+    setActiveStepIndex((current) => Math.min(current + 1, Math.max(safeSteps.length - 1, 0)))
+  }
+
+  const handleSkip = () => {
+    handleNext()
+  }
+
+  const handleAction = (step) => {
+    const targetHref = String(step?.href || '/coach').trim() || '/coach'
+    const targetSelector = String(step?.targetSelector || '').trim()
+    const targetUrl = new URL(targetHref, window.location.origin)
+    const currentPathWithSearch = `${location.pathname}${location.search}`
+    const nextPathWithSearch = `${targetUrl.pathname}${targetUrl.search}`
+
+    if (targetSelector) {
+      window.sessionStorage.setItem(PHASE_SETUP_GUIDE_TARGET_STORAGE_KEY, targetSelector)
+    }
+
+    setIsOpen(false)
+    emitPhaseSetupGuideState(true)
+
+    if (nextPathWithSearch === currentPathWithSearch) {
+      window.setTimeout(() => {
+        scrollToTarget(targetSelector)
+      }, 120)
+      return
+    }
+
+    navigate(`${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`)
+  }
+
+  if (!isOpen || !activeStep) {
+    return null
   }
 
   return (
-    <section ref={guideRef} className={cardClass} data-testid="phase-setup-guide">
-      <div className="border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0">
-            <p className={eyebrowClass}>Staging test guide</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">{getGuideTitle(type)}</h2>
-            <p className="mt-3 max-w-4xl text-sm font-semibold leading-6 text-[#294238]">
-              This is a simple setup guide for staging testers. It is not the final live onboarding experience. The full version will be more polished and tailored later. For now, follow these steps so we can test the core club, team, player, and feedback flow.
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6 backdrop-blur-sm" data-testid="phase-setup-guide">
+      <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="phase-setup-guide-title"
+        tabIndex={-1}
+        className="max-h-[calc(100vh-3rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white shadow-2xl shadow-[#101828]/25 outline-none"
+      >
+        <div className="border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className={eyebrowClass}>Staging test guide</p>
+              <h2 id="phase-setup-guide-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">{getGuideTitle()}</h2>
+              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#294238]">
+                This is a simple setup guide for staging testers. It is not the final live onboarding experience. The full version will be more polished and tailored later. For now, follow these steps so we can test the core club, team, player, and feedback flow.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#f7faf8]"
+              aria-label="Close setup guide"
+            >
+              X
+            </button>
           </div>
+        </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 xl:min-w-[24rem]">
-            <div className="rounded-lg border border-[#bbf7d0] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
+        <div className="grid gap-5 px-5 py-5 sm:px-6">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
               <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">Phase</p>
               <p className="mt-1 text-lg font-black text-[#101828]">Phase {CURRENT_RECOVERY_PHASE}</p>
             </div>
-            <div className="rounded-lg border border-[#bbf7d0] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">Progress</p>
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">Wizard progress</p>
+              <p className="mt-1 text-lg font-black text-[#101828]">Step {activeStepIndex + 1} of {safeSteps.length}</p>
+            </div>
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">Data checks</p>
               <p className="mt-1 text-lg font-black text-[#101828]">{isLoading ? 'Checking' : `${completedCount} of ${safeSteps.length}`}</p>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="grid gap-3 bg-white px-5 py-5 sm:px-6 lg:px-8">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {safeSteps.map((step, index) => (
-            <article key={step.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">
-                    Step {index + 1}{step.optional ? ' optional' : ''}
-                  </p>
-                  <h3 className="mt-2 text-lg font-black leading-6 text-[#101828]">{step.title}</h3>
-                </div>
-                <span className={[
-                  'inline-flex min-h-8 shrink-0 items-center rounded-lg border px-3 text-xs font-black',
-                  step.complete
-                    ? 'border-[#bbf7d0] bg-[#dcfce7] text-[#166534]'
-                    : step.ready === false
-                      ? 'border-[#fed7aa] bg-[#fff7ed] text-[#9a3412]'
-                      : 'border-[#d7e5dc] bg-white text-[#4b5f55]',
-                ].join(' ')}>
-                  {getStatusLabel(step.complete, step.ready !== false)}
-                </span>
+          <article className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#047857]">
+                  Step {activeStepIndex + 1}{activeStep.optional ? ' optional' : ''}
+                </p>
+                <h3 className="mt-2 text-2xl font-black leading-8 text-[#101828]">{activeStep.title}</h3>
               </div>
-              <p className={`mt-3 ${bodyClass}`}>{step.body}</p>
-              <Link
-                to={step.href}
-                className={`mt-4 ${step.ready === false ? secondaryButtonClass : primaryButtonClass}`}
-              >
-                {step.action}
-              </Link>
-            </article>
-          ))}
-        </div>
+              <span className={[
+                'inline-flex min-h-8 shrink-0 items-center rounded-lg border px-3 text-xs font-black',
+                activeStep.complete
+                  ? 'border-[#bbf7d0] bg-[#dcfce7] text-[#166534]'
+                  : activeStep.ready === false
+                    ? 'border-[#fed7aa] bg-[#fff7ed] text-[#9a3412]'
+                    : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55]',
+              ].join(' ')}>
+                {getStatusLabel(activeStep.complete, activeStep.ready !== false)}
+              </span>
+            </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between">
-          <p className={bodyClass}>
-            This guide does not create data by itself. Each button opens the current safe Phase 1 surface so testers can complete one real action.
-          </p>
-          <button type="button" onClick={handleDismiss} className={secondaryButtonClass}>
-            Dismiss guide
-          </button>
+            <p className={`mt-4 ${bodyClass}`}>{activeStep.body}</p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+              <button
+                type="button"
+                onClick={() => handleAction(activeStep)}
+                className={activeStep.ready === false ? secondaryButtonClass : primaryButtonClass}
+              >
+                {activeStep.action}
+              </button>
+              <p className="text-xs font-semibold leading-5 text-[#66756c]">
+                Opens the real Phase 1 workspace area for this step.
+              </p>
+            </div>
+          </article>
+
+          <div className="flex flex-col gap-3 border-t border-[#d7e5dc] pt-5 lg:flex-row lg:items-center lg:justify-between">
+            <p className={bodyClass}>
+              Closing hides the modal for now. Dismiss turns it off for this tester, and the sidebar button can reopen it.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-4 lg:min-w-[34rem]">
+              <button type="button" onClick={handleBack} disabled={activeStepIndex === 0} className={secondaryButtonClass}>
+                Back
+              </button>
+              {activeStep.optional ? (
+                <button type="button" onClick={handleSkip} className={secondaryButtonClass}>
+                  Skip optional
+                </button>
+              ) : (
+                <button type="button" onClick={handleClose} className={secondaryButtonClass}>
+                  Close
+                </button>
+              )}
+              <button type="button" onClick={handleNext} disabled={activeStepIndex >= safeSteps.length - 1} className={secondaryButtonClass}>
+                Next
+              </button>
+              <button type="button" onClick={handleDismiss} className={secondaryButtonClass}>
+                Dismiss
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   )
 }

@@ -1155,7 +1155,7 @@ function OnboardingActionModal({
   )
 }
 
-export function OnboardingProvider({ children }) {
+export function OnboardingProvider({ children, suppressSetup = false }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { refreshTeamSelection, selectTeam, teamOptions, updateCurrentUserDetails, user } = useAuth()
@@ -1218,20 +1218,22 @@ export function OnboardingProvider({ children }) {
   const progress = useMemo(() => getOnboardingProgress(plan), [plan])
   const nextStep = plan?.steps?.find((step) => !step.complete) ?? plan?.steps?.[0]
   const shouldShowOnboarding = Boolean(
-    plan &&
+    !suppressSetup &&
+      plan &&
       plan.kind !== 'waiting' &&
       plan.manualState?.enabled &&
       !plan.manualState?.dismissedAt &&
       !progress.isComplete,
   )
   const shouldShowReopenOnboarding = Boolean(
-    plan &&
+    !suppressSetup &&
+      plan &&
       plan.kind !== 'waiting' &&
       plan.manualState?.enabled &&
       plan.manualState?.dismissedAt &&
       !progress.isComplete,
   )
-  const shouldShowWaitingForSetup = Boolean(plan?.kind === 'waiting')
+  const shouldShowWaitingForSetup = Boolean(!suppressSetup && plan?.kind === 'waiting')
   const currentPath = location.pathname || '/'
   const fullSetupPaths = new Set(['/', '/coach', '/club-settings', '/user-settings'])
   const shouldUseFullSetup = showFullSetup || fullSetupPaths.has(currentPath)
@@ -1549,7 +1551,7 @@ export function OnboardingProvider({ children }) {
           ) : null}
         </section>
       ) : null}
-      {activeAction ? (
+      {!suppressSetup && activeAction ? (
         <OnboardingActionModal
           action={activeAction}
           onCancel={() => setActiveAction(null)}
