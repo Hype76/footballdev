@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { Component, Suspense, lazy, useEffect } from 'react'
-import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
+import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
   canCreateEvaluation,
@@ -26,7 +26,7 @@ import {
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
 import { hasPlanFeature, isPlanAccessActive } from '../lib/plans.js'
 import { getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
-import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible } from '../lib/recovery-phase.js'
+import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible, isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
 function lazyRoute(importer, exportName) {
   return lazy(async () => {
@@ -664,9 +664,14 @@ function RequireClubWorkspace() {
 
 function RequirePlayerWorkflowAccess() {
   const { element, user } = useWorkspaceRouteGate()
+  const location = useLocation()
 
   if (element) {
     return element
+  }
+
+  if (!isRecoveryPathVisible(location.pathname, { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   if (needsTeamWorkflowContext(user) || !hasTeamWorkflowContext(user)) {
