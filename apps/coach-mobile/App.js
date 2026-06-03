@@ -339,22 +339,6 @@ function CoachHome() {
             />
           ) : null}
 
-          {isLoadingSummary ? (
-            <LoadingRow message="Loading workspace summary..." />
-          ) : (
-            <OverviewPanel
-              isOpen={showOverview}
-              onToggle={() => setShowOverview((currentValue) => !currentValue)}
-              stats={[
-                { label: 'Players', value: summary?.activePlayers || 0 },
-                { label: 'Sessions', value: summary?.sessions || 0 },
-                { label: 'Teams', value: summary?.teams || 0 },
-                { label: 'Matches', value: summary?.matches || 0 },
-              ]}
-              summary={`${summary?.activePlayers || 0} players | ${summary?.matches || 0} matches`}
-            />
-          )}
-
           {activeTab === 'matchday' ? (
             <MatchdayPanel
               activeActionId={activeActionId}
@@ -395,6 +379,22 @@ function CoachHome() {
               onToggleBiometrics={toggleBiometrics}
             />
           ) : null}
+
+          {isLoadingSummary ? (
+            <LoadingRow message="Loading workspace summary..." />
+          ) : (
+            <OverviewPanel
+              isOpen={showOverview}
+              onToggle={() => setShowOverview((currentValue) => !currentValue)}
+              stats={[
+                { label: 'Players', value: summary?.activePlayers || 0 },
+                { label: 'Sessions', value: summary?.sessions || 0 },
+                { label: 'Teams', value: summary?.teams || 0 },
+                { label: 'Matches', value: summary?.matches || 0 },
+              ]}
+              summary={`${summary?.activePlayers || 0} players | ${summary?.matches || 0} matches`}
+            />
+          )}
           <LegalFooter />
     </MobileScreen>
   )
