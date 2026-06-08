@@ -213,28 +213,28 @@ export function LoginHeader({ logo }) {
 
   return (
     <>
-      <header className="border-b border-white/10 bg-[#06110a]/88 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-sm shadow-black/20 backdrop-blur sm:px-6 sm:py-4 lg:px-8">
+      <header className="border-b border-white/10 bg-[#06110a]/90 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-sm shadow-black/20 backdrop-blur sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           <a href="/" className="flex min-w-0 items-center gap-3 lg:order-1">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/14 bg-[#06110a] shadow-sm shadow-black/20 sm:h-14 sm:w-14">
               <img src={logo} alt="Football Player" className="h-full w-full object-contain p-1" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-base font-black tracking-tight sm:text-xl">Football Player</p>
-              <p className="hidden truncate text-xs font-semibold text-white/58 min-[420px]:block sm:text-sm">Football club management software</p>
+              <p className="truncate text-lg font-black tracking-tight sm:text-xl">Football Player</p>
+              <p className="hidden truncate text-sm font-semibold text-white/62 min-[420px]:block">Football club management software</p>
             </div>
           </a>
           <div className="flex items-center gap-2 lg:order-3">
             <button
               type="button"
               onClick={openContactModal}
-              className="hidden min-h-11 items-center justify-center rounded-lg border border-white/14 bg-white/[0.06] px-4 py-3 text-sm font-black text-white transition hover:bg-white/[0.12] sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-lg border border-white/16 bg-white/[0.07] px-4 py-3 text-[15px] font-black text-white transition hover:bg-white/[0.13] sm:inline-flex"
             >
               Contact us
             </button>
             <a
               href="/sign-in"
-              className="hidden min-h-11 items-center justify-center rounded-lg bg-[#c6ff1a] px-4 py-3 text-sm font-black text-[#06110a] shadow-sm shadow-black/10 transition hover:bg-[#dbff66] sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-lg bg-[#c6ff1a] px-4 py-3 text-[15px] font-black text-[#06110a] shadow-sm shadow-black/10 transition hover:bg-[#dbff66] sm:inline-flex"
             >
               Log in
             </a>
@@ -248,7 +248,7 @@ export function LoginHeader({ logo }) {
               <a
                 key={href}
                 href={href}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold text-white/66 transition hover:bg-white/[0.08] hover:text-white"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-[15px] font-extrabold text-white/72 transition hover:bg-white/[0.08] hover:text-white"
               >
                 {label}
               </a>
