@@ -3,7 +3,7 @@ import fallbackLogo from '../assets/football-player-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
-import { publicImageOverlayStyle, usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
+import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { useAuth } from '../lib/auth.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 
@@ -226,58 +226,60 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+    <main className="min-h-screen overflow-hidden bg-[#06110a] text-white">
       <div className="fixed inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0" style={publicImageOverlayStyle} />
+        <div className="absolute inset-0 bg-[#06110a]/78" />
       </div>
 
       <div className="relative flex min-h-screen w-full flex-col">
         <LoginHeader logo={fallbackLogo} />
 
-        <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-8 lg:py-10">
-          <section className="rounded-lg border border-white/18 bg-black/36 p-5 shadow-xl shadow-black/20 backdrop-blur sm:p-6 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Football club workspace</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-white sm:text-4xl xl:text-5xl">
+        <div className="mx-auto grid w-full max-w-7xl flex-1 gap-8 px-4 py-8 pb-[max(5rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-center lg:px-8 lg:py-12">
+          <section className="order-2 max-w-3xl lg:order-1">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#c6ff1a]">Football club workspace</p>
+            <h1 className="mt-4 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-white sm:text-5xl xl:text-6xl">
               Run the football week from one club workspace.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-white/82 sm:text-lg sm:leading-8">
+            <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/78 sm:text-lg sm:leading-8">
               Manage training, match day, availability, parent updates, and player development records without chasing everything through WhatsApp.
             </p>
 
-            <div className="mt-7 grid gap-3">
+            <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
               {[
                 'Training and fixtures in one place',
                 'Parent updates from saved records',
                 'Player history that stays with the player',
               ].map((item) => (
-                <div key={item} className="flex items-center gap-3 rounded-lg border border-white/16 bg-black/28 px-4 py-3 backdrop-blur">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#c6ff1a]" />
-                  <p className="text-sm font-black text-white">{item}</p>
+                <div key={item} className="border-t border-white/18 pt-3">
+                  <span className="mb-3 block h-1.5 w-8 rounded-full bg-[#c6ff1a]" />
+                  <p className="text-sm font-black leading-5 text-white">{item}</p>
                 </div>
               ))}
             </div>
           </section>
 
-          <LoginAuthPanel
-            authError={authError}
-            formData={formData}
-            isPasswordVisible={isPasswordVisible}
-            isSubmitting={isSubmitting}
-            localError={localError}
-            localMessage={localMessage}
-            logo={fallbackLogo}
-            mode={mode}
-            onChange={handleChange}
-            onDemoLogin={handleDemoLogin}
-            onModeChange={handleModeChange}
-            onPasswordReset={handlePasswordReset}
-            onSubmit={handleSubmit}
-            onTogglePasswordVisibility={() => setIsPasswordVisible((current) => !current)}
-            parentInviteMode={Boolean(parentInviteToken)}
-            paymentsDisabled={paymentsDisabled}
-            signupBoxRef={signupBoxRef}
-          />
+          <div className="order-1 lg:order-2">
+            <LoginAuthPanel
+              authError={authError}
+              formData={formData}
+              isPasswordVisible={isPasswordVisible}
+              isSubmitting={isSubmitting}
+              localError={localError}
+              localMessage={localMessage}
+              logo={fallbackLogo}
+              mode={mode}
+              onChange={handleChange}
+              onDemoLogin={handleDemoLogin}
+              onModeChange={handleModeChange}
+              onPasswordReset={handlePasswordReset}
+              onSubmit={handleSubmit}
+              onTogglePasswordVisibility={() => setIsPasswordVisible((current) => !current)}
+              parentInviteMode={Boolean(parentInviteToken)}
+              paymentsDisabled={paymentsDisabled}
+              signupBoxRef={signupBoxRef}
+            />
+          </div>
         </div>
       </div>
     </main>

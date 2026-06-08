@@ -2,6 +2,16 @@ import { useEffect, useState } from 'react'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { DemoRequestModal } from '../components/login/DemoRequestModal.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import {
+  publicCardClass,
+  publicEyebrowClass,
+  publicHeadingClass,
+  publicPageClass,
+  publicPrimaryButtonClass,
+  publicSecondaryButtonClass,
+  publicSectionClass,
+  publicSubheadingClass,
+} from '../components/login/PublicSiteComponents.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { formatPrice, formatPriceLabel, getPromotionSummary, pricingPlans } from '../lib/login-pricing.js'
 
@@ -146,25 +156,25 @@ export function PublicPricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--app-bg)] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] lg:pb-0">
+    <main className={publicPageClass}>
       <LoginHeader logo={fallbackLogo} />
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <section className={publicSectionClass}>
         <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent)]">Pricing</p>
-            <h1 className="mt-4 text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl">
+            <p className={publicEyebrowClass}>Pricing</p>
+            <h1 className={`mt-4 ${publicHeadingClass}`}>
               Start small, then scale with the club.
             </h1>
           </div>
           <div>
-            <p className="text-base font-semibold leading-7 text-[var(--text-muted)] sm:text-lg sm:leading-8">
+            <p className={publicSubheadingClass}>
               Choose the workspace size that fits the number of teams, staff, players, and parent updates your club needs.
             </p>
-            <p className="mt-3 text-sm font-semibold leading-6 text-[var(--text-muted)]">
-              Pricing may change while early clubs are being onboarded.
+            <p className="mt-3 text-sm font-semibold leading-6 text-white/60">
+              Early club pricing may change as the product develops.
             </p>
-            <div className="mt-5 grid max-w-xs grid-cols-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-1">
+            <div className="mt-5 grid max-w-xs grid-cols-2 rounded-lg border border-white/12 bg-white/[0.055] p-1">
               {[
                 ['monthly', 'Monthly'],
                 ['annual', 'Annual'],
@@ -175,7 +185,7 @@ export function PublicPricingPage() {
                   onClick={() => setBillingCycle(key)}
                   className={[
                     'min-h-11 rounded-lg px-4 py-3 text-sm font-black transition',
-                    billingCycle === key ? 'bg-[var(--accent)] text-[var(--accent-text)] shadow-sm' : 'text-[var(--text-muted)] hover:bg-[var(--panel-alt)] hover:text-[var(--text-primary)]',
+                    billingCycle === key ? 'bg-[#c6ff1a] text-[#06110a] shadow-sm' : 'text-white/64 hover:bg-white/[0.08] hover:text-white',
                   ].join(' ')}
                 >
                   {label}
@@ -185,10 +195,10 @@ export function PublicPricingPage() {
           </div>
         </div>
 
-        {errorMessage ? <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{errorMessage}</div> : null}
-        {message ? <div className="mt-6 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{message}</div> : null}
+        {errorMessage ? <div className="mt-6 rounded-lg border border-red-300/40 bg-red-950/50 px-4 py-3 text-sm font-semibold text-red-100">{errorMessage}</div> : null}
+        {message ? <div className="mt-6 rounded-lg border border-[#c6ff1a]/30 bg-[#c6ff1a]/10 px-4 py-3 text-sm font-semibold text-white">{message}</div> : null}
         {livePromotion && !paymentsDisabled ? (
-          <div className="mt-6 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-5 py-4 text-sm font-bold text-[var(--text-primary)]">
+          <div className="mt-6 rounded-lg border border-[#c6ff1a]/30 bg-[#c6ff1a]/10 px-5 py-4 text-sm font-bold text-white">
             Live offer: use {livePromotion.code} for {getPromotionSummary(livePromotion)}. Applied automatically at checkout.
           </div>
         ) : null}
@@ -200,31 +210,36 @@ export function PublicPricingPage() {
             const isPopular = plan.name === 'Small Club'
 
             return (
-              <article key={plan.name} className="relative flex flex-col rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-sm">
+              <article key={plan.name} className={`${publicCardClass} relative flex min-h-full flex-col ${isPopular ? 'border-[#c6ff1a]/60 bg-[#c6ff1a]/[0.08]' : ''}`}>
                 {isPopular ? (
-                  <span className="absolute right-4 top-4 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1 text-xs font-black text-[var(--text-primary)]">
-                    Popular
+                  <span className="absolute right-4 top-4 rounded-lg bg-[#c6ff1a] px-3 py-1 text-xs font-black text-[#06110a]">
+                    Recommended
                   </span>
                 ) : null}
                 <div className="min-h-[132px] pr-16">
-                  <h2 className="text-lg font-black">{plan.name}</h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">{plan.description}</p>
+                  <h2 className="text-xl font-black text-white">{plan.name}</h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-white/66">{plan.description}</p>
                 </div>
                 <div className="min-h-[92px]">
-                  <span className="text-3xl font-black sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
-                  {priceLabel ? <span className="ml-2 text-sm font-semibold text-[var(--text-muted)]">{priceLabel}</span> : null}
+                  <span className="text-3xl font-black text-white sm:text-4xl">{formatPrice(plan, billingCycle)}</span>
+                  {priceLabel ? <span className="ml-2 text-sm font-semibold text-white/58">{priceLabel}</span> : null}
                   {billingCycle === 'annual' && typeof plan.price === 'number' ? (
-                    <p className="mt-2 text-xs font-black text-[var(--accent)]">2 months free compared with monthly</p>
+                    <p className="mt-2 text-xs font-black text-[#c6ff1a]">2 months free compared with monthly</p>
                   ) : null}
-                  {showPromotion ? <p className="mt-2 text-xs font-black text-[var(--accent)]">{getPromotionSummary(livePromotion)}</p> : null}
+                  {showPromotion ? <p className="mt-2 text-xs font-black text-[#c6ff1a]">{getPromotionSummary(livePromotion)}</p> : null}
                 </div>
                 <ul className="mt-6 grow space-y-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-[var(--text-muted)]">
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[var(--accent)]" />
+                  {plan.features.slice(0, 5).map((feature) => (
+                    <li key={feature} className="flex gap-3 text-sm font-semibold leading-6 text-white/66">
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#c6ff1a]" />
                       <span>{feature}</span>
                     </li>
                   ))}
+                  {plan.features.length > 5 ? (
+                    <li className="text-sm font-black leading-6 text-[#c6ff1a]">
+                      Plus {plan.features.length - 5} more plan benefits
+                    </li>
+                  ) : null}
                 </ul>
                 <div className="mt-6 grid gap-3">
                   <button
@@ -232,8 +247,8 @@ export function PublicPricingPage() {
                     disabled={isSubmitting}
                     onClick={() => void handleChoosePlan(plan)}
                     className={[
-                      'inline-flex min-h-12 items-center justify-center rounded-lg px-5 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60',
-                      isPopular ? 'bg-[var(--accent)] text-[var(--accent-text)] hover:opacity-90' : 'border border-[var(--border-color)] bg-[var(--app-bg)] text-[var(--text-primary)] hover:bg-[var(--panel-alt)]',
+                      isPopular ? publicPrimaryButtonClass : publicSecondaryButtonClass,
+                      'disabled:cursor-not-allowed disabled:opacity-60',
                     ].join(' ')}
                   >
                     {paymentsDisabled ? 'Create test club' : plan.name === 'Individual' ? 'Start free' : plan.name === 'Large Club' ? 'Request demo' : 'Choose plan'}
@@ -242,7 +257,7 @@ export function PublicPricingPage() {
                     <button
                       type="button"
                       onClick={plan.name === 'Large Club' ? openContactModal : () => setDemoPlan(plan)}
-                      className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--app-bg)] px-5 py-3 text-sm font-black text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]"
+                      className={publicSecondaryButtonClass}
                     >
                       {plan.name === 'Large Club' ? 'Contact us' : 'Request demo'}
                     </button>
@@ -253,11 +268,11 @@ export function PublicPricingPage() {
           })}
         </div>
 
-        <section className="mt-8 grid gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 sm:p-6 lg:grid-cols-4">
+        <section className="mt-8 grid gap-4 rounded-lg border border-white/10 bg-[#0b1a10] p-5 sm:p-6 lg:grid-cols-4">
           {fitNotes.map(([title, copy]) => (
             <article key={title}>
-              <h2 className="text-sm font-black">{title}</h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">{copy}</p>
+              <h2 className="text-sm font-black text-white">{title}</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-white/66">{copy}</p>
             </article>
           ))}
         </section>

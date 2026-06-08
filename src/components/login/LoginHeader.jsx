@@ -213,33 +213,33 @@ export function LoginHeader({ logo }) {
 
   return (
     <>
-      <header className="border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--panel-bg)_94%,transparent)] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-[var(--text-primary)] shadow-sm shadow-black/5 backdrop-blur sm:px-6 sm:py-4 lg:px-8">
-        <div className="flex items-center justify-between gap-3">
+      <header className="border-b border-white/10 bg-[#06110a]/88 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-sm shadow-black/20 backdrop-blur sm:px-6 sm:py-4 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           <a href="/" className="flex min-w-0 items-center gap-3 lg:order-1">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-black/10 sm:h-16 sm:w-16">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/14 bg-[#06110a] shadow-sm shadow-black/20 sm:h-14 sm:w-14">
               <img src={logo} alt="Football Player" className="h-full w-full object-contain p-1" />
             </div>
             <div className="min-w-0">
               <p className="truncate text-base font-black tracking-tight sm:text-xl">Football Player</p>
-              <p className="hidden truncate text-xs font-semibold text-[var(--text-muted)] min-[420px]:block sm:text-sm">Football club management software</p>
+              <p className="hidden truncate text-xs font-semibold text-white/58 min-[420px]:block sm:text-sm">Football club management software</p>
             </div>
           </a>
           <div className="flex items-center gap-2 lg:order-3">
             <button
               type="button"
               onClick={openContactModal}
-              className="hidden min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)] sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-lg border border-white/14 bg-white/[0.06] px-4 py-3 text-sm font-black text-white transition hover:bg-white/[0.12] sm:inline-flex"
             >
               Contact us
             </button>
             <a
               href="/sign-in"
-              className="hidden min-h-11 items-center justify-center rounded-lg bg-[var(--accent)] px-4 py-3 text-sm font-black text-[var(--accent-text)] shadow-sm shadow-black/10 transition hover:opacity-90 sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-lg bg-[#c6ff1a] px-4 py-3 text-sm font-black text-[#06110a] shadow-sm shadow-black/10 transition hover:bg-[#dbff66] sm:inline-flex"
             >
               Log in
             </a>
             <InstallAppButton
-              wrapperClassName="lg:hidden"
+              wrapperClassName="hidden"
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-black text-[#101828] sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
             />
           </div>
@@ -248,7 +248,7 @@ export function LoginHeader({ logo }) {
               <a
                 key={href}
                 href={href}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold text-[var(--text-muted)] transition hover:bg-[var(--panel-alt)] hover:text-[var(--text-primary)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold text-white/66 transition hover:bg-white/[0.08] hover:text-white"
               >
                 {label}
               </a>
@@ -257,20 +257,20 @@ export function LoginHeader({ logo }) {
         </div>
       </header>
 
-      <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--panel-bg)_96%,transparent)] p-1.5 shadow-lg shadow-black/10 backdrop-blur sm:mx-6 lg:hidden">
+      <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-white/10 bg-[#06110a]/92 p-1.5 shadow-lg shadow-black/25 backdrop-blur sm:mx-6 lg:hidden">
         <div className="grid w-full grid-cols-5 gap-1">
           {navItems.map(([href, label]) => (
             <a
               key={href}
               href={href}
-              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 py-2 text-center text-[11px] font-black leading-none text-[var(--text-muted)] transition hover:bg-[var(--panel-alt)] hover:text-[var(--text-primary)] min-[390px]:text-xs"
+              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 py-2 text-center text-[11px] font-black leading-none text-white/68 transition hover:bg-white/[0.08] hover:text-white min-[390px]:text-xs"
             >
               <span className="block" style={mobileNavLabelStyle}>{label}</span>
             </a>
           ))}
           <a
             href="/sign-in"
-            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[var(--accent)] px-1 py-2 text-center text-[11px] font-black leading-none text-[var(--accent-text)] transition hover:opacity-90 min-[390px]:text-xs"
+            className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[#c6ff1a] px-1 py-2 text-center text-[11px] font-black leading-none text-[#06110a] transition hover:bg-[#dbff66] min-[390px]:text-xs"
           >
             <span className="block" style={mobileNavLabelStyle}>Log in</span>
           </a>

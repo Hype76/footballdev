@@ -1,43 +1,23 @@
 import fallbackLogo from '../assets/football-player-logo.png'
 import coachHomeImage from '../assets/marketing/coach-home.png'
 import playerProgressionImage from '../assets/marketing/player-progression.png'
-import playersListImage from '../assets/marketing/players-list.png'
 import sessionsCalendarImage from '../assets/marketing/sessions-calendar.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import {
+  PublicFeatureCard,
+  PublicFinalCta,
+  PublicScreenshot,
+  publicEyebrowClass,
+  publicHeadingClass,
+  publicPageClass,
+  publicPrimaryButtonClass,
+  publicSecondaryButtonClass,
+  publicSectionClass,
+  publicSubheadingClass,
+} from '../components/login/PublicSiteComponents.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 
-const featureRows = [
-  {
-    eyebrow: 'Club home',
-    title: 'Open the week and see the next useful action.',
-    copy: 'Staff land on the team context, active session, player queue, development records, and the work that needs attention next.',
-    image: coachHomeImage,
-    alt: 'Football Player club home showing session queue and coach records',
-  },
-  {
-    eyebrow: 'Calendar',
-    title: 'Keep sessions, fixtures, and deadlines visible.',
-    copy: 'Training, match days, parent response cut offs, and saved development activity sit in one football calendar.',
-    image: sessionsCalendarImage,
-    alt: 'Football Player calendar showing football activity',
-  },
-  {
-    eyebrow: 'Player records',
-    title: 'Find the right player and keep their history intact.',
-    copy: 'The register separates current players, trial players, squad status, and saved records so coaches are not hunting through spreadsheets.',
-    image: playersListImage,
-    alt: 'Football Player player register showing squad and trial players',
-  },
-  {
-    eyebrow: 'Progression',
-    title: 'Turn coach notes into development history.',
-    copy: 'Player profiles show records, scores, trend history, and coach comments in a way staff can review before the next session.',
-    image: playerProgressionImage,
-    alt: 'Football Player player progression page showing records and chart data',
-  },
-]
-
-const capabilityGroups = [
+const featureCards = [
   ['Calendar', 'See training, fixtures, deadlines, and club events in one place.'],
   ['Sessions', 'Create sessions, add players, and record notes against the right team.'],
   ['Players', 'Keep current, trial, and archived player records easy to find.'],
@@ -48,6 +28,27 @@ const capabilityGroups = [
   ['Team access', 'Keep roles and team context clear as the club grows.'],
 ]
 
+const screenshotSections = [
+  {
+    title: 'Calendar and sessions',
+    copy: 'Plan the football week, create sessions, and keep training or fixture details tied to the right team.',
+    image: sessionsCalendarImage,
+    alt: 'Football Player calendar and sessions view',
+  },
+  {
+    title: 'Player records and development',
+    copy: 'Keep player history, staff notes, development records, and progression together so the club remembers what happened.',
+    image: playerProgressionImage,
+    alt: 'Football Player progression chart and development records',
+  },
+  {
+    title: 'Parent updates and match day',
+    copy: 'Manage availability, match details, and parent communication without opening up staff tools to families.',
+    image: coachHomeImage,
+    alt: 'Football Player coach workspace with weekly actions',
+  },
+]
+
 export function PublicFeaturesPage() {
   usePublicThemeScope()
 
@@ -56,67 +57,57 @@ export function PublicFeaturesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--app-bg)] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] lg:pb-0">
+    <main className={publicPageClass}>
       <LoginHeader logo={fallbackLogo} />
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <section className={publicSectionClass}>
         <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent)]">Features</p>
-            <h1 className="mt-4 text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl">
+            <p className={publicEyebrowClass}>Features</p>
+            <h1 className={`mt-4 ${publicHeadingClass}`}>
               The weekly tools a grassroots club actually needs.
             </h1>
           </div>
-          <p className="text-base font-semibold leading-7 text-[var(--text-muted)] sm:text-lg sm:leading-8">
-            Bring sessions, fixtures, availability, parent updates, and player records into one workspace your staff can actually use.
-          </p>
+          <div>
+            <p className={publicSubheadingClass}>
+              Bring sessions, fixtures, availability, parent updates, and player records into one workspace your staff can actually use.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <a href="/sign-in" className={publicPrimaryButtonClass}>Start free</a>
+              <button type="button" onClick={openContactModal} className={publicSecondaryButtonClass}>Contact us</button>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="border-y border-[var(--border-color)] bg-[var(--panel-bg)]">
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
-          {capabilityGroups.map(([title, copy]) => (
-            <article key={title} className="py-2">
-              <h2 className="text-lg font-black tracking-tight">{title}</h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">{copy}</p>
+      <section className="border-y border-white/10 bg-[#0b1a10]">
+        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-10 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+          {featureCards.map(([title, copy]) => (
+            <PublicFeatureCard key={title} title={title} copy={copy} />
+          ))}
+        </div>
+      </section>
+
+      <section className={publicSectionClass}>
+        <div className="grid gap-12">
+          {screenshotSections.map((section, index) => (
+            <article key={section.title} className="grid gap-7 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
+              <div className={index % 2 === 1 ? 'lg:order-2' : ''}>
+                <p className={publicEyebrowClass}>{section.title}</p>
+                <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">{section.title}</h2>
+                <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-white/70">{section.copy}</p>
+              </div>
+              <PublicScreenshot image={section.image} alt={section.alt} />
             </article>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-12 px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-        {featureRows.map((feature, index) => (
-          <article key={feature.title} className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-            <div className={index % 2 === 1 ? 'lg:order-2' : ''}>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent)]">{feature.eyebrow}</p>
-              <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight sm:text-4xl">{feature.title}</h2>
-              <p className="mt-4 text-base font-semibold leading-7 text-[var(--text-muted)]">{feature.copy}</p>
-            </div>
-            <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-xl shadow-black/10">
-              <img src={feature.image} alt={feature.alt} className="w-full" />
-            </div>
-          </article>
-        ))}
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 pb-[max(4rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
-        <div className="grid gap-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-sm sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
-          <div>
-            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">See the workspace with demo data.</h2>
-            <p className="mt-3 text-sm font-semibold leading-6 text-[var(--text-muted)]">
-              Open the demo account from sign in, or speak to us about a club setup.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-black text-[var(--accent-text)] transition hover:opacity-90">
-              Open demo
-            </a>
-            <button type="button" onClick={openContactModal} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--app-bg)] px-5 py-3 text-sm font-black text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]">
-              Contact us
-            </button>
-          </div>
-        </div>
-      </section>
+      <PublicFinalCta
+        title="See the workspace with demo data."
+        copy="Open the demo from sign in, or speak to us about setting up your club."
+        primaryLabel="Open demo"
+      />
     </main>
   )
 }
