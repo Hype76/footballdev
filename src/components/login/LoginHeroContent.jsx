@@ -1,93 +1,79 @@
-export function LoginHeroContent() {
-  const setupSteps = [
-    ['1', 'Club workspace', 'Set the club name, logo, contact details, and the first admin account.'],
-    ['2', 'First football group', 'Add one team, the staff who can manage it, and the players who belong there.'],
-    ['3', 'Parent access', 'Link parent accounts to players before sending match day, polls, or development updates.'],
-  ]
+import coachHomeImage from '../../assets/marketing/coach-home.png'
+import playerProgressionImage from '../../assets/marketing/player-progression.png'
 
-  const weeklyTools = [
-    ['Monday', 'Close weekend notes and flag players who need a coach action.'],
-    ['Midweek', 'Run training with attendance, session notes, and player records attached.'],
-    ['Weekend', 'Confirm availability, publish match day, and capture the result.'],
-  ]
+const weeklyActions = [
+  ['Training', 'Create sessions, attach players, and keep coach notes in the right place.'],
+  ['Match day', 'Track the squad, parent replies, results, and follow-up actions.'],
+  ['Development', 'Turn coach observations into records that follow each player.'],
+]
+
+const proofStats = [
+  ['2 teams', 'Demo club workspace'],
+  ['4 players', 'Real records and notes'],
+  ['3.8 average', 'Progression view'],
+]
+
+export function LoginHeroContent() {
+  const openContactModal = () => {
+    window.dispatchEvent(new CustomEvent('football-player:open-contact'))
+  }
 
   return (
-    <section className="order-2 lg:order-1">
-      <div className="grid max-w-6xl gap-6 lg:grid-cols-[1fr_23rem] lg:items-end">
-        <div>
-          <div className="inline-flex rounded-lg border border-[#bbf7d0] bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#047857] shadow-sm shadow-[#047857]/10 backdrop-blur">
-            Football club operations
-          </div>
-          <h1 className="mt-5 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-5xl">
-            The football week, rebuilt around real club work.
-          </h1>
-          <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55] sm:text-lg sm:leading-8">
-            Set up the club, teams, players, staff access, parent links, availability, sessions, match day, and development records in one practical operating system.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="/sign-in"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46]"
-            >
-              Open workspace
-            </a>
-            <a
-              href="/features"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white/95 px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#ecfdf5]"
-            >
-              Explore features
-            </a>
-          </div>
+    <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+      <div className="max-w-3xl">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#c6ff1a]">Football club workspace</p>
+        <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-tight text-white min-[420px]:text-5xl sm:text-6xl">
+          Run the football week without the WhatsApp chaos.
+        </h1>
+        <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/86 sm:text-lg sm:leading-8">
+          Training, match day, parents, and player development in one club workspace built for grassroots football staff.
+        </p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <a
+            href="/sign-in"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#c6ff1a] px-5 py-3 text-sm font-black text-[#06110a] shadow-sm shadow-[#c6ff1a]/20 transition hover:bg-[#dbff66]"
+          >
+            Open workspace
+          </a>
+          <a
+            href="/features"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/24 bg-white/10 px-5 py-3 text-sm font-black text-white shadow-sm shadow-black/10 backdrop-blur transition hover:bg-white/18"
+          >
+            See features
+          </a>
+          <button
+            type="button"
+            onClick={openContactModal}
+            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/24 bg-white/10 px-5 py-3 text-sm font-black text-white shadow-sm shadow-black/10 backdrop-blur transition hover:bg-white/18"
+          >
+            Contact us
+          </button>
         </div>
-
-        <aside className="rounded-lg border border-[#d7e5dc] bg-white/94 p-4 shadow-lg shadow-[#101828]/10 backdrop-blur sm:p-5">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Club week board</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            The first screen should show what needs doing, what data is missing, and where staff should go next.
-          </p>
-          <div className="mt-4 grid gap-3">
-            {[
-              ['Next action', 'Create session'],
-              ['Missing data', 'Parent links'],
-              ['Match day', 'Squad not locked'],
-              ['Coach records', 'Notes due'],
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
-                <span className="text-sm font-black text-[#101828]">{label}</span>
-                <span className="text-xs font-black text-[#047857]">{value}</span>
-              </div>
-            ))}
-          </div>
-        </aside>
+        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          {proofStats.map(([value, label]) => (
+            <div key={value} className="rounded-lg border border-white/18 bg-black/28 p-4 backdrop-blur">
+              <p className="text-2xl font-black text-white">{value}</p>
+              <p className="mt-1 text-sm font-bold text-white/72">{label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-7 grid max-w-6xl gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5]/95 p-5 shadow-sm shadow-[#047857]/10 backdrop-blur sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Setup checklist</p>
-          <div className="mt-5 grid gap-3">
-            {setupSteps.map(([number, title, copy]) => (
-              <article key={title} className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-lg border border-[#d7e5dc] bg-white p-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#047857] text-sm font-black text-white">{number}</span>
-                <span>
-                  <span className="block text-sm font-black text-[#101828]">{title}</span>
-                  <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</span>
-                </span>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-[#d7e5dc] bg-white/95 p-5 shadow-sm shadow-[#047857]/10 backdrop-blur sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Run the week</p>
-          <div className="mt-5 grid gap-3">
-            {weeklyTools.map(([title, copy]) => (
-              <article key={title} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
-                <p className="text-sm font-black text-[#101828]">{title}</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+      <div className="relative min-h-[360px] lg:min-h-[560px]">
+        <div className="overflow-hidden rounded-lg border border-white/18 bg-white shadow-2xl shadow-black/35">
+          <img src={coachHomeImage} alt="Football Player club home showing training queue and player actions" className="w-full" />
+        </div>
+        <div className="mt-4 grid gap-3 rounded-lg border border-white/18 bg-black/34 p-4 backdrop-blur md:absolute md:-bottom-4 md:left-6 md:right-6 md:mt-0 md:grid-cols-3">
+          {weeklyActions.map(([title, copy]) => (
+            <article key={title}>
+              <h2 className="text-sm font-black text-white">{title}</h2>
+              <p className="mt-1 text-xs font-semibold leading-5 text-white/72">{copy}</p>
+            </article>
+          ))}
+        </div>
+        <div className="hidden overflow-hidden rounded-lg border border-white/18 bg-white shadow-2xl shadow-black/25 lg:absolute lg:-bottom-12 lg:-left-16 lg:block lg:w-[42%]">
+          <img src={playerProgressionImage} alt="Player progression chart and development records" className="w-full" />
+        </div>
       </div>
     </section>
   )

@@ -262,7 +262,7 @@ export function LoginPage() {
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">First useful action</p>
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                  Log in, open the setup board, then complete the first team and player checks before running sessions or parent messages.
+                  Log in, choose the club or parent route, then open the team, player, session, or parent workflow you need.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs font-black text-[#101828] sm:grid-cols-4">

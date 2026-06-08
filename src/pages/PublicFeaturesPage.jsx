@@ -1,35 +1,47 @@
 import fallbackLogo from '../assets/football-player-logo.png'
-import landingHeroImage from '../assets/landing-hero-football-club.png'
+import coachHomeImage from '../assets/marketing/coach-home.png'
+import playerProgressionImage from '../assets/marketing/player-progression.png'
+import playersListImage from '../assets/marketing/players-list.png'
+import sessionsCalendarImage from '../assets/marketing/sessions-calendar.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
-import { publicImageOverlayStyle, usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
+import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 
-const featureGroups = [
+const featureRows = [
   {
-    title: 'Setup first',
-    copy: 'Create the club, first team, staff access, players, and parent links before opening the wider workspace.',
-    points: ['Club identity and logo', 'Team and staff access', 'Player and parent records'],
+    eyebrow: 'Club home',
+    title: 'Open the week and see the next useful action.',
+    copy: 'Staff land on the team context, active session, player queue, development records, and the work that needs attention next.',
+    image: coachHomeImage,
+    alt: 'Football Player club home showing session queue and coach records',
   },
   {
-    title: 'Run the football week',
-    copy: 'Keep availability, sessions, match day, and player development records connected to the right team.',
-    points: ['Availability decisions', 'Training and match sessions', 'Live match day cards'],
+    eyebrow: 'Calendar',
+    title: 'Keep sessions, fixtures, and deadlines visible.',
+    copy: 'Training, match days, parent response cut offs, and saved development activity sit in one football calendar.',
+    image: sessionsCalendarImage,
+    alt: 'Football Player calendar showing football activity',
   },
   {
-    title: 'Develop players',
-    copy: 'Use club-defined development forms so coaches record useful football feedback instead of scattered notes.',
-    points: ['Custom forms', 'Trial and squad history', 'Development PDFs'],
+    eyebrow: 'Player records',
+    title: 'Find the right player and keep their history intact.',
+    copy: 'The register separates current players, trial players, squad status, and saved records so coaches are not hunting through spreadsheets.',
+    image: playersListImage,
+    alt: 'Football Player player register showing squad and trial players',
   },
   {
-    title: 'Keep parents informed',
-    copy: 'Share the right updates through a controlled family portal without staff losing control of records.',
-    points: ['Messages and attachments', 'Parent polls', 'Linked child access'],
+    eyebrow: 'Progression',
+    title: 'Turn coach notes into development history.',
+    copy: 'Player profiles show records, scores, trend history, and coach comments in a way staff can review before the next session.',
+    image: playerProgressionImage,
+    alt: 'Football Player player progression page showing records and chart data',
   },
 ]
 
-const operatingRules = [
-  ['Constraint first', 'The interface explains the rule before the action: who can edit, what data is needed, and what happens next.'],
-  ['Football only', 'Every surface maps to club work: teams, players, fixtures, sessions, staff roles, and parent communication.'],
-  ['Less admin drift', 'The product should reduce duplicate notes, repeated messages, and manual chasing across chats.'],
+const capabilityGroups = [
+  ['Training', 'Create sessions, add players, record notes, and keep work tied to the right team.'],
+  ['Match day', 'Prepare squads, collect replies, save results, and keep follow-up work visible.'],
+  ['Parents', 'Send focused updates from club records without giving parents staff access.'],
+  ['Teams', 'Separate team context, staff access, and player lists so clubs can grow safely.'],
 ]
 
 export function PublicFeaturesPage() {
@@ -42,68 +54,62 @@ export function PublicFeaturesPage() {
   return (
     <main className="min-h-screen bg-[var(--app-bg)] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
-      <section className="relative overflow-hidden">
-        <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-100" />
-        <div className="absolute inset-0" style={publicImageOverlayStyle} />
-        <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
-          <div className="max-w-4xl">
-            <p className="inline-flex rounded-lg border border-[#bbf7d0] bg-white/95 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#047857] shadow-sm shadow-[#047857]/10 backdrop-blur">Features</p>
-            <h1 className="mt-4 text-3xl font-black leading-[1.04] tracking-tight text-[#101828] min-[420px]:text-4xl sm:mt-5 sm:text-5xl">
-              A football-only workspace for clearer match weeks.
+
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent)]">Features</p>
+            <h1 className="mt-4 text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl">
+              The practical football tools clubs use every week.
             </h1>
-            <p className="mt-5 max-w-3xl text-base font-semibold leading-7 text-[#334155] sm:mt-6 sm:text-lg sm:leading-8">
-              Build the operating layer clubs actually need: setup, staff roles, players, availability, match day, development records, and parent communication.
-            </p>
           </div>
+          <p className="text-base font-semibold leading-7 text-[var(--text-muted)] sm:text-lg sm:leading-8">
+            Football Player connects the jobs that usually live in separate places: training, players, parent updates, match day, and development records.
+          </p>
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-8 sm:gap-5 sm:px-6 sm:py-12 md:grid-cols-2 lg:px-8">
-        {featureGroups.map((feature) => (
-          <article key={feature.title} className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
-            <h2 className="text-xl font-black tracking-tight sm:text-2xl">{feature.title}</h2>
-            <p className="mt-4 text-sm font-semibold leading-7 text-[#4b5f55]">{feature.copy}</p>
-            <ul className="mt-6 space-y-3">
-              {feature.points.map((point) => (
-                <li key={point} className="flex gap-3 text-sm font-bold text-[#4b5f55]">
-                  <span className="mt-2 h-2 w-2 shrink-0 rounded-lg bg-[#047857]" />
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
+      <section className="border-y border-[var(--border-color)] bg-[var(--panel-bg)]">
+        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 sm:px-6 lg:grid-cols-4 lg:px-8">
+          {capabilityGroups.map(([title, copy]) => (
+            <article key={title} className="py-2">
+              <h2 className="text-lg font-black tracking-tight">{title}</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">{copy}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-12 px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        {featureRows.map((feature, index) => (
+          <article key={feature.title} className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+            <div className={index % 2 === 1 ? 'lg:order-2' : ''}>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent)]">{feature.eyebrow}</p>
+              <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight sm:text-4xl">{feature.title}</h2>
+              <p className="mt-4 text-base font-semibold leading-7 text-[var(--text-muted)]">{feature.copy}</p>
+            </div>
+            <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-xl shadow-black/10">
+              <img src={feature.image} alt={feature.alt} className="w-full" />
+            </div>
           </article>
         ))}
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
-        <div className="mb-5 grid gap-3 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-5 shadow-sm shadow-[#047857]/10 sm:p-6 lg:grid-cols-3">
-          {operatingRules.map(([title, copy]) => (
-            <article key={title} className="rounded-lg border border-[#d7e5dc] bg-white p-4">
-              <h2 className="text-sm font-black text-[#101828]">{title}</h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</p>
-            </article>
-          ))}
-        </div>
-
-        <div className="grid gap-5 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+      <section className="mx-auto max-w-7xl px-4 pb-[max(4rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
+        <div className="grid gap-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-5 shadow-sm sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <h2 className="text-xl font-black tracking-tight sm:text-2xl">Try it now, or contact us.</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">Open the demo account, ask a question, or choose a plan that matches your club size.</p>
+            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">See the workspace with demo data.</h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[var(--text-muted)]">
+              Open the demo account from sign in, or speak to us about a club setup.
+            </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46]">
-              Try now
+            <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-black text-[var(--accent-text)] transition hover:opacity-90">
+              Open demo
             </a>
-            <button
-              type="button"
-              onClick={openContactModal}
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]"
-            >
+            <button type="button" onClick={openContactModal} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--app-bg)] px-5 py-3 text-sm font-black text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]">
               Contact us
             </button>
-            <a href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:bg-[#f7faf8]">
-              View pricing
-            </a>
           </div>
         </div>
       </section>
