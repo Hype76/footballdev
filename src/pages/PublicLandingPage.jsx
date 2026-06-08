@@ -71,11 +71,11 @@ export function PublicLandingPage() {
           <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-10 pb-[max(5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:grid-cols-[1fr_1fr] lg:gap-10 lg:px-8">
             <div className="max-w-4xl">
               <p className={publicEyebrowClass}>Grassroots football software</p>
-              <h1 className="mt-5 max-w-4xl text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-6xl lg:text-[4.35rem]">
-                Run the football week from one club workspace.
+              <h1 className="mt-5 max-w-4xl text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-6xl lg:text-[4rem]">
+                Training, match day, parents, and player development in one club workspace.
               </h1>
               <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/80 sm:text-lg sm:leading-8">
-                Football Player helps grassroots clubs manage training, fixtures, availability, parent updates, and player records from one simple workspace.
+                Football Player helps grassroots clubs keep sessions, fixtures, availability, parent updates, and player records connected in one simple place.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a href="/sign-in" className={publicPrimaryButtonClass}>Start free</a>
@@ -108,7 +108,7 @@ export function PublicLandingPage() {
 
       <section className={publicSectionClass}>
         <div className="max-w-4xl">
-          <p className={publicEyebrowClass}>Built around the football week</p>
+          <p className={publicEyebrowClass}>Built around grassroots football</p>
           <h2 className={publicHeadingClass}>One clear place for the work coaches repeat every week.</h2>
           <p className={`mt-4 max-w-2xl ${publicSubheadingClass}`}>
             Plan the week, record what happened, and keep the next action visible for every team.

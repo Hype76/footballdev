@@ -48,7 +48,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Contact us</p>
         <h2 id="contact-us-title" className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">Tell us about your club</h2>
         <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-          Share the number of teams, who needs access, and what is currently slowing the football week down.
+          Share the number of teams, who needs access, and what is currently slowing training, match day, or parent updates down.
         </p>
 
         <form className="mt-5 grid gap-4" onSubmit={onSubmit}>

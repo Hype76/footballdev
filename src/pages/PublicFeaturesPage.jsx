@@ -101,7 +101,7 @@ export function PublicFeaturesPage() {
           <div className="max-w-4xl">
             <p className={publicEyebrowClass}>Features</p>
             <h1 className={`mt-4 ${publicHeadingClass}`}>
-              Everything your club needs to run the football week.
+              The weekly tools your football club actually uses.
             </h1>
           </div>
           <div className="max-w-2xl lg:justify-self-end">
@@ -162,7 +162,7 @@ export function PublicFeaturesPage() {
         <div className="relative overflow-hidden rounded-lg border border-[#c6ff1a]/30 bg-gradient-to-br from-[#132719] via-[#102016] to-[#07130b] p-6 shadow-2xl shadow-black/35 sm:p-8 lg:grid lg:grid-cols-[1fr_auto] lg:items-center lg:gap-8">
           <div className="absolute inset-x-0 top-0 h-1.5 bg-[#c6ff1a]" />
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">See the weekly workflow in action.</h2>
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">See the club tools in action.</h2>
             <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-white/70">
               Open the demo workspace or speak to us about setting up Football Player for your club.
             </p>
