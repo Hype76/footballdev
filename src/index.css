@@ -413,20 +413,12 @@ body.theme-dark [class*='hover:border-[#0f9f6e]']:hover {
   box-shadow: 0 14px 34px rgb(0 0 0 / 0.18);
 }
 
-.route-skeleton-card {
-  border: 1px solid var(--border-color);
-  background: var(--panel-bg);
-  box-shadow: 0 14px 34px rgb(0 0 0 / 0.16);
-}
-
-.route-skeleton-block {
-  background: color-mix(in srgb, var(--accent) 14%, var(--panel-alt));
+.route-minimal-loader {
+  color: var(--text-muted);
 }
 
 body.theme-light .route-loading-panel,
-body.theme-light .route-skeleton-card,
-html.theme-light .route-loading-panel,
-html.theme-light .route-skeleton-card {
+html.theme-light .route-loading-panel {
   box-shadow: 0 8px 20px rgb(16 24 40 / 0.06);
 }
 

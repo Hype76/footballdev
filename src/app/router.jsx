@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { Component, Suspense, lazy, useEffect } from 'react'
+import { Component, Suspense, lazy, useEffect, useState } from 'react'
 import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
@@ -99,12 +99,44 @@ const secondaryActionClassName =
   'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
 function LoadingScreen() {
+  const showLoader = useDelayedLoader()
+
+  if (!showLoader) {
+    return <main className="min-h-screen bg-[var(--app-bg)]" aria-hidden="true" />
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)]">
       <div className="route-loading-panel rounded-lg px-6 py-5 text-sm font-bold">
         Loading...
       </div>
     </main>
+  )
+}
+
+function useDelayedLoader(delay = 350) {
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsVisible(true), delay)
+
+    return () => window.clearTimeout(timer)
+  }, [delay])
+
+  return isVisible
+}
+
+function DelayedRouteFallback() {
+  const showLoader = useDelayedLoader()
+
+  if (!showLoader) {
+    return null
+  }
+
+  return (
+    <div className="route-minimal-loader px-4 py-6 text-sm font-bold text-[var(--text-muted)]" role="status" aria-live="polite">
+      Loading...
+    </div>
   )
 }
 
@@ -119,25 +151,6 @@ function isParentHost() {
 
 function NavigateToParentInvite() {
   return <Navigate to={window.location.pathname.replace(/^\/invite\//, '/parent-invite/')} replace />
-}
-
-function RouteContentSkeleton() {
-  return (
-    <div className="space-y-5 sm:space-y-6">
-      <div className="route-skeleton-card rounded-lg px-5 py-8">
-        <div className="route-skeleton-block h-4 w-28 rounded-lg" />
-        <div className="route-skeleton-block mt-5 h-10 w-64 max-w-full rounded-lg" />
-        <div className="route-skeleton-block mt-4 h-5 w-full max-w-xl rounded-lg" />
-      </div>
-      <div className="route-skeleton-card rounded-lg px-5 py-8">
-        <div className="route-skeleton-block h-8 w-40 rounded-lg" />
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="route-skeleton-block h-28 rounded-lg" />
-          <div className="route-skeleton-block h-28 rounded-lg" />
-        </div>
-      </div>
-    </div>
-  )
 }
 
 const accountRecoveryRules = [
@@ -445,7 +458,7 @@ function useWorkspaceRouteGate({
   }
 
   if (!user && isProfileLoading) {
-    return { element: <RouteContentSkeleton />, user: null }
+    return { element: <DelayedRouteFallback />, user: null }
   }
 
   if (!user) {
@@ -564,7 +577,7 @@ class RouteErrorBoundary extends Component {
 function PageSuspense({ children }) {
   return (
     <RouteErrorBoundary>
-      <Suspense fallback={<RouteContentSkeleton />}>{children}</Suspense>
+      <Suspense fallback={<DelayedRouteFallback />}>{children}</Suspense>
     </RouteErrorBoundary>
   )
 }
@@ -573,7 +586,7 @@ function WorkspaceHome() {
   const { authError, isProfileLoading, user } = useAuth()
 
   if (!user && isProfileLoading) {
-    return <RouteContentSkeleton />
+    return <DelayedRouteFallback />
   }
 
   if (!user) {
