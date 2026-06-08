@@ -7,6 +7,7 @@ import sessionsCalendarImage from '../assets/marketing/sessions-calendar.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import {
   PublicScreenshot,
+  PublicScrollProgress,
   publicEyebrowClass,
   publicHeadingClass,
   publicPageClass,
@@ -59,6 +60,7 @@ export function PublicLandingPage() {
 
   return (
     <main className={publicPageClass}>
+      <PublicScrollProgress />
       <section className="relative min-h-dvh overflow-hidden">
         <div className="absolute inset-0">
           <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />

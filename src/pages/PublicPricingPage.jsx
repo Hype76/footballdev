@@ -3,6 +3,7 @@ import fallbackLogo from '../assets/football-player-logo.png'
 import { DemoRequestModal } from '../components/login/DemoRequestModal.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import {
+  PublicScrollProgress,
   publicEyebrowClass,
   publicHeadingClass,
   publicPageClass,
@@ -183,6 +184,7 @@ export function PublicPricingPage() {
 
   return (
     <main className={publicPageClass}>
+      <PublicScrollProgress />
       <LoginHeader logo={fallbackLogo} />
 
       <section className={publicSectionClass}>

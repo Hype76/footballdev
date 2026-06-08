@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 export const publicPageClass = 'min-h-screen bg-[#06110a] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-white lg:pb-0'
 export const publicSectionClass = 'mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8'
 export const publicEyebrowClass = 'text-xs font-black uppercase tracking-[0.2em] text-[#c6ff1a]'
@@ -11,6 +13,58 @@ export function PublicScreenshot({ alt, image }) {
   return (
     <div className="overflow-hidden rounded-lg border border-white/12 bg-[#102016] shadow-2xl shadow-black/35">
       <img src={image} alt={alt} className="w-full" />
+    </div>
+  )
+}
+
+export function PublicScrollProgress() {
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    let frameId = 0
+
+    const updateProgress = () => {
+      frameId = 0
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || 0
+      const scrollHeight = document.documentElement.scrollHeight || 0
+      const viewportHeight = window.innerHeight || 0
+      const maxScroll = Math.max(scrollHeight - viewportHeight, 0)
+      const nextProgress = maxScroll > 0 ? Math.min(Math.max((scrollTop / maxScroll) * 100, 0), 100) : 0
+
+      setProgress(nextProgress)
+    }
+
+    const requestUpdate = () => {
+      if (frameId) {
+        return
+      }
+
+      frameId = window.requestAnimationFrame(updateProgress)
+    }
+
+    updateProgress()
+    window.addEventListener('scroll', requestUpdate, { passive: true })
+    window.addEventListener('resize', requestUpdate)
+
+    return () => {
+      window.removeEventListener('scroll', requestUpdate)
+      window.removeEventListener('resize', requestUpdate)
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
+  }, [])
+
+  return (
+    <div
+      aria-hidden="true"
+      data-public-scroll-progress="true"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[90] h-[3px] bg-[#06110a]/35"
+    >
+      <div
+        className="h-full origin-left bg-[#c6ff1a] shadow-[0_0_14px_rgba(198,255,26,0.34)]"
+        style={{ transform: `scaleX(${progress / 100})` }}
+      />
     </div>
   )
 }

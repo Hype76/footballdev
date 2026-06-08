@@ -5,6 +5,7 @@ import sessionsCalendarImage from '../assets/marketing/sessions-calendar.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import {
   PublicScreenshot,
+  PublicScrollProgress,
   publicEyebrowClass,
   publicHeadingClass,
   publicPageClass,
@@ -94,6 +95,7 @@ export function PublicFeaturesPage() {
 
   return (
     <main className={publicPageClass}>
+      <PublicScrollProgress />
       <LoginHeader logo={fallbackLogo} />
 
       <section className={publicSectionClass}>

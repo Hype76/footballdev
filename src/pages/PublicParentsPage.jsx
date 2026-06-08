@@ -4,6 +4,7 @@ import playersListImage from '../assets/marketing/players-list.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import {
   PublicScreenshot,
+  PublicScrollProgress,
   publicCardClass,
   publicEyebrowClass,
   publicHeadingClass,
@@ -64,6 +65,7 @@ export function PublicParentsPage() {
 
   return (
     <main className={publicPageClass}>
+      <PublicScrollProgress />
       <LoginHeader logo={fallbackLogo} />
 
       <section className={publicSectionClass}>
