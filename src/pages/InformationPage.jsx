@@ -15,7 +15,7 @@ import { getRoleQuickLinks } from '../lib/role-quick-links.js'
 
 const guideRules = [
   {
-    label: 'Start with the next job',
+    label: 'Start with the next action',
     body: 'Use the links and videos to complete a real football task, not to browse a generic help centre.',
   },
   {

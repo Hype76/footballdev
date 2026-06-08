@@ -136,7 +136,7 @@ export function Topbar({ title, onMenuClick }) {
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em]">
-              <span className="truncate text-[#047857]">{clubLabel}</span>
+              <span className="max-w-[min(18rem,55vw)] truncate whitespace-nowrap text-[#047857]">{clubLabel}</span>
               <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[#166534]">
                 {todayLabel}
               </span>
@@ -155,11 +155,11 @@ export function Topbar({ title, onMenuClick }) {
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">View</p>
-                <p className="mt-1 truncate text-sm font-black text-[#101828]">{workspaceContext}</p>
+                <p className="mt-1 truncate whitespace-nowrap text-sm font-black text-[#101828]">{workspaceContext}</p>
               </div>
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">Focus</p>
-                <p className="mt-1 truncate text-sm font-black text-[#101828]">{teamLabel}</p>
+                <p className="mt-1 truncate whitespace-nowrap text-sm font-black text-[#101828]">{teamLabel}</p>
               </div>
             </div>
 
@@ -238,8 +238,8 @@ export function Topbar({ title, onMenuClick }) {
 
             <div className="grid gap-2 sm:grid-cols-[1fr_auto] md:min-w-[16rem]">
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
-                <p className="truncate text-xs font-black text-[#101828]">{workLaneLabel}</p>
-                <p className="mt-1 truncate text-[11px] font-semibold text-[#66756c]">{roleLabel}, {userLabel}</p>
+                <p className="truncate whitespace-nowrap text-xs font-black text-[#101828]">{workLaneLabel}</p>
+                <p className="mt-1 truncate whitespace-nowrap text-[11px] font-semibold text-[#66756c]">{roleLabel}, {userLabel}</p>
               </div>
               <InstallAppButton
                 wrapperClassName="lg:hidden"

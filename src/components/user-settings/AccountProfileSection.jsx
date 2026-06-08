@@ -5,7 +5,7 @@ const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
 const infoCardClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#047857]'
-const valueClass = 'mt-2 break-words text-sm font-semibold text-[#101828]'
+const valueClass = 'mt-2 whitespace-normal break-normal text-sm font-semibold text-[#101828]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 

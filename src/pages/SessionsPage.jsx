@@ -52,21 +52,6 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
-const sessionRuleCards = [
-  {
-    label: 'Create the real block',
-    body: 'Use one session for one training night or match block so notes and records share the same football context.',
-  },
-  {
-    label: 'Build the player queue',
-    body: 'Add the relevant squad before recording so coaches can work through players without searching.',
-  },
-  {
-    label: 'Record then complete',
-    body: 'Capture quick notes first, finish player records next, then close the session when the work is done.',
-  },
-]
-
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#065f46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const primaryButtonClass = 'inline-flex min-h-14 items-center justify-center rounded-lg bg-[#047857] px-5 py-4 text-base font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
@@ -171,10 +156,6 @@ export function SessionsPage({ setupOpen = false }) {
     [combinedSessions, selectedSessionId],
   )
   const openSessionCount = combinedSessions.filter((session) => session.status !== 'completed').length
-  const completedSessionCount = combinedSessions.filter((session) => session.status === 'completed').length
-  const sessionQueueLabel = sessionPlayers.length > 0
-    ? `${assessedPlayerCount} of ${sessionPlayers.length} recorded`
-    : 'No players added'
 
   useEffect(() => {
     let isMounted = true
@@ -897,46 +878,34 @@ export function SessionsPage({ setupOpen = false }) {
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5">
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
-          <div>
-            <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className={eyebrowClass}>Session command</p>
-              <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-                Run training from plan to player record.
-              </h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                Sessions connect the football calendar to the coaching record. Create the block, add the squad, capture notes, then work through the player queue.
-              </p>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {sessionRuleCards.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#101828]/5">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">{item.label}</p>
-                    <p className={`mt-2 ${bodyTextClass}`}>{item.body}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="grid content-between border-t border-[#bbf7d0] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Current queue</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {selectedSession?.title || selectedSession?.team || 'No session selected'}
-              </p>
-              <p className={`mt-2 ${bodyTextClass}`}>
-                {selectedSession ? sessionQueueLabel : 'Create a session or open a saved one to start the player queue.'}
-              </p>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <SessionMetric label="Open" value={openSessionCount} isLoading={isLoading} />
-              <SessionMetric label="Complete" value={completedSessionCount} isLoading={isLoading} />
-              <SessionMetric label="Queued" value={sessionPlayers.length} isLoading={isSessionPlayersLoading} />
-              <SessionMetric label="Left" value={unassessedPlayerQueue.length} isLoading={isSessionPlayersLoading} />
-            </div>
-            <p className={`mt-4 ${bodyTextClass}`}>
-              Keep one active session selected so notes, records, and player progress stay together.
+      <section className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-5 shadow-sm shadow-[#101828]/5 sm:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className={eyebrowClass}>Sessions</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
+              Training and match sessions
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
+              Create a block, add players, then record coach notes against the right session.
             </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem]">
+            <button
+              type="button"
+              onClick={() => setIsCreateSessionModalOpen(true)}
+              className={primaryButtonClass}
+            >
+              Create session
+            </button>
+            <button
+              type="button"
+              onClick={handleCurrentSessionFocus}
+              disabled={!selectedSession}
+              className={secondaryButtonClass}
+            >
+              Open selected
+            </button>
           </div>
         </div>
       </section>

@@ -84,8 +84,8 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
         <NavIcon name={getNavIcon(item.path)} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black">{item.label}</span>
-        {item.helper ? <span className="mt-0.5 block truncate text-xs font-semibold opacity-70">{item.helper}</span> : null}
+        <span className="block truncate whitespace-nowrap text-sm font-black">{item.label}</span>
+        {item.helper ? <span className="mt-0.5 block truncate whitespace-nowrap text-xs font-semibold opacity-80">{item.helper}</span> : null}
       </span>
       {count > 0 ? (
         <span className="inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-lg bg-[#047857] px-2 text-xs font-black text-white shadow-sm shadow-[#047857]/20">
@@ -384,7 +384,7 @@ export function Sidebar({ isOpen, onClose }) {
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#047857]">
                     {isParentPortal ? 'Family portal' : 'Football OS'}
                   </p>
-                  <h2 className="mt-1 truncate text-lg font-black tracking-tight text-[#101828]">{clubLabel}</h2>
+                  <h2 className="mt-1 max-w-[min(12.5rem,calc(100vw-9rem))] truncate whitespace-nowrap text-lg font-black tracking-tight text-[#101828]">{clubLabel}</h2>
                 </div>
               </div>
             </div>
@@ -437,7 +437,7 @@ export function Sidebar({ isOpen, onClose }) {
                     [
                       'block rounded-lg px-3 py-3 transition',
                       isActive
-                        ? 'bg-[#ecfdf5] text-[#1e3a8a] shadow-sm shadow-[#047857]/10 ring-1 ring-[#0f9f6e]'
+                        ? 'bg-[#ecfdf5] text-[#065f46] shadow-sm shadow-[#047857]/10 ring-1 ring-[#0f9f6e]'
                         : 'bg-white text-[#4b5f55] shadow-sm shadow-[#047857]/5 hover:bg-[#ecfdf5] hover:text-[#101828]',
                     ].join(' ')
                   }
@@ -491,7 +491,7 @@ export function Sidebar({ isOpen, onClose }) {
                   [
                     'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
                     isActive
-                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#1e3a8a]'
+                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
                       : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
                   ].join(' ')
                 }
@@ -513,7 +513,7 @@ export function Sidebar({ isOpen, onClose }) {
                   [
                     'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
                     isActive
-                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#1e3a8a]'
+                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
                       : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
                   ].join(' ')
                 }
@@ -536,7 +536,7 @@ export function Sidebar({ isOpen, onClose }) {
                     [
                       'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
                       isActive
-                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#1e3a8a]'
+                      ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
                       : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
                     ].join(' ')
                   }
@@ -562,7 +562,7 @@ export function Sidebar({ isOpen, onClose }) {
                 [
                   'block rounded-lg border px-4 py-3 text-sm font-black transition shadow-sm shadow-[#047857]/10',
                   isActive
-                    ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#1e3a8a]'
+                    ? 'border-[#0f9f6e] bg-[#ecfdf5] text-[#065f46]'
                     : 'border-[#d7e5dc] bg-white text-[#4b5f55] hover:bg-[#f7faf8]',
                 ].join(' ')
               }
@@ -588,8 +588,8 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
     <details className="group rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-sm shadow-[#047857]/10">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-2 text-sm font-black text-[#101828]">
         <span className="min-w-0 flex-1">
-          <span className="block">{title}</span>
-          <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{groupDescriptions[title] || 'Workspace tools'}</span>
+          <span className="block truncate whitespace-nowrap">{title}</span>
+          <span className="mt-0.5 block truncate whitespace-nowrap text-xs font-semibold text-[#4b5f55]">{groupDescriptions[title] || 'Workspace tools'}</span>
         </span>
         <span className="inline-flex min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#4b5f55] group-open:hidden">Show</span>
         <span className="hidden min-h-9 min-w-14 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#4b5f55] group-open:inline-flex">Hide</span>
@@ -615,7 +615,7 @@ function NavGroup({ items, onClose, pollCount, queuedEmailCount, title }) {
                 [
                   'block rounded-lg px-3 py-3 transition',
                   isActive
-                    ? 'bg-[#ecfdf5] text-[#1e3a8a] shadow-sm shadow-[#047857]/10 ring-1 ring-[#0f9f6e]'
+                    ? 'bg-[#ecfdf5] text-[#065f46] shadow-sm shadow-[#047857]/10 ring-1 ring-[#0f9f6e]'
                     : 'text-[#4b5f55] hover:bg-[#f7faf8] hover:text-[#101828]',
                 ].join(' ')
               }

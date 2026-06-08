@@ -163,6 +163,7 @@ export function CoachHomePage() {
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
   const cacheKey = user?.clubId ? `coach-home:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
   const cachedValue = useMemo(() => readViewCache(cacheKey), [cacheKey])
+  const isSetupHidden = Boolean(user?.workspaceOnboardingDismissedAt || user?.userOnboardingDismissedAt)
   const [sessions, setSessions] = useState(() => cachedValue?.sessions || [])
   const [players, setPlayers] = useState(() => cachedValue?.players || [])
   const [evaluations, setEvaluations] = useState(() => cachedValue?.evaluations || [])
@@ -286,77 +287,79 @@ export function CoachHomePage() {
 
   return (
     <div className="space-y-5">
-      <section className={surfaceClass}>
-        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
-          <div>
-            <div className="px-5 py-6 sm:px-6 lg:px-8">
-              <p className={eyebrowClass}>Club command board</p>
-              <h1 className="mt-3 max-w-5xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
-                Start with the next football job.
-              </h1>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                This board is built around the work that moves a club week forward: players, training, parents, and match day.
-              </p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {visibleOperatingLanes.map((lane) => (
-                  <Link
-                    key={lane.label}
-                    to={lane.path}
-                    className="group rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-                  >
-                    <span className="inline-flex min-h-8 items-center rounded-lg border border-[#bbf7d0] bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">
-                      {lane.label}
-                    </span>
-                    <span className="mt-4 block text-base font-black leading-6 text-[#101828]">{lane.title}</span>
-                    <span className="mt-2 block text-sm font-semibold leading-6 text-[#4b5f55]">{lane.body}</span>
-                    <span className="mt-4 inline-flex min-h-9 items-center rounded-lg bg-[#047857] px-3 text-xs font-black text-white shadow-sm shadow-[#047857]/20 transition group-hover:bg-[#065f46]">
-                      Open
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:px-8">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {visibleQuickActions.map((action) => (
-                  <Link
-                    key={action.path}
-                    to={action.path}
-                    className={[
-                      'min-w-0 rounded-lg border px-4 py-4 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#93c5fd]',
-                      action.primary
-                        ? 'border-[#047857] bg-[#047857] text-white shadow-[#047857]/20'
-                        : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857] hover:bg-[#ecfdf5]',
-                    ].join(' ')}
-                  >
-                    <span className="block text-sm font-black leading-5">{action.label}</span>
-                    <span className={['mt-2 block text-xs font-semibold leading-5', action.primary ? 'text-[#ecfdf5]' : 'text-[#4b5f55]'].join(' ')}>
-                      {action.description}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
+      {!isSetupHidden ? (
+        <section className={surfaceClass}>
+          <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Today rule</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                Session first. Availability before match day.
+              <div className="px-5 py-6 sm:px-6 lg:px-8">
+                <p className={eyebrowClass}>Club focus</p>
+                <h1 className="mt-3 max-w-5xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+                  Keep the football week moving.
+                </h1>
+                <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
+                  Start with the club task that needs attention today: players, training, parents, or match day.
+                </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {visibleOperatingLanes.map((lane) => (
+                    <Link
+                      key={lane.label}
+                      to={lane.path}
+                      className="group rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+                    >
+                      <span className="inline-flex min-h-8 items-center rounded-lg border border-[#bbf7d0] bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">
+                        {lane.label}
+                      </span>
+                      <span className="mt-4 block text-base font-black leading-6 text-[#101828]">{lane.title}</span>
+                      <span className="mt-2 block text-sm font-semibold leading-6 text-[#4b5f55]">{lane.body}</span>
+                      <span className="mt-4 inline-flex min-h-9 items-center rounded-lg bg-[#047857] px-3 text-xs font-black text-white shadow-sm shadow-[#047857]/20 transition group-hover:bg-[#065f46]">
+                        Open
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:px-8">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {visibleQuickActions.map((action) => (
+                    <Link
+                      key={action.path}
+                      to={action.path}
+                      className={[
+                        'min-w-0 rounded-lg border px-4 py-4 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#93c5fd]',
+                        action.primary
+                          ? 'border-[#047857] bg-[#047857] text-white shadow-[#047857]/20'
+                          : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857] hover:bg-[#ecfdf5]',
+                      ].join(' ')}
+                    >
+                      <span className="block text-sm font-black leading-5">{action.label}</span>
+                      <span className={['mt-2 block text-xs font-semibold leading-5', action.primary ? 'text-[#ecfdf5]' : 'text-[#4b5f55]'].join(' ')}>
+                        {action.description}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Today</p>
+                <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+                  What needs attention today?
+                </p>
+              </div>
+              <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <CoachMetric label="Players" value={visiblePlayers.length} isLoading={isLoading} to="/players/current" actionLabel="Open" compact />
+                <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" compact />
+                <CoachMetric label="Waiting" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" compact />
+              </div>
+              <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
+                Use the live numbers here to pick the next practical action.
               </p>
             </div>
-            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <CoachMetric label="Players" value={visiblePlayers.length} isLoading={isLoading} to="/players/current" actionLabel="Open" compact />
-              <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" compact />
-              <CoachMetric label="Waiting" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" compact />
-            </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              The board uses live workspace data where possible, then pushes staff to the next useful action.
-            </p>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {readinessItems.map((item) => (

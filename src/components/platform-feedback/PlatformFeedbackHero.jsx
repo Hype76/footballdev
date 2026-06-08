@@ -31,7 +31,7 @@ export function PlatformFeedbackHero({ isLoading }) {
           <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10">
             <p className="text-sm font-black text-[#101828]">Best feedback format</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Describe the football job, the current friction, and the outcome the club needs.
+              Describe the club task, the current friction, and the outcome the club needs.
             </p>
           </div>
         </div>
