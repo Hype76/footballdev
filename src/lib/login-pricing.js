@@ -3,26 +3,27 @@ export const pricingPlans = [
     name: 'Individual',
     price: 'Free',
     priceLabel: 'No card needed',
-    description: 'For one coach running a small team with the core tools.',
-    features: ['1 team', '1 staff login', '5 players', '10 development records per month', 'Family portal', 'Match Day fully unlocked', 'Basic development form'],
+    displayName: 'Individual Coach',
+    description: 'For one coach testing the workflow with a small squad.',
+    features: ['1 team', '1 staff login', '5 players', 'Basic development records', 'Family portal'],
   },
   {
     name: 'Single Team',
     price: 9.99,
-    description: 'For one team that needs parent updates and more complete reporting.',
-    features: ['Individual +', '2 weeks trial included', 'Cancel anytime', '3 staff logins', '20 players', 'Unlimited development records', 'Parent email sending', 'PDF reports and attachments', 'Custom development fields', 'Basic logo branding'],
+    description: 'For one football group that needs records and parent updates.',
+    features: ['Everything in Individual Coach', '3 staff logins', '20 players', 'Parent email sending', 'PDF reports and attachments', 'Basic logo branding'],
   },
   {
     name: 'Small Club',
     price: 24.99,
     description: 'For clubs running several teams with staff access and oversight.',
-    features: ['Single Team +', 'Up to 10 teams', 'Unlimited staff logins', 'Unlimited players', 'Custom branding and themes', 'Staff roles with coach access', 'Audit logs', 'Priority support'],
+    features: ['Everything in Single Team', 'Up to 10 teams', 'Unlimited staff logins', 'Unlimited players', 'Custom branding and themes', 'Staff roles with coach access', 'Audit logs'],
   },
   {
     name: 'Large Club',
     price: 'Contact us',
     description: 'For larger clubs that need more teams, rollout help, or custom support.',
-    features: ['Small Club +', 'More than 10 teams', 'Custom setup', 'Custom rollout support', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
+    features: ['Everything in Small Club', 'More than 10 teams', 'Custom setup', 'Custom rollout support', 'Club-wide staff setup', 'Priority support', 'Custom limits agreed with you'],
   },
 ]
 
