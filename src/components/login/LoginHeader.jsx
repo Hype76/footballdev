@@ -215,13 +215,13 @@ export function LoginHeader({ logo }) {
     <>
       <header className="border-b border-white/10 bg-[#06110a]/90 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-sm shadow-black/20 backdrop-blur sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-          <a href="/" className="flex min-w-0 items-center gap-3 lg:order-1">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/14 bg-[#06110a] shadow-sm shadow-black/20 sm:h-14 sm:w-14">
-              <img src={logo} alt="Football Player" className="h-full w-full object-contain p-1" />
+          <a href="/" className="flex min-w-0 items-center gap-3.5 lg:order-1">
+            <div className="flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#c6ff1a]/24 bg-[#06110a] shadow-sm shadow-black/25 sm:h-16 sm:w-16">
+              <img src={logo} alt="Football Player" className="h-full w-full object-contain p-0.5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-lg font-black tracking-tight sm:text-xl">Football Player</p>
-              <p className="hidden truncate text-sm font-semibold text-white/62 min-[420px]:block">Football club management software</p>
+              <p className="truncate text-lg font-black tracking-tight text-white sm:text-[1.35rem]">Football Player</p>
+              <p className="hidden truncate text-[13px] font-semibold text-white/64 min-[420px]:block">Football club management software</p>
             </div>
           </a>
           <div className="flex items-center gap-2 lg:order-3">
@@ -243,7 +243,7 @@ export function LoginHeader({ logo }) {
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-black text-[#101828] sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
             />
           </div>
-          <nav className="hidden items-center gap-1 lg:flex">
+          <nav className="hidden items-center gap-1 lg:order-2 lg:flex">
             {navItems.map(([href, label]) => (
               <a
                 key={href}
