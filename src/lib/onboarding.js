@@ -449,7 +449,7 @@ function buildClubAdminSteps(user, snapshot, scope) {
       id: 'tester-feedback',
       title: 'Tester feedback',
       rule: 'Feedback should go through the staging feedback form.',
-      detail: 'Open the tester feedback form if anything in setup was confusing or broken.',
+      detail: 'Open the feedback form if anything in setup was confusing or broken.',
       href: '/feedback/new?route=/club-admin-setup',
       actionLabel: 'Report issue',
       actionType: 'feedback-handoff',
@@ -730,7 +730,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
       description: 'Confirm the assigned team is ready for this week without changing club-wide setup.',
       firstAction: user.activeTeamId ? '/players/current' : '/coach',
       scope,
-      title: 'Team manager setup',
+      title: 'Team setup',
       manualState,
       steps: buildTeamManagerSteps(user, snapshot, scope),
     }

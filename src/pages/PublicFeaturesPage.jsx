@@ -1,6 +1,7 @@
 import fallbackLogo from '../assets/football-player-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import { publicImageOverlayStyle, usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 
 const featureGroups = [
   {
@@ -32,17 +33,18 @@ const operatingRules = [
 ]
 
 export function PublicFeaturesPage() {
+  usePublicThemeScope()
+
   const openContactModal = () => {
     window.dispatchEvent(new CustomEvent('football-player:open-contact'))
   }
 
   return (
-    <main className="min-h-screen bg-[#f7faf8] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#101828] lg:pb-0">
+    <main className="min-h-screen bg-[var(--app-bg)] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="relative overflow-hidden">
         <img src={landingHeroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-100" />
-        <div className="absolute inset-0 bg-white/88" />
-        <div className="absolute inset-0 bg-[#ecfdf5]/58" />
+        <div className="absolute inset-0" style={publicImageOverlayStyle} />
         <div className="relative mx-auto grid min-h-[48svh] w-full max-w-7xl items-end gap-8 px-4 py-12 sm:min-h-[54svh] sm:px-6 sm:py-16 lg:min-h-[62vh] lg:px-8">
           <div className="max-w-4xl">
             <p className="inline-flex rounded-lg border border-[#bbf7d0] bg-white/95 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#047857] shadow-sm shadow-[#047857]/10 backdrop-blur">Features</p>

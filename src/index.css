@@ -233,18 +233,19 @@
     max-width: 100%;
   }
 
-  p,
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6,
-  span,
-  a,
-  label {
-    overflow-wrap: anywhere;
-  }
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+span,
+a,
+label {
+  overflow-wrap: normal;
+  word-break: normal;
+}
 
   button {
     cursor: pointer;

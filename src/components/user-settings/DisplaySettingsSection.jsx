@@ -5,11 +5,11 @@ const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const selectClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function DisplaySettingsSection({
-  canUseThemes,
+  canEditBranding,
+  brandingUnavailableMessage,
   onThemeAccentChange,
   onThemeButtonStyleChange,
   onThemeModeChange,
-  themeUnavailableMessage,
   themeButtonStyle,
   themeAccent,
   themeMode,
@@ -17,7 +17,7 @@ export function DisplaySettingsSection({
   return (
     <SectionCard
       title="Display"
-      description="Choose the shared theme and button style for your active team."
+      description="Choose your own display mode. Club Admins can also manage club branding."
       tourId="display-settings"
     >
       <div className="grid gap-4 md:grid-cols-3">
@@ -26,8 +26,6 @@ export function DisplaySettingsSection({
           <select
             value={themeMode}
             onChange={(event) => onThemeModeChange(event.target.value)}
-            disabled={!canUseThemes}
-            title={!canUseThemes ? themeUnavailableMessage : undefined}
             className={selectClass}
           >
             {themeModeOptions.map((option) => (
@@ -43,8 +41,8 @@ export function DisplaySettingsSection({
           <select
             value={themeAccent}
             onChange={(event) => onThemeAccentChange(event.target.value)}
-            disabled={!canUseThemes}
-            title={!canUseThemes ? themeUnavailableMessage : undefined}
+            disabled={!canEditBranding}
+            title={!canEditBranding ? brandingUnavailableMessage : undefined}
             className={selectClass}
           >
             {themeAccentOptions.map((option) => (
@@ -60,8 +58,8 @@ export function DisplaySettingsSection({
           <select
             value={themeButtonStyle}
             onChange={(event) => onThemeButtonStyleChange(event.target.value)}
-            disabled={!canUseThemes}
-            title={!canUseThemes ? themeUnavailableMessage : undefined}
+            disabled={!canEditBranding}
+            title={!canEditBranding ? brandingUnavailableMessage : undefined}
             className={selectClass}
           >
             {themeButtonStyleOptions.map((option) => (
@@ -86,8 +84,8 @@ export function DisplaySettingsSection({
           </span>
         </div>
       </div>
-      {!canUseThemes ? (
-        <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">{themeUnavailableMessage}</p>
+      {!canEditBranding ? (
+        <p className="mt-3 text-xs font-semibold leading-5 text-[#4b5f55]">{brandingUnavailableMessage}</p>
       ) : null}
     </SectionCard>
   )

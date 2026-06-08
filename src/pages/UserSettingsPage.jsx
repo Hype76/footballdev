@@ -7,10 +7,11 @@ import { SetupChecklistSettingsSection } from '../components/user-settings/Setup
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
-import { canManageClubSettings, canManageTeamAppearance, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
+import { canManageClubSettings, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
 import {
   requestLoginEmailChange,
   updateTeamSettings,
+  updateOwnThemeSettings,
   updateOwnUserSettings,
   updateSignedInPassword,
 } from '../lib/supabase.js'
@@ -48,7 +49,7 @@ export function UserSettingsPage() {
   const isParentSettings = isParentPortalUser(user)
   const isClubAdminSettings = isClubAdmin(user)
   const showSenderIdentity = Boolean(user?.clubId) && !isParentSettings && !isClubAdminSettings && user?.role !== 'super_admin'
-  const showDisplaySettings = canManageTeamAppearance(user) && Boolean(user?.activeTeamId)
+  const showDisplaySettings = Boolean(user?.id)
   const showSetupChecklistSettings = Boolean(user?.id) && user?.role !== 'super_admin'
   const [username, setUsername] = useState(user?.username || user?.name || '')
   const [email, setEmail] = useState(user?.email || authUser?.email || '')
@@ -246,8 +247,31 @@ export function UserSettingsPage() {
     }
   }
 
-  const persistThemePreferences = async (nextPreferences) => {
+  const persistUserThemePreference = async (nextThemeMode) => {
     if (isDemoSettings) {
+      return
+    }
+
+    try {
+      const updatedProfile = await updateOwnThemeSettings({
+        authUser,
+        mode: nextThemeMode,
+      })
+      updateCurrentUserDetails({
+        themeMode: updatedProfile.themeMode,
+      })
+    } catch (error) {
+      console.error(error)
+      showToast({
+        title: 'Theme not saved',
+        message: 'Your display preference could not be updated right now.',
+        tone: 'error',
+      })
+    }
+  }
+
+  const persistBrandingPreferences = async (nextPreferences) => {
+    if (isDemoSettings || !canEditClubBranding) {
       return
     }
 
@@ -256,32 +280,25 @@ export function UserSettingsPage() {
         teamId: user.activeTeamId,
         user,
         data: {
-          themeMode: nextPreferences.mode,
           themeAccent: nextPreferences.accent,
           themeButtonStyle: nextPreferences.buttonStyle,
         },
       })
       updateCurrentUserDetails({
-        themeMode: updatedTeam.themeMode,
         themeAccent: updatedTeam.themeAccent,
         themeButtonStyle: updatedTeam.themeButtonStyle,
       })
     } catch (error) {
       console.error(error)
       showToast({
-        title: 'Team theme not saved',
-        message: 'Your team appearance could not be updated right now.',
+        title: 'Club branding not saved',
+        message: 'The club branding could not be updated right now.',
         tone: 'error',
       })
     }
   }
 
   const handleThemeModeChange = (nextThemeMode) => {
-    if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
-      return
-    }
-
     const nextPreferences = saveThemePreferences({
       mode: nextThemeMode,
       accent: themeAccent,
@@ -290,13 +307,13 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     setThemeButtonStyle(nextPreferences.buttonStyle)
-    showToast({ title: 'Team theme updated', message: 'The active team display preference has been saved.' })
-    void persistThemePreferences(nextPreferences)
+    showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
+    void persistUserThemePreference(nextPreferences.mode)
   }
 
   const handleThemeAccentChange = (nextThemeAccent) => {
-    if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
+    if (!canEditClubBranding) {
+      showToast({ title: 'Branding not changed', message: brandingUnavailableMessage, tone: 'error' })
       return
     }
 
@@ -308,13 +325,13 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     setThemeButtonStyle(nextPreferences.buttonStyle)
-    showToast({ title: 'Team theme updated', message: 'The active team colour preference has been saved.' })
-    void persistThemePreferences(nextPreferences)
+    showToast({ title: 'Club branding updated', message: 'The club accent colour has been saved.' })
+    void persistBrandingPreferences(nextPreferences)
   }
 
   const handleThemeButtonStyleChange = (nextThemeButtonStyle) => {
-    if (!hasPlanFeature(user, 'themes')) {
-      showToast({ title: 'Theme not changed', message: createFeatureUpgradeMessage('themes', user), tone: 'error' })
+    if (!canEditClubBranding) {
+      showToast({ title: 'Branding not changed', message: brandingUnavailableMessage, tone: 'error' })
       return
     }
 
@@ -326,8 +343,8 @@ export function UserSettingsPage() {
     setThemeMode(nextPreferences.mode)
     setThemeAccent(nextPreferences.accent)
     setThemeButtonStyle(nextPreferences.buttonStyle)
-    showToast({ title: 'Team theme updated', message: 'The active team button style has been saved.' })
-    void persistThemePreferences(nextPreferences)
+    showToast({ title: 'Club branding updated', message: 'The club button style has been saved.' })
+    void persistBrandingPreferences(nextPreferences)
   }
 
   const getOnboardingScope = () => (canManageClubSettings(user) || canManageTeamSettings(user) ? 'workspace' : 'user')
@@ -363,7 +380,14 @@ export function UserSettingsPage() {
   }
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
-  const canUseThemes = showDisplaySettings && hasPlanFeature(user, 'themes')
+  const canEditClubBranding = Boolean(user?.activeTeamId) && isClubAdminSettings && hasPlanFeature(user, 'themes')
+  const brandingUnavailableMessage = !isClubAdminSettings
+    ? 'Club branding is set by a Club Admin. You can still choose your own display mode.'
+    : !user?.activeTeamId
+      ? 'Choose a team before editing club branding.'
+      : !hasPlanFeature(user, 'themes')
+        ? createFeatureUpgradeMessage('themes', user)
+        : ''
   const canEditEmailClubName = showSenderIdentity && canEditClubIdentity(user)
   const pageTitle = isParentSettings ? 'Parent account' : 'My account'
   const pageDescription = isParentSettings
@@ -390,9 +414,9 @@ export function UserSettingsPage() {
       caption: 'Controls which tools and records you can use.',
     },
     {
-      label: 'Onboarding scope',
-      value: onboardingScopeLabel,
-      caption: 'Controls where the setup checklist is saved.',
+      label: 'Setup checklist',
+      value: onboardingScope === 'workspace' ? 'Workspace' : 'Account',
+      caption: 'Shows where setup progress is saved.',
     },
   ]
 
@@ -430,7 +454,7 @@ export function UserSettingsPage() {
               {accountSummary.map((item) => (
                 <AccountMetric key={item.label} label={item.label} value={item.value || 'Not set'} />
               ))}
-              <AccountMetric label="Demo lock" value={isDemoSettings ? 'On' : 'Off'} />
+              <AccountMetric label="Demo account" value={isDemoSettings ? 'Yes' : 'No'} />
             </div>
           </div>
         </div>
@@ -472,11 +496,11 @@ export function UserSettingsPage() {
         <div className="space-y-5">
           {showDisplaySettings ? (
             <DisplaySettingsSection
-              canUseThemes={canUseThemes}
+              canEditBranding={canEditClubBranding}
+              brandingUnavailableMessage={brandingUnavailableMessage}
               onThemeAccentChange={handleThemeAccentChange}
               onThemeButtonStyleChange={handleThemeButtonStyleChange}
               onThemeModeChange={handleThemeModeChange}
-              themeUnavailableMessage={createFeatureUpgradeMessage('themes', user)}
               themeAccent={themeAccent}
               themeButtonStyle={themeButtonStyle}
               themeMode={themeMode}

@@ -39,7 +39,6 @@ import {
   canEditClubIdentity,
 } from '../plans.js'
 import {
-  assertClubFeature,
   assertPlayerLimitForUpsert,
   findExistingPlayer,
 } from './plan-gates.js'
@@ -757,38 +756,19 @@ export async function updateOwnUserSettings({
   })
 }
 
-export async function updateOwnThemeSettings({ authUser, mode, accent }) {
+export async function updateOwnThemeSettings({ authUser, mode }) {
   if (!authUser?.id) {
     throw new Error('Signed in user is required.')
   }
 
   await blockDemoMutation(authUser)
 
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select(USER_PROFILE_SELECT)
-    .eq('id', authUser.id)
-    .single()
-
-  if (profileError) {
-    console.error(profileError)
-    throw profileError
-  }
-
-  await assertClubFeature({
-    user: normalizeUserProfile(profile),
-    clubId: profile.club_id,
-    featureName: 'themes',
-  })
-
   const normalizedMode = ['system', 'dark', 'light'].includes(mode) ? mode : 'system'
-  const normalizedAccent = ['yellow', 'blue', 'green', 'red', 'purple'].includes(accent) ? accent : 'yellow'
 
   const { data, error } = await supabase
     .from('users')
     .update({
       theme_mode: normalizedMode,
-      theme_accent: normalizedAccent,
     })
     .eq('id', authUser.id)
     .select(USER_PROFILE_SELECT)

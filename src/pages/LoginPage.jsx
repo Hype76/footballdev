@@ -3,6 +3,7 @@ import fallbackLogo from '../assets/football-player-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import { publicImageOverlayStyle, usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { useAuth } from '../lib/auth.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 
@@ -39,6 +40,8 @@ function getFriendlyAuthErrorMessage(error, mode) {
 }
 
 export function LoginPage() {
+  usePublicThemeScope()
+
   const { authError, resetPassword, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
   const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const signupBoxRef = useRef(null)
@@ -190,6 +193,7 @@ export function LoginPage() {
         await signInWithPassword({
           email: formData.email.trim(),
           password: formData.password,
+          preferredAccessMode: mode === 'parent-login' || parentInviteToken ? 'parent' : '',
         })
 
         if (parentInviteToken) {
@@ -222,11 +226,10 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f7faf8] text-[#101828]">
+    <main className="min-h-screen overflow-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
       <div className="fixed inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-white/88" />
-        <div className="absolute inset-0 bg-[#f7faf8]/70" />
+        <div className="absolute inset-0" style={publicImageOverlayStyle} />
       </div>
 
       <div className="relative flex min-h-screen w-full flex-col">

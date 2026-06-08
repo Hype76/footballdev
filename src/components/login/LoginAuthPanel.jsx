@@ -17,6 +17,30 @@ export function LoginAuthPanel({
   paymentsDisabled = false,
   signupBoxRef,
 }) {
+  const modeCopy = {
+    login: {
+      eyebrow: 'Club login',
+      title: 'Open your club workspace',
+      body: 'For club admins, team admins, coaches, and staff using the main workspace.',
+      submitLabel: 'Log in',
+    },
+    'parent-login': {
+      eyebrow: 'Parent login',
+      title: 'Open parent access',
+      body: 'For parents and family contacts linked to a player by their club.',
+      submitLabel: 'Open parent portal',
+    },
+    signup: {
+      eyebrow: 'Create account',
+      title: parentInviteMode ? 'Create parent access' : 'Start or join a club',
+      body: parentInviteMode
+        ? 'Create a parent account to accept your child link.'
+        : 'Create a club admin account, or sign up with an email already allocated by your club.',
+      submitLabel: 'Create account',
+    },
+  }
+  const currentCopy = modeCopy[mode] || modeCopy.login
+
   return (
     <section ref={signupBoxRef}>
       <div className="mx-auto w-full max-w-md rounded-lg border border-[#d7e5dc] bg-white p-5 text-[#101828] shadow-lg shadow-[#101828]/10 sm:p-6">
@@ -25,41 +49,39 @@ export function LoginAuthPanel({
         </div>
         <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-5">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-[#047857]">
-            {mode === 'signup' ? 'Create account' : 'Secure login'}
+            {currentCopy.eyebrow}
           </p>
           <h2 className="mt-3 text-2xl font-black tracking-tight text-[#101828]">
-            {parentInviteMode ? 'Open parent access' : mode === 'signup' ? 'Start or join a club' : 'Open your workspace'}
+            {parentInviteMode ? 'Open parent access' : currentCopy.title}
           </h2>
           <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-            {parentInviteMode
-              ? 'Log in or create a parent account to accept your child link.'
-              : mode === 'signup'
-              ? 'Create a club admin account, or sign up with an email already allocated by your club.'
-              : 'Use the email and password linked to your club access.'}
+            {parentInviteMode ? 'Log in or create a parent account to accept your child link.' : currentCopy.body}
           </p>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-1">
-          <button
-            type="button"
-            onClick={() => onModeChange('login')}
-            className={[
-              'min-h-11 rounded-lg px-4 py-3 text-sm font-black transition',
-              mode === 'login' ? 'bg-[#047857] text-white shadow-sm shadow-[#047857]/20' : 'text-[#4b5f55] hover:bg-white hover:text-[#101828]',
-            ].join(' ')}
-          >
-            Login
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange('signup')}
-            className={[
-              'min-h-11 rounded-lg px-4 py-3 text-sm font-black transition',
-              mode === 'signup' ? 'bg-[#047857] text-white shadow-sm shadow-[#047857]/20' : 'text-[#4b5f55] hover:bg-white hover:text-[#101828]',
-            ].join(' ')}
-          >
-            Sign Up
-          </button>
+        <div className="mt-5 grid gap-3">
+          {[
+            ['login', 'Club Login', 'Staff workspace'],
+            ['parent-login', 'Parent Login', 'Family portal'],
+            ['signup', 'Sign Up', parentInviteMode ? 'Create parent account' : 'Create club account'],
+          ].map(([nextMode, label, helper]) => (
+            <button
+              key={nextMode}
+              type="button"
+              onClick={() => onModeChange(nextMode)}
+              className={[
+                'flex min-h-14 items-center justify-between rounded-lg border px-4 py-3 text-left transition',
+                mode === nextMode
+                  ? 'border-[#047857] bg-[#047857] text-white shadow-sm shadow-[#047857]/20'
+                  : 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828] hover:border-[#0f9f6e] hover:bg-white',
+              ].join(' ')}
+            >
+              <span className="text-sm font-black">{label}</span>
+              <span className={mode === nextMode ? 'text-xs font-bold text-white/80' : 'text-xs font-bold text-[#4b5f55]'}>
+                {helper}
+              </span>
+            </button>
+          ))}
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -171,9 +193,9 @@ export function LoginAuthPanel({
               title={isSubmitting ? 'Please wait while your request is being checked.' : undefined}
               className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Log in'}
+              {isSubmitting ? 'Please wait...' : currentCopy.submitLabel}
             </button>
-            {mode === 'login' ? (
+            {mode === 'login' || mode === 'parent-login' ? (
               <>
                 <button
                   type="button"

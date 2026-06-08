@@ -81,7 +81,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
     {
       id: 'club-details',
       title: 'Confirm club details',
-      body: 'Check the club name, contact details, and badge used inside the test workspace.',
+      body: 'Check the club name, contact details, and badge used inside the workspace.',
       href: '/club-settings',
       action: 'Open club settings',
       targetSelector: '[data-tour-id="club-profile-settings"]',
@@ -99,7 +99,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
     {
       id: 'team-admin',
       title: 'Invite or assign team admin',
-      body: 'Invite or assign a Team Admin when this club needs another person connected to the team. Pending assigned invites count for staging setup, so the club can keep moving while the person accepts later.',
+      body: 'Invite or assign a Team Admin when this club needs another person connected to the team. Pending assigned invites count, so the club can keep moving while the person accepts later.',
       href: '/user-access',
       action: 'Open staff access',
       targetSelector: '[data-tour-id="allocate-role-section"]',
@@ -138,8 +138,8 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
     },
     {
       id: 'feedback',
-      title: 'Submit tester feedback',
-      body: 'Report anything confusing from this Phase 1 setup path.',
+      title: 'Send setup feedback',
+      body: 'Report anything confusing from this setup path.',
       href: '/feedback/new?route=/phase-1-setup-guide',
       action: 'Report issue',
       targetSelector: '[data-tour-id="tester-feedback-form"]',
@@ -155,7 +155,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
     {
       id: 'team-context',
       title: 'Confirm assigned team',
-      body: hasTeam ? 'Check that the active team is the one you should test.' : 'A club admin needs to assign a team before team setup can continue.',
+      body: hasTeam ? 'Check that the active team is the one you should use.' : 'A club admin needs to assign a team before team setup can continue.',
       href: '/coach',
       action: 'Open workspace',
       targetSelector: '[data-tour-id="coach-active-team"]',
@@ -174,7 +174,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
     {
       id: 'add-player',
       title: 'Add player if permitted',
-      body: 'Add one player when this test account is allowed to create player records.',
+      body: 'Add one player when this account is allowed to create player records.',
       href: '/add-player',
       action: 'Add player',
       targetSelector: '[data-tour-id="add-player-form-section"]',
@@ -203,8 +203,8 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
     },
     {
       id: 'feedback',
-      title: 'Submit tester feedback',
-      body: 'Report anything confusing from this Phase 1 team workflow.',
+      title: 'Send setup feedback',
+      body: 'Report anything confusing from this team workflow.',
       href: '/feedback/new?route=/phase-1-setup-guide',
       action: 'Report issue',
       targetSelector: '[data-tour-id="tester-feedback-form"]',
@@ -217,8 +217,8 @@ function buildPlatformSteps() {
   return [
     {
       id: 'platform-dashboard',
-      title: 'Confirm staging environment',
-      body: 'Open platform admin and confirm this is the staging test workspace.',
+      title: 'Confirm workspace',
+      body: 'Open platform admin and confirm the current workspace is correct.',
       href: '/platform-admin',
       action: 'Open platform admin',
       targetSelector: '[data-tour-id="platform-admin-overview"]',
@@ -235,8 +235,8 @@ function buildPlatformSteps() {
     },
     {
       id: 'feedback',
-      title: 'Submit or review tester feedback',
-      body: 'Use tester feedback to capture issues found during the Phase 1 loop.',
+      title: 'Submit or review feedback',
+      body: 'Use feedback to capture issues found during setup.',
       href: '/feedback/new?route=/phase-1-setup-guide',
       action: 'Report issue',
       targetSelector: '[data-tour-id="tester-feedback-form"]',
@@ -244,8 +244,8 @@ function buildPlatformSteps() {
     },
     {
       id: 'clubs',
-      title: 'Monitor test accounts and clubs',
-      body: 'Use current admin tools to review staging clubs created by tester signup.',
+      title: 'Monitor accounts and clubs',
+      body: 'Use current admin tools to review clubs created by signup.',
       href: '/platform-clubs',
       action: 'Open clubs',
       targetSelector: '[data-tour-id="platform-clubs-list"]',
@@ -255,7 +255,7 @@ function buildPlatformSteps() {
 }
 
 function getGuideTitle() {
-  return 'Phase 1 staging setup'
+  return 'Setup guide'
 }
 
 function isTeamAdminRole(entry) {
@@ -469,10 +469,10 @@ export function PhaseSetupGuide() {
         <div className="border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className={eyebrowClass}>Staging test guide</p>
+              <p className={eyebrowClass}>Setup guide</p>
               <h2 id="phase-setup-guide-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">{getGuideTitle()}</h2>
               <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#294238]">
-                This is a simple setup guide for staging testers. It is not the final live onboarding experience. The full version will be more polished and tailored later. For now, follow these steps so we can test the core club, team, player, and feedback flow.
+                Follow these steps so the core club, team, player, parent, and feedback flow is ready for real use.
               </p>
             </div>
             <button

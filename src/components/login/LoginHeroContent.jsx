@@ -63,7 +63,7 @@ export function LoginHeroContent() {
 
       <div className="mt-7 grid max-w-6xl gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5]/95 p-5 shadow-sm shadow-[#047857]/10 backdrop-blur sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">First run setup</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Setup checklist</p>
           <div className="mt-5 grid gap-3">
             {setupSteps.map(([number, title, copy]) => (
               <article key={title} className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-lg border border-[#d7e5dc] bg-white p-4">

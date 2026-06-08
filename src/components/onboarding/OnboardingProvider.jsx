@@ -105,9 +105,9 @@ function StepMarker({ index, complete }) {
           ? 'border-[#047857] bg-[#047857] text-white'
           : 'border-[#d7e5dc] bg-white text-[#4b5f55]',
       ].join(' ')}
-      aria-label={complete ? 'Complete' : 'Not complete'}
+      aria-label={complete ? 'Completed' : 'Not completed'}
     >
-      {complete ? 'OK' : index + 1}
+      {complete ? 'Done' : index + 1}
     </span>
   )
 }
@@ -181,7 +181,7 @@ function SetupStepCard({ index, onAction, onComplete, step }) {
                   : 'border-[#fedf89] bg-[#fffbeb] text-[#93370d]',
               ].join(' ')}
             >
-              {step.complete ? 'Ready' : step.manualLabel ? 'Optional' : 'Needed'}
+              {step.complete ? 'Done' : step.manualLabel ? 'Optional' : 'Needed'}
             </span>
           </div>
           <p className="mt-2 text-sm font-black leading-6 text-[#4b5f55]">{step.rule}</p>
@@ -227,10 +227,10 @@ function CompactOnboardingPanel({
         <div className="px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
-              <p className={eyebrowClass}>First run setup</p>
+              <p className={eyebrowClass}>Setup checklist</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-                {isLoading ? 'Refreshing workspace data.' : `${progress.completedCount} of ${progress.totalCount} setup checks are complete.`}
+                {isLoading ? 'Refreshing workspace data.' : `${progress.completedCount} of ${progress.totalCount} setup steps are done.`}
               </p>
             </div>
             <div className="grid shrink-0 gap-2 sm:grid-cols-2 md:min-w-[17rem]">
@@ -246,7 +246,7 @@ function CompactOnboardingPanel({
                 onClick={handleDismiss}
                 className={secondaryButtonClass}
               >
-                Skip for now
+                Hide setup
               </button>
             </div>
           </div>
@@ -867,7 +867,7 @@ function OnboardingActionModal({
         <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className={eyebrowClass}>{wizardEnabled ? wizard.badge : 'First run setup'}</p>
+              <p className={eyebrowClass}>{wizardEnabled ? wizard.badge : 'Setup checklist'}</p>
               <h2 id="onboarding-action-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
                 {wizardEnabled ? wizard.title : title}
               </h2>
@@ -1227,10 +1227,10 @@ function OnboardingActionModal({
           {actionType === 'feedback-handoff' ? (
             <div className="grid gap-4">
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Feedback opens the existing tester feedback page. This wizard does not create a separate feedback system.
+                Feedback opens the existing feedback page. This wizard does not create a separate feedback system.
               </div>
               <button type="button" onClick={() => wizard?.openFeedback?.()} className={primaryButtonClass}>
-                Open tester feedback
+                Open feedback
               </button>
             </div>
           ) : null}
@@ -1463,7 +1463,7 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
     const isTeamAction =
       !isClubWideSetup &&
       (
-        plan?.title === 'Team manager setup' ||
+        plan?.title === 'Team setup' ||
         plan?.title === 'Coach setup' ||
         stepId.startsWith('team-') ||
         stepId.startsWith('coach-') ||
@@ -1629,8 +1629,8 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
           updateCurrentUserDetails={updateCurrentUserDetails}
           user={user}
           wizard={{
-            badge: 'Staging test guide',
-            copy: 'This is a simple setup guide for staging testers. It is not the final live onboarding experience. The full version will be more polished and tailored later. For now, follow these steps so we can test the core club, team, player, and feedback flow.',
+            badge: 'Setup guide',
+            copy: 'Follow these steps so the club, team, player, parent, and feedback flow is ready for real use.',
             onBack: () => setClubAdminWizardStepIndex((current) => Math.max(current - 1, 0)),
             onDismiss: handleDismiss,
             onNext: () => setClubAdminWizardStepIndex((current) => Math.min(current + 1, Math.max(clubAdminSteps.length - 1, 0))),
@@ -1639,7 +1639,7 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
               navigate('/feedback/new?route=/club-admin-setup')
             },
             stepIndex: clubAdminWizardStepIndex,
-            title: 'Phase 1 staging setup',
+            title: 'Club setup',
             totalSteps: clubAdminSteps.length,
           }}
         />
@@ -1666,7 +1666,7 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
           <div className="border-b border-[#dbe6ef] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
               <div className="min-w-0">
-                <p className={eyebrowClass}>First run setup</p>
+                <p className={eyebrowClass}>Setup checklist</p>
                 <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
                   {plan.title}
                 </h2>
@@ -1702,7 +1702,7 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
                       {nextStep?.actionLabel || 'Start setup'}
                     </ActionButton>
                     <button type="button" onClick={handleDismiss} className={secondaryButtonClass}>
-                      Skip for now
+                      Hide setup
                     </button>
                   </div>
                 </div>
@@ -1726,7 +1726,7 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
 
             <div className="mt-4 flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between">
               <p className={bodyTextClass}>
-                Skip pauses setup. Reset starts this first-run path again for a fresh club launch or testing.
+                Hide setup removes this panel from the dashboard. You can reopen it from Account settings.
               </p>
               <button
                 type="button"
@@ -1749,10 +1749,10 @@ export function OnboardingProvider({ children, suppressSetup = false }) {
         <section className="mb-6 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10 sm:px-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <p className={eyebrowClass}>Setup paused</p>
+              <p className={eyebrowClass}>Setup hidden</p>
               <h2 className="mt-1 text-xl font-black tracking-tight text-[#101828]">{plan.title}</h2>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-                {progress.completedCount} of {progress.totalCount} setup checks are complete. Reopen setup when the club is ready to finish the next real action.
+                {progress.completedCount} of {progress.totalCount} setup steps are done. Next: {nextStep?.title || 'No required step left'}.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[24rem]">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import fallbackLogo from '../assets/football-player-logo.png'
 import { DemoRequestModal } from '../components/login/DemoRequestModal.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { formatPrice, formatPriceLabel, getPromotionSummary, pricingPlans } from '../lib/login-pricing.js'
 
 const initialDemoFormData = {
@@ -12,6 +13,8 @@ const initialDemoFormData = {
 }
 
 export function PublicPricingPage() {
+  usePublicThemeScope()
+
   const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
   const [billingCycle, setBillingCycle] = useState('monthly')
   const [demoPlan, setDemoPlan] = useState(null)
@@ -136,7 +139,7 @@ export function PublicPricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7faf8] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[#101828] lg:pb-0">
+    <main className="min-h-screen bg-[var(--app-bg)] pb-[max(5.5rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] lg:pb-0">
       <LoginHeader logo={fallbackLogo} />
       <section className="mx-auto w-full max-w-7xl px-4 py-8 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
         <div className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6 lg:p-8">

@@ -2,15 +2,17 @@ import fallbackLogo from '../assets/football-player-logo.png'
 import landingHeroImage from '../assets/landing-hero-football-club.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { LoginHeroContent } from '../components/login/LoginHeroContent.jsx'
+import { publicImageBottomFadeStyle, publicImageOverlayStyle, usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 
 export function PublicLandingPage() {
+  usePublicThemeScope()
+
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#f7faf8] text-[#101828]">
+    <main className="relative min-h-dvh overflow-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
       <div className="absolute inset-0">
         <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-white/88" />
-        <div className="absolute inset-0 bg-[#ecfdf5]/58" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-[#f7faf8]/86" />
+        <div className="absolute inset-0" style={publicImageOverlayStyle} />
+        <div className="absolute inset-x-0 bottom-0 h-40" style={publicImageBottomFadeStyle} />
       </div>
 
       <div className="relative flex min-h-dvh w-full flex-col">
