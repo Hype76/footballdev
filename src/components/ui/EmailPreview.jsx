@@ -58,6 +58,7 @@ export function EmailPreview({
   session = '',
   emailSubject = '',
   emailBody = '',
+  emailSections = [],
   recipientNames = '',
   responseItems = [],
   mode = 'scored',
@@ -77,6 +78,7 @@ export function EmailPreview({
         planKey,
         logoUrl,
         emailBody,
+        emailSections,
         responses: responseItems,
       })
     : ''

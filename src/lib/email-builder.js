@@ -110,6 +110,63 @@ function buildResponseMarkup(responseItems) {
   `
 }
 
+function buildProgressionChartMarkup(points = []) {
+  if (!Array.isArray(points) || points.length < 2) {
+    return ''
+  }
+
+  const maxValue = points.some((point) => Number(point.value) > 5) ? 10 : 5
+  const width = 360
+  const height = 120
+  const padding = 18
+  const innerWidth = width - padding * 2
+  const innerHeight = height - padding * 2
+  const coordinates = points.map((point, index) => {
+    const x = points.length === 1 ? width / 2 : padding + (index / (points.length - 1)) * innerWidth
+    const value = Math.min(maxValue, Math.max(0, Number(point.value ?? 0)))
+    const y = padding + innerHeight - (value / maxValue) * innerHeight
+    return { ...point, x, y }
+  })
+  const linePath = coordinates.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ')
+
+  return `
+    <div style="margin: 10px 0 0; border: 1px solid #e7ece3; border-radius: 10px; background: #ffffff; padding: 10px;">
+      <svg width="100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="Progression score chart" style="display: block;">
+        <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="#d7e5dc" stroke-width="2" />
+        <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="#d7e5dc" stroke-width="2" />
+        <path d="${linePath}" fill="none" stroke="#047857" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+        ${coordinates.map((point) => `
+          <circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="5" fill="#ccff00" stroke="#047857" stroke-width="2" />
+        `).join('')}
+      </svg>
+      <p style="margin: 8px 0 0; color: #4f6552; font-size: 12px; line-height: 1.45;">${escapeHtml(points.map((point) => `${point.label}: ${Number(point.value).toFixed(1)}`).join(' | '))}</p>
+    </div>
+  `
+}
+
+function buildEmailSectionMarkup(emailSections) {
+  const sections = Array.isArray(emailSections)
+    ? emailSections.filter((section) => String(section?.body ?? '').trim())
+    : []
+
+  if (sections.length === 0) {
+    return ''
+  }
+
+  return `
+    <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 12px; margin: 0 0 20px;">
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Coach update</p>
+      ${sections.map((section) => `
+        <div style="border: 1px solid #e7ece3; border-radius: 10px; background: #ffffff; padding: 12px 14px; margin: 0 0 10px;">
+          <p style="margin: 0 0 6px; color: #142018; font-size: 14px; font-weight: 700;">${escapeHtml(section.title)}</p>
+          <p style="margin: 0; color: #4f6552; font-size: 13px; line-height: 1.5;">${formatLines(section.body)}</p>
+          ${section.chartPoints ? buildProgressionChartMarkup(section.chartPoints) : ''}
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
 function getSafeLogoUrl(logoUrl) {
   const normalizedLogoUrl = String(logoUrl ?? '').trim()
 
@@ -147,6 +204,7 @@ export function buildEmailHtml({
   section,
   session,
   responses,
+  emailSections,
   emailBody,
   logoUrl,
 }) {
@@ -209,6 +267,8 @@ export function buildEmailHtml({
         <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Development responses</p>
         ${buildResponseMarkup(responseItems)}
       </div>
+
+      ${buildEmailSectionMarkup(emailSections)}
 
       <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions, just reply to this email.</p>
       <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeHtml(resolvedClub || 'Club')} | ${escapeHtml(resolvedTeam || 'Team')}</p>

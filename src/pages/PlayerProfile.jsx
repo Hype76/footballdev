@@ -6,6 +6,7 @@ import { PlayerMergeAssessments } from '../components/players/PlayerMergeAssessm
 import { PlayerOverview } from '../components/players/PlayerOverview.jsx'
 import { PlayerProfileActions } from '../components/players/PlayerProfileActions.jsx'
 import { PlayerProfileModals } from '../components/players/PlayerProfileModals.jsx'
+import { PlayerProgressionCharts } from '../components/players/PlayerProgressionCharts.jsx'
 import { PlayerStaffActivity } from '../components/players/PlayerStaffActivity.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -32,6 +33,12 @@ import {
   saveEvaluationExportLabels,
 } from '../lib/evaluation-export-selection.js'
 import { buildAssessmentPdfHtml } from '../lib/assessment-pdf-html.js'
+import {
+  EMAIL_SECTION_DEFAULTS,
+  buildProgressionEmailSections,
+  buildPlayerProgressionData,
+  getEmailSectionState,
+} from '../lib/player-progression.js'
 import {
   buildFieldMovement,
   buildMergeDetailFields,
@@ -161,6 +168,7 @@ export function PlayerProfile() {
       playerName: routePlayerName,
     }),
   )
+  const [selectedEmailSections, setSelectedEmailSections] = useState({})
   const [evaluationPage, setEvaluationPage] = useState(1)
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState(null)
   const [noPlaceArchiveTarget, setNoPlaceArchiveTarget] = useState(null)
@@ -334,6 +342,10 @@ export function PlayerProfile() {
   )
   const ratingTrend = useMemo(() => buildRatingTrend(evaluations), [evaluations])
   const fieldMovement = useMemo(() => buildFieldMovement(evaluations), [evaluations])
+  const progressionData = useMemo(
+    () => buildPlayerProgressionData({ evaluations, staffNotes }),
+    [evaluations, staffNotes],
+  )
   const ratingTrendMax = ratingTrend.some((evaluation) => Number(evaluation.averageScore) > 5) ? 10 : 5
   const overallAverage =
     scoredEvaluations.length > 0
@@ -464,6 +476,12 @@ export function PlayerProfile() {
   const getSelectedExportResponseItems = (evaluation) =>
     getSelectedEvaluationResponses(getExportResponseItems(evaluation), selectedExportLabels)
 
+  const getSelectedEmailSections = (evaluation) =>
+    getEmailSectionState(
+      selectedEmailSections[evaluation.id] || EMAIL_SECTION_DEFAULTS,
+      progressionData,
+    )
+
   const getLatestEvaluationWithResponses = (player) => {
     const playerId = String(player?.id ?? '').trim()
     const playerName = String(player?.playerName || routePlayerName || '').trim().toLowerCase()
@@ -489,8 +507,10 @@ export function PlayerProfile() {
       getSelectedEvaluationParentContacts,
       getSelectedExportResponseItems,
       getSelectedInviteDate,
+      progressionData,
       profileParentName,
       routePlayerName,
+      selectedEmailSections: getSelectedEmailSections(evaluation).sections,
       selectedEmailTemplates,
       user,
     })
@@ -510,8 +530,10 @@ export function PlayerProfile() {
       contacts,
       inviteDate: selectedDirectInviteDates[player.id] || '',
       player,
+      progressionData,
       responses: sourceEvaluation ? getSelectedExportResponseItems(sourceEvaluation) : [],
       routePlayerName,
+      selectedEmailSections: sourceEvaluation ? getSelectedEmailSections(sourceEvaluation).sections : EMAIL_SECTION_DEFAULTS,
       selectedTemplate,
       sourceEvaluation,
       user,
@@ -624,6 +646,10 @@ export function PlayerProfile() {
       }
 
       const responses = getSelectedExportResponseItems(evaluation)
+      const emailSections = buildProgressionEmailSections({
+        progressionData,
+        sections: getSelectedEmailSections(evaluation).sections,
+      })
       const recipientName = user.displayName || user.username || user.name || user.email
       const teamName = user.emailTeamName || evaluation.team
       const clubName = user.emailClubName || user.clubName
@@ -646,6 +672,7 @@ export function PlayerProfile() {
         clubContactEmail: user.clubContactEmail,
         playerName: routePlayerName,
         responses,
+        emailSections,
         subject: `Test development record copy for ${routePlayerName}`,
         emailBody: `This is a test copy of the saved development record for ${routePlayerName}. It was sent only to your signed-in account.`,
         pdfHtml: buildAssessmentPdfHtml({
@@ -764,6 +791,7 @@ export function PlayerProfile() {
                 playerName: routePlayerName,
                 hasAttachment: attachPdf,
                 hasAssessmentFields: attachAssessmentFields,
+                emailSections: item.payload?.emailSections || [],
                 scheduledAt,
                 assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
                 pdfHtml: attachPdf ? item.payload?.pdfHtml || '' : '',
@@ -790,6 +818,7 @@ export function PlayerProfile() {
           playerName: routePlayerName,
           hasAttachment: attachPdf,
           hasAssessmentFields: attachAssessmentFields,
+          emailSections: payloads[0]?.payload?.emailSections || [],
           scheduledAt,
           assessmentFields: attachAssessmentFields ? emailConfirmTarget.responses || [] : [],
           pdfHtml: attachPdf ? payloads[0]?.payload?.pdfHtml || '' : '',
@@ -830,6 +859,19 @@ export function PlayerProfile() {
       setEmailSendMode('now')
       setScheduledEmailDateTime('')
     }
+  }
+
+  const handleToggleEmailSection = (evaluationId, sectionKey) => {
+    setSelectedEmailSections((current) => {
+      const currentSections = current[evaluationId] || EMAIL_SECTION_DEFAULTS
+      return {
+        ...current,
+        [evaluationId]: {
+          ...currentSections,
+          [sectionKey]: !currentSections[sectionKey],
+        },
+      }
+    })
   }
 
   const handleSaveStaffNote = async () => {
@@ -1483,6 +1525,11 @@ export function PlayerProfile() {
         ratingTrendMax={ratingTrendMax}
       />
 
+      <PlayerProgressionCharts
+        playerName={routePlayerName}
+        progressionData={progressionData}
+      />
+
       <PlayerDetailsSection
         directEmailSendingId={emailSendingId}
         editingPlayerId={editingPlayerId}
@@ -1654,12 +1701,14 @@ export function PlayerProfile() {
         }
         onSendParentEmail={(evaluation) => void handleSendParentEmail(evaluation)}
         onSendTestEmail={(evaluation) => void handleSendTestEmail(evaluation)}
+        onToggleEmailSection={handleToggleEmailSection}
         onToggleEvaluationParentContact={handleToggleEvaluationParentContact}
         onToggleExportField={handleToggleExportField}
         page={evaluationPage}
         paginatedEvaluations={paginatedEvaluations}
         playerName={routePlayerName}
         selectedExportLabels={selectedExportLabels}
+        getSelectedEmailSections={getSelectedEmailSections}
         selectedParentContacts={selectedParentContacts}
         selectedReassignTargets={selectedReassignTargets}
         user={user}

@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { CoachOptionsSection } from '../components/sessions/CoachOptionsSection.jsx'
 import { CreateSessionSection } from '../components/sessions/CreateSessionSection.jsx'
+import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.jsx'
 import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -32,6 +33,7 @@ import {
   updateSessionFormValue,
   writeStoredSessionWorkspace,
 } from '../lib/session-page-utils.js'
+import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
 import {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
@@ -41,6 +43,8 @@ import {
   deleteAssessmentSession,
   deletePlayerStaffNote,
   getEvaluations,
+  getMatchDays,
+  getPolls,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
@@ -85,6 +89,16 @@ export function SessionsPage({ setupOpen = false }) {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
+  const [matchDays, setMatchDays] = useState(() => {
+    const cachedMatchDays = readViewCacheValue(cacheKey, 'matchDays', [])
+    return Array.isArray(cachedMatchDays) ? cachedMatchDays : []
+  })
+  const [polls, setPolls] = useState(() => {
+    const cachedPolls = readViewCacheValue(cacheKey, 'polls', [])
+    return Array.isArray(cachedPolls) ? cachedPolls : []
+  })
+  const [calendarView, setCalendarView] = useState('month')
+  const [calendarCursor, setCalendarCursor] = useState(() => new Date())
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionVoiceNotes, setSessionVoiceNotes] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
@@ -156,6 +170,15 @@ export function SessionsPage({ setupOpen = false }) {
     [combinedSessions, selectedSessionId],
   )
   const openSessionCount = combinedSessions.filter((session) => session.status !== 'completed').length
+  const calendarEvents = useMemo(
+    () => buildFootballCalendarEvents({
+      evaluations,
+      matchDays,
+      polls,
+      sessions: combinedSessions,
+    }),
+    [combinedSessions, evaluations, matchDays, polls],
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -165,11 +188,13 @@ export function SessionsPage({ setupOpen = false }) {
       setErrorMessage('')
 
       try {
-        const [sessionsResult, playersResult, teamsResult, evaluationsResult] = await Promise.allSettled([
+        const [sessionsResult, playersResult, teamsResult, evaluationsResult, matchDaysResult, pollsResult] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load historical sessions.'),
+          withRequestTimeout(() => getMatchDays({ user }), 'Could not load match days.'),
+          withRequestTimeout(() => getPolls({ user }), 'Could not load response cut offs.'),
         ])
 
         if (!isMounted) {
@@ -181,6 +206,8 @@ export function SessionsPage({ setupOpen = false }) {
         const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : cachedValue?.teams || []
         const nextEvaluations =
           evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : cachedValue?.evaluations || []
+        const nextMatchDays = matchDaysResult.status === 'fulfilled' ? matchDaysResult.value : cachedValue?.matchDays || []
+        const nextPolls = pollsResult.status === 'fulfilled' ? pollsResult.value : cachedValue?.polls || []
 
         if (sessionsResult.status === 'rejected') {
           console.error(sessionsResult.reason)
@@ -198,10 +225,20 @@ export function SessionsPage({ setupOpen = false }) {
           console.error(evaluationsResult.reason)
         }
 
+        if (matchDaysResult.status === 'rejected') {
+          console.error(matchDaysResult.reason)
+        }
+
+        if (pollsResult.status === 'rejected') {
+          console.error(pollsResult.reason)
+        }
+
         setSessions(nextSessions)
         setPlayers(nextPlayers)
         setTeams(nextTeams)
         setEvaluations(nextEvaluations)
+        setMatchDays(nextMatchDays)
+        setPolls(nextPolls)
         setSelectedSessionId((current) => {
           const nextCombinedSessions = [...nextSessions, ...buildHistoricalSessionsFromEvaluations(nextEvaluations, nextSessions)]
 
@@ -236,6 +273,8 @@ export function SessionsPage({ setupOpen = false }) {
           players: nextPlayers,
           teams: nextTeams,
           evaluations: nextEvaluations,
+          matchDays: nextMatchDays,
+          polls: nextPolls,
         })
 
         if (
@@ -911,6 +950,16 @@ export function SessionsPage({ setupOpen = false }) {
       </section>
 
       {errorMessage ? <NoticeBanner title="Session action not completed" message={errorMessage} /> : null}
+
+      <FootballCalendar
+        cursor={calendarCursor}
+        events={calendarEvents}
+        isLoading={isLoading}
+        onCursorChange={setCalendarCursor}
+        onOpenEvent={(event) => navigate(event.href || '/sessions')}
+        onViewChange={setCalendarView}
+        view={calendarView}
+      />
 
       <section className="grid gap-3 md:grid-cols-4">
         <SessionSummaryCard isLoading={isLoading} label="Sessions" value={combinedSessions.length} caption="Saved training and match blocks." />

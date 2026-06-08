@@ -48,6 +48,10 @@ export function PlayerProfileModals({
   const navigate = useNavigate()
   const canAttachPdf = Boolean(emailConfirmTarget)
   const fieldCount = emailConfirmTarget?.responses?.length || 0
+  const emailSectionNames = (emailConfirmTarget?.emailSections || [])
+    .map((section) => section.title)
+    .filter(Boolean)
+    .join(', ')
   const canAttachAssessmentFields = fieldCount > 0
   const isDefaultTemplateEmail = Boolean(emailConfirmTarget?.usesDefaultTemplate)
 
@@ -141,6 +145,7 @@ export function PlayerProfileModals({
           `Club: ${emailConfirmTarget?.payloads?.[0]?.payload?.club || 'No club entered'}`,
           `Attachment: ${canAttachPdf && isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`,
           `Development fields: ${canAttachAssessmentFields && isAssessmentFieldsApproved ? `${fieldCount} attached` : 'Not attached'}`,
+          `Extra sections: ${emailSectionNames || 'None selected'}`,
           emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
         ]}
         confirmLabel={emailSendMode === 'scheduled' ? 'Schedule Email' : 'Send Now'}

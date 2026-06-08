@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { canDeletePlayer, canEditEvaluation } from '../../lib/auth.js'
 import { hasPlanFeature } from '../../lib/plans.js'
+import { EMAIL_SECTION_OPTIONS } from '../../lib/player-progression.js'
 import { buildEvaluationSummary } from '../../hooks/players/playerProfileUtils.js'
 import { EvaluationExportFieldsSelector } from '../evaluations/EvaluationExportFieldsSelector.jsx'
 
@@ -37,11 +38,13 @@ export function EvaluationHistoryCard({
   onSelectedEmailTemplateChange,
   onSendParentEmail,
   onSendTestEmail,
+  onToggleEmailSection,
   onToggleEvaluationParentContact,
   onToggleExportField,
   playerName,
   responseItems,
   selectedExportLabels,
+  selectedEmailSectionState,
   selectedInviteDate,
   selectedParentContacts,
   selectedReassignTargets,
@@ -213,6 +216,12 @@ export function EvaluationHistoryCard({
           selectedExportLabels={selectedExportLabels}
           selectedResponseItems={selectedResponseItems}
         />
+        <EvaluationEmailSections
+          disabledReasons={selectedEmailSectionState?.disabledReasons || {}}
+          evaluationId={evaluation.id}
+          onToggleEmailSection={onToggleEmailSection}
+          selectedSections={selectedEmailSectionState?.sections || {}}
+        />
         {!isDemoAccount ? (
           <>
             <button
@@ -305,6 +314,57 @@ export function EvaluationHistoryCard({
       </div>
       </>
       ) : null}
+    </div>
+  )
+}
+
+function EvaluationEmailSections({
+  disabledReasons,
+  evaluationId,
+  onToggleEmailSection,
+  selectedSections,
+}) {
+  return (
+    <div className="xl:col-span-7">
+      <div className={panelClass}>
+        <div>
+          <p className="text-sm font-black text-[#101828]">Parent email sections</p>
+          <p className={`mt-1 ${bodyClass}`}>
+            Choose the extra summaries that should appear in this parent email only.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {EMAIL_SECTION_OPTIONS.map((option) => {
+            const disabledReason = disabledReasons[option.key]
+            const isDisabled = Boolean(disabledReason)
+
+            return (
+              <label
+                key={option.key}
+                className={[
+                  'flex min-h-11 items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm font-semibold text-[#101828] shadow-sm shadow-[#047857]/10 transition',
+                  isDisabled ? 'border-[#d7e5dc] opacity-70' : 'border-[#d7e5dc]',
+                ].join(' ')}
+                title={disabledReason || option.description}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(selectedSections[option.key])}
+                  disabled={isDisabled}
+                  onChange={() => onToggleEmailSection(evaluationId, option.key)}
+                  className="mt-1 h-5 w-5 shrink-0 accent-[#047857] disabled:cursor-not-allowed"
+                />
+                <span className="min-w-0">
+                  <span className="block font-black">{option.label}</span>
+                  <span className="block break-words text-xs font-semibold leading-5 text-[#4b5f55]">
+                    {disabledReason || option.description}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

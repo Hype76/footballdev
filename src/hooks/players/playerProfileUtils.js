@@ -13,6 +13,7 @@ import {
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
 import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
+import { buildProgressionEmailSections } from '../../lib/player-progression.js'
 
 export const PROFILE_EVALUATION_PAGE_SIZE = 5
 
@@ -524,8 +525,10 @@ export function buildPlayerProfileParentEmailPayload({
   getSelectedEvaluationParentContacts,
   getSelectedExportResponseItems,
   getSelectedInviteDate,
+  progressionData,
   profileParentName,
   routePlayerName,
+  selectedEmailSections,
   selectedEmailTemplates,
   user,
 }) {
@@ -533,6 +536,10 @@ export function buildPlayerProfileParentEmailPayload({
   const selectedKey = selectedEmailTemplates[evaluation.id] || getEmailTemplateKey(evaluation.decision)
   const inviteDate = getSelectedInviteDate(evaluation)
   const responses = getSelectedExportResponseItems(evaluation)
+  const progressionSections = buildProgressionEmailSections({
+    progressionData,
+    sections: selectedEmailSections,
+  })
   const payloads = getContactTemplateAudiences(getEvaluationContactType(evaluation))
     .flatMap((audience) => {
       const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
@@ -591,6 +598,7 @@ export function buildPlayerProfileParentEmailPayload({
               playerName: routePlayerName,
               summary: '',
               responses,
+              emailSections: progressionSections,
               subject: emailTemplate.subject,
               emailBody: emailTemplate.body,
               pdfHtml: buildAssessmentPdfHtml({
@@ -620,6 +628,7 @@ export function buildPlayerProfileParentEmailPayload({
     recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
     recipientNames: payloads.map((item) => item.recipientNames).join(', '),
     responses,
+    emailSections: progressionSections,
     templateKey: selectedKey,
     templateName: payloads.map((item) => item.templateName).join(', '),
     usesDefaultTemplate: payloads.some((item) => item.selectedTemplate?.isDefaultTemplate),
@@ -633,7 +642,9 @@ export function buildPlayerDirectEmailPayload({
   inviteDate = '',
   player,
   responses = [],
+  progressionData = null,
   routePlayerName,
+  selectedEmailSections = null,
   selectedTemplate,
   sourceEvaluation = null,
   user,
@@ -648,6 +659,12 @@ export function buildPlayerDirectEmailPayload({
   const session = sourceEvaluation?.session || ''
   const responseItems = Array.isArray(responses) ? responses : []
   const summary = sourceEvaluation ? buildEvaluationSummary(sourceEvaluation, 'email') : ''
+  const progressionSections = progressionData
+    ? buildProgressionEmailSections({
+        progressionData,
+        sections: selectedEmailSections,
+      })
+    : []
   const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
   const selectedContacts = contacts.filter((contact) => contact.type === contactType)
   const payloads = selectedContacts
@@ -694,6 +711,7 @@ export function buildPlayerDirectEmailPayload({
             playerName,
             summary,
             responses: responseItems,
+            emailSections: progressionSections,
             subject: emailTemplate.subject,
             emailBody: emailTemplate.body,
             pdfHtml: buildAssessmentPdfHtml({
@@ -730,6 +748,7 @@ export function buildPlayerDirectEmailPayload({
     recipientEmails: payloads.map((item) => item.recipientEmails).join(','),
     recipientNames: payloads.map((item) => item.recipientNames).join(', '),
     responses: responseItems,
+    emailSections: progressionSections,
     templateKey: selectedTemplate.key,
     templateName: selectedTemplate.label,
     usesDefaultTemplate: Boolean(selectedTemplate.isDefaultTemplate),
