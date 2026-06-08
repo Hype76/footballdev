@@ -161,6 +161,9 @@ export function PublicPricingPage() {
             <p className="text-base font-semibold leading-7 text-[var(--text-muted)] sm:text-lg sm:leading-8">
               Choose the workspace size that fits the number of teams, staff, players, and parent updates your club needs.
             </p>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[var(--text-muted)]">
+              Pricing may change while early clubs are being onboarded.
+            </p>
             <div className="mt-5 grid max-w-xs grid-cols-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-1">
               {[
                 ['monthly', 'Monthly'],

@@ -1360,6 +1360,17 @@ export const router = createBrowserRouter([
                     },
                   },
                   {
+                    path: 'calendar',
+                    element: (
+                      <PageSuspense>
+                        <SessionsPage calendarOnly />
+                      </PageSuspense>
+                    ),
+                    handle: {
+                      title: 'Calendar',
+                    },
+                  },
+                  {
                     path: 'sessions',
                     element: (
                       <PageSuspense>

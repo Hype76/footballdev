@@ -28,10 +28,10 @@ export function PublicParentsPage() {
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent)]">Parents</p>
           <h1 className="mt-4 text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl">
-            Parent updates without handing over the club workspace.
+            Parent updates without opening the staff workspace.
           </h1>
           <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-[var(--text-muted)] sm:text-lg sm:leading-8">
-            Keep families informed from the same player and team records coaches already use, with parent access kept separate from staff tools.
+            Coaches choose what to share from saved club records. Parents get clear updates and replies without needing access to staff tools.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-black text-[var(--accent-text)] transition hover:opacity-90">

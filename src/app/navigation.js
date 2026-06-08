@@ -1,7 +1,7 @@
 export const primaryNavigation = [
   {
     label: 'Calendar',
-    path: '/sessions',
+    path: '/calendar',
     helper: 'Training and fixtures',
   },
   {

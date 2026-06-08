@@ -38,10 +38,14 @@ const featureRows = [
 ]
 
 const capabilityGroups = [
-  ['Training', 'Create sessions, add players, record notes, and keep work tied to the right team.'],
-  ['Match day', 'Prepare squads, collect replies, save results, and keep follow-up work visible.'],
-  ['Parents', 'Send focused updates from club records without giving parents staff access.'],
-  ['Teams', 'Separate team context, staff access, and player lists so clubs can grow safely.'],
+  ['Calendar', 'See training, fixtures, deadlines, and club events in one place.'],
+  ['Sessions', 'Create sessions, add players, and record notes against the right team.'],
+  ['Players', 'Keep current, trial, and archived player records easy to find.'],
+  ['Match day', 'Prepare squads, collect replies, save results, and keep follow-up visible.'],
+  ['Parent updates', 'Send focused updates from saved records without staff access.'],
+  ['Development records', 'Capture coach observations while they are still useful.'],
+  ['Progression charts', 'Turn saved records into readable trends over time.'],
+  ['Team access', 'Keep roles and team context clear as the club grows.'],
 ]
 
 export function PublicFeaturesPage() {
@@ -60,17 +64,17 @@ export function PublicFeaturesPage() {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent)]">Features</p>
             <h1 className="mt-4 text-4xl font-black leading-[1.04] tracking-tight sm:text-5xl">
-              The practical football tools clubs use every week.
+              The weekly tools a grassroots club actually needs.
             </h1>
           </div>
           <p className="text-base font-semibold leading-7 text-[var(--text-muted)] sm:text-lg sm:leading-8">
-            Football Player connects the jobs that usually live in separate places: training, players, parent updates, match day, and development records.
+            Bring sessions, fixtures, availability, parent updates, and player records into one workspace your staff can actually use.
           </p>
         </div>
       </section>
 
       <section className="border-y border-[var(--border-color)] bg-[var(--panel-bg)]">
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 sm:px-6 lg:grid-cols-4 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
           {capabilityGroups.map(([title, copy]) => (
             <article key={title} className="py-2">
               <h2 className="text-lg font-black tracking-tight">{title}</h2>

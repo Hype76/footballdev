@@ -236,42 +236,26 @@ export function LoginPage() {
         <LoginHeader logo={fallbackLogo} />
 
         <div className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-8 px-4 py-8 pb-[max(6rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-8 lg:py-10">
-          <section>
+          <section className="rounded-lg border border-white/18 bg-black/36 p-5 shadow-xl shadow-black/20 backdrop-blur sm:p-6 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Football club workspace</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-[#101828] sm:text-4xl xl:text-5xl">
-              Run the football week from one practical club system.
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.06] tracking-tight text-white sm:text-4xl xl:text-5xl">
+              Run the football week from one club workspace.
             </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55] sm:text-lg sm:leading-8">
-              Manage players, teams, availability, match day, parent communication, and development records without scattering work across chats and spreadsheets.
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-white/82 sm:text-lg sm:leading-8">
+              Manage training, match day, availability, parent updates, and player development records without chasing everything through WhatsApp.
             </p>
 
-            <div className="mt-7 grid gap-3 md:grid-cols-3">
+            <div className="mt-7 grid gap-3">
               {[
-                ['Set up first', 'Create the club, first team, staff access, players, and parent links before inviting wider use.'],
-                ['Use real records', 'Every workflow starts from football data the club already understands.'],
-                ['Keep roles clear', 'Club admins, team staff, and parents only see the actions their access allows.'],
-              ].map(([title, copy]) => (
-                <article key={title} className="rounded-lg border border-[#d7e5dc] bg-white/95 p-4 shadow-sm shadow-[#047857]/10 backdrop-blur">
-                  <p className="text-sm font-black text-[#101828]">{title}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{copy}</p>
-                </article>
+                'Training and fixtures in one place',
+                'Parent updates from saved records',
+                'Player history that stays with the player',
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-3 rounded-lg border border-white/16 bg-black/28 px-4 py-3 backdrop-blur">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#c6ff1a]" />
+                  <p className="text-sm font-black text-white">{item}</p>
+                </div>
               ))}
-            </div>
-
-            <div className="mt-7 grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#ecfdf5]/95 p-4 shadow-sm shadow-[#047857]/10 backdrop-blur sm:grid-cols-[0.9fr_1.1fr] sm:p-5">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">First useful action</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                  Log in, choose the club or parent route, then open the team, player, session, or parent workflow you need.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-black text-[#101828] sm:grid-cols-4">
-                {['Club', 'Team', 'Players', 'Parents'].map((item) => (
-                  <span key={item} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-center">
-                    {item}
-                  </span>
-                ))}
-              </div>
             </div>
           </section>
 

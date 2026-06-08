@@ -184,7 +184,7 @@ function getFormFromCalendarEvent(event) {
   return getDefaultCalendarForm(event?.date)
 }
 
-export function SessionsPage({ setupOpen = false }) {
+export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1262,6 +1262,66 @@ export function SessionsPage({ setupOpen = false }) {
     const nextSearchParams = new URLSearchParams(searchParams)
     nextSearchParams.delete('sessionId')
     setSearchParams(nextSearchParams)
+  }
+
+  if (calendarOnly) {
+    return (
+      <div className="space-y-5">
+        <section className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-5 shadow-sm shadow-[#101828]/5 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className={eyebrowClass}>Calendar</p>
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
+                Football calendar
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
+                Plan training, fixtures, parent cut offs, and club events without opening the sessions workflow.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleCalendarDateClick(new Date().toISOString().slice(0, 10))}
+              className={primaryButtonClass}
+            >
+              Add event
+            </button>
+          </div>
+        </section>
+
+        {errorMessage ? <NoticeBanner title="Calendar action not completed" message={errorMessage} /> : null}
+
+        <FootballCalendar
+          cursor={calendarCursor}
+          events={calendarEvents}
+          isLoading={isLoading}
+          onCursorChange={setCalendarCursor}
+          onDateClick={handleCalendarDateClick}
+          onOpenEvent={handleCalendarEventOpen}
+          onViewChange={setCalendarView}
+          view={calendarView}
+        />
+
+        <CalendarEventModal
+          event={calendarModal?.event}
+          form={calendarForm}
+          isBusy={isSaving}
+          isOpen={Boolean(calendarModal)}
+          mode={calendarModal?.mode || 'create'}
+          onCancel={() => setCalendarModal(null)}
+          onChange={handleCalendarFormChange}
+          onDelete={handleCalendarDelete}
+          onEdit={() => setCalendarModal((current) => ({ ...current, mode: 'edit' }))}
+          onOpenWorkflow={() => {
+            const href = calendarModal?.event?.href
+            setCalendarModal(null)
+            navigate(href || '/sessions')
+          }}
+          onSubmit={handleCalendarSave}
+          teams={teams}
+        />
+      </div>
+    )
   }
 
   return (

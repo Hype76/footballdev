@@ -2,9 +2,9 @@ import coachHomeImage from '../../assets/marketing/coach-home.png'
 import playerProgressionImage from '../../assets/marketing/player-progression.png'
 
 const weeklyActions = [
-  ['Training', 'Create sessions, attach players, and keep coach notes in the right place.'],
-  ['Match day', 'Track the squad, parent replies, results, and follow-up actions.'],
-  ['Development', 'Turn coach observations into records that follow each player.'],
+  ['Plan the week', 'Sessions, fixtures, and parent response cut offs stay visible.'],
+  ['Run training', 'Attach players and save notes while the session is fresh.'],
+  ['Track progress', 'Development records stay with each player over time.'],
 ]
 
 const proofStats = [
@@ -23,17 +23,17 @@ export function LoginHeroContent() {
       <div className="max-w-3xl">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-[#c6ff1a]">Football club workspace</p>
         <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-tight text-white min-[420px]:text-5xl sm:text-6xl">
-          Run the football week without the WhatsApp chaos.
+          Run training, match day, parents, and player development in one club workspace.
         </h1>
         <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/86 sm:text-lg sm:leading-8">
-          Training, match day, parents, and player development in one club workspace built for grassroots football staff.
+          Football Player helps grassroots clubs manage sessions, fixtures, availability, parent updates, and player records from one simple workspace.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <a
             href="/sign-in"
             className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#c6ff1a] px-5 py-3 text-sm font-black text-[#06110a] shadow-sm shadow-[#c6ff1a]/20 transition hover:bg-[#dbff66]"
           >
-            Open workspace
+            Start free
           </a>
           <a
             href="/features"

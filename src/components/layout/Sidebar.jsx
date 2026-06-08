@@ -28,7 +28,7 @@ import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
-const coachNavigationPaths = ['/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
+const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
 
 const navIcons = {
   '/activity-log': 'activity',
@@ -40,6 +40,7 @@ const navIcons = {
   '/email-queue': 'mail',
   '/end-season-stats': 'chart',
   '/form-builder': 'fields',
+  '/calendar': 'calendar',
   '/match-day': 'whistle',
   '/parent-email-templates': 'template',
   '/parent-linking': 'parents',

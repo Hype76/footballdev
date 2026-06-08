@@ -8,13 +8,13 @@ import { publicImageBottomFadeStyle, publicImageOverlayStyle, usePublicThemeScop
 
 const weeklySections = [
   {
-    title: 'Plan the week in one place',
+    title: 'Plan the week',
     copy: 'Training sessions, fixtures, parent response cut offs, and saved development activity sit together so staff know what is coming next.',
     image: sessionsCalendarImage,
     alt: 'Football Player calendar showing training and match activity',
   },
   {
-    title: 'Keep player records attached to the player',
+    title: 'Track player progression',
     copy: 'Coaches can find the current squad, trial players, previous records, and development notes without hunting through messages.',
     image: playersListImage,
     alt: 'Football Player player register showing squad and trial records',
@@ -22,9 +22,9 @@ const weeklySections = [
 ]
 
 const outcomes = [
-  ['Less chasing', 'Parents, players, sessions, and match day actions are connected to the same team record.'],
-  ['Faster coaching', 'Common weekly jobs are surfaced early so staff can act from a phone or laptop.'],
-  ['Better memory', "Development notes and progression stay with the player, not in someone else's chat history."],
+  ['Less chasing', 'Parents, players, sessions, and match day actions connect to the same team record.'],
+  ['Clearer match days', 'Availability, fixtures, squads, and follow-up work stay easier to see.'],
+  ['Better player history', 'Development notes and progression stay with the player, not inside chat history.'],
 ]
 
 export function PublicLandingPage() {
@@ -63,10 +63,10 @@ export function PublicLandingPage() {
         <div className="max-w-3xl">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--accent)]">What clubs do with it</p>
           <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-[var(--text-primary)] sm:text-4xl">
-            A quieter way to run training, match day, parents, and player development.
+            Keep the football week organised without the WhatsApp chaos.
           </h2>
           <p className="mt-4 text-base font-semibold leading-7 text-[var(--text-secondary)]">
-            Football Player keeps the weekly rhythm visible, then lets staff open the exact workflow they need.
+            Plan the week, run training, manage match day, keep parents updated, and build better player history.
           </p>
         </div>
 
@@ -77,7 +77,7 @@ export function PublicLandingPage() {
               <p className="mt-4 text-base font-semibold leading-7 text-[var(--text-secondary)]">{section.copy}</p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <a href="/features" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-black text-[var(--accent-text)] transition hover:opacity-90">
-                  Explore features
+                  See features
                 </a>
                 <a href="/sign-in" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-5 py-3 text-sm font-black text-[var(--text-primary)] transition hover:bg-[var(--panel-alt)]">
                   Open workspace
