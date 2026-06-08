@@ -4,7 +4,6 @@ import {
   getStoredThemeAccent,
   getStoredThemeButtonStyle,
   getStoredThemeMode,
-  getSystemTheme,
   normalizeThemeAccent,
   normalizeThemeButtonStyle,
   normalizeThemeMode,
@@ -14,9 +13,21 @@ function applyPublicTheme() {
   const mode = normalizeThemeMode(getStoredThemeMode())
   const accent = normalizeThemeAccent(getStoredThemeAccent())
   const buttonStyle = normalizeThemeButtonStyle(getStoredThemeButtonStyle())
-  const resolvedMode = mode === 'system' ? getSystemTheme() : mode
+  const resolvedMode = mode === 'light' ? 'light' : 'dark'
+  const root = document.documentElement
   const body = document.body
 
+  root.classList.remove(
+    'theme-light',
+    'theme-dark',
+    'accent-yellow',
+    'accent-blue',
+    'accent-green',
+    'accent-red',
+    'accent-purple',
+    'button-style-solid',
+    'button-style-gradient',
+  )
   body.classList.remove(
     'theme-light',
     'theme-dark',
@@ -28,25 +39,27 @@ function applyPublicTheme() {
     'button-style-solid',
     'button-style-gradient',
   )
+  root.classList.add(resolvedMode === 'dark' ? 'theme-dark' : 'theme-light')
+  root.classList.add(`accent-${accent}`)
+  root.classList.add(`button-style-${buttonStyle}`)
   body.classList.add(resolvedMode === 'dark' ? 'theme-dark' : 'theme-light')
   body.classList.add(`accent-${accent}`)
   body.classList.add(`button-style-${buttonStyle}`)
+  root.dataset.themeAccent = accent
+  root.dataset.buttonStyle = buttonStyle
   body.dataset.themeAccent = accent
   body.dataset.buttonStyle = buttonStyle
 }
 
 export function usePublicThemeScope() {
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = () => applyPublicTheme()
 
     applyPublicTheme()
     window.addEventListener(THEME_CHANGED_EVENT, handleChange)
-    mediaQuery.addEventListener('change', handleChange)
 
     return () => {
       window.removeEventListener(THEME_CHANGED_EVENT, handleChange)
-      mediaQuery.removeEventListener('change', handleChange)
     }
   }, [])
 }

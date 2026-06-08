@@ -83,6 +83,17 @@ export function Layout() {
   }, [user?.id, user?.themeAccent, user?.themeButtonStyle, user?.themeMode])
 
   useEffect(() => {
+    document.documentElement.classList.remove(
+      'theme-light',
+      'theme-dark',
+      'accent-yellow',
+      'accent-blue',
+      'accent-green',
+      'accent-red',
+      'accent-purple',
+      'button-style-solid',
+      'button-style-gradient',
+    )
     document.body.classList.remove(
       'theme-light',
       'theme-dark',
@@ -94,9 +105,14 @@ export function Layout() {
       'button-style-solid',
       'button-style-gradient',
     )
+    document.documentElement.classList.add(effectiveTheme === 'dark' ? 'theme-dark' : 'theme-light')
+    document.documentElement.classList.add(`accent-${themeAccent}`)
+    document.documentElement.classList.add(`button-style-${themeButtonStyle}`)
     document.body.classList.add(effectiveTheme === 'dark' ? 'theme-dark' : 'theme-light')
     document.body.classList.add(`accent-${themeAccent}`)
     document.body.classList.add(`button-style-${themeButtonStyle}`)
+    document.documentElement.dataset.themeAccent = themeAccent
+    document.documentElement.dataset.buttonStyle = themeButtonStyle
     window.localStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode)
     window.localStorage.setItem(THEME_ACCENT_STORAGE_KEY, themeAccent)
     window.localStorage.setItem(THEME_BUTTON_STYLE_STORAGE_KEY, themeButtonStyle)

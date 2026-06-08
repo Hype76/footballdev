@@ -17,6 +17,38 @@
 
 @layer base {
   :root {
+    --app-bg: #0b1110;
+    --shell-card: #101916;
+    --panel-bg: #14201c;
+    --panel-alt: #192823;
+    --panel-soft: #183526;
+    --sidebar-bg: #0f1815;
+    --sidebar-active-bg: #1d3b2c;
+    --border-color: #466052;
+    --text-primary: #f6fbf8;
+    --text-muted: #d7e3dc;
+    --text-secondary: #c7ff32;
+    --accent: #c7ff32;
+    --accent-text: #052e16;
+    --accent-soft: #233a1c;
+    --button-primary: #c7ff32;
+    --button-primary-gradient: linear-gradient(135deg, var(--button-primary), color-mix(in srgb, var(--button-primary) 72%, white));
+    --button-primary-text: #052e16;
+    --danger-border: #5a2a33;
+    --danger-soft: #2a1519;
+    --danger-text: #fecdd3;
+    color: var(--text-primary);
+    background-color: var(--app-bg);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color-scheme: dark;
+  }
+
+  html.theme-light,
+  body.theme-light {
     --app-bg: #f5f8f6;
     --shell-card: #ffffff;
     --panel-bg: #ffffff;
@@ -37,16 +69,10 @@
     --danger-border: #ead7d7;
     --danger-soft: #faf2f2;
     --danger-text: #8b4b4b;
-    color: var(--text-primary);
-    background-color: var(--app-bg);
-    font-family: var(--font-sans);
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
     color-scheme: light;
   }
 
+  html.theme-dark,
   body.theme-dark {
     --app-bg: #0b1110;
     --shell-card: #101916;
@@ -71,6 +97,7 @@
     color-scheme: dark;
   }
 
+  html.accent-yellow,
   body.accent-yellow {
     --accent: #facc15;
     --accent-text: #422006;
@@ -82,6 +109,7 @@
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
   }
 
+  html.accent-blue,
   body.accent-blue {
     --accent: #2f80ff;
     --accent-text: #ffffff;
@@ -93,6 +121,7 @@
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
   }
 
+  html.accent-green,
   body.accent-green {
     --accent: #16a34a;
     --accent-text: #ffffff;
@@ -104,6 +133,7 @@
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
   }
 
+  html.accent-red,
   body.accent-red {
     --accent: #ef4444;
     --accent-text: #ffffff;
@@ -115,6 +145,7 @@
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
   }
 
+  html.accent-purple,
   body.accent-purple {
     --accent: #8b5cf6;
     --accent-text: #ffffff;
@@ -126,6 +157,7 @@
     --sidebar-active-bg: color-mix(in srgb, var(--accent) 14%, var(--panel-soft));
   }
 
+  html.theme-dark.accent-yellow,
   body.theme-dark.accent-yellow {
     --accent: #fde047;
     --accent-text: #422006;
@@ -136,6 +168,7 @@
     --text-secondary: #fde047;
   }
 
+  html.theme-dark.accent-blue,
   body.theme-dark.accent-blue {
     --accent: #60a5fa;
     --accent-text: #06172f;
@@ -146,6 +179,7 @@
     --text-secondary: #60a5fa;
   }
 
+  html.theme-dark.accent-green,
   body.theme-dark.accent-green {
     --accent: #4ade80;
     --accent-text: #052e16;
@@ -156,6 +190,7 @@
     --text-secondary: #4ade80;
   }
 
+  html.theme-dark.accent-red,
   body.theme-dark.accent-red {
     --accent: #f87171;
     --accent-text: #3f0808;
@@ -166,6 +201,7 @@
     --text-secondary: #f87171;
   }
 
+  html.theme-dark.accent-purple,
   body.theme-dark.accent-purple {
     --accent: #a78bfa;
     --accent-text: #201047;
@@ -185,6 +221,7 @@
   }
 
   html {
+    background: var(--app-bg);
     scroll-behavior: smooth;
   }
 
@@ -366,6 +403,31 @@ body.theme-dark [class*='hover:border-[#0f9f6e]']:hover {
 
 #root {
   min-height: 100vh;
+  background: var(--app-bg);
+}
+
+.route-loading-panel {
+  border: 1px solid var(--border-color);
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.18);
+}
+
+.route-skeleton-card {
+  border: 1px solid var(--border-color);
+  background: var(--panel-bg);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.16);
+}
+
+.route-skeleton-block {
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel-alt));
+}
+
+body.theme-light .route-loading-panel,
+body.theme-light .route-skeleton-card,
+html.theme-light .route-loading-panel,
+html.theme-light .route-skeleton-card {
+  box-shadow: 0 8px 20px rgb(16 24 40 / 0.06);
 }
 
 @media print {

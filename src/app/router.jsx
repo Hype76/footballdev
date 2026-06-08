@@ -101,7 +101,7 @@ const secondaryActionClassName =
 function LoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-8 text-[var(--text-primary)]">
-      <div className="rounded-lg border border-[#d7e5dc] bg-white px-6 py-5 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
+      <div className="route-loading-panel rounded-lg px-6 py-5 text-sm font-bold">
         Loading...
       </div>
     </main>
@@ -124,16 +124,16 @@ function NavigateToParentInvite() {
 function RouteContentSkeleton() {
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-8 shadow-sm shadow-[#047857]/10">
-        <div className="h-4 w-28 rounded-lg bg-[#d1fae5]" />
-        <div className="mt-5 h-10 w-64 max-w-full rounded-lg bg-[#ccfbf1]" />
-        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-[#ccfbf1]" />
+      <div className="route-skeleton-card rounded-lg px-5 py-8">
+        <div className="route-skeleton-block h-4 w-28 rounded-lg" />
+        <div className="route-skeleton-block mt-5 h-10 w-64 max-w-full rounded-lg" />
+        <div className="route-skeleton-block mt-4 h-5 w-full max-w-xl rounded-lg" />
       </div>
-      <div className="rounded-lg border border-[#d7e5dc] bg-white px-5 py-8 shadow-sm shadow-[#047857]/10">
-        <div className="h-8 w-40 rounded-lg bg-[#ccfbf1]" />
+      <div className="route-skeleton-card rounded-lg px-5 py-8">
+        <div className="route-skeleton-block h-8 w-40 rounded-lg" />
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="h-28 rounded-lg bg-[#ccfbf1]" />
-          <div className="h-28 rounded-lg bg-[#ccfbf1]" />
+          <div className="route-skeleton-block h-28 rounded-lg" />
+          <div className="route-skeleton-block h-28 rounded-lg" />
         </div>
       </div>
     </div>
