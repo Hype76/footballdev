@@ -235,21 +235,21 @@ export function LoginPage() {
       <div className="relative flex min-h-screen w-full flex-col">
         <LoginHeader logo={fallbackLogo} />
 
-        <div className="mx-auto grid w-full max-w-7xl flex-1 gap-8 px-4 py-8 pb-[max(5rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-center lg:px-8 lg:py-12">
-          <section className="order-2 max-w-3xl lg:order-1">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#c6ff1a]">Football club workspace</p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-black leading-[1.02] tracking-tight text-white sm:text-5xl xl:text-6xl">
-              Run the football week from one club workspace.
+        <div className="mx-auto grid w-full max-w-7xl flex-1 gap-8 px-4 py-7 pb-[max(5rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-center lg:px-8 lg:py-10">
+          <section className="order-2 max-w-2xl lg:order-1">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#c6ff1a]">Sign in</p>
+            <h1 className="mt-4 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-white sm:text-5xl xl:text-6xl">
+              Welcome back to Football Player.
             </h1>
-            <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/78 sm:text-lg sm:leading-8">
-              Manage training, match day, availability, parent updates, and player development records without chasing everything through WhatsApp.
+            <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-white/76 sm:text-lg sm:leading-8">
+              Sign in to manage training, match day, parent updates, and player records from the right club or team workspace.
             </p>
 
-            <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+            <div className="mt-7 grid max-w-2xl gap-3 sm:grid-cols-3">
               {[
-                'Training and fixtures in one place',
-                'Parent updates from saved records',
-                'Player history that stays with the player',
+                'Training and fixtures stay connected',
+                'Parent updates come from saved records',
+                'Player history stays with the player',
               ].map((item) => (
                 <div key={item} className="border-t border-white/18 pt-3">
                   <span className="mb-3 block h-1.5 w-8 rounded-full bg-[#c6ff1a]" />
