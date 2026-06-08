@@ -87,6 +87,8 @@ export async function createAssessmentSession({ user, session }) {
   const requestedSessionType = String(session.sessionType ?? '').trim()
   const sessionType = ['training', 'match'].includes(requestedSessionType) ? requestedSessionType : 'training'
   const sessionOpponentName = sessionType === 'match' ? opponentName : ''
+  const startTime = String(session.startTime ?? '').trim()
+  const endTime = String(session.endTime ?? '').trim()
 
   if (!teamId) {
     throw new Error('Choose a team before creating a session.')
@@ -101,6 +103,10 @@ export async function createAssessmentSession({ user, session }) {
       opponent: sessionOpponentName,
       session_type: sessionType,
       session_date: sessionDate,
+      start_time: /^\d{2}:\d{2}$/.test(startTime) ? startTime : null,
+      end_time: /^\d{2}:\d{2}$/.test(endTime) ? endTime : null,
+      location: String(session.location ?? '').trim(),
+      notes: String(session.notes ?? '').trim(),
       title: sessionOpponentName ? `${teamName} vs ${sessionOpponentName}` : teamName,
       created_by: user.id,
       ...getEntryIdentity(user),
@@ -119,6 +125,76 @@ export async function createAssessmentSession({ user, session }) {
   await createAuditLog({
     user,
     action: 'assessment_session_created',
+    entityType: 'assessment_session',
+    entityId: data.id,
+    metadata: {
+      team: teamName,
+      opponent: sessionOpponentName,
+      sessionType,
+      sessionDate,
+    },
+  })
+
+  return normalizeAssessmentSessionRow(data)
+}
+
+export async function updateAssessmentSession({ user, sessionId, session }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId || !sessionId) {
+    throw new Error('Session and club are required.')
+  }
+
+  const sessionDate = normalizeDateOnly(session.sessionDate)
+
+  if (!sessionDate) {
+    throw new Error('Session date is required.')
+  }
+
+  const teamName = String(session.team ?? '').trim()
+  const teamId = String(session.teamId ?? '').trim()
+  const opponentName = String(session.opponent ?? '').trim()
+  const requestedSessionType = String(session.sessionType ?? '').trim()
+  const sessionType = ['training', 'match'].includes(requestedSessionType) ? requestedSessionType : 'training'
+  const sessionOpponentName = sessionType === 'match' ? opponentName : ''
+  const startTime = String(session.startTime ?? '').trim()
+  const endTime = String(session.endTime ?? '').trim()
+
+  if (!teamId) {
+    throw new Error('Choose a team before updating the session.')
+  }
+
+  const { data, error } = await supabase
+    .from('assessment_sessions')
+    .update({
+      team_id: teamId,
+      team: teamName,
+      opponent: sessionOpponentName,
+      session_type: sessionType,
+      session_date: sessionDate,
+      start_time: /^\d{2}:\d{2}$/.test(startTime) ? startTime : null,
+      end_time: /^\d{2}:\d{2}$/.test(endTime) ? endTime : null,
+      location: String(session.location ?? '').trim(),
+      notes: String(session.notes ?? '').trim(),
+      title: session.title || (sessionOpponentName ? `${teamName} vs ${sessionOpponentName}` : teamName),
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'assessment_session_updated',
     entityType: 'assessment_session',
     entityId: data.id,
     metadata: {

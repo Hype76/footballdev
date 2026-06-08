@@ -124,6 +124,13 @@ export {
 } from './domain/evaluations.js'
 
 export {
+  createCalendarEvent,
+  deleteCalendarEvent,
+  getCalendarEvents,
+  updateCalendarEvent,
+} from './domain/calendar-events.js'
+
+export {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
   completeAssessmentSession,
@@ -131,6 +138,7 @@ export {
   deleteAssessmentSession,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
+  updateAssessmentSession,
   updateAssessmentSessionPlayer,
 } from './domain/sessions.js'
 

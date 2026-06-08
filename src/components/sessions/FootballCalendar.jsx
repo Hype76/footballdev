@@ -55,6 +55,7 @@ function getMonthGrid(cursor) {
 
 function getEventTone(type) {
   const tones = {
+    'club-event': 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828]',
     match: 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]',
     'match-day': 'border-[#fde68a] bg-[#fffbeb] text-[#92400e]',
     training: 'border-[#d7e5dc] bg-white text-[#101828]',
@@ -70,6 +71,7 @@ export function FootballCalendar({
   events,
   isLoading,
   onCursorChange,
+  onDateClick,
   onOpenEvent,
   onViewChange,
   view,
@@ -136,10 +138,6 @@ export function FootballCalendar({
         <p className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-bold text-[#4b5f55]">
           Loading calendar activity...
         </p>
-      ) : events.length === 0 ? (
-        <p className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-8 text-center text-sm font-bold text-[#4b5f55]">
-          No football activity scheduled yet. Create a session or match day to see it here.
-        </p>
       ) : view === 'month' ? (
         <div className="mt-5 overflow-hidden rounded-lg border border-[#d7e5dc] bg-[#f7faf8]">
           <div className="grid grid-cols-7 border-b border-[#d7e5dc] bg-white text-center text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
@@ -156,9 +154,14 @@ export function FootballCalendar({
               return (
                 <div key={dateKey} className="min-h-[8rem] border-b border-[#d7e5dc] bg-white p-2 sm:border-r">
                   <div className="flex items-center justify-between gap-2">
-                    <p className={isCurrentMonth ? 'text-sm font-black text-[#101828]' : 'text-sm font-black text-[#9aa89f]'}>
+                    <button
+                      type="button"
+                      onClick={() => onDateClick?.(dateKey)}
+                      className={isCurrentMonth ? 'text-sm font-black text-[#101828] hover:text-[#047857]' : 'text-sm font-black text-[#9aa89f] hover:text-[#047857]'}
+                      title={`Add event on ${formatDateLabel(dateKey)}`}
+                    >
                       {date.getDate()}
-                    </p>
+                    </button>
                     {dayEvents.length > 0 ? (
                       <span className="rounded-full bg-[#ecfdf5] px-2 py-1 text-[0.65rem] font-black text-[#047857]">
                         {dayEvents.length}
@@ -179,6 +182,15 @@ export function FootballCalendar({
                     {dayEvents.length > 3 ? (
                       <p className="px-2 pt-1 text-xs font-bold text-[#4b5f55]">+{dayEvents.length - 3} more</p>
                     ) : null}
+                    {dayEvents.length === 0 && isCurrentMonth ? (
+                      <button
+                        type="button"
+                        onClick={() => onDateClick?.(dateKey)}
+                        className="mt-3 min-h-10 w-full rounded-md border border-dashed border-[#d7e5dc] bg-[#f7faf8] px-2 py-2 text-xs font-black text-[#4b5f55] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+                      >
+                        Add event
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               )
@@ -187,6 +199,11 @@ export function FootballCalendar({
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
+          {visibleAgendaEvents.length === 0 ? (
+            <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-8 text-center text-sm font-bold text-[#4b5f55]">
+              No football activity is scheduled yet. Use Month view to add the first event.
+            </p>
+          ) : null}
           {visibleAgendaEvents.map((event) => (
             <button
               key={event.id}

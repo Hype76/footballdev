@@ -12,7 +12,72 @@ function toDateOnly(value) {
   return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
 }
 
-export function buildFootballCalendarEvents({ sessions = [], evaluations = [], matchDays = [], polls = [] }) {
+function toTimeOnly(value) {
+  const normalizedValue = String(value ?? '').trim()
+  return /^\d{2}:\d{2}/.test(normalizedValue) ? normalizedValue.slice(0, 5) : ''
+}
+
+function addDays(date, days) {
+  const nextDate = new Date(date)
+  nextDate.setDate(date.getDate() + days)
+  return nextDate
+}
+
+function addMonths(date, months) {
+  const nextDate = new Date(date)
+  nextDate.setMonth(date.getMonth() + months)
+  return nextDate
+}
+
+function buildCalendarEventOccurrences(calendarEvent) {
+  const startsAt = new Date(calendarEvent.startsAt)
+
+  if (Number.isNaN(startsAt.getTime())) {
+    return []
+  }
+
+  const frequency = calendarEvent.recurrenceFrequency || 'none'
+  const recurrenceUntil = calendarEvent.recurrenceUntil ? new Date(`${calendarEvent.recurrenceUntil}T23:59:59`) : null
+  const maxDate = recurrenceUntil && !Number.isNaN(recurrenceUntil.getTime())
+    ? recurrenceUntil
+    : addMonths(startsAt, 3)
+  const occurrences = []
+  let occurrenceDate = new Date(startsAt)
+  let occurrenceIndex = 0
+
+  while (occurrenceIndex < 80 && occurrenceDate.getTime() <= maxDate.getTime()) {
+    const date = toDateOnly(occurrenceDate)
+    occurrences.push({
+      id: occurrenceIndex === 0 ? `calendar:${calendarEvent.id}` : `calendar:${calendarEvent.id}:${date}`,
+      sourceId: calendarEvent.id,
+      sourceType: 'calendar',
+      occurrenceDate: date,
+      date,
+      time: toTimeOnly(calendarEvent.startsAt),
+      type: calendarEvent.eventType === 'general' ? 'club-event' : 'deadline',
+      title: occurrenceIndex === 0 ? calendarEvent.title : `${calendarEvent.title} repeats`,
+      description: [calendarEvent.location, calendarEvent.notes].filter(Boolean).join(', ') || 'Calendar event',
+      editable: true,
+      data: calendarEvent,
+    })
+
+    occurrenceIndex += 1
+
+    if (frequency === 'weekly') {
+      occurrenceDate = addDays(occurrenceDate, 7)
+    } else if (frequency === 'fortnightly') {
+      occurrenceDate = addDays(occurrenceDate, 14)
+    } else if (frequency === 'monthly') {
+      occurrenceDate = addMonths(occurrenceDate, 1)
+    } else {
+      break
+    }
+  }
+
+  return occurrences
+}
+
+export function buildFootballCalendarEvents({ calendarEvents = [], sessions = [], evaluations = [], matchDays = [], polls = [] }) {
   const sessionEvents = sessions
     .map((session) => {
       const date = toDateOnly(session.sessionDate || session.date)
@@ -26,10 +91,15 @@ export function buildFootballCalendarEvents({ sessions = [], evaluations = [], m
       return {
         id: `session:${session.id}`,
         date,
+        time: toTimeOnly(session.startTime),
         type,
         title,
-        description: `${session.team || 'Team'}${session.status ? `, ${session.status}` : ''}`,
+        description: [session.startTime, session.location, session.team || 'Team', session.status].filter(Boolean).join(', '),
         href: `/sessions?sessionId=${encodeURIComponent(session.id)}`,
+        editable: !session.isHistorical,
+        sourceId: session.id,
+        sourceType: 'session',
+        data: session,
       }
     })
     .filter(Boolean)
@@ -44,10 +114,15 @@ export function buildFootballCalendarEvents({ sessions = [], evaluations = [], m
       return {
         id: `match:${match.id}`,
         date,
+        time: toTimeOnly(match.kickoffTime),
         type: 'match-day',
         title: `${match.teamName || 'Team'} vs ${match.opponent || 'Opponent'}`,
         description: [match.kickoffTime ? `Kick off ${match.kickoffTime}` : '', match.venueName].filter(Boolean).join(', '),
         href: '/match-day',
+        editable: true,
+        sourceId: match.id,
+        sourceType: 'match-day',
+        data: match,
       }
     })
     .filter(Boolean)
@@ -62,10 +137,15 @@ export function buildFootballCalendarEvents({ sessions = [], evaluations = [], m
       return {
         id: `poll:${poll.id}`,
         date,
+        time: toTimeOnly(poll.closesAt),
         type: 'deadline',
         title: `${poll.title || 'Parent response'} closes`,
         description: poll.teamName || poll.audience || 'Response cut off',
         href: '/polls',
+        editable: false,
+        sourceId: poll.id,
+        sourceType: 'poll',
+        data: poll,
       }
     })
     .filter(Boolean)
@@ -82,14 +162,25 @@ export function buildFootballCalendarEvents({ sessions = [], evaluations = [], m
       return {
         id: `development:${evaluation.id}`,
         date,
+        time: '',
         type: 'development',
         title: `${playerName || 'Player'} development record`,
         description: evaluation.session || evaluation.team || 'Development activity',
         href: playerName ? `/player/${encodeURIComponent(playerName)}` : '/players',
+        editable: false,
+        sourceId: evaluation.id,
+        sourceType: 'development',
+        data: evaluation,
       }
     })
     .filter(Boolean)
 
-  return [...sessionEvents, ...matchEvents, ...pollEvents, ...developmentEvents]
-    .sort((left, right) => left.date.localeCompare(right.date) || left.title.localeCompare(right.title))
+  const customEvents = calendarEvents.flatMap(buildCalendarEventOccurrences)
+
+  return [...sessionEvents, ...matchEvents, ...pollEvents, ...developmentEvents, ...customEvents]
+    .sort((left, right) =>
+      left.date.localeCompare(right.date) ||
+      String(left.time || '').localeCompare(String(right.time || '')) ||
+      left.title.localeCompare(right.title),
+    )
 }
