@@ -211,6 +211,25 @@ async function buildProgressionChartAttachments(chartImages = []) {
   return attachments
 }
 
+function embedProgressionChartsInPdfHtml(html, chartAttachments = []) {
+  if (!Array.isArray(chartAttachments) || chartAttachments.length === 0) {
+    return html
+  }
+
+  let chartIndex = 0
+
+  return String(html ?? '').replace(/<svg\b[\s\S]*?<\/svg>/g, (svgMarkup) => {
+    const chartAttachment = chartAttachments[chartIndex]
+    chartIndex += 1
+
+    if (!chartAttachment?.content) {
+      return svgMarkup
+    }
+
+    return `<img src="data:image/png;base64,${chartAttachment.content}" alt="Progression score chart out of 5" width="360" style="display: block; width: 100%; max-width: 360px; height: auto;" />`
+  })
+}
+
 function parseScheduledAt(value) {
   const normalizedValue = String(value ?? '').trim()
 
@@ -300,10 +319,11 @@ export async function prepareParentEmail({ body, requestUser }) {
   }
 
   const attachmentHtml = buildEmailHtml(pdfHtml || emailHtml)
-  const [pdfAttachments, chartAttachments] = await Promise.all([
-    shouldAttachPdf ? buildPdfAttachment(attachmentHtml) : [],
-    buildProgressionChartAttachments(body.progressionChartImages),
-  ])
+  const chartAttachments = await buildProgressionChartAttachments(body.progressionChartImages)
+  const pdfHtmlWithChartImages = shouldAttachPdf
+    ? embedProgressionChartsInPdfHtml(attachmentHtml, chartAttachments)
+    : attachmentHtml
+  const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(pdfHtmlWithChartImages) : []
   const attachments = [...pdfAttachments, ...chartAttachments]
   const emailSubject = String(subject ?? '').trim() || 'Football Player'
   const emailPayload = buildEmailPayload({
