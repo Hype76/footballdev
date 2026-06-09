@@ -178,6 +178,7 @@ export function FormBuilderPage() {
 
       if (name === 'type' && value !== 'select' && !isScoreType(value)) {
         nextForm.options = ''
+        nextForm.includeInProgressChart = false
       }
 
       return nextForm
@@ -199,6 +200,7 @@ export function FormBuilderPage() {
 
       if (name === 'type' && value !== 'select' && !isScoreType(value)) {
         nextDraft.options = ''
+        nextDraft.includeInProgressChart = false
       }
 
       return {
@@ -390,6 +392,39 @@ export function FormBuilderPage() {
     }
   }
 
+  const handleToggleProgressionChart = async (field, nextIncludeInProgressChart) => {
+    if (!isScoreType(field.type)) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const updatedField = await updateFormField(
+        field.id,
+        {
+          includeInProgressChart: nextIncludeInProgressChart,
+        },
+        user,
+      )
+
+      const nextFields = fields.map((item) => (item.id === field.id ? updatedField : item))
+      syncFields(nextFields)
+      setSuccessMessage('Progression chart setting saved.')
+      showToast({
+        title: 'Chart setting saved',
+        message: `${updatedField.label} ${nextIncludeInProgressChart ? 'will' : 'will not'} feed the progression chart.`,
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Could not update the progression chart setting.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleSaveField = async (field) => {
     if (field.isDefault) {
       return
@@ -414,6 +449,7 @@ export function FormBuilderPage() {
           required: draft.required,
           options: getOptionsForType(draft.type, draft.options),
           isEnabled: draft.isEnabled,
+          includeInProgressChart: isScoreType(draft.type) ? draft.includeInProgressChart : false,
           orderIndex: field.orderIndex,
           isDefault: false,
         },
@@ -509,6 +545,7 @@ export function FormBuilderPage() {
         onReorderField={handleReorderField}
         onSaveField={handleSaveField}
         onSetFieldGroup={setFieldGroup}
+        onToggleProgressionChart={handleToggleProgressionChart}
         onToggleEnabled={handleToggleEnabled}
         paginatedFields={paginatedFields}
         visibleFields={visibleFields}

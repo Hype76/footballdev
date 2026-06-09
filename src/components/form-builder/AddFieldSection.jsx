@@ -85,9 +85,19 @@ export function AddFieldSection({
           ) : null}
 
           {isScoreType(fieldForm.type) ? (
-            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10 md:col-span-2">
+            <div className="space-y-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10 md:col-span-2">
               <p className="text-sm font-black text-[#101828]">Score options</p>
               <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{createScoreOptions(fieldForm.type).join(', ')}</p>
+              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828]">
+                <input
+                  type="checkbox"
+                  name="includeInProgressChart"
+                  checked={Boolean(fieldForm.includeInProgressChart)}
+                  onChange={onFormChange}
+                  className="h-5 w-5 rounded border-[#d7e5dc] bg-white accent-[#047857]"
+                />
+                <span>Include in progression chart</span>
+              </label>
             </div>
           ) : null}
 

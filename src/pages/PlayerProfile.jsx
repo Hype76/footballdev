@@ -82,6 +82,8 @@ import {
   deletePlayerStaffNote,
   deleteEvaluation,
   getEvaluations,
+  getDefaultFormFields,
+  getFormFields,
   getPlayerCommunicationLogs,
   getPlayerStaffNotes,
   getParentEmailTemplates,
@@ -123,6 +125,9 @@ export function PlayerProfile() {
   const routePlayerName = decodeURIComponent(id)
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
   const cacheKey = user ? `player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}:${routePlayerName}` : ''
+  const fieldsCacheKey = user ? `assessment-fields:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
+  const cachedFields = readViewCache(fieldsCacheKey)
+  const hasCachedFieldConfig = Boolean(cachedFields?.dynamicFields)
   const [evaluations, setEvaluations] = useState(() => {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
@@ -136,6 +141,10 @@ export function PlayerProfile() {
     return Array.isArray(cachedPlayers) ? cachedPlayers : []
   })
   const [staffNotes, setStaffNotes] = useState([])
+  const [dynamicFields, setDynamicFields] = useState(() => {
+    const nextCachedFields = Array.isArray(cachedFields?.dynamicFields) ? cachedFields.dynamicFields : []
+    return nextCachedFields
+  })
   const [activityLogs, setActivityLogs] = useState([])
   const [noteDraft, setNoteDraft] = useState('')
   const [editingPlayerId, setEditingPlayerId] = useState('')
@@ -296,6 +305,45 @@ export function PlayerProfile() {
     }
   }, [cacheKey, routePlayerName, user, userScopeKey])
 
+  useEffect(() => {
+    let isMounted = true
+
+    const loadFields = async () => {
+      if (!user) {
+        setDynamicFields([])
+        return
+      }
+
+      try {
+        const { fields } = await withRequestTimeout(
+          () => getFormFields({ user }),
+          'Could not load form fields for progression chart settings.',
+        )
+
+        if (!isMounted) {
+          return
+        }
+
+        setDynamicFields(fields)
+        writeViewCache(fieldsCacheKey, {
+          dynamicFields: fields,
+        })
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted && !hasCachedFieldConfig) {
+          setDynamicFields(getDefaultFormFields())
+        }
+      }
+    }
+
+    void loadFields()
+
+    return () => {
+      isMounted = false
+    }
+  }, [fieldsCacheKey, hasCachedFieldConfig, user, userScopeKey])
+
   const loadEmailTemplates = useCallback(async () => {
     if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
       setEmailTemplates([])
@@ -343,8 +391,8 @@ export function PlayerProfile() {
   const ratingTrend = useMemo(() => buildRatingTrend(evaluations), [evaluations])
   const fieldMovement = useMemo(() => buildFieldMovement(evaluations), [evaluations])
   const progressionData = useMemo(
-    () => buildPlayerProgressionData({ evaluations, staffNotes }),
-    [evaluations, staffNotes],
+    () => buildPlayerProgressionData({ evaluations, staffNotes, fields: dynamicFields }),
+    [dynamicFields, evaluations, staffNotes],
   )
   const ratingTrendMax = ratingTrend.some((evaluation) => Number(evaluation.averageScore) > 5) ? 10 : 5
   const overallAverage =
@@ -683,6 +731,7 @@ export function PlayerProfile() {
           session: evaluation.session,
           logoUrl: user.clubLogoUrl || null,
           responseItems: responses,
+          emailSections,
         }),
         evaluationId: evaluation.id,
         attachPdf: true,

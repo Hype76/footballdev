@@ -74,6 +74,67 @@ function isNumericValue(value) {
   return value !== null && value !== undefined && value !== '' && !Number.isNaN(Number(value))
 }
 
+function normalizeFieldLabel(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function isProgressionScoreField(field = {}) {
+  const type = String(field.type ?? '').trim()
+
+  if (!['score_1_5', 'score_1_10'].includes(type)) {
+    return false
+  }
+
+  if (field.includeInProgressChart !== undefined) {
+    return Boolean(field.includeInProgressChart)
+  }
+
+  return Boolean(field.isDefault)
+}
+
+function normalizeScoreToFive(value, field = {}) {
+  if (!isNumericValue(value)) {
+    return null
+  }
+
+  const score = Number(value)
+
+  if (!Number.isFinite(score) || score <= 0) {
+    return null
+  }
+
+  if (field.type === 'score_1_10') {
+    return Math.min(5, score / 2)
+  }
+
+  return Math.min(5, score)
+}
+
+function getChartFieldMap(fields = []) {
+  const chartFields = Array.isArray(fields) ? fields.filter(isProgressionScoreField) : []
+
+  return new Map(chartFields.map((field) => [normalizeFieldLabel(field.label), field]))
+}
+
+function getEvaluationChartScore(evaluation, chartFieldMap) {
+  if (!chartFieldMap.size) {
+    return isNumericValue(evaluation.averageScore) ? Number(evaluation.averageScore) : null
+  }
+
+  const values = Object.entries(evaluation.formResponses ?? {})
+    .map(([label, value]) => {
+      const field = chartFieldMap.get(normalizeFieldLabel(label))
+      return field ? normalizeScoreToFive(value, field) : null
+    })
+    .filter((value) => Number.isFinite(value))
+
+  if (!values.length) {
+    return null
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
 function normaliseNote(note) {
   return {
     id: note?.id ?? '',
@@ -83,17 +144,26 @@ function normaliseNote(note) {
   }
 }
 
-export function buildPlayerProgressionData({ evaluations = [], staffNotes = [] } = {}) {
+export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], fields = [] } = {}) {
   const chronologicalEvaluations = [...evaluations].sort((left, right) => getEvaluationDate(left) - getEvaluationDate(right))
+  const chartFieldMap = getChartFieldMap(fields)
   const scoreTrend = chronologicalEvaluations
-    .filter((evaluation) => isNumericValue(evaluation.averageScore))
-    .map((evaluation) => ({
-      id: evaluation.id,
-      label: formatProgressDate(evaluation.date || evaluation.createdAt),
-      value: Number(evaluation.averageScore),
-      session: String(evaluation.session ?? '').trim(),
-      team: String(evaluation.team ?? '').trim(),
-    }))
+    .map((evaluation) => {
+      const chartScore = getEvaluationChartScore(evaluation, chartFieldMap)
+
+      if (!Number.isFinite(chartScore)) {
+        return null
+      }
+
+      return {
+        id: evaluation.id,
+        label: formatProgressDate(evaluation.date || evaluation.createdAt),
+        value: chartScore,
+        session: String(evaluation.session ?? '').trim(),
+        team: String(evaluation.team ?? '').trim(),
+      }
+    })
+    .filter(Boolean)
   const notes = staffNotes.map(normaliseNote).filter((note) => note.note)
   const latestNote = [...notes]
     .sort((left, right) => (toDateValue(right.createdAt)?.getTime() ?? 0) - (toDateValue(left.createdAt)?.getTime() ?? 0))[0] ?? null
@@ -126,7 +196,15 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [] }
   const numericFields = new Map()
   chronologicalEvaluations.forEach((evaluation) => {
     Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
-      if (!isNumericValue(value)) {
+      const field = chartFieldMap.get(normalizeFieldLabel(label))
+
+      if (chartFieldMap.size && !field) {
+        return
+      }
+
+      const normalizedScore = chartFieldMap.size ? normalizeScoreToFive(value, field) : Number(value)
+
+      if (!Number.isFinite(normalizedScore)) {
         return
       }
 
@@ -134,7 +212,7 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [] }
         numericFields.set(label, [])
       }
 
-      numericFields.get(label).push(Number(value))
+      numericFields.get(label).push(normalizedScore)
     })
   })
 

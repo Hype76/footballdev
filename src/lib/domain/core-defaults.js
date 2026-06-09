@@ -16,6 +16,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 1,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-tactical',
@@ -26,6 +27,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 2,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-physical',
@@ -36,6 +38,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 3,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-mentality',
@@ -46,6 +49,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 4,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-coachability',
@@ -56,6 +60,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 5,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: true,
   },
   {
     id: 'default-strengths',
@@ -66,6 +71,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 6,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: false,
   },
   {
     id: 'default-improvements',
@@ -76,6 +82,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 7,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: false,
   },
   {
     id: 'default-overall',
@@ -86,6 +93,7 @@ const DEFAULT_FORM_FIELDS = [
     orderIndex: 8,
     isDefault: true,
     isEnabled: true,
+    includeInProgressChart: false,
   },
 ]
 

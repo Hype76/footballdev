@@ -1462,6 +1462,7 @@ export function CreateEvaluationPage() {
           const progressionData = buildPlayerProgressionData({
             evaluations: progressionSourceEvaluations,
             staffNotes: [],
+            fields: dynamicFields,
           })
           const assessmentEmailSections = buildProgressionEmailSections({
             progressionData,

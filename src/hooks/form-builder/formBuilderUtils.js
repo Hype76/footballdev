@@ -11,6 +11,7 @@ export const initialFieldForm = {
   type: 'score_1_5',
   required: false,
   options: '1, 2, 3, 4, 5',
+  includeInProgressChart: false,
 }
 
 export const FIELD_PAGE_SIZE = 8
@@ -54,6 +55,7 @@ export function createDraftFromField(field) {
     required: field.required,
     options: field.options.join(', '),
     isEnabled: field.isEnabled,
+    includeInProgressChart: Boolean(field.includeInProgressChart),
   }
 }
 

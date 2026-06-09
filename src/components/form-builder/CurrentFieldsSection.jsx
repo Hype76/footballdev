@@ -30,6 +30,7 @@ export function CurrentFieldsSection({
   onReorderField,
   onSaveField,
   onSetFieldGroup,
+  onToggleProgressionChart,
   onToggleEnabled,
   paginatedFields,
   visibleFields,
@@ -170,6 +171,7 @@ export function CurrentFieldsSection({
                 onDraftChange={onDraftChange}
                 onMoveField={onMoveField}
                 onSaveField={onSaveField}
+                onToggleProgressionChart={onToggleProgressionChart}
                 onToggleEnabled={onToggleEnabled}
               />
             )
@@ -204,6 +206,7 @@ function FormFieldCard({
   onDraftChange,
   onMoveField,
   onSaveField,
+  onToggleProgressionChart,
   onToggleEnabled,
 }) {
   const moveUpDisabledReason = isSaving
@@ -332,6 +335,25 @@ function FormFieldCard({
               </label>
             </>
           )}
+
+          {isScoreType(draft.type) ? (
+            <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] md:col-span-2">
+              <input
+                type="checkbox"
+                checked={Boolean(draft.includeInProgressChart)}
+                onChange={(event) => {
+                  if (field.isDefault) {
+                    onToggleProgressionChart(field, event.target.checked)
+                    return
+                  }
+
+                  onDraftChange(field.id, 'includeInProgressChart', event.target.checked)
+                }}
+                className="h-5 w-5 rounded border-[#d7e5dc] bg-white accent-[#047857]"
+              />
+              <span>Include in progression chart</span>
+            </label>
+          ) : null}
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:flex-col">
@@ -395,6 +417,11 @@ function FormFieldCard({
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{field.isDefault ? 'Default' : 'Custom'}</span>
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.required ? 'Required' : 'Optional'}</span>
+        {isScoreType(draft.type) ? (
+          <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">
+            {draft.includeInProgressChart ? 'Progression chart' : 'Not in chart'}
+          </span>
+        ) : null}
       </div>
     </div>
   )
