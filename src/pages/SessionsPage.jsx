@@ -47,6 +47,7 @@ import {
   deletePlayerStaffNote,
   getEvaluations,
   getCalendarEvents,
+  getCalendarEventInvites,
   getMatchDays,
   getPolls,
   getAssessmentSessionPlayers,
@@ -56,6 +57,7 @@ import {
   getPlayers,
   readViewCache,
   readViewCacheValue,
+  saveCalendarEventInvites,
   updateCalendarEvent,
   updateAssessmentSession,
   updateMatchDay,
@@ -120,8 +122,12 @@ function getDefaultCalendarForm(date = '') {
     date: eventDate,
     endTime: '10:00',
     eventType: 'training',
+    invitedPlayerIds: [],
+    inviteTrialPlayers: false,
+    inviteWholeSquad: false,
     location: '',
     notes: '',
+    notifyInvitedFamilies: false,
     opponent: '',
     recurrenceFrequency: 'none',
     recurrenceUntil: '',
@@ -129,6 +135,67 @@ function getDefaultCalendarForm(date = '') {
     teamId: '',
     title: '',
   }
+}
+
+function addDays(date, days) {
+  const nextDate = new Date(date)
+  nextDate.setDate(date.getDate() + days)
+  return nextDate
+}
+
+function addMonths(date, months) {
+  const nextDate = new Date(date)
+  nextDate.setMonth(date.getMonth() + months)
+  return nextDate
+}
+
+function buildRecurrenceDates({ date, frequency, until }) {
+  const normalizedFrequency = String(frequency ?? 'none').trim()
+  const startDateValue = formatDateInput(date)
+
+  if (!startDateValue || normalizedFrequency === 'none') {
+    return startDateValue ? [startDateValue] : []
+  }
+
+  const untilDateValue = formatDateInput(until)
+
+  if (!untilDateValue) {
+    throw new Error('Add a repeat until date for recurring events.')
+  }
+
+  const startDate = new Date(`${startDateValue}T00:00:00`)
+  const untilDate = new Date(`${untilDateValue}T23:59:59`)
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(untilDate.getTime())) {
+    throw new Error('Use a valid repeat until date.')
+  }
+
+  if (untilDate.getTime() < startDate.getTime()) {
+    throw new Error('Repeat until must be after the first event date.')
+  }
+
+  const dates = []
+  let cursor = new Date(startDate)
+
+  while (dates.length < 52 && cursor.getTime() <= untilDate.getTime()) {
+    dates.push(formatDateInput(cursor))
+
+    if (normalizedFrequency === 'weekly') {
+      cursor = addDays(cursor, 7)
+    } else if (normalizedFrequency === 'fortnightly') {
+      cursor = addDays(cursor, 14)
+    } else if (normalizedFrequency === 'monthly') {
+      cursor = addMonths(cursor, 1)
+    } else {
+      break
+    }
+  }
+
+  if (cursor.getTime() <= untilDate.getTime()) {
+    throw new Error('Recurring events are limited to 52 dates. Shorten the repeat range and try again.')
+  }
+
+  return dates
 }
 
 function canCreateClubCalendarEvent(user) {
@@ -145,9 +212,42 @@ function getSafeCalendarTeamId(user, teamId) {
   return normalizedTeamId || String(user?.activeTeamId ?? '').trim()
 }
 
-function getFormFromCalendarEvent(event) {
+function getInvitesForCalendarEvent(event, invites = []) {
+  const sourceType = event?.sourceType || ''
+  const sourceId = String(event?.sourceId ?? '').trim()
+
+  if (!sourceId) {
+    return []
+  }
+
+  return invites.filter((invite) => {
+    if (sourceType === 'calendar') {
+      return invite.calendarEventId === sourceId
+    }
+
+    if (sourceType === 'session') {
+      return invite.assessmentSessionId === sourceId
+    }
+
+    return false
+  })
+}
+
+function getFormInviteFields(event, invites = []) {
+  const eventInvites = getInvitesForCalendarEvent(event, invites)
+
+  return {
+    invitedPlayerIds: eventInvites.map((invite) => invite.playerId).filter(Boolean),
+    inviteTrialPlayers: false,
+    inviteWholeSquad: false,
+    notifyInvitedFamilies: eventInvites.some((invite) => invite.notifyRequested),
+  }
+}
+
+function getFormFromCalendarEvent(event, invites = []) {
   const source = event?.data || {}
   const sourceType = event?.sourceType || ''
+  const inviteFields = getFormInviteFields(event, invites)
 
   if (sourceType === 'session') {
     return {
@@ -161,6 +261,7 @@ function getFormFromCalendarEvent(event) {
       startTime: formatTimeInput(source.startTime) || '09:00',
       teamId: source.teamId || '',
       title: source.title || '',
+      ...inviteFields,
     }
   }
 
@@ -176,6 +277,7 @@ function getFormFromCalendarEvent(event) {
       startTime: formatTimeInput(source.kickoffTime) || '10:00',
       teamId: source.teamId || '',
       title: `${source.teamName || 'Team'} vs ${source.opponent || 'Opponent'}`,
+      ...inviteFields,
     }
   }
 
@@ -192,10 +294,59 @@ function getFormFromCalendarEvent(event) {
       startTime: formatTimeInput(source.startsAt) || '09:00',
       teamId: source.teamId || '',
       title: source.title || '',
+      ...inviteFields,
     }
   }
 
   return getDefaultCalendarForm(event?.date)
+}
+
+function getCalendarInvitePlayers(players, teamId) {
+  const normalizedTeamId = String(teamId ?? '').trim()
+
+  if (!normalizedTeamId) {
+    return []
+  }
+
+  return (players ?? [])
+    .filter((player) => String(player.status ?? 'active') !== 'archived')
+    .filter((player) => String(player.teamId ?? '').trim() === normalizedTeamId)
+    .sort((left, right) =>
+      String(left.section ?? '').localeCompare(String(right.section ?? '')) ||
+      String(left.playerName ?? '').localeCompare(String(right.playerName ?? '')),
+    )
+}
+
+function buildSelectedInvitePlayers(form, invitePlayers) {
+  const selectedIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
+  const selectedPlayers = []
+  const addPlayer = (player) => {
+    if (!player?.id || selectedPlayers.some((selectedPlayer) => selectedPlayer.id === player.id)) {
+      return
+    }
+
+    selectedPlayers.push(player)
+  }
+
+  invitePlayers.forEach((player) => {
+    const section = String(player.section ?? '').trim().toLowerCase()
+
+    if (form.inviteWholeSquad && section === 'squad') {
+      addPlayer(player)
+      return
+    }
+
+    if (form.inviteTrialPlayers && section === 'trial') {
+      addPlayer(player)
+      return
+    }
+
+    if (selectedIds.has(String(player.id))) {
+      addPlayer(player)
+    }
+  })
+
+  return selectedPlayers
 }
 
 export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
@@ -237,6 +388,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const [calendarItems, setCalendarItems] = useState(() => {
     const cachedCalendarItems = readViewCacheValue(cacheKey, 'calendarItems', [])
     return Array.isArray(cachedCalendarItems) ? cachedCalendarItems : []
+  })
+  const [calendarInvites, setCalendarInvites] = useState(() => {
+    const cachedCalendarInvites = readViewCacheValue(cacheKey, 'calendarInvites', [])
+    return Array.isArray(cachedCalendarInvites) ? cachedCalendarInvites : []
   })
   const [calendarView, setCalendarView] = useState('month')
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
@@ -323,6 +478,18 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     }),
     [calendarItems, combinedSessions, evaluations, matchDays, polls],
   )
+  const calendarInvitePlayers = useMemo(
+    () => getCalendarInvitePlayers(players, getSafeCalendarTeamId(user, calendarForm.teamId)),
+    [calendarForm.teamId, players, user],
+  )
+  const selectedCalendarInvitePlayers = useMemo(
+    () => buildSelectedInvitePlayers(calendarForm, calendarInvitePlayers),
+    [calendarForm, calendarInvitePlayers],
+  )
+  const currentCalendarEventInvites = useMemo(
+    () => getInvitesForCalendarEvent(calendarModal?.event, calendarInvites),
+    [calendarInvites, calendarModal?.event],
+  )
 
   useEffect(() => {
     const requestedAction = String(searchParams.get('action') ?? '').trim()
@@ -353,7 +520,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       setErrorMessage('')
 
       try {
-        const [sessionsResult, playersResult, teamsResult, evaluationsResult, matchDaysResult, pollsResult, calendarItemsResult] = await Promise.allSettled([
+        const [
+          sessionsResult,
+          playersResult,
+          teamsResult,
+          evaluationsResult,
+          matchDaysResult,
+          pollsResult,
+          calendarItemsResult,
+          calendarInvitesResult,
+        ] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
@@ -361,6 +537,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           withRequestTimeout(() => getMatchDays({ user }), 'Could not load match days.'),
           withRequestTimeout(() => getPolls({ user }), 'Could not load response cut offs.'),
           withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.'),
+          withRequestTimeout(() => getCalendarEventInvites({ user }), 'Could not load calendar invites.'),
         ])
 
         if (!isMounted) {
@@ -376,6 +553,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const nextPolls = pollsResult.status === 'fulfilled' ? pollsResult.value : cachedValue?.polls || []
         const nextCalendarItems =
           calendarItemsResult.status === 'fulfilled' ? calendarItemsResult.value : cachedValue?.calendarItems || []
+        const nextCalendarInvites =
+          calendarInvitesResult.status === 'fulfilled' ? calendarInvitesResult.value : cachedValue?.calendarInvites || []
 
         if (sessionsResult.status === 'rejected') {
           console.error(sessionsResult.reason)
@@ -405,6 +584,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           console.error(calendarItemsResult.reason)
         }
 
+        if (calendarInvitesResult.status === 'rejected') {
+          console.error(calendarInvitesResult.reason)
+        }
+
         setSessions(nextSessions)
         setPlayers(nextPlayers)
         setTeams(nextTeams)
@@ -412,6 +595,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         setMatchDays(nextMatchDays)
         setPolls(nextPolls)
         setCalendarItems(nextCalendarItems)
+        setCalendarInvites(nextCalendarInvites)
         setSelectedSessionId((current) => {
           const nextCombinedSessions = [...nextSessions, ...buildHistoricalSessionsFromEvaluations(nextEvaluations, nextSessions)]
 
@@ -449,6 +633,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           matchDays: nextMatchDays,
           polls: nextPolls,
           calendarItems: nextCalendarItems,
+          calendarInvites: nextCalendarInvites,
         })
 
         if (
@@ -631,6 +816,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       sessions,
       teams,
       calendarItems,
+      calendarInvites,
       ...nextState,
     })
   }
@@ -761,27 +947,51 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   const handleCalendarEventOpen = (event) => {
     setErrorMessage('')
-    setCalendarForm(getFormFromCalendarEvent(event))
+    setCalendarForm(getFormFromCalendarEvent(event, calendarInvites))
     setCalendarModal({ mode: 'view', event })
   }
 
   const handleCalendarFormChange = (event) => {
-    const { name, value } = event.target
+    const { checked, name, type, value } = event.target
 
     setErrorMessage('')
     setCalendarForm((current) => {
+      if (name === 'invitedPlayerIds') {
+        const currentIds = Array.isArray(current.invitedPlayerIds) ? current.invitedPlayerIds : []
+        const nextIds = checked
+          ? [...new Set([...currentIds, value])]
+          : currentIds.filter((id) => id !== value)
+
+        return {
+          ...current,
+          invitedPlayerIds: nextIds,
+        }
+      }
+
       const nextForm = {
         ...current,
-        [name]: value,
+        [name]: type === 'checkbox' ? checked : value,
       }
 
       if (name === 'teamId') {
         const selectedTeam = teams.find((team) => team.id === value)
         nextForm.team = selectedTeam?.name || ''
+        nextForm.invitedPlayerIds = []
+        nextForm.inviteTrialPlayers = false
+        nextForm.inviteWholeSquad = false
       }
 
       if (name === 'eventType' && value === 'training' && !current.title) {
         nextForm.title = ''
+      }
+
+      if (name === 'eventType' && value === 'match') {
+        nextForm.recurrenceFrequency = 'none'
+        nextForm.recurrenceUntil = ''
+        nextForm.invitedPlayerIds = []
+        nextForm.inviteTrialPlayers = false
+        nextForm.inviteWholeSquad = false
+        nextForm.notifyInvitedFamilies = false
       }
 
       return nextForm
@@ -791,6 +1001,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const getCalendarTeamName = (teamId) => {
     const normalizedTeamId = String(teamId ?? '').trim()
     return teams.find((team) => team.id === normalizedTeamId)?.name || user?.activeTeamName || ''
+  }
+
+  const replaceInvitesForSource = (inviteState, source, savedInvites) => {
+    const sourceColumn = source.calendarEventId ? 'calendarEventId' : 'assessmentSessionId'
+    const sourceId = source.calendarEventId || source.assessmentSessionId
+
+    return [
+      ...inviteState.filter((invite) => invite[sourceColumn] !== sourceId),
+      ...savedInvites,
+    ]
   }
 
   const handleCalendarSave = async (event) => {
@@ -810,7 +1030,36 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         throw new Error('Choose your assigned team before saving this calendar event.')
       }
 
+      const recurrenceDates = isMatch
+        ? [formatDateInput(calendarForm.date)]
+        : buildRecurrenceDates({
+          date: calendarForm.date,
+          frequency: calendarForm.recurrenceFrequency,
+          until: calendarForm.recurrenceUntil,
+        })
+      let nextCalendarInvites = calendarInvites
+      const shouldSyncInvites = !isMatch && Boolean(safeTeamId)
+      const syncInvites = async ({ calendarEventId = '', assessmentSessionId = '' } = {}) => {
+        if (!shouldSyncInvites) {
+          return
+        }
+
+        const savedInvites = await saveCalendarEventInvites({
+          user,
+          calendarEventId,
+          assessmentSessionId,
+          teamId: safeTeamId,
+          players: selectedCalendarInvitePlayers,
+          notifyRequested: calendarForm.notifyInvitedFamilies,
+        })
+        nextCalendarInvites = replaceInvitesForSource(nextCalendarInvites, { calendarEventId, assessmentSessionId }, savedInvites)
+      }
+
       if (isTraining || (sourceType === 'session' && activeEvent?.data?.sessionType !== 'match')) {
+        if (sourceType === 'session' && calendarForm.recurrenceFrequency !== 'none') {
+          throw new Error('Recurring training can be created from a new event. Existing sessions are edited one at a time.')
+        }
+
         const payload = {
           endTime: calendarForm.endTime,
           location: calendarForm.location,
@@ -823,13 +1072,37 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           teamId: safeTeamId,
           title: calendarForm.title || teamName,
         }
-        const savedSession = sourceType === 'session'
-          ? await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
-          : await createAssessmentSession({ user, session: payload })
-        const nextSessions = [savedSession, ...sessions.filter((session) => session.id !== savedSession.id)]
+        const savedSessions = []
+
+        if (sourceType === 'session') {
+          const savedSession = await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
+          savedSessions.push(savedSession)
+        } else {
+          for (const sessionDate of recurrenceDates) {
+            const savedSession = await createAssessmentSession({
+              user,
+              session: {
+                ...payload,
+                sessionDate,
+              },
+            })
+            savedSessions.push(savedSession)
+          }
+        }
+
+        for (const savedSession of savedSessions) {
+          await syncInvites({ assessmentSessionId: savedSession.id })
+        }
+
+        const savedSessionIds = savedSessions.map((session) => session.id)
+        const nextSessions = [...savedSessions, ...sessions.filter((session) => !savedSessionIds.includes(session.id))]
         setSessions(nextSessions)
-        writeCalendarAwareCache({ sessions: nextSessions })
-        showToast({ title: sourceType === 'session' ? 'Session updated' : 'Session created', message: savedSession.title || 'Calendar updated.' })
+        setCalendarInvites(nextCalendarInvites)
+        writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+        showToast({
+          title: sourceType === 'session' ? 'Session updated' : savedSessions.length > 1 ? 'Sessions created' : 'Session created',
+          message: savedSessions.length > 1 ? `${savedSessions.length} training sessions were added.` : savedSessions[0]?.title || 'Calendar updated.',
+        })
       } else if (isMatch || sourceType === 'match-day' || (sourceType === 'session' && activeEvent?.data?.sessionType === 'match')) {
         if (sourceType === 'session') {
           const payload = {
@@ -872,6 +1145,14 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           showToast({ title: sourceType === 'match-day' ? 'Fixture updated' : 'Fixture created', message: savedMatch.opponent || 'Calendar updated.' })
         }
       } else {
+        if (calendarForm.recurrenceFrequency !== 'none') {
+          buildRecurrenceDates({
+            date: calendarForm.date,
+            frequency: calendarForm.recurrenceFrequency,
+            until: calendarForm.recurrenceUntil,
+          })
+        }
+
         const payload = {
           endsAt: buildDateTime(calendarForm.date, calendarForm.endTime),
           eventType: calendarForm.eventType,
@@ -886,9 +1167,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const savedEvent = sourceType === 'calendar'
           ? await updateCalendarEvent({ user, eventId: activeEvent.sourceId, event: payload })
           : await createCalendarEvent({ user, event: payload })
+        await syncInvites({ calendarEventId: savedEvent.id })
         const nextCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
         setCalendarItems(nextCalendarItems)
-        writeCalendarAwareCache({ calendarItems: nextCalendarItems })
+        setCalendarInvites(nextCalendarInvites)
+        writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
       }
 
@@ -916,8 +1199,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       if (activeEvent.sourceType === 'calendar') {
         await deleteCalendarEvent({ user, eventId: activeEvent.sourceId })
         const nextCalendarItems = calendarItems.filter((item) => item.id !== activeEvent.sourceId)
+        const nextCalendarInvites = calendarInvites.filter((invite) => invite.calendarEventId !== activeEvent.sourceId)
         setCalendarItems(nextCalendarItems)
-        writeCalendarAwareCache({ calendarItems: nextCalendarItems })
+        setCalendarInvites(nextCalendarInvites)
+        writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         showToast({ title: 'Event deleted', message: 'The calendar event was removed.' })
       } else if (activeEvent.sourceType === 'session') {
         const assessmentCount = getAssessmentCountForSession(evaluations, activeEvent.data)
@@ -928,8 +1213,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
         await deleteAssessmentSession({ user, sessionId: activeEvent.sourceId })
         const nextSessions = sessions.filter((session) => session.id !== activeEvent.sourceId)
+        const nextCalendarInvites = calendarInvites.filter((invite) => invite.assessmentSessionId !== activeEvent.sourceId)
         setSessions(nextSessions)
-        writeCalendarAwareCache({ sessions: nextSessions })
+        setCalendarInvites(nextCalendarInvites)
+        writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
         showToast({ title: 'Session deleted', message: 'The session was removed.' })
       } else if (activeEvent.sourceType === 'match-day') {
         const cancelledMatch = await updateMatchDay({
@@ -1345,8 +1632,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         />
 
         <CalendarEventModal
+          currentInvites={currentCalendarEventInvites}
           event={calendarModal?.event}
           form={calendarForm}
+          invitePlayers={calendarInvitePlayers}
           isBusy={isSaving}
           isOpen={Boolean(calendarModal)}
           mode={calendarModal?.mode || 'create'}
@@ -1360,6 +1649,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             navigate(href || '/sessions')
           }}
           onSubmit={handleCalendarSave}
+          selectedInvitePlayers={selectedCalendarInvitePlayers}
           teams={teams}
           user={user}
         />
@@ -1637,8 +1927,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         teams={teams}
       />
       <CalendarEventModal
+        currentInvites={currentCalendarEventInvites}
         event={calendarModal?.event}
         form={calendarForm}
+        invitePlayers={calendarInvitePlayers}
         isBusy={isSaving}
         isOpen={Boolean(calendarModal)}
         mode={calendarModal?.mode || 'create'}
@@ -1652,6 +1944,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           navigate(href || '/sessions')
         }}
         onSubmit={handleCalendarSave}
+        selectedInvitePlayers={selectedCalendarInvitePlayers}
         teams={teams}
         user={user}
       />
@@ -1660,8 +1953,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 }
 
 function CalendarEventModal({
+  currentInvites = [],
   event,
   form,
+  invitePlayers = [],
   isBusy,
   isOpen,
   mode,
@@ -1671,6 +1966,7 @@ function CalendarEventModal({
   onEdit,
   onOpenWorkflow,
   onSubmit,
+  selectedInvitePlayers = [],
   teams,
   user,
 }) {
@@ -1680,12 +1976,17 @@ function CalendarEventModal({
 
   const isEditing = mode !== 'view'
   const editableSource = !event || event.editable || ['session', 'match-day', 'calendar'].includes(event.sourceType)
-  const isCalendarEvent = !event || event.sourceType === 'calendar'
   const showOpponent = form.eventType === 'match'
-  const showRecurrence = isCalendarEvent && !['training', 'match'].includes(form.eventType)
+  const showRecurrence = form.eventType !== 'match'
+  const showInvites = form.eventType !== 'match'
   const title = mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
   const selectedSummary = [form.date, form.startTime, form.location].filter(Boolean).join(', ')
   const canUseClubLevel = canCreateClubCalendarEvent(user)
+  const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
+  const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
+  const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
+  const inviteTeamId = canUseClubLevel ? form.teamId : form.teamId || user?.activeTeamId
+  const hasInviteTeam = Boolean(String(inviteTeamId || '').trim())
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
@@ -1717,6 +2018,18 @@ function CalendarEventModal({
               {selectedSummary || event?.description || 'Calendar activity'}
             </p>
             {form.notes ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{form.notes}</p> : null}
+            {currentInvites.length > 0 ? (
+              <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Invited players</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {currentInvites.map((invite) => (
+                    <span key={invite.id} className="rounded-full border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black text-[#065f46]">
+                      {invite.player?.playerName || 'Player'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -1797,26 +2110,134 @@ function CalendarEventModal({
             </label>
 
             {showRecurrence ? (
-              <div className="grid gap-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">Repeats</span>
-                  <select name="recurrenceFrequency" value={form.recurrenceFrequency} onChange={onChange} className={fieldClass}>
-                    {RECURRENCE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">Repeat until</span>
-                  <input
-                    name="recurrenceUntil"
-                    type="date"
-                    value={form.recurrenceUntil}
-                    onChange={onChange}
-                    disabled={form.recurrenceFrequency === 'none'}
-                    className={fieldClass}
-                  />
-                </label>
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-[#101828]">Repeats</span>
+                    <select name="recurrenceFrequency" value={form.recurrenceFrequency} onChange={onChange} className={fieldClass}>
+                      {RECURRENCE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-[#101828]">Repeat until</span>
+                    <input
+                      name="recurrenceUntil"
+                      type="date"
+                      value={form.recurrenceUntil}
+                      onChange={onChange}
+                      disabled={form.recurrenceFrequency === 'none'}
+                      required={form.recurrenceFrequency !== 'none'}
+                      className={fieldClass}
+                    />
+                  </label>
+                </div>
+                <p className="mt-3 text-xs font-bold leading-5 text-[#4b5f55]">
+                  Recurring training creates separate session rows. Custom events repeat on the calendar and are edited from this event.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <p className="text-sm font-black text-[#101828]">Repeats</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Fixtures are managed one at a time so match details stay correct.
+                </p>
+              </div>
+            )}
+
+            {showInvites ? (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-[#101828]">Invite players</p>
+                    <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
+                      Invite records are saved now. Parent and mobile notifications can use them when the notification job is enabled.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#065f46]">
+                    {selectedInvitePlayers.length} selected
+                  </span>
+                </div>
+
+                {!hasInviteTeam ? (
+                  <p className="mt-4 rounded-lg border border-[#fedf89] bg-[#fffaeb] px-3 py-3 text-sm font-bold text-[#92400e]">
+                    Choose a team before inviting players. Club level events can be saved without invites.
+                  </p>
+                ) : invitePlayers.length === 0 ? (
+                  <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+                    No active players are available for this team yet.
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                        <input
+                          type="checkbox"
+                          name="inviteWholeSquad"
+                          checked={form.inviteWholeSquad}
+                          onChange={onChange}
+                          disabled={isBusy || squadPlayers.length === 0}
+                          className="h-5 w-5 accent-[#047857]"
+                        />
+                        Whole squad
+                      </label>
+                      <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                        <input
+                          type="checkbox"
+                          name="inviteTrialPlayers"
+                          checked={form.inviteTrialPlayers}
+                          onChange={onChange}
+                          disabled={isBusy || trialPlayers.length === 0}
+                          className="h-5 w-5 accent-[#047857]"
+                        />
+                        Include trial players
+                      </label>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white">
+                      {invitePlayers.map((player) => (
+                        <label
+                          key={player.id}
+                          className="flex min-h-12 items-start gap-3 border-b border-[#d7e5dc] px-3 py-3 last:border-b-0"
+                        >
+                          <input
+                            type="checkbox"
+                            name="invitedPlayerIds"
+                            value={player.id}
+                            checked={invitedPlayerIds.has(String(player.id))}
+                            onChange={onChange}
+                            disabled={isBusy}
+                            className="mt-1 h-5 w-5 accent-[#047857]"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black text-[#101828]">{player.playerName}</span>
+                            <span className="block text-xs font-bold text-[#4b5f55]">
+                              {player.section || 'Player'}{player.parentEmail ? `, family email on file` : ', no family email on file'}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <label className="flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                      <input
+                        type="checkbox"
+                        name="notifyInvitedFamilies"
+                        checked={form.notifyInvitedFamilies}
+                        onChange={onChange}
+                        disabled={isBusy}
+                        className="mt-1 h-5 w-5 accent-[#047857]"
+                      />
+                      <span>
+                        Notify invited families
+                        <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
+                          Saved as a notification request. No calendar email is sent from this screen yet.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                )}
               </div>
             ) : null}
 

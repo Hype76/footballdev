@@ -13,6 +13,7 @@ import {
 import {
   addMatchDayGoalAsScorer,
   expressMatchDayScorerInterest,
+  getParentPortalEventInvites,
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   updateMatchDayScoreAsScorer,
@@ -59,6 +60,26 @@ function formatMatchDate(match) {
     month: 'short',
     hour: match.kickoffTime ? '2-digit' : undefined,
     minute: match.kickoffTime ? '2-digit' : undefined,
+  })
+}
+
+function formatParentEventDate(invite) {
+  if (!invite.startsAt) {
+    return 'Date not set'
+  }
+
+  const date = new Date(invite.startsAt)
+
+  if (Number.isNaN(date.getTime())) {
+    return invite.startsAt
+  }
+
+  return date.toLocaleString([], {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 }
 
@@ -153,6 +174,7 @@ export function ParentPortalPage() {
   const { showToast } = useToast()
   const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
   const [selectedLinkId, setSelectedLinkId] = useState('')
+  const [eventInvites, setEventInvites] = useState([])
   const [matches, setMatches] = useState([])
   const [players, setPlayers] = useState([])
   const [goalForms, setGoalForms] = useState({})
@@ -186,8 +208,8 @@ export function ParentPortalPage() {
     },
     {
       label: 'Live or upcoming',
-      value: activeMatches.length,
-      caption: 'Match day cards currently active.',
+      value: activeMatches.length + eventInvites.length,
+      caption: 'Shared cards and event invites currently active.',
     },
     {
       label: 'Previous games',
@@ -228,6 +250,7 @@ export function ParentPortalPage() {
     async function runLoad({ showLoading = false } = {}) {
       if (!selectedLink?.id) {
         setMatches([])
+        setEventInvites([])
         setPlayers([])
         return
       }
@@ -238,14 +261,16 @@ export function ParentPortalPage() {
       }
 
       try {
-        const [nextMatches, nextPlayers] = await Promise.all([
+        const [nextMatches, nextPlayers, nextEventInvites] = await Promise.all([
           getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
           getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }),
+          getParentPortalEventInvites({ parentLinkId: selectedLink.id }),
         ])
 
         if (isCurrent) {
           setMatches(nextMatches)
           setPlayers(nextPlayers)
+          setEventInvites(nextEventInvites)
         }
       } catch (error) {
         console.error(error)
@@ -253,6 +278,7 @@ export function ParentPortalPage() {
         if (isCurrent) {
           if (showLoading) {
             setMatches([])
+            setEventInvites([])
             setPlayers([])
           }
           setMatchError(error.message || 'Match Day could not be loaded.')
@@ -588,6 +614,12 @@ export function ParentPortalPage() {
           </aside>
 
           <div className="min-w-0 space-y-5">
+            <ParentUpcomingEvents
+              eventInvites={eventInvites}
+              isLoading={isLoadingMatches}
+              selectedLink={selectedLink}
+            />
+
             <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -726,6 +758,46 @@ function ParentMatchMetric({ caption, isLoading, label, value }) {
       <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : value}</p>
       <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
     </article>
+  )
+}
+
+function ParentUpcomingEvents({ eventInvites, isLoading, selectedLink }) {
+  return (
+    <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className={eyebrowClass}>Upcoming events</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Invites from the club</h3>
+        </div>
+        <p className="text-sm font-black text-[#4b5f55]">{eventInvites.length} active</p>
+      </div>
+
+      <div className="mt-4">
+        {!selectedLink ? (
+          <p className={emptyClass}>No child links are active for this parent account.</p>
+        ) : isLoading ? (
+          <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
+            Loading event invites...
+          </p>
+        ) : eventInvites.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {eventInvites.map((invite) => (
+              <article key={invite.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
+                  {invite.sourceType === 'training' ? 'Training' : 'Club event'}
+                </p>
+                <h4 className="mt-2 text-lg font-black text-[#101828]">{invite.title}</h4>
+                <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{formatParentEventDate(invite)}</p>
+                {invite.location ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{invite.location}</p> : null}
+                {invite.notes ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{invite.notes}</p> : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className={emptyClass}>No club event invites are active for this child yet.</p>
+        )}
+      </div>
+    </section>
   )
 }
 

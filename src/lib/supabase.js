@@ -131,6 +131,12 @@ export {
 } from './domain/calendar-events.js'
 
 export {
+  getCalendarEventInvites,
+  getParentPortalEventInvites,
+  saveCalendarEventInvites,
+} from './domain/calendar-event-invites.js'
+
+export {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
   completeAssessmentSession,

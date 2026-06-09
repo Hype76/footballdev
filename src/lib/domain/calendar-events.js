@@ -94,6 +94,10 @@ function buildCalendarPayload({ user, event }) {
     throw new Error('Choose your assigned team before saving this calendar event.')
   }
 
+  if (recurrenceFrequency !== 'none' && !recurrenceUntil) {
+    throw new Error('Add a repeat until date for recurring events.')
+  }
+
   return {
     club_id: user.clubId,
     team_id: safeTeamId || null,
