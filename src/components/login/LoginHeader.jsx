@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 
 const navItems = [
@@ -136,6 +137,7 @@ function ContactUsModal({ isOpen, isSubmitting, message, errorMessage, formData,
 }
 
 export function LoginHeader({ logo }) {
+  const location = useLocation()
   const [contactFormData, setContactFormData] = useState(emptyContactForm)
   const [contactErrorMessage, setContactErrorMessage] = useState('')
   const [contactMessage, setContactMessage] = useState('')
@@ -211,6 +213,8 @@ export function LoginHeader({ logo }) {
     }
   }
 
+  const isActiveNavItem = (href) => (href === '/' ? location.pathname === '/' : location.pathname === href || location.pathname.startsWith(`${href}/`))
+
   return (
     <>
       <header className="border-b border-white/10 bg-[#06110a]/90 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-sm shadow-black/20 backdrop-blur sm:px-6 lg:px-8">
@@ -244,30 +248,50 @@ export function LoginHeader({ logo }) {
             />
           </div>
           <nav className="hidden items-center gap-1 lg:order-2 lg:flex">
-            {navItems.map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-[15px] font-extrabold text-white/72 transition hover:bg-white/[0.08] hover:text-white"
-              >
-                {label}
-              </a>
-            ))}
+            {navItems.map(([href, label]) => {
+              const isActive = isActiveNavItem(href)
+
+              return (
+                <a
+                  key={href}
+                  href={href}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={[
+                    'relative inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-2 text-[15px] font-extrabold transition',
+                    isActive
+                      ? 'border-[#c6ff1a]/28 bg-white/[0.1] text-white shadow-sm shadow-[#c6ff1a]/10 after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-full after:bg-[#c6ff1a]'
+                      : 'border-transparent text-white/72 hover:bg-white/[0.08] hover:text-white',
+                  ].join(' ')}
+                >
+                  {label}
+                </a>
+              )
+            })}
           </nav>
         </div>
       </header>
 
       <nav className="sticky top-0 z-40 mx-4 mt-3 flex items-center rounded-lg border border-white/10 bg-[#06110a]/92 p-1.5 shadow-lg shadow-black/25 backdrop-blur sm:mx-6 lg:hidden">
         <div className="grid w-full grid-cols-5 gap-1">
-          {navItems.map(([href, label]) => (
-            <a
-              key={href}
-              href={href}
-              className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 py-2 text-center text-[11px] font-black leading-none text-white/68 transition hover:bg-white/[0.08] hover:text-white min-[390px]:text-xs"
-            >
-              <span className="block" style={mobileNavLabelStyle}>{label}</span>
-            </a>
-          ))}
+          {navItems.map(([href, label]) => {
+            const isActive = isActiveNavItem(href)
+
+            return (
+              <a
+                key={href}
+                href={href}
+                aria-current={isActive ? 'page' : undefined}
+                className={[
+                  'relative inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg border px-1 py-2 text-center text-[11px] font-black leading-none transition min-[390px]:text-xs',
+                  isActive
+                    ? 'border-[#c6ff1a]/28 bg-white/[0.1] text-white shadow-sm shadow-[#c6ff1a]/10 after:absolute after:inset-x-2 after:bottom-1 after:h-0.5 after:rounded-full after:bg-[#c6ff1a]'
+                    : 'border-transparent text-white/68 hover:bg-white/[0.08] hover:text-white',
+                ].join(' ')}
+              >
+                <span className="block" style={mobileNavLabelStyle}>{label}</span>
+              </a>
+            )
+          })}
           <a
             href="/sign-in"
             className="inline-flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[#c6ff1a] px-1 py-2 text-center text-[11px] font-black leading-none text-[#06110a] transition hover:bg-[#dbff66] min-[390px]:text-xs"
