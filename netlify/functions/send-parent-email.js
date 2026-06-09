@@ -1,7 +1,8 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
 import { Resend } from 'resend'
-import { buildPdfBuffer } from '../../src/lib/pdf-builder.js'
+import { buildPdfBuffer, buildPngBuffer } from '../../src/lib/pdf-builder.js'
+import { buildProgressionChartImageHtml } from '../../src/lib/progression-chart-markup.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
@@ -171,6 +172,45 @@ async function createEmailAuditLog(payload) {
   }
 }
 
+async function buildProgressionChartAttachments(chartImages = []) {
+  if (!Array.isArray(chartImages) || chartImages.length === 0) {
+    return []
+  }
+
+  const attachments = []
+
+  for (const chartImage of chartImages.slice(0, 5)) {
+    const points = Array.isArray(chartImage?.points) ? chartImage.points : []
+
+    if (points.length < 2) {
+      continue
+    }
+
+    try {
+      const pngBuffer = await withTimeout(
+        buildPngBuffer(buildProgressionChartImageHtml(points), { width: 760, height: 240 }),
+        10000,
+        'Progression chart image generation timed out',
+      )
+
+      if (!pngBuffer?.length) {
+        continue
+      }
+
+      attachments.push({
+        filename: String(chartImage.filename || `progression-chart-${attachments.length + 1}.png`).trim(),
+        content: pngBuffer.toString('base64'),
+        contentType: 'image/png',
+        contentId: String(chartImage.contentId || `progression-chart-${attachments.length}`).trim(),
+      })
+    } catch (error) {
+      console.error('Progression chart image generation failed', error)
+    }
+  }
+
+  return attachments
+}
+
 function parseScheduledAt(value) {
   const normalizedValue = String(value ?? '').trim()
 
@@ -260,7 +300,11 @@ export async function prepareParentEmail({ body, requestUser }) {
   }
 
   const attachmentHtml = buildEmailHtml(pdfHtml || emailHtml)
-  const attachments = shouldAttachPdf ? await buildPdfAttachment(attachmentHtml) : []
+  const [pdfAttachments, chartAttachments] = await Promise.all([
+    shouldAttachPdf ? buildPdfAttachment(attachmentHtml) : [],
+    buildProgressionChartAttachments(body.progressionChartImages),
+  ])
+  const attachments = [...pdfAttachments, ...chartAttachments]
   const emailSubject = String(subject ?? '').trim() || 'Football Player'
   const emailPayload = buildEmailPayload({
     fromName,

@@ -90,6 +90,7 @@ function getEventTone(type) {
     training: 'border-[#d7e5dc] bg-white text-[#101828]',
     deadline: 'border-[#fecaca] bg-[#fef2f2] text-[#991b1b]',
     development: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]',
+    'assessment-reminder': 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]',
   }
 
   return tones[type] || tones.training

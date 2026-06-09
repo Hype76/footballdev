@@ -20,6 +20,7 @@ import {
 } from '../lib/email-templates.js'
 import { isDemoUser } from '../lib/demo.js'
 import { sendParentEmail } from '../lib/email-builder.js'
+import { buildPlayerProgressionData, buildProgressionEmailSections } from '../lib/player-progression.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import {
   createFeatureUpgradeMessage,
@@ -486,6 +487,7 @@ export function CreateEvaluationPage() {
   const [lastUsedSession, setLastUsedSession] = useState('')
   const [previewMode, setPreviewMode] = useState('scored')
   const [isPdfAttachmentApproved, setIsPdfAttachmentApproved] = useState(false)
+  const [includeAttendanceSummary, setIncludeAttendanceSummary] = useState(true)
   const [emailSendMode, setEmailSendMode] = useState('now')
   const [scheduledEmailDateTime, setScheduledEmailDateTime] = useState('')
   const [isDefaultTemplateConfirmOpen, setIsDefaultTemplateConfirmOpen] = useState(false)
@@ -1434,10 +1436,31 @@ export function CreateEvaluationPage() {
           }
 
           const scheduledAt = isScheduledSend ? new Date(scheduledEmailDateTime).toISOString() : ''
+          const progressionSourceEvaluations = [savedEvaluation, ...previousEvaluations]
+            .filter(Boolean)
+            .filter((item, index, items) => items.findIndex((candidate) => String(candidate.id ?? '') === String(item.id ?? '')) === index)
+            .filter((item) => normalizePlayerName(item.playerName) === normalizedPlayerName)
+            .filter((item) => !formData.team || item.team === formData.team)
+          const progressionData = buildPlayerProgressionData({
+            evaluations: progressionSourceEvaluations,
+            staffNotes: [],
+          })
+          const assessmentEmailSections = buildProgressionEmailSections({
+            progressionData,
+            sections: {
+              latestSessionNotes: false,
+              attendanceSummary: includeAttendanceSummary,
+              progressionChart: true,
+              coachComments: false,
+              matchNotes: false,
+              nextFocusAreas: false,
+            },
+          })
 
           const emailJobs = buildParentEmailJobs({
             attachPdf: isPdfAttachmentApproved,
             contactAudiences,
+            emailSections: assessmentEmailSections,
             emailTemplates,
             evaluation: {
               id: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
@@ -1855,6 +1878,7 @@ export function CreateEvaluationPage() {
                 canSubmitEvaluation={canSubmitEvaluation}
                 contactNoun={contactNoun}
                 hasSavedExportSelection={hasSavedExportSelection}
+                includeAttendanceSummary={includeAttendanceSummary}
                 inviteDate={inviteDate}
                 isDemoAccount={isDemoAccount}
                 isLoadingEmailTemplates={isLoadingEmailTemplates}
@@ -1866,6 +1890,7 @@ export function CreateEvaluationPage() {
                 onClearExportFields={handleClearExportFields}
                 emailSendMode={emailSendMode}
                 onEmailTemplateChange={setEmailTemplateKey}
+                onIncludeAttendanceSummaryChange={setIncludeAttendanceSummary}
                 onEmailSendModeChange={setEmailSendMode}
                 onGoToPlayer={() => navigate(`/player/${encodeURIComponent(lastSavedPlayerName)}`)}
                 onInviteDateChange={setInviteDate}

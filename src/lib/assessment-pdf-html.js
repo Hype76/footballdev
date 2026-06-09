@@ -1,5 +1,8 @@
+import { sanitizeAssessmentEmailSections, sanitizeAssessmentOutputText } from './assessment-output-sanitizer.js'
+import { buildProgressionChartMarkup } from './progression-chart-markup.js'
+
 function escapeHtml(value) {
-  return String(value ?? '')
+  return sanitizeAssessmentOutputText(value)
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -8,7 +11,7 @@ function escapeHtml(value) {
 }
 
 function formatValue(value) {
-  const normalizedValue = String(value ?? '').trim()
+  const normalizedValue = sanitizeAssessmentOutputText(value).trim()
   return normalizedValue || 'Not provided'
 }
 
@@ -40,6 +43,29 @@ function buildResponseItems(responseItems = []) {
     .join('')
 }
 
+function buildEmailSections(emailSections = []) {
+  const sections = sanitizeAssessmentEmailSections(emailSections)
+
+  if (!sections.length) {
+    return ''
+  }
+
+  return `
+      <div style="margin-top: 16px; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
+        <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">Coach update</p>
+        <div style="display: grid; gap: 8px; margin-top: 10px;">
+          ${sections.map((section) => `
+            <div style="break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; background: #ffffff;">
+              <p style="margin: 0; color: #101828; font-size: 13px; font-weight: 800;">${escapeHtml(section.title)}</p>
+              <p style="margin: 6px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(formatValue(section.body))}</p>
+              ${section.chartPoints ? buildProgressionChartMarkup(section.chartPoints) : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+  `
+}
+
 export function buildAssessmentPdfHtml({
   clubName = '',
   playerName = '',
@@ -48,6 +74,7 @@ export function buildAssessmentPdfHtml({
   session = '',
   logoUrl = '',
   responseItems = [],
+  emailSections = [],
 } = {}) {
   return `
     <section style="box-sizing: border-box; width: 760px; padding: 22px; background: #ffffff; color: #101828; font-family: Arial, sans-serif;">
@@ -83,6 +110,7 @@ export function buildAssessmentPdfHtml({
           ${buildResponseItems(responseItems)}
         </div>
       </div>
+      ${buildEmailSections(emailSections)}
     </section>
   `
 }

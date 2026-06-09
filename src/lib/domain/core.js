@@ -1310,6 +1310,34 @@ export async function getPlayerDecisionLogs({ user, limit = 1000 } = {}) {
   return (data ?? []).map(normalizeCommunicationLogRow)
 }
 
+export async function getAssessmentReminderLogs({ user, limit = 1000 } = {}) {
+  if (!user?.clubId) {
+    return []
+  }
+
+  let query = supabase
+    .from('communication_logs')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .eq('channel', 'reminder')
+    .eq('action', 'next_assessment_reminder_set')
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 1000, 1), 2000))
+
+  if (user.activeTeamName) {
+    query = query.eq('metadata->>team', user.activeTeamName)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeCommunicationLogRow)
+}
+
 export async function createPlayerStaffNote({ user, playerId, sessionId = '', note, audioBlob = null, audioDurationSeconds = null }) {
   await blockDemoMutation(user)
 

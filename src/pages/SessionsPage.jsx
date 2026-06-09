@@ -46,6 +46,7 @@ import {
   deleteAssessmentSession,
   deletePlayerStaffNote,
   getEvaluations,
+  getAssessmentReminderLogs,
   getCalendarEvents,
   getCalendarEventInvites,
   getMatchDays,
@@ -377,6 +378,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const cachedEvaluations = readViewCacheValue(cacheKey, 'evaluations', [])
     return Array.isArray(cachedEvaluations) ? cachedEvaluations : []
   })
+  const [assessmentReminders, setAssessmentReminders] = useState(() => {
+    const cachedAssessmentReminders = readViewCacheValue(cacheKey, 'assessmentReminders', [])
+    return Array.isArray(cachedAssessmentReminders) ? cachedAssessmentReminders : []
+  })
   const [matchDays, setMatchDays] = useState(() => {
     const cachedMatchDays = readViewCacheValue(cacheKey, 'matchDays', [])
     return Array.isArray(cachedMatchDays) ? cachedMatchDays : []
@@ -470,13 +475,14 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const openSessionCount = combinedSessions.filter((session) => session.status !== 'completed').length
   const calendarEvents = useMemo(
     () => buildFootballCalendarEvents({
+      assessmentReminders,
       calendarEvents: calendarItems,
       evaluations,
       matchDays,
       polls,
       sessions: combinedSessions,
     }),
-    [calendarItems, combinedSessions, evaluations, matchDays, polls],
+    [assessmentReminders, calendarItems, combinedSessions, evaluations, matchDays, polls],
   )
   const calendarInvitePlayers = useMemo(
     () => getCalendarInvitePlayers(players, getSafeCalendarTeamId(user, calendarForm.teamId)),
@@ -529,6 +535,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           pollsResult,
           calendarItemsResult,
           calendarInvitesResult,
+          assessmentRemindersResult,
         ] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
@@ -538,6 +545,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           withRequestTimeout(() => getPolls({ user }), 'Could not load response cut offs.'),
           withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.'),
           withRequestTimeout(() => getCalendarEventInvites({ user }), 'Could not load calendar invites.'),
+          withRequestTimeout(() => getAssessmentReminderLogs({ user }), 'Could not load assessment reminders.'),
         ])
 
         if (!isMounted) {
@@ -555,6 +563,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           calendarItemsResult.status === 'fulfilled' ? calendarItemsResult.value : cachedValue?.calendarItems || []
         const nextCalendarInvites =
           calendarInvitesResult.status === 'fulfilled' ? calendarInvitesResult.value : cachedValue?.calendarInvites || []
+        const nextAssessmentReminders =
+          assessmentRemindersResult.status === 'fulfilled' ? assessmentRemindersResult.value : cachedValue?.assessmentReminders || []
 
         if (sessionsResult.status === 'rejected') {
           console.error(sessionsResult.reason)
@@ -588,6 +598,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           console.error(calendarInvitesResult.reason)
         }
 
+        if (assessmentRemindersResult.status === 'rejected') {
+          console.error(assessmentRemindersResult.reason)
+        }
+
         setSessions(nextSessions)
         setPlayers(nextPlayers)
         setTeams(nextTeams)
@@ -596,6 +610,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         setPolls(nextPolls)
         setCalendarItems(nextCalendarItems)
         setCalendarInvites(nextCalendarInvites)
+        setAssessmentReminders(nextAssessmentReminders)
         setSelectedSessionId((current) => {
           const nextCombinedSessions = [...nextSessions, ...buildHistoricalSessionsFromEvaluations(nextEvaluations, nextSessions)]
 
@@ -634,6 +649,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           polls: nextPolls,
           calendarItems: nextCalendarItems,
           calendarInvites: nextCalendarInvites,
+          assessmentReminders: nextAssessmentReminders,
         })
 
         if (
@@ -1594,6 +1610,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setSearchParams(nextSearchParams)
   }
 
+  const calendarTitle = (() => {
+    const teamName = String(user?.activeTeamName || user?.emailTeamName || user?.teamName || user?.team_name || '').trim()
+
+    if (teamName) {
+      return `${teamName} Calendar`
+    }
+
+    return user?.clubId ? 'Club Calendar' : 'Team Calendar'
+  })()
+
   if (calendarOnly) {
     return (
       <div className="space-y-5">
@@ -1602,7 +1628,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             <div className="min-w-0">
               <p className={eyebrowClass}>Calendar</p>
               <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
-                Football calendar
+                {calendarTitle}
               </h1>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
                 Plan training, fixtures, parent cut offs, and club events without opening the session tools.

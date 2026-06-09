@@ -548,6 +548,7 @@ export function writeSessionAssessmentProgress({ assessmentSessionId, playerName
 export function buildParentEmailJobs({
   attachPdf = false,
   contactAudiences,
+  emailSections = [],
   emailTemplates,
   evaluation,
   formData,
@@ -615,6 +616,7 @@ export function buildParentEmailJobs({
             playerName: normalizedPlayerName,
             summary: '',
             responses: selectedResponseItems,
+            emailSections,
             subject: renderedTemplate.subject,
             emailBody: renderedTemplate.body,
             pdfHtml: buildAssessmentPdfHtml({
@@ -625,6 +627,7 @@ export function buildParentEmailJobs({
               session: formData.session,
               logoUrl: user?.clubLogoUrl || null,
               responseItems: selectedResponseItems,
+              emailSections,
             }),
             evaluationId: evaluation.id,
             attachPdf,

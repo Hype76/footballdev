@@ -106,6 +106,7 @@ export {
   deletePlayerRecord,
   getPlayerCommunicationLogs,
   getPlayerDecisionLogs,
+  getAssessmentReminderLogs,
   getPlayerStaffNotes,
   getSessionStaffNotes,
   getPlayers,

@@ -77,7 +77,61 @@ function buildCalendarEventOccurrences(calendarEvent) {
   return occurrences
 }
 
-export function buildFootballCalendarEvents({ calendarEvents = [], sessions = [], evaluations = [], matchDays = [], polls = [] }) {
+function buildAssessmentReminderEvents(assessmentReminders, evaluations) {
+  const evaluationsById = new Map(evaluations.map((evaluation) => [String(evaluation.id ?? ''), evaluation]))
+  const latestReminderByEvaluation = new Map()
+
+  assessmentReminders.forEach((reminder) => {
+    const evaluationId = String(reminder.evaluationId || reminder.metadata?.evaluationId || '').trim()
+    const dueDate = toDateOnly(reminder.metadata?.dueDate)
+
+    if (!evaluationId || !dueDate) {
+      return
+    }
+
+    const existingReminder = latestReminderByEvaluation.get(evaluationId)
+    const existingCreatedAt = new Date(existingReminder?.createdAt || 0).getTime()
+    const nextCreatedAt = new Date(reminder.createdAt || 0).getTime()
+
+    if (!existingReminder || nextCreatedAt >= existingCreatedAt) {
+      latestReminderByEvaluation.set(evaluationId, reminder)
+    }
+  })
+
+  return Array.from(latestReminderByEvaluation.values())
+    .map((reminder) => {
+      const evaluationId = String(reminder.evaluationId || reminder.metadata?.evaluationId || '').trim()
+      const evaluation = evaluationsById.get(evaluationId)
+
+      if (!evaluation) {
+        return null
+      }
+
+      const date = toDateOnly(reminder.metadata?.dueDate)
+      const playerName = String(reminder.metadata?.playerName || evaluation.playerName || '').trim()
+      const team = String(reminder.metadata?.team || evaluation.team || '').trim()
+
+      return {
+        id: `assessment-reminder:${reminder.id}`,
+        date,
+        time: toTimeOnly(reminder.metadata?.dueDate),
+        type: 'assessment-reminder',
+        title: `${playerName || 'Player'} assessment reminder`,
+        description: [team, reminder.metadata?.section || evaluation.section, 'Next assessment due'].filter(Boolean).join(', '),
+        href: `/assess-player/new?evaluationId=${encodeURIComponent(evaluationId)}`,
+        editable: false,
+        sourceId: reminder.id,
+        sourceType: 'assessment-reminder',
+        data: {
+          reminder,
+          evaluation,
+        },
+      }
+    })
+    .filter(Boolean)
+}
+
+export function buildFootballCalendarEvents({ calendarEvents = [], sessions = [], evaluations = [], matchDays = [], polls = [], assessmentReminders = [] }) {
   const sessionEvents = sessions
     .map((session) => {
       const date = toDateOnly(session.sessionDate || session.date)
@@ -176,8 +230,9 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
     .filter(Boolean)
 
   const customEvents = calendarEvents.flatMap(buildCalendarEventOccurrences)
+  const reminderEvents = buildAssessmentReminderEvents(assessmentReminders, evaluations)
 
-  return [...sessionEvents, ...matchEvents, ...pollEvents, ...developmentEvents, ...customEvents]
+  return [...sessionEvents, ...matchEvents, ...pollEvents, ...developmentEvents, ...customEvents, ...reminderEvents]
     .sort((left, right) =>
       left.date.localeCompare(right.date) ||
       String(left.time || '').localeCompare(String(right.time || '')) ||

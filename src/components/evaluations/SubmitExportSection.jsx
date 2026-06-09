@@ -16,6 +16,7 @@ export function SubmitExportSection({
   canSubmitEvaluation,
   contactNoun,
   hasSavedExportSelection,
+  includeAttendanceSummary,
   inviteDate,
   isDemoAccount,
   isLoadingEmailTemplates,
@@ -32,6 +33,7 @@ export function SubmitExportSection({
   onPdfAttachmentApprovedChange,
   onScheduledEmailDateTimeChange,
   onEmailAfterSaveChange,
+  onIncludeAttendanceSummaryChange,
   onPrintBlankForm,
   onReorderExportField,
   onSelectAllExportFields,
@@ -136,6 +138,20 @@ export function SubmitExportSection({
               <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
               <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
                 Include the selected development details as a PDF attachment.
+              </span>
+            </span>
+          </label>
+          <label className={choiceCardClass}>
+            <input
+              type="checkbox"
+              checked={Boolean(includeAttendanceSummary)}
+              onChange={(event) => onIncludeAttendanceSummaryChange(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+            />
+            <span>
+              <span className="block text-sm font-black text-[#101828]">Include attendance summary</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                Add saved training and match involvement to the email and PDF.
               </span>
             </span>
           </label>
