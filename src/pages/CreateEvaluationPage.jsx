@@ -108,6 +108,94 @@ function getPlayerSectionLabel(section) {
   return String(section ?? '').trim() === 'Trial' ? 'Trial player' : 'Squad player'
 }
 
+function getPlayerSectionKey(section) {
+  return String(section ?? '').trim() === 'Trial' ? 'trial' : 'squad'
+}
+
+const ASSESSMENT_PLAYER_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'squad', label: 'Squad players' },
+  { value: 'trial', label: 'Trial players' },
+]
+
+const ASSESSMENT_PLAYER_SECTIONS = [
+  {
+    value: 'squad',
+    title: 'Squad players',
+    emptyMessage: 'No squad players are available for this team.',
+  },
+  {
+    value: 'trial',
+    title: 'Trial players',
+    emptyMessage: 'No trial players are available for this team.',
+  },
+]
+
+function PlayerPickerCard({ activeTeamName, onSelectPlayer, player }) {
+  const sectionKey = getPlayerSectionKey(player.section)
+  const isTrialPlayer = sectionKey === 'trial'
+  const badgeClassName = isTrialPlayer
+    ? 'border-[#fde68a] bg-[#fffbeb] text-[#93370d]'
+    : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
+  const accentClassName = isTrialPlayer ? 'border-l-[#d97706]' : 'border-l-[#047857]'
+  const hoverClassName = isTrialPlayer ? 'hover:border-[#d97706] hover:bg-[#fffbeb]' : 'hover:border-[#047857] hover:bg-[#ecfdf5]'
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelectPlayer(player)}
+      className={`min-h-28 rounded-lg border border-l-4 border-[#d7e5dc] ${accentClassName} bg-white px-4 py-4 text-left shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 ${hoverClassName} focus:outline-none focus:ring-2 focus:ring-[#047857] focus:ring-offset-2`}
+    >
+      <span className="block text-base font-black text-[#101828]">{player.playerName}</span>
+      <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${badgeClassName}`}>
+        {getPlayerSectionLabel(player.section)}
+      </span>
+      <span className="mt-3 block text-sm font-semibold text-[#4b5f55]">
+        {player.team || activeTeamName || 'Current team'}
+      </span>
+    </button>
+  )
+}
+
+function PlayerPickerSection({
+  activeTeamName,
+  emptyMessage,
+  isSearchActive,
+  onSelectPlayer,
+  players,
+  title,
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-black uppercase tracking-[0.14em] text-[#101828]">
+          {title}
+        </h3>
+        <span className="rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
+          {players.length} {players.length === 1 ? 'player' : 'players'}
+        </span>
+      </div>
+
+      {players.length > 0 ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {players.map((player) => (
+            <PlayerPickerCard
+              key={player.id || `${player.team}-${player.section}-${player.playerName}`}
+              activeTeamName={activeTeamName}
+              onSelectPlayer={onSelectPlayer}
+              player={player}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55]">
+          {isSearchActive ? 'No players match your search.' : emptyMessage}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AssessmentPlayerPicker({
   activeTeamName,
   isLoading,
@@ -116,8 +204,28 @@ function AssessmentPlayerPicker({
   searchValue,
   onSearchChange,
 }) {
+  const [activeFilter, setActiveFilter] = useState('all')
   const normalizedSearch = normalizeAssessmentSearch(searchValue)
-  const filteredPlayers = players
+  const sortedPlayers = players
+    .slice()
+    .sort((left, right) => {
+      const leftSection = getPlayerSectionKey(left.section)
+      const rightSection = getPlayerSectionKey(right.section)
+      if (leftSection !== rightSection) {
+        return leftSection === 'squad' ? -1 : 1
+      }
+
+      return String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))
+    })
+  const sectionCounts = sortedPlayers.reduce(
+    (counts, player) => {
+      counts[getPlayerSectionKey(player.section)] += 1
+      return counts
+    },
+    { squad: 0, trial: 0 },
+  )
+  const filteredPlayers = sortedPlayers
+    .filter((player) => activeFilter === 'all' || getPlayerSectionKey(player.section) === activeFilter)
     .filter((player) => {
       if (!normalizedSearch) {
         return true
@@ -129,15 +237,14 @@ function AssessmentPlayerPicker({
         player.section,
       ].some((value) => normalizeAssessmentSearch(value).includes(normalizedSearch))
     })
-    .sort((left, right) => {
-      const leftSection = String(left.section ?? '')
-      const rightSection = String(right.section ?? '')
-      if (leftSection !== rightSection) {
-        return leftSection.localeCompare(rightSection)
-      }
-
-      return String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))
-    })
+  const playerGroups = ASSESSMENT_PLAYER_SECTIONS.map((section) => ({
+    ...section,
+    players: filteredPlayers.filter((player) => getPlayerSectionKey(player.section) === section.value),
+  }))
+  const activeFilterEmptyMessage = ASSESSMENT_PLAYER_SECTIONS.find((section) => section.value === activeFilter)?.emptyMessage
+  const visibleGroups = activeFilter === 'all'
+    ? playerGroups.filter((group) => group.players.length > 0)
+    : playerGroups.filter((group) => group.value === activeFilter)
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -150,6 +257,31 @@ function AssessmentPlayerPicker({
       </div>
 
       <div className="space-y-4 px-5 py-5 sm:px-6">
+        <div className="flex flex-wrap gap-2">
+          {ASSESSMENT_PLAYER_FILTERS.map((filter) => {
+            const isActive = activeFilter === filter.value
+            const count = filter.value === 'all' ? players.length : sectionCounts[filter.value]
+            const countLabel = `${count} ${count === 1 ? 'player' : 'players'}`
+            const activeClassName = isActive
+              ? 'border-[#047857] bg-[#047857] text-white shadow-sm shadow-[#047857]/20'
+              : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55] hover:border-[#047857] hover:bg-[#ecfdf5] hover:text-[#047857]'
+
+            return (
+              <button
+                key={filter.value}
+                type="button"
+                aria-pressed={isActive}
+                aria-label={`${filter.label}, ${countLabel}`}
+                onClick={() => setActiveFilter(filter.value)}
+                className={`min-h-11 rounded-full border px-4 py-2 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-[#047857] focus:ring-offset-2 ${activeClassName}`}
+              >
+                {filter.label}
+                <span aria-hidden="true" className="ml-2 opacity-80">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+
         <label className="block">
           <span className="mb-2 block text-sm font-black text-[#101828]">Search players</span>
           <input
@@ -175,28 +307,25 @@ function AssessmentPlayerPicker({
 
         {!isLoading && players.length > 0 && filteredPlayers.length === 0 ? (
           <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55]">
-            No players match that search.
+            {normalizedSearch ? 'No players match your search.' : activeFilterEmptyMessage || 'No players are available for assessment yet. Add a player first.'}
           </div>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filteredPlayers.map((player) => (
-            <button
-              key={player.id || `${player.team}-${player.section}-${player.playerName}`}
-              type="button"
-              onClick={() => onSelectPlayer(player)}
-              className="min-h-28 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 text-left shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-            >
-              <span className="block text-base font-black text-[#101828]">{player.playerName}</span>
-              <span className="mt-2 inline-flex rounded-full border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
-                {getPlayerSectionLabel(player.section)}
-              </span>
-              <span className="mt-3 block text-sm font-semibold text-[#4b5f55]">
-                {player.team || activeTeamName || 'Current team'}
-              </span>
-            </button>
-          ))}
-        </div>
+        {!isLoading && players.length > 0 && filteredPlayers.length > 0 ? (
+          <div className="space-y-6">
+            {visibleGroups.map((group) => (
+              <PlayerPickerSection
+                key={group.value}
+                activeTeamName={activeTeamName}
+                emptyMessage={group.emptyMessage}
+                isSearchActive={Boolean(normalizedSearch)}
+                onSelectPlayer={onSelectPlayer}
+                players={group.players}
+                title={group.title}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
     </section>
   )
