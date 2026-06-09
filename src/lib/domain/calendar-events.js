@@ -73,6 +73,9 @@ function buildCalendarPayload({ user, event }) {
   const eventType = normalizeEventType(event?.eventType)
   const recurrenceFrequency = normalizeRecurrenceFrequency(event?.recurrenceFrequency)
   const recurrenceUntil = normalizeDateOnly(event?.recurrenceUntil) || null
+  const requestedTeamId = normalizeText(event?.teamId)
+  const isClubLevelAllowed = user?.role === 'admin'
+  const safeTeamId = isClubLevelAllowed ? requestedTeamId : requestedTeamId || normalizeText(user?.activeTeamId)
   const title = normalizeText(event?.title)
 
   if (!title) {
@@ -87,9 +90,13 @@ function buildCalendarPayload({ user, event }) {
     throw new Error('End time must be after the start time.')
   }
 
+  if (!isClubLevelAllowed && !safeTeamId) {
+    throw new Error('Choose your assigned team before saving this calendar event.')
+  }
+
   return {
     club_id: user.clubId,
-    team_id: normalizeText(event?.teamId) || null,
+    team_id: safeTeamId || null,
     event_type: eventType,
     title,
     starts_at: startsAt,

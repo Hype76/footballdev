@@ -9,7 +9,7 @@ import { SessionPlayersSection } from '../components/sessions/SessionPlayersSect
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
-import { canCreateEvaluation, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { canCreateEvaluation, isClubAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import {
   AVAILABLE_PLAYER_PAGE_SIZE,
   SESSION_PLAYER_PAGE_SIZE,
@@ -129,6 +129,20 @@ function getDefaultCalendarForm(date = '') {
     teamId: '',
     title: '',
   }
+}
+
+function canCreateClubCalendarEvent(user) {
+  return isClubAdmin(user)
+}
+
+function getSafeCalendarTeamId(user, teamId) {
+  const normalizedTeamId = String(teamId ?? '').trim()
+
+  if (canCreateClubCalendarEvent(user)) {
+    return normalizedTeamId
+  }
+
+  return normalizedTeamId || String(user?.activeTeamId ?? '').trim()
 }
 
 function getFormFromCalendarEvent(event) {
@@ -309,6 +323,27 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     }),
     [calendarItems, combinedSessions, evaluations, matchDays, polls],
   )
+
+  useEffect(() => {
+    const requestedAction = String(searchParams.get('action') ?? '').trim()
+
+    if (requestedAction !== 'add-event' && requestedAction !== 'add-session') {
+      return
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('action')
+    setSearchParams(nextSearchParams, { replace: true })
+
+    if (requestedAction === 'add-event') {
+      handleCalendarDateClick(new Date().toISOString().slice(0, 10))
+      return
+    }
+
+    setIsCreateSessionModalOpen(true)
+  // This reacts only to explicit route quick actions.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     let isMounted = true
@@ -717,7 +752,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
   const handleCalendarDateClick = (date) => {
     setErrorMessage('')
-    setCalendarForm(getDefaultCalendarForm(date))
+    setCalendarForm({
+      ...getDefaultCalendarForm(date),
+      teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
+    })
     setCalendarModal({ mode: 'create', event: null })
   }
 
@@ -762,11 +800,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
     const activeEvent = calendarModal?.event || null
     const sourceType = activeEvent?.sourceType || ''
-    const teamName = getCalendarTeamName(calendarForm.teamId)
+    const safeTeamId = getSafeCalendarTeamId(user, calendarForm.teamId)
+    const teamName = getCalendarTeamName(safeTeamId)
     const isTraining = calendarForm.eventType === 'training'
     const isMatch = calendarForm.eventType === 'match'
 
     try {
+      if (!canCreateClubCalendarEvent(user) && !safeTeamId) {
+        throw new Error('Choose your assigned team before saving this calendar event.')
+      }
+
       if (isTraining || (sourceType === 'session' && activeEvent?.data?.sessionType !== 'match')) {
         const payload = {
           endTime: calendarForm.endTime,
@@ -777,7 +820,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           sessionType: 'training',
           startTime: calendarForm.startTime,
           team: teamName,
-          teamId: calendarForm.teamId,
+          teamId: safeTeamId,
           title: calendarForm.title || teamName,
         }
         const savedSession = sourceType === 'session'
@@ -798,7 +841,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             sessionType: 'match',
             startTime: calendarForm.startTime,
             team: teamName,
-            teamId: calendarForm.teamId,
+            teamId: safeTeamId,
             title: calendarForm.title || `${teamName} vs ${calendarForm.opponent}`,
           }
           const savedSession = await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
@@ -816,7 +859,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             opponent: calendarForm.opponent,
             scorerRequestMessage: '',
             status: 'scheduled',
-            teamId: calendarForm.teamId,
+            teamId: safeTeamId,
             venueAddress: '',
             venueName: calendarForm.location,
           }
@@ -837,7 +880,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           recurrenceFrequency: calendarForm.recurrenceFrequency,
           recurrenceUntil: calendarForm.recurrenceUntil,
           startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
-          teamId: calendarForm.teamId,
+          teamId: safeTeamId,
           title: calendarForm.title,
         }
         const savedEvent = sourceType === 'calendar'
@@ -1296,7 +1339,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           events={calendarEvents}
           isLoading={isLoading}
           onCursorChange={setCalendarCursor}
-          onDateClick={handleCalendarDateClick}
           onOpenEvent={handleCalendarEventOpen}
           onViewChange={setCalendarView}
           view={calendarView}
@@ -1319,6 +1361,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           }}
           onSubmit={handleCalendarSave}
           teams={teams}
+          user={user}
         />
       </div>
     )
@@ -1365,7 +1408,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         events={calendarEvents}
         isLoading={isLoading}
         onCursorChange={setCalendarCursor}
-        onDateClick={handleCalendarDateClick}
         onOpenEvent={handleCalendarEventOpen}
         onViewChange={setCalendarView}
         view={calendarView}
@@ -1611,6 +1653,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         }}
         onSubmit={handleCalendarSave}
         teams={teams}
+        user={user}
       />
     </div>
   )
@@ -1629,6 +1672,7 @@ function CalendarEventModal({
   onOpenWorkflow,
   onSubmit,
   teams,
+  user,
 }) {
   if (!isOpen) {
     return null
@@ -1641,6 +1685,7 @@ function CalendarEventModal({
   const showRecurrence = isCalendarEvent && !['training', 'match'].includes(form.eventType)
   const title = mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
   const selectedSummary = [form.date, form.startTime, form.location].filter(Boolean).join(', ')
+  const canUseClubLevel = canCreateClubCalendarEvent(user)
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
@@ -1695,11 +1740,16 @@ function CalendarEventModal({
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Team</span>
                 <select name="teamId" value={form.teamId} onChange={onChange} disabled={isBusy} className={fieldClass}>
-                  <option value="">Club level</option>
+                  {canUseClubLevel ? <option value="">Club level</option> : null}
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>{team.name}</option>
                   ))}
                 </select>
+                {!canUseClubLevel ? (
+                  <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
+                    Team staff can only save events against their assigned team.
+                  </span>
+                ) : null}
               </label>
             </div>
 

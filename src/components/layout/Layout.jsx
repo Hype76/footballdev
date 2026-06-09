@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Outlet, useLocation, useMatches } from 'react-router-dom'
-import { isClubAdmin, isSuperAdmin, useAuth } from '../../lib/auth.js'
+import { Link, Outlet, useLocation, useMatches } from 'react-router-dom'
+import { isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import { createAuditLog } from '../../lib/supabase.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
@@ -300,6 +300,89 @@ export function Layout() {
           </main>
         </div>
       </div>
+      <QuickActionHotbar user={user} />
+    </div>
+  )
+}
+
+function QuickActionHotbar({ user }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const panelRef = useRef(null)
+  const canShowQuickActions =
+    Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && Number(user?.roleRank ?? 0) >= 20
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const handlePointerDown = (event) => {
+      if (panelRef.current?.contains(event.target)) {
+        return
+      }
+
+      setIsOpen(false)
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
+  if (!canShowQuickActions) {
+    return null
+  }
+
+  const actions = [
+    { label: 'Add Player', href: '/add-player' },
+    { label: 'Add Session', href: '/sessions/start?action=add-session' },
+    { label: 'Add Assessment', href: '/assess-player/new' },
+    { label: 'Add Event', href: '/calendar?action=add-event' },
+  ]
+
+  return (
+    <div ref={panelRef} className="fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3">
+      {isOpen ? (
+        <div className="w-[min(18rem,calc(100vw-2.5rem))] rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-2xl shadow-[#047857]/20">
+          <p className="px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Quick add</p>
+          <div className="grid gap-1.5">
+            {actions.map((action) => (
+              <Link
+                key={action.href}
+                to={action.href}
+                onClick={() => setIsOpen(false)}
+                className="flex min-h-12 items-center justify-between rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+              >
+                <span>{action.label}</span>
+                <span aria-hidden="true">+</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        aria-expanded={isOpen}
+        aria-label={isOpen ? 'Close quick actions' : 'Open quick actions'}
+        className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-[#bbf7d0] bg-[#047857] text-3xl font-black leading-none text-white shadow-xl shadow-[#047857]/30 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-[var(--app-bg)]"
+      >
+        +
+      </button>
     </div>
   )
 }
