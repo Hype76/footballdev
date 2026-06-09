@@ -17,7 +17,7 @@ export const roleGuides = [
     rank: 70,
     summary: 'Runs team level operations and can manage key settings for assigned football staff.',
     capabilities: [
-      'Manage assigned team workflows, sessions, and development records.',
+      'Manage assigned team sessions and development records.',
       'Use Development Fields when the plan includes custom form fields.',
       'Manage parent email templates when parent email is included.',
       'View billing on Individual accounts and where club access allows it.',
@@ -27,7 +27,7 @@ export const roleGuides = [
     key: 'manager',
     label: 'Manager',
     rank: 50,
-    summary: 'Handles player records, sessions, development records, and parent communication workflows.',
+    summary: 'Handles player records, sessions, development records, and parent communication.',
     capabilities: [
       'Add players and maintain player details.',
       'Create sessions and work through development queues.',
@@ -51,7 +51,7 @@ export const roleGuides = [
     key: 'assistant_coach',
     label: 'Assistant Coach',
     rank: 20,
-    summary: 'Supports team workflow with limited access set by club managers.',
+    summary: 'Supports team work with limited access set by club managers.',
     capabilities: [
       'View assigned team information.',
       'Support player development records where access allows it.',
@@ -189,7 +189,7 @@ export const onboardingVideoGuides = [
     caption: 'Change the fields coaches complete so reports match the way your club reviews player development.',
     steps: [
       'Open Development Fields from the sidebar.',
-      'Add, reorder, or remove fields for your club workflow.',
+      'Add, reorder, or remove fields for your club development records.',
       'Check the development form before coaches start a new session.',
     ],
   },

@@ -98,7 +98,7 @@ const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, pla
 
 const FEATURE_UPGRADE_COPY = {
   approvalWorkflow: {
-    label: 'Team approval workflows',
+    label: 'Team approval controls',
     action: 'change approval settings',
   },
   auditLogs: {

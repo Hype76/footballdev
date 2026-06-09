@@ -15,7 +15,7 @@ function CoachActionMenuPage({ actions, description, primaryPath, title }) {
       <section className={surfaceClass}>
         <div className="grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-stretch">
           <div>
-            <p className={eyebrowClass}>Football workflow</p>
+            <p className={eyebrowClass}>Coach tools</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">{title}</h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">{description}</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -42,16 +42,16 @@ function CoachActionMenuPage({ actions, description, primaryPath, title }) {
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Next action</p>
               <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
-                {primaryAction?.label || 'Open workflow'}
+                {primaryAction?.label || 'Open tool'}
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Open the working screen and complete the real step that moves the football week forward.
+                Open the working screen and complete the next useful action for this team.
               </p>
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
               {secondaryActions.length > 0
                 ? `${secondaryActions.length} supporting view${secondaryActions.length === 1 ? '' : 's'} available.`
-                : 'This workflow opens directly into the working screen.'}
+                : 'This tool opens directly into the working screen.'}
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Link
@@ -79,7 +79,7 @@ export function SessionsMenuPage() {
   return (
     <CoachActionMenuPage
       title="Sessions"
-      description="Run the next session from the queue, reopen saved sessions, and keep attendance plus coach notes tied to a real football activity."
+      description="Run the next session, reopen saved sessions, and keep attendance plus coach notes tied to real team activity."
       primaryPath="/sessions/start"
       actions={[
         {
@@ -125,7 +125,7 @@ export function AssessmentsMenuPage() {
   return (
     <CoachActionMenuPage
       title="Development"
-      description="Capture practical football feedback and turn training or match observations into player progress."
+      description="Capture practical coach feedback and turn training or match observations into player progress."
       primaryPath="/assess-player/new"
       actions={[
         {

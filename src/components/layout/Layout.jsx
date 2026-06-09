@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useMatches } from 'react-router-dom'
-import { isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
+import { canCreateEvaluation, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import { createAuditLog } from '../../lib/supabase.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
@@ -313,6 +313,7 @@ function QuickActionHotbar({ user }) {
     && !isSuperAdmin(user)
     && !isParentPortalUser(user)
     && Number(user?.roleRank ?? 0) >= 20
+    && canCreateEvaluation(user)
 
   useEffect(() => {
     if (!isOpen) {

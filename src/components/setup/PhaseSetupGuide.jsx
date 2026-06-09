@@ -109,7 +109,7 @@ function buildClubAdminSteps({ canEvaluate, counts }) {
     {
       id: 'player',
       title: 'Add first player',
-      body: 'Create one footballer record linked to the active team.',
+      body: 'Create one player record linked to the active team.',
       href: '/add-player',
       action: 'Add player',
       targetSelector: '[data-tour-id="add-player-form-section"]',
@@ -204,7 +204,7 @@ function buildTeamSteps({ canEvaluate, counts, user }) {
     {
       id: 'feedback',
       title: 'Send setup feedback',
-      body: 'Report anything confusing from this team workflow.',
+      body: 'Report anything confusing from this team setup.',
       href: '/feedback/new?route=/phase-1-setup-guide',
       action: 'Report issue',
       targetSelector: '[data-tour-id="tester-feedback-form"]',

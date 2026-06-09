@@ -1229,7 +1229,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         writeCalendarAwareCache({ matchDays: nextMatchDays })
         showToast({ title: 'Fixture cancelled', message: cancelledMatch.opponent || 'The fixture was cancelled.' })
       } else {
-        throw new Error('This calendar item opens in its own workflow.')
+        throw new Error('This calendar item opens in its own area.')
       }
 
       setCalendarModal(null)
@@ -1605,7 +1605,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
                 Football calendar
               </h1>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-                Plan training, fixtures, parent cut offs, and club events without opening the sessions workflow.
+                Plan training, fixtures, parent cut offs, and club events without opening the session tools.
               </p>
             </div>
 
@@ -2243,7 +2243,7 @@ function CalendarEventModal({
 
             <div className="flex flex-col gap-3 border-t border-[#d7e5dc] pt-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open workflow</button> : null}
+                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 {event && editableSource ? (
@@ -2263,7 +2263,7 @@ function CalendarEventModal({
           </form>
         ) : (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-            {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open workflow</button> : null}
+            {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
             {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Edit or move</button> : null}
             <button type="button" onClick={onCancel} className={secondaryButtonClass}>Close</button>
           </div>

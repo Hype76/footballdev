@@ -4,7 +4,7 @@ export const pricingPlans = [
     price: 'Free',
     priceLabel: 'No card needed',
     displayName: 'Individual Coach',
-    description: 'For one coach testing the workflow with a small squad.',
+    description: 'For one coach testing player records with a small squad.',
     features: ['1 team', '1 staff login', '5 players', 'Basic development records', 'Family portal'],
   },
   {

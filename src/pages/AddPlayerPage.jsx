@@ -42,10 +42,10 @@ function getPlayerPortalContacts(player) {
 const playerIntakeRules = [
   {
     label: 'One player, one record',
-    body: 'Check the latest records before adding another footballer to the same team.',
+    body: 'Check the latest records before adding another player to the same team.',
   },
   {
-    label: 'Status drives workflow',
+    label: 'Status drives where players appear',
     body: 'Trial and Squad decide how the player appears in sessions, parent invites, and match day.',
   },
   {
@@ -379,7 +379,7 @@ export function AddPlayerPage() {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Player intake</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-4xl">
-              Register the footballer before anything else starts.
+              Add one clear player record before sessions, notes, or match activity.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
               Create one usable record with team, status, positions, and parent contacts so sessions, match day, and family messages all point to the same player.
@@ -397,7 +397,7 @@ export function AddPlayerPage() {
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Intake state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {players.length} footballers already registered
+                {players.length} players already registered
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
                 Current intake target: {activeTeamLabel}. Check the register, then add the next player once.

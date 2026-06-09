@@ -23,11 +23,11 @@ import {
 const playerRegisterRules = [
   {
     label: 'Search first',
-    body: 'Avoid duplicate footballers. Parent contacts, team links, notes, and history should stay attached to one record.',
+    body: 'Avoid duplicate players. Parent contacts, team links, notes, and history should stay attached to one record.',
   },
   {
     label: 'Section matters',
-    body: 'Trial and Squad control where the player appears in sessions, parent invites, and match day workflows.',
+    body: 'Trial and Squad control where the player appears in sessions, parent invites, and match day.',
   },
   {
     label: 'Open before changing',
@@ -39,7 +39,7 @@ export function PlayersPage({
   defaultView = 'all',
   headerDescription = 'Use one football register for squad status, parent contacts, team assignment, and development history. Search first, then open the profile before making decisions.',
   headerEyebrow = 'Player register',
-  headerTitle = 'Control the footballer record before the workflow starts.',
+  headerTitle = 'Keep player records clear before adding sessions, notes, or match activity.',
 }) {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -341,7 +341,7 @@ export function PlayersPage({
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Register state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {playerRows.length} footballers tracked
+                {playerRows.length} players tracked
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
                 {filteredPlayers.length} match the current search and filters.
@@ -354,7 +354,7 @@ export function PlayersPage({
               <PlayerMetric label="No record" value={playersWithoutRecords} isLoading={isLoading} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Add players once, then let every football workflow point back to the same record.
+              Add players once, then let sessions, notes, parent links, and match activity use the same record.
             </p>
           </div>
         </div>

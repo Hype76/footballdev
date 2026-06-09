@@ -140,11 +140,12 @@ export function Sidebar({ isOpen, onClose }) {
   const displayUser = user
   const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
   const isParentPortal = isParentPortalUser(displayUser)
+  const isCoachOnly = Boolean(displayUser) && !isParentPortal && !isSuperAdmin(displayUser) && Number(displayUser?.roleRank ?? 0) < 50
   const canUseTeamWorkflow = hasTeamWorkflowContext(displayUser)
   const clubLabel = displayUser?.role === 'super_admin' ? 'Platform' : displayUser?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(displayUser)
   const feedbackRoute = `/feedback/new?route=${encodeURIComponent(`${location.pathname}${location.search}`)}`
-  const canShowSetupGuide = Boolean(displayUser) && !isParentPortal
+  const canShowSetupGuide = Boolean(displayUser) && !isParentPortal && !isCoachOnly
   const [openPollCount, setOpenPollCount] = useState(0)
   const [queuedEmailCount, setQueuedEmailCount] = useState(0)
 
@@ -344,7 +345,7 @@ export function Sidebar({ isOpen, onClose }) {
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
-  const teamNavigationItems = navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
+  const teamNavigationItems = isCoachOnly ? [] : navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
   const workspaceItems = useMemo(() => {
     if (isParentPortal) {
       return [
@@ -355,8 +356,14 @@ export function Sidebar({ isOpen, onClose }) {
       ].filter((item) => isRecoveryPathVisible(item.path, { user: displayUser }))
     }
 
-    return [{ label: 'Home', path: '/coach', helper: 'Today and next actions' }, ...coachNavigationItems]
-  }, [coachNavigationItems, displayUser, isParentPortal])
+    const coachHomeItems = [{ label: 'Home', path: '/coach', helper: 'Today and next actions' }, ...coachNavigationItems]
+
+    if (!isCoachOnly) {
+      return coachHomeItems
+    }
+
+    return coachHomeItems.filter((item) => !['/email-queue', '/polls', '/parent-linking'].includes(item.path))
+  }, [coachNavigationItems, displayUser, isCoachOnly, isParentPortal])
 
   return (
     <>
@@ -383,7 +390,7 @@ export function Sidebar({ isOpen, onClose }) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#047857]">
-                    {isParentPortal ? 'Family portal' : 'Football OS'}
+                    {isParentPortal ? 'Family portal' : isCoachOnly ? 'Coach tools' : 'Football OS'}
                   </p>
                   <h2 className="mt-1 max-w-[min(12.5rem,calc(100vw-9rem))] truncate whitespace-nowrap text-lg font-black tracking-tight text-[#101828]">{clubLabel}</h2>
                 </div>
@@ -401,9 +408,9 @@ export function Sidebar({ isOpen, onClose }) {
           </div>
 
           <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
-            <p className="text-xs font-black text-[#101828]">{isParentPortal ? 'Family view' : 'Club workspace'}</p>
+            <p className="text-xs font-black text-[#101828]">{isParentPortal ? 'Family view' : isCoachOnly ? 'Team workspace' : 'Club workspace'}</p>
             <p className="mt-1 text-[11px] font-semibold leading-5 text-[#66756c]">
-              {isParentPortal ? 'Fixtures, messages, and replies.' : 'Players, training, parents, and match day.'}
+              {isParentPortal ? 'Fixtures, messages, and replies.' : isCoachOnly ? 'Sessions, players, and development notes.' : 'Players, training, parents, and match day.'}
             </p>
           </div>
         </div>
@@ -414,7 +421,7 @@ export function Sidebar({ isOpen, onClose }) {
           <section className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2 shadow-sm shadow-[#101828]/5">
             <div className="flex items-center justify-between px-2">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
-                {isParentPortal ? 'Family actions' : 'Club week'}
+                {isParentPortal ? 'Family actions' : isCoachOnly ? 'Coach actions' : 'Club tools'}
               </p>
               <span className="rounded-lg border border-[#bbf7d0] bg-[#dcfce7] px-2 py-1 text-[11px] font-black text-[#166534]">
                 Live
@@ -453,7 +460,7 @@ export function Sidebar({ isOpen, onClose }) {
             <NavGroup title="Squad tools" items={teamNavigationItems} onClose={onClose} pollCount={openPollCount} queuedEmailCount={queuedEmailCount} />
           ) : null}
 
-          {!isParentPortal && clubNavigationItems.length > 0 ? (
+          {!isParentPortal && !isCoachOnly && clubNavigationItems.length > 0 ? (
             <NavGroup title={canManageClubSettings(displayUser) ? 'Club setup' : 'Management'} items={clubNavigationItems} onClose={onClose} pollCount={openPollCount} queuedEmailCount={queuedEmailCount} />
           ) : null}
 
@@ -477,7 +484,8 @@ export function Sidebar({ isOpen, onClose }) {
                   Open setup guide
                 </button>
               ) : null}
-              <NavLink
+              {!isCoachOnly ? (
+                <NavLink
                 to="/information"
                 data-tour-id="sidebar-information"
                 onClick={(event) => {
@@ -499,7 +507,9 @@ export function Sidebar({ isOpen, onClose }) {
               >
                 How to use
               </NavLink>
-              <NavLink
+              ) : null}
+              {!isCoachOnly ? (
+                <NavLink
                 to={feedbackRoute}
                 data-tour-id="sidebar-tester-feedback"
                 onClick={(event) => {
@@ -521,6 +531,7 @@ export function Sidebar({ isOpen, onClose }) {
               >
                 Report issue
               </NavLink>
+              ) : null}
               {!isSuperAdmin(displayUser) && canAccessPlatformFeedback && isRecoveryModuleVisible('platformFeedback', { user: displayUser }) ? (
                 <NavLink
                   to="/platform-feedback"

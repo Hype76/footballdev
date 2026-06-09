@@ -25,10 +25,10 @@ const templateRules = [
     label: 'Approved fields only',
     body: 'Use the listed merge fields so messages can be generated from real workspace data.',
   },
-  {
-    label: 'Sections control use',
-    body: 'A template should only appear in the football workflow sections where it makes sense.',
-  },
+    {
+      label: 'Sections control use',
+      body: 'A template should only appear where it makes sense for parents, players, and team updates.',
+    },
 ]
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'

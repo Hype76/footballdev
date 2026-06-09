@@ -315,9 +315,9 @@ function RecoveryPhaseBlockedState() {
     <RouteGateState
       eyebrow="Recovery"
       title="This area is hidden during Phase 1"
-      message={`Football Player is in Phase ${CURRENT_RECOVERY_PHASE} recovery. This module is not part of the current test surface, so it is hidden until the core workflow is trusted.`}
+      message={`Football Player is in Phase ${CURRENT_RECOVERY_PHASE} recovery. This module is not part of the current test surface, so it is hidden until the core tools are trusted.`}
       rules={[
-        { title: 'Core workflow first', body: 'Phase 1 is limited to setup, teams, players, sessions, and development records.' },
+        { title: 'Core tools first', body: 'Phase 1 is limited to setup, teams, players, sessions, and development records.' },
         { title: 'No data changed', body: 'This block only prevents access to an unfinished recovery surface.' },
       ]}
       actions={(
@@ -355,12 +355,12 @@ function TeamContextRequiredState() {
   return (
     <RouteGateState
       eyebrow="Team context"
-      title="Choose a team before using this workflow"
+      title="Choose a team before using this area"
       message="Sessions, players, parent linking, match day, and player profiles need an active team so records are saved in the right place."
       rules={[
         { title: 'Club-wide view', body: 'Use club-wide view for setup, staff, billing, and club settings.' },
         { title: 'Team tools need a team', body: 'Pick a team before opening player records, sessions, availability, or match day.' },
-        { title: hasTeams ? 'Choose below' : 'No team linked', body: hasTeams ? 'Open the team you want to work with for this session.' : 'Ask a club admin to add this account to a team before using team workflows.' },
+        { title: hasTeams ? 'Choose below' : 'No team linked', body: hasTeams ? 'Open the team you want to work with for this session.' : 'Ask a club admin to add this account to a team before using team tools.' },
       ]}
       actions={hasTeams ? (
         <div className="grid w-full gap-2 sm:grid-cols-2">
@@ -1355,7 +1355,7 @@ export const router = createBrowserRouter([
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Club Home',
+                  title: 'Coach Home',
                 },
               },
               {

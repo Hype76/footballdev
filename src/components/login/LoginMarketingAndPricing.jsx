@@ -18,7 +18,7 @@ const operatingSystemRows = [
 const switchCards = [
   ['Less setup drag than generic team apps', 'Make the first useful action obvious: club, team, players, parents, then match week.'],
   ['Less website weight than full club-site tools', 'Prioritise the operating workspace before public-site content, news, and broad sports tooling.'],
-  ['Football-only decisions', 'Use football language, football roles, and football workflows everywhere in the product.'],
+  ['Football-only decisions', 'Use football language, football roles, and practical club actions everywhere in the product.'],
   ['Cleaner club control', 'Separate platform admin, club admin, team staff, and parent access from the start.'],
 ]
 
@@ -101,7 +101,7 @@ export function LoginMarketingAndPricing({
             <p className={eyebrowClass}>Onboarding that belongs in the product</p>
             <h2 className={titleClass}>No generic tour. A setup board that proves the workspace is ready.</h2>
             <p className={copyClass}>
-              New clubs see short, practical setup checks inside the app. The flow explains constraints, records progress, and guides the first real workflow instead of showing welcome slides.
+              New clubs see short, practical setup checks inside the app. The flow explains constraints, records progress, and guides the first real club action instead of showing welcome slides.
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-2">

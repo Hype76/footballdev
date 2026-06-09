@@ -18,7 +18,7 @@ export function RecentlyAddedPlayersSection({
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#065f46]">Recently added</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Check the latest player records</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Use this list to avoid duplicates before adding another footballer to the register.
+              Use this list to avoid duplicates before adding another player to the register.
             </p>
           </div>
           <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-[#bbf7d0] bg-white px-4 text-sm font-black text-[#065f46] shadow-sm shadow-[#065f46]/10">
@@ -29,7 +29,7 @@ export function RecentlyAddedPlayersSection({
 
       {recentPlayers.length === 0 ? (
         <div className="m-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-8 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#101828]/5 sm:m-6">
-          No player records yet. Add the first footballer above.
+          No player records yet. Add the first player above.
         </div>
       ) : (
         <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 sm:px-6 xl:grid-cols-4">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, useAuth } from '../lib/auth.js'
 import {
   getAssessmentSessionPlayers,
   getAssessmentSessions,
@@ -18,90 +18,6 @@ import {
 } from '../lib/session-page-utils.js'
 import { isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
-const quickActions = [
-  {
-    label: 'Start training',
-    description: 'Open the active queue, mark attendance, and record what coaches saw.',
-    path: '/sessions/start',
-    primary: true,
-  },
-  {
-    label: 'Check availability',
-    description: 'Use parent replies before choosing the training group or match squad.',
-    path: '/polls',
-  },
-  {
-    label: 'Match day',
-    description: 'Build the squad, capture scorers, minutes, and post-match notes.',
-    path: '/match-day',
-  },
-  {
-    label: 'Player note',
-    description: 'Record one practical observation while the session is still fresh.',
-    path: '/assess-player/new',
-  },
-]
-
-const operatingLanes = [
-  {
-    label: 'Players',
-    title: 'Know who is in the squad',
-    body: 'Add the player, link their contacts, and keep their football record current.',
-    path: '/players/current',
-  },
-  {
-    label: 'Training',
-    title: 'Run one useful session',
-    body: 'Pick the group, take attendance, then record the coaching points that matter.',
-    path: '/sessions/start',
-  },
-  {
-    label: 'Parents',
-    title: 'Get replies before decisions',
-    body: 'Use invites, availability, and parent messages before match day changes.',
-    path: '/parent-linking',
-  },
-  {
-    label: 'Match day',
-    title: 'Close the weekend properly',
-    body: 'Record squad, score, minutes, scorers, and notes while the detail is fresh.',
-    path: '/match-day',
-  },
-]
-
-const rhythmItems = [
-  {
-    label: 'Monday',
-    title: 'Close the weekend',
-    body: 'Check match notes, attendance gaps, and players who need a coach action.',
-    path: '/players/current',
-  },
-  {
-    label: 'Midweek',
-    title: 'Run training',
-    body: 'Create the session, confirm the squad, and keep parent updates in one place.',
-    path: '/sessions/start',
-  },
-  {
-    label: 'Friday',
-    title: 'Lock availability',
-    body: 'Use polls, parent replies, and match day to confirm who can play.',
-    path: '/polls',
-  },
-  {
-    label: 'Weekend',
-    title: 'Record match day',
-    body: 'Record score, scorers, notes, and player of the match for the team history.',
-    path: '/match-day',
-  },
-]
-
-const matchReadinessActions = [
-  { label: 'Availability gaps', value: 'Check parent replies before naming the squad.', path: '/polls' },
-  { label: 'Match day board', value: 'Scorers, minutes, notes, and player of the match.', path: '/match-day' },
-  { label: 'Parent update', value: 'Send the practical details before kick off.', path: '/parent-linking' },
-]
-
 const surfaceClass = 'overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10'
 const sectionHeaderClass = 'border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#065f46]'
@@ -112,7 +28,13 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 function getActiveSession(sessions) {
   const openSessions = sessions.filter((session) => session.status !== 'completed')
 
-  return openSessions[0] || sessions[0] || null
+  const sortByDate = (items) => [...items].sort((left, right) => {
+    const leftTime = new Date(left.sessionDate || left.createdAt || 0).getTime()
+    const rightTime = new Date(right.sessionDate || right.createdAt || 0).getTime()
+    return leftTime - rightTime
+  })
+
+  return sortByDate(openSessions)[0] || sortByDate(sessions)[0] || null
 }
 
 function getRecentEvaluations(evaluations) {
@@ -163,7 +85,6 @@ export function CoachHomePage() {
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
   const cacheKey = user?.clubId ? `coach-home:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
   const cachedValue = useMemo(() => readViewCache(cacheKey), [cacheKey])
-  const isSetupHidden = Boolean(user?.workspaceOnboardingDismissedAt || user?.userOnboardingDismissedAt)
   const [sessions, setSessions] = useState(() => cachedValue?.sessions || [])
   const [players, setPlayers] = useState(() => cachedValue?.players || [])
   const [evaluations, setEvaluations] = useState(() => cachedValue?.evaluations || [])
@@ -183,41 +104,35 @@ export function CoachHomePage() {
   )
   const visiblePlayers = players.length > 0 ? players : sessionPlayers
   const trialPlayerCount = visiblePlayers.filter((player) => player.section === 'Trial').length
-  const squadPlayerCount = visiblePlayers.filter((player) => player.section === 'Squad').length
-  const visibleQuickActions = useMemo(() => quickActions.filter((action) => isRecoveryPathVisible(action.path, { user })), [user])
-  const visibleOperatingLanes = useMemo(() => operatingLanes.filter((lane) => isRecoveryPathVisible(lane.path, { user })), [user])
-  const visibleRhythmItems = useMemo(() => rhythmItems.filter((item) => isRecoveryPathVisible(item.path, { user })), [user])
-  const visibleMatchReadinessActions = useMemo(() => matchReadinessActions.filter((action) => isRecoveryPathVisible(action.path, { user })), [user])
-  const readinessItems = useMemo(() => [
+  const canUseCoachActions = canCreateEvaluation(user)
+  const secondaryActions = useMemo(() => [
     {
-      label: 'Squad base',
-      state: visiblePlayers.length > 0 ? 'Ready' : 'Missing',
-      detail: visiblePlayers.length > 0 ? `${visiblePlayers.length} players available.` : 'Add players before sessions, match day, or parent links.',
-      path: visiblePlayers.length > 0 ? '/players/current' : '/add-player',
-      tone: visiblePlayers.length > 0 ? 'good' : 'risk',
+      label: 'View squad',
+      description: 'Open player records for this team.',
+      path: '/players/current',
     },
     {
-      label: 'Session queue',
-      state: activeSession ? 'Ready' : 'Missing',
-      detail: activeSession ? `${sessionPlayers.length} players linked to the active session.` : 'Create the next training or match session.',
-      path: '/sessions/start',
-      tone: activeSession ? 'good' : 'risk',
-    },
-    {
-      label: 'Coach records',
-      state: completedNames.length > 0 ? 'Moving' : 'Empty',
-      detail: completedNames.length > 0 ? `${completedNames.length} records linked to the current queue.` : 'Add the first player note from a real session.',
+      label: 'Add player note',
+      description: 'Record a short coach observation.',
       path: '/assess-player/new',
-      tone: completedNames.length > 0 ? 'good' : 'watch',
     },
     {
-      label: 'Weekend control',
-      state: 'Check',
-      detail: 'Confirm availability before publishing match day details.',
-      path: '/polls',
-      tone: 'watch',
+      label: 'Add assessment',
+      description: 'Create a structured development record.',
+      path: '/create-evaluation',
     },
-  ].filter((item) => isRecoveryPathVisible(item.path, { user })), [activeSession, completedNames.length, sessionPlayers.length, user, visiblePlayers.length])
+    {
+      label: 'Open calendar',
+      description: 'Check sessions, matches, and club events.',
+      path: '/calendar',
+    },
+  ].filter((action) => canUseCoachActions && isRecoveryPathVisible(action.path, { user })), [canUseCoachActions, user])
+  const snapshotItems = [
+    { label: 'Players', value: visiblePlayers.length },
+    { label: 'Trial players', value: trialPlayerCount },
+    { label: 'Waiting notes', value: unassessedPlayers.length },
+    { label: 'Recorded', value: completedNames.length },
+  ]
 
   useEffect(() => {
     let isMounted = true
@@ -287,102 +202,27 @@ export function CoachHomePage() {
 
   return (
     <div className="space-y-5">
-      {!isSetupHidden ? (
-        <section className={surfaceClass}>
-          <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
-            <div>
-              <div className="px-5 py-6 sm:px-6 lg:px-8">
-                <p className={eyebrowClass}>Club focus</p>
-                <h1 className="mt-3 max-w-5xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
-                  Keep the football week moving.
-                </h1>
-                <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                  Start with the club task that needs attention today: players, training, parents, or match day.
-                </p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {visibleOperatingLanes.map((lane) => (
-                    <Link
-                      key={lane.label}
-                      to={lane.path}
-                      className="group rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-                    >
-                      <span className="inline-flex min-h-8 items-center rounded-lg border border-[#bbf7d0] bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-[#065f46]">
-                        {lane.label}
-                      </span>
-                      <span className="mt-4 block text-base font-black leading-6 text-[#101828]">{lane.title}</span>
-                      <span className="mt-2 block text-sm font-semibold leading-6 text-[#4b5f55]">{lane.body}</span>
-                      <span className="mt-4 inline-flex min-h-9 items-center rounded-lg bg-[#047857] px-3 text-xs font-black text-white shadow-sm shadow-[#047857]/20 transition group-hover:bg-[#065f46]">
-                        Open
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:px-8">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {visibleQuickActions.map((action) => (
-                    <Link
-                      key={action.path}
-                      to={action.path}
-                      className={[
-                        'min-w-0 rounded-lg border px-4 py-4 shadow-sm transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#93c5fd]',
-                        action.primary
-                          ? 'border-[#047857] bg-[#047857] text-white shadow-[#047857]/20'
-                          : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857] hover:bg-[#ecfdf5]',
-                      ].join(' ')}
-                    >
-                      <span className="block text-sm font-black leading-5">{action.label}</span>
-                      <span className={['mt-2 block text-xs font-semibold leading-5', action.primary ? 'text-[#ecfdf5]' : 'text-[#4b5f55]'].join(' ')}>
-                        {action.description}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Today</p>
-                <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                  What needs attention today?
-                </p>
-              </div>
-              <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <CoachMetric label="Players" value={visiblePlayers.length} isLoading={isLoading} to="/players/current" actionLabel="Open" compact />
-                <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" compact />
-                <CoachMetric label="Waiting" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" compact />
-              </div>
-              <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Use the live numbers here to pick the next practical action.
-              </p>
-            </div>
+      <section className={surfaceClass}>
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="px-5 py-6 sm:px-6 lg:px-8">
+            <p className={eyebrowClass}>Coach Home</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+              Today's Coaching
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
+              Run sessions, record notes, and keep player records up to date.
+            </p>
           </div>
-        </section>
-      ) : null}
-
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {readinessItems.map((item) => (
-          <Link
-            key={item.label}
-            to={item.path}
-            className={[
-              'rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]',
-            ].join(' ')}
-          >
-            <span className="flex items-center justify-between gap-3">
-              <span className="min-w-0 text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">{item.label}</span>
-              <span className={[
-                'shrink-0 whitespace-nowrap rounded-lg border px-2 py-1 text-[11px] font-black',
-                item.tone === 'good' ? 'border-[#bbf7d0] bg-[#dcfce7] text-[#166534]' : item.tone === 'risk' ? 'border-[#fecdca] bg-[#fff1f3] text-[#b42318]' : 'border-[#fedf89] bg-[#fffaeb] text-[#93370d]',
-              ].join(' ')}
-              >
-                {item.state}
-              </span>
-            </span>
-            <span className="mt-3 block text-sm font-semibold leading-6 text-[#4b5f55]">{item.detail}</span>
-          </Link>
-        ))}
+          <aside className="border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Current team</p>
+            <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
+              {user?.activeTeamName || user?.clubName || 'Team not selected'}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              {user?.roleLabel || 'Coach'} access for {user?.clubName || 'this club'}.
+            </p>
+          </aside>
+        </div>
       </section>
 
       {errorMessage ? (
@@ -391,96 +231,44 @@ export function CoachHomePage() {
         </div>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-        <section className={surfaceClass}>
-          <div className={sectionHeaderClass}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className={eyebrowClass}>Training queue</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                  {activeSession?.title || activeSession?.team || (isLoading ? 'Loading session' : 'No session selected')}
-                </h2>
-                <p className={`mt-2 ${bodyTextClass}`}>
-                  {activeSession
-                    ? getSessionContextLabel(activeSession)
-                    : getSessionContextLabel(null)}
-                </p>
-              </div>
-              <Link
-                to="/sessions/start"
-                className={primaryButtonClass}
-              >
-                Open session
-              </Link>
+      <section className={surfaceClass}>
+        <div className={sectionHeaderClass}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className={eyebrowClass}>Next up</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+                {activeSession?.title || activeSession?.team || (isLoading ? 'Loading next item' : 'No session scheduled yet')}
+              </h2>
+              <p className={`mt-2 ${bodyTextClass}`}>
+                {activeSession ? getSessionContextLabel(activeSession) : 'Add a session or open the calendar when the next team activity is ready.'}
+              </p>
             </div>
+            <Link
+              to={activeSession ? '/sessions/start' : '/calendar?action=add-event'}
+              className={primaryButtonClass}
+            >
+              {activeSession ? 'Open next session' : 'Add event'}
+            </Link>
           </div>
+        </div>
 
-          <div className="px-5 py-5 sm:px-6">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <CoachMetric label="In queue" value={sessionPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Open" />
-              <CoachMetric label="Recorded" value={completedNames.length} isLoading={isLoading} to="/assess-player/completed" actionLabel="Review" />
-              <CoachMetric label="To record" value={unassessedPlayers.length} isLoading={isLoading} to="/sessions/start" actionLabel="Start" />
-              <CoachMetric label="Trial" value={trialPlayerCount} isLoading={isLoading} to="/players/current?section=Trial" actionLabel="Review" />
-              <CoachMetric label="Squad" value={squadPlayerCount} isLoading={isLoading} to="/players/current?section=Squad" actionLabel="Review" />
-            </div>
+        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4">
+          {secondaryActions.map((action) => (
+            <Link
+              key={action.path}
+              to={action.path}
+              className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+            >
+              <span className="block text-sm font-black text-[#101828]">{action.label}</span>
+              <span className="mt-2 block text-sm font-semibold leading-6 text-[#4b5f55]">{action.description}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-            <div className="mt-5 space-y-3">
-              {unassessedPlayers.slice(0, 4).map((player) => (
-                <div key={player.id} className="flex items-center justify-between gap-3 rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 shadow-sm shadow-[#047857]/10">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-[#101828]">{player.playerName}</p>
-                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Section: {player.section || 'Trial'}, Team: {player.team || 'No team assigned'}</p>
-                  </div>
-                  <Link
-                    to="/sessions/start"
-                    className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#bbf7d0] bg-white px-4 py-3 text-sm font-black text-[#065f46] transition hover:bg-[#ecfdf5] hover:text-[#101828]"
-                  >
-                    Record
-                  </Link>
-                </div>
-              ))}
-              {!isLoading && unassessedPlayers.length === 0 ? (
-                <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55]">
-                  No players are waiting in the current development queue.
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </section>
-
-        {visibleMatchReadinessActions.length > 0 ? (
-          <section className={surfaceClass}>
-            <div className={sectionHeaderClass}>
-              <p className={eyebrowClass}>Match readiness</p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Before the weekend</h2>
-            </div>
-            <div className="grid gap-3 px-5 py-5 sm:px-6">
-              {visibleMatchReadinessActions.map((action) => (
-                <Link
-                  key={action.label}
-                  to={action.path}
-                  className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-                >
-                  <span className="block text-sm font-black">{action.label}</span>
-                  <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">{action.value}</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </div>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {visibleRhythmItems.map((item) => (
-          <Link
-            key={item.label}
-            to={item.path}
-            className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
-          >
-            <p className={eyebrowClass}>{item.label}</p>
-            <h2 className="mt-3 text-lg font-black text-[#101828]">{item.title}</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{item.body}</p>
-          </Link>
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {snapshotItems.map((item) => (
+          <CoachMetric key={item.label} label={item.label} value={item.value} isLoading={isLoading} />
         ))}
       </section>
 
@@ -511,7 +299,7 @@ export function CoachHomePage() {
           ))}
           {!isLoading && recentEvaluations.length === 0 ? (
             <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55] lg:col-span-3">
-              Completed development records will appear here.
+              Coach notes and assessments will appear here after the first session.
             </div>
           ) : null}
         </div>

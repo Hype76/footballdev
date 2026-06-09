@@ -277,10 +277,10 @@ export function EmailQueuePage() {
           <p className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-semibold text-[#4b5f55]">Loading email queue...</p>
         ) : sortedQueue.length === 0 ? (
           <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-5 py-8">
-            <p className="text-lg font-black text-[#101828]">No emails are waiting to send.</p>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#4b5f55]">
-              Queue items appear after a coach schedules a parent or player email from a football workflow.
-            </p>
+              <p className="text-lg font-black text-[#101828]">No emails are waiting to send.</p>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#4b5f55]">
+                Queue items appear after a coach schedules a parent or player email from sessions, player records, or match day.
+              </p>
           </div>
         ) : (
           <div className="space-y-3">

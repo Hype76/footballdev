@@ -50,10 +50,10 @@ function getBillingStatusLabel(status) {
 }
 
 const billingRules = [
-  {
-    label: 'Club access changes here',
-    body: 'Plan changes affect every coach, team, player, and parent workflow in this club.',
-  },
+    {
+      label: 'Club access changes here',
+      body: 'Plan changes affect every coach, team, player, and parent tool in this club.',
+    },
   {
     label: 'Tester access is temporary',
     body: 'Staging can use tester codes. Paid checkout is only needed when the club is ready to keep using the workspace.',
