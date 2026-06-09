@@ -122,6 +122,10 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
     data.themeAccent !== undefined ||
     data.themeButtonStyle !== undefined
 
+  if (data.name !== undefined && Number(user?.roleRank ?? 0) < 50) {
+    throw new Error('Only Team Admins can change team names.')
+  }
+
   if (hasThemeUpdates && Number(user?.roleRank ?? 0) < 50) {
     throw new Error('Only Team Admins can change team appearance.')
   }

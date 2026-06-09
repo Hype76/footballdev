@@ -100,6 +100,108 @@ function getReadyState(isReady) {
       }
 }
 
+function normalizeAssessmentSearch(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function getPlayerSectionLabel(section) {
+  return String(section ?? '').trim() === 'Trial' ? 'Trial player' : 'Squad player'
+}
+
+function AssessmentPlayerPicker({
+  activeTeamName,
+  isLoading,
+  onSelectPlayer,
+  players,
+  searchValue,
+  onSearchChange,
+}) {
+  const normalizedSearch = normalizeAssessmentSearch(searchValue)
+  const filteredPlayers = players
+    .filter((player) => {
+      if (!normalizedSearch) {
+        return true
+      }
+
+      return [
+        player.playerName,
+        player.team,
+        player.section,
+      ].some((value) => normalizeAssessmentSearch(value).includes(normalizedSearch))
+    })
+    .sort((left, right) => {
+      const leftSection = String(left.section ?? '')
+      const rightSection = String(right.section ?? '')
+      if (leftSection !== rightSection) {
+        return leftSection.localeCompare(rightSection)
+      }
+
+      return String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))
+    })
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+      <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Select player</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Choose who this assessment is for.</h2>
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
+          Select a squad or trial player from {activeTeamName || 'the current team'} before opening the assessment form.
+        </p>
+      </div>
+
+      <div className="space-y-4 px-5 py-5 sm:px-6">
+        <label className="block">
+          <span className="mb-2 block text-sm font-black text-[#101828]">Search players</span>
+          <input
+            type="search"
+            value={searchValue}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Search by player name"
+            className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
+          />
+        </label>
+
+        {isLoading ? (
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55]">
+            Loading players.
+          </div>
+        ) : null}
+
+        {!isLoading && players.length === 0 ? (
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55]">
+            No players are available for assessment yet. Add a player first.
+          </div>
+        ) : null}
+
+        {!isLoading && players.length > 0 && filteredPlayers.length === 0 ? (
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55]">
+            No players match that search.
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {filteredPlayers.map((player) => (
+            <button
+              key={player.id || `${player.team}-${player.section}-${player.playerName}`}
+              type="button"
+              onClick={() => onSelectPlayer(player)}
+              className="min-h-28 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 text-left shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+            >
+              <span className="block text-base font-black text-[#101828]">{player.playerName}</span>
+              <span className="mt-2 inline-flex rounded-full border border-[#bbf7d0] bg-[#ecfdf5] px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
+                {getPlayerSectionLabel(player.section)}
+              </span>
+              <span className="mt-3 block text-sm font-semibold text-[#4b5f55]">
+                {player.team || activeTeamName || 'Current team'}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function RecordReadinessItem({ isReady, label, value }) {
   const state = getReadyState(isReady)
 
@@ -142,7 +244,7 @@ function DevelopmentRecordCommandPanel({
       : !hasFields
         ? 'Enable development fields for this club.'
         : selectedResponseCount === 0
-          ? 'Complete the useful football fields.'
+          ? 'Complete the useful development fields.'
           : 'Save the development record.'
 
   return (
@@ -150,9 +252,9 @@ function DevelopmentRecordCommandPanel({
       <div className="grid gap-5 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Record workspace</p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Build one clear football record.</h3>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Build one clear development record.</h3>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-            Work top to bottom: player, football detail, then sharing choice. Save internal notes first unless the parent output is ready.
+            Work top to bottom: player, development detail, then sharing choice. Save internal notes first unless the parent output is ready.
           </p>
         </div>
         <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
@@ -220,6 +322,10 @@ export function CreateEvaluationPage() {
   const requestedAssessmentSection = String(searchParams.get('section') ?? '').trim()
   const requestedAssessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
   const requestedAssessmentPlayer = String(searchParams.get('player') ?? '').trim()
+  const shouldChooseAssessmentPlayer =
+    !editingEvaluationId &&
+    String(searchParams.get('choosePlayer') ?? '').trim() === '1' &&
+    !requestedAssessmentPlayer
   const hasInvalidAssessmentSection =
     Boolean(requestedAssessmentSection) && !EVALUATION_SECTIONS.includes(requestedAssessmentSection)
   const hasIncompleteSessionAssessmentLink = Boolean(requestedAssessmentSessionId) && !requestedAssessmentPlayer
@@ -235,6 +341,8 @@ export function CreateEvaluationPage() {
   })
   const [availableTeams, setAvailableTeams] = useState(() => (Array.isArray(cachedTeams) ? cachedTeams : []))
   const [savedPlayers, setSavedPlayers] = useState([])
+  const [isLoadingPlayers, setIsLoadingPlayers] = useState(false)
+  const [assessmentPlayerSearch, setAssessmentPlayerSearch] = useState('')
   const [previousEvaluations, setPreviousEvaluations] = useState([])
   const [editingEvaluation, setEditingEvaluation] = useState(null)
   const [responseValues, setResponseValues] = useState({})
@@ -283,7 +391,7 @@ export function CreateEvaluationPage() {
     const requestedTeam = String(searchParams.get('team') ?? '').trim()
     const requestedSession = normalizeSessionValue(searchParams.get('session'))
     const requestedSection = String(searchParams.get('section') ?? '').trim()
-    const storedDraft = editingEvaluationId ? null : parseStoredDraft(draftStorageKey)
+    const storedDraft = editingEvaluationId || shouldChooseAssessmentPlayer ? null : parseStoredDraft(draftStorageKey)
     const restoredFormData =
       storedDraft?.formData && typeof storedDraft.formData === 'object' ? storedDraft.formData : {}
     const restoredOfflineDraftId = String(storedDraft?.offlineDraftId ?? '').trim()
@@ -316,7 +424,7 @@ export function CreateEvaluationPage() {
     setLastUsedSession(nextSessionValue)
     setOfflineDraftId(restoredOfflineDraftId || createLocalId())
     hasInitializedRef.current = true
-  }, [draftStorageKey, editingEvaluationId, searchParams, searchParamsKey, user, userScopeKey])
+  }, [draftStorageKey, editingEvaluationId, searchParams, searchParamsKey, shouldChooseAssessmentPlayer, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -405,6 +513,7 @@ export function CreateEvaluationPage() {
       }
 
       try {
+        setIsLoadingPlayers(true)
         const nextPlayers = await withRequestTimeout(() => getPlayers({ user }), 'Could not load saved players.')
 
         if (!isMounted) {
@@ -413,9 +522,18 @@ export function CreateEvaluationPage() {
 
         setSavedPlayers(nextPlayers)
         const requestedPlayerName = String(searchParams.get('player') ?? '').trim()
+        const requestedPlayerId = String(searchParams.get('playerId') ?? '').trim()
         const requestedTeam = String(searchParams.get('team') ?? '').trim()
         const requestedSection = String(searchParams.get('section') ?? '').trim()
         const matchingPlayer = (() => {
+          if (requestedPlayerId) {
+            return nextPlayers.find((player) => String(player.id ?? '') === requestedPlayerId) || null
+          }
+
+          if (!requestedPlayerName) {
+            return null
+          }
+
           const normalizedPlayerName = normalizePlayerName(requestedPlayerName)
           const sameNamePlayers = nextPlayers.filter((player) => normalizePlayerName(player.playerName) === normalizedPlayerName)
 
@@ -450,6 +568,10 @@ export function CreateEvaluationPage() {
         }
       } catch (error) {
         console.error(error)
+      } finally {
+        if (isMounted) {
+          setIsLoadingPlayers(false)
+        }
       }
     }
 
@@ -770,6 +892,25 @@ export function CreateEvaluationPage() {
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
   const canSubmitEvaluation = availableTeams.length > 0
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
+  const assessmentPlayerOptions = useMemo(() => {
+    const activeTeamId = String(user?.activeTeamId ?? '').trim()
+    const activeTeamName = String(user?.activeTeamName ?? '').trim()
+
+    return savedPlayers.filter((player) => {
+      const playerTeamId = String(player.teamId ?? '').trim()
+      const playerTeamName = String(player.team ?? '').trim()
+
+      if (activeTeamId) {
+        return playerTeamId ? playerTeamId === activeTeamId : !activeTeamName || playerTeamName === activeTeamName
+      }
+
+      if (activeTeamName) {
+        return playerTeamName === activeTeamName
+      }
+
+      return true
+    })
+  }, [savedPlayers, user?.activeTeamId, user?.activeTeamName])
   const normalizedContactType = normalizePlayerContactType(formData.contactType)
   const contactAudiences = getContactTemplateAudiences(normalizedContactType)
   const contactAudience = normalizedContactType === PLAYER_CONTACT_TYPES.self ? EMAIL_TEMPLATE_AUDIENCES.player : EMAIL_TEMPLATE_AUDIENCES.parent
@@ -885,6 +1026,22 @@ export function CreateEvaluationPage() {
     nextSearchParams.delete('section')
     nextSearchParams.delete('sessionId')
     setSearchParams(nextSearchParams)
+  }
+
+  const handleAssessmentPlayerSelect = (player) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('choosePlayer')
+    nextSearchParams.set('player', player.playerName || '')
+    nextSearchParams.set('team', player.team || user?.activeTeamName || '')
+    nextSearchParams.set('section', EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Squad')
+
+    if (player.id) {
+      nextSearchParams.set('playerId', player.id)
+    } else {
+      nextSearchParams.delete('playerId')
+    }
+
+    navigate(`/assess-player/new?${nextSearchParams.toString()}`)
   }
 
   useEffect(() => {
@@ -1387,6 +1544,25 @@ export function CreateEvaluationPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
+      {shouldChooseAssessmentPlayer ? (
+        <>
+          <PageHeader
+            eyebrow="Development record"
+            title="Select a player to assess."
+            description="Choose the player first so the development record is saved against the right person."
+          />
+
+          <AssessmentPlayerPicker
+            activeTeamName={user?.activeTeamName}
+            isLoading={isLoadingPlayers}
+            onSearchChange={setAssessmentPlayerSearch}
+            onSelectPlayer={handleAssessmentPlayerSelect}
+            players={assessmentPlayerOptions}
+            searchValue={assessmentPlayerSearch}
+          />
+        </>
+      ) : (
+        <>
       <BlankPrintForm
         clubName={user?.clubName || 'Club Form'}
         logoUrl={user?.clubLogoUrl || fallbackLogo}
@@ -1452,7 +1628,7 @@ export function CreateEvaluationPage() {
       <div className={isPrintingBlankView ? 'no-print' : ''}>
         <PageHeader
           eyebrow="Development record"
-          title="Record the football detail while it is still fresh."
+          title="Record the development detail while it is still fresh."
           description="Select the player, score only the useful fields, and decide whether this stays internal or goes to parents after saving."
         />
 
@@ -1582,6 +1758,8 @@ export function CreateEvaluationPage() {
             </form>
         </EvaluationAvailabilityState>
       </div>
+        </>
+      )}
     </div>
   )
 }

@@ -80,6 +80,19 @@ function getEvaluationContextLabel(evaluation, user) {
   return `Team: ${evaluation.team || user?.activeTeamName || 'Team not set'}, Score: ${evaluation.averageScore ?? 'Not scored'}`
 }
 
+function getCoachGreeting(user) {
+  const hour = new Date().getHours()
+  const greeting = hour >= 5 && hour < 12
+    ? 'Good morning'
+    : hour >= 12 && hour < 18
+      ? 'Good afternoon'
+      : 'Good evening'
+  const displayName = String(user?.displayName || user?.username || user?.name || '').trim()
+  const firstName = displayName.split(/\s+/)[0] || ''
+
+  return firstName ? `${greeting}, ${firstName}.` : `${greeting}.`
+}
+
 export function CoachHomePage() {
   const { user } = useAuth()
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
@@ -92,6 +105,7 @@ export function CoachHomePage() {
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
   const activeSession = useMemo(() => getActiveSession(sessions), [sessions])
+  const greeting = getCoachGreeting(user)
   const recentEvaluations = useMemo(() => getRecentEvaluations(evaluations), [evaluations])
   const completedNames = useMemo(
     () => getCompletedPlayerNamesFromEvaluations(evaluations, activeSession, sessionPlayers),
@@ -114,12 +128,12 @@ export function CoachHomePage() {
     {
       label: 'Add player note',
       description: 'Record a short coach observation.',
-      path: '/assess-player/new',
+      path: '/assess-player/new?choosePlayer=1',
     },
     {
       label: 'Add assessment',
       description: 'Create a structured development record.',
-      path: '/create-evaluation',
+      path: '/assess-player/new?choosePlayer=1',
     },
     {
       label: 'Open calendar',
@@ -207,10 +221,10 @@ export function CoachHomePage() {
           <div className="px-5 py-6 sm:px-6 lg:px-8">
             <p className={eyebrowClass}>Coach Home</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
-              Today's Coaching
+              {greeting}
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Run sessions, record notes, and keep player records up to date.
+              Here's what needs attention for {user?.activeTeamName || user?.clubName || 'your team'}.
             </p>
           </div>
           <aside className="border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">

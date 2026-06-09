@@ -126,12 +126,12 @@ export function AssessmentsMenuPage() {
     <CoachActionMenuPage
       title="Development"
       description="Capture practical coach feedback and turn training or match observations into player progress."
-      primaryPath="/assess-player/new"
+      primaryPath="/assess-player/new?choosePlayer=1"
       actions={[
         {
           label: 'New development note',
-          description: 'Record one player observation with structured football fields.',
-          path: '/assess-player/new',
+          description: 'Record one player observation with structured development fields.',
+          path: '/assess-player/new?choosePlayer=1',
           primary: true,
         },
         {

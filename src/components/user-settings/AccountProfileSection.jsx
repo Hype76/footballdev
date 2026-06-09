@@ -33,7 +33,7 @@ export function AccountProfileSection({
   return (
     <SectionCard
       title="Account profile"
-      description="This is how your name appears inside football records and the workspace."
+      description="This is how your name appears inside player records and the workspace."
       tourId="account-profile-settings"
     >
       <form className="space-y-4" onSubmit={onSubmit}>

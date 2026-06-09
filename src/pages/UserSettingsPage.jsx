@@ -30,7 +30,12 @@ export function UserSettingsPage() {
   const isDemoSettings = isDemoAccount(user)
   const isParentSettings = isParentPortalUser(user)
   const isClubAdminSettings = isClubAdmin(user)
-  const showSenderIdentity = Boolean(user?.clubId) && !isParentSettings && !isClubAdminSettings && user?.role !== 'super_admin'
+  const canEditEmailTeamName = Boolean(user?.clubId)
+    && !isParentSettings
+    && !isClubAdminSettings
+    && user?.role !== 'super_admin'
+    && Number(user?.roleRank ?? 0) >= 50
+  const showSenderIdentity = canEditEmailTeamName
   const showDisplaySettings = Boolean(user?.id)
   const showSetupChecklistSettings = Boolean(user?.id) && user?.role !== 'super_admin'
   const [username, setUsername] = useState(user?.username || user?.name || '')
@@ -113,9 +118,9 @@ export function UserSettingsPage() {
         authUser,
         username,
         displayName,
-        teamName: emailTeamName,
+        teamName: canEditEmailTeamName ? emailTeamName : user?.emailTeamName || user?.activeTeamName || '',
         clubName: canEditEmailClubName ? emailClubName : user?.emailClubName || user?.clubName || '',
-        replyToEmail,
+        replyToEmail: showSenderIdentity ? replyToEmail : user?.replyToEmail || user?.email || authUser?.email || '',
       })
 
       updateCurrentUserDetails(updatedProfile)
@@ -422,6 +427,7 @@ export function UserSettingsPage() {
               onThemeAccentChange={handleThemeAccentChange}
               onThemeButtonStyleChange={handleThemeButtonStyleChange}
               onThemeModeChange={handleThemeModeChange}
+              showBrandingControls={isClubAdminSettings}
               themeAccent={themeAccent}
               themeButtonStyle={themeButtonStyle}
               themeMode={themeMode}

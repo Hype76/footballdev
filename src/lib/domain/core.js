@@ -704,9 +704,16 @@ export async function updateOwnUserSettings({
   }
 
   const currentUser = normalizeUserProfile(currentProfile)
+  const canEditSenderIdentity = Number(currentUser.roleRank ?? 0) >= 50
+  const safeTeamName = canEditSenderIdentity
+    ? normalizedTeamName
+    : String(currentUser.emailTeamName || currentUser.activeTeamName || '').trim()
   const safeClubName = canEditClubIdentity(currentUser)
     ? normalizedClubName
     : String(currentUser.emailClubName || currentUser.clubName || '').trim()
+  const safeReplyToEmail = canEditSenderIdentity
+    ? normalizedReplyToEmail
+    : String(currentUser.replyToEmail || currentUser.email || '').trim().toLowerCase()
 
   const { data, error } = await supabase
     .from('users')
@@ -714,9 +721,9 @@ export async function updateOwnUserSettings({
       username: normalizedUsername,
       name: normalizedUsername,
       display_name: normalizedDisplayName,
-      team_name: normalizedTeamName,
+      team_name: safeTeamName,
       club_name: safeClubName,
-      reply_to_email: normalizedReplyToEmail,
+      reply_to_email: safeReplyToEmail,
     })
     .eq('id', authUser.id)
     .select(USER_PROFILE_SELECT)

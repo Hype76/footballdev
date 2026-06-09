@@ -56,7 +56,7 @@ export function SubmitExportSection({
     <SectionCard
       storageKey="development-record-submit-v2"
       title="Submit and export"
-      description="Save the record first. Parent email and PDF output are optional and should only include useful football detail."
+      description="Save the record first. Parent email and PDF output are optional and should only include useful development detail."
     >
       <div className="mb-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] shadow-sm shadow-[#047857]/10">
         Overall Score: {averageScore !== null ? averageScore.toFixed(1) : '-'}
@@ -135,7 +135,7 @@ export function SubmitExportSection({
             <span>
               <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
               <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
-                Include the selected football details as a PDF attachment.
+                Include the selected development details as a PDF attachment.
               </span>
             </span>
           </label>

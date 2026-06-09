@@ -350,7 +350,7 @@ function QuickActionHotbar({ user }) {
   const actions = [
     { label: 'Add Player', href: '/add-player' },
     { label: 'Add Session', href: '/sessions/start?action=add-session' },
-    { label: 'Add Assessment', href: '/assess-player/new' },
+    { label: 'Add Assessment', href: '/assess-player/new?choosePlayer=1' },
     { label: 'Add Event', href: '/calendar?action=add-event' },
   ]
 
