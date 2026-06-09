@@ -125,6 +125,10 @@ export function FootballCalendar({
     onCursorChange(nextDate)
   }
 
+  const moveToToday = () => {
+    onCursorChange(new Date())
+  }
+
   const titleLabel = view === 'week' ? getWeekTitle(cursor) : getMonthTitle(cursor)
 
   return (
@@ -156,11 +160,14 @@ export function FootballCalendar({
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2">
+          <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2">
             <button type="button" onClick={() => moveCursor(-1)} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
               Prev
             </button>
-            <p className="min-w-[9rem] text-center text-sm font-black text-[#101828]">{titleLabel}</p>
+            <button type="button" onClick={moveToToday} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
+              Today
+            </button>
+            <p className="min-w-[6.5rem] text-center text-xs font-black text-[#101828] sm:min-w-[9rem] sm:text-sm">{titleLabel}</p>
             <button type="button" onClick={() => moveCursor(1)} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
               Next
             </button>
@@ -179,40 +186,41 @@ export function FootballCalendar({
               <div key={day} className="px-2 py-3">{day}</div>
             ))}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-7">
+          <div className="grid grid-cols-7">
             {monthDates.map((date) => {
               const dateKey = getDateKey(date)
               const dayEvents = eventByDate.get(dateKey) ?? []
               const isCurrentMonth = date.getMonth() === cursor.getMonth()
 
               return (
-                <div key={dateKey} className="min-h-[8rem] border-b border-[#d7e5dc] bg-white p-2 sm:border-r">
+                <div key={dateKey} className="min-h-[4.8rem] border-b border-r border-[#d7e5dc] bg-white p-1 sm:min-h-[8rem] sm:p-2">
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className={isCurrentMonth ? 'text-sm font-black text-[#101828] hover:text-[#047857]' : 'text-sm font-black text-[#9aa89f] hover:text-[#047857]'}
+                      className={isCurrentMonth ? 'text-xs font-black text-[#101828] hover:text-[#047857] sm:text-sm' : 'text-xs font-black text-[#9aa89f] hover:text-[#047857] sm:text-sm'}
                       title={formatDateLabel(dateKey)}
                     >
                       {date.getDate()}
                     </span>
                     {dayEvents.length > 0 ? (
-                      <span className="rounded-full bg-[#ecfdf5] px-2 py-1 text-[0.65rem] font-black text-[#047857]">
+                      <span className="rounded-full bg-[#ecfdf5] px-1.5 py-0.5 text-[0.6rem] font-black text-[#047857] sm:px-2 sm:py-1 sm:text-[0.65rem]">
                         {dayEvents.length}
                       </span>
                     ) : null}
                   </div>
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-1 space-y-1 sm:mt-2">
                     {dayEvents.slice(0, 3).map((event) => (
                       <button
                         key={event.id}
                         type="button"
                         onClick={() => onOpenEvent(event)}
-                        className={`block w-full rounded-md border px-2 py-1 text-left text-xs font-black leading-4 ${getEventTone(event.type)}`}
+                        title={event.title}
+                        className={`block w-full truncate rounded-md border px-1 py-0.5 text-left text-[0.62rem] font-black leading-3 sm:px-2 sm:py-1 sm:text-xs sm:leading-4 ${getEventTone(event.type)}`}
                       >
                         {event.title}
                       </button>
                     ))}
                     {dayEvents.length > 3 ? (
-                      <p className="px-2 pt-1 text-xs font-bold text-[#4b5f55]">+{dayEvents.length - 3} more</p>
+                      <p className="px-1 pt-0.5 text-[0.62rem] font-bold text-[#4b5f55] sm:px-2 sm:pt-1 sm:text-xs">+{dayEvents.length - 3} more</p>
                     ) : null}
                   </div>
                 </div>
@@ -222,7 +230,49 @@ export function FootballCalendar({
         </div>
       ) : (
         <div className="mt-5 overflow-hidden rounded-lg border border-[#d7e5dc] bg-[#f7faf8]">
-          <div className="grid grid-cols-1 sm:grid-cols-7">
+          <div className="divide-y divide-[#d7e5dc] sm:hidden">
+            {weekDates.map((date) => {
+              const dateKey = getDateKey(date)
+              const dayEvents = eventByDate.get(dateKey) ?? []
+
+              return (
+                <div key={dateKey} className="bg-white p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
+                        {date.toLocaleDateString('en-GB', { weekday: 'long' })}
+                      </p>
+                      <p className="mt-1 text-sm font-black text-[#101828]">{formatDateLabel(dateKey)}</p>
+                    </div>
+                    {dayEvents.length > 0 ? (
+                      <span className="rounded-full bg-[#ecfdf5] px-2 py-1 text-xs font-black text-[#047857]">
+                        {dayEvents.length}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {dayEvents.length === 0 ? (
+                      <p className="rounded-md border border-dashed border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 text-xs font-bold text-[#6d8076]">
+                        No activity
+                      </p>
+                    ) : null}
+                    {dayEvents.map((event) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={() => onOpenEvent(event)}
+                        className={`block min-h-11 w-full rounded-md border px-3 py-2 text-left text-sm font-black leading-5 ${getEventTone(event.type)}`}
+                      >
+                        <span className="block">{event.title}</span>
+                        {event.time ? <span className="mt-1 block text-xs font-semibold opacity-80">{event.time}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="hidden sm:grid sm:grid-cols-7">
             {weekDates.map((date) => {
               const dateKey = getDateKey(date)
               const dayEvents = eventByDate.get(dateKey) ?? []

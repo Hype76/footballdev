@@ -34,6 +34,33 @@ function normaliseResponses(responses) {
   return []
 }
 
+function isScoredResponseValue(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 && value <= 5
+  }
+
+  const normalizedValue = String(value ?? '').trim()
+  if (!/^\d+(\.\d+)?$/.test(normalizedValue)) {
+    return false
+  }
+
+  const score = Number(normalizedValue)
+  return Number.isFinite(score) && score > 0 && score <= 5
+}
+
+function formatScoreValue(value) {
+  const score = Number(value)
+  return Number.isInteger(score) ? String(score) : score.toFixed(1).replace(/\.0$/, '')
+}
+
+function formatParentResponseValue(value) {
+  return isScoredResponseValue(value) ? `${formatScoreValue(value)} / 5` : value
+}
+
+function hasScoredResponses(responseItems) {
+  return responseItems.some((item) => isScoredResponseValue(item?.value))
+}
+
 function isExportableResponseValue(value) {
   if (typeof value === 'number') {
     return Number.isFinite(value) && value !== 0
@@ -51,6 +78,19 @@ function chunkResponseRows(responseItems) {
   }
 
   return rows
+}
+
+function buildScoringKeyMarkup(responseItems) {
+  if (!hasScoredResponses(responseItems)) {
+    return ''
+  }
+
+  return `
+    <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 20px;">
+      <p style="margin: 0 0 8px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">How scoring works</p>
+      <p style="margin: 0; color: #142018; font-size: 13px; line-height: 1.55;">Player feedback is scored out of 5, with 5 meaning a really high standard. A 5 is rare and should only be used when a player truly stands out in that area. A player does not need to score 5 across everything. For example, they may score 5 for coachability because they listen well and take on feedback, while scoring lower in fitness or another area. This helps keep feedback fair, realistic, and focused on strengths and areas to improve.</p>
+    </div>
+  `
 }
 
 function buildInfoCard(label, value) {
@@ -96,7 +136,7 @@ function buildResponseMarkup(responseItems) {
                       <td width="50%" style="padding: 0 6px 10px 0; vertical-align: top;">
                         <div style="border: 1px solid #e7ece3; border-radius: 10px; background: #ffffff; padding: 10px 12px; min-height: 54px;">
                           <p style="margin: 0 0 5px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">${escapeHtml(item.label)}</p>
-                          <p style="margin: 0; color: #142018; font-size: 13px; line-height: 1.45;">${formatLines(item.value || 'No data entered')}</p>
+                          <p style="margin: 0; color: #142018; font-size: 13px; line-height: 1.45;">${formatLines(formatParentResponseValue(item.value) || 'No data entered')}</p>
                         </div>
                       </td>
                     `,
@@ -127,7 +167,7 @@ function buildEmailSectionMarkup(emailSections, { useChartContentIds = false } =
           <p style="margin: 0 0 6px; color: #142018; font-size: 14px; font-weight: 700;">${escapeHtml(section.title)}</p>
           <p style="margin: 0; color: #4f6552; font-size: 13px; line-height: 1.5;">${formatLines(section.body)}</p>
           ${section.chartPoints ? buildProgressionChartMarkup(section.chartPoints, {
-            imageSrc: useChartContentIds ? `cid:progression-chart-${index}` : '',
+            imageSrc: useChartContentIds ? `cid:${section.chartContentId || `progression-chart-${index}@footballplayer.online`}` : '',
           }) : ''}
         </div>
       `).join('')}
@@ -136,11 +176,13 @@ function buildEmailSectionMarkup(emailSections, { useChartContentIds = false } =
 }
 
 export function getProgressionChartImages(emailSections = []) {
+  const contentSeed = `progression-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
   return sanitizeAssessmentEmailSections(emailSections)
     .filter((section) => Array.isArray(section.chartPoints) && section.chartPoints.length >= 2)
     .map((section, index) => ({
-      contentId: `progression-chart-${index}`,
-      filename: `progression-chart-${index + 1}.png`,
+      contentId: `${contentSeed}-${index}@footballplayer.online`,
+      filename: `player-progression-chart-${index + 1}.png`,
       points: section.chartPoints,
     }))
 }
@@ -247,6 +289,8 @@ export function buildEmailHtml({
         ${buildResponseMarkup(responseItems)}
       </div>
 
+      ${buildScoringKeyMarkup(responseItems)}
+
       ${buildEmailSectionMarkup(emailSections, { useChartContentIds })}
 
       <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions, just reply to this email.</p>
@@ -269,8 +313,22 @@ export function buildPlayerFeedbackSubject({ playerName, teamName, team }) {
 
 export async function sendParentEmail(data) {
   const progressionChartImages = getProgressionChartImages(data.emailSections)
+  let chartIndex = 0
+  const emailSections = sanitizeAssessmentEmailSections(data.emailSections).map((section) => {
+    if (!Array.isArray(section.chartPoints) || section.chartPoints.length < 2) {
+      return section
+    }
+
+    const enrichedSection = {
+      ...section,
+      chartContentId: progressionChartImages[chartIndex]?.contentId || '',
+    }
+    chartIndex += 1
+    return enrichedSection
+  })
   const html = buildEmailHtml({
     ...data,
+    emailSections,
     useChartContentIds: progressionChartImages.length > 0,
   })
   const teamName = data.teamName || data.team

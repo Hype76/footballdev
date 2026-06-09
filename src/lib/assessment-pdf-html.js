@@ -15,6 +15,29 @@ function formatValue(value) {
   return normalizedValue || 'Not provided'
 }
 
+function isScoredResponseValue(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 && value <= 5
+  }
+
+  const normalizedValue = String(value ?? '').trim()
+  if (!/^\d+(\.\d+)?$/.test(normalizedValue)) {
+    return false
+  }
+
+  const score = Number(normalizedValue)
+  return Number.isFinite(score) && score > 0 && score <= 5
+}
+
+function formatScoreValue(value) {
+  const score = Number(value)
+  return Number.isInteger(score) ? String(score) : score.toFixed(1).replace(/\.0$/, '')
+}
+
+function formatParentResponseValue(value) {
+  return isScoredResponseValue(value) ? `${formatScoreValue(value)} / 5` : formatValue(value)
+}
+
 function isExportableResponseValue(value) {
   if (typeof value === 'number') {
     return Number.isFinite(value) && value !== 0
@@ -36,11 +59,26 @@ function buildResponseItems(responseItems = []) {
       (item) => `
         <div style="break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; background: #ffffff;">
           <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escapeHtml(item.label)}</p>
-          <p style="margin: 6px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(formatValue(item.value))}</p>
+          <p style="margin: 6px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(formatParentResponseValue(item.value))}</p>
         </div>
       `,
     )
     .join('')
+}
+
+function buildScoringKey(responseItems = []) {
+  const hasScoredResponses = responseItems.some((item) => isScoredResponseValue(item?.value))
+
+  if (!hasScoredResponses) {
+    return ''
+  }
+
+  return `
+      <div style="margin-top: 12px; break-inside: avoid; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
+        <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">How scoring works</p>
+        <p style="margin: 8px 0 0; color: #334155; font-size: 12px; line-height: 1.45;">Player feedback is scored out of 5, with 5 meaning a really high standard. A 5 is rare and should only be used when a player truly stands out in that area. A player does not need to score 5 across everything. For example, they may score 5 for coachability because they listen well and take on feedback, while scoring lower in fitness or another area. This helps keep feedback fair, realistic, and focused on strengths and areas to improve.</p>
+      </div>
+  `
 }
 
 function buildEmailSections(emailSections = []) {
@@ -110,6 +148,7 @@ export function buildAssessmentPdfHtml({
           ${buildResponseItems(responseItems)}
         </div>
       </div>
+      ${buildScoringKey(responseItems)}
       ${buildEmailSections(emailSections)}
     </section>
   `

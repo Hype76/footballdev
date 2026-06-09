@@ -12,7 +12,9 @@ const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-c
 
 export function SubmitExportSection({
   availableEmailTemplates,
+  archiveAfterNoPlace,
   averageScore,
+  canArchiveAfterNoPlace,
   canSubmitEvaluation,
   contactNoun,
   hasSavedExportSelection,
@@ -20,11 +22,13 @@ export function SubmitExportSection({
   inviteDate,
   isDemoAccount,
   isLoadingEmailTemplates,
+  isNoPlaceOfferedTemplate,
   isPdfAttachmentApproved,
   isSaved,
   isSendingParentEmail,
   isSubmitting,
   lastSavedPlayerName,
+  onArchiveAfterNoPlaceChange,
   onClearExportFields,
   onEmailTemplateChange,
   onEmailSendModeChange,
@@ -155,6 +159,22 @@ export function SubmitExportSection({
               </span>
             </span>
           </label>
+          {isNoPlaceOfferedTemplate && canArchiveAfterNoPlace ? (
+            <label className={`${choiceCardClass} md:col-span-2`}>
+              <input
+                type="checkbox"
+                checked={Boolean(archiveAfterNoPlace)}
+                onChange={(event) => onArchiveAfterNoPlaceChange(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Move player to archive after saving</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Use this when no place is being offered and the record should stay available without keeping the player active.
+                </span>
+              </span>
+            </label>
+          ) : null}
           <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10 md:col-span-2">
             <span className="block text-sm font-black text-[#101828]">Send timing</span>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">

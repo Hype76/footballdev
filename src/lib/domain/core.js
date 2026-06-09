@@ -1080,6 +1080,10 @@ export async function archivePlayer({ user, playerId, reason }) {
     throw new Error('A club user is required to archive players.')
   }
 
+  if (Number(user.roleRank ?? 0) < 20) {
+    throw new Error('You do not have access to archive players.')
+  }
+
   if (!playerId) {
     throw new Error('Player is required.')
   }

@@ -20,7 +20,7 @@ function normalizeChartPoints(points = []) {
 
 export function getProgressionChartSummary(points = []) {
   return normalizeChartPoints(points)
-    .map((point) => `${point.label}: ${point.value.toFixed(1)}`)
+    .map((point) => `${point.label}: ${point.value.toFixed(1)} / 5`)
     .join(' | ')
 }
 
@@ -49,7 +49,7 @@ export function buildProgressionChartMarkup(points = [], { imageSrc = '' } = {})
   if (imageSrc) {
     return `
       <div style="margin: 10px 0 0; border: 1px solid #e7ece3; border-radius: 10px; background: #ffffff; padding: 10px;">
-        <img src="${escapeHtml(imageSrc)}" alt="Progression score chart" width="360" style="display: block; width: 100%; max-width: 360px; height: auto;" />
+        <img src="${escapeHtml(imageSrc)}" alt="Progression score chart out of 5" width="360" style="display: block; width: 100%; max-width: 360px; height: auto;" />
         <p style="margin: 8px 0 0; color: #4f6552; font-size: 12px; line-height: 1.45;">${escapeHtml(summary)}</p>
       </div>
     `
@@ -63,7 +63,7 @@ export function buildProgressionChartMarkup(points = [], { imageSrc = '' } = {})
 
   return `
     <div style="margin: 10px 0 0; border: 1px solid #e7ece3; border-radius: 10px; background: #ffffff; padding: 10px;">
-      <svg width="100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="Progression score chart" style="display: block;">
+      <svg width="100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="Progression score chart out of 5" style="display: block;">
         <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="#d7e5dc" stroke-width="2" />
         <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="#d7e5dc" stroke-width="2" />
         <path d="${linePath}" fill="none" stroke="#047857" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />

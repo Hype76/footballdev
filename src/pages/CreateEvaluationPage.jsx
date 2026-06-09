@@ -11,7 +11,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { canDeletePlayer, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   isInviteEmailTemplate,
@@ -47,6 +47,7 @@ import {
   createInitialFormData,
   createPostAssessmentFormData,
   createResponseItems,
+  findSavedPlayerForEvaluation,
   formatSessionForDisplay,
   getAverageScore,
   getContactCopy,
@@ -67,6 +68,7 @@ import {
 import {
   EVALUATION_SECTIONS,
   PLAYER_CONTACT_TYPES,
+  archivePlayer,
   createCommunicationLog,
   createEvaluation,
   getContactTemplateAudiences,
@@ -510,6 +512,7 @@ export function CreateEvaluationPage() {
   const [nextAssessmentReminderTarget, setNextAssessmentReminderTarget] = useState(null)
   const [nextAssessmentReminderDate, setNextAssessmentReminderDate] = useState('')
   const [isSavingNextAssessmentReminder, setIsSavingNextAssessmentReminder] = useState(false)
+  const [archiveAfterNoPlace, setArchiveAfterNoPlace] = useState(false)
 
   const draftStorageKey = getDraftStorageKey(user)
 
@@ -1050,6 +1053,7 @@ export function CreateEvaluationPage() {
     () => getSelectedEvaluationResponses(responseItems, selectedExportLabels),
     [responseItems, selectedExportLabels],
   )
+  const normalizedCurrentPlayerName = useMemo(() => normalizePlayerName(formData.playerName), [formData.playerName])
   const hasSavedExportSelection = Array.isArray(selectedExportLabels)
   const readableSession = useMemo(() => formatSessionForDisplay(formData.session), [formData.session])
   const availableEmailTemplates = useMemo(
@@ -1073,6 +1077,14 @@ export function CreateEvaluationPage() {
     ? emailTemplateKey
     : availableEmailTemplates[0]?.key || ''
   const selectedEmailTemplate = availableEmailTemplates.find((template) => template.key === selectedEmailTemplateKey) ?? null
+  const isNoPlaceOfferedTemplate = selectedEmailTemplateKey === 'decline'
+  const archiveCandidatePlayer = useMemo(
+    () => findSavedPlayerForEvaluation(savedPlayers, normalizedCurrentPlayerName, formData.team, user?.activeTeamId),
+    [formData.team, normalizedCurrentPlayerName, savedPlayers, user?.activeTeamId],
+  )
+  const canArchiveAfterNoPlace = isNoPlaceOfferedTemplate &&
+    canDeletePlayer(user) &&
+    Boolean(archiveCandidatePlayer?.id || editingEvaluation?.playerId)
   const shouldShowInviteDate = previewMode === 'email' && isInviteEmailTemplate(selectedEmailTemplateKey)
   const parentContacts = useMemo(
     () =>
@@ -1100,6 +1112,12 @@ export function CreateEvaluationPage() {
   useEffect(() => {
     setHasApprovedDefaultTemplate(false)
   }, [previewMode, selectedEmailTemplateKey])
+
+  useEffect(() => {
+    if (!canArchiveAfterNoPlace) {
+      setArchiveAfterNoPlace(false)
+    }
+  }, [canArchiveAfterNoPlace])
 
   useEffect(() => {
     if (isDemoAccount && previewMode === 'email') {
@@ -1545,6 +1563,37 @@ export function CreateEvaluationPage() {
         }
       }
 
+      const savedPlayerId = savedEvaluation?.playerId || evaluation.playerId || archiveCandidatePlayer?.id || ''
+
+      if (archiveAfterNoPlace && isNoPlaceOfferedTemplate && canDeletePlayer(user)) {
+        if (!savedPlayerId) {
+          showToast({
+            title: 'Player not archived',
+            message: 'The development record was saved, but no saved player record was found to archive.',
+            tone: 'error',
+          })
+        } else {
+          try {
+            await archivePlayer({
+              user,
+              playerId: savedPlayerId,
+              reason: 'No Place Offered assessment outcome',
+            })
+            showToast({
+              title: 'Player archived',
+              message: `${normalizedPlayerName} has been moved to the player archive.`,
+            })
+          } catch (archiveError) {
+            console.error('No Place Offered archive failed', archiveError)
+            showToast({
+              title: 'Player not archived',
+              message: archiveError.message || 'The development record was saved, but the player could not be archived.',
+              tone: 'error',
+            })
+          }
+        }
+      }
+
       const assessmentSessionId = String(searchParams.get('sessionId') ?? '').trim()
 
       writeSessionAssessmentProgress({
@@ -1592,13 +1641,16 @@ export function CreateEvaluationPage() {
         title: editingEvaluation ? 'Development record updated' : 'Development record saved',
         message: `${normalizedPlayerName} development record has been saved.`,
       })
-      setNextAssessmentReminderTarget({
-        evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
-        playerId: savedEvaluation?.playerId || evaluation.playerId,
-        playerName: normalizedPlayerName,
-        team: formData.team,
-        section: formData.section,
-      })
+      setArchiveAfterNoPlace(false)
+      if (!isNoPlaceOfferedTemplate) {
+        setNextAssessmentReminderTarget({
+          evaluationId: savedEvaluation?.id || editingEvaluation?.id || evaluation.id,
+          playerId: savedEvaluation?.playerId || evaluation.playerId,
+          playerName: normalizedPlayerName,
+          team: formData.team,
+          section: formData.section,
+        })
+      }
     } catch (error) {
       console.error('Development record submit failed', error)
       setIsSaved(false)
@@ -1656,6 +1708,12 @@ export function CreateEvaluationPage() {
   }
 
   const handleSaveNextAssessmentReminder = async () => {
+    if (isNoPlaceOfferedTemplate) {
+      setNextAssessmentReminderTarget(null)
+      setNextAssessmentReminderDate('')
+      return
+    }
+
     if (!nextAssessmentReminderTarget || !nextAssessmentReminderDate) {
       return
     }
@@ -1749,7 +1807,7 @@ export function CreateEvaluationPage() {
       />
 
       <ConfirmModal
-        isOpen={Boolean(nextAssessmentReminderTarget)}
+        isOpen={Boolean(nextAssessmentReminderTarget) && !isNoPlaceOfferedTemplate}
         isBusy={isSavingNextAssessmentReminder}
         title="Set next development reminder"
         message="Do you want to set a reminder for the next development record?"
@@ -1874,7 +1932,9 @@ export function CreateEvaluationPage() {
 
               <SubmitExportSection
                 availableEmailTemplates={availableEmailTemplates}
+                archiveAfterNoPlace={archiveAfterNoPlace}
                 averageScore={averageScore}
+                canArchiveAfterNoPlace={canArchiveAfterNoPlace}
                 canSubmitEvaluation={canSubmitEvaluation}
                 contactNoun={contactNoun}
                 hasSavedExportSelection={hasSavedExportSelection}
@@ -1882,11 +1942,13 @@ export function CreateEvaluationPage() {
                 inviteDate={inviteDate}
                 isDemoAccount={isDemoAccount}
                 isLoadingEmailTemplates={isLoadingEmailTemplates}
+                isNoPlaceOfferedTemplate={isNoPlaceOfferedTemplate}
                 isPdfAttachmentApproved={isPdfAttachmentApproved}
                 isSaved={isSaved}
                 isSendingParentEmail={isSendingParentEmail}
                 isSubmitting={isSubmitting}
                 lastSavedPlayerName={lastSavedPlayerName}
+                onArchiveAfterNoPlaceChange={setArchiveAfterNoPlace}
                 onClearExportFields={handleClearExportFields}
                 emailSendMode={emailSendMode}
                 onEmailTemplateChange={setEmailTemplateKey}
