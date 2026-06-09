@@ -68,6 +68,25 @@ export async function getAssessmentSessions({ user } = {}) {
   })
 }
 
+async function assertSessionTeamAccess({ user, teamId }) {
+  if (user?.role === 'admin') {
+    return
+  }
+
+  const normalizedTeamId = String(teamId ?? '').trim()
+
+  if (!normalizedTeamId) {
+    throw new Error('Choose your assigned team before saving this session.')
+  }
+
+  const teams = await getSessionTeamsForUser(user)
+  const allowedTeamIds = teams.map((team) => String(team.id ?? '').trim()).filter(Boolean)
+
+  if (!allowedTeamIds.includes(normalizedTeamId)) {
+    throw new Error('Team staff can only save sessions against their assigned team.')
+  }
+}
+
 export async function createAssessmentSession({ user, session }) {
   await blockDemoMutation(user)
 
@@ -93,6 +112,8 @@ export async function createAssessmentSession({ user, session }) {
   if (!teamId) {
     throw new Error('Choose a team before creating a session.')
   }
+
+  await assertSessionTeamAccess({ user, teamId })
 
   const { data, error } = await supabase
     .from('assessment_sessions')
@@ -163,6 +184,8 @@ export async function updateAssessmentSession({ user, sessionId, session }) {
   if (!teamId) {
     throw new Error('Choose a team before updating the session.')
   }
+
+  await assertSessionTeamAccess({ user, teamId })
 
   const { data, error } = await supabase
     .from('assessment_sessions')

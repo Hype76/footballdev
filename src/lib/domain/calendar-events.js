@@ -7,6 +7,7 @@ import {
   getEntryUserId,
   normalizeDateOnly,
 } from './core-normalizers.js'
+import { getSessionTeamsForUser } from './team-actions.js'
 
 const EVENT_TYPES = ['general', 'availability_deadline', 'parent_cutoff']
 const RECURRENCE_FREQUENCIES = ['none', 'weekly', 'fortnightly', 'monthly']
@@ -112,6 +113,25 @@ function buildCalendarPayload({ user, event }) {
   }
 }
 
+async function assertCalendarTeamAccess({ user, teamId }) {
+  if (user?.role === 'admin') {
+    return
+  }
+
+  const normalizedTeamId = normalizeText(teamId)
+
+  if (!normalizedTeamId) {
+    throw new Error('Choose your assigned team before saving this calendar event.')
+  }
+
+  const teams = await getSessionTeamsForUser(user)
+  const allowedTeamIds = teams.map((team) => normalizeText(team.id)).filter(Boolean)
+
+  if (!allowedTeamIds.includes(normalizedTeamId)) {
+    throw new Error('Team staff can only save events against their assigned team.')
+  }
+}
+
 export async function getCalendarEvents({ user } = {}) {
   if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin') {
     return []
@@ -154,6 +174,7 @@ export async function createCalendarEvent({ user, event }) {
     updated_by: getEntryUserId(user),
     ...getEntryIdentity(user, 'updated_by'),
   }
+  await assertCalendarTeamAccess({ user, teamId: payload.team_id })
 
   const { data, error } = await supabase
     .from('calendar_events')
@@ -194,6 +215,7 @@ export async function updateCalendarEvent({ user, eventId, event }) {
     ...getEntryIdentity(user, 'updated_by'),
     updated_at: new Date().toISOString(),
   }
+  await assertCalendarTeamAccess({ user, teamId: payload.team_id })
 
   const { data, error } = await supabase
     .from('calendar_events')

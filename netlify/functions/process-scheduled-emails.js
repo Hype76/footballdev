@@ -163,7 +163,7 @@ async function sendScheduledEmail(row) {
   }
 }
 
-async function processScheduledEmails() {
+export async function processScheduledEmails() {
   const missingEnvVars = getMissingEnvVars()
 
   if (missingEnvVars.length > 0) {

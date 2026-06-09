@@ -41,7 +41,6 @@ import {
   createCalendarEvent,
   createAssessmentSession,
   createPlayerStaffNote,
-  createMatchDay,
   deleteCalendarEvent,
   deleteAssessmentSession,
   deletePlayerStaffNote,
@@ -76,7 +75,7 @@ const EVENT_TYPE_OPTIONS = [
   { value: 'match', label: 'Match or fixture' },
   { value: 'availability_deadline', label: 'Availability deadline' },
   { value: 'parent_cutoff', label: 'Parent response cut-off' },
-  { value: 'general', label: 'General club or team event' },
+  { value: 'general', label: 'General club or team event', clubOnlyLabel: 'Team event' },
 ]
 const RECURRENCE_OPTIONS = [
   { value: 'none', label: 'Does not repeat' },
@@ -201,6 +200,23 @@ function buildRecurrenceDates({ date, frequency, until }) {
 
 function canCreateClubCalendarEvent(user) {
   return isClubAdmin(user)
+}
+
+function getCalendarEventTypeOptions(user) {
+  if (canCreateClubCalendarEvent(user)) {
+    return EVENT_TYPE_OPTIONS
+  }
+
+  return EVENT_TYPE_OPTIONS.map((option) => {
+    if (option.value !== 'general') {
+      return option
+    }
+
+    return {
+      ...option,
+      label: option.clubOnlyLabel || 'Team event',
+    }
+  })
 }
 
 function getSafeCalendarTeamId(user, teamId) {
@@ -1004,10 +1020,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       if (name === 'eventType' && value === 'match') {
         nextForm.recurrenceFrequency = 'none'
         nextForm.recurrenceUntil = ''
-        nextForm.invitedPlayerIds = []
-        nextForm.inviteTrialPlayers = false
-        nextForm.inviteWholeSquad = false
-        nextForm.notifyInvitedFamilies = false
       }
 
       return nextForm
@@ -1054,7 +1066,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           until: calendarForm.recurrenceUntil,
         })
       let nextCalendarInvites = calendarInvites
-      const shouldSyncInvites = !isMatch && Boolean(safeTeamId)
+      const shouldSyncInvites = Boolean(safeTeamId)
       const syncInvites = async ({ calendarEventId = '', assessmentSessionId = '' } = {}) => {
         if (!shouldSyncInvites) {
           return
@@ -1120,25 +1132,28 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           message: savedSessions.length > 1 ? `${savedSessions.length} training sessions were added.` : savedSessions[0]?.title || 'Calendar updated.',
         })
       } else if (isMatch || sourceType === 'match-day' || (sourceType === 'session' && activeEvent?.data?.sessionType === 'match')) {
+        const payload = {
+          endTime: calendarForm.endTime,
+          location: calendarForm.location,
+          notes: calendarForm.notes,
+          opponent: calendarForm.opponent,
+          sessionDate: calendarForm.date,
+          sessionType: 'match',
+          startTime: calendarForm.startTime,
+          team: teamName,
+          teamId: safeTeamId,
+          title: calendarForm.title || `${teamName} vs ${calendarForm.opponent}`,
+        }
+
         if (sourceType === 'session') {
-          const payload = {
-            endTime: calendarForm.endTime,
-            location: calendarForm.location,
-            notes: calendarForm.notes,
-            opponent: calendarForm.opponent,
-            sessionDate: calendarForm.date,
-            sessionType: 'match',
-            startTime: calendarForm.startTime,
-            team: teamName,
-            teamId: safeTeamId,
-            title: calendarForm.title || `${teamName} vs ${calendarForm.opponent}`,
-          }
           const savedSession = await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
           const nextSessions = [savedSession, ...sessions.filter((session) => session.id !== savedSession.id)]
+          await syncInvites({ assessmentSessionId: savedSession.id })
           setSessions(nextSessions)
-          writeCalendarAwareCache({ sessions: nextSessions })
+          setCalendarInvites(nextCalendarInvites)
+          writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
           showToast({ title: 'Match session updated', message: savedSession.title || 'Calendar updated.' })
-        } else {
+        } else if (sourceType === 'match-day') {
           const payload = {
             arrivalTime: '',
             homeAway: 'home',
@@ -1152,13 +1167,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             venueAddress: '',
             venueName: calendarForm.location,
           }
-          const savedMatch = sourceType === 'match-day'
-            ? await updateMatchDay({ user, matchId: activeEvent.sourceId, updates: payload })
-            : await createMatchDay({ user, match: payload })
+          const savedMatch = await updateMatchDay({ user, matchId: activeEvent.sourceId, updates: payload })
           const nextMatchDays = [savedMatch, ...matchDays.filter((match) => match.id !== savedMatch.id)]
           setMatchDays(nextMatchDays)
           writeCalendarAwareCache({ matchDays: nextMatchDays })
-          showToast({ title: sourceType === 'match-day' ? 'Fixture updated' : 'Fixture created', message: savedMatch.opponent || 'Calendar updated.' })
+          showToast({ title: 'Fixture updated', message: savedMatch.opponent || 'Calendar updated.' })
+        } else {
+          const savedSession = await createAssessmentSession({ user, session: payload })
+          await syncInvites({ assessmentSessionId: savedSession.id })
+          const nextSessions = [savedSession, ...sessions.filter((session) => session.id !== savedSession.id)]
+          setSessions(nextSessions)
+          setCalendarInvites(nextCalendarInvites)
+          writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+          showToast({ title: 'Fixture created', message: savedSession.title || 'Calendar updated.' })
         }
       } else {
         if (calendarForm.recurrenceFrequency !== 'none') {
@@ -2004,7 +2025,7 @@ function CalendarEventModal({
   const editableSource = !event || event.editable || ['session', 'match-day', 'calendar'].includes(event.sourceType)
   const showOpponent = form.eventType === 'match'
   const showRecurrence = form.eventType !== 'match'
-  const showInvites = form.eventType !== 'match'
+  const showInvites = true
   const title = mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
   const selectedSummary = [form.date, form.startTime, form.location].filter(Boolean).join(', ')
   const canUseClubLevel = canCreateClubCalendarEvent(user)
@@ -2013,6 +2034,7 @@ function CalendarEventModal({
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
   const inviteTeamId = canUseClubLevel ? form.teamId : form.teamId || user?.activeTeamId
   const hasInviteTeam = Boolean(String(inviteTeamId || '').trim())
+  const eventTypeOptions = getCalendarEventTypeOptions(user)
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
@@ -2071,7 +2093,7 @@ function CalendarEventModal({
                   disabled={isBusy || Boolean(event && event.sourceType !== 'calendar')}
                   className={fieldClass}
                 >
-                  {EVENT_TYPE_OPTIONS.map((option) => (
+                  {eventTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
@@ -2080,6 +2102,7 @@ function CalendarEventModal({
                 <span className="mb-2 block text-sm font-black text-[#101828]">Team</span>
                 <select name="teamId" value={form.teamId} onChange={onChange} disabled={isBusy} className={fieldClass}>
                   {canUseClubLevel ? <option value="">Club level</option> : null}
+                  {!canUseClubLevel && !form.teamId ? <option value="">Choose team</option> : null}
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>{team.name}</option>
                   ))}
@@ -2167,7 +2190,7 @@ function CalendarEventModal({
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
                 <p className="text-sm font-black text-[#101828]">Repeats</p>
                 <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
-                  Fixtures are managed one at a time so match details stay correct.
+                  Recurring fixtures are not supported yet.
                 </p>
               </div>
             )}
