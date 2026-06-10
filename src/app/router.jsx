@@ -352,36 +352,48 @@ function TeamContextRequiredState() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProfileLoading, teamOptions])
 
+  if (!hasTeams) {
+    return (
+      <RouteGateState
+        eyebrow="Team access"
+        title="Choose your team"
+        message="This account is not linked to a team yet. Ask a club admin to add this account to a team before using team tools."
+        actions={(
+          <a href="/coach" className={secondaryActionClassName}>
+            Return to club home
+          </a>
+        )}
+      />
+    )
+  }
+
   return (
-    <RouteGateState
-      eyebrow="Team context"
-      title="Choose a team before using this area"
-      message="Sessions, players, parent linking, match day, and player profiles need an active team so records are saved in the right place."
-      rules={[
-        { title: 'Club-wide view', body: 'Use club-wide view for setup, staff, billing, and club settings.' },
-        { title: 'Team tools need a team', body: 'Pick a team before opening player records, sessions, availability, or match day.' },
-        { title: hasTeams ? 'Choose below' : 'No team linked', body: hasTeams ? 'Open the team you want to work with for this session.' : 'Ask a club admin to add this account to a team before using team tools.' },
-      ]}
-      actions={hasTeams ? (
-        <div className="grid w-full gap-2 sm:grid-cols-2">
-          {teamOptions.map((team) => (
-            <button
-              key={team.id}
-              type="button"
-              onClick={() => void handleTeamSelect(team.id)}
-              disabled={isProfileLoading}
-              className={primaryActionClassName}
-            >
-              {isProfileLoading ? 'Opening...' : `Open ${team.name || 'team'}`}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <a href="/coach" className={secondaryActionClassName}>
-          Return to club home
-        </a>
-      )}
-    />
+    <section className="mx-auto max-w-4xl rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-7">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Team access</p>
+      <h1 className="mt-3 text-3xl font-black leading-[1.05] tracking-tight text-[#101828] sm:text-4xl">Choose your team</h1>
+      <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#4b5f55]">
+        You are linked to more than one team. Select the team you want to work with.
+      </p>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {teamOptions.map((team) => (
+          <button
+            key={team.id}
+            type="button"
+            onClick={() => void handleTeamSelect(team.id)}
+            disabled={isProfileLoading}
+            className="group flex min-h-24 w-full items-center justify-between gap-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-left shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-base font-black text-[#101828]">{team.name || 'Unnamed team'}</span>
+              <span className="mt-1 block text-sm font-semibold text-[#4b5f55]">{team.roleLabel || team.role || team.accessLabel || 'Team access'}</span>
+            </span>
+            <span className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 text-sm font-black text-[#047857] transition group-hover:border-[#047857] group-hover:bg-[#047857] group-hover:text-white">
+              {isProfileLoading ? 'Opening...' : 'Open team'}
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 

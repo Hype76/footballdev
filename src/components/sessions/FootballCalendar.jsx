@@ -2,6 +2,10 @@ const viewButtonClass = 'inline-flex min-h-10 items-center justify-center rounde
 const calendarCardClass = 'rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5'
 
 function toDateOnly(value) {
+  if (value instanceof Date) {
+    return getDateKey(value)
+  }
+
   const normalizedValue = String(value ?? '').trim()
   if (!normalizedValue) {
     return ''
@@ -54,7 +58,14 @@ function getWeekTitle(date) {
 }
 
 function getDateKey(date) {
-  return date.toISOString().slice(0, 10)
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function getWeekDates(cursor) {

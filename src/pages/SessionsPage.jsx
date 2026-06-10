@@ -85,6 +85,10 @@ const RECURRENCE_OPTIONS = [
 ]
 
 function formatDateInput(value) {
+  if (value instanceof Date) {
+    return formatLocalDate(value)
+  }
+
   const normalizedValue = String(value ?? '').trim()
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
@@ -93,6 +97,17 @@ function formatDateInput(value) {
 
   const parsedDate = new Date(normalizedValue)
   return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
+}
+
+function formatLocalDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function formatTimeInput(value) {
@@ -116,7 +131,7 @@ function addMinutesToTime(time, minutesToAdd) {
 }
 
 function getDefaultCalendarForm(date = '') {
-  const eventDate = formatDateInput(date) || new Date().toISOString().slice(0, 10)
+  const eventDate = formatDateInput(date) || formatLocalDate(new Date())
 
   return {
     date: eventDate,
@@ -516,7 +531,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   useEffect(() => {
     const requestedAction = String(searchParams.get('action') ?? '').trim()
 
-    if (requestedAction !== 'add-event' && requestedAction !== 'add-session') {
+    if (!['add-event', 'add-session', 'create-session'].includes(requestedAction)) {
       return
     }
 
@@ -525,7 +540,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setSearchParams(nextSearchParams, { replace: true })
 
     if (requestedAction === 'add-event') {
-      handleCalendarDateClick(new Date().toISOString().slice(0, 10))
+      handleCalendarDateClick(formatLocalDate(new Date()))
       return
     }
 
@@ -1658,7 +1673,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
 
             <button
               type="button"
-              onClick={() => handleCalendarDateClick(new Date().toISOString().slice(0, 10))}
+              onClick={() => handleCalendarDateClick(formatLocalDate(new Date()))}
               className={primaryButtonClass}
             >
               Add event

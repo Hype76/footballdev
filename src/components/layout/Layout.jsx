@@ -280,14 +280,15 @@ export function Layout() {
                 ) : needsTeamSelection ? (
                   <WorkspaceSelection
                     eyebrow="Team access"
-                    title="Choose the team to work with."
-                    description="Your account is linked to more than one team. Pick the team before opening player records, sessions, availability, or match day."
+                    title="Choose your team"
+                    description="You are linked to more than one team. Select the team you want to work with."
                     error={clubSelectionError || authError}
+                    hideExplainer
                     isLoading={isProfileLoading}
                     options={teamOptions.map((option) => ({
                       id: option.id,
                       label: option.name || 'Unnamed team',
-                      meta: 'Team workspace',
+                      meta: option.roleLabel || option.role || option.accessLabel || 'Team access',
                       action: 'Open team',
                     }))}
                     onSelect={handleTeamSelect}
@@ -349,7 +350,7 @@ function QuickActionHotbar({ user }) {
 
   const actions = [
     { label: 'Add Player', href: '/add-player' },
-    { label: 'Add Session', href: '/sessions/start?action=add-session' },
+    { label: 'Add Session', href: '/sessions/start?action=create-session' },
     { label: 'Add Assessment', href: '/assess-player/new?choosePlayer=1' },
     { label: 'Add Event', href: '/calendar?action=add-event' },
   ]
@@ -388,7 +389,7 @@ function QuickActionHotbar({ user }) {
   )
 }
 
-function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, options, title }) {
+function WorkspaceSelection({ description, error, eyebrow, hideExplainer = false, isLoading, onSelect, options, title }) {
   return (
     <section className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
       <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -396,12 +397,14 @@ function WorkspaceSelection({ description, error, eyebrow, isLoading, onSelect, 
           <p className="text-xs font-black uppercase tracking-[0.22em] text-[#047857]">{eyebrow}</p>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">{title}</h1>
           <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[#4b5f55]">{description}</p>
+          {!hideExplainer ? (
           <div className="mt-6 rounded-lg border border-[#d7e5dc] bg-white px-4 py-4 shadow-sm shadow-[#047857]/10">
             <p className="text-sm font-black text-[#101828]">Before you continue</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
               The workspace selection controls what data loads, which actions are available, and where saved football records belong.
             </p>
           </div>
+          ) : null}
         </div>
 
         <div className="p-4 sm:p-6">
