@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.png'
 import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
-import { getRoleLabel, isClubAdmin, useAuth } from '../../lib/auth.js'
+import { getRoleLabel, getWorkspaceHomeCopy, isClubAdmin, useAuth } from '../../lib/auth.js'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 
 export function Topbar({ title, onMenuClick }) {
   const { authUser, clubOptions, demoRoleKey, hasPlatformAdminAccess, isProfileLoading, selectAccessMode, selectClub, selectPlatformAdmin, selectTeam, setDemoRolePreview, signOut, teamOptions, user } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
+  const location = useLocation()
   const displayUser = user
+  const isWorkspaceHome = location.pathname === '/coach' || location.pathname === '/home'
+  const displayTitle = isWorkspaceHome ? getWorkspaceHomeCopy(displayUser).title : title
   const roleLabel = displayUser ? getRoleLabel(displayUser) : 'Loading access'
   const canUseClubAdminView = isClubAdmin(displayUser)
   const clubLabel = displayUser?.role === 'super_admin'
@@ -142,7 +145,7 @@ export function Topbar({ title, onMenuClick }) {
               </span>
             </div>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-[#101828] sm:text-3xl">
-              {title}
+              {displayTitle}
             </h1>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
               {nextActionLabel}

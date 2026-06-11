@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { canCreateEvaluation, useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, getWorkspaceHomeCopy, useAuth } from '../lib/auth.js'
 import {
   getAssessmentSessionPlayers,
   getAssessmentSessions,
@@ -106,6 +106,7 @@ export function CoachHomePage() {
   const [errorMessage, setErrorMessage] = useState('')
   const activeSession = useMemo(() => getActiveSession(sessions), [sessions])
   const greeting = getCoachGreeting(user)
+  const homeCopy = getWorkspaceHomeCopy(user)
   const recentEvaluations = useMemo(() => getRecentEvaluations(evaluations), [evaluations])
   const completedNames = useMemo(
     () => getCompletedPlayerNamesFromEvaluations(evaluations, activeSession, sessionPlayers),
@@ -219,12 +220,12 @@ export function CoachHomePage() {
       <section className={surfaceClass}>
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="px-5 py-6 sm:px-6 lg:px-8">
-            <p className={eyebrowClass}>Coach Home</p>
+            <p className={eyebrowClass}>{homeCopy.title}</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
               {greeting}
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Here's what needs attention for {user?.activeTeamName || user?.clubName || 'your team'}.
+              {homeCopy.description}
             </p>
           </div>
           <aside className="border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">

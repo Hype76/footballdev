@@ -35,6 +35,7 @@ export {
   canViewEvaluation,
   canViewPlatformFeedback,
   getRoleLabel,
+  getWorkspaceHomeCopy,
   hasTeamWorkflowContext,
   isClubAdmin,
   isDemoAccount,

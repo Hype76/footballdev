@@ -1382,7 +1382,7 @@ export const router = createBrowserRouter([
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Coach Home',
+                  title: 'Home',
                 },
               },
               {

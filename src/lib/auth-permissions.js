@@ -23,6 +23,41 @@ export function getRoleLabel(user) {
   return user.roleLabel || user.role || 'Unknown'
 }
 
+export function getWorkspaceHomeCopy(user) {
+  if (!user) {
+    return {
+      title: 'Home',
+      description: 'Open your workspace when your access has loaded.',
+    }
+  }
+
+  if (isClubAdmin(user)) {
+    return {
+      title: 'Club Home',
+      description: 'Manage the club workspace, teams, staff, players, and settings.',
+    }
+  }
+
+  if (user.role === 'manager' || user.role === 'head_manager' || Number(user.roleRank ?? 0) >= 50) {
+    return {
+      title: 'Manager Home',
+      description: 'Manage your team, sessions, players, parent updates, and match day.',
+    }
+  }
+
+  if (user.role === 'coach' || user.role === 'assistant_coach' || Number(user.roleRank ?? 0) >= 20) {
+    return {
+      title: 'Coach Home',
+      description: 'Run sessions, record notes, and keep player records up to date.',
+    }
+  }
+
+  return {
+    title: 'Home',
+    description: 'Open your workspace when your access has loaded.',
+  }
+}
+
 export function isSuperAdmin(user) {
   return user?.role === 'super_admin'
 }
