@@ -1372,6 +1372,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const activeEvent = calendarModal?.event || null
 
     if (!activeEvent?.sourceId) {
+      setErrorMessage('This calendar item cannot be changed from here.')
+      showToast({ title: 'Calendar item not changed', message: 'This calendar item cannot be changed from here.', tone: 'error' })
       return
     }
 
@@ -1419,7 +1421,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           matchId: activeEvent.sourceId,
           updates: { status: 'cancelled' },
         })
-        const nextMatchDays = [cancelledMatch, ...matchDays.filter((match) => match.id !== cancelledMatch.id)]
+        const nextMatchDays = matchDays.filter((match) => match.id !== cancelledMatch.id)
         setMatchDays(nextMatchDays)
         writeCalendarAwareCache({ matchDays: nextMatchDays })
         showToast({ title: 'Fixture cancelled', message: cancelledMatch.opponent || 'The fixture was cancelled.' })

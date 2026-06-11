@@ -184,6 +184,7 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
     .filter(Boolean)
 
   const matchEvents = matchDays
+    .filter((match) => String(match.status ?? '').trim().toLowerCase() !== 'cancelled')
     .map((match) => {
       const date = toDateOnly(match.matchDate)
       if (!date) {
