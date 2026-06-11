@@ -138,7 +138,7 @@ export async function getCalendarEvents({ user } = {}) {
   }
 
   const activeTeamId = normalizeText(user.activeTeamId)
-  const cacheKey = `calendar-events:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamId || 'assigned'}`
+  const cacheKey = `calendar-events:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamId || 'club-wide'}`
 
   return getCachedResource(cacheKey, async () => {
     let query = supabase
@@ -149,7 +149,9 @@ export async function getCalendarEvents({ user } = {}) {
       .order('starts_at', { ascending: true })
 
     if (activeTeamId) {
-      query = query.or(`team_id.is.null,team_id.eq.${activeTeamId}`)
+      query = query.eq('team_id', activeTeamId)
+    } else {
+      query = query.is('team_id', null)
     }
 
     const { data, error } = await query

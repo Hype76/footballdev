@@ -29,6 +29,10 @@ import {
   isDemoAccountValue,
 } from './demo-guards.js'
 
+function normalizeEmail(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
 export async function getClubRoles(user) {
   if (!user?.clubId) {
     return []
@@ -192,10 +196,13 @@ export async function getClubUserInvites(user) {
     return []
   }
 
+  const nowIso = new Date().toISOString()
   const { data, error } = await supabase
     .from('club_user_invites')
     .select('*, teams:team_id (name)')
     .eq('club_id', user.clubId)
+    .is('accepted_at', null)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -203,5 +210,33 @@ export async function getClubUserInvites(user) {
     throw error
   }
 
-  return (data ?? []).map(normalizeClubInviteRow)
+  const invites = (data ?? []).map(normalizeClubInviteRow)
+  const inviteEmails = [...new Set(invites.map((invite) => normalizeEmail(invite.email)).filter(Boolean))]
+
+  if (inviteEmails.length === 0) {
+    return []
+  }
+
+  const { data: userRows, error: usersError } = await supabase
+    .from('users')
+    .select('email, status')
+    .eq('club_id', user.clubId)
+    .in('email', inviteEmails)
+
+  if (usersError) {
+    console.error(usersError)
+    throw usersError
+  }
+
+  const activeEmails = new Set(
+    (userRows ?? [])
+      .filter((row) => String(row.status ?? 'active').trim().toLowerCase() !== 'removed')
+      .map((row) => normalizeEmail(row.email))
+      .filter(Boolean),
+  )
+
+  return invites.filter((invite) => {
+    const inviteEmail = normalizeEmail(invite.email)
+    return inviteEmail && !activeEmails.has(inviteEmail)
+  })
 }

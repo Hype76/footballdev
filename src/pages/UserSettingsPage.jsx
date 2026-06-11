@@ -9,6 +9,7 @@ import { useToast } from '../components/ui/toast-context.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
 import { canManageClubSettings, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
 import {
+  getTeams,
   requestLoginEmailChange,
   updateTeamSettings,
   updateOwnThemeSettings,
@@ -263,14 +264,25 @@ export function UserSettingsPage() {
     }
 
     try {
-      const updatedTeam = await updateTeamSettings({
-        teamId: user.activeTeamId,
-        user,
-        data: {
-          themeAccent: nextPreferences.accent,
-          themeButtonStyle: nextPreferences.buttonStyle,
-        },
-      })
+      const teamIds = user.activeTeamId
+        ? [user.activeTeamId]
+        : (await getTeams(user)).map((team) => team.id).filter(Boolean)
+
+      if (teamIds.length === 0) {
+        throw new Error('Create a team before editing club branding.')
+      }
+
+      const updatedTeams = await Promise.all(teamIds.map((teamId) =>
+        updateTeamSettings({
+          teamId,
+          user,
+          data: {
+            themeAccent: nextPreferences.accent,
+            themeButtonStyle: nextPreferences.buttonStyle,
+          },
+        }),
+      ))
+      const updatedTeam = updatedTeams[0]
       updateCurrentUserDetails({
         themeAccent: updatedTeam.themeAccent,
         themeButtonStyle: updatedTeam.themeButtonStyle,
@@ -367,12 +379,10 @@ export function UserSettingsPage() {
   }
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
-  const canEditClubBranding = Boolean(user?.activeTeamId) && isClubAdminSettings && hasPlanFeature(user, 'themes')
+  const canEditClubBranding = isClubAdminSettings && hasPlanFeature(user, 'themes')
   const brandingUnavailableMessage = !isClubAdminSettings
     ? 'Club branding is set by a Club Admin. You can still choose your own display mode.'
-    : !user?.activeTeamId
-      ? 'Choose a team before editing club branding.'
-      : !hasPlanFeature(user, 'themes')
+    : !hasPlanFeature(user, 'themes')
         ? createFeatureUpgradeMessage('themes', user)
         : ''
   const canEditEmailClubName = showSenderIdentity && canEditClubIdentity(user)

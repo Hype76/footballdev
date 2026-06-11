@@ -14,6 +14,18 @@ import {
 import { seedDefaultFormFields } from './core-seeding.js'
 import { assertClubFeature } from './plan-gates.js'
 
+function assertFormFieldManager(user) {
+  if (
+    !user?.clubId ||
+    user.role !== 'head_manager' ||
+    !user.activeTeamId ||
+    user.role === 'parent_portal' ||
+    user.role === 'super_admin'
+  ) {
+    throw new Error('Team Admin access is required to manage development fields.')
+  }
+}
+
 export async function getConfiguredFormFields({ user } = {}) {
   if (!user?.clubId) {
     return []
@@ -77,6 +89,7 @@ export async function getFormFields({ user } = {}) {
 
 export async function addFormField({ user, field }) {
   await blockDemoMutation(user)
+  assertFormFieldManager(user)
   await assertClubFeature({
     user,
     clubId: user?.clubId,
@@ -106,16 +119,37 @@ export async function addFormField({ user, field }) {
 
 export async function updateFormField(id, fieldData, user) {
   await blockDemoMutation(user)
+  assertFormFieldManager(user)
   await assertClubFeature({
     user,
     clubId: user?.clubId ?? fieldData?.clubId,
     featureName: 'customFormFields',
   })
 
+  let safeFieldData = fieldData
+
+  if (fieldData?.includeInProgressChart !== undefined && fieldData.type === undefined) {
+    const { data: currentField, error: currentFieldError } = await supabase
+      .from('form_fields')
+      .select('type')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (currentFieldError) {
+      console.error(currentFieldError)
+      throw currentFieldError
+    }
+
+    safeFieldData = {
+      ...fieldData,
+      type: currentField?.type,
+    }
+  }
+
   const payload = mapFormFieldToRow(
-    fieldData,
+    safeFieldData,
     user,
-    fieldData.orderIndex !== undefined ? Number(fieldData.orderIndex) : undefined,
+    safeFieldData.orderIndex !== undefined ? Number(safeFieldData.orderIndex) : undefined,
   )
   const { data: updatedRow, error } = await supabase
     .from('form_fields')
@@ -134,6 +168,7 @@ export async function updateFormField(id, fieldData, user) {
 
 export async function deleteFormField(id, user = null) {
   await blockDemoMutation(user)
+  assertFormFieldManager(user)
   await assertClubFeature({
     user,
     clubId: user?.clubId,
@@ -150,6 +185,7 @@ export async function deleteFormField(id, user = null) {
 
 export async function reorderFormFields(fields, user) {
   await blockDemoMutation(user)
+  assertFormFieldManager(user)
   await assertClubFeature({
     user,
     clubId: user?.clubId,

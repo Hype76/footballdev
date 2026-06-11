@@ -71,7 +71,7 @@ export function TeamStaffAllocationsSection({
         <div className={`${panelClass} m-5 px-4 py-6 sm:m-6`}>
           <p className="text-base font-black text-[#101828]">No teams have been created yet.</p>
           <p className={`mt-2 ${bodyTextClass}`}>
-            Create the first team above before adding players, sessions, staff access, or match day records.
+            Create a new team above before adding players, sessions, staff access, or match day records.
           </p>
         </div>
       ) : (

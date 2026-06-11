@@ -735,7 +735,7 @@ export function TeamManagementPage() {
 
           <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Setup state</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Club setup</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{teams.length} teams configured</p>
               <p className={`mt-2 ${bodyTextClass}`}>
                 {allocatedStaffCount} staff accounts are allocated to at least one team.
@@ -771,6 +771,7 @@ export function TeamManagementPage() {
 
       <CreateTeamSection
         canCreateMoreTeams={canCreateMoreTeams}
+        hasTeams={teams.length > 0}
         isSaving={isSaving}
         onOpenCreateTeam={() => setIsCreateTeamModalOpen(true)}
         teamLimitMessage={teamLimitMessage}

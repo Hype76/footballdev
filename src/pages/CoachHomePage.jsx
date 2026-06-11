@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { canCreateEvaluation, getWorkspaceHomeCopy, useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, canViewBilling, getWorkspaceHomeCopy, isClubAdmin, useAuth } from '../lib/auth.js'
 import {
   assignPlayerStaffNote,
   deletePlayerStaffNote,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
+  getClubUserInvites,
   getEvaluations,
   getPlayers,
+  getTeams,
+  getVisibleClubUsers,
   getUnassignedStaffVoiceNotes,
   readViewCache,
   withRequestTimeout,
@@ -118,6 +121,134 @@ function getCoachGreeting(user) {
   return firstName ? `${greeting}, ${firstName}.` : `${greeting}.`
 }
 
+function getPlanSummary(user) {
+  const planName = String(user?.planLabel || user?.planKey || 'Plan').replace(/_/g, ' ')
+  const status = String(user?.planStatus || 'active').replace(/_/g, ' ')
+  return `${planName}, ${status}`
+}
+
+function ClubAdminHomeView({
+  errorMessage,
+  isLoading,
+  pendingInvites,
+  players,
+  staffUsers,
+  teams,
+  user,
+}) {
+  const homeCopy = getWorkspaceHomeCopy(user)
+  const greeting = getCoachGreeting(user)
+  const adminActions = [
+    {
+      label: 'Manage teams',
+      description: 'Create teams, rename age groups, and check staff allocations.',
+      path: '/teams',
+    },
+    {
+      label: 'Staff Access',
+      description: 'Invite staff, review roles, and remove pending access.',
+      path: '/user-access',
+    },
+    {
+      label: 'Club Profile',
+      description: 'Update shared club details, contact information, and identity.',
+      path: '/club-settings',
+    },
+    {
+      label: 'Branding and settings',
+      description: 'Set display mode, club accent colour, and button style.',
+      path: '/user-settings',
+    },
+    canViewBilling(user) ? {
+      label: 'Plan and billing',
+      description: 'Review the club plan, limits, and access status.',
+      path: '/billing',
+    } : null,
+  ].filter(Boolean)
+  const metricItems = [
+    { label: 'Teams', value: teams.length },
+    { label: 'Staff', value: staffUsers.length },
+    { label: 'Players', value: players.length },
+    { label: 'Pending invites', value: pendingInvites.length },
+    { label: 'Plan', value: getPlanSummary(user) },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <section className={surfaceClass}>
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="px-5 py-6 sm:px-6 lg:px-8">
+            <p className={eyebrowClass}>{homeCopy.title}</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+              {greeting}
+            </h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
+              {homeCopy.description}
+            </p>
+          </div>
+          <aside className="border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#065f46]">Club workspace</p>
+            <p className="mt-2 text-xl font-black tracking-tight text-[#101828]">
+              {user?.clubName || 'Your club'}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              Club Admin access for shared club setup and staff controls.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      {errorMessage ? (
+        <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm font-bold text-[#93370d] shadow-sm">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      <section className={surfaceClass}>
+        <div className={sectionHeaderClass}>
+          <p className={eyebrowClass}>Club overview</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+            {isLoading ? 'Loading club workspace' : 'Your club at a glance'}
+          </h2>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            Review the shared club setup before moving into a specific team.
+          </p>
+        </div>
+        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-5">
+          {metricItems.map((item) => (
+            <div key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{item.label}</p>
+              <p className="mt-2 text-2xl font-black text-[#101828]">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className={surfaceClass}>
+        <div className={sectionHeaderClass}>
+          <p className={eyebrowClass}>Admin actions</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Club setup tools</h2>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            Use these controls for club-wide setup. Select a team when you need team operations.
+          </p>
+        </div>
+        <div className="grid gap-3 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-3">
+          {adminActions.map((action) => (
+            <Link
+              key={action.path}
+              to={action.path}
+              className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+            >
+              <p className="text-base font-black text-[#101828]">{action.label}</p>
+              <p className={`mt-2 ${bodyTextClass}`}>{action.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
 export function CoachHomePage() {
   const { user } = useAuth()
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
@@ -125,6 +256,9 @@ export function CoachHomePage() {
   const cachedValue = useMemo(() => readViewCache(cacheKey), [cacheKey])
   const [sessions, setSessions] = useState(() => cachedValue?.sessions || [])
   const [players, setPlayers] = useState(() => cachedValue?.players || [])
+  const [clubTeams, setClubTeams] = useState(() => cachedValue?.clubTeams || [])
+  const [clubStaffUsers, setClubStaffUsers] = useState(() => cachedValue?.clubStaffUsers || [])
+  const [pendingInvites, setPendingInvites] = useState(() => cachedValue?.pendingInvites || [])
   const [evaluations, setEvaluations] = useState(() => cachedValue?.evaluations || [])
   const [sessionPlayers, setSessionPlayers] = useState(() => cachedValue?.sessionPlayers || [])
   const [unassignedVoiceNotes, setUnassignedVoiceNotes] = useState(() => cachedValue?.unassignedVoiceNotes || [])
@@ -138,6 +272,7 @@ export function CoachHomePage() {
   const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState('')
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
+  const isClubWideAdminHome = isClubAdmin(user) && !user?.activeTeamId
   const activeSession = useMemo(() => getActiveSession(sessions), [sessions])
   const greeting = getCoachGreeting(user)
   const homeCopy = getWorkspaceHomeCopy(user)
@@ -295,6 +430,40 @@ export function CoachHomePage() {
       setErrorMessage('')
 
       try {
+        if (isClubWideAdminHome) {
+          const [teamsResult, playersResult, staffResult, invitesResult] = await Promise.allSettled([
+            withRequestTimeout(() => getTeams(user), 'Could not load teams.'),
+            withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
+            withRequestTimeout(() => getVisibleClubUsers(user), 'Could not load staff.'),
+            withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending invites.'),
+          ])
+
+          if (!isMounted) {
+            return
+          }
+
+          const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : cachedValue?.clubTeams || []
+          const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : cachedValue?.players || []
+          const nextStaffUsers = staffResult.status === 'fulfilled' ? staffResult.value : cachedValue?.clubStaffUsers || []
+          const nextPendingInvites = invitesResult.status === 'fulfilled' ? invitesResult.value : cachedValue?.pendingInvites || []
+
+          setClubTeams(nextTeams)
+          setPlayers(nextPlayers)
+          setClubStaffUsers(nextStaffUsers)
+          setPendingInvites(nextPendingInvites)
+          writeViewCache(cacheKey, {
+            clubTeams: nextTeams,
+            clubStaffUsers: nextStaffUsers,
+            pendingInvites: nextPendingInvites,
+            players: nextPlayers,
+          })
+
+          if ([teamsResult, playersResult, staffResult, invitesResult].some((result) => result.status === 'rejected')) {
+            setErrorMessage('Some club data could not be refreshed. Cached data is shown where available.')
+          }
+          return
+        }
+
         const [sessionsResult, playersResult, evaluationsResult, voiceNotesResult] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
@@ -357,7 +526,21 @@ export function CoachHomePage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, cachedValue, user])
+  }, [cacheKey, cachedValue, isClubWideAdminHome, user])
+
+  if (isClubWideAdminHome) {
+    return (
+      <ClubAdminHomeView
+        errorMessage={errorMessage}
+        isLoading={isLoading}
+        pendingInvites={pendingInvites}
+        players={players}
+        staffUsers={clubStaffUsers}
+        teams={clubTeams}
+        user={user}
+      />
+    )
+  }
 
   return (
     <div className="space-y-5">

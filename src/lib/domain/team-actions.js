@@ -126,8 +126,8 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
     throw new Error('Only Team Admins can change team names.')
   }
 
-  if (hasThemeUpdates && Number(user?.roleRank ?? 0) < 50) {
-    throw new Error('Only Team Admins can change team appearance.')
+  if (hasThemeUpdates && user?.role !== 'admin') {
+    throw new Error('Only Club Admins can change club branding.')
   }
 
   if (data.name !== undefined) {
@@ -452,11 +452,13 @@ export async function getTeamStaffAssignments(user) {
 
     const acceptedAssignments = (data ?? []).map(normalizeTeamStaffRow)
 
+    const nowIso = new Date().toISOString()
     const { data: pendingInvites, error: pendingInvitesError } = await supabase
       .from('club_user_invites')
-      .select('id, team_id, created_at')
+      .select('id, team_id, email, created_at')
       .eq('club_id', user.clubId)
       .is('accepted_at', null)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .in('team_id', teamIds)
 
     if (pendingInvitesError) {
@@ -464,7 +466,35 @@ export async function getTeamStaffAssignments(user) {
       throw pendingInvitesError
     }
 
-    const pendingAssignments = (pendingInvites ?? []).map((invite) => ({
+    const pendingInviteEmails = [...new Set((pendingInvites ?? [])
+      .map((invite) => String(invite.email ?? '').trim().toLowerCase())
+      .filter(Boolean))]
+    let activePendingInviteEmails = new Set()
+
+    if (pendingInviteEmails.length > 0) {
+      const { data: activeUsers, error: activeUsersError } = await supabase
+        .from('users')
+        .select('email, status')
+        .eq('club_id', user.clubId)
+        .in('email', pendingInviteEmails)
+
+      if (activeUsersError) {
+        console.error(activeUsersError)
+        throw activeUsersError
+      }
+
+      activePendingInviteEmails = new Set(
+        (activeUsers ?? [])
+          .filter((row) => String(row.status ?? 'active').trim().toLowerCase() !== 'removed')
+          .map((row) => String(row.email ?? '').trim().toLowerCase())
+          .filter(Boolean),
+      )
+    }
+
+    const pendingAssignments = (pendingInvites ?? []).filter((invite) => {
+      const inviteEmail = String(invite.email ?? '').trim().toLowerCase()
+      return inviteEmail && !activePendingInviteEmails.has(inviteEmail)
+    }).map((invite) => ({
       id: `invite:${invite.id}`,
       teamId: invite.team_id ?? '',
       userId: `invite:${invite.id}`,

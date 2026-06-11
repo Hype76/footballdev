@@ -17,6 +17,7 @@ import {
   canViewBilling,
   canViewEndSeasonStats,
   hasTeamWorkflowContext,
+  isClubAdmin,
   isSuperAdmin,
   isParentPortalUser,
   isTesterAccessExpired,
@@ -712,6 +713,10 @@ function RequirePlayerWorkflowAccess() {
 
   if (!isRecoveryPathVisible(location.pathname, { user })) {
     return <RecoveryPhaseBlockedState />
+  }
+
+  if (location.pathname === '/calendar' && isClubAdmin(user)) {
+    return <Outlet />
   }
 
   if (needsTeamWorkflowContext(user) || !hasTeamWorkflowContext(user)) {

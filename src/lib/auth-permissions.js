@@ -126,7 +126,12 @@ export function canAssignRole(user, targetRole) {
 }
 
 export function canManageFormFields(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 50
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && isPlanAccessActive(user)
+    && user?.role === 'head_manager'
+    && Boolean(user?.activeTeamId)
 }
 
 export function canManageParentEmailTemplates(user) {

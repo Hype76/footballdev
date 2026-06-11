@@ -15,6 +15,11 @@ export const primaryNavigation = [
     helper: 'Records and notes',
   },
   {
+    label: 'Development Fields',
+    path: '/form-builder',
+    helper: 'Record setup',
+  },
+  {
     label: 'Messages',
     path: '/email-queue',
     helper: 'Parent email queue',
@@ -71,11 +76,6 @@ export const clubNavigation = [
     label: 'Staff Access',
     path: '/user-access',
     helper: 'Roles and permissions',
-  },
-  {
-    label: 'Development Fields',
-    path: '/form-builder',
-    helper: 'Record setup',
   },
   {
     label: 'Message Templates',
