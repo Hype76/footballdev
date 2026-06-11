@@ -33,6 +33,10 @@ function assertActiveTeamField(user, field = {}) {
   const activeTeamId = String(user?.activeTeamId ?? '').trim()
   const fieldTeamId = String(field?.teamId ?? field?.team_id ?? '').trim()
 
+  if (!fieldTeamId) {
+    throw new Error('This field is shared across the club. Create a new team field before changing it.')
+  }
+
   if (!activeTeamId || fieldTeamId !== activeTeamId) {
     throw new Error('Development fields can only be managed for your current team.')
   }
@@ -51,7 +55,7 @@ export async function getConfiguredFormFields({ user } = {}) {
       .order('order_index', { ascending: true })
 
     if (user.activeTeamId) {
-      query = query.or(`is_default.eq.true,team_id.eq.${user.activeTeamId}`)
+      query = query.or(`team_id.is.null,team_id.eq.${user.activeTeamId}`)
     } else {
       query = query.eq('is_default', true)
     }

@@ -220,13 +220,18 @@ function FormFieldCard({
       ? 'This field is already at the bottom.'
       : undefined
   const savingDisabledReason = isSaving ? 'Please wait while field changes are being saved.' : undefined
-  const defaultFieldDisabledReason = field.isDefault ? 'Default fields are shared and cannot be changed from team-level access.' : undefined
+  const isSharedField = field.isDefault || !field.teamId
+  const protectedFieldDisabledReason = field.isDefault
+    ? 'Default fields are shared and cannot be changed from team-level access.'
+    : !field.teamId
+      ? 'This legacy field is shared across the club. Create a new team field before changing it.'
+      : undefined
 
   return (
     <div
-      draggable={!isSaving && !isDragLocked}
+      draggable={!isSaving && !isDragLocked && !isSharedField}
       onDragStart={(event) => {
-        if (isDragLocked) {
+        if (isDragLocked || isSharedField) {
           event.preventDefault()
           return
         }
@@ -237,7 +242,7 @@ function FormFieldCard({
       }}
       onDragEnd={onDragEnd}
       onDragOver={(event) => {
-        if (isDragLocked) {
+        if (isDragLocked || isSharedField) {
           return
         }
 
@@ -251,7 +256,7 @@ function FormFieldCard({
         }
       }}
       onDrop={(event) => {
-        if (isDragLocked) {
+        if (isDragLocked || isSharedField) {
           return
         }
 
@@ -261,14 +266,14 @@ function FormFieldCard({
       }}
       className={[
         'rounded-lg border bg-white p-4 shadow-sm shadow-[#047857]/10 transition',
-        isSaving || isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
+        isSaving || isDragLocked || isSharedField ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
         isDragging ? 'opacity-60' : '',
         isDragOver ? 'border-[#047857] ring-2 ring-[#d1fae5]' : 'border-[#d7e5dc]',
       ].join(' ')}
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="grid gap-4 md:grid-cols-2">
-          {field.isDefault ? (
+          {isSharedField ? (
             <>
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Label</p>
@@ -350,6 +355,8 @@ function FormFieldCard({
 
                   onDraftChange(field.id, 'includeInProgressChart', event.target.checked)
                 }}
+                disabled={!field.teamId && !field.isDefault}
+                title={!field.teamId && !field.isDefault ? protectedFieldDisabledReason : undefined}
                 className="h-5 w-5 rounded border-[#d7e5dc] bg-white accent-[#047857]"
               />
               <span>Include in progression chart</span>
@@ -363,8 +370,8 @@ function FormFieldCard({
         <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:flex-col">
           <button
             type="button"
-            disabled={isSaving || field.isDefault || fieldIndex === 0}
-            title={defaultFieldDisabledReason || moveUpDisabledReason}
+            disabled={isSaving || isSharedField || fieldIndex === 0}
+            title={protectedFieldDisabledReason || moveUpDisabledReason}
             onClick={() => onMoveField(field.id, -1)}
             className={secondaryButtonClass}
           >
@@ -372,8 +379,8 @@ function FormFieldCard({
           </button>
           <button
             type="button"
-            disabled={isSaving || field.isDefault || fieldIndex === fieldsCount - 1}
-            title={defaultFieldDisabledReason || moveDownDisabledReason}
+            disabled={isSaving || isSharedField || fieldIndex === fieldsCount - 1}
+            title={protectedFieldDisabledReason || moveDownDisabledReason}
             onClick={() => onMoveField(field.id, 1)}
             className={secondaryButtonClass}
           >
@@ -381,16 +388,16 @@ function FormFieldCard({
           </button>
           <button
             type="button"
-            disabled={isSaving || field.isDefault}
-            title={defaultFieldDisabledReason || savingDisabledReason}
+            disabled={isSaving || isSharedField}
+            title={protectedFieldDisabledReason || savingDisabledReason}
             onClick={() => onToggleEnabled(field)}
             className={secondaryButtonClass}
           >
             {draft.isEnabled ? 'Disable' : 'Enable'}
           </button>
-          {field.isDefault ? (
+          {isSharedField ? (
             <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#4b5f55]">
-              Default field
+              {field.isDefault ? 'Default field' : 'Shared field'}
             </div>
           ) : (
             <>
@@ -419,6 +426,9 @@ function FormFieldCard({
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{field.isDefault ? 'Default' : 'Custom'}</span>
+        {!field.teamId ? (
+          <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">Shared</span>
+        ) : null}
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.required ? 'Required' : 'Optional'}</span>
         {isScoreType(draft.type) ? (
