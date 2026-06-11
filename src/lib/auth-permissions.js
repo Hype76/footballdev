@@ -129,8 +129,9 @@ export function canManageFormFields(user) {
   return Boolean(user?.clubId)
     && !isSuperAdmin(user)
     && !isParentPortalUser(user)
+    && !isClubAdmin(user)
     && isPlanAccessActive(user)
-    && user?.role === 'head_manager'
+    && Number(user?.roleRank ?? 0) >= 20
     && Boolean(user?.activeTeamId)
 }
 
@@ -159,31 +160,11 @@ export function canViewBilling(user) {
     return false
   }
 
-  if (isTesterAccessExpired(user)) {
-    return true
-  }
-
-  if (isDemoAccount(user)) {
-    return true
-  }
-
-  if (!user.clubId) {
-    return false
-  }
-
   if (isSuperAdmin(user)) {
     return true
   }
 
-  if (user.planKey === 'individual') {
-    return true
-  }
-
-  if (user.planKey === 'single_team') {
-    return user.role === 'head_manager' || Number(user.roleRank ?? 0) >= 70
-  }
-
-  return isClubAdmin(user)
+  return Boolean(user.clubId) && isClubAdmin(user)
 }
 
 export function canDeletePlayer(user) {

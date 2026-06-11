@@ -53,7 +53,9 @@ export function FormBuilderPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const defaultTemplateFields = getDefaultFormFields()
-  const cacheKey = user?.clubId ? `form-builder:${user.clubId}` : ''
+  const activeTeamId = String(user?.activeTeamId ?? '').trim()
+  const activeTeamName = String(user?.activeTeamName ?? '').trim()
+  const cacheKey = user?.clubId && activeTeamId ? `form-builder:${user.clubId}:${activeTeamId}` : ''
   const cachedBuilderState = readViewCache(cacheKey)
   const [fields, setFields] = useState(() => {
     const cachedFields = readViewCacheValue(cacheKey, 'fields', [])
@@ -74,7 +76,7 @@ export function FormBuilderPage() {
   const [fieldGroup, setFieldGroup] = useState('default')
   const [fieldPage, setFieldPage] = useState(1)
   const [fieldDeleteTarget, setFieldDeleteTarget] = useState(null)
-  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}` : ''
+  const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${activeTeamId}` : ''
 
   useEffect(() => {
     let isMounted = true
@@ -150,7 +152,7 @@ export function FormBuilderPage() {
   }
 
   if (!canManageFormFields(user)) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/coach" replace />
   }
 
   const defaultFields = fields.filter((field) => field.isDefault)
@@ -221,6 +223,11 @@ export function FormBuilderPage() {
   }
 
   const saveFieldOrder = async (nextGroupFields) => {
+    if (fieldGroup === 'default') {
+      setErrorMessage('Default development fields cannot be reordered from team-level access.')
+      return
+    }
+
     const nextFields = fieldGroup === 'default'
       ? [...nextGroupFields, ...customFields]
       : [...defaultFields, ...nextGroupFields]
@@ -364,6 +371,11 @@ export function FormBuilderPage() {
   }
 
   const handleToggleEnabled = async (field) => {
+    if (field.isDefault) {
+      setErrorMessage('Default development fields cannot be enabled or disabled from team-level access.')
+      return
+    }
+
     const draft = fieldDrafts[field.id] ?? createDraftFromField(field)
     const nextEnabled = !draft.isEnabled
 
@@ -394,6 +406,11 @@ export function FormBuilderPage() {
 
   const handleToggleProgressionChart = async (field, nextIncludeInProgressChart) => {
     if (!isScoreType(field.type)) {
+      return
+    }
+
+    if (field.isDefault) {
+      setErrorMessage('Default development fields cannot be changed from team-level access.')
       return
     }
 
@@ -495,7 +512,7 @@ export function FormBuilderPage() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#4b5f55]">Form state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">{enabledFieldsCount} fields live for coaches</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-                {defaultFields.length} default fields and {customFields.length} custom fields are configured for this club.
+                {defaultFields.length} default fields and {customFields.length} custom fields are configured for {activeTeamName || 'this team'}.
               </p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -505,7 +522,7 @@ export function FormBuilderPage() {
               <FormMetric label="Total" value={fields.length} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              {canUseCustomFields ? 'Custom development fields are available.' : createFeatureUpgradeMessage('customFormFields')}
+              {canUseCustomFields ? 'Custom development fields are available for this team.' : createFeatureUpgradeMessage('customFormFields')}
             </p>
           </div>
         </div>

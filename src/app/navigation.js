@@ -40,9 +40,9 @@ export const primaryNavigation = [
     helper: 'Age groups and squads',
   },
   {
-    label: 'Payments',
+    label: 'Billing',
     path: '/billing',
-    helper: 'Plans and access',
+    helper: 'Plan and billing',
   },
   {
     label: 'Add Player',

@@ -99,6 +99,8 @@ const primaryActionClassName =
 const secondaryActionClassName =
   'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60'
 
+const supportEmail = 'support@footballplayer.online'
+
 function LoadingScreen() {
   const showLoader = useDelayedLoader()
 
@@ -271,18 +273,18 @@ function TesterAccessExpiredState() {
   return (
     <RouteGateState
       eyebrow="Billing"
-      title="Tester access has ended"
-      message="Your temporary tester access has expired. Your club data is still safe. A paid plan is needed to continue using the workspace."
+      title="Workspace access needs review"
+      message="This workspace needs plan access reviewed before staff can continue using club tools. Your existing club data remains safe."
       rules={[
-        { title: 'Temporary access only', body: 'Tester links expire so staging and trial access do not stay open forever.' },
-        { title: 'Billing unlocks work', body: 'Choose a plan before staff continue with club tools.' },
+        { title: 'Club records stay safe', body: 'Plan access gates tools without deleting saved football data.' },
+        { title: 'Ask your Club Admin', body: 'A Club Admin or support can review billing and plan access for this workspace.' },
       ]}
       actions={(
         <a
-          href="/billing"
+          href={`mailto:${supportEmail}`}
           className={primaryActionClassName}
         >
-          View billing options
+          Contact support
         </a>
       )}
     />
@@ -301,10 +303,10 @@ function PlanAccessRequiredState() {
       ]}
       actions={(
         <a
-          href="/billing"
+          href={`mailto:${supportEmail}`}
           className={primaryActionClassName}
         >
-          View billing options
+          Contact support
         </a>
       )}
     />
@@ -323,6 +325,21 @@ function RecoveryPhaseBlockedState() {
       ]}
       actions={(
         <a href="/coach" className={primaryActionClassName}>
+          Return to workspace
+        </a>
+      )}
+    />
+  )
+}
+
+function FormBuilderUnavailableState() {
+  return (
+    <RouteGateState
+      eyebrow="Development fields"
+      title="Development fields are managed from team-level access."
+      message="Choose a team-level coach, manager, or team admin account to manage custom development fields for that team."
+      actions={(
+        <a href="/coach" className={secondaryActionClassName}>
           Return to workspace
         </a>
       )}
@@ -439,11 +456,11 @@ function getDefaultWorkspacePath(user) {
   }
 
   if (isTesterAccessExpired(user)) {
-    return '/billing'
+    return canViewBilling(user) ? '/billing' : '/coach'
   }
 
   if (!isPlanAccessActive(user)) {
-    return '/billing'
+    return canViewBilling(user) ? '/billing' : '/coach'
   }
 
   if (canManageTeamSettings(user)) {
@@ -642,11 +659,11 @@ function WorkspaceHome() {
   }
 
   if (isTesterAccessExpired(user)) {
-    return <Navigate to="/billing" replace />
+    return canViewBilling(user) ? <Navigate to="/billing" replace /> : <TesterAccessExpiredState />
   }
 
   if (!isPlanAccessActive(user)) {
-    return <Navigate to="/billing" replace />
+    return canViewBilling(user) ? <Navigate to="/billing" replace /> : <PlanAccessRequiredState />
   }
 
   return <RedirectToWorkspaceHome user={user} />
@@ -861,11 +878,7 @@ function RequireFormBuilderAccess() {
   }
 
   if (!canManageFormFields(user)) {
-    return <RedirectToWorkspaceHome user={user} />
-  }
-
-  if (!isRecoveryModuleVisible('formBuilder', { user })) {
-    return <RecoveryPhaseBlockedState />
+    return <FormBuilderUnavailableState />
   }
 
   if (!hasPlanFeature(user, 'customFormFields')) {
@@ -922,10 +935,6 @@ function RequireBillingAccess() {
 
   if (!canViewBilling(user)) {
     return <RedirectToWorkspaceHome user={user} />
-  }
-
-  if (!isRecoveryModuleVisible('billing', { user })) {
-    return <RecoveryPhaseBlockedState />
   }
 
   return <Outlet />

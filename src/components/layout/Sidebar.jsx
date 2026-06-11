@@ -28,7 +28,7 @@ import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
-const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/parent-linking', '/email-queue', '/polls', '/match-day']
+const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/form-builder', '/parent-linking', '/email-queue', '/polls', '/match-day']
 
 const navIcons = {
   '/activity-log': 'activity',
@@ -251,7 +251,7 @@ export function Sidebar({ isOpen, onClose }) {
   }
 
   const getVisibleNavigationItems = (items) => items.filter((item) => {
-    if (!isRecoveryPathVisible(item.path, { user: displayUser })) {
+    if (item.path !== '/form-builder' && !isRecoveryPathVisible(item.path, { user: displayUser })) {
       return false
     }
 

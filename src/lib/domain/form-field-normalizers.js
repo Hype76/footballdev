@@ -20,6 +20,7 @@ export function normalizeFormFieldRow(row) {
   return {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
+    teamId: row.team_id ?? row.teamId ?? '',
     label: String(row.label ?? '').trim(),
     type: normalizedType,
     options: normalizeFieldOptions(row.options),
@@ -47,6 +48,10 @@ export function mapFormFieldToRow(field, user, orderIndex) {
 
   if (field.clubId !== undefined || user?.clubId) {
     payload.club_id = field.clubId ?? user?.clubId ?? ''
+  }
+
+  if (field.teamId !== undefined || user?.activeTeamId) {
+    payload.team_id = field.teamId ?? user?.activeTeamId ?? null
   }
 
   if (field.label !== undefined) {

@@ -98,6 +98,9 @@ export function AddFieldSection({
                 />
                 <span>Include in progression chart</span>
               </label>
+              <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+                Use this score when building player progression charts.
+              </p>
             </div>
           ) : null}
 

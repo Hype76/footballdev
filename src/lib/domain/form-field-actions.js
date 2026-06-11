@@ -15,14 +15,26 @@ import { seedDefaultFormFields } from './core-seeding.js'
 import { assertClubFeature } from './plan-gates.js'
 
 function assertFormFieldManager(user) {
+  const role = String(user?.role ?? '').trim()
+
   if (
     !user?.clubId ||
-    user.role !== 'head_manager' ||
     !user.activeTeamId ||
-    user.role === 'parent_portal' ||
-    user.role === 'super_admin'
+    Number(user.roleRank ?? 0) < 20 ||
+    role === 'admin' ||
+    role === 'parent_portal' ||
+    role === 'super_admin'
   ) {
-    throw new Error('Team Admin access is required to manage development fields.')
+    throw new Error('Team-level staff access is required to manage development fields.')
+  }
+}
+
+function assertActiveTeamField(user, field = {}) {
+  const activeTeamId = String(user?.activeTeamId ?? '').trim()
+  const fieldTeamId = String(field?.teamId ?? field?.team_id ?? '').trim()
+
+  if (!activeTeamId || fieldTeamId !== activeTeamId) {
+    throw new Error('Development fields can only be managed for your current team.')
   }
 }
 
@@ -32,11 +44,19 @@ export async function getConfiguredFormFields({ user } = {}) {
   }
 
   const loadConfiguredFields = async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from('form_fields')
       .select('*')
       .eq('club_id', user.clubId)
       .order('order_index', { ascending: true })
+
+    if (user.activeTeamId) {
+      query = query.or(`is_default.eq.true,team_id.eq.${user.activeTeamId}`)
+    } else {
+      query = query.eq('is_default', true)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error(error)
@@ -97,9 +117,14 @@ export async function addFormField({ user, field }) {
   })
 
   const nextOrderIndex = Number(field.orderIndex ?? Date.now())
+  const teamScopedField = {
+    ...field,
+    teamId: user.activeTeamId,
+  }
+  assertActiveTeamField(user, teamScopedField)
   const payload = mapFormFieldToRow(
     {
-      ...field,
+      ...teamScopedField,
       createdBy: getEntryUserId(user),
       createdByName: getEntryUserName(user),
       createdByEmail: getEntryUserEmail(user),
@@ -126,23 +151,32 @@ export async function updateFormField(id, fieldData, user) {
     featureName: 'customFormFields',
   })
 
-  let safeFieldData = fieldData
+  const { data: existingField, error: existingFieldError } = await supabase
+    .from('form_fields')
+    .select('id, team_id, is_default, type')
+    .eq('id', id)
+    .single()
+
+  if (existingFieldError) {
+    console.error(existingFieldError)
+    throw existingFieldError
+  }
+
+  if (existingField?.is_default) {
+    throw new Error('Default development fields cannot be edited from team-level access.')
+  }
+
+  assertActiveTeamField(user, existingField)
+
+  let safeFieldData = {
+    ...fieldData,
+    teamId: existingField.team_id,
+  }
 
   if (fieldData?.includeInProgressChart !== undefined && fieldData.type === undefined) {
-    const { data: currentField, error: currentFieldError } = await supabase
-      .from('form_fields')
-      .select('type')
-      .eq('id', id)
-      .maybeSingle()
-
-    if (currentFieldError) {
-      console.error(currentFieldError)
-      throw currentFieldError
-    }
-
     safeFieldData = {
-      ...fieldData,
-      type: currentField?.type,
+      ...safeFieldData,
+      type: existingField?.type,
     }
   }
 
@@ -175,7 +209,24 @@ export async function deleteFormField(id, user = null) {
     featureName: 'customFormFields',
   })
 
-  const { error } = await supabase.from('form_fields').delete().eq('id', id)
+  const { data: existingField, error: existingFieldError } = await supabase
+    .from('form_fields')
+    .select('id, team_id, is_default')
+    .eq('id', id)
+    .single()
+
+  if (existingFieldError) {
+    console.error(existingFieldError)
+    throw existingFieldError
+  }
+
+  if (existingField?.is_default) {
+    throw new Error('Default development fields cannot be deleted.')
+  }
+
+  assertActiveTeamField(user, existingField)
+
+  const { error } = await supabase.from('form_fields').delete().eq('id', id).eq('team_id', user.activeTeamId)
 
   if (error) {
     console.error(error)
@@ -193,12 +244,13 @@ export async function reorderFormFields(fields, user) {
   })
 
   await Promise.all(
-    fields.map((field, index) =>
+    fields.filter((field) => !field.isDefault).map((field, index) =>
       updateFormField(
         field.id,
         {
           ...field,
           clubId: field.clubId ?? user?.clubId ?? '',
+          teamId: user?.activeTeamId ?? '',
           orderIndex: index + 1,
         },
         user,

@@ -220,6 +220,7 @@ function FormFieldCard({
       ? 'This field is already at the bottom.'
       : undefined
   const savingDisabledReason = isSaving ? 'Please wait while field changes are being saved.' : undefined
+  const defaultFieldDisabledReason = field.isDefault ? 'Default fields are shared and cannot be changed from team-level access.' : undefined
 
   return (
     <div
@@ -352,6 +353,9 @@ function FormFieldCard({
                 className="h-5 w-5 rounded border-[#d7e5dc] bg-white accent-[#047857]"
               />
               <span>Include in progression chart</span>
+              <span className="text-sm font-semibold leading-6 text-[#4b5f55]">
+                Use this score when building player progression charts.
+              </span>
             </label>
           ) : null}
         </div>
@@ -359,8 +363,8 @@ function FormFieldCard({
         <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:flex-col">
           <button
             type="button"
-            disabled={isSaving || fieldIndex === 0}
-            title={moveUpDisabledReason}
+            disabled={isSaving || field.isDefault || fieldIndex === 0}
+            title={defaultFieldDisabledReason || moveUpDisabledReason}
             onClick={() => onMoveField(field.id, -1)}
             className={secondaryButtonClass}
           >
@@ -368,8 +372,8 @@ function FormFieldCard({
           </button>
           <button
             type="button"
-            disabled={isSaving || fieldIndex === fieldsCount - 1}
-            title={moveDownDisabledReason}
+            disabled={isSaving || field.isDefault || fieldIndex === fieldsCount - 1}
+            title={defaultFieldDisabledReason || moveDownDisabledReason}
             onClick={() => onMoveField(field.id, 1)}
             className={secondaryButtonClass}
           >
@@ -377,8 +381,8 @@ function FormFieldCard({
           </button>
           <button
             type="button"
-            disabled={isSaving}
-            title={savingDisabledReason}
+            disabled={isSaving || field.isDefault}
+            title={defaultFieldDisabledReason || savingDisabledReason}
             onClick={() => onToggleEnabled(field)}
             className={secondaryButtonClass}
           >
