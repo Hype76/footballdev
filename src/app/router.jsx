@@ -715,7 +715,7 @@ function RequirePlayerWorkflowAccess() {
     return <RecoveryPhaseBlockedState />
   }
 
-  if (location.pathname === '/calendar' && isClubAdmin(user)) {
+  if ((location.pathname === '/calendar' || location.pathname.startsWith('/calendar/')) && isClubAdmin(user)) {
     return <Outlet />
   }
 

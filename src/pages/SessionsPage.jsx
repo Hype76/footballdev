@@ -386,7 +386,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
-  const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'assigned'
+  const isClubWideCalendar = calendarOnly && isClubAdmin(user) && !user?.activeTeamId
+  const activeTeamScope = isClubWideCalendar ? 'club-wide' : user?.activeTeamId || user?.activeTeamName || 'assigned'
   const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
   const workspaceStorageKey = user?.clubId ? `session-workspace:${user.clubId}:${user.id}:${activeTeamScope}` : ''
   const storedSessionWorkspace = useMemo(
@@ -505,14 +506,14 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const openSessionCount = combinedSessions.filter((session) => session.status !== 'completed').length
   const calendarEvents = useMemo(
     () => buildFootballCalendarEvents({
-      assessmentReminders,
+      assessmentReminders: isClubWideCalendar ? [] : assessmentReminders,
       calendarEvents: calendarItems,
-      evaluations,
-      matchDays,
-      polls,
-      sessions: combinedSessions,
+      evaluations: isClubWideCalendar ? [] : evaluations,
+      matchDays: isClubWideCalendar ? [] : matchDays,
+      polls: isClubWideCalendar ? [] : polls,
+      sessions: isClubWideCalendar ? [] : combinedSessions,
     }),
-    [assessmentReminders, calendarItems, combinedSessions, evaluations, matchDays, polls],
+    [assessmentReminders, calendarItems, combinedSessions, evaluations, isClubWideCalendar, matchDays, polls],
   )
   const calendarInvitePlayers = useMemo(
     () => getCalendarInvitePlayers(players, getSafeCalendarTeamId(user, calendarForm.teamId)),
@@ -556,6 +557,61 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       setErrorMessage('')
 
       try {
+        if (isClubWideCalendar) {
+          const [teamsResult, calendarItemsResult] = await Promise.allSettled([
+            withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
+            withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.'),
+          ])
+
+          if (!isMounted) {
+            return
+          }
+
+          const nextTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : cachedValue?.teams || []
+          const nextCalendarItems =
+            calendarItemsResult.status === 'fulfilled' ? calendarItemsResult.value : cachedValue?.calendarItems || []
+
+          if (teamsResult.status === 'rejected') {
+            console.error(teamsResult.reason)
+          }
+
+          if (calendarItemsResult.status === 'rejected') {
+            console.error(calendarItemsResult.reason)
+          }
+
+          setSessions([])
+          setPlayers([])
+          setTeams(nextTeams)
+          setEvaluations([])
+          setMatchDays([])
+          setPolls([])
+          setCalendarItems(nextCalendarItems)
+          setCalendarInvites([])
+          setAssessmentReminders([])
+          setSelectedSessionId('')
+          setSessionForm((current) => ({
+            ...current,
+            teamId: '',
+            team: '',
+          }))
+          writeViewCache(cacheKey, {
+            sessions: [],
+            players: [],
+            teams: nextTeams,
+            evaluations: [],
+            matchDays: [],
+            polls: [],
+            calendarItems: nextCalendarItems,
+            calendarInvites: [],
+            assessmentReminders: [],
+          })
+
+          if (teamsResult.status === 'rejected' || calendarItemsResult.status === 'rejected') {
+            setErrorMessage('Some calendar data could not be refreshed. Existing data is still available where possible.')
+          }
+          return
+        }
+
         const [
           sessionsResult,
           playersResult,
@@ -704,7 +760,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, completedSessionId, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
+  }, [cacheKey, completedSessionId, isClubWideCalendar, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
@@ -845,7 +901,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     }))
   }, [selectedSession])
 
-  if (!canCreateEvaluation(user)) {
+  if (!canCreateEvaluation(user) && !(calendarOnly && isClubAdmin(user))) {
     return <Navigate to="/" replace />
   }
 
