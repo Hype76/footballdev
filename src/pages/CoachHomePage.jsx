@@ -6,6 +6,7 @@ import {
   getAssessmentSessions,
   getEvaluations,
   getPlayers,
+  getUnassignedStaffVoiceNotes,
   readViewCache,
   withRequestTimeout,
   writeViewCache,
@@ -80,6 +81,28 @@ function getEvaluationContextLabel(evaluation, user) {
   return `Team: ${evaluation.team || user?.activeTeamName || 'Team not set'}, Score: ${evaluation.averageScore ?? 'Not scored'}`
 }
 
+function formatVoiceNoteDate(value) {
+  const date = new Date(value)
+
+  if (!value || !Number.isFinite(date.getTime())) {
+    return 'Recently saved'
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function formatVoiceNoteDuration(seconds) {
+  const value = Math.max(0, Number(seconds) || 0)
+  const minutes = Math.floor(value / 60)
+  const remainder = String(value % 60).padStart(2, '0')
+  return `${minutes}:${remainder}`
+}
+
 function getCoachGreeting(user) {
   const hour = new Date().getHours()
   const greeting = hour >= 5 && hour < 12
@@ -102,6 +125,7 @@ export function CoachHomePage() {
   const [players, setPlayers] = useState(() => cachedValue?.players || [])
   const [evaluations, setEvaluations] = useState(() => cachedValue?.evaluations || [])
   const [sessionPlayers, setSessionPlayers] = useState(() => cachedValue?.sessionPlayers || [])
+  const [unassignedVoiceNotes, setUnassignedVoiceNotes] = useState(() => cachedValue?.unassignedVoiceNotes || [])
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
   const activeSession = useMemo(() => getActiveSession(sessions), [sessions])
@@ -156,10 +180,11 @@ export function CoachHomePage() {
       setErrorMessage('')
 
       try {
-        const [sessionsResult, playersResult, evaluationsResult] = await Promise.allSettled([
+        const [sessionsResult, playersResult, evaluationsResult, voiceNotesResult] = await Promise.allSettled([
           withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.'),
+          withRequestTimeout(() => getUnassignedStaffVoiceNotes({ user, limit: 5 }), 'Could not load voice notes.'),
         ])
 
         if (!isMounted) {
@@ -170,6 +195,8 @@ export function CoachHomePage() {
         const nextPlayers = playersResult.status === 'fulfilled' ? playersResult.value : cachedValue?.players || []
         const nextEvaluations =
           evaluationsResult.status === 'fulfilled' ? evaluationsResult.value : cachedValue?.evaluations || []
+        const nextUnassignedVoiceNotes =
+          voiceNotesResult.status === 'fulfilled' ? voiceNotesResult.value : cachedValue?.unassignedVoiceNotes || []
         const nextActiveSession = getActiveSession(nextSessions)
         const nextSessionPlayers = nextActiveSession?.id
           ? await withRequestTimeout(
@@ -189,14 +216,16 @@ export function CoachHomePage() {
         setPlayers(nextPlayers)
         setEvaluations(nextEvaluations)
         setSessionPlayers(nextSessionPlayers)
+        setUnassignedVoiceNotes(nextUnassignedVoiceNotes)
         writeViewCache(cacheKey, {
           sessions: nextSessions,
           players: nextPlayers,
           evaluations: nextEvaluations,
           sessionPlayers: nextSessionPlayers,
+          unassignedVoiceNotes: nextUnassignedVoiceNotes,
         })
 
-        if ([sessionsResult, playersResult, evaluationsResult].some((result) => result.status === 'rejected')) {
+        if ([sessionsResult, playersResult, evaluationsResult, voiceNotesResult].some((result) => result.status === 'rejected')) {
           setErrorMessage('Some coach data could not be refreshed. Cached data is shown where available.')
         }
       } finally {
@@ -286,6 +315,44 @@ export function CoachHomePage() {
           <CoachMetric key={item.label} label={item.label} value={item.value} isLoading={isLoading} />
         ))}
       </section>
+
+      {unassignedVoiceNotes.length > 0 ? (
+        <section className={surfaceClass}>
+          <div className={sectionHeaderClass}>
+            <div>
+              <p className={eyebrowClass}>Staff voice notes</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Unassigned voice notes</h2>
+              <p className={`mt-2 ${bodyTextClass}`}>
+                Private staff recordings saved from quick add. Assign them to player records when ready.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-2">
+            {unassignedVoiceNotes.map((note) => (
+              <div key={note.id} className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-[#101828]">{note.note || 'Staff voice note'}</p>
+                    <p className="mt-1 text-xs font-bold text-[#4b5f55]">
+                      {formatVoiceNoteDate(note.createdAt)} | {formatVoiceNoteDuration(note.audioDurationSeconds)}
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-[#b6d8c5] bg-white px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#065f46]">
+                    Staff only
+                  </span>
+                </div>
+                {note.audioUrl ? (
+                  <audio controls src={note.audioUrl} className="mt-4 w-full" />
+                ) : (
+                  <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-bold text-[#4b5f55]">
+                    Audio preview is unavailable. Try refreshing the page.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className={surfaceClass}>
         <div className={sectionHeaderClass}>

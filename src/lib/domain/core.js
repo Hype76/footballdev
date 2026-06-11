@@ -1348,7 +1348,7 @@ export async function createPlayerStaffNote({ user, playerId, sessionId = '', no
   const normalizedNote = String(note ?? '').trim()
   const hasAudio = Boolean(audioBlob)
 
-  if (!user?.clubId || !user?.id || (!playerId && !sessionId) || (!normalizedNote && !hasAudio)) {
+  if (!user?.clubId || !user?.id || (!normalizedNote && !hasAudio)) {
     throw new Error('Add a note before saving.')
   }
 
@@ -1402,6 +1402,92 @@ export async function createPlayerStaffNote({ user, playerId, sessionId = '', no
   return noteWithAudioUrl
 }
 
+export async function assignPlayerStaffNote({ user, noteId, playerId } = {}) {
+  await blockDemoMutation(user)
+
+  const normalizedNoteId = String(noteId ?? '').trim()
+  const normalizedPlayerId = String(playerId ?? '').trim()
+
+  if (!user?.clubId || !user?.id || !normalizedNoteId || !normalizedPlayerId) {
+    throw new Error('Choose a player before assigning this voice note.')
+  }
+
+  const [{ data: noteData, error: noteError }, { data: playerData, error: playerError }] = await Promise.all([
+    supabase
+      .from('player_staff_notes')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .eq('id', normalizedNoteId)
+      .single(),
+    supabase
+      .from('players')
+      .select('*')
+      .eq('club_id', user.clubId)
+      .eq('id', normalizedPlayerId)
+      .single(),
+  ])
+
+  if (noteError || !noteData) {
+    console.error(noteError)
+    throw new Error('Voice note could not be found.')
+  }
+
+  if (playerError || !playerData) {
+    console.error(playerError)
+    throw new Error('Player could not be found.')
+  }
+
+  const activeTeamId = String(user.activeTeamId ?? '').trim()
+  const activeTeamName = String(user.activeTeamName ?? '').trim().toLowerCase()
+  const playerTeamId = String(playerData.team_id ?? '').trim()
+  const playerTeamName = String(playerData.team ?? '').trim().toLowerCase()
+
+  if (activeTeamId && playerTeamId && activeTeamId !== playerTeamId) {
+    throw new Error('Choose a player from your current team.')
+  }
+
+  if (activeTeamName && playerTeamName && activeTeamName !== playerTeamName) {
+    throw new Error('Choose a player from your current team.')
+  }
+
+  const noteOwnerId = String(noteData.user_id ?? '').trim()
+  const canAssignOtherStaffNotes = Number(user.roleRank ?? 0) >= 50 || user.role === 'admin'
+
+  if (noteOwnerId && noteOwnerId !== String(user.id) && !canAssignOtherStaffNotes) {
+    throw new Error('You can only assign voice notes you recorded.')
+  }
+
+  const { data, error } = await supabase
+    .from('player_staff_notes')
+    .update({ player_id: normalizedPlayerId })
+    .eq('club_id', user.clubId)
+    .eq('id', normalizedNoteId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  try {
+    await createCommunicationLog({
+      user,
+      playerId: normalizedPlayerId,
+      channel: 'voice_note',
+      action: 'voice_note_assigned',
+      metadata: {
+        noteId: normalizedNoteId,
+      },
+    })
+  } catch (logError) {
+    console.error('Voice note assignment could not be logged', logError)
+  }
+
+  const [noteWithAudioUrl] = await attachStaffVoiceNoteUrls([normalizePlayerStaffNoteRow(data)])
+  return noteWithAudioUrl
+}
+
 export async function getPlayerStaffNotes({ user, playerId, limit = 50 } = {}) {
   if (!user?.clubId || !playerId) {
     return []
@@ -1414,6 +1500,34 @@ export async function getPlayerStaffNotes({ user, playerId, limit = 50 } = {}) {
     .eq('player_id', playerId)
     .order('created_at', { ascending: false })
     .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return attachStaffVoiceNoteUrls((data ?? []).map(normalizePlayerStaffNoteRow))
+}
+
+export async function getUnassignedStaffVoiceNotes({ user, limit = 10 } = {}) {
+  if (!user?.clubId || !user?.id) {
+    return []
+  }
+
+  let query = supabase
+    .from('player_staff_notes')
+    .select('*')
+    .eq('club_id', user.clubId)
+    .is('player_id', null)
+    .is('session_id', null)
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 10, 1), 25))
+
+  if (Number(user.roleRank ?? 0) < 50 && user.role !== 'admin') {
+    query = query.eq('user_id', user.id)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error(error)

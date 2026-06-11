@@ -1,5 +1,6 @@
 export {
   archivePlayer,
+  assignPlayerStaffNote,
   createCommunicationLog,
   createPlayerStaffNote,
   deletePlayerStaffNote,
@@ -12,6 +13,7 @@ export {
   getAssessmentReminderLogs,
   getPlayerStaffNotes,
   getSessionStaffNotes,
+  getUnassignedStaffVoiceNotes,
   getPlayers,
   movePlayerToTrial,
   promotePlayerToSquad,

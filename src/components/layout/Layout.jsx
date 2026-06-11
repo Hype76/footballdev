@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useMatches } from 'react-router-dom'
 import { canCreateEvaluation, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
-import { createAuditLog } from '../../lib/supabase.js'
+import {
+  assignPlayerStaffNote,
+  createAuditLog,
+  createPlayerStaffNote,
+  getPlayers,
+} from '../../lib/supabase.js'
+import { getRecorderOptions } from '../../lib/session-page-utils.js'
 import {
   THEME_ACCENT_STORAGE_KEY,
   THEME_BUTTON_STYLE_STORAGE_KEY,
@@ -308,6 +314,7 @@ export function Layout() {
 
 function QuickActionHotbar({ user }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isVoiceNoteOpen, setIsVoiceNoteOpen] = useState(false)
   const panelRef = useRef(null)
   const canShowQuickActions =
     Boolean(user?.clubId)
@@ -353,38 +360,471 @@ function QuickActionHotbar({ user }) {
     { label: 'Add Session', href: '/sessions/start?action=create-session' },
     { label: 'Add Assessment', href: '/assess-player/new?choosePlayer=1' },
     { label: 'Add Event', href: '/calendar?action=add-event' },
+    { label: 'Add Voice Note', type: 'voice-note' },
   ]
 
   return (
-    <div ref={panelRef} className="fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3">
-      {isOpen ? (
-        <div className="w-[min(18rem,calc(100vw-2.5rem))] rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-2xl shadow-[#047857]/20">
-          <p className="px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Quick add</p>
-          <div className="grid gap-1.5">
-            {actions.map((action) => (
-              <Link
-                key={action.href}
-                to={action.href}
-                onClick={() => setIsOpen(false)}
-                className="flex min-h-12 items-center justify-between rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
-              >
-                <span>{action.label}</span>
-                <span aria-hidden="true">+</span>
-              </Link>
-            ))}
+    <>
+      <div ref={panelRef} className="fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3">
+        {isOpen ? (
+          <div className="w-[min(18rem,calc(100vw-2.5rem))] rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-2xl shadow-[#047857]/20">
+            <p className="px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Quick add</p>
+            <div className="grid gap-1.5">
+              {actions.map((action) => (
+                action.href ? (
+                  <Link
+                    key={action.href}
+                    to={action.href}
+                    onClick={() => setIsOpen(false)}
+                    className="flex min-h-12 items-center justify-between rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+                  >
+                    <span>{action.label}</span>
+                    <span aria-hidden="true">+</span>
+                  </Link>
+                ) : (
+                  <button
+                    key={action.type}
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false)
+                      setIsVoiceNoteOpen(true)
+                    }}
+                    className="flex min-h-12 items-center justify-between rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-left text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+                  >
+                    <span>{action.label}</span>
+                    <span aria-hidden="true">+</span>
+                  </button>
+                )
+              ))}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen((current) => !current)}
-        aria-expanded={isOpen}
-        aria-label={isOpen ? 'Close quick actions' : 'Open quick actions'}
-        className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-[#bbf7d0] bg-[#047857] text-3xl font-black leading-none text-white shadow-xl shadow-[#047857]/30 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-[var(--app-bg)]"
-      >
-        +
-      </button>
+        <button
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+          aria-expanded={isOpen}
+          aria-label={isOpen ? 'Close quick actions' : 'Open quick actions'}
+          className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-[#bbf7d0] bg-[#047857] text-3xl font-black leading-none text-white shadow-xl shadow-[#047857]/30 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#0f9f6e] focus:ring-offset-2 focus:ring-offset-[var(--app-bg)]"
+        >
+          +
+        </button>
+      </div>
+
+      <QuickVoiceNoteModal
+        isOpen={isVoiceNoteOpen}
+        onClose={() => setIsVoiceNoteOpen(false)}
+        user={user}
+      />
+    </>
+  )
+}
+
+function formatVoiceNoteDuration(seconds) {
+  const value = Math.max(0, Number(seconds) || 0)
+  const minutes = Math.floor(value / 60)
+  const remainder = String(value % 60).padStart(2, '0')
+  return `${minutes}:${remainder}`
+}
+
+function stopVoiceNoteStream(stream) {
+  stream?.getTracks?.().forEach((track) => track.stop())
+}
+
+function getVoiceNoteErrorMessage(error) {
+  if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+    return 'Microphone access is needed to record a voice note.'
+  }
+
+  return error?.message || 'Voice note could not be recorded.'
+}
+
+function QuickVoiceNoteModal({ isOpen, onClose, user }) {
+  const [status, setStatus] = useState('idle')
+  const [errorMessage, setErrorMessage] = useState('')
+  const [audioBlob, setAudioBlob] = useState(null)
+  const [audioUrl, setAudioUrl] = useState('')
+  const [durationSeconds, setDurationSeconds] = useState(0)
+  const [savedNote, setSavedNote] = useState(null)
+  const [players, setPlayers] = useState([])
+  const [playerSearch, setPlayerSearch] = useState('')
+  const [isLoadingPlayers, setIsLoadingPlayers] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isAssigning, setIsAssigning] = useState(false)
+  const mediaRecorderRef = useRef(null)
+  const recordingChunksRef = useRef([])
+  const recordingStartedAtRef = useRef(0)
+  const streamRef = useRef(null)
+
+  const resetModal = () => {
+    const recorder = mediaRecorderRef.current
+    if (recorder?.state === 'recording') {
+      recorder.onstop = null
+      recorder.stop()
+    }
+
+    stopVoiceNoteStream(streamRef.current)
+    streamRef.current = null
+    mediaRecorderRef.current = null
+    recordingChunksRef.current = []
+    recordingStartedAtRef.current = 0
+    setStatus('idle')
+    setErrorMessage('')
+    setAudioBlob(null)
+    setAudioUrl((currentUrl) => {
+      if (currentUrl) {
+        globalThis.URL?.revokeObjectURL?.(currentUrl)
+      }
+      return ''
+    })
+    setDurationSeconds(0)
+    setSavedNote(null)
+    setPlayers([])
+    setPlayerSearch('')
+    setIsLoadingPlayers(false)
+    setIsSaving(false)
+    setIsAssigning(false)
+  }
+
+  const handleClose = () => {
+    resetModal()
+    onClose()
+  }
+
+  useEffect(() => {
+    return () => {
+      stopVoiceNoteStream(streamRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        globalThis.URL?.revokeObjectURL?.(audioUrl)
+      }
+    }
+  }, [audioUrl])
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetModal()
+    }
+  }, [isOpen])
+
+  if (!isOpen) {
+    return null
+  }
+
+  const filteredPlayers = players.filter((player) => {
+    const searchValue = playerSearch.trim().toLowerCase()
+    if (!searchValue) {
+      return true
+    }
+
+    return [player.playerName, player.section, player.team]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(searchValue))
+  })
+
+  const startRecording = async () => {
+    setErrorMessage('')
+
+    if (!globalThis.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+      setErrorMessage('Voice recording is not supported in this browser.')
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new globalThis.MediaRecorder(stream, getRecorderOptions())
+      streamRef.current = stream
+      recordingChunksRef.current = []
+      recordingStartedAtRef.current = Date.now()
+      setAudioBlob(null)
+      setSavedNote(null)
+      setDurationSeconds(0)
+
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) {
+          recordingChunksRef.current.push(event.data)
+        }
+      }
+
+      recorder.onstop = () => {
+        const chunks = recordingChunksRef.current
+        const nextDurationSeconds = Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+        stopVoiceNoteStream(stream)
+        streamRef.current = null
+        mediaRecorderRef.current = null
+        recordingChunksRef.current = []
+        recordingStartedAtRef.current = 0
+
+        if (chunks.length === 0) {
+          setStatus('idle')
+          setErrorMessage('No audio was captured. Try recording again.')
+          return
+        }
+
+        const nextBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+        const nextAudioUrl = globalThis.URL?.createObjectURL?.(nextBlob) || ''
+        setAudioBlob(nextBlob)
+        setAudioUrl((currentUrl) => {
+          if (currentUrl) {
+            globalThis.URL?.revokeObjectURL?.(currentUrl)
+          }
+          return nextAudioUrl
+        })
+        setDurationSeconds(nextDurationSeconds)
+        setStatus('recorded')
+      }
+
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      setStatus('recording')
+    } catch (error) {
+      console.error(error)
+      stopVoiceNoteStream(streamRef.current)
+      streamRef.current = null
+      setStatus('idle')
+      setErrorMessage(getVoiceNoteErrorMessage(error))
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop()
+    }
+  }
+
+  const saveVoiceNote = async () => {
+    if (!audioBlob || isSaving) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      const nextNote = await createPlayerStaffNote({
+        user,
+        playerId: '',
+        sessionId: '',
+        note: 'Unassigned staff voice note',
+        audioBlob,
+        audioDurationSeconds: durationSeconds,
+      })
+      setSavedNote(nextNote)
+      setStatus('saved')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Voice note could not be saved.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const loadPlayersForAssign = async () => {
+    setIsLoadingPlayers(true)
+    setErrorMessage('')
+
+    try {
+      const nextPlayers = await getPlayers({ user })
+      setPlayers(nextPlayers)
+      setStatus('assigning')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Players could not be loaded.')
+    } finally {
+      setIsLoadingPlayers(false)
+    }
+  }
+
+  const assignToPlayer = async (player) => {
+    if (!savedNote?.id || !player?.id || isAssigning) {
+      return
+    }
+
+    setIsAssigning(true)
+    setErrorMessage('')
+
+    try {
+      const nextNote = await assignPlayerStaffNote({
+        user,
+        noteId: savedNote.id,
+        playerId: player.id,
+      })
+      setSavedNote(nextNote)
+      setStatus('assigned')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Voice note could not be assigned.')
+    } finally {
+      setIsAssigning(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#00150b]/70 px-3 py-4 backdrop-blur-sm sm:items-center">
+      <div className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-[#2f513c] bg-[#07150d] p-4 text-white shadow-2xl shadow-black/40 sm:p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ccff1a]">Staff only</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight">Add voice note</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#b8c7bd]">
+              Capture a quick staff note now. It stays private until you assign it to a player record.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#2f513c] bg-[#0f2617] text-sm font-black text-white transition hover:border-[#ccff1a]"
+          >
+            X
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-lg border border-[#2f513c] bg-[#0f2617] p-4">
+          {status === 'recording' ? (
+            <div>
+              <p className="text-lg font-black text-[#f6fff0]">Recording now</p>
+              <p className="mt-2 text-sm font-semibold text-[#b8c7bd]">Tap stop when the note is finished.</p>
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14]"
+              >
+                Stop recording
+              </button>
+            </div>
+          ) : null}
+
+          {status === 'idle' ? (
+            <button
+              type="button"
+              onClick={startRecording}
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14]"
+            >
+              Start recording
+            </button>
+          ) : null}
+
+          {status === 'recorded' ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-lg font-black text-[#f6fff0]">Preview voice note</p>
+                <p className="mt-1 text-sm font-semibold text-[#b8c7bd]">Length {formatVoiceNoteDuration(durationSeconds)}</p>
+              </div>
+              {audioUrl ? <audio controls src={audioUrl} className="w-full" /> : null}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={saveVoiceNote}
+                  disabled={isSaving}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSaving ? 'Saving...' : 'Save voice note'}
+                </button>
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  disabled={isSaving}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#2f513c] bg-[#07150d] px-4 py-3 text-sm font-black text-white transition hover:border-[#ccff1a] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Record again
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {status === 'saved' ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-lg font-black text-[#f6fff0]">Voice note saved</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#b8c7bd]">
+                  Assign it to a player now, or continue and find it later in unassigned staff voice notes.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={loadPlayersForAssign}
+                  disabled={isLoadingPlayers}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLoadingPlayers ? 'Loading players...' : 'Assign to player'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#2f513c] bg-[#07150d] px-4 py-3 text-sm font-black text-white transition hover:border-[#ccff1a]"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {status === 'assigning' ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-lg font-black text-[#f6fff0]">Assign to player</p>
+                <p className="mt-2 text-sm font-semibold text-[#b8c7bd]">Choose a squad or trial player from this team.</p>
+              </div>
+              <input
+                type="search"
+                value={playerSearch}
+                onChange={(event) => setPlayerSearch(event.target.value)}
+                placeholder="Search players"
+                className="min-h-12 w-full rounded-lg border border-[#2f513c] bg-[#07150d] px-3 py-2 text-sm font-bold text-white outline-none transition placeholder:text-[#7f9388] focus:border-[#ccff1a]"
+              />
+              <div className="grid max-h-72 gap-2 overflow-y-auto pr-1">
+                {filteredPlayers.map((player) => (
+                  <button
+                    key={player.id}
+                    type="button"
+                    onClick={() => assignToPlayer(player)}
+                    disabled={isAssigning}
+                    className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-[#2f513c] bg-[#07150d] px-3 py-2 text-left transition hover:border-[#ccff1a] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span>
+                      <span className="block text-sm font-black text-white">{player.playerName}</span>
+                      <span className="mt-1 block text-xs font-bold text-[#b8c7bd]">{player.section || 'Squad'} | {player.team || user?.activeTeamName || 'Current team'}</span>
+                    </span>
+                    <span className="text-xs font-black uppercase tracking-[0.12em] text-[#ccff1a]">Assign</span>
+                  </button>
+                ))}
+                {!isLoadingPlayers && filteredPlayers.length === 0 ? (
+                  <p className="rounded-lg border border-[#2f513c] bg-[#07150d] px-3 py-4 text-sm font-bold text-[#b8c7bd]">
+                    No players found for this team.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {status === 'assigned' ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-lg font-black text-[#f6fff0]">Voice note assigned</p>
+                <p className="mt-2 text-sm font-semibold text-[#b8c7bd]">It is now saved on that player staff record.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14]"
+              >
+                Continue
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {errorMessage ? (
+          <div className="mt-4 rounded-lg border border-[#fca5a5] bg-[#2b1111] px-4 py-3 text-sm font-bold text-[#fecaca]">
+            {errorMessage}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
