@@ -54,7 +54,9 @@ export async function getAssessmentSessions({ user } = {}) {
       throw error
     }
 
-    const normalizedSessions = (data ?? []).map(normalizeAssessmentSessionRow)
+    const normalizedSessions = (data ?? [])
+      .map(normalizeAssessmentSessionRow)
+      .filter((session) => session.status !== 'cancelled')
 
     if (teamNames.length === 0) {
       return normalizedSessions
@@ -409,7 +411,43 @@ export async function deleteAssessmentSession({ user, sessionId }) {
   })
 
   if (hasLinkedAssessment) {
-    throw new Error('This session has development records and cannot be deleted.')
+    const { data, error } = await supabase
+      .from('assessment_sessions')
+      .update({
+        status: 'cancelled',
+        updated_by: getEntryUserId(user),
+        ...getEntryIdentity(user, 'updated_by'),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
+      .eq('club_id', user.clubId)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error(error)
+      throw error
+    }
+
+    invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
+    invalidateMemoryCacheByPrefix(`assessment-session-players:${sessionId}`)
+    await createAuditLog({
+      user,
+      action: 'assessment_session_cancelled',
+      entityType: 'assessment_session',
+      entityId: sessionId,
+      metadata: {
+        title: data.title,
+        team: data.team,
+        sessionDate: data.session_date,
+        reason: 'removed_from_calendar_with_development_records',
+      },
+    })
+
+    return {
+      mode: 'cancelled',
+      session: normalizeAssessmentSessionRow(data),
+    }
   }
 
   const { data, error } = await supabase
@@ -438,6 +476,11 @@ export async function deleteAssessmentSession({ user, sessionId }) {
       sessionDate: data.session_date,
     },
   })
+
+  return {
+    mode: 'deleted',
+    session: normalizeAssessmentSessionRow(data),
+  }
 }
 
 export async function addPlayersToAssessmentSession({ user, sessionId, players }) {

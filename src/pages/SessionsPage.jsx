@@ -550,9 +550,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   )
   const deleteSessionDisabledReason = selectedSession?.isHistorical
     ? 'This is a development history group. It cannot be deleted as a session.'
-    : selectedSessionAssessmentCount > 0
-      ? 'Sessions with development records cannot be deleted.'
-      : ''
+    : ''
   const completedPlayerNames = useMemo(() => {
     const dbCompletedPlayerNames = getCompletedPlayerNamesFromEvaluations(evaluations, selectedSession, sessionPlayers)
     const localCompletedPlayerNames = readCompletedPlayerNames(user, selectedSessionId)
@@ -1393,16 +1391,28 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const assessmentCount = getAssessmentCountForSession(evaluations, activeEvent.data)
 
         if (assessmentCount > 0) {
-          throw new Error('Sessions with development records cannot be deleted.')
+          setDeleteSessionTarget({
+            session: activeEvent.data,
+            assessmentCount,
+            playerCount: 0,
+            source: 'calendar',
+          })
+          setCalendarModal(null)
+          return
         }
 
-        await deleteAssessmentSession({ user, sessionId: activeEvent.sourceId })
+        const deleteResult = await deleteAssessmentSession({ user, sessionId: activeEvent.sourceId })
         const nextSessions = sessions.filter((session) => session.id !== activeEvent.sourceId)
         const nextCalendarInvites = calendarInvites.filter((invite) => invite.assessmentSessionId !== activeEvent.sourceId)
         setSessions(nextSessions)
         setCalendarInvites(nextCalendarInvites)
         writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
-        showToast({ title: 'Session deleted', message: 'The session was removed.' })
+        showToast({
+          title: deleteResult?.mode === 'cancelled' ? 'Session removed' : 'Session deleted',
+          message: deleteResult?.mode === 'cancelled'
+            ? 'The session was removed from the calendar. Player records stay in history.'
+            : 'The session was removed.',
+        })
       } else if (activeEvent.sourceType === 'match-day') {
         const cancelledMatch = await updateMatchDay({
           user,
@@ -1495,15 +1505,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       return
     }
 
-    if (selectedSessionAssessmentCount > 0) {
-      setErrorMessage('This session has development records and cannot be deleted.')
-      return
-    }
-
     setDeleteSessionTarget({
       session: selectedSession,
       assessmentCount: selectedSessionAssessmentCount,
       playerCount: sessionPlayers.length,
+      source: 'session',
     })
   }
 
@@ -1516,13 +1522,18 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setErrorMessage('')
 
     try {
-      await verifyCurrentUserPassword(user?.email, password)
-      await deleteAssessmentSession({
+      if ((deleteSessionTarget.assessmentCount ?? 0) === 0) {
+        await verifyCurrentUserPassword(user?.email, password)
+      }
+
+      const deleteResult = await deleteAssessmentSession({
         user,
         sessionId: deleteSessionTarget.session.id,
       })
       const nextSessions = sessions.filter((session) => session.id !== deleteSessionTarget.session.id)
+      const nextCalendarInvites = calendarInvites.filter((invite) => invite.assessmentSessionId !== deleteSessionTarget.session.id)
       setSessions(nextSessions)
+      setCalendarInvites(nextCalendarInvites)
       setSessionPlayers([])
       setSelectedPlayerIds([])
       setDeleteSessionTarget(null)
@@ -1530,7 +1541,13 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       writeSessionCache({
         sessions: nextSessions,
       })
-      showToast({ title: 'Session deleted', message: 'The session was removed.' })
+      writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+      showToast({
+        title: deleteResult?.mode === 'cancelled' ? 'Session removed' : 'Session deleted',
+        message: deleteResult?.mode === 'cancelled'
+          ? 'The session was removed from the calendar. Player records stay in history.'
+          : 'The session was removed.',
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not delete this session.')
@@ -1814,7 +1831,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           </div>
         </section>
 
-        {errorMessage ? <NoticeBanner title="Calendar action not completed" message={errorMessage} /> : null}
+        {errorMessage ? <NoticeBanner title="Calendar needs attention" message={errorMessage} /> : null}
 
         <FootballCalendar
           cursor={calendarCursor}
@@ -2084,16 +2101,20 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       <ConfirmModal
         isOpen={Boolean(deleteSessionTarget)}
         isBusy={isSaving}
-        title="Delete session"
-        message="This removes the session and the player list. Sessions with development records cannot be deleted."
+        title={(deleteSessionTarget?.assessmentCount ?? 0) > 0 ? 'Remove this session from the calendar?' : 'Delete session'}
+        message={
+          (deleteSessionTarget?.assessmentCount ?? 0) > 0
+            ? "This session has saved player records attached. The player records will stay in each player's history, but the session will no longer appear as an active calendar item."
+            : 'This removes the session and the player list.'
+        }
         items={[
           `Session: ${deleteSessionTarget?.session?.title || deleteSessionTarget?.session?.team || 'Selected session'}`,
           `Players in session: ${deleteSessionTarget?.playerCount ?? 0}`,
           `Development records linked: ${deleteSessionTarget?.assessmentCount ?? 0}`,
         ]}
-        confirmLabel="Delete session"
+        confirmLabel={(deleteSessionTarget?.assessmentCount ?? 0) > 0 ? 'Remove session' : 'Delete session'}
         onCancel={() => setDeleteSessionTarget(null)}
-        requirePassword
+        requirePassword={(deleteSessionTarget?.assessmentCount ?? 0) === 0}
         onConfirm={(password) => void confirmDeleteSession(password)}
       />
 
