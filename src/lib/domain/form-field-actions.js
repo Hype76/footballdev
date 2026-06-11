@@ -34,7 +34,15 @@ function assertActiveTeamField(user, field = {}) {
   const fieldTeamId = String(field?.teamId ?? field?.team_id ?? '').trim()
 
   if (!fieldTeamId) {
-    throw new Error('This field is shared across the club. Create a new team field before changing it.')
+    if (field?.isDefault || field?.is_default) {
+      throw new Error('Default development fields cannot be changed from team-level access.')
+    }
+
+    if (!activeTeamId) {
+      throw new Error('Choose your current team before changing this field.')
+    }
+
+    return
   }
 
   if (!activeTeamId || fieldTeamId !== activeTeamId) {
@@ -174,7 +182,7 @@ export async function updateFormField(id, fieldData, user) {
 
   let safeFieldData = {
     ...fieldData,
-    teamId: existingField.team_id,
+    teamId: existingField.team_id ?? user.activeTeamId,
   }
 
   if (fieldData?.includeInProgressChart !== undefined && fieldData.type === undefined) {
@@ -229,6 +237,24 @@ export async function deleteFormField(id, user = null) {
   }
 
   assertActiveTeamField(user, existingField)
+
+  if (!existingField.team_id) {
+    const adoptionPayload = mapFormFieldToRow(
+      {
+        teamId: user.activeTeamId,
+      },
+      user,
+    )
+    const { error: adoptionError } = await supabase
+      .from('form_fields')
+      .update(adoptionPayload)
+      .eq('id', id)
+
+    if (adoptionError) {
+      console.error(adoptionError)
+      throw adoptionError
+    }
+  }
 
   const { error } = await supabase.from('form_fields').delete().eq('id', id).eq('team_id', user.activeTeamId)
 

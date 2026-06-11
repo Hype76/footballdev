@@ -220,12 +220,10 @@ function FormFieldCard({
       ? 'This field is already at the bottom.'
       : undefined
   const savingDisabledReason = isSaving ? 'Please wait while field changes are being saved.' : undefined
-  const isSharedField = field.isDefault || !field.teamId
+  const isSharedField = field.isDefault
   const protectedFieldDisabledReason = field.isDefault
     ? 'Default fields are shared and cannot be changed from team-level access.'
-    : !field.teamId
-      ? 'This legacy field is shared across the club. Create a new team field before changing it.'
-      : undefined
+    : undefined
 
   return (
     <div
@@ -355,8 +353,6 @@ function FormFieldCard({
 
                   onDraftChange(field.id, 'includeInProgressChart', event.target.checked)
                 }}
-                disabled={!field.teamId && !field.isDefault}
-                title={!field.teamId && !field.isDefault ? protectedFieldDisabledReason : undefined}
                 className="h-5 w-5 rounded border-[#d7e5dc] bg-white accent-[#047857]"
               />
               <span>Include in progression chart</span>
@@ -397,7 +393,7 @@ function FormFieldCard({
           </button>
           {isSharedField ? (
             <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#4b5f55]">
-              {field.isDefault ? 'Default field' : 'Shared field'}
+              Default field
             </div>
           ) : (
             <>
@@ -426,8 +422,8 @@ function FormFieldCard({
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{field.isDefault ? 'Default' : 'Custom'}</span>
-        {!field.teamId ? (
-          <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">Shared</span>
+        {!field.isDefault ? (
+          <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">Team field</span>
         ) : null}
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.required ? 'Required' : 'Optional'}</span>
