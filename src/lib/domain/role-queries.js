@@ -188,6 +188,10 @@ export async function getClubUserInvites(user) {
     return []
   }
 
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
+    return []
+  }
+
   const { data, error } = await supabase
     .from('club_user_invites')
     .select('*, teams:team_id (name)')

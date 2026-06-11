@@ -329,6 +329,21 @@ function RecoveryPhaseBlockedState() {
   )
 }
 
+function EmailTemplatesUnavailableState() {
+  return (
+    <RouteGateState
+      eyebrow="Email templates"
+      title="Email templates are managed by your club admin."
+      message="This area is not available for your current role or plan. Parent email templates stay managed by the club admin so staff use approved parent updates."
+      actions={(
+        <a href="/coach" className={secondaryActionClassName}>
+          Return to workspace
+        </a>
+      )}
+    />
+  )
+}
+
 function TeamContextRequiredState() {
   const { isProfileLoading, selectTeam, teamOptions } = useAuth()
 
@@ -863,15 +878,15 @@ function RequireParentEmailTemplatesAccess() {
   }
 
   if (!canManageParentEmailTemplates(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+    return <EmailTemplatesUnavailableState />
   }
 
   if (!isRecoveryModuleVisible('emailMessages', { user })) {
-    return <RecoveryPhaseBlockedState />
+    return <EmailTemplatesUnavailableState />
   }
 
   if (!hasPlanFeature(user, 'parentEmail')) {
-    return <RedirectToWorkspaceHome user={user} />
+    return <EmailTemplatesUnavailableState />
   }
 
   return <Outlet />

@@ -6,7 +6,7 @@ import { SectionCard } from '../ui/SectionCard.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
-const choiceCardClass = 'flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
+const choiceCardClass = 'flex min-h-24 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
 const optionCardClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10'
 const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5] sm:w-auto'
 
@@ -52,6 +52,16 @@ export function SubmitExportSection({
   shouldShowInviteDate,
 }) {
   const isEmailEnabled = previewMode === 'email'
+  const submitActionLabel = isEmailEnabled
+    ? emailSendMode === 'scheduled'
+      ? 'Save and Schedule Email'
+      : 'Save and Send Email'
+    : 'Save development record'
+  const submittingLabel = isEmailEnabled
+    ? emailSendMode === 'scheduled'
+      ? 'Saving and scheduling...'
+      : 'Saving and emailing...'
+    : 'Saving...'
   const submitDisabledReason = isSubmitting
     ? 'Please wait while this development record is being saved.'
     : !canSubmitEvaluation
@@ -131,34 +141,36 @@ export function SubmitExportSection({
             </label>
           ) : null}
 
-          <label className={choiceCardClass}>
-            <input
-              type="checkbox"
-              checked={Boolean(isPdfAttachmentApproved)}
-              onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
-            />
-            <span>
-              <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
-                Include the selected development details as a PDF attachment.
+          <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+            <label className={`${choiceCardClass} h-full`}>
+              <input
+                type="checkbox"
+                checked={Boolean(isPdfAttachmentApproved)}
+                onChange={(event) => onPdfAttachmentApprovedChange(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Attach development PDF</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Include the selected development details as a PDF attachment.
+                </span>
               </span>
-            </span>
-          </label>
-          <label className={choiceCardClass}>
-            <input
-              type="checkbox"
-              checked={Boolean(includeAttendanceSummary)}
-              onChange={(event) => onIncludeAttendanceSummaryChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
-            />
-            <span>
-              <span className="block text-sm font-black text-[#101828]">Include attendance summary</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
-                Add saved training and match involvement to the email and PDF.
+            </label>
+            <label className={`${choiceCardClass} h-full`}>
+              <input
+                type="checkbox"
+                checked={Boolean(includeAttendanceSummary)}
+                onChange={(event) => onIncludeAttendanceSummaryChange(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#d7e5dc] accent-[#047857]"
+              />
+              <span>
+                <span className="block text-sm font-black text-[#101828]">Include attendance summary</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">
+                  Add saved training and match involvement to the email and PDF.
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          </div>
           {isNoPlaceOfferedTemplate && canArchiveAfterNoPlace ? (
             <label className={`${choiceCardClass} md:col-span-2`}>
               <input
@@ -265,7 +277,7 @@ export function SubmitExportSection({
           title={submitDisabledReason}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {isSubmitting ? (isSendingParentEmail ? 'Saving and emailing...' : 'Saving...') : 'Save development record'}
+          {isSubmitting || isSendingParentEmail ? submittingLabel : submitActionLabel}
         </button>
         <button
           type="button"

@@ -11,7 +11,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
-import { canDeletePlayer, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
+import { canDeletePlayer, canManageParentEmailTemplates, canManageUsers, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   isInviteEmailTemplate,
@@ -512,6 +512,8 @@ export function CreateEvaluationPage() {
   const [nextAssessmentReminderTarget, setNextAssessmentReminderTarget] = useState(null)
   const [nextAssessmentReminderDate, setNextAssessmentReminderDate] = useState('')
   const [isSavingNextAssessmentReminder, setIsSavingNextAssessmentReminder] = useState(false)
+  const [completionModal, setCompletionModal] = useState(null)
+  const [completionNavigationUrl, setCompletionNavigationUrl] = useState('')
   const [archiveAfterNoPlace, setArchiveAfterNoPlace] = useState(false)
 
   const draftStorageKey = getDraftStorageKey(user)
@@ -1026,6 +1028,7 @@ export function CreateEvaluationPage() {
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
   const canSubmitEvaluation = availableTeams.length > 0
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
+  const canConfigureEmailTemplates = canManageParentEmailTemplates(user) && canUseParentEmail
   const assessmentPlayerOptions = useMemo(() => {
     const activeTeamId = String(user?.activeTeamId ?? '').trim()
     const activeTeamName = String(user?.activeTeamName ?? '').trim()
@@ -1108,6 +1111,66 @@ export function CreateEvaluationPage() {
   const noTeamsMessage = canManageUsers(user)
     ? 'No teams exist for this club yet. Create a team first, then development records can be assigned correctly.'
     : 'No teams exist for this club yet. Ask a manager to create a team before adding development records.'
+  const reminderMessage = previewMode === 'email'
+    ? emailSendMode === 'scheduled'
+      ? 'Set the next reminder before confirming the scheduled parent update.'
+      : 'Set the next reminder before confirming the parent update.'
+    : 'Do you want to set a reminder for the next development record?'
+  const reminderCancelLabel = previewMode === 'email'
+    ? emailSendMode === 'scheduled'
+      ? 'Not now, schedule email'
+      : 'Not now, send email'
+    : 'Not now, save only'
+  const reminderConfirmLabel = previewMode === 'email'
+    ? emailSendMode === 'scheduled'
+      ? 'Save Reminder and Schedule Email'
+      : 'Save Reminder and Send Email'
+    : 'Save Reminder'
+
+  const getCompletionModalForOutcome = ({ emailErrorMessage = '', outcome, playerName }) => {
+    if (outcome === 'sent') {
+      return {
+        title: 'Development record saved and email sent',
+        message: `${playerName} development record has been saved and the parent email has been sent.`,
+      }
+    }
+
+    if (outcome === 'scheduled') {
+      return {
+        title: 'Development record saved and email scheduled',
+        message: `${playerName} development record has been saved and the parent email has been scheduled.`,
+      }
+    }
+
+    if (outcome === 'send_failed') {
+      return {
+        title: 'Development record saved',
+        message: `${playerName} development record has been saved, but the parent email could not be sent. ${emailErrorMessage || 'Check the email details before sending again.'}`,
+      }
+    }
+
+    if (outcome === 'schedule_failed') {
+      return {
+        title: 'Development record saved',
+        message: `${playerName} development record has been saved, but the parent email could not be scheduled. ${emailErrorMessage || 'Check the scheduled send details before trying again.'}`,
+      }
+    }
+
+    return {
+      title: editingEvaluation ? 'Development record updated' : 'Development record saved',
+      message: `${playerName} development record has been saved.`,
+    }
+  }
+
+  const handleCompletionContinue = () => {
+    const nextUrl = completionNavigationUrl
+    setCompletionModal(null)
+    setCompletionNavigationUrl('')
+
+    if (nextUrl) {
+      navigate(nextUrl)
+    }
+  }
 
   useEffect(() => {
     setHasApprovedDefaultTemplate(false)
@@ -1404,6 +1467,8 @@ export function CreateEvaluationPage() {
 
     setIsSubmitting(true)
     setActionErrorMessage('')
+    let completionOutcome = 'saved'
+    let completionEmailErrorMessage = ''
 
     try {
       const normalizedPlayerName = normalizePlayerName(formData.playerName)
@@ -1553,14 +1618,11 @@ export function CreateEvaluationPage() {
               type: 'parent_message',
             })
           }
-          showToast({ title: isScheduledSend ? 'Email scheduled' : 'Email sent successfully' })
+          completionOutcome = isScheduledSend ? 'scheduled' : 'sent'
         } catch (emailError) {
           console.error('Email failed', emailError)
-          showToast({
-            title: 'Email not sent',
-            message: emailError.message || 'This development record was saved, but the email could not be sent right now.',
-            tone: 'error',
-          })
+          completionOutcome = emailSendMode === 'scheduled' ? 'schedule_failed' : 'send_failed'
+          completionEmailErrorMessage = emailError.message || ''
         }
       }
 
@@ -1617,14 +1679,11 @@ export function CreateEvaluationPage() {
         searchParams,
       })
 
-      if (postAssessmentNavigation.url) {
-        navigate(postAssessmentNavigation.url)
-        return
-      }
+      setCompletionNavigationUrl(postAssessmentNavigation.url || '')
 
       setLastSavedPlayerName(normalizedPlayerName)
       setSelectedParentContactIndexes([0])
-      if (!editingEvaluation) {
+      if (!editingEvaluation && !postAssessmentNavigation.url) {
         setFormData(
           createPostAssessmentFormData({
             currentSection: formData.section,
@@ -1638,10 +1697,11 @@ export function CreateEvaluationPage() {
       setLastUsedSession(postAssessmentNavigation.nextSessionValue)
       setIsSaved(true)
       setOfflineStatusMessage('')
-      showToast({
-        title: editingEvaluation ? 'Development record updated' : 'Development record saved',
-        message: `${normalizedPlayerName} development record has been saved.`,
-      })
+      setCompletionModal(getCompletionModalForOutcome({
+        emailErrorMessage: completionEmailErrorMessage,
+        outcome: completionOutcome,
+        playerName: normalizedPlayerName,
+      }))
       setArchiveAfterNoPlace(false)
       if (!isNoPlaceOfferedTemplate) {
         setNextAssessmentReminderTarget({
@@ -1735,10 +1795,6 @@ export function CreateEvaluationPage() {
           section: nextAssessmentReminderTarget.section,
         },
       })
-      showToast({
-        title: 'Reminder saved',
-        message: `Next development reminder set for ${nextAssessmentReminderDate}.`,
-      })
       setNextAssessmentReminderTarget(null)
       setNextAssessmentReminderDate('')
     } catch (error) {
@@ -1783,15 +1839,22 @@ export function CreateEvaluationPage() {
       <ConfirmModal
         isOpen={isDefaultTemplateConfirmOpen}
         title="Default template"
-        message="You are sending a default template. You can continue now, or open Templates to customise it first."
+        message={canConfigureEmailTemplates ? 'You are sending a default template. You can continue now, or open Templates to customise it first.' : 'You are sending a default template. Continue only if this message is suitable for the parent update.'}
         itemsTitle="Template"
         items={[
           selectedEmailTemplate?.label || 'Default template',
           `Recipient type: ${contactNounPlural}`,
         ]}
         confirmLabel="Continue"
-        cancelLabel="Configure Email Templates"
-        onCancel={() => navigate('/parent-email-templates')}
+        cancelLabel={canConfigureEmailTemplates ? 'Configure Email Templates' : 'Cancel'}
+        onCancel={() => {
+          if (canConfigureEmailTemplates) {
+            navigate('/parent-email-templates')
+            return
+          }
+
+          setIsDefaultTemplateConfirmOpen(false)
+        }}
         onClose={() => setIsDefaultTemplateConfirmOpen(false)}
         onConfirm={handleContinueWithDefaultTemplate}
       />
@@ -1811,9 +1874,9 @@ export function CreateEvaluationPage() {
         isOpen={Boolean(nextAssessmentReminderTarget) && !isNoPlaceOfferedTemplate}
         isBusy={isSavingNextAssessmentReminder}
         title="Set next development reminder"
-        message="Do you want to set a reminder for the next development record?"
-        cancelLabel="Not Now"
-        confirmLabel="Save Reminder"
+        message={reminderMessage}
+        cancelLabel={reminderCancelLabel}
+        confirmLabel={reminderConfirmLabel}
         confirmDisabled={!nextAssessmentReminderDate}
         onCancel={() => {
           setNextAssessmentReminderTarget(null)
@@ -1835,6 +1898,17 @@ export function CreateEvaluationPage() {
           />
         </label>
       </ConfirmModal>
+
+      <ConfirmModal
+        isOpen={Boolean(completionModal) && !nextAssessmentReminderTarget}
+        title={completionModal?.title || 'Development record saved'}
+        message={completionModal?.message || ''}
+        confirmLabel="Continue"
+        hideCancel
+        onCancel={handleCompletionContinue}
+        onClose={handleCompletionContinue}
+        onConfirm={handleCompletionContinue}
+      />
 
       <div className={isPrintingBlankView ? 'no-print' : ''}>
         <PageHeader

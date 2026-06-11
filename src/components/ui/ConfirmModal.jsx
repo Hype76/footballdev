@@ -5,6 +5,7 @@ export function ConfirmModal({
   children,
   confirmLabel = 'Confirm',
   confirmDisabled = false,
+  hideCancel = false,
   isBusy = false,
   isOpen,
   items = [],
@@ -166,15 +167,17 @@ export function ConfirmModal({
           </label>
         ) : null}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={handleCancel}
-            disabled={isBusy}
-            title={cancelDisabledReason}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {cancelLabel}
-          </button>
+          {hideCancel ? null : (
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={isBusy}
+              title={cancelDisabledReason}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {cancelLabel}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleConfirm}

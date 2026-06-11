@@ -453,7 +453,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
   const [isSavingVoiceNote, setIsSavingVoiceNote] = useState(false)
   const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] = useState(false)
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
@@ -544,7 +543,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       return
     }
 
-    setIsCreateSessionModalOpen(true)
+    handleOpenSessionCreateModal()
   // This reacts only to explicit route quick actions.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, setSearchParams])
@@ -934,14 +933,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     }
   }
 
-  const handleCreateSessionFromModal = async (event) => {
-    const created = await handleCreateSession(event)
-
-    if (created) {
-      setIsCreateSessionModalOpen(false)
-    }
-  }
-
   const handleSessionSetupFocus = () => {
     const setupSection = document.getElementById('session-setup')
 
@@ -990,6 +981,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
     })
     setCalendarModal({ mode: 'create', event: null })
+  }
+
+  const handleOpenSessionCreateModal = () => {
+    setErrorMessage('')
+    setCalendarForm({
+      ...getDefaultCalendarForm(formatLocalDate(new Date())),
+      eventType: 'training',
+      teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
+    })
+    setCalendarModal({ mode: 'create', event: null, variant: 'session' })
   }
 
   const handleCalendarEventOpen = (event) => {
@@ -1714,6 +1715,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           selectedInvitePlayers={selectedCalendarInvitePlayers}
           teams={teams}
           user={user}
+          variant={calendarModal?.variant || ''}
         />
       </div>
     )
@@ -1736,7 +1738,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem]">
             <button
               type="button"
-              onClick={() => setIsCreateSessionModalOpen(true)}
+              onClick={handleOpenSessionCreateModal}
               className={primaryButtonClass}
             >
               Create session
@@ -1816,7 +1818,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         assessedPlayerCount={assessedPlayerCount}
         isLoading={isLoading || isSessionPlayersLoading}
         onAssessAll={handleAssessAll}
-        onOpenCreateSession={() => setIsCreateSessionModalOpen(true)}
+        onOpenCreateSession={handleOpenSessionCreateModal}
         onOpenSessionSetup={handleSessionSetupFocus}
         selectedSession={selectedSession}
         selectedSessionCompleted={selectedSessionCompleted}
@@ -1978,16 +1980,6 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         onCancel={() => setCompleteSessionTarget(null)}
         onConfirm={() => void confirmCompleteSession()}
       />
-      <CreateSessionModal
-        form={sessionForm}
-        isLoading={isLoading}
-        isOpen={isCreateSessionModalOpen}
-        isSaving={isSaving}
-        onCancel={() => setIsCreateSessionModalOpen(false)}
-        onChange={handleSessionFormChange}
-        onSubmit={handleCreateSessionFromModal}
-        teams={teams}
-      />
       <CalendarEventModal
         currentInvites={currentCalendarEventInvites}
         event={calendarModal?.event}
@@ -2009,6 +2001,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         selectedInvitePlayers={selectedCalendarInvitePlayers}
         teams={teams}
         user={user}
+        variant={calendarModal?.variant || ''}
       />
     </div>
   )
@@ -2031,6 +2024,7 @@ function CalendarEventModal({
   selectedInvitePlayers = [],
   teams,
   user,
+  variant = '',
 }) {
   if (!isOpen) {
     return null
@@ -2041,7 +2035,8 @@ function CalendarEventModal({
   const showOpponent = form.eventType === 'match'
   const showRecurrence = form.eventType !== 'match'
   const showInvites = true
-  const title = mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
+  const isSessionCreate = mode === 'create' && variant === 'session'
+  const title = isSessionCreate ? 'Create session' : mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
   const selectedSummary = [form.date, form.startTime, form.location].filter(Boolean).join(', ')
   const canUseClubLevel = canCreateClubCalendarEvent(user)
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
@@ -2070,7 +2065,9 @@ function CalendarEventModal({
         <p className={eyebrowClass}>Calendar</p>
         <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-          Add, move, edit, or cancel football activity from one place.
+          {isSessionCreate
+            ? 'Create a training or match session with time, location, notes, repeats, and player invites.'
+            : 'Add, move, edit, or cancel football activity from one place.'}
         </p>
 
         {!isEditing ? (
@@ -2332,64 +2329,6 @@ function CalendarEventModal({
             <button type="button" onClick={onCancel} className={secondaryButtonClass}>Close</button>
           </div>
         )}
-      </div>
-    </div>
-  )
-}
-
-function CreateSessionModal({
-  form,
-  isLoading,
-  isOpen,
-  isSaving,
-  onCancel,
-  onChange,
-  onSubmit,
-  teams,
-}) {
-  if (!isOpen) {
-    return null
-  }
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-session-modal-title"
-        className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15"
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6">
-          <div className="min-w-0">
-            <p className={eyebrowClass}>Session setup</p>
-            <h2 id="create-session-modal-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-              Create session
-            </h2>
-            <p className={`mt-2 max-w-2xl ${bodyTextClass}`}>
-              Create one training or match block before adding the player queue.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSaving}
-            title={isSaving ? 'Please wait while this session is saving.' : 'Close this window'}
-            aria-label="Close this window"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            X
-          </button>
-        </div>
-        <div className="px-5 py-5 sm:px-6">
-          <CreateSessionSection
-            form={form}
-            isLoading={isLoading}
-            isSaving={isSaving}
-            onChange={onChange}
-            onSubmit={onSubmit}
-            teams={teams}
-          />
-        </div>
       </div>
     </div>
   )
