@@ -1407,8 +1407,19 @@ export async function assignPlayerStaffNote({ user, noteId, playerId } = {}) {
 
   const normalizedNoteId = String(noteId ?? '').trim()
   const normalizedPlayerId = String(playerId ?? '').trim()
+  const assignmentContext = {
+    hasNoteId: Boolean(normalizedNoteId),
+    hasPlayerId: Boolean(normalizedPlayerId),
+    clubId: user?.clubId || '',
+    currentTeamId: user?.activeTeamId || '',
+    currentTeamName: user?.activeTeamName || '',
+    userId: user?.id || '',
+    role: user?.role || '',
+    roleRank: user?.roleRank ?? '',
+  }
 
   if (!user?.clubId || !user?.id || !normalizedNoteId || !normalizedPlayerId) {
+    console.error('Voice note assignment blocked before lookup', assignmentContext)
     throw new Error('Choose a player before assigning this voice note.')
   }
 
@@ -1428,12 +1439,20 @@ export async function assignPlayerStaffNote({ user, noteId, playerId } = {}) {
   ])
 
   if (noteError || !noteData) {
-    console.error(noteError)
+    console.error('Voice note assignment note lookup failed', {
+      ...assignmentContext,
+      errorCode: noteError?.code || '',
+      errorMessage: noteError?.message || '',
+    })
     throw new Error('Voice note could not be found.')
   }
 
   if (playerError || !playerData) {
-    console.error(playerError)
+    console.error('Voice note assignment player lookup failed', {
+      ...assignmentContext,
+      errorCode: playerError?.code || '',
+      errorMessage: playerError?.message || '',
+    })
     throw new Error('Player could not be found.')
   }
 
@@ -1441,19 +1460,33 @@ export async function assignPlayerStaffNote({ user, noteId, playerId } = {}) {
   const activeTeamName = String(user.activeTeamName ?? '').trim().toLowerCase()
   const playerTeamId = String(playerData.team_id ?? '').trim()
   const playerTeamName = String(playerData.team ?? '').trim().toLowerCase()
+  const noteOwnerId = String(noteData.user_id ?? '').trim()
+  const canAssignOtherStaffNotes = Number(user.roleRank ?? 0) >= 50 || user.role === 'admin'
+  const debugContext = {
+    ...assignmentContext,
+    noteOwnerId,
+    notePlayerId: noteData.player_id || '',
+    noteSessionId: noteData.session_id || '',
+    selectedPlayerId: playerData.id || '',
+    selectedPlayerSection: playerData.section || '',
+    selectedPlayerStatus: playerData.status || '',
+    selectedPlayerTeamId: playerTeamId,
+    selectedPlayerTeamName: playerData.team || '',
+    canAssignOtherStaffNotes,
+  }
 
   if (activeTeamId && playerTeamId && activeTeamId !== playerTeamId) {
+    console.error('Voice note assignment blocked by player team id guard', debugContext)
     throw new Error('Choose a player from your current team.')
   }
 
   if (activeTeamName && playerTeamName && activeTeamName !== playerTeamName) {
+    console.error('Voice note assignment blocked by player team name guard', debugContext)
     throw new Error('Choose a player from your current team.')
   }
 
-  const noteOwnerId = String(noteData.user_id ?? '').trim()
-  const canAssignOtherStaffNotes = Number(user.roleRank ?? 0) >= 50 || user.role === 'admin'
-
   if (noteOwnerId && noteOwnerId !== String(user.id) && !canAssignOtherStaffNotes) {
+    console.error('Voice note assignment blocked by owner guard', debugContext)
     throw new Error('You can only assign voice notes you recorded.')
   }
 
@@ -1466,7 +1499,12 @@ export async function assignPlayerStaffNote({ user, noteId, playerId } = {}) {
     .maybeSingle()
 
   if (error || !data) {
-    console.error(error)
+    console.error('Voice note assignment update failed', {
+      ...debugContext,
+      errorCode: error?.code || '',
+      errorMessage: error?.message || '',
+      updatedRowReturned: Boolean(data),
+    })
     throw new Error('Could not assign the voice note. Please try again.')
   }
 
