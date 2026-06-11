@@ -256,6 +256,55 @@ function getSafeCalendarTeamId(user, teamId) {
   return normalizedTeamId || String(user?.activeTeamId ?? '').trim()
 }
 
+function getTrimmedFormValue(value) {
+  return String(value ?? '').trim()
+}
+
+function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
+  const eventType = getTrimmedFormValue(form.eventType)
+  const title = getTrimmedFormValue(form.title)
+  const opponent = getTrimmedFormValue(form.opponent)
+  const date = formatDateInput(form.date)
+  const startTime = formatTimeInput(form.startTime)
+  const isMatch = eventType === 'match'
+  const isTraining = eventType === 'training'
+  const requiresTeam = !canCreateClubCalendarEvent(user) || isMatch || isTraining || Boolean(safeTeamId)
+
+  if (!eventType) {
+    throw new Error('Choose an event type.')
+  }
+
+  if (!date) {
+    throw new Error('Choose a date.')
+  }
+
+  if (requiresTeam && !safeTeamId) {
+    throw new Error('Choose a team for this event.')
+  }
+
+  if (!startTime) {
+    throw new Error(isMatch ? 'Kick-off time is required for a fixture.' : 'Choose a start time.')
+  }
+
+  if (isMatch) {
+    if (!title && !opponent) {
+      throw new Error('Add an opponent or event title for this fixture.')
+    }
+
+    if (form.arrivalTime && isTimeAfter(form.arrivalTime, form.startTime)) {
+      throw new Error('Arrival time must be before kick-off time.')
+    }
+
+    return
+  }
+
+  if (sourceType === 'calendar' || (!isTraining && eventType !== 'match')) {
+    if (!title) {
+      throw new Error('Add an event title.')
+    }
+  }
+}
+
 function getInvitesForCalendarEvent(event, invites = []) {
   const sourceType = event?.sourceType || ''
   const sourceId = String(event?.sourceId ?? '').trim()
@@ -324,7 +373,7 @@ function getFormFromCalendarEvent(event, invites = []) {
       opponent: source.opponent || '',
       startTime: formatTimeInput(source.kickoffTime) || '10:00',
       teamId: source.teamId || '',
-      title: `${source.teamName || 'Team'} vs ${source.opponent || 'Opponent'}`,
+      title: source.title || (source.opponent ? `Match vs ${source.opponent}` : ''),
       ...inviteFields,
     }
   }
@@ -1145,25 +1194,15 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     const teamName = getCalendarTeamName(safeTeamId)
     const isTraining = calendarForm.eventType === 'training'
     const isMatch = calendarForm.eventType === 'match'
+    const trimmedTitle = getTrimmedFormValue(calendarForm.title)
+    const trimmedOpponent = getTrimmedFormValue(calendarForm.opponent)
 
     try {
       if (!canCreateClubCalendarEvent(user) && !safeTeamId) {
         throw new Error('Choose your assigned team before saving this calendar event.')
       }
 
-      if (isMatch) {
-        if (!formatDateInput(calendarForm.date)) {
-          throw new Error('Date is required.')
-        }
-
-        if (!formatTimeInput(calendarForm.startTime)) {
-          throw new Error('Kick-off time is required.')
-        }
-
-        if (calendarForm.arrivalTime && isTimeAfter(calendarForm.arrivalTime, calendarForm.startTime)) {
-          throw new Error('Arrival time must be before kick-off time.')
-        }
-      }
+      validateCalendarForm({ form: calendarForm, safeTeamId, sourceType, user })
 
       const fixtureEndTime = isMatch ? addMinutesToTime(calendarForm.startTime, 120) : calendarForm.endTime
       const recurrenceDates = isMatch
@@ -1206,7 +1245,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           startTime: calendarForm.startTime,
           team: teamName,
           teamId: safeTeamId,
-          title: calendarForm.title || teamName,
+          title: trimmedTitle || 'Training session',
         }
         const savedSessions = []
 
@@ -1245,13 +1284,13 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           endTime: fixtureEndTime,
           location: calendarForm.location,
           notes: calendarForm.notes,
-          opponent: calendarForm.opponent,
+          opponent: trimmedOpponent,
           sessionDate: calendarForm.date,
           sessionType: 'match',
           startTime: calendarForm.startTime,
           team: teamName,
           teamId: safeTeamId,
-          title: calendarForm.title || `${teamName} vs ${calendarForm.opponent}`,
+          title: trimmedTitle || `Match vs ${trimmedOpponent}`,
         }
 
         if (sourceType === 'session') {
@@ -1269,7 +1308,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
             kickoffTime: calendarForm.startTime,
             matchDate: calendarForm.date,
             notes: calendarForm.notes,
-            opponent: calendarForm.opponent,
+            opponent: trimmedOpponent,
             scorerRequestMessage: '',
             status: 'scheduled',
             teamId: safeTeamId,
@@ -1308,7 +1347,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           recurrenceUntil: calendarForm.recurrenceUntil,
           startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
           teamId: safeTeamId,
-          title: calendarForm.title,
+          title: trimmedTitle,
         }
         const savedEvent = sourceType === 'calendar'
           ? await updateCalendarEvent({ user, eventId: activeEvent.sourceId, event: payload })
@@ -2124,7 +2163,8 @@ function CalendarEventModal({
   }
 
   const isEditing = mode !== 'view'
-  const editableSource = !event || event.editable || ['session', 'match-day', 'calendar'].includes(event.sourceType)
+  const editableSource = !event || event.editable !== false
+  const isInheritedClubEvent = Boolean(event?.isInheritedClubEvent || event?.data?.isInheritedClubEvent)
   const showOpponent = form.eventType === 'match'
   const isMatchFixture = form.eventType === 'match'
   const showRecurrence = form.eventType !== 'match'
@@ -2165,6 +2205,11 @@ function CalendarEventModal({
             ? 'Create a training or match session with time, location, notes, repeats, and player invites.'
             : 'Add, move, edit, or cancel football activity from one place.'}
         </p>
+        {isInheritedClubEvent ? (
+          <p className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#065f46]">
+            This is a club-wide event managed by the Club Admin.
+          </p>
+        ) : null}
 
         {!isEditing ? (
           <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">

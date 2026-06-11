@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 const viewButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border px-3 py-2 text-xs font-black transition'
 const calendarCardClass = 'rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5'
 
@@ -107,6 +109,10 @@ function getEventTone(type) {
   return tones[type] || tones.training
 }
 
+function getEventScopeLabel(event) {
+  return event?.isClubWide || event?.isInheritedClubEvent ? 'Club-wide' : ''
+}
+
 export function FootballCalendar({
   cursor,
   events,
@@ -116,6 +122,7 @@ export function FootballCalendar({
   onViewChange,
   view,
 }) {
+  const [expandedDay, setExpandedDay] = useState(null)
   const eventByDate = events.reduce((map, event) => {
     if (!map.has(event.date)) {
       map.set(event.date, [])
@@ -142,6 +149,7 @@ export function FootballCalendar({
   }
 
   const titleLabel = view === 'week' ? getWeekTitle(cursor) : getMonthTitle(cursor)
+  const expandedDayEvents = expandedDay ? eventByDate.get(expandedDay) ?? [] : []
 
   return (
     <section className={calendarCardClass}>
@@ -244,11 +252,18 @@ export function FootballCalendar({
                         title={event.title}
                         className={`block w-full truncate rounded-md border px-1 py-0.5 text-left text-[0.62rem] font-black leading-3 sm:px-2 sm:py-1 sm:text-xs sm:leading-4 ${getEventTone(event.type)}`}
                       >
-                        {event.title}
+                        <span>{event.title}</span>
+                        {getEventScopeLabel(event) ? <span className="ml-1 opacity-80">Club-wide</span> : null}
                       </button>
                     ))}
                     {dayEvents.length > 3 ? (
-                      <p className="px-1 pt-0.5 text-[0.62rem] font-bold text-[#4b5f55] sm:px-2 sm:pt-1 sm:text-xs">+{dayEvents.length - 3} more</p>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedDay(dateKey)}
+                        className="w-full rounded-md px-1 pt-0.5 text-left text-[0.62rem] font-black text-[#047857] transition hover:bg-[#ecfdf5] sm:px-2 sm:pt-1 sm:text-xs"
+                      >
+                        +{dayEvents.length - 3} more
+                      </button>
                     ) : null}
                   </div>
                 </div>
@@ -296,6 +311,7 @@ export function FootballCalendar({
                         className={`block min-h-11 w-full rounded-md border px-3 py-2 text-left text-sm font-black leading-5 ${getEventTone(event.type)}`}
                       >
                         <span className="block">{event.title}</span>
+                        {getEventScopeLabel(event) ? <span className="mt-1 block text-xs font-semibold opacity-80">{getEventScopeLabel(event)}</span> : null}
                         {event.time ? <span className="mt-1 block text-xs font-semibold opacity-80">{event.time}</span> : null}
                       </button>
                     ))}
@@ -343,6 +359,7 @@ export function FootballCalendar({
                         className={`block w-full rounded-md border px-3 py-2 text-left text-xs font-black leading-4 ${getEventTone(event.type)}`}
                       >
                         <span className="block">{event.title}</span>
+                        {getEventScopeLabel(event) ? <span className="mt-1 block font-semibold opacity-80">{getEventScopeLabel(event)}</span> : null}
                         {event.time ? <span className="mt-1 block font-semibold opacity-80">{event.time}</span> : null}
                       </button>
                     ))}
@@ -353,6 +370,59 @@ export function FootballCalendar({
           </div>
         </div>
       )}
+      {expandedDay ? (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#101828]/45 px-4 py-4 sm:items-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-xl shadow-[#047857]/15"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Calendar day</p>
+                <h3 className="mt-2 text-xl font-black tracking-tight text-[#101828]">
+                  Events for {formatDateLabel(expandedDay)}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpandedDay(null)}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-white"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-5 space-y-3">
+              {expandedDayEvents.map((event) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={() => {
+                    setExpandedDay(null)
+                    onOpenEvent(event)
+                  }}
+                  className={`block w-full rounded-lg border px-4 py-3 text-left text-sm font-black leading-5 ${getEventTone(event.type)}`}
+                >
+                  <span className="flex flex-wrap items-center gap-2">
+                    {event.time ? <span>{event.time}</span> : null}
+                    <span>{event.title}</span>
+                    {getEventScopeLabel(event) ? (
+                      <span className="rounded-full border border-[#bbf7d0] bg-white px-2 py-0.5 text-[0.62rem] font-black uppercase tracking-[0.12em] text-[#065f46]">
+                        {getEventScopeLabel(event)}
+                      </span>
+                    ) : null}
+                  </span>
+                  {event.location || event.description ? (
+                    <span className="mt-1 block text-xs font-semibold opacity-80">
+                      {event.location || event.description}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

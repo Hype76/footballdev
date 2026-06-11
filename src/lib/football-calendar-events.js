@@ -54,6 +54,9 @@ function buildCalendarEventOccurrences(calendarEvent) {
 
   while (occurrenceIndex < 80 && occurrenceDate.getTime() <= maxDate.getTime()) {
     const date = toDateOnly(occurrenceDate)
+    const isClubWide = Boolean(calendarEvent.isClubWide || !calendarEvent.teamId)
+    const isInheritedClubEvent = Boolean(calendarEvent.isInheritedClubEvent)
+
     occurrences.push({
       id: occurrenceIndex === 0 ? `calendar:${calendarEvent.id}` : `calendar:${calendarEvent.id}:${date}`,
       sourceId: calendarEvent.id,
@@ -63,9 +66,17 @@ function buildCalendarEventOccurrences(calendarEvent) {
       time: toTimeOnly(calendarEvent.startsAt),
       type: calendarEvent.eventType === 'general' ? 'club-event' : 'deadline',
       title: occurrenceIndex === 0 ? calendarEvent.title : `${calendarEvent.title} repeats`,
-      description: [calendarEvent.location, calendarEvent.notes].filter(Boolean).join(', ') || 'Calendar event',
-      editable: true,
-      data: calendarEvent,
+      description: [isClubWide ? 'Club-wide' : '', calendarEvent.location, calendarEvent.notes].filter(Boolean).join(', ') || 'Calendar event',
+      editable: calendarEvent.canEdit !== false,
+      isClubWide,
+      isInheritedClubEvent,
+      location: calendarEvent.location,
+      data: {
+        ...calendarEvent,
+        isClubWide,
+        isInheritedClubEvent,
+        canEdit: calendarEvent.canEdit !== false,
+      },
     })
 
     occurrenceIndex += 1
@@ -147,7 +158,7 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
       }
 
       const type = session.sessionType === 'match' ? 'match' : 'training'
-      const title = session.title || (session.opponent ? `${session.team || 'Team'} vs ${session.opponent}` : session.team) || 'Session'
+      const title = session.title || (session.opponent ? `Match vs ${session.opponent}` : '') || (type === 'match' ? 'Match' : 'Training session')
 
       return {
         id: `session:${session.id}`,

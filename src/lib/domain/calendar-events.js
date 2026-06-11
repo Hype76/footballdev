@@ -37,11 +37,14 @@ function normalizeDateTime(value) {
   return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString()
 }
 
-export function normalizeCalendarEvent(row) {
+export function normalizeCalendarEvent(row, options = {}) {
+  const teamId = row.team_id ?? row.teamId ?? ''
+  const isClubWide = !normalizeText(teamId)
+
   return {
     id: row.id ?? '',
     clubId: row.club_id ?? row.clubId ?? '',
-    teamId: row.team_id ?? row.teamId ?? '',
+    teamId,
     eventType: normalizeEventType(row.event_type ?? row.eventType),
     title: normalizeText(row.title),
     startsAt: row.starts_at ?? row.startsAt ?? '',
@@ -59,6 +62,9 @@ export function normalizeCalendarEvent(row) {
     updatedByEmail: normalizeText(row.updated_by_email ?? row.updatedByEmail),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
+    canEdit: options.canEdit ?? true,
+    isClubWide,
+    isInheritedClubEvent: Boolean(options.isInheritedClubEvent),
   }
 }
 
@@ -71,7 +77,8 @@ function assertCalendarAccess(user) {
 function buildCalendarPayload({ user, event }) {
   const startsAt = normalizeDateTime(event?.startsAt)
   const endsAt = normalizeDateTime(event?.endsAt)
-  const eventType = normalizeEventType(event?.eventType)
+  const eventTypeValue = normalizeText(event?.eventType)
+  const eventType = normalizeEventType(eventTypeValue)
   const recurrenceFrequency = normalizeRecurrenceFrequency(event?.recurrenceFrequency)
   const recurrenceUntil = normalizeDateOnly(event?.recurrenceUntil) || null
   const requestedTeamId = normalizeText(event?.teamId)
@@ -79,12 +86,16 @@ function buildCalendarPayload({ user, event }) {
   const safeTeamId = isClubLevelAllowed ? requestedTeamId : requestedTeamId || normalizeText(user?.activeTeamId)
   const title = normalizeText(event?.title)
 
+  if (!eventTypeValue) {
+    throw new Error('Choose an event type.')
+  }
+
   if (!title) {
-    throw new Error('Event title is required.')
+    throw new Error('Add an event title.')
   }
 
   if (!startsAt) {
-    throw new Error('Event date and time are required.')
+    throw new Error('Choose a date and start time.')
   }
 
   if (endsAt && new Date(endsAt).getTime() < new Date(startsAt).getTime()) {
@@ -92,7 +103,7 @@ function buildCalendarPayload({ user, event }) {
   }
 
   if (!isClubLevelAllowed && !safeTeamId) {
-    throw new Error('Choose your assigned team before saving this calendar event.')
+    throw new Error('Choose a team for this event.')
   }
 
   if (recurrenceFrequency !== 'none' && !recurrenceUntil) {
@@ -149,7 +160,7 @@ export async function getCalendarEvents({ user } = {}) {
       .order('starts_at', { ascending: true })
 
     if (activeTeamId) {
-      query = query.eq('team_id', activeTeamId)
+      query = query.or(`team_id.eq.${activeTeamId},team_id.is.null`)
     } else {
       query = query.is('team_id', null)
     }
@@ -161,7 +172,15 @@ export async function getCalendarEvents({ user } = {}) {
       throw error
     }
 
-    return (data ?? []).map(normalizeCalendarEvent)
+    return (data ?? []).map((row) => {
+      const rowTeamId = normalizeText(row.team_id)
+      const isInheritedClubEvent = Boolean(activeTeamId) && !rowTeamId
+
+      return normalizeCalendarEvent(row, {
+        canEdit: user.role === 'admin' || !isInheritedClubEvent,
+        isInheritedClubEvent,
+      })
+    })
   })
 }
 

@@ -87,6 +87,17 @@ async function assertSessionTeamAccess({ user, teamId }) {
   }
 }
 
+function isValidSessionTime(value) {
+  return /^\d{2}:\d{2}$/.test(String(value ?? '').trim())
+}
+
+function isSessionTimeAfter(leftTime, rightTime) {
+  const leftValue = String(leftTime ?? '').trim()
+  const rightValue = String(rightTime ?? '').trim()
+
+  return isValidSessionTime(leftValue) && isValidSessionTime(rightValue) && leftValue > rightValue
+}
+
 export async function createAssessmentSession({ user, session }) {
   await blockDemoMutation(user)
 
@@ -109,10 +120,25 @@ export async function createAssessmentSession({ user, session }) {
   const arrivalTime = String(session.arrivalTime ?? '').trim()
   const startTime = String(session.startTime ?? '').trim()
   const endTime = String(session.endTime ?? '').trim()
+  const requestedTitle = String(session.title ?? '').trim()
+
+  if (!isValidSessionTime(startTime)) {
+    throw new Error(sessionType === 'match' ? 'Kick-off time is required for a fixture.' : 'Choose a start time.')
+  }
+
+  if (sessionType === 'match' && !sessionOpponentName && !requestedTitle) {
+    throw new Error('Add an opponent or event title for this fixture.')
+  }
+
+  if (sessionType === 'match' && arrivalTime && isSessionTimeAfter(arrivalTime, startTime)) {
+    throw new Error('Arrival time must be before kick-off time.')
+  }
 
   if (!teamId) {
     throw new Error('Choose a team before creating a session.')
   }
+
+  const title = requestedTitle || (sessionOpponentName ? `Match vs ${sessionOpponentName}` : 'Training session')
 
   await assertSessionTeamAccess({ user, teamId })
 
@@ -126,11 +152,11 @@ export async function createAssessmentSession({ user, session }) {
       session_type: sessionType,
       session_date: sessionDate,
       arrival_time: sessionType === 'match' && /^\d{2}:\d{2}$/.test(arrivalTime) ? arrivalTime : null,
-      start_time: /^\d{2}:\d{2}$/.test(startTime) ? startTime : null,
-      end_time: /^\d{2}:\d{2}$/.test(endTime) ? endTime : null,
+      start_time: isValidSessionTime(startTime) ? startTime : null,
+      end_time: isValidSessionTime(endTime) ? endTime : null,
       location: String(session.location ?? '').trim(),
       notes: String(session.notes ?? '').trim(),
-      title: sessionOpponentName ? `${teamName} vs ${sessionOpponentName}` : teamName,
+      title,
       created_by: user.id,
       ...getEntryIdentity(user),
       updated_by: getEntryUserId(user),
@@ -183,10 +209,25 @@ export async function updateAssessmentSession({ user, sessionId, session }) {
   const arrivalTime = String(session.arrivalTime ?? '').trim()
   const startTime = String(session.startTime ?? '').trim()
   const endTime = String(session.endTime ?? '').trim()
+  const requestedTitle = String(session.title ?? '').trim()
+
+  if (!isValidSessionTime(startTime)) {
+    throw new Error(sessionType === 'match' ? 'Kick-off time is required for a fixture.' : 'Choose a start time.')
+  }
+
+  if (sessionType === 'match' && !sessionOpponentName && !requestedTitle) {
+    throw new Error('Add an opponent or event title for this fixture.')
+  }
+
+  if (sessionType === 'match' && arrivalTime && isSessionTimeAfter(arrivalTime, startTime)) {
+    throw new Error('Arrival time must be before kick-off time.')
+  }
 
   if (!teamId) {
     throw new Error('Choose a team before updating the session.')
   }
+
+  const title = requestedTitle || (sessionOpponentName ? `Match vs ${sessionOpponentName}` : 'Training session')
 
   await assertSessionTeamAccess({ user, teamId })
 
@@ -199,11 +240,11 @@ export async function updateAssessmentSession({ user, sessionId, session }) {
       session_type: sessionType,
       session_date: sessionDate,
       arrival_time: sessionType === 'match' && /^\d{2}:\d{2}$/.test(arrivalTime) ? arrivalTime : null,
-      start_time: /^\d{2}:\d{2}$/.test(startTime) ? startTime : null,
-      end_time: /^\d{2}:\d{2}$/.test(endTime) ? endTime : null,
+      start_time: isValidSessionTime(startTime) ? startTime : null,
+      end_time: isValidSessionTime(endTime) ? endTime : null,
       location: String(session.location ?? '').trim(),
       notes: String(session.notes ?? '').trim(),
-      title: session.title || (sessionOpponentName ? `${teamName} vs ${sessionOpponentName}` : teamName),
+      title,
       updated_by: getEntryUserId(user),
       ...getEntryIdentity(user, 'updated_by'),
       updated_at: new Date().toISOString(),
