@@ -106,6 +106,7 @@ export async function createAssessmentSession({ user, session }) {
   const requestedSessionType = String(session.sessionType ?? '').trim()
   const sessionType = ['training', 'match'].includes(requestedSessionType) ? requestedSessionType : 'training'
   const sessionOpponentName = sessionType === 'match' ? opponentName : ''
+  const arrivalTime = String(session.arrivalTime ?? '').trim()
   const startTime = String(session.startTime ?? '').trim()
   const endTime = String(session.endTime ?? '').trim()
 
@@ -124,6 +125,7 @@ export async function createAssessmentSession({ user, session }) {
       opponent: sessionOpponentName,
       session_type: sessionType,
       session_date: sessionDate,
+      arrival_time: sessionType === 'match' && /^\d{2}:\d{2}$/.test(arrivalTime) ? arrivalTime : null,
       start_time: /^\d{2}:\d{2}$/.test(startTime) ? startTime : null,
       end_time: /^\d{2}:\d{2}$/.test(endTime) ? endTime : null,
       location: String(session.location ?? '').trim(),
@@ -178,6 +180,7 @@ export async function updateAssessmentSession({ user, sessionId, session }) {
   const requestedSessionType = String(session.sessionType ?? '').trim()
   const sessionType = ['training', 'match'].includes(requestedSessionType) ? requestedSessionType : 'training'
   const sessionOpponentName = sessionType === 'match' ? opponentName : ''
+  const arrivalTime = String(session.arrivalTime ?? '').trim()
   const startTime = String(session.startTime ?? '').trim()
   const endTime = String(session.endTime ?? '').trim()
 
@@ -195,6 +198,7 @@ export async function updateAssessmentSession({ user, sessionId, session }) {
       opponent: sessionOpponentName,
       session_type: sessionType,
       session_date: sessionDate,
+      arrival_time: sessionType === 'match' && /^\d{2}:\d{2}$/.test(arrivalTime) ? arrivalTime : null,
       start_time: /^\d{2}:\d{2}$/.test(startTime) ? startTime : null,
       end_time: /^\d{2}:\d{2}$/.test(endTime) ? endTime : null,
       location: String(session.location ?? '').trim(),

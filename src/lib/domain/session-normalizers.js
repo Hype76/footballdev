@@ -9,6 +9,7 @@ export function normalizeAssessmentSessionRow(row) {
     opponent: String(row.opponent ?? '').trim(),
     sessionType: String(row.session_type ?? row.sessionType ?? 'training').trim() || 'training',
     sessionDate: String(row.session_date ?? row.sessionDate ?? '').trim(),
+    arrivalTime: String(row.arrival_time ?? row.arrivalTime ?? '').trim().slice(0, 5),
     startTime: String(row.start_time ?? row.startTime ?? '').trim().slice(0, 5),
     endTime: String(row.end_time ?? row.endTime ?? '').trim().slice(0, 5),
     location: String(row.location ?? '').trim(),

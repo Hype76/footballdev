@@ -155,7 +155,14 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
         time: toTimeOnly(session.startTime),
         type,
         title,
-        description: [session.startTime, session.location, session.team || 'Team', session.status].filter(Boolean).join(', '),
+        description: type === 'match'
+          ? [
+            session.arrivalTime ? `Arrival ${session.arrivalTime}` : '',
+            session.startTime ? `Kick-off ${session.startTime}` : '',
+            session.opponent ? `vs ${session.opponent}` : '',
+            session.location,
+          ].filter(Boolean).join(', ') || 'Fixture'
+          : [session.startTime, session.location, session.team || 'Team', session.status].filter(Boolean).join(', '),
         href: `/sessions?sessionId=${encodeURIComponent(session.id)}`,
         editable: !session.isHistorical,
         sourceId: session.id,

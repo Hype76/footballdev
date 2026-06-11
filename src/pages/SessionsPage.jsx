@@ -130,10 +130,22 @@ function addMinutesToTime(time, minutesToAdd) {
   return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`
 }
 
+function isTimeAfter(leftTime, rightTime) {
+  const leftValue = formatTimeInput(leftTime)
+  const rightValue = formatTimeInput(rightTime)
+
+  if (!leftValue || !rightValue) {
+    return false
+  }
+
+  return leftValue > rightValue
+}
+
 function getDefaultCalendarForm(date = '') {
   const eventDate = formatDateInput(date) || formatLocalDate(new Date())
 
   return {
+    arrivalTime: '',
     date: eventDate,
     endTime: '10:00',
     eventType: 'training',
@@ -284,8 +296,11 @@ function getFormFromCalendarEvent(event, invites = []) {
   if (sourceType === 'session') {
     return {
       ...getDefaultCalendarForm(source.sessionDate || event.date),
+      arrivalTime: formatTimeInput(source.arrivalTime),
       date: formatDateInput(source.sessionDate || event.date),
-      endTime: formatTimeInput(source.endTime) || addMinutesToTime(source.startTime, 60),
+      endTime: source.sessionType === 'match'
+        ? addMinutesToTime(source.startTime, 120)
+        : formatTimeInput(source.endTime) || addMinutesToTime(source.startTime, 60),
       eventType: source.sessionType === 'match' ? 'match' : 'training',
       location: source.location || '',
       notes: source.notes || '',
@@ -300,8 +315,9 @@ function getFormFromCalendarEvent(event, invites = []) {
   if (sourceType === 'match-day') {
     return {
       ...getDefaultCalendarForm(source.matchDate || event.date),
+      arrivalTime: formatTimeInput(source.arrivalTime),
       date: formatDateInput(source.matchDate || event.date),
-      endTime: addMinutesToTime(source.kickoffTime, 105),
+      endTime: addMinutesToTime(source.kickoffTime, 120),
       eventType: 'match',
       location: source.venueName || '',
       notes: source.notes || '',
@@ -1092,6 +1108,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       if (name === 'eventType' && value === 'match') {
         nextForm.recurrenceFrequency = 'none'
         nextForm.recurrenceUntil = ''
+        nextForm.endTime = addMinutesToTime(current.startTime, 120)
+      }
+
+      if (name === 'startTime' && nextForm.eventType === 'match') {
+        nextForm.endTime = addMinutesToTime(value, 120)
       }
 
       return nextForm
@@ -1130,6 +1151,21 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         throw new Error('Choose your assigned team before saving this calendar event.')
       }
 
+      if (isMatch) {
+        if (!formatDateInput(calendarForm.date)) {
+          throw new Error('Date is required.')
+        }
+
+        if (!formatTimeInput(calendarForm.startTime)) {
+          throw new Error('Kick-off time is required.')
+        }
+
+        if (calendarForm.arrivalTime && isTimeAfter(calendarForm.arrivalTime, calendarForm.startTime)) {
+          throw new Error('Arrival time must be before kick-off time.')
+        }
+      }
+
+      const fixtureEndTime = isMatch ? addMinutesToTime(calendarForm.startTime, 120) : calendarForm.endTime
       const recurrenceDates = isMatch
         ? [formatDateInput(calendarForm.date)]
         : buildRecurrenceDates({
@@ -1205,7 +1241,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         })
       } else if (isMatch || sourceType === 'match-day' || (sourceType === 'session' && activeEvent?.data?.sessionType === 'match')) {
         const payload = {
-          endTime: calendarForm.endTime,
+          arrivalTime: calendarForm.arrivalTime,
+          endTime: fixtureEndTime,
           location: calendarForm.location,
           notes: calendarForm.notes,
           opponent: calendarForm.opponent,
@@ -1227,7 +1264,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           showToast({ title: 'Match session updated', message: savedSession.title || 'Calendar updated.' })
         } else if (sourceType === 'match-day') {
           const payload = {
-            arrivalTime: '',
+            arrivalTime: calendarForm.arrivalTime,
             homeAway: 'home',
             kickoffTime: calendarForm.startTime,
             matchDate: calendarForm.date,
@@ -2089,11 +2126,14 @@ function CalendarEventModal({
   const isEditing = mode !== 'view'
   const editableSource = !event || event.editable || ['session', 'match-day', 'calendar'].includes(event.sourceType)
   const showOpponent = form.eventType === 'match'
+  const isMatchFixture = form.eventType === 'match'
   const showRecurrence = form.eventType !== 'match'
   const showInvites = true
   const isSessionCreate = mode === 'create' && variant === 'session'
   const title = isSessionCreate ? 'Create session' : mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
-  const selectedSummary = [form.date, form.startTime, form.location].filter(Boolean).join(', ')
+  const selectedSummary = isMatchFixture
+    ? [form.date, form.startTime ? `Kick-off ${form.startTime}` : '', form.location].filter(Boolean).join(', ')
+    : [form.date, form.startTime, form.location].filter(Boolean).join(', ')
   const canUseClubLevel = canCreateClubCalendarEvent(user)
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
@@ -2134,6 +2174,32 @@ function CalendarEventModal({
               {selectedSummary || event?.description || 'Calendar activity'}
             </p>
             {form.notes ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{form.notes}</p> : null}
+            {isMatchFixture ? (
+              <div className="mt-4 grid gap-3 rounded-lg border border-[#d7e5dc] bg-white p-3 sm:grid-cols-2">
+                {form.arrivalTime ? (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Arrival time</p>
+                    <p className="mt-1 text-sm font-black text-[#101828]">{form.arrivalTime}</p>
+                  </div>
+                ) : null}
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Kick-off time</p>
+                  <p className="mt-1 text-sm font-black text-[#101828]">{form.startTime || 'Not set'}</p>
+                </div>
+                {form.opponent ? (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Opponent</p>
+                    <p className="mt-1 text-sm font-black text-[#101828]">{form.opponent}</p>
+                  </div>
+                ) : null}
+                {form.location ? (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Location</p>
+                    <p className="mt-1 text-sm font-black text-[#101828]">{form.location}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {currentInvites.length > 0 ? (
               <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Invited players</p>
@@ -2206,14 +2272,22 @@ function CalendarEventModal({
                 <span className="mb-2 block text-sm font-black text-[#101828]">Date</span>
                 <input name="date" type="date" value={form.date} onChange={onChange} required className={fieldClass} />
               </label>
+              {isMatchFixture ? (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Arrival time</span>
+                  <input name="arrivalTime" type="time" value={form.arrivalTime} onChange={onChange} className={fieldClass} />
+                </label>
+              ) : null}
               <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#101828]">Start time</span>
+                <span className="mb-2 block text-sm font-black text-[#101828]">{isMatchFixture ? 'Kick-off time' : 'Start time'}</span>
                 <input name="startTime" type="time" value={form.startTime} onChange={onChange} required className={fieldClass} />
               </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#101828]">End time</span>
-                <input name="endTime" type="time" value={form.endTime} onChange={onChange} className={fieldClass} />
-              </label>
+              {!isMatchFixture ? (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">End time</span>
+                  <input name="endTime" type="time" value={form.endTime} onChange={onChange} className={fieldClass} />
+                </label>
+              ) : null}
             </div>
 
             <label className="block">

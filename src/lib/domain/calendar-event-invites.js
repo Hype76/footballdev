@@ -319,6 +319,7 @@ function normalizeParentPortalInvite(row) {
     sourceType: isSession ? 'training' : 'calendar',
     title: normalizeText(isSession ? session.title || session.team : calendarEvent?.title) || 'Club event',
     eventType: normalizeText(isSession ? session.session_type : calendarEvent?.event_type) || 'general',
+    arrivalTime: normalizeTimeOnly(session?.arrival_time),
     startsAt,
     endsAt,
     location: normalizeText(isSession ? session.location : calendarEvent?.location),
@@ -350,7 +351,7 @@ export async function getParentPortalEventInvites({ parentLinkId } = {}) {
 
   const { data, error } = await supabase
     .from('calendar_event_invites')
-    .select('*, calendar_events:calendar_event_id (id, title, event_type, starts_at, ends_at, location, notes), assessment_sessions:assessment_session_id (id, title, session_type, session_date, start_time, end_time, location, notes, team)')
+    .select('*, calendar_events:calendar_event_id (id, title, event_type, starts_at, ends_at, location, notes), assessment_sessions:assessment_session_id (id, title, session_type, session_date, arrival_time, start_time, end_time, location, notes, team)')
     .eq('club_id', link.club_id)
     .eq('player_id', link.player_id)
     .neq('invite_status', 'cancelled')
