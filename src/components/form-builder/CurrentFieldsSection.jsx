@@ -431,9 +431,9 @@ function FormFieldCard({
         ) : null}
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.isEnabled ? 'Enabled' : 'Disabled'}</span>
         <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">{draft.required ? 'Required' : 'Optional'}</span>
-        {isScoreType(draft.type) ? (
+        {isScoreType(draft.type) && draft.includeInProgressChart ? (
           <span className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1">
-            {draft.includeInProgressChart ? 'Progression chart' : 'Not in chart'}
+            Progression chart
           </span>
         ) : null}
       </div>

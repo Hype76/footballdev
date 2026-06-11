@@ -24,7 +24,7 @@ function normalizeOptions(optionsText) {
 }
 
 export function isScoreType(type) {
-  return type === 'score_1_5' || type === 'score_1_10'
+  return type === 'score_1_5' || type === 'score_1_10' || type === 'number'
 }
 
 export function createScoreOptions(type) {

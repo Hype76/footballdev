@@ -81,7 +81,7 @@ function normalizeFieldLabel(value) {
 function isProgressionScoreField(field = {}) {
   const type = String(field.type ?? '').trim()
 
-  if (!['score_1_5', 'score_1_10'].includes(type)) {
+  if (!['score_1_5', 'score_1_10', 'number'].includes(type)) {
     return false
   }
 
