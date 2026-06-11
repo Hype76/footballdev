@@ -431,6 +431,11 @@ function stopVoiceNoteStream(stream) {
   stream?.getTracks?.().forEach((track) => track.stop())
 }
 
+function getVoiceNoteDurationSeconds({ accumulatedMilliseconds, startedAt }) {
+  const currentSegment = startedAt ? Date.now() - startedAt : 0
+  return Math.max(1, Math.round((accumulatedMilliseconds + currentSegment) / 1000))
+}
+
 function getVoiceNoteErrorMessage(error) {
   if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
     return 'Microphone access is needed to record a voice note.'
@@ -445,7 +450,9 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
   const [audioBlob, setAudioBlob] = useState(null)
   const [audioUrl, setAudioUrl] = useState('')
   const [durationSeconds, setDurationSeconds] = useState(0)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [savedNote, setSavedNote] = useState(null)
+  const [assignedPlayerName, setAssignedPlayerName] = useState('')
   const [players, setPlayers] = useState([])
   const [playerSearch, setPlayerSearch] = useState('')
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(false)
@@ -454,11 +461,13 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
+  const accumulatedRecordingMillisecondsRef = useRef(0)
   const streamRef = useRef(null)
+  const canPauseRecording = Boolean(mediaRecorderRef.current?.pause && mediaRecorderRef.current?.resume)
 
   const resetModal = () => {
     const recorder = mediaRecorderRef.current
-    if (recorder?.state === 'recording') {
+    if (recorder?.state === 'recording' || recorder?.state === 'paused') {
       recorder.onstop = null
       recorder.stop()
     }
@@ -468,6 +477,7 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
     mediaRecorderRef.current = null
     recordingChunksRef.current = []
     recordingStartedAtRef.current = 0
+    accumulatedRecordingMillisecondsRef.current = 0
     setStatus('idle')
     setErrorMessage('')
     setAudioBlob(null)
@@ -478,7 +488,9 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
       return ''
     })
     setDurationSeconds(0)
+    setElapsedSeconds(0)
     setSavedNote(null)
+    setAssignedPlayerName('')
     setPlayers([])
     setPlayerSearch('')
     setIsLoadingPlayers(false)
@@ -496,6 +508,21 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
       stopVoiceNoteStream(streamRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (status !== 'recording') {
+      return undefined
+    }
+
+    const intervalId = window.setInterval(() => {
+      setElapsedSeconds(getVoiceNoteDurationSeconds({
+        accumulatedMilliseconds: accumulatedRecordingMillisecondsRef.current,
+        startedAt: recordingStartedAtRef.current,
+      }))
+    }, 500)
+
+    return () => window.clearInterval(intervalId)
+  }, [status])
 
   useEffect(() => {
     return () => {
@@ -540,9 +567,11 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
       streamRef.current = stream
       recordingChunksRef.current = []
       recordingStartedAtRef.current = Date.now()
+      accumulatedRecordingMillisecondsRef.current = 0
       setAudioBlob(null)
       setSavedNote(null)
       setDurationSeconds(0)
+      setElapsedSeconds(0)
 
       recorder.ondataavailable = (event) => {
         if (event.data?.size > 0) {
@@ -552,12 +581,16 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
 
       recorder.onstop = () => {
         const chunks = recordingChunksRef.current
-        const nextDurationSeconds = Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+        const nextDurationSeconds = getVoiceNoteDurationSeconds({
+          accumulatedMilliseconds: accumulatedRecordingMillisecondsRef.current,
+          startedAt: recorder.state === 'inactive' ? 0 : recordingStartedAtRef.current,
+        })
         stopVoiceNoteStream(stream)
         streamRef.current = null
         mediaRecorderRef.current = null
         recordingChunksRef.current = []
         recordingStartedAtRef.current = 0
+        accumulatedRecordingMillisecondsRef.current = 0
 
         if (chunks.length === 0) {
           setStatus('idle')
@@ -581,6 +614,7 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
       mediaRecorderRef.current = recorder
       recorder.start()
       setStatus('recording')
+      setElapsedSeconds(1)
     } catch (error) {
       console.error(error)
       stopVoiceNoteStream(streamRef.current)
@@ -592,8 +626,52 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current?.state === 'recording') {
+      accumulatedRecordingMillisecondsRef.current += Date.now() - recordingStartedAtRef.current
+      recordingStartedAtRef.current = 0
+      setDurationSeconds(Math.max(1, Math.round(accumulatedRecordingMillisecondsRef.current / 1000)))
+      mediaRecorderRef.current.stop()
+    } else if (mediaRecorderRef.current?.state === 'paused') {
       mediaRecorderRef.current.stop()
     }
+  }
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current?.state !== 'recording' || !canPauseRecording) {
+      return
+    }
+
+    accumulatedRecordingMillisecondsRef.current += Date.now() - recordingStartedAtRef.current
+    recordingStartedAtRef.current = 0
+    setElapsedSeconds(Math.max(1, Math.round(accumulatedRecordingMillisecondsRef.current / 1000)))
+    mediaRecorderRef.current.pause()
+    setStatus('paused')
+  }
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current?.state !== 'paused' || !canPauseRecording) {
+      return
+    }
+
+    recordingStartedAtRef.current = Date.now()
+    mediaRecorderRef.current.resume()
+    setStatus('recording')
+  }
+
+  const discardRecording = () => {
+    if (audioBlob && !window.confirm('This will discard the current recording. Continue?')) {
+      return
+    }
+
+    setAudioBlob(null)
+    setAudioUrl((currentUrl) => {
+      if (currentUrl) {
+        globalThis.URL?.revokeObjectURL?.(currentUrl)
+      }
+      return ''
+    })
+    setDurationSeconds(0)
+    setElapsedSeconds(0)
+    setStatus('idle')
   }
 
   const saveVoiceNote = async () => {
@@ -654,65 +732,123 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
         playerId: player.id,
       })
       setSavedNote(nextNote)
+      setAssignedPlayerName(player.playerName || 'the selected player')
       setStatus('assigned')
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Voice note could not be assigned.')
+      setErrorMessage('Could not assign the voice note. Please try again.')
     } finally {
       setIsAssigning(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#00150b]/70 px-3 py-4 backdrop-blur-sm sm:items-center">
-      <div className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-[#2f513c] bg-[#07150d] p-4 text-white shadow-2xl shadow-black/40 sm:p-5">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/70 px-3 py-4 backdrop-blur-sm sm:items-center">
+      <div className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--shell-card)] p-4 text-[var(--text-primary)] shadow-2xl shadow-black/40 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ccff1a]">Staff only</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent)]">Staff only</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight">Add voice note</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#b8c7bd]">
+            <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
               Capture a quick staff note now. It stays private until you assign it to a player record.
             </p>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#2f513c] bg-[#0f2617] text-sm font-black text-white transition hover:border-[#ccff1a]"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)]"
           >
             X
           </button>
         </div>
 
-        <div className="mt-5 rounded-lg border border-[#2f513c] bg-[#0f2617] p-4">
+        <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
           {status === 'recording' ? (
             <div>
-              <p className="text-lg font-black text-[#f6fff0]">Recording now</p>
-              <p className="mt-2 text-sm font-semibold text-[#b8c7bd]">Tap stop when the note is finished.</p>
-              <button
-                type="button"
-                onClick={stopRecording}
-                className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14]"
-              >
-                Stop recording
-              </button>
+              <p className="text-lg font-black text-[var(--text-primary)]">Recording now</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">Duration {formatVoiceNoteDuration(elapsedSeconds)}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {canPauseRecording ? (
+                  <button
+                    type="button"
+                    onClick={pauseRecording}
+                    className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)]"
+                  >
+                    Pause
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90"
+                >
+                  Stop
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {status === 'paused' ? (
+            <div>
+              <p className="text-lg font-black text-[var(--text-primary)]">Recording paused</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">Duration {formatVoiceNoteDuration(elapsedSeconds)}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={resumeRecording}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90"
+                >
+                  Resume
+                </button>
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)]"
+                >
+                  Stop
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)]"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ) : null}
 
           {status === 'idle' ? (
-            <button
-              type="button"
-              onClick={startRecording}
-              className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14]"
-            >
-              Start recording
-            </button>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={startRecording}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90"
+              >
+                Start recording
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)]"
+              >
+                Cancel
+              </button>
+            </div>
           ) : null}
 
           {status === 'recorded' ? (
             <div className="space-y-4">
               <div>
-                <p className="text-lg font-black text-[#f6fff0]">Preview voice note</p>
-                <p className="mt-1 text-sm font-semibold text-[#b8c7bd]">Length {formatVoiceNoteDuration(durationSeconds)}</p>
+                <p className="text-lg font-black text-[var(--text-primary)]">Preview voice note</p>
+                <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">Length {formatVoiceNoteDuration(durationSeconds)}</p>
               </div>
               {audioUrl ? <audio controls src={audioUrl} className="w-full" /> : null}
               <div className="grid gap-3 sm:grid-cols-2">
@@ -720,17 +856,17 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
                   type="button"
                   onClick={saveVoiceNote}
                   disabled={isSaving}
-                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? 'Saving...' : 'Save voice note'}
                 </button>
                 <button
                   type="button"
-                  onClick={startRecording}
+                  onClick={discardRecording}
                   disabled={isSaving}
-                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#2f513c] bg-[#07150d] px-4 py-3 text-sm font-black text-white transition hover:border-[#ccff1a] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Record again
+                  Discard and record new
                 </button>
               </div>
             </div>
@@ -739,9 +875,9 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
           {status === 'saved' ? (
             <div className="space-y-4">
               <div>
-                <p className="text-lg font-black text-[#f6fff0]">Voice note saved</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#b8c7bd]">
-                  Assign it to a player now, or continue and find it later in unassigned staff voice notes.
+                <p className="text-lg font-black text-[var(--text-primary)]">Voice note saved</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">
+                  You can assign it to a player now or find it later in unassigned voice notes.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -749,14 +885,14 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
                   type="button"
                   onClick={loadPlayersForAssign}
                   disabled={isLoadingPlayers}
-                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isLoadingPlayers ? 'Loading players...' : 'Assign to player'}
                 </button>
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[#2f513c] bg-[#07150d] px-4 py-3 text-sm font-black text-white transition hover:border-[#ccff1a]"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-black text-[var(--text-primary)] transition hover:border-[var(--accent)]"
                 >
                   Continue
                 </button>
@@ -767,15 +903,15 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
           {status === 'assigning' ? (
             <div className="space-y-4">
               <div>
-                <p className="text-lg font-black text-[#f6fff0]">Assign to player</p>
-                <p className="mt-2 text-sm font-semibold text-[#b8c7bd]">Choose a squad or trial player from this team.</p>
+                <p className="text-lg font-black text-[var(--text-primary)]">Assign to player</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">Choose a squad or trial player from this team.</p>
               </div>
               <input
                 type="search"
                 value={playerSearch}
                 onChange={(event) => setPlayerSearch(event.target.value)}
                 placeholder="Search players"
-                className="min-h-12 w-full rounded-lg border border-[#2f513c] bg-[#07150d] px-3 py-2 text-sm font-bold text-white outline-none transition placeholder:text-[#7f9388] focus:border-[#ccff1a]"
+                className="min-h-12 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-bold text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
               />
               <div className="grid max-h-72 gap-2 overflow-y-auto pr-1">
                 {filteredPlayers.map((player) => (
@@ -784,17 +920,17 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
                     type="button"
                     onClick={() => assignToPlayer(player)}
                     disabled={isAssigning}
-                    className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-[#2f513c] bg-[#07150d] px-3 py-2 text-left transition hover:border-[#ccff1a] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span>
-                      <span className="block text-sm font-black text-white">{player.playerName}</span>
-                      <span className="mt-1 block text-xs font-bold text-[#b8c7bd]">{player.section || 'Squad'} | {player.team || user?.activeTeamName || 'Current team'}</span>
+                      <span className="block text-sm font-black text-[var(--text-primary)]">{player.playerName}</span>
+                      <span className="mt-1 block text-xs font-bold text-[var(--text-muted)]">{player.section || 'Squad'} | {player.team || user?.activeTeamName || 'Current team'}</span>
                     </span>
-                    <span className="text-xs font-black uppercase tracking-[0.12em] text-[#ccff1a]">Assign</span>
+                    <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--accent)]">Assign</span>
                   </button>
                 ))}
                 {!isLoadingPlayers && filteredPlayers.length === 0 ? (
-                  <p className="rounded-lg border border-[#2f513c] bg-[#07150d] px-3 py-4 text-sm font-bold text-[#b8c7bd]">
+                  <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-4 text-sm font-bold text-[var(--text-muted)]">
                     No players found for this team.
                   </p>
                 ) : null}
@@ -805,13 +941,13 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
           {status === 'assigned' ? (
             <div className="space-y-4">
               <div>
-                <p className="text-lg font-black text-[#f6fff0]">Voice note assigned</p>
-                <p className="mt-2 text-sm font-semibold text-[#b8c7bd]">It is now saved on that player staff record.</p>
+                <p className="text-lg font-black text-[var(--text-primary)]">Voice note assigned</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">The voice note has been linked to {assignedPlayerName || 'the selected player'}.</p>
               </div>
               <button
                 type="button"
                 onClick={handleClose}
-                className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ccff1a] px-4 py-3 text-sm font-black text-[#041008] transition hover:bg-[#b7ef14]"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[var(--button-primary)] px-4 py-3 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90"
               >
                 Continue
               </button>
@@ -820,7 +956,7 @@ function QuickVoiceNoteModal({ isOpen, onClose, user }) {
         </div>
 
         {errorMessage ? (
-          <div className="mt-4 rounded-lg border border-[#fca5a5] bg-[#2b1111] px-4 py-3 text-sm font-bold text-[#fecaca]">
+          <div className="mt-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm font-bold text-[var(--danger-text)]">
             {errorMessage}
           </div>
         ) : null}

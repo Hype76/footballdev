@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { canCreateEvaluation, getWorkspaceHomeCopy, useAuth } from '../lib/auth.js'
 import {
+  assignPlayerStaffNote,
+  deletePlayerStaffNote,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getEvaluations,
@@ -126,6 +128,14 @@ export function CoachHomePage() {
   const [evaluations, setEvaluations] = useState(() => cachedValue?.evaluations || [])
   const [sessionPlayers, setSessionPlayers] = useState(() => cachedValue?.sessionPlayers || [])
   const [unassignedVoiceNotes, setUnassignedVoiceNotes] = useState(() => cachedValue?.unassignedVoiceNotes || [])
+  const [voiceNotePickerNote, setVoiceNotePickerNote] = useState(null)
+  const [voiceNotePickerSearch, setVoiceNotePickerSearch] = useState('')
+  const [voiceNotePickerPlayers, setVoiceNotePickerPlayers] = useState([])
+  const [voiceNotePickerError, setVoiceNotePickerError] = useState('')
+  const [voiceNotePanelMessage, setVoiceNotePanelMessage] = useState('')
+  const [isVoiceNotePickerLoading, setIsVoiceNotePickerLoading] = useState(false)
+  const [isVoiceNoteAssigning, setIsVoiceNoteAssigning] = useState(false)
+  const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState('')
   const [isLoading, setIsLoading] = useState(() => sessions.length === 0 && players.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
   const activeSession = useMemo(() => getActiveSession(sessions), [sessions])
@@ -172,6 +182,111 @@ export function CoachHomePage() {
     { label: 'Waiting notes', value: unassessedPlayers.length },
     { label: 'Recorded', value: completedNames.length },
   ]
+  const filteredVoiceNotePlayers = useMemo(() => {
+    const searchValue = voiceNotePickerSearch.trim().toLowerCase()
+
+    return voiceNotePickerPlayers.filter((player) => {
+      if (!searchValue) {
+        return true
+      }
+
+      return [player.playerName, player.section, player.team]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(searchValue))
+    })
+  }, [voiceNotePickerPlayers, voiceNotePickerSearch])
+
+  const openVoiceNoteAssignment = async (note) => {
+    setVoiceNotePickerNote(note)
+    setVoiceNotePickerSearch('')
+    setVoiceNotePickerError('')
+    setVoiceNotePanelMessage('')
+    setIsVoiceNotePickerLoading(true)
+
+    try {
+      const nextPlayers = await getPlayers({ user })
+      setVoiceNotePickerPlayers(nextPlayers)
+    } catch (error) {
+      console.error(error)
+      setVoiceNotePickerError('Players could not be loaded. Please try again.')
+    } finally {
+      setIsVoiceNotePickerLoading(false)
+    }
+  }
+
+  const closeVoiceNoteAssignment = () => {
+    setVoiceNotePickerNote(null)
+    setVoiceNotePickerSearch('')
+    setVoiceNotePickerPlayers([])
+    setVoiceNotePickerError('')
+    setIsVoiceNoteAssigning(false)
+  }
+
+  const assignRecoveredVoiceNote = async (player) => {
+    if (!voiceNotePickerNote?.id || !player?.id || isVoiceNoteAssigning) {
+      return
+    }
+
+    setIsVoiceNoteAssigning(true)
+    setVoiceNotePickerError('')
+
+    try {
+      await assignPlayerStaffNote({
+        user,
+        noteId: voiceNotePickerNote.id,
+        playerId: player.id,
+      })
+      setUnassignedVoiceNotes((currentNotes) => {
+        const nextNotes = currentNotes.filter((note) => note.id !== voiceNotePickerNote.id)
+        writeViewCache(cacheKey, {
+          sessions,
+          players,
+          evaluations,
+          sessionPlayers,
+          unassignedVoiceNotes: nextNotes,
+        })
+        return nextNotes
+      })
+      setVoiceNotePanelMessage(`Voice note assigned to ${player.playerName || 'the selected player'}.`)
+      closeVoiceNoteAssignment()
+    } catch (error) {
+      console.error(error)
+      setVoiceNotePickerError('Could not assign the voice note. Please try again.')
+    } finally {
+      setIsVoiceNoteAssigning(false)
+    }
+  }
+
+  const deleteRecoveredVoiceNote = async (note) => {
+    if (!note?.id || !window.confirm('Delete this voice note?')) {
+      return
+    }
+
+    setDeletingVoiceNoteId(note.id)
+    setErrorMessage('')
+    setVoiceNotePanelMessage('')
+
+    try {
+      await deletePlayerStaffNote({ noteId: note.id })
+      setUnassignedVoiceNotes((currentNotes) => {
+        const nextNotes = currentNotes.filter((currentNote) => currentNote.id !== note.id)
+        writeViewCache(cacheKey, {
+          sessions,
+          players,
+          evaluations,
+          sessionPlayers,
+          unassignedVoiceNotes: nextNotes,
+        })
+        return nextNotes
+      })
+      setVoiceNotePanelMessage('Voice note deleted.')
+    } catch (error) {
+      console.error(error)
+      setErrorMessage('Could not delete the voice note. Please try again.')
+    } finally {
+      setDeletingVoiceNoteId('')
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -316,19 +431,25 @@ export function CoachHomePage() {
         ))}
       </section>
 
-      {unassignedVoiceNotes.length > 0 ? (
+      {unassignedVoiceNotes.length > 0 || voiceNotePanelMessage ? (
         <section className={surfaceClass}>
           <div className={sectionHeaderClass}>
             <div>
               <p className={eyebrowClass}>Staff voice notes</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Unassigned voice notes</h2>
               <p className={`mt-2 ${bodyTextClass}`}>
-                Private staff recordings saved from quick add. Assign them to player records when ready.
+                Assign saved staff notes to a player when you are ready.
               </p>
             </div>
           </div>
-          <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-2">
-            {unassignedVoiceNotes.map((note) => (
+          {voiceNotePanelMessage ? (
+            <div className="mx-5 mt-5 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857] sm:mx-6">
+              {voiceNotePanelMessage}
+            </div>
+          ) : null}
+          {unassignedVoiceNotes.length > 0 ? (
+            <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-2">
+              {unassignedVoiceNotes.map((note) => (
               <div key={note.id} className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -348,9 +469,27 @@ export function CoachHomePage() {
                     Audio preview is unavailable. Try refreshing the page.
                   </p>
                 )}
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => openVoiceNoteAssignment(note)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white"
+                  >
+                    Assign to player
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteRecoveredVoiceNote(note)}
+                    disabled={deletingVoiceNoteId === note.id}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#8b4b4b] hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deletingVoiceNoteId === note.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -386,6 +525,73 @@ export function CoachHomePage() {
           ) : null}
         </div>
       </section>
+
+      {voiceNotePickerNote ? (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#00150b]/70 px-3 py-4 backdrop-blur-sm sm:items-center">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-2xl shadow-black/30 sm:p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={eyebrowClass}>Assign voice note</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Choose a player</h2>
+                <p className={`mt-2 ${bodyTextClass}`}>Squad and trial players from the current team are available.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeVoiceNoteAssignment}
+                className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
+              >
+                X
+              </button>
+            </div>
+
+            <input
+              type="search"
+              value={voiceNotePickerSearch}
+              onChange={(event) => setVoiceNotePickerSearch(event.target.value)}
+              placeholder="Search players"
+              className="mt-5 min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-bold text-[#101828] outline-none transition placeholder:text-[#6d8076] focus:border-[#047857]"
+            />
+
+            {voiceNotePickerError ? (
+              <div className="mt-4 rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#b42318]">
+                {voiceNotePickerError}
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid max-h-80 gap-2 overflow-y-auto pr-1">
+              {isVoiceNotePickerLoading ? (
+                <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-4 text-sm font-bold text-[#4b5f55]">
+                  Loading players...
+                </p>
+              ) : null}
+
+              {!isVoiceNotePickerLoading && filteredVoiceNotePlayers.map((player) => (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => assignRecoveredVoiceNote(player)}
+                  disabled={isVoiceNoteAssigning}
+                  className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-left transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span>
+                    <span className="block text-sm font-black text-[#101828]">{player.playerName}</span>
+                    <span className="mt-1 block text-xs font-bold text-[#4b5f55]">{player.section || 'Squad'} | {player.team || user?.activeTeamName || 'Current team'}</span>
+                  </span>
+                  <span className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
+                    {isVoiceNoteAssigning ? 'Saving' : 'Assign'}
+                  </span>
+                </button>
+              ))}
+
+              {!isVoiceNotePickerLoading && filteredVoiceNotePlayers.length === 0 ? (
+                <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-4 text-sm font-bold text-[#4b5f55]">
+                  No players found for this team.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

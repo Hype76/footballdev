@@ -125,6 +125,7 @@ export function FootballCalendar({
   }, new Map())
   const monthDates = getMonthGrid(cursor)
   const weekDates = getWeekDates(cursor)
+  const todayKey = getDateKey(new Date())
 
   const moveCursor = (offset) => {
     const nextDate = new Date(cursor)
@@ -202,15 +203,31 @@ export function FootballCalendar({
               const dateKey = getDateKey(date)
               const dayEvents = eventByDate.get(dateKey) ?? []
               const isCurrentMonth = date.getMonth() === cursor.getMonth()
+              const isToday = dateKey === todayKey
 
               return (
-                <div key={dateKey} className="min-h-[4.8rem] border-b border-r border-[#d7e5dc] bg-white p-1 sm:min-h-[8rem] sm:p-2">
+                <div
+                  key={dateKey}
+                  className={[
+                    'min-h-[4.8rem] border-b border-r p-1 sm:min-h-[8rem] sm:p-2',
+                    isToday
+                      ? 'border-[#047857] bg-[#ecfdf5] ring-2 ring-inset ring-[#047857]'
+                      : 'border-[#d7e5dc] bg-white',
+                  ].join(' ')}
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={isCurrentMonth ? 'text-xs font-black text-[#101828] hover:text-[#047857] sm:text-sm' : 'text-xs font-black text-[#9aa89f] hover:text-[#047857] sm:text-sm'}
-                      title={formatDateLabel(dateKey)}
-                    >
-                      {date.getDate()}
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span
+                        className={isToday ? 'inline-flex min-h-7 min-w-7 items-center justify-center rounded-full bg-[#047857] px-2 text-xs font-black text-white sm:text-sm' : isCurrentMonth ? 'text-xs font-black text-[#101828] hover:text-[#047857] sm:text-sm' : 'text-xs font-black text-[#9aa89f] hover:text-[#047857] sm:text-sm'}
+                        title={formatDateLabel(dateKey)}
+                      >
+                        {date.getDate()}
+                      </span>
+                      {isToday ? (
+                        <span className="hidden truncate text-[0.58rem] font-black uppercase tracking-[0.12em] text-[#047857] sm:inline">
+                          Today
+                        </span>
+                      ) : null}
                     </span>
                     {dayEvents.length > 0 ? (
                       <span className="rounded-full bg-[#ecfdf5] px-1.5 py-0.5 text-[0.6rem] font-black text-[#047857] sm:px-2 sm:py-1 sm:text-[0.65rem]">
@@ -245,15 +262,19 @@ export function FootballCalendar({
             {weekDates.map((date) => {
               const dateKey = getDateKey(date)
               const dayEvents = eventByDate.get(dateKey) ?? []
+              const isToday = dateKey === todayKey
 
               return (
-                <div key={dateKey} className="bg-white p-3">
+                <div key={dateKey} className={isToday ? 'border-l-4 border-[#047857] bg-[#ecfdf5] p-3' : 'bg-white p-3'}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
                         {date.toLocaleDateString('en-GB', { weekday: 'long' })}
                       </p>
-                      <p className="mt-1 text-sm font-black text-[#101828]">{formatDateLabel(dateKey)}</p>
+                      <p className="mt-1 text-sm font-black text-[#101828]">
+                        {formatDateLabel(dateKey)}
+                        {isToday ? <span className="ml-2 rounded-full bg-[#047857] px-2 py-0.5 text-[0.62rem] uppercase tracking-[0.12em] text-white">Today</span> : null}
+                      </p>
                     </div>
                     {dayEvents.length > 0 ? (
                       <span className="rounded-full bg-[#ecfdf5] px-2 py-1 text-xs font-black text-[#047857]">
@@ -287,14 +308,26 @@ export function FootballCalendar({
             {weekDates.map((date) => {
               const dateKey = getDateKey(date)
               const dayEvents = eventByDate.get(dateKey) ?? []
+              const isToday = dateKey === todayKey
 
               return (
-                <div key={dateKey} className="min-h-[14rem] border-b border-[#d7e5dc] bg-white p-3 sm:border-r">
+                <div
+                  key={dateKey}
+                  className={[
+                    'min-h-[14rem] border-b p-3 sm:border-r',
+                    isToday
+                      ? 'border-[#047857] bg-[#ecfdf5] ring-2 ring-inset ring-[#047857]'
+                      : 'border-[#d7e5dc] bg-white',
+                  ].join(' ')}
+                >
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
                       {date.toLocaleDateString('en-GB', { weekday: 'short' })}
                     </p>
-                    <p className="mt-1 text-lg font-black text-[#101828]">{date.getDate()}</p>
+                    <p className="mt-1 flex items-center gap-2 text-lg font-black text-[#101828]">
+                      <span>{date.getDate()}</span>
+                      {isToday ? <span className="rounded-full bg-[#047857] px-2 py-0.5 text-[0.62rem] uppercase tracking-[0.12em] text-white">Today</span> : null}
+                    </p>
                   </div>
                   <div className="mt-3 space-y-2">
                     {dayEvents.length === 0 ? (

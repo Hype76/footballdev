@@ -1418,13 +1418,13 @@ export async function assignPlayerStaffNote({ user, noteId, playerId } = {}) {
       .select('*')
       .eq('club_id', user.clubId)
       .eq('id', normalizedNoteId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('players')
       .select('*')
       .eq('club_id', user.clubId)
       .eq('id', normalizedPlayerId)
-      .single(),
+      .maybeSingle(),
   ])
 
   if (noteError || !noteData) {
@@ -1463,11 +1463,11 @@ export async function assignPlayerStaffNote({ user, noteId, playerId } = {}) {
     .eq('club_id', user.clubId)
     .eq('id', normalizedNoteId)
     .select('*')
-    .single()
+    .maybeSingle()
 
-  if (error) {
+  if (error || !data) {
     console.error(error)
-    throw error
+    throw new Error('Could not assign the voice note. Please try again.')
   }
 
   try {
