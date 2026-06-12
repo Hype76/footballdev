@@ -1,8 +1,8 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
-import { Resend } from 'resend'
 import { buildPdfBuffer, buildPngBuffer } from '../../src/lib/pdf-builder.js'
 import { buildProgressionChartImageHtml } from '../../src/lib/progression-chart-markup.js'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
@@ -102,7 +102,7 @@ function buildEmailPayload({
   attachments,
 }) {
   const emailPayload = {
-    from: `${fromName} <feedback@footballplayer.online>`,
+    from: createFromAddress(fromName),
     to: recipients,
     replyTo: safeReplyTo || undefined,
     subject: String(subject ?? '').trim() || 'Football Player',
@@ -435,12 +435,24 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
     return { duplicate: true, emailLogRecord }
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY)
   let response
   let sentPayload = preparedEmail.emailPayload
+  const context = {
+    emailType: 'parent_feedback',
+    userRole: preparedEmail.storedPayload.actorRole || '',
+    actorId: preparedEmail.storedPayload.actorId,
+    actorEmail: preparedEmail.storedPayload.actorEmail,
+    clubId: preparedEmail.planProfile.clubId,
+    teamId: preparedEmail.storedPayload.teamId,
+    targetEntityType: 'player',
+    targetEntityId: preparedEmail.storedPayload.playerId || '',
+  }
 
   try {
-    response = await resend.emails.send(preparedEmail.emailPayload)
+    response = await sendEmail(preparedEmail.emailPayload, {
+      context,
+      publicMessage: 'Email could not be sent. Please try again in a moment.',
+    })
   } catch (sendWithPdfError) {
     if (!preparedEmail.emailPayload.attachments?.length) {
       throw Object.assign(sendWithPdfError, { emailLogRecord })
@@ -448,7 +460,13 @@ export async function sendPreparedParentEmail(preparedEmail, { idempotencySeed =
 
     console.error('Email send with PDF failed, retrying without attachment', sendWithPdfError)
     sentPayload = removeAttachments(preparedEmail.emailPayload)
-    response = await resend.emails.send(sentPayload)
+    response = await sendEmail(sentPayload, {
+      context: {
+        ...context,
+        emailType: 'parent_feedback_without_attachment',
+      },
+      publicMessage: 'Email could not be sent. Please try again in a moment.',
+    })
   }
 
   await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
@@ -541,6 +559,9 @@ export async function handler(event) {
       },
     })
 
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Email failed - will retry automatically')
+    const publicMessage = error.publicMessage
+      ? getPublicEmailErrorMessage(error)
+      : error.statusCode ? error.message : 'Email failed. Please try again in a moment.'
+    return failureResponse(error.statusCode || 500, publicMessage)
   }
 }

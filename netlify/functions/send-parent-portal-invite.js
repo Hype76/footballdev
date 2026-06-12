@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
-import { Resend } from 'resend'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
@@ -81,7 +81,7 @@ function buildEmailPayload({
   emailHtml,
 }) {
   const emailPayload = {
-    from: `${fromName} <feedback@footballplayer.online>`,
+    from: createFromAddress(fromName),
     to: [recipient],
     replyTo: safeReplyTo || undefined,
     subject: String(subject ?? '').trim() || 'Family portal invite',
@@ -216,7 +216,6 @@ export async function handler(event) {
       return failureResponse(403, 'This invite can only be sent to the linked parent email.')
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
     const teamName = cleanHeaderPart(body.teamName || inviteLink.teams?.name, 'Team')
     const clubName = cleanHeaderPart(body.clubName || inviteLink.clubs?.name, 'Club')
     const safeDisplayName = cleanHeaderPart(displayName || planProfile.name, 'Coach')
@@ -276,7 +275,19 @@ export async function handler(event) {
       return successResponse({ duplicate: true })
     }
 
-    const response = await resend.emails.send(emailPayload)
+    const response = await sendEmail(emailPayload, {
+      context: {
+        emailType: 'parent_portal_invite',
+        userRole: planProfile.role,
+        actorId: planProfile.id,
+        actorEmail: requestUser.email,
+        clubId: inviteLink.club_id,
+        teamId: inviteLink.team_id,
+        targetEntityType: 'parent_player_link',
+        targetEntityId: inviteLink.id,
+      },
+      publicMessage: 'Family portal invite could not be sent. Please try again in a moment.',
+    })
     await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
     const { error: inviteSentUpdateError } = await supabaseAdmin
       .from('parent_player_links')
@@ -324,6 +335,9 @@ export async function handler(event) {
       },
     })
 
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Family portal invite could not be sent.')
+    const publicMessage = error.publicMessage
+      ? getPublicEmailErrorMessage(error, 'Family portal invite could not be sent. Please try again in a moment.')
+      : error.statusCode ? error.message : 'Family portal invite could not be sent.'
+    return failureResponse(error.statusCode || 500, publicMessage)
   }
 }

@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { Resend } from 'resend'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import { createSupabaseAdminClient } from './_supabase.js'
 
 function jsonResponse(statusCode, payload) {
@@ -178,10 +178,6 @@ export async function handler(event) {
     return failureResponse(405, 'Method Not Allowed')
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    return failureResponse(500, 'Parent confirmation email is not configured.')
-  }
-
   try {
     const supabaseAdmin = createSupabaseAdminClient(event)
     const body = JSON.parse(event.body || '{}')
@@ -255,18 +251,24 @@ export async function handler(event) {
       return failureResponse(500, 'Parent confirmation link could not be created.')
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    const sendResult = await resend.emails.send({
-      from: 'Football Player <feedback@footballplayer.online>',
-      to: [email],
-      subject: 'Confirm your family portal account',
-      html: buildConfirmationEmailHtml({ actionLink, invite, email }),
-    })
-
-    if (sendResult.error) {
-      console.error(sendResult.error)
+    try {
+      await sendEmail({
+        from: createFromAddress('Football Player'),
+        to: [email],
+        subject: 'Confirm your family portal account',
+        html: buildConfirmationEmailHtml({ actionLink, invite, email }),
+      }, {
+        context: {
+          emailType: 'parent_account_confirmation',
+          actorEmail: email,
+          targetEntityType: 'parent_invite',
+          targetEntityId: inviteToken,
+        },
+        publicMessage: 'Parent confirmation email could not be sent. Please try again in a moment.',
+      })
+    } catch (sendError) {
       await deleteUnconfirmedAuthUser(supabaseAdmin, email, data?.user).catch((deleteError) => console.error(deleteError))
-      return failureResponse(502, sendResult.error.message || 'Parent confirmation email could not be sent.')
+      throw sendError
     }
 
     return jsonResponse(200, {
@@ -276,6 +278,9 @@ export async function handler(event) {
     })
   } catch (error) {
     console.error(error)
-    return failureResponse(error.statusCode || 500, error.message || 'Parent account could not be created.')
+    const publicMessage = error.publicMessage
+      ? getPublicEmailErrorMessage(error, 'Parent account could not be created. Please try again in a moment.')
+      : error.message || 'Parent account could not be created.'
+    return failureResponse(error.statusCode || 500, publicMessage)
   }
 }

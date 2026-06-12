@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
-import { Resend } from 'resend'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import { createSupabaseAdminClient, isStagingRequest } from './_supabase.js'
 
 const VALID_PLAN_KEYS = new Set(['individual', 'single_team', 'small_club', 'large_club'])
@@ -106,10 +106,6 @@ async function getPlatformAdminProfile(supabaseAdmin, event) {
 }
 
 async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteToken, ownerEmail, planKey }) {
-  if (!process.env.RESEND_API_KEY) {
-    throw Object.assign(new Error('Club invite email is not configured.'), { statusCode: 500 })
-  }
-
   const inviteUrl = `${baseUrl}/club-invite/${encodeURIComponent(inviteToken)}`
   const safeClubName = cleanHeaderPart(clubName, 'Football Player')
   const planName = getPlanName(planKey)
@@ -128,12 +124,19 @@ async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteToke
     </div>
   `
 
-  const resend = new Resend(process.env.RESEND_API_KEY)
-  return resend.emails.send({
-    from: `Football Player <feedback@footballplayer.online>`,
+  return sendEmail({
+    from: createFromAddress('Football Player'),
     to: [ownerEmail],
     subject: `Set up ${safeClubName} in Football Player`,
     html,
+  }, {
+    context: {
+      emailType: 'club_owner_invite',
+      actorEmail: ownerEmail,
+      targetEntityType: 'club_owner_invite',
+      targetEntityId: inviteToken,
+    },
+    publicMessage: 'Club invite email could not be sent. Please try again in a moment.',
   })
 }
 
@@ -274,6 +277,9 @@ export async function handler(event) {
     })
   } catch (error) {
     console.error(error)
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Club could not be created and invited.')
+    const publicMessage = error.publicMessage
+      ? getPublicEmailErrorMessage(error, 'Club could not be created and invited. Please try again in a moment.')
+      : error.statusCode ? error.message : 'Club could not be created and invited.'
+    return failureResponse(error.statusCode || 500, publicMessage)
   }
 }

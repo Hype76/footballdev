@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { createHash, randomBytes } from 'node:crypto'
-import { Resend } from 'resend'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import { json } from './_stripe-billing.js'
 import { createPublicSupabaseClient } from './_supabase.js'
 
@@ -203,7 +203,6 @@ export async function handler(event) {
     }
 
     const appOrigin = getAppOrigin(event)
-    const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
     const createdRequests = []
     const missingContacts = []
     let sentCount = 0
@@ -257,20 +256,30 @@ export async function handler(event) {
         }
         const email = buildAvailabilityEmail({ match, player, recipient: contact, links })
 
-        if (resend) {
-          await resend.emails.send({
-            from: 'Football Player <feedback@footballplayer.online>',
-            to: [contact.email],
-            subject: email.subject,
-            html: email.html,
-          })
+        await sendEmail({
+          from: createFromAddress('Football Player'),
+          to: [contact.email],
+          subject: email.subject,
+          html: email.html,
+        }, {
+          context: {
+            emailType: 'match_day_availability',
+            userRole: profile.role,
+            actorId: profile.id,
+            actorEmail: profile.email,
+            clubId: profile.club_id,
+            teamId: match.team_id,
+            targetEntityType: 'match_day_availability_request',
+            targetEntityId: request.id,
+          },
+          publicMessage: 'Availability email could not be sent. Please try again in a moment.',
+        })
 
-          sentCount += 1
-          await supabase
-            .from('match_day_availability_requests')
-            .update({ sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-            .eq('id', request.id)
-        }
+        sentCount += 1
+        await supabase
+          .from('match_day_availability_requests')
+          .update({ sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+          .eq('id', request.id)
 
         createdRequests.push(request)
       }
@@ -282,13 +291,15 @@ export async function handler(event) {
       sentCount,
       missingContactCount: missingContacts.length,
       missingContacts,
-      emailConfigured: Boolean(resend),
+      emailConfigured: true,
     })
   } catch (error) {
     console.error(error)
     return json(error.statusCode || 400, {
       success: false,
-      message: error.message || 'Availability requests could not be sent.',
+      message: error.publicMessage
+        ? getPublicEmailErrorMessage(error, 'Availability requests could not be sent. Please try again in a moment.')
+        : error.message || 'Availability requests could not be sent.',
     })
   }
 }

@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
-import { Resend } from 'resend'
+import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import {
   createEmailDedupeKey,
   createEmailIdempotencyKey,
@@ -188,7 +188,7 @@ export async function handler(event) {
 
     emailSubject = String(body.subject ?? '').trim() || `${clubName} staff invite`
     const emailPayload = {
-      from: `${fromName} <feedback@footballplayer.online>`,
+      from: createFromAddress(fromName),
       to: [recipient],
       replyTo: safeReplyTo || undefined,
       subject: emailSubject,
@@ -236,8 +236,19 @@ export async function handler(event) {
       return successResponse({ duplicate: true })
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    const response = await resend.emails.send(emailPayload)
+    const response = await sendEmail(emailPayload, {
+      context: {
+        emailType: 'staff_invite',
+        userRole: planProfile.role,
+        actorId: planProfile.id,
+        actorEmail: requestUser.email,
+        clubId: invite.club_id,
+        teamId: invite.team_id,
+        targetEntityType: 'club_user_invite',
+        targetEntityId: invite.id,
+      },
+      publicMessage: 'Staff invite could not be sent. Please try again in a moment.',
+    })
     await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
 
     await supabaseAdmin
@@ -279,6 +290,9 @@ export async function handler(event) {
       },
     })
 
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Staff invite could not be sent.')
+    const publicMessage = error.publicMessage
+      ? getPublicEmailErrorMessage(error, 'Staff invite could not be sent. Please try again in a moment.')
+      : error.statusCode ? error.message : 'Staff invite could not be sent.'
+    return failureResponse(error.statusCode || 500, publicMessage)
   }
 }
