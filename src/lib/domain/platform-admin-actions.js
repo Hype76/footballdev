@@ -46,7 +46,10 @@ export async function createPlatformClub({
   const result = await response.json().catch(() => ({}))
 
   if (!response.ok || result.success === false) {
-    throw new Error(result.message || 'Club could not be created and invited.')
+    const error = new Error(result.message || 'Club could not be created and invited.')
+    error.stage = result.stage || 'unknown'
+    error.partialState = result.partialState || null
+    throw error
   }
 
   invalidateMemoryCacheByPrefix('platform-stats')
@@ -54,6 +57,7 @@ export async function createPlatformClub({
   return {
     ...normalizePlatformClubRow(result.club),
     ownerInvite: result.invite || null,
+    warning: String(result.warning ?? '').trim(),
   }
 }
 

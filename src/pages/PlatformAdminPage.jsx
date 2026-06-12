@@ -492,10 +492,23 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         billingMode: 'paid',
       })
       setCreatedClubInviteUrl(inviteUrl)
-      setSuccessMessage(createdClub?.ownerInvite?.sent ? 'Club created and invite sent.' : 'Club created. Use the invite link below for staging.')
+      if (createdClub?.warning) {
+        setErrorMessage(createdClub.warning)
+      }
+      setSuccessMessage(
+        createdClub?.warning
+          ? 'Club created. Use the invite link below while email is checked.'
+          : createdClub?.ownerInvite?.sent
+            ? 'Club created and invite sent.'
+            : 'Club created. Use the invite link below for staging.',
+      )
       showToast({
         title: 'Club saved',
-        message: createdClub?.ownerInvite?.sent ? 'The club admin invite has been sent.' : 'The staging invite link is ready.',
+        message: createdClub?.warning
+          ? 'The invite link is ready, but email needs checking.'
+          : createdClub?.ownerInvite?.sent
+            ? 'The club admin invite has been sent.'
+            : 'The staging invite link is ready.',
       })
       refreshStats()
     } catch (error) {

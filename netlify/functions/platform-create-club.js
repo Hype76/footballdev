@@ -6,6 +6,25 @@ import { createSupabaseAdminClient, isStagingRequest } from './_supabase.js'
 const VALID_PLAN_KEYS = new Set(['individual', 'single_team', 'small_club', 'large_club'])
 const VALID_BILLING_MODES = new Set(['paid', 'unpaid'])
 
+class PlatformClubCreateError extends Error {
+  constructor(message, {
+    code = '',
+    cause,
+    partialState = null,
+    publicMessage = message,
+    stage = 'unknown',
+    statusCode = 500,
+  } = {}) {
+    super(message, { cause })
+    this.name = 'PlatformClubCreateError'
+    this.code = code
+    this.partialState = partialState
+    this.publicMessage = publicMessage
+    this.stage = stage
+    this.statusCode = statusCode
+  }
+}
+
 function jsonResponse(statusCode, payload) {
   return {
     statusCode,
@@ -28,6 +47,87 @@ function normalizeText(value) {
 
 function isValidEmail(value) {
   return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(String(value ?? '').trim())
+}
+
+function safeErrorMessage(error) {
+  return normalizeText(error?.message || error?.details || error?.code || error?.name || 'Unknown error')
+}
+
+function getProviderStatus(error) {
+  return Number(error?.providerStatus ?? error?.status ?? error?.statusCode ?? error?.response?.status ?? 0) || null
+}
+
+function logCreateClubDiagnostic(stage, {
+  billingMode = '',
+  clubId = '',
+  clubName = '',
+  emailType = '',
+  error = null,
+  inviteId = '',
+  ownerEmail = '',
+  planKey = '',
+  platformAdminId = '',
+  platformAdminRole = '',
+  providerStatus = null,
+  status = 'info',
+} = {}) {
+  const payload = {
+    stage,
+    status,
+    emailType,
+    platformAdminId: normalizeText(platformAdminId),
+    platformAdminRole: normalizeText(platformAdminRole),
+    clubId: normalizeText(clubId),
+    clubName: normalizeText(clubName),
+    inviteId: normalizeText(inviteId),
+    ownerEmail: normalizeEmail(ownerEmail),
+    billingMode: normalizeText(billingMode),
+    planKey: normalizeText(planKey),
+    providerStatus: providerStatus || getProviderStatus(error),
+    error: error ? safeErrorMessage(error) : '',
+  }
+
+  const message = JSON.stringify(payload)
+
+  if (status === 'error') {
+    console.error('platform_create_club', message)
+  } else if (status === 'warn') {
+    console.warn('platform_create_club', message)
+  } else {
+    console.info('platform_create_club', message)
+  }
+}
+
+function isDuplicateClubNameError(error) {
+  return error?.code === '23505' && String(error?.message || error?.details || '').includes('clubs_name_key')
+}
+
+function createStepError(stage, error, {
+  club = null,
+  invite = null,
+  publicMessage = 'Club could not be created and invited.',
+  statusCode = 500,
+} = {}) {
+  const nextStatusCode = isDuplicateClubNameError(error) ? 409 : statusCode
+  const nextPublicMessage = isDuplicateClubNameError(error)
+    ? 'A club with this name already exists. Use a different club name.'
+    : publicMessage
+
+  return new PlatformClubCreateError(safeErrorMessage(error) || nextPublicMessage, {
+    cause: error,
+    code: normalizeText(error?.code),
+    partialState: club?.id
+      ? {
+          clubCreated: true,
+          inviteCreated: Boolean(invite?.id),
+          clubId: club.id,
+          inviteId: invite?.id || '',
+        }
+      : null,
+    publicMessage: nextPublicMessage,
+    stage,
+    statusCode: nextStatusCode,
+  })
 }
 
 function getBearerToken(event) {
@@ -100,6 +200,7 @@ async function getPlatformAdminProfile(supabaseAdmin, event) {
     id: profile.id,
     email: normalizeEmail(profile.email || authEmail),
     name: normalizeText(profile.name || profile.username || authEmail),
+    role: normalizeText(profile.role || 'super_admin'),
     roleLabel: normalizeText(profile.role_label || 'Super Admin'),
     roleRank: Number(profile.role_rank ?? 100),
   }
@@ -140,14 +241,17 @@ async function sendOwnerInviteEmail({ baseUrl, billingMode, clubName, inviteToke
   })
 }
 
-export async function handler(event) {
-  if (event.httpMethod !== 'POST') {
-    return failureResponse(405, 'Method Not Allowed')
-  }
+export async function createPlatformClubResult(event, {
+  sendOwnerInviteEmailImpl = sendOwnerInviteEmail,
+  stagingRequestImpl = isStagingRequest,
+  supabaseAdmin = createSupabaseAdminClient(event),
+} = {}) {
+  const platformAdmin = await getPlatformAdminProfile(supabaseAdmin, event)
+  logCreateClubDiagnostic('platform_admin_resolved', {
+    platformAdminId: platformAdmin.id,
+    platformAdminRole: platformAdmin.role,
+  })
 
-  try {
-    const supabaseAdmin = createSupabaseAdminClient(event)
-    const platformAdmin = await getPlatformAdminProfile(supabaseAdmin, event)
     const body = JSON.parse(event.body || '{}')
     const name = normalizeText(body.name)
     const contactEmail = normalizeEmail(body.contactEmail)
@@ -172,6 +276,15 @@ export async function handler(event) {
       return failureResponse(400, 'Paid club setup needs a paid club plan.')
     }
 
+    logCreateClubDiagnostic('create_club_start', {
+      billingMode,
+      clubName: name,
+      ownerEmail,
+      planKey,
+      platformAdminId: platformAdmin.id,
+      platformAdminRole: platformAdmin.role,
+    })
+
     const inviteToken = randomUUID()
     const now = new Date().toISOString()
     const { data: club, error: clubError } = await supabaseAdmin
@@ -190,16 +303,62 @@ export async function handler(event) {
       .single()
 
     if (clubError || !club?.id) {
-      throw clubError || new Error('Club could not be created.')
+      const error = createStepError('club_insert', clubError || new Error('Club could not be created.'), {
+        publicMessage: 'Club could not be created. Check the club details and try again.',
+      })
+      logCreateClubDiagnostic('club_insert', {
+        billingMode,
+        clubName: name,
+        error,
+        ownerEmail,
+        planKey,
+        platformAdminId: platformAdmin.id,
+        platformAdminRole: platformAdmin.role,
+        status: 'error',
+      })
+      throw error
     }
+
+    logCreateClubDiagnostic('club_insert', {
+      billingMode,
+      clubId: club.id,
+      clubName: club.name,
+      ownerEmail,
+      planKey,
+      platformAdminId: platformAdmin.id,
+      platformAdminRole: platformAdmin.role,
+      status: 'success',
+    })
 
     const { error: roleSeedError } = await supabaseAdmin.rpc('seed_default_club_roles', {
       target_club_id: club.id,
     })
 
     if (roleSeedError) {
-      throw roleSeedError
+      const error = createStepError('role_seed', roleSeedError, {
+        club,
+        publicMessage: 'Club was created, but default role setup failed. Open the new club in Club Control Centre and retry setup.',
+      })
+      logCreateClubDiagnostic('role_seed', {
+        clubId: club.id,
+        clubName: club.name,
+        error,
+        platformAdminId: platformAdmin.id,
+        platformAdminRole: platformAdmin.role,
+        status: 'error',
+      })
+      throw error
     }
+
+    logCreateClubDiagnostic('plan_default_access_resolved', {
+      billingMode,
+      clubId: club.id,
+      clubName: club.name,
+      planKey,
+      platformAdminId: platformAdmin.id,
+      platformAdminRole: platformAdmin.role,
+      status: 'success',
+    })
 
     const { data: invite, error: inviteError } = await supabaseAdmin
       .from('club_owner_invites')
@@ -215,28 +374,84 @@ export async function handler(event) {
       .single()
 
     if (inviteError || !invite?.id) {
-      throw inviteError || new Error('Club owner invite could not be created.')
+      const error = createStepError('owner_invite_insert', inviteError || new Error('Club owner invite could not be created.'), {
+        club,
+        publicMessage: 'Club was created, but the first admin invite could not be created. Open the new club in Club Control Centre and retry the invite.',
+      })
+      logCreateClubDiagnostic('owner_invite_insert', {
+        clubId: club.id,
+        clubName: club.name,
+        error,
+        ownerEmail,
+        platformAdminId: platformAdmin.id,
+        platformAdminRole: platformAdmin.role,
+        status: 'error',
+      })
+      throw error
     }
+
+    logCreateClubDiagnostic('invite_target_resolved', {
+      billingMode,
+      clubId: club.id,
+      clubName: club.name,
+      inviteId: invite.id,
+      ownerEmail,
+      planKey,
+      platformAdminId: platformAdmin.id,
+      platformAdminRole: platformAdmin.role,
+      status: 'success',
+    })
 
     const baseUrl = getBaseUrl(event)
     const inviteUrl = `${baseUrl}/club-invite/${encodeURIComponent(inviteToken)}`
-    const shouldSendEmail = !isStagingRequest(event)
+    const shouldSendEmail = !stagingRequestImpl(event)
     let emailResponse = null
+    let emailWarning = ''
 
     if (shouldSendEmail) {
-      emailResponse = await sendOwnerInviteEmail({
-        baseUrl,
-        billingMode,
-        clubName: name,
-        inviteToken,
-        ownerEmail,
-        planKey,
-      })
+      try {
+        emailResponse = await sendOwnerInviteEmailImpl({
+          baseUrl,
+          billingMode,
+          clubName: name,
+          inviteToken,
+          ownerEmail,
+          planKey,
+        })
 
-      await supabaseAdmin
-        .from('club_owner_invites')
-        .update({ invite_sent_at: new Date().toISOString() })
-        .eq('id', invite.id)
+        await supabaseAdmin
+          .from('club_owner_invites')
+          .update({ invite_sent_at: new Date().toISOString() })
+          .eq('id', invite.id)
+
+        logCreateClubDiagnostic('invite_email_provider_result', {
+          clubId: club.id,
+          clubName: club.name,
+          emailType: 'club_owner_invite',
+          inviteId: invite.id,
+          ownerEmail,
+          platformAdminId: platformAdmin.id,
+          platformAdminRole: platformAdmin.role,
+          providerStatus: 200,
+          status: 'success',
+        })
+      } catch (error) {
+        emailWarning = getPublicEmailErrorMessage(
+          error,
+          'Club was created, but the invite email could not be sent. Copy the invite link below and check the email provider logs.',
+        )
+        logCreateClubDiagnostic('invite_email_provider_result', {
+          clubId: club.id,
+          clubName: club.name,
+          emailType: 'club_owner_invite',
+          error,
+          inviteId: invite.id,
+          ownerEmail,
+          platformAdminId: platformAdmin.id,
+          platformAdminRole: platformAdmin.role,
+          status: 'warn',
+        })
+      }
     }
 
     await supabaseAdmin
@@ -258,7 +473,8 @@ export async function handler(event) {
           planKey,
           inviteId: invite.id,
           inviteUrl,
-          inviteEmailSent: shouldSendEmail,
+          inviteEmailSent: shouldSendEmail && !emailWarning,
+          inviteEmailFailed: Boolean(emailWarning),
           emailId: emailResponse?.data?.id || emailResponse?.id || '',
         },
       })
@@ -266,20 +482,44 @@ export async function handler(event) {
     return jsonResponse(200, {
       success: true,
       club,
+      warning: emailWarning,
       invite: {
         id: invite.id,
         email: ownerEmail,
         billingMode,
         planKey,
-        sent: shouldSendEmail,
+        sent: shouldSendEmail && !emailWarning,
+        emailFailed: Boolean(emailWarning),
         url: inviteUrl,
       },
     })
+}
+
+export async function handler(event) {
+  if (event.httpMethod !== 'POST') {
+    return failureResponse(405, 'Method Not Allowed')
+  }
+
+  try {
+    return await createPlatformClubResult(event)
   } catch (error) {
-    console.error(error)
+    logCreateClubDiagnostic(error.stage || 'create_club_failed', {
+      error,
+      status: 'error',
+    })
     const publicMessage = error.publicMessage
       ? getPublicEmailErrorMessage(error, 'Club could not be created and invited. Please try again in a moment.')
       : error.statusCode ? error.message : 'Club could not be created and invited.'
-    return failureResponse(error.statusCode || 500, publicMessage)
+    const payload = {
+      success: false,
+      message: publicMessage,
+      stage: error.stage || 'unknown',
+    }
+
+    if (error.partialState) {
+      payload.partialState = error.partialState
+    }
+
+    return jsonResponse(error.statusCode || 500, payload)
   }
 }
