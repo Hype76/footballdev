@@ -41,7 +41,7 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
-import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
+import { canAddStaffAccessEmail, createLimitUpgradeMessage, getUniqueStaffAccessEmails, isWithinPlanLimit } from '../lib/plans.js'
 
 const teamSetupRules = [
   {
@@ -320,8 +320,9 @@ export function TeamManagementPage() {
     () => getPaginatedItems(selectedTeamStaff, staffPage, STAFF_PAGE_SIZE),
     [selectedTeamStaff, staffPage],
   )
+  const staffAccessEmailCount = useMemo(() => getUniqueStaffAccessEmails(users, []).size, [users])
   const canCreateMoreTeams = isWithinPlanLimit(user, 'teams', teams.length)
-  const canCreateMoreStaff = isWithinPlanLimit(user, 'staffLogins', users.length)
+  const canCreateMoreStaff = isWithinPlanLimit(user, 'staffLogins', staffAccessEmailCount)
   const teamLimitMessage = createLimitUpgradeMessage(user, 'teams', 'Teams')
   const staffLimitMessage = createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins')
   const allocatedStaffCount = useMemo(
@@ -474,10 +475,6 @@ export function TeamManagementPage() {
     setErrorMessage('')
 
     try {
-      if (!isWithinPlanLimit(user, 'staffLogins', users.length)) {
-        throw new Error(createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins'))
-      }
-
       let selectedRole = assignableRoles.find((role) => role.roleKey === coachForm.roleKey)
 
       if (coachForm.roleKey === '__custom__') {
@@ -502,6 +499,11 @@ export function TeamManagementPage() {
 
       const selectedTeamId = String(coachForm.teamId ?? '').trim()
       const normalizedCoachEmail = normalizeStaffEmail(coachForm.email)
+
+      if (!canAddStaffAccessEmail(user, normalizedCoachEmail, users, [])) {
+        throw new Error(createLimitUpgradeMessage(user, 'staffLogins', 'Staff logins'))
+      }
+
       const currentTeam = teamAssignments.find((team) => team.id === selectedTeamId)
       const currentTeamEmails = new Set(
         users

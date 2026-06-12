@@ -250,6 +250,47 @@ export function isWithinPlanLimit(user, limitName, currentCount) {
   return Number(currentCount ?? 0) < Number(limit)
 }
 
+export function normalizePlanEmail(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+export function getUniqueStaffAccessEmails(members = [], invites = []) {
+  const emails = new Set()
+
+  members.forEach((member) => {
+    const email = normalizePlanEmail(typeof member === 'string' ? member : member?.email)
+
+    if (email) {
+      emails.add(email)
+    }
+  })
+
+  invites.forEach((invite) => {
+    if (invite?.acceptedAt || invite?.accepted_at) {
+      return
+    }
+
+    const email = normalizePlanEmail(typeof invite === 'string' ? invite : invite?.email)
+
+    if (email) {
+      emails.add(email)
+    }
+  })
+
+  return emails
+}
+
+export function canAddStaffAccessEmail(user, email, members = [], invites = []) {
+  const normalizedEmail = normalizePlanEmail(email)
+  const accessEmails = getUniqueStaffAccessEmails(members, invites)
+
+  if (normalizedEmail && accessEmails.has(normalizedEmail)) {
+    return true
+  }
+
+  return isWithinPlanLimit(user, 'staffLogins', accessEmails.size)
+}
+
 export function getUpgradePlanForFeature(featureName) {
   const matchedPlan = PLAN_OPTIONS.find((plan) => plan.features[featureName])
   return matchedPlan?.name || 'a paid plan'

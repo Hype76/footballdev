@@ -58,14 +58,37 @@ export function getDraftParentContacts(player) {
 }
 
 export function getContactEmailAddresses(contact) {
-  return String(contact?.email ?? '')
+  const emails = String(contact?.email ?? contact?.parentEmail ?? contact?.parent_email ?? '')
     .split(/[;,]/)
     .map((email) => email.trim())
     .filter(Boolean)
+  const invalidEmails = emails.filter((email) => !isValidContactEmail(email))
+
+  if (invalidEmails.length > 0) {
+    throw new Error(`Check this contact email before sending: ${invalidEmails[0]}`)
+  }
+
+  return emails
 }
 
 export function getContactRecipientName(contact, fallbackName) {
   return String(contact?.name ?? '').trim() || String(fallbackName ?? '').trim() || 'Parent/Guardian'
+}
+
+export function isValidContactEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? '').trim())
+}
+
+export function getEmailReadyContactsForAudience(contacts, contactType) {
+  const availableContacts = (Array.isArray(contacts) ? contacts : [])
+    .filter((contact) => getContactEmailAddresses(contact).length > 0)
+  const exactContacts = availableContacts.filter((contact) => contact.type === contactType)
+
+  if (exactContacts.length > 0) {
+    return exactContacts
+  }
+
+  return availableContacts
 }
 
 export function buildCommentsFromMergedResponses(formResponses) {
@@ -543,7 +566,7 @@ export function buildPlayerProfileParentEmailPayload({
   const payloads = getContactTemplateAudiences(getEvaluationContactType(evaluation))
     .flatMap((audience) => {
       const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
-      const contacts = selectedContacts.filter((contact) => contact.type === contactType)
+      const contacts = getEmailReadyContactsForAudience(selectedContacts, contactType)
 
       if (contacts.length === 0) {
         return []
@@ -667,7 +690,7 @@ export function buildPlayerDirectEmailPayload({
       })
     : []
   const contactType = audience === EMAIL_TEMPLATE_AUDIENCES.player ? PLAYER_CONTACT_TYPES.self : PLAYER_CONTACT_TYPES.parent
-  const selectedContacts = contacts.filter((contact) => contact.type === contactType)
+  const selectedContacts = getEmailReadyContactsForAudience(contacts, contactType)
   const payloads = selectedContacts
     .flatMap((contact) =>
       getContactEmailAddresses(contact).map((recipientEmail) => {

@@ -414,6 +414,8 @@ function OnboardingActionModal({
   const [parentInviteContactIds, setParentInviteContactIds] = useState([])
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [sessionType, setSessionType] = useState('training')
+  const [sessionStartTime, setSessionStartTime] = useState('09:00')
+  const [sessionOpponent, setSessionOpponent] = useState('')
   const [teamName, setTeamName] = useState('')
   const [teamEditId, setTeamEditId] = useState('')
   const [teamEditName, setTeamEditName] = useState('')
@@ -692,6 +694,8 @@ function OnboardingActionModal({
           session: {
             sessionDate,
             sessionType: actionType === 'create-assessment' ? 'training' : sessionType,
+            startTime: sessionStartTime,
+            opponent: actionType === 'create-session' && sessionType === 'match' ? sessionOpponent : '',
             teamId: selectedTeamId,
             team: selectedTeam?.name || user.activeTeamName || '',
           },
@@ -1149,6 +1153,10 @@ function OnboardingActionModal({
                 <span className={modalLabelClass}>Date</span>
                 <input type="date" value={sessionDate} onChange={(event) => setSessionDate(event.target.value)} className={modalInputClass} required />
               </label>
+              <label className="block">
+                <span className={modalLabelClass}>{actionType === 'create-session' && sessionType === 'match' ? 'Kick-off time' : 'Start time'}</span>
+                <input type="time" value={sessionStartTime} onChange={(event) => setSessionStartTime(event.target.value)} className={modalInputClass} required />
+              </label>
               {actionType === 'create-session' ? (
                 <label className="block">
                   <span className={modalLabelClass}>Type</span>
@@ -1162,6 +1170,12 @@ function OnboardingActionModal({
                   This creates a training context for assessment work. Use the assessment workspace to score players and save results.
                 </div>
               )}
+              {actionType === 'create-session' && sessionType === 'match' ? (
+                <label className="block sm:col-span-2">
+                  <span className={modalLabelClass}>Opponent</span>
+                  <input value={sessionOpponent} onChange={(event) => setSessionOpponent(event.target.value)} placeholder="Example: Cambourne Town U15" className={modalInputClass} required />
+                </label>
+              ) : null}
             </div>
           ) : null}
 

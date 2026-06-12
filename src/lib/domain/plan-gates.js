@@ -1,8 +1,10 @@
 import { EVALUATION_SECTIONS, supabase } from '../supabase-client.js'
 import {
+  canAddStaffAccessEmail,
   createFeatureUpgradeMessage,
   createLimitUpgradeMessage,
   getPlanLimit,
+  getUniqueStaffAccessEmails,
   hasPlanFeature,
 } from '../plans.js'
 import {
@@ -183,15 +185,21 @@ export async function assertStaffLoginLimitForEmail({ user, email }) {
   const normalizedEmail = String(email ?? '').trim().toLowerCase()
   const accessEmails = await getClubAccessEmails(user.clubId)
 
-  if (accessEmails.has(normalizedEmail)) {
+  if (normalizedEmail && accessEmails.has(normalizedEmail)) {
+    return
+  }
+
+  const planUser = await getClubPlanGateUser({ user, clubId: user.clubId })
+
+  if (canAddStaffAccessEmail(planUser, normalizedEmail, [...accessEmails], [])) {
     return
   }
 
   await assertClubLimitAvailable({
-    user,
+    user: planUser,
     clubId: user.clubId,
     limitName: 'staffLogins',
     label: 'Staff logins',
-    currentCount: accessEmails.size,
+    currentCount: getUniqueStaffAccessEmails([...accessEmails], []).size,
   })
 }
