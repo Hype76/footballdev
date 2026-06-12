@@ -16,6 +16,7 @@
     "deploy:live": "npm run build:live && npm run verify:build-env && netlify deploy --prod --dir=dist",
     "lint": "eslint .",
     "test:email": "node --test tests/email-provider.test.mjs",
+    "test:platform": "node --test tests/platform-stats-normalizers.test.mjs",
     "mobile:doctor": "node apps/scripts/mobile-doctor-check.mjs",
     "mobile:export:web": "node apps/scripts/mobile-export-web-check.mjs",
     "mobile:config": "node apps/scripts/mobile-config-check.mjs",

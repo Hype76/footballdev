@@ -34,7 +34,13 @@ export function PlatformAccountManagementSection({
 }) {
   const searchValue = String(clubSearchTerm ?? '')
   const normalizedSearchValue = searchValue.trim().toLowerCase()
-  const clubSuggestions = (stats?.clubs ?? [])
+  const statsClubs = Array.isArray(stats?.clubs) ? stats.clubs.filter((club) => club?.id) : []
+  const safeVisibleClubs = Array.isArray(visibleClubs) ? visibleClubs.filter((club) => club?.id) : []
+  const safePaginatedClubs = {
+    ...paginatedClubs,
+    items: Array.isArray(paginatedClubs?.items) ? paginatedClubs.items.filter((club) => club?.id) : [],
+  }
+  const clubSuggestions = statsClubs
     .filter((club) => {
       if (!normalizedSearchValue) {
         return true
@@ -58,7 +64,7 @@ export function PlatformAccountManagementSection({
             className={fieldClass}
           >
             <option value="All">All clubs</option>
-            {(stats?.clubs ?? []).map((club) => (
+            {statsClubs.map((club) => (
               <option key={club.id} value={club.id}>
                 {club.name}
               </option>
@@ -87,13 +93,13 @@ export function PlatformAccountManagementSection({
         <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
           Loading platform stats...
         </div>
-      ) : visibleClubs.length === 0 ? (
+      ) : safeVisibleClubs.length === 0 ? (
         <div className={emptyStateClass}>
           {searchValue.trim() ? 'No clubs match that search.' : 'No clubs found yet.'}
         </div>
       ) : (
         <div className="space-y-4">
-          {paginatedClubs.items.map((club) => (
+          {safePaginatedClubs.items.map((club) => (
             <ClubAccountCard
               key={club.id}
               club={club}
@@ -111,7 +117,7 @@ export function PlatformAccountManagementSection({
             currentPage={clubPage}
             onPageChange={onClubPageChange}
             pageSize={pageSize}
-            totalItems={visibleClubs.length}
+            totalItems={safeVisibleClubs.length}
           />
         </div>
       )}
@@ -166,6 +172,7 @@ function ClubSummary({
   onToggleClubStatus,
   updatingClubId,
 }) {
+  const clubId = String(club?.id ?? '')
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
@@ -184,8 +191,8 @@ function ClubSummary({
           <span className={eyebrowClass}>Plan</span>
           <select
             value={club.planKey || 'small_club'}
-            disabled={updatingClubId === club.id}
-            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+            disabled={updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planKey', event.target.value)}
             className={fieldClass}
           >
@@ -200,8 +207,8 @@ function ClubSummary({
           <span className={eyebrowClass}>Billing status</span>
           <select
             value={club.planStatus || 'active'}
-            disabled={updatingClubId === club.id}
-            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+            disabled={updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planStatus', event.target.value)}
             className={fieldClass}
           >
@@ -215,8 +222,8 @@ function ClubSummary({
           <input
             type="checkbox"
             checked={Boolean(club.isPlanComped)}
-            disabled={updatingClubId === club.id}
-            title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+            disabled={updatingClubId === clubId}
+            title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'isPlanComped', event.target.checked)}
             className="h-4 w-4 accent-[#047857]"
           />
@@ -232,8 +239,8 @@ function ClubSummary({
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
-          disabled={updatingClubId === club.id}
-          title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+          disabled={updatingClubId === clubId}
+          title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onToggleClubStatus(club)}
           className={secondaryButtonClass}
         >
@@ -241,8 +248,8 @@ function ClubSummary({
         </button>
         <button
           type="button"
-          disabled={updatingClubId === club.id}
-          title={updatingClubId === club.id ? 'Please wait while this club is being updated.' : undefined}
+          disabled={updatingClubId === clubId}
+          title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onDeleteClub(club)}
           className={dangerButtonClass}
         >
@@ -276,14 +283,15 @@ function ClubMetricGrid({ club }) {
 }
 
 function ClubUsersList({ club, onAccountAction, updatingUserId }) {
+  const users = Array.isArray(club?.users) ? club.users.filter((member) => member?.id) : []
   return (
     <div>
       <p className={eyebrowClass}>Adult user accounts</p>
       <div className="mt-3 space-y-2">
-        {club.users.length === 0 ? (
+        {users.length === 0 ? (
           <p className={emptyStateClass}>No users found.</p>
         ) : (
-          club.users.map((member) => (
+          users.map((member) => (
             <div key={member.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
@@ -334,14 +342,16 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
 }
 
 function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
+  const teams = Array.isArray(club?.teams) ? club.teams.filter((team) => team?.id) : []
+  const roleCounts = Array.isArray(club?.roleCounts) ? club.roleCounts.filter((role) => role?.label) : []
   return (
     <div>
       <p className={eyebrowClass}>Teams</p>
       <div className="mt-3 space-y-2">
-        {club.teams.length === 0 ? (
+        {teams.length === 0 ? (
           <p className={emptyStateClass}>No teams found.</p>
         ) : (
-          club.teams.map((team) => (
+          teams.map((team) => (
             <div
               key={team.id}
               className="flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between"
@@ -361,10 +371,10 @@ function ClubTeamsList({ club, onDeleteTeam, updatingTeamId }) {
         )}
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {club.roleCounts.length === 0 ? (
+        {roleCounts.length === 0 ? (
           <p className={emptyStateClass}>No role data found.</p>
         ) : (
-          club.roleCounts.map((role) => (
+          roleCounts.map((role) => (
             <div key={role.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 shadow-sm shadow-[#047857]/10">
               <p className="text-sm font-black text-[#101828]">{role.label}</p>
               <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">

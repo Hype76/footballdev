@@ -3,7 +3,7 @@ import { clearViewCaches, getCachedResource, invalidateMemoryCacheByPrefix } fro
 import { CLUB_SELECT, USER_PROFILE_SELECT } from './core-constants.js'
 import { createAuditLog } from './audit.js'
 import { blockDemoMutation } from './demo-guards.js'
-import { normalizePlatformClubRow } from './platform-normalizers.js'
+import { logPlatformStatsDiagnostic, normalizePlatformClubRow, normalizePlatformStatsPayload } from './platform-normalizers.js'
 import { normalizeUserProfile } from './profile-normalizers.js'
 
 export async function createPlatformClub({
@@ -397,7 +397,7 @@ export async function deletePlatformTeam({ user, teamId }) {
 
 export async function getPlatformStats(user) {
   if (user?.role !== 'super_admin') {
-    return {
+    return normalizePlatformStatsPayload({
       totals: {
         clubs: 0,
         users: 0,
@@ -407,7 +407,7 @@ export async function getPlatformStats(user) {
         communications: 0,
       },
       clubs: [],
-    }
+    })
   }
 
   return getCachedResource('platform-stats', async () => {
@@ -432,13 +432,24 @@ export async function getPlatformStats(user) {
       throw firstError
     }
 
-    const clubs = clubsResult.data ?? []
-    const users = usersResult.data ?? []
-    const teams = teamsResult.data ?? []
-    const players = playersResult.data ?? []
-    const evaluations = evaluationsResult.data ?? []
-    const communicationLogs = communicationLogsResult.data ?? []
-    const auditLogs = auditLogsResult.data ?? []
+    const clubs = (clubsResult.data ?? []).filter((club) => club?.id)
+    const users = (usersResult.data ?? []).filter((member) => member?.id)
+    const teams = (teamsResult.data ?? []).filter((team) => team?.id)
+    const players = (playersResult.data ?? []).filter((player) => player?.id)
+    const evaluations = (evaluationsResult.data ?? []).filter((evaluation) => evaluation?.id)
+    const communicationLogs = (communicationLogsResult.data ?? []).filter((log) => log?.id)
+    const auditLogs = (auditLogsResult.data ?? []).filter((log) => log?.id)
+    const invalidClubRows = (clubsResult.data ?? []).length - clubs.length
+    const invalidUserRows = (usersResult.data ?? []).length - users.length
+    const invalidTeamRows = (teamsResult.data ?? []).length - teams.length
+
+    if (invalidClubRows || invalidUserRows || invalidTeamRows) {
+      logPlatformStatsDiagnostic('ignored_invalid_platform_rows', {
+        source: 'supabase',
+        invalidClubRows,
+        invalidAdminRows: invalidUserRows + invalidTeamRows,
+      })
+    }
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
     const isRecent = (row) => {
       const timestamp = new Date(row.created_at).getTime()
@@ -463,7 +474,7 @@ export async function getPlatformStats(user) {
     const platformAdmins = users.filter((member) => member.role === 'super_admin')
     const clubUsers = users.filter((member) => member.club_id)
 
-    return {
+    const nextStats = {
       totals: {
         clubs: clubs.length,
         users: users.length,
@@ -559,5 +570,7 @@ export async function getPlatformStats(user) {
         }
       }),
     }
+
+    return normalizePlatformStatsPayload(nextStats)
   })
 }

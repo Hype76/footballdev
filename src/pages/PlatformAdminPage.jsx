@@ -11,6 +11,7 @@ import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { isSuperAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { logPlatformStatsDiagnostic, normalizePlatformStatsPayload } from '../lib/domain/platform-normalizers.js'
 import {
   formatPlatformDate,
   getClubManagementStats,
@@ -39,6 +40,27 @@ const feedbackCacheKey = 'platform-admin-feedback'
 const PLATFORM_FEEDBACK_PAGE_SIZE = 6
 const CLUB_PAGE_SIZE = 6
 
+function readCachedPlatformStats() {
+  const cachedStats = readViewCacheValue(cacheKey, 'stats', null)
+
+  if (!cachedStats) {
+    return null
+  }
+
+  const normalizedStats = normalizePlatformStatsPayload(cachedStats)
+  const cachedClubCount = Array.isArray(cachedStats?.clubs) ? cachedStats.clubs.length : 0
+  const normalizedClubCount = normalizedStats.clubs.length
+
+  if (cachedClubCount !== normalizedClubCount) {
+    logPlatformStatsDiagnostic('ignored_invalid_cached_platform_clubs', {
+      source: 'session-cache',
+      invalidClubRows: cachedClubCount - normalizedClubCount,
+    })
+  }
+
+  return normalizedStats
+}
+
 const PAGE_META = {
   dashboard: {
     title: 'Platform dashboard',
@@ -56,7 +78,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const pageMeta = PAGE_META[section] || PAGE_META.dashboard
   const showDashboard = section === 'dashboard'
   const showClubManagement = section === 'clubs'
-  const [stats, setStats] = useState(() => readViewCacheValue(cacheKey, 'stats', null))
+  const [stats, setStats] = useState(() => readCachedPlatformStats())
   const [feedbackItems, setFeedbackItems] = useState(() => {
     const cachedItems = readViewCacheValue(feedbackCacheKey, 'feedbackItems', [])
     return Array.isArray(cachedItems) ? cachedItems : []
@@ -116,9 +138,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           return
         }
 
-        setStats(nextStats)
+        const normalizedStats = normalizePlatformStatsPayload(nextStats)
+        setStats(normalizedStats)
         writeViewCache(cacheKey, {
-          stats: nextStats,
+          stats: normalizedStats,
         })
       } catch (error) {
         console.error(error)
@@ -484,6 +507,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleToggleClubStatus = async (club) => {
+    if (!club?.id) {
+      setErrorMessage('This club record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     const nextStatus = club.status === 'suspended' ? 'active' : 'suspended'
     setUpdatingClubId(club.id)
     setErrorMessage('')
@@ -507,6 +535,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleClubPlanChange = async (club, fieldName, value) => {
+    if (!club?.id) {
+      setErrorMessage('This club record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     setUpdatingClubId(club.id)
     setErrorMessage('')
     setSuccessMessage('')
@@ -544,10 +577,20 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleDeleteClub = async (club) => {
+    if (!club?.id) {
+      setErrorMessage('This club record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     setClubDeleteTarget(club)
   }
 
   const handleDeleteTeam = async (club, team) => {
+    if (!club?.id || !team?.id) {
+      setErrorMessage('This team record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     setTeamDeleteTarget({
       ...team,
       clubName: club.name,
@@ -582,6 +625,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   }
 
   const handleAccountAction = async (club, member, action) => {
+    if (!club?.id || !member?.id) {
+      setErrorMessage('This user record is incomplete. Refresh the platform data and try again.')
+      return
+    }
+
     setAccountActionTarget({
       ...member,
       clubId: club.id,
