@@ -11,6 +11,7 @@ import { getSessionTeamsForUser } from './team-actions.js'
 
 const EVENT_TYPES = ['general', 'availability_deadline', 'parent_cutoff']
 const RECURRENCE_FREQUENCIES = ['none', 'weekly', 'fortnightly', 'monthly']
+const PARENT_AUDIENCES = ['none', 'involved_players', 'all_team_parents', 'all_club_parents']
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -24,6 +25,11 @@ function normalizeEventType(value) {
 function normalizeRecurrenceFrequency(value) {
   const normalizedValue = normalizeText(value)
   return RECURRENCE_FREQUENCIES.includes(normalizedValue) ? normalizedValue : 'none'
+}
+
+function normalizeParentAudience(value) {
+  const normalizedValue = normalizeText(value)
+  return PARENT_AUDIENCES.includes(normalizedValue) ? normalizedValue : 'none'
 }
 
 function normalizeDateTime(value) {
@@ -53,6 +59,8 @@ export function normalizeCalendarEvent(row, options = {}) {
     notes: normalizeText(row.notes),
     recurrenceFrequency: normalizeRecurrenceFrequency(row.recurrence_frequency ?? row.recurrenceFrequency),
     recurrenceUntil: normalizeDateOnly(row.recurrence_until ?? row.recurrenceUntil),
+    parentVisible: row.parent_visible === true || row.parentVisible === true,
+    parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
     cancelledAt: row.cancelled_at ?? row.cancelledAt ?? '',
     createdBy: row.created_by ?? row.createdBy ?? '',
     createdByName: normalizeText(row.created_by_name ?? row.createdByName),
@@ -110,6 +118,17 @@ function buildCalendarPayload({ user, event }) {
     throw new Error('Add a repeat until date for recurring events.')
   }
 
+  const parentVisible = event?.parentVisible === true
+  const parentAudience = parentVisible ? normalizeParentAudience(event?.parentAudience) : 'none'
+
+  if (parentVisible && parentAudience === 'none') {
+    throw new Error('Choose who can see this event in the parent portal.')
+  }
+
+  if (parentVisible && parentAudience === 'all_team_parents' && !safeTeamId) {
+    throw new Error('Choose a team before sharing with all parents in the team.')
+  }
+
   return {
     club_id: user.clubId,
     team_id: safeTeamId || null,
@@ -121,6 +140,8 @@ function buildCalendarPayload({ user, event }) {
     notes: normalizeText(event?.notes),
     recurrence_frequency: recurrenceFrequency,
     recurrence_until: recurrenceFrequency === 'none' ? null : recurrenceUntil,
+    parent_visible: parentVisible,
+    parent_audience: parentAudience,
   }
 }
 
@@ -182,6 +203,25 @@ export async function getCalendarEvents({ user } = {}) {
       })
     })
   })
+}
+
+export async function getParentPortalSharedCalendarEvents({ parentLinkId } = {}) {
+  const normalizedParentLinkId = normalizeText(parentLinkId)
+
+  if (!normalizedParentLinkId) {
+    return []
+  }
+
+  const { data, error } = await supabase.rpc('get_parent_portal_shared_calendar_events', {
+    parent_link_id_value: normalizedParentLinkId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeCalendarEvent)
 }
 
 export async function createCalendarEvent({ user, event }) {

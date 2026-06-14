@@ -3,6 +3,9 @@ import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js
 import { blockDemoMutation } from './demo-guards.js'
 import { createAuditLog } from './audit.js'
 import { getEntryUserId, getEntryUserName } from './core-normalizers.js'
+import { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
+
+export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
 
 export const MATCH_DAY_STATUS_OPTIONS = [
   { value: 'scheduled', label: 'Scheduled' },
@@ -31,6 +34,8 @@ export const MATCH_DAY_ARRIVAL_OPTIONS = [
   { value: 'custom', label: 'Custom arrival time' },
 ]
 
+const MATCH_DAY_PARENT_AUDIENCES = ['none', 'involved_players', 'all_team_parents', 'all_club_parents']
+
 function normalizeText(value) {
   return String(value ?? '').trim()
 }
@@ -38,6 +43,11 @@ function normalizeText(value) {
 function normalizeTime(value) {
   const normalizedValue = normalizeText(value)
   return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : ''
+}
+
+function normalizeParentAudience(value) {
+  const normalizedValue = normalizeText(value)
+  return MATCH_DAY_PARENT_AUDIENCES.includes(normalizedValue) ? normalizedValue : 'none'
 }
 
 export function calculateArrivalTime(kickoffTime, offsetMinutes) {
@@ -141,6 +151,8 @@ export function normalizeMatchDay(row) {
     venueAddress: normalizeText(row.venue_address ?? row.venueAddress),
     notes: normalizeText(row.notes),
     scorerRequestMessage: normalizeText(row.scorer_request_message ?? row.scorerRequestMessage),
+    parentVisible: row.parent_visible === true || row.parentVisible === true,
+    parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
     status: normalizeText(row.status) || 'scheduled',
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
@@ -248,9 +260,14 @@ export async function createMatchDay({ user, match }) {
   const venueName = normalizeText(match?.venueName)
   const venueAddress = normalizeText(match?.venueAddress)
   const teamId = normalizeTeamIdForMatch(user, match)
+  const { parentVisible, parentAudience } = buildMatchDayParentVisibility(match)
 
   if (!opponent) {
     throw new Error('Opponent is required.')
+  }
+
+  if (parentVisible && parentAudience === 'all_team_parents' && !teamId) {
+    throw new Error('Choose a team before sharing this fixture with all team parents.')
   }
 
   const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location', {
@@ -280,6 +297,8 @@ export async function createMatchDay({ user, match }) {
       venue_address: venueAddress,
       notes: normalizeText(match?.notes),
       scorer_request_message: normalizeText(match?.scorerRequestMessage),
+      parent_visible: parentVisible,
+      parent_audience: parentAudience,
       status: normalizeStatus(match?.status || 'scorer_request'),
       enable_motm_poll: Boolean(match?.enableMotmPoll ?? true),
       motm_poll_expiry_hours: Math.max(Number(match?.motmPollExpiryHours ?? 2), 1),
@@ -328,6 +347,13 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.venueAddress !== undefined) payload.venue_address = normalizeText(updates.venueAddress)
   if (updates.notes !== undefined) payload.notes = normalizeText(updates.notes)
   if (updates.scorerRequestMessage !== undefined) payload.scorer_request_message = normalizeText(updates.scorerRequestMessage)
+  if (updates.parentVisible !== undefined) {
+    payload.parent_visible = updates.parentVisible !== false
+    if (updates.parentVisible === false) {
+      payload.parent_audience = 'none'
+    }
+  }
+  if (updates.parentAudience !== undefined) payload.parent_audience = updates.parentVisible === false ? 'none' : normalizeParentAudience(updates.parentAudience)
   if (updates.status !== undefined) payload.status = normalizeStatus(updates.status)
   if (updates.homeScore !== undefined) payload.home_score = Math.max(Number(updates.homeScore ?? 0), 0)
   if (updates.awayScore !== undefined) payload.away_score = Math.max(Number(updates.awayScore ?? 0), 0)

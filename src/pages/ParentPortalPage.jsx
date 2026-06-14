@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
+import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
@@ -16,6 +17,7 @@ import {
   getParentPortalEventInvites,
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
+  getParentPortalSharedCalendarEvents,
   updateMatchDayScoreAsScorer,
 } from '../lib/supabase.js'
 import { THEME_CHANGED_EVENT } from '../lib/theme.js'
@@ -174,9 +176,13 @@ export function ParentPortalPage() {
   const { showToast } = useToast()
   const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
   const [selectedLinkId, setSelectedLinkId] = useState('')
+  const [calendarCursor, setCalendarCursor] = useState(() => new Date())
+  const [calendarView, setCalendarView] = useState('month')
+  const [selectedCalendarEvent, setSelectedCalendarEvent] = useState(null)
   const [eventInvites, setEventInvites] = useState([])
   const [matches, setMatches] = useState([])
   const [players, setPlayers] = useState([])
+  const [sharedCalendarEvents, setSharedCalendarEvents] = useState([])
   const [goalForms, setGoalForms] = useState({})
   const [scoreDrafts, setScoreDrafts] = useState({})
   const [clockNow, setClockNow] = useState(() => Date.now())
@@ -193,6 +199,10 @@ export function ParentPortalPage() {
   const otherLinks = links.filter((link) => link.id !== selectedLink?.id)
   const activeMatches = useMemo(() => matches.filter((match) => !isPreviousMatch(match)), [matches])
   const previousMatches = useMemo(() => matches.filter(isPreviousMatch), [matches])
+  const parentCalendarEvents = useMemo(
+    () => buildParentCalendarEvents({ eventInvites, matches, sharedCalendarEvents }),
+    [eventInvites, matches, sharedCalendarEvents],
+  )
   const squadPlayers = useMemo(
     () =>
       players
@@ -252,6 +262,7 @@ export function ParentPortalPage() {
         setMatches([])
         setEventInvites([])
         setPlayers([])
+        setSharedCalendarEvents([])
         return
       }
 
@@ -261,16 +272,18 @@ export function ParentPortalPage() {
       }
 
       try {
-        const [nextMatches, nextPlayers, nextEventInvites] = await Promise.all([
+        const [nextMatches, nextPlayers, nextEventInvites, nextSharedCalendarEvents] = await Promise.all([
           getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
           getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }),
           getParentPortalEventInvites({ parentLinkId: selectedLink.id }),
+          getParentPortalSharedCalendarEvents({ parentLinkId: selectedLink.id }),
         ])
 
         if (isCurrent) {
           setMatches(nextMatches)
           setPlayers(nextPlayers)
           setEventInvites(nextEventInvites)
+          setSharedCalendarEvents(nextSharedCalendarEvents)
         }
       } catch (error) {
         console.error(error)
@@ -280,6 +293,7 @@ export function ParentPortalPage() {
             setMatches([])
             setEventInvites([])
             setPlayers([])
+            setSharedCalendarEvents([])
           }
           setMatchError(error.message || 'Match Day could not be loaded.')
         }
@@ -614,6 +628,17 @@ export function ParentPortalPage() {
           </aside>
 
           <div className="min-w-0 space-y-5">
+            <ParentCalendarPanel
+              calendarCursor={calendarCursor}
+              calendarEvents={parentCalendarEvents}
+              calendarView={calendarView}
+              isLoading={isLoadingMatches}
+              onCursorChange={setCalendarCursor}
+              onOpenEvent={setSelectedCalendarEvent}
+              onViewChange={setCalendarView}
+              selectedLink={selectedLink}
+            />
+
             <ParentUpcomingEvents
               eventInvites={eventInvites}
               isLoading={isLoadingMatches}
@@ -702,7 +727,79 @@ export function ParentPortalPage() {
       </section>
 
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
+      <ParentCalendarEventModal event={selectedCalendarEvent} onClose={() => setSelectedCalendarEvent(null)} />
     </div>
+  )
+}
+
+function toDateOnly(value) {
+  const parsedDate = new Date(value)
+  return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
+}
+
+function toTimeOnly(value) {
+  const normalizedValue = String(value ?? '').trim()
+  return /^\d{2}:\d{2}/.test(normalizedValue) ? normalizedValue.slice(0, 5) : ''
+}
+
+function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCalendarEvents = [] }) {
+  const sharedEvents = sharedCalendarEvents
+    .map((event) => ({
+      id: `shared:${event.id}`,
+      sourceId: event.id,
+      sourceType: 'parent-calendar-event',
+      date: toDateOnly(event.startsAt),
+      time: toTimeOnly(event.startsAt),
+      type: event.eventType === 'general' ? 'club-event' : 'deadline',
+      title: event.title || 'Shared event',
+      description: [event.location, event.notes].filter(Boolean).join(', '),
+      location: event.location,
+      editable: false,
+      data: event,
+    }))
+    .filter((event) => event.date)
+
+  const inviteEvents = eventInvites
+    .map((invite) => ({
+      id: `invite:${invite.id}`,
+      sourceId: invite.id,
+      sourceType: 'parent-invite',
+      date: toDateOnly(invite.startsAt),
+      time: toTimeOnly(invite.startsAt),
+      type: invite.sourceType === 'training' ? 'training' : 'club-event',
+      title: invite.title || 'Invited event',
+      description: [invite.arrivalTime ? `Meet ${invite.arrivalTime}` : '', invite.location, invite.notes].filter(Boolean).join(', '),
+      location: invite.location,
+      editable: false,
+      data: invite,
+    }))
+    .filter((event) => event.date)
+
+  const matchEvents = matches
+    .map((match) => ({
+      id: `match:${match.id}`,
+      sourceId: match.id,
+      sourceType: 'parent-match-day',
+      date: match.matchDate || '',
+      time: toTimeOnly(match.kickoffTime),
+      type: 'match-day',
+      title: `${match.teamName || 'Team'} v ${match.opponent || 'Opponent'}`,
+      description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', match.venueName].filter(Boolean).join(', '),
+      location: match.venueName,
+      editable: false,
+      data: match,
+    }))
+    .filter((event) => event.date)
+
+  const uniqueEvents = new Map()
+  ;[...sharedEvents, ...inviteEvents, ...matchEvents].forEach((event) => {
+    uniqueEvents.set(event.id, event)
+  })
+
+  return Array.from(uniqueEvents.values()).sort((left, right) =>
+    left.date.localeCompare(right.date) ||
+    String(left.time || '').localeCompare(String(right.time || '')) ||
+    left.title.localeCompare(right.title),
   )
 }
 
@@ -758,6 +855,99 @@ function ParentMatchMetric({ caption, isLoading, label, value }) {
       <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : value}</p>
       <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
     </article>
+  )
+}
+
+function ParentCalendarPanel({
+  calendarCursor,
+  calendarEvents,
+  calendarView,
+  isLoading,
+  onCursorChange,
+  onOpenEvent,
+  onViewChange,
+  selectedLink,
+}) {
+  if (!selectedLink) {
+    return (
+      <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+        <p className={eyebrowClass}>Calendar</p>
+        <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Family calendar</h3>
+        <p className={`mt-4 ${emptyClass}`}>No child links are active for this parent account.</p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="space-y-3">
+      <FootballCalendar
+        cursor={calendarCursor}
+        events={calendarEvents}
+        isLoading={isLoading}
+        onCursorChange={onCursorChange}
+        onOpenEvent={onOpenEvent}
+        onViewChange={onViewChange}
+        view={calendarView}
+      />
+      {!isLoading && calendarEvents.length === 0 ? (
+        <p className={emptyClass}>No shared calendar activity is available for this child yet.</p>
+      ) : null}
+    </section>
+  )
+}
+
+function ParentCalendarEventModal({ event, onClose }) {
+  if (!event) {
+    return null
+  }
+
+  const data = event.data || {}
+  const isMatch = event.sourceType === 'parent-match-day'
+  const startLabel = event.time || data.kickoffTime || ''
+  const meetLabel = data.arrivalTime ? `Meet time: ${data.arrivalTime}` : ''
+  const typeLabel = isMatch
+    ? 'Match day'
+    : event.type === 'training'
+      ? 'Training'
+      : event.type === 'deadline'
+        ? 'Deadline'
+        : 'Club event'
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#101828]/45 px-4 py-4 sm:items-center">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-xl shadow-[#047857]/15"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className={eyebrowClass}>{typeLabel}</p>
+            <h3 className="mt-2 text-xl font-black tracking-tight text-[#101828]">{event.title}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className={secondaryButtonClass}
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+          <p className="text-sm font-black text-[#101828]">
+            {[event.date, startLabel ? `Time: ${startLabel}` : '', meetLabel].filter(Boolean).join(', ')}
+          </p>
+          {event.location ? <p className="text-sm font-semibold text-[#4b5f55]">{event.location}</p> : null}
+          {event.description ? <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{event.description}</p> : null}
+          {isMatch && data.opponent ? (
+            <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+              Opponent: {data.opponent}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
   )
 }
 

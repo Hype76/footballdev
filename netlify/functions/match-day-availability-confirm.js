@@ -70,14 +70,16 @@ export async function handler(event) {
       }))
     }
 
-    if (response.response_status === 'expired') {
+    const responseStatus = normalizeText(response.response_status).toLowerCase()
+
+    if (responseStatus === 'expired') {
       return htmlResponse(410, page({
         title: 'This response link has expired',
         message: 'Ask the club to send a new fixture availability request.',
       }))
     }
 
-    const statusLabel = status === 'unavailable' ? 'not available' : status
+    const statusLabel = responseStatus === 'unavailable' ? 'not available' : responseStatus || status
 
     return htmlResponse(200, page({
       title: 'Availability confirmed',

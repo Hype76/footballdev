@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js'
+import { isLiveMatchdayCommunicationAllowed } from './matchday-communication-safety.js'
 import { isIosDevice, isStandaloneMode } from './pwa-install.js'
 
 function urlBase64ToUint8Array(base64String) {
@@ -158,6 +159,13 @@ export async function unsubscribeFromParentPush({ parentLinkId }) {
 }
 
 export async function sendMatchDayPushNotification({ matchDayId, type, eventId = '', parentLinkId = '', targetParentLinkIds = [] }) {
+  if (!isLiveMatchdayCommunicationAllowed({
+    env: import.meta.env,
+    location: globalThis.window?.location,
+  })) {
+    return null
+  }
+
   const token = await getAccessToken()
 
   if (!token || !matchDayId) {
