@@ -12,7 +12,7 @@ export const RECOVERY_MODULES = {
   help: { phase: 1 },
   matchDay: { phase: 4 },
   parentInvites: { phase: 3 },
-  parentPortal: { phase: 3 },
+  parentPortal: { phase: 1 },
   platformAdmin: { phase: 0, platformAdminOnlyDuringRecovery: true },
   platformFeedback: { phase: 6, platformAdminOnlyDuringRecovery: true },
   players: { phase: 1 },
@@ -56,8 +56,20 @@ export function getRecoveryModuleForPath(path) {
     return 'parentInvites'
   }
 
-  if (['/parent-portal', '/parent-messages', '/parent-polls', '/friends-family'].includes(normalizedPath)) {
+  if (normalizedPath === '/parent-portal') {
     return 'parentPortal'
+  }
+
+  if (normalizedPath === '/parent-messages') {
+    return 'emailMessages'
+  }
+
+  if (normalizedPath === '/parent-polls') {
+    return 'pollsAvailability'
+  }
+
+  if (normalizedPath === '/friends-family') {
+    return 'parentInvites'
   }
 
   if (['/email-queue', '/parent-email-templates'].includes(normalizedPath)) {

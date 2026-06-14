@@ -1,6 +1,7 @@
 import { supabase } from '../supabase-client.js'
 import { isDemoEmail } from '../demo.js'
 import { hasPlanFeature } from '../plans.js'
+import { isParentPortalUser } from '../auth-permissions.js'
 
 function getEntryUserName(user) {
   return String(user?.username ?? user?.name ?? user?.email ?? '').trim()
@@ -83,6 +84,10 @@ async function getVisibleActorIdsForActiveTeam(user) {
 
 export async function createAuditLog({ user, action, entityType, entityId, metadata = {} }) {
   if (isDemoAccountValue(user) || (!user && await isCurrentSessionDemoUser())) {
+    return
+  }
+
+  if (isParentPortalUser(user)) {
     return
   }
 
