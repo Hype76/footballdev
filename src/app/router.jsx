@@ -748,6 +748,7 @@ function RequirePlayerWorkflowAccess() {
 }
 
 function RequireParentPortalAccess() {
+  const location = useLocation()
   const { element, user } = useWorkspaceRouteGate({
     redirectSuperAdmin: false,
     blockExpiredTester: false,
@@ -761,7 +762,7 @@ function RequireParentPortalAccess() {
     return <RedirectToWorkspaceHome user={user} />
   }
 
-  if (!isRecoveryModuleVisible('parentPortal', { user })) {
+  if (!isRecoveryPathVisible(location.pathname, { user })) {
     return <RecoveryPhaseBlockedState />
   }
 

@@ -4,6 +4,10 @@ import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-d
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
+import {
+  shouldSendMatchdayAvailabilityRequests,
+  shouldSendMatchdayPushNotification,
+} from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import {
   addStaffMatchDayGoal,
@@ -36,6 +40,8 @@ const EMPTY_MATCH_FORM = {
   venueName: '',
   venueAddress: '',
   notes: '',
+  parentAudience: 'none',
+  parentVisible: false,
   scorerRequestMessage: 'Can anyone help as live scorer for this match?',
   status: 'scorer_request',
   enableMotmPoll: true,
@@ -374,6 +380,25 @@ export function MatchDayPage() {
 
     const availablePlayerIds = fixturePlayers.map((player) => player.id)
 
+    if (!form.parentVisible) {
+      setIsSaving(true)
+      setErrorMessage('')
+
+      try {
+        await createMatchDay({ user, match: form })
+        setForm(EMPTY_MATCH_FORM)
+        setIsFixtureFormOpen(false)
+        await loadData()
+        showToast({ title: 'Fixture created', message: 'The fixture is saved and not shared with parents.' })
+      } catch (error) {
+        console.error(error)
+        setErrorMessage(error.message || 'Match Day could not be created.')
+      } finally {
+        setIsSaving(false)
+      }
+      return
+    }
+
     if (availablePlayerIds.length === 0) {
       setErrorMessage('Add active squad players to this team before requesting fixture availability.')
       return
@@ -399,34 +424,56 @@ export function MatchDayPage() {
 
     try {
       const createdMatch = await createMatchDay({ user, match: form })
-      const response = await fetch('/.netlify/functions/send-match-day-availability-requests', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session?.access_token || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          matchDayId: createdMatch.id,
-          playerIds: selectedPlayerIds,
-        }),
+      const communicationRuntime = {
+        env: import.meta.env,
+        location: window.location,
+      }
+      const canSendAvailabilityRequests = shouldSendMatchdayAvailabilityRequests({
+        parentVisible: form.parentVisible,
+        runtime: communicationRuntime,
       })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok || result.success === false) {
-        throw new Error(result.message || 'Fixture availability requests could not be sent.')
+      let result = {
+        missingContactCount: 0,
+        sentCount: 0,
       }
 
-      void sendMatchDayPushNotification({
-        matchDayId: createdMatch.id,
-        type: 'scorer_request',
-      })
+      if (canSendAvailabilityRequests) {
+        const response = await fetch('/.netlify/functions/send-match-day-availability-requests', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session?.access_token || ''}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            matchDayId: createdMatch.id,
+            playerIds: selectedPlayerIds,
+          }),
+        })
+        result = await response.json().catch(() => ({}))
+
+        if (!response.ok || result.success === false) {
+          throw new Error(result.message || 'Fixture availability requests could not be sent.')
+        }
+      }
+
+      if (shouldSendMatchdayPushNotification({
+        parentVisible: form.parentVisible,
+        runtime: communicationRuntime,
+      })) {
+        void sendMatchDayPushNotification({
+          matchDayId: createdMatch.id,
+          type: 'scorer_request',
+        })
+      }
       setForm(EMPTY_MATCH_FORM)
       setIsFixtureFormOpen(false)
       setSquadSelection(EMPTY_SQUAD_SELECTION)
       await loadData()
       showToast({
         title: 'Fixture created',
-        message: `${result.sentCount ?? 0} availability requests sent. ${result.missingContactCount ?? 0} players need contact details.`,
+        message: canSendAvailabilityRequests
+          ? `${result.sentCount ?? 0} availability requests sent. ${result.missingContactCount ?? 0} players need contact details.`
+          : 'The fixture was saved. Availability sending is gated in this environment.',
       })
     } catch (error) {
       console.error(error)
@@ -1243,6 +1290,49 @@ function FixtureSetupModal({
               <span className={labelClass}>Match notes</span>
               <textarea value={form.notes} onChange={(event) => updateForm({ notes: event.target.value })} className={`${inputClass} min-h-24`} />
             </label>
+
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className={labelClass}>Share with parents?</span>
+                  <select
+                    value={form.parentVisible ? 'yes' : 'no'}
+                    onChange={(event) => updateForm({
+                      parentVisible: event.target.value === 'yes',
+                      parentAudience: event.target.value === 'yes' && form.parentAudience !== 'none'
+                        ? form.parentAudience
+                        : event.target.value === 'yes'
+                          ? 'involved_players'
+                          : 'none',
+                    })}
+                    className={inputClass}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className={labelClass}>Parent audience</span>
+                  <select
+                    value={form.parentVisible ? form.parentAudience : 'none'}
+                    onChange={(event) => updateForm({ parentAudience: event.target.value })}
+                    disabled={!form.parentVisible}
+                    className={inputClass}
+                  >
+                    <option value="none">Not shared</option>
+                    <option value="involved_players">Only parents of involved players</option>
+                    <option value="all_team_parents">All parents in the team</option>
+                    {!isTeamScopedFixture ? <option value="all_club_parents">All parents in the club</option> : null}
+                  </select>
+                </label>
+              </div>
+              {form.parentVisible && form.parentAudience === 'involved_players' ? (
+                <p className="mt-3 rounded-lg border border-[#fedf89] bg-white px-3 py-3 text-xs font-bold leading-5 text-[#92400e]">
+                  Only involved players uses the squad availability records selected in the next step.
+                </p>
+              ) : null}
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">

@@ -11,6 +11,7 @@ import {
   isParentPortalUser,
   isSuperAdmin,
 } from './auth-permissions.js'
+import { isParentPortalHost } from './app-origins.js'
 
 export {
   canAssignRole,
@@ -257,6 +258,11 @@ export function AuthProvider({ children }) {
   }
 
   const refreshPlatformAdminAccess = async (sessionUser = authUser) => {
+    if (isParentPortalHost()) {
+      setHasPlatformAdminAccess(false)
+      return false
+    }
+
     if (isDemoEmail(sessionUser?.email)) {
       setHasPlatformAdminAccess(false)
       return false

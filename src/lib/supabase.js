@@ -130,6 +130,7 @@ export {
   createCalendarEvent,
   deleteCalendarEvent,
   getCalendarEvents,
+  getParentPortalSharedCalendarEvents,
   updateCalendarEvent,
 } from './domain/calendar-events.js'
 

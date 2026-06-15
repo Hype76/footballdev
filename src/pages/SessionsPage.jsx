@@ -156,6 +156,8 @@ function getDefaultCalendarForm(date = '') {
     notes: '',
     notifyInvitedFamilies: false,
     opponent: '',
+    parentAudience: 'involved_players',
+    shareWithParents: false,
     recurrenceFrequency: 'none',
     recurrenceUntil: '',
     startTime: '09:00',
@@ -305,6 +307,24 @@ function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
   }
 }
 
+function validateParentSharing({ form, safeTeamId, selectedPlayers, user }) {
+  if (!form.shareWithParents) {
+    return
+  }
+
+  if (form.parentAudience === 'involved_players' && selectedPlayers.length === 0) {
+    throw new Error('You selected only parents of involved players, but no players are attached to this event. Add players or choose a wider parent audience.')
+  }
+
+  if (form.parentAudience === 'all_team_parents' && !safeTeamId) {
+    throw new Error('Choose a team before sharing with all parents in the team.')
+  }
+
+  if (form.parentAudience === 'all_club_parents' && !canCreateClubCalendarEvent(user)) {
+    throw new Error('Club parent sharing is only available to Club Admins.')
+  }
+}
+
 function getInvitesForCalendarEvent(event, invites = []) {
   const sourceType = event?.sourceType || ''
   const sourceId = String(event?.sourceId ?? '').trim()
@@ -334,6 +354,8 @@ function getFormInviteFields(event, invites = []) {
     inviteTrialPlayers: false,
     inviteWholeSquad: false,
     notifyInvitedFamilies: eventInvites.some((invite) => invite.notifyRequested),
+    parentAudience: eventInvites.length > 0 ? 'involved_players' : 'none',
+    shareWithParents: eventInvites.length > 0,
   }
 }
 
@@ -379,6 +401,8 @@ function getFormFromCalendarEvent(event, invites = []) {
   }
 
   if (sourceType === 'calendar') {
+    const sourceParentAudience = source.parentAudience || inviteFields.parentAudience || 'none'
+
     return {
       ...getDefaultCalendarForm(source.startsAt || event.date),
       date: formatDateInput(source.startsAt || event.date),
@@ -392,6 +416,8 @@ function getFormFromCalendarEvent(event, invites = []) {
       teamId: source.teamId || '',
       title: source.title || '',
       ...inviteFields,
+      parentAudience: sourceParentAudience,
+      shareWithParents: Boolean(source.parentVisible || inviteFields.shareWithParents),
     }
   }
 
@@ -1140,12 +1166,19 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         [name]: type === 'checkbox' ? checked : value,
       }
 
+      if (name === 'shareWithParents') {
+        nextForm.parentAudience = checked ? (current.parentAudience === 'none' ? 'involved_players' : current.parentAudience) : 'none'
+      }
+
       if (name === 'teamId') {
         const selectedTeam = teams.find((team) => team.id === value)
         nextForm.team = selectedTeam?.name || ''
         nextForm.invitedPlayerIds = []
         nextForm.inviteTrialPlayers = false
         nextForm.inviteWholeSquad = false
+        if (!value && current.parentAudience === 'all_team_parents') {
+          nextForm.parentAudience = 'all_club_parents'
+        }
       }
 
       if (name === 'eventType' && value === 'training' && !current.title) {
@@ -1201,6 +1234,12 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       }
 
       validateCalendarForm({ form: calendarForm, safeTeamId, sourceType, user })
+      validateParentSharing({
+        form: calendarForm,
+        safeTeamId,
+        selectedPlayers: selectedCalendarInvitePlayers,
+        user,
+      })
 
       const fixtureEndTime = isMatch ? addMinutesToTime(calendarForm.startTime, 120) : calendarForm.endTime
       const recurrenceDates = isMatch
@@ -1217,13 +1256,14 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           return
         }
 
+        const sharedInvolvedPlayers = calendarForm.shareWithParents && calendarForm.parentAudience === 'involved_players'
         const savedInvites = await saveCalendarEventInvites({
           user,
           calendarEventId,
           assessmentSessionId,
           teamId: safeTeamId,
-          players: selectedCalendarInvitePlayers,
-          notifyRequested: calendarForm.notifyInvitedFamilies,
+          players: sharedInvolvedPlayers ? selectedCalendarInvitePlayers : [],
+          notifyRequested: sharedInvolvedPlayers && calendarForm.notifyInvitedFamilies,
         })
         nextCalendarInvites = replaceInvitesForSource(nextCalendarInvites, { calendarEventId, assessmentSessionId }, savedInvites)
       }
@@ -1341,6 +1381,8 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           eventType: calendarForm.eventType,
           location: calendarForm.location,
           notes: calendarForm.notes,
+          parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
+          parentVisible: calendarForm.shareWithParents,
           recurrenceFrequency: calendarForm.recurrenceFrequency,
           recurrenceUntil: calendarForm.recurrenceUntil,
           startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
@@ -2191,7 +2233,7 @@ function CalendarEventModal({
   const showOpponent = form.eventType === 'match'
   const isMatchFixture = form.eventType === 'match'
   const showRecurrence = form.eventType !== 'match'
-  const showInvites = true
+  const showInvites = form.shareWithParents && form.parentAudience === 'involved_players'
   const isSessionCreate = mode === 'create' && variant === 'session'
   const title = isSessionCreate ? 'Create session' : mode === 'create' ? 'Add calendar event' : mode === 'edit' ? 'Edit calendar event' : 'Calendar event'
   const selectedSummary = isMatchFixture
@@ -2204,6 +2246,11 @@ function CalendarEventModal({
   const inviteTeamId = canUseClubLevel ? form.teamId : form.teamId || user?.activeTeamId
   const hasInviteTeam = Boolean(String(inviteTeamId || '').trim())
   const eventTypeOptions = getCalendarEventTypeOptions(user)
+  const parentAudienceOptions = [
+    { value: 'involved_players', label: 'Only parents of involved players' },
+    ...(hasInviteTeam ? [{ value: 'all_team_parents', label: 'All parents in the team' }] : []),
+    ...(canUseClubLevel ? [{ value: 'all_club_parents', label: 'All parents in the club' }] : []),
+  ]
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
@@ -2405,13 +2452,58 @@ function CalendarEventModal({
               </div>
             )}
 
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Share with parents?</span>
+                  <select
+                    name="shareWithParents"
+                    value={form.shareWithParents ? 'yes' : 'no'}
+                    onChange={(event) => onChange({
+                      target: {
+                        checked: event.target.value === 'yes',
+                        name: 'shareWithParents',
+                        type: 'checkbox',
+                        value: event.target.value,
+                      },
+                    })}
+                    disabled={isBusy}
+                    className={fieldClass}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Parent audience</span>
+                  <select
+                    name="parentAudience"
+                    value={form.shareWithParents ? form.parentAudience : 'none'}
+                    onChange={onChange}
+                    disabled={isBusy || !form.shareWithParents}
+                    className={fieldClass}
+                  >
+                    <option value="none">Not shared</option>
+                    {parentAudienceOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {form.shareWithParents && form.parentAudience === 'involved_players' ? (
+                <p className="mt-3 rounded-lg border border-[#fedf89] bg-white px-3 py-3 text-xs font-bold leading-5 text-[#92400e]">
+                  Only involved players fails closed unless at least one player is attached below.
+                </p>
+              ) : null}
+            </div>
+
             {showInvites ? (
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-sm font-black text-[#101828]">Invite players</p>
+                    <p className="text-sm font-black text-[#101828]">Involved players</p>
                     <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
-                      Invite records are saved now. Parent and mobile notifications can use them when the notification job is enabled.
+                      These player records define which parents can see the event when the audience is limited to involved players.
                     </p>
                   </div>
                   <span className="rounded-full border border-[#bbf7d0] bg-white px-3 py-1 text-xs font-black text-[#065f46]">

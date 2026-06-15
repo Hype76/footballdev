@@ -2,14 +2,16 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const safeStagingBranch = 'football-os-staging'
 const stagingUrl = 'https://football-os-staging.staging.footballplayer.online'
-const liveProjectRef = 'hvapkizujvsahvgspser'
-const stagingProjectRef = 'llpufwzvgxyczxcjwupu'
+export const liveProjectRef = 'hvapkizujvsahvgspser'
+export const legacyStagingProjectRef = 'llpufwzvgxyczxcjwupu'
 const productionBranch = 'main'
+const approvedModes = ['deploy', 'local-live', 'production-prep']
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const result = {}
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -83,24 +85,24 @@ async function scanDistRefs() {
     return {
       exists: false,
       hasLiveRef: false,
-      hasStagingRef: false,
+      hasLegacyStagingRef: false,
     }
   }
 
   const files = await listBuildFiles(distDir)
   let hasLiveRef = false
-  let hasStagingRef = false
+  let hasLegacyStagingRef = false
 
   for (const file of files) {
     const content = await readFile(file, 'utf8')
     hasLiveRef ||= content.includes(liveProjectRef)
-    hasStagingRef ||= content.includes(stagingProjectRef)
+    hasLegacyStagingRef ||= content.includes(legacyStagingProjectRef)
   }
 
   return {
     exists: true,
     hasLiveRef,
-    hasStagingRef,
+    hasLegacyStagingRef,
   }
 }
 
@@ -113,50 +115,144 @@ function hasProductionDeployRisk(command) {
     || normalized.includes('deploy:live')
 }
 
-function printReport(report) {
-  console.log('Netlify deploy safety check')
-  console.log('')
-  console.log(`Current git branch: ${report.currentBranch || 'unknown'}`)
-  console.log(`Target branch: ${report.targetBranch || 'unknown'}`)
-  console.log(`Netlify site id: ${report.siteId || 'unknown'}`)
-  console.log(`Netlify deploy context: ${report.deployContext || 'unknown'}`)
-  console.log(`Intended URL or context: ${report.intendedUrl || 'unknown'}`)
-  console.log(`Command under review: ${report.command || 'not provided'}`)
-  console.log(`Main involved: ${report.mainInvolved ? 'yes' : 'no'}`)
-  console.log(`Can trigger production: ${report.canTriggerProduction ? 'yes' : 'no'}`)
-  console.log(`Dist folder present: ${report.dist.exists ? 'yes' : 'no'}`)
-  console.log(`Staging Supabase ref present in dist: ${report.dist.hasStagingRef ? 'yes' : 'no'}`)
-  console.log(`Live Supabase ref present in dist: ${report.dist.hasLiveRef ? 'yes' : 'no'}`)
-  console.log('')
-
-  if (report.failures.length > 0) {
-    console.error('Deploy safety result: blocked')
-    for (const failure of report.failures) {
-      console.error(`- ${failure}`)
-    }
-    return
-  }
-
-  console.log('Deploy safety result: allowed for staging preflight')
+function hasDeployCommandRisk(command) {
+  const normalized = String(command ?? '').toLowerCase()
+  return normalized.includes('netlify deploy')
+    || normalized.includes('deploy:live')
+    || normalized.includes('npm run deploy')
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2))
-  const currentBranch = runGit(['branch', '--show-current'])
-  const targetBranch = args['target-branch'] || process.env.NETLIFY_TARGET_BRANCH || currentBranch
-  const deployContext = args.context || process.env.NETLIFY_DEPLOY_CONTEXT || process.env.CONTEXT || ''
-  const intendedUrl = args['intended-url'] || process.env.NETLIFY_INTENDED_URL || stagingUrl
-  const command = args.command || process.env.NETLIFY_DEPLOY_COMMAND || ''
-  const state = readJsonIfExists(path.resolve('.netlify', 'state.json'))
-  const siteId = state?.siteId || ''
-  const dist = await scanDistRefs()
+function hasDatabaseMutationRisk(command) {
+  const normalized = String(command ?? '').toLowerCase()
+  return normalized.includes('supabase db push')
+    || normalized.includes('supabase migration')
+    || normalized.includes('apply_migration')
+    || normalized.includes('execute_sql')
+    || normalized.includes('db reset')
+}
+
+function normalizeMode(value) {
+  const normalizedValue = String(value ?? '').trim()
+  return approvedModes.includes(normalizedValue) ? normalizedValue : 'deploy'
+}
+
+function hasAnySupabaseRef(dist) {
+  return dist.hasLiveRef || dist.hasLegacyStagingRef
+}
+
+export function evaluateSafety({
+  currentBranch = '',
+  targetBranch = '',
+  deployContext = '',
+  intendedUrl = '',
+  command = '',
+  siteId = '',
+  dist = { exists: false, hasLiveRef: false, hasLegacyStagingRef: false },
+  expectedSupabaseRef = '',
+  mode = 'deploy',
+} = {}) {
+  const safeMode = normalizeMode(mode)
   const mainInvolved = [currentBranch, targetBranch, deployContext, intendedUrl, command]
     .some((value) => String(value ?? '').toLowerCase().includes(productionBranch))
   const canTriggerProduction = hasProductionDeployRisk(command) || deployContext === 'production' || targetBranch === productionBranch
   const failures = []
 
+  if (!dist.exists) {
+    failures.push('dist folder is missing. Run the relevant web build before safety validation.')
+  }
+
+  if (dist.hasLiveRef && dist.hasLegacyStagingRef) {
+    failures.push('Both live and legacy staging Supabase refs appear in dist.')
+  }
+
+  if (dist.exists && !hasAnySupabaseRef(dist)) {
+    failures.push('No known Supabase ref was identified in dist.')
+  }
+
+  if (safeMode === 'local-live') {
+    if (command) {
+      failures.push('Local live validation mode must not review or run a deploy command.')
+    }
+
+    if (deployContext) {
+      failures.push('Local live validation mode must not set a Netlify deploy context.')
+    }
+
+    if (targetBranch && targetBranch !== currentBranch) {
+      failures.push('Local live validation mode must not target a different branch.')
+    }
+
+    if (hasDeployCommandRisk(command)) {
+      failures.push('Local live validation mode cannot include a deploy command.')
+    }
+
+    if (hasDatabaseMutationRisk(command)) {
+      failures.push('Local live validation mode cannot include database mutation commands.')
+    }
+
+    if (!dist.hasLiveRef) {
+      failures.push(`Local live validation mode requires live Supabase ref ${liveProjectRef} in dist.`)
+    }
+
+    if (dist.hasLegacyStagingRef) {
+      failures.push(`Local live validation mode must not use legacy staging Supabase ref ${legacyStagingProjectRef}.`)
+    }
+
+    return {
+      canTriggerProduction,
+      failures,
+      mainInvolved,
+      mode: safeMode,
+    }
+  }
+
+  if (!expectedSupabaseRef) {
+    failures.push('Real deploy safety checks require --expected-supabase-ref.')
+  }
+
+  if (expectedSupabaseRef && expectedSupabaseRef !== liveProjectRef && expectedSupabaseRef !== legacyStagingProjectRef) {
+    failures.push('Expected Supabase ref is not one of the known project refs for this repo.')
+  }
+
+  if (expectedSupabaseRef === liveProjectRef && !dist.hasLiveRef) {
+    failures.push(`Expected Supabase ref ${liveProjectRef} is not proven in dist.`)
+  }
+
+  if (expectedSupabaseRef === legacyStagingProjectRef && !dist.hasLegacyStagingRef) {
+    failures.push(`Expected Supabase ref ${legacyStagingProjectRef} is not proven in dist.`)
+  }
+
+  if (expectedSupabaseRef === liveProjectRef && dist.hasLegacyStagingRef) {
+    failures.push('Unexpected legacy staging Supabase ref appears in a live-target build.')
+  }
+
+  if (expectedSupabaseRef === legacyStagingProjectRef && dist.hasLiveRef) {
+    failures.push('Unexpected live Supabase ref appears in a staging-target build.')
+  }
+
   if (!siteId) {
     failures.push('Netlify site id could not be read from .netlify/state.json.')
+  }
+
+  if (safeMode === 'production-prep') {
+    if (expectedSupabaseRef !== liveProjectRef) {
+      failures.push(`Production prep requires expected Supabase ref ${liveProjectRef}.`)
+    }
+
+    if (!command) {
+      failures.push('Production prep requires the exact deploy command to be reviewed.')
+    }
+
+    if (!canTriggerProduction) {
+      failures.push('Production prep did not prove that the reviewed command targets production.')
+    }
+
+    return {
+      canTriggerProduction,
+      failures,
+      mainInvolved,
+      mode: safeMode,
+    }
   }
 
   if (targetBranch === productionBranch) {
@@ -199,39 +295,92 @@ async function main() {
     failures.push('Never use --prod during staging work.')
   }
 
-  if (!dist.exists) {
-    failures.push('dist folder is missing. Run npm run build:staging and npm run verify:build-env before staging deploy review.')
+  return {
+    canTriggerProduction,
+    failures,
+    mainInvolved,
+    mode: safeMode,
+  }
+}
+
+function printReport(report) {
+  console.log('Netlify deploy safety check')
+  console.log('')
+  console.log(`Safety mode: ${report.mode}`)
+  console.log(`Current git branch: ${report.currentBranch || 'unknown'}`)
+  console.log(`Target branch: ${report.targetBranch || 'unknown'}`)
+  console.log(`Netlify site id: ${report.siteId || 'unknown'}`)
+  console.log(`Netlify deploy context: ${report.deployContext || 'unknown'}`)
+  console.log(`Intended URL or context: ${report.intendedUrl || 'unknown'}`)
+  console.log(`Command under review: ${report.command || 'not provided'}`)
+  console.log(`Expected Supabase ref: ${report.expectedSupabaseRef || 'not provided'}`)
+  console.log(`Main involved: ${report.mainInvolved ? 'yes' : 'no'}`)
+  console.log(`Can trigger production: ${report.canTriggerProduction ? 'yes' : 'no'}`)
+  console.log(`Dist folder present: ${report.dist.exists ? 'yes' : 'no'}`)
+  console.log(`Legacy staging Supabase ref present in dist: ${report.dist.hasLegacyStagingRef ? 'yes' : 'no'}`)
+  console.log(`Live Supabase ref present in dist: ${report.dist.hasLiveRef ? 'yes' : 'no'}`)
+  console.log('')
+
+  if (report.failures.length > 0) {
+    console.error('Deploy safety result: blocked')
+    for (const failure of report.failures) {
+      console.error(`- ${failure}`)
+    }
+    return
   }
 
-  if (dist.hasLiveRef) {
-    failures.push(`Live Supabase ref ${liveProjectRef} appears in dist.`)
-  }
+  console.log(`Deploy safety result: allowed for ${report.mode}`)
+}
 
-  if (!dist.hasStagingRef) {
-    failures.push(`Staging Supabase ref ${stagingProjectRef} is not proven in dist.`)
-  }
+async function main() {
+  const args = parseArgs(process.argv.slice(2))
+  const mode = normalizeMode(args.mode || process.env.DEPLOY_SAFETY_MODE || 'deploy')
+  const currentBranch = runGit(['branch', '--show-current'])
+  const targetBranch = args['target-branch'] || process.env.NETLIFY_TARGET_BRANCH || (mode === 'local-live' ? currentBranch : currentBranch)
+  const deployContext = args.context || process.env.NETLIFY_DEPLOY_CONTEXT || (mode === 'local-live' ? '' : process.env.CONTEXT || '')
+  const intendedUrl = args['intended-url'] || process.env.NETLIFY_INTENDED_URL || (mode === 'local-live' ? 'local live-aligned validation' : stagingUrl)
+  const command = args.command || process.env.NETLIFY_DEPLOY_COMMAND || ''
+  const expectedSupabaseRef = args['expected-supabase-ref'] || process.env.EXPECTED_SUPABASE_REF || ''
+  const state = readJsonIfExists(path.resolve('.netlify', 'state.json'))
+  const siteId = state?.siteId || ''
+  const dist = await scanDistRefs()
+  const result = evaluateSafety({
+    command,
+    currentBranch,
+    deployContext,
+    dist,
+    expectedSupabaseRef,
+    intendedUrl,
+    mode,
+    siteId,
+    targetBranch,
+  })
 
   const report = {
+    canTriggerProduction: result.canTriggerProduction,
     currentBranch,
-    targetBranch,
-    siteId,
     deployContext,
-    intendedUrl,
-    command,
-    mainInvolved,
-    canTriggerProduction,
     dist,
-    failures,
+    expectedSupabaseRef,
+    failures: result.failures,
+    intendedUrl,
+    mainInvolved: result.mainInvolved,
+    mode: result.mode,
+    command,
+    siteId,
+    targetBranch,
   }
 
   printReport(report)
 
-  if (failures.length > 0) {
+  if (result.failures.length > 0) {
     process.exit(1)
   }
 }
 
-main().catch((error) => {
-  console.error(error.message || error)
-  process.exit(1)
-})
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error.message || error)
+    process.exit(1)
+  })
+}

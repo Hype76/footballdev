@@ -100,7 +100,7 @@ function NavItemLabel({ item, pollCount = 0, queuedEmailCount = 0 }) {
 function OperationsStrip({ canUseTeamWorkflow, displayUser, isParentPortal, onClose }) {
   const actions = isParentPortal
     ? [
-        { label: 'Fixtures', path: '/parent-portal', icon: 'calendar' },
+        { label: 'Calendar', path: '/parent-portal', icon: 'calendar' },
         { label: 'Messages', path: '/parent-messages', icon: 'mail' },
         { label: 'Replies', path: '/parent-polls', icon: 'availability' },
       ]
@@ -349,7 +349,7 @@ export function Sidebar({ isOpen, onClose }) {
   const workspaceItems = useMemo(() => {
     if (isParentPortal) {
       return [
-        { label: 'Match Day', path: '/parent-portal', helper: 'Fixtures and updates' },
+        { label: 'Calendar', path: '/parent-portal', helper: 'Events and match day' },
         { label: 'Messages', path: '/parent-messages', helper: 'Club notices' },
         { label: 'Polls', path: '/parent-polls', helper: 'Reply requests' },
         { label: 'Friends and Family', path: '/friends-family', helper: 'Shared access' },
