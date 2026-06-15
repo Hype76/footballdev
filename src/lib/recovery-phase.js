@@ -10,7 +10,7 @@ export const RECOVERY_MODULES = {
   emailMessages: { phase: 4 },
   formBuilder: { phase: 1, clubAdminOnlyDuringRecovery: true },
   help: { phase: 1 },
-  matchDay: { phase: 4 },
+  matchDay: { phase: 1 },
   parentInvites: { phase: 3 },
   parentPortal: { phase: 1 },
   platformAdmin: { phase: 0, platformAdminOnlyDuringRecovery: true },

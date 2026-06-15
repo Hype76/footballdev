@@ -39,13 +39,13 @@ test('parent adjacent routes remain recovery gated until their own modules are r
   assert.equal(isRecoveryPathVisible('/friends-family', { user: parentUser }), false)
 })
 
-test('unrelated recovery routes stay hidden for non-admin users', () => {
+test('match day is restored while unrelated recovery routes stay hidden for non-admin users', () => {
   const coachUser = {
     role: 'coach',
     roleRank: 30,
   }
 
-  assert.equal(isRecoveryPathVisible('/match-day', { user: coachUser }), false)
+  assert.equal(isRecoveryPathVisible('/match-day', { user: coachUser }), true)
   assert.equal(isRecoveryPathVisible('/parent-linking', { user: coachUser }), false)
   assert.equal(isRecoveryPathVisible('/activity-log', { user: coachUser }), false)
   assert.equal(isRecoveryPathVisible('/platform-feedback', { user: coachUser }), false)
