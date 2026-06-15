@@ -363,7 +363,7 @@ function EmailTemplatesUnavailableState() {
 }
 
 function TeamContextRequiredState() {
-  const { isProfileLoading, selectTeam, teamOptions } = useAuth()
+  const { isProfileLoading, selectTeam, teamOptions, user } = useAuth()
 
   const handleTeamSelect = async (teamId) => {
     try {
@@ -376,7 +376,7 @@ function TeamContextRequiredState() {
   const hasTeams = teamOptions.length > 0
 
   useEffect(() => {
-    if (teamOptions.length !== 1 || isProfileLoading) {
+    if (teamOptions.length !== 1 || isProfileLoading || isClubAdmin(user)) {
       return
     }
 

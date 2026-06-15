@@ -72,11 +72,16 @@ test('club admin without a selected team is blocked from the team workflow path'
     role: 'admin',
     roleRank: 100,
   })
+  const clubAdminWithTeamContext = staffUser({
+    role: 'admin',
+    roleRank: 100,
+  })
 
   assert.equal(isRecoveryPathVisible('/match-day', { user: clubAdmin }), true)
-  assert.equal(canManageMatchDay(clubAdmin), true)
+  assert.equal(canManageMatchDay(clubAdmin), false)
   assert.equal(hasTeamWorkflowContext(clubAdmin), false)
   assert.equal(needsTeamWorkflowContext(clubAdmin), true)
+  assert.equal(canManageMatchDay(clubAdminWithTeamContext), false)
 })
 
 test('sidebar keeps match day behind team workflow context and staff permission', async () => {
@@ -91,6 +96,22 @@ test('sidebar keeps match day behind team workflow context and staff permission'
   assert.match(section, /return canUseTeamWorkflow && canManageMatchDay\(displayUser\)/)
   assert.match(source, /if \(isParentPortal\) \{/)
   assert.match(source, /return item\.path === '\/parent-portal' \|\| item\.path === '\/parent-messages' \|\| item\.path === '\/parent-polls' \|\| item\.path === '\/friends-family'/)
+})
+
+test('team chooser does not auto-select a single team for club admins', async () => {
+  const source = await readFile(routerUrl, 'utf8')
+  const start = source.indexOf('function TeamContextRequiredState()')
+  assert.notEqual(start, -1)
+  const end = source.indexOf('function isClubSuspended(user)', start)
+  assert.notEqual(end, -1)
+  const section = source.slice(start, end)
+
+  const clubAdminGuardIndex = section.indexOf('isClubAdmin(user)')
+  const autoSelectIndex = section.indexOf('void handleTeamSelect(teamOptions[0].id)')
+
+  assert.notEqual(clubAdminGuardIndex, -1)
+  assert.notEqual(autoSelectIndex, -1)
+  assert.ok(clubAdminGuardIndex < autoSelectIndex)
 })
 
 test('direct match day route checks recovery, team context, and staff permission', async () => {

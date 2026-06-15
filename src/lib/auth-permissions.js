@@ -212,7 +212,13 @@ export function canManagePolls(user) {
 }
 
 export function canManageMatchDay(user) {
-  return Boolean(user?.clubId) && !isSuperAdmin(user) && !isParentPortalUser(user) && isPlanAccessActive(user) && Number(user?.roleRank ?? 0) >= 20
+  return Boolean(user?.clubId)
+    && !isSuperAdmin(user)
+    && !isParentPortalUser(user)
+    && !isClubAdmin(user)
+    && isPlanAccessActive(user)
+    && Number(user?.roleRank ?? 0) >= 20
+    && Boolean(user?.activeTeamId)
 }
 
 export function canEditEvaluation(user, evaluation) {
