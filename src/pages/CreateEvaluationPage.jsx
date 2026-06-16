@@ -36,6 +36,18 @@ import {
 } from '../lib/evaluation-export-selection.js'
 import { removeDraft, saveDraft } from '../lib/offline-drafts.js'
 import {
+  buildPrivateEvaluationDraftContext,
+  clearPrivateEvaluationDraft,
+  closeServerEvaluationDraft,
+  findPrivateEvaluationDraft,
+  findServerEvaluationDraft,
+  getEvaluationDraftContextKey,
+  hasPrivateEvaluationDraftContent,
+  PRIVATE_EVALUATION_DRAFT_STATUSES,
+  savePrivateEvaluationDraft,
+  saveServerEvaluationDraft,
+} from '../lib/evaluation-drafts.js'
+import {
   buildComments,
   buildFormResponses,
   buildParentEmailJobs,
@@ -113,6 +125,68 @@ function getPlayerSectionLabel(section) {
 
 function getPlayerSectionKey(section) {
   return String(section ?? '').trim() === 'Trial' ? 'trial' : 'squad'
+}
+
+function formatPrivateDraftSavedAt(value) {
+  if (!value) {
+    return ''
+  }
+
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value))
+  } catch (error) {
+    console.error(error)
+    return ''
+  }
+}
+
+function getPrivateDraftBannerCopy(status, draftInfo) {
+  const source = draftInfo?.source === 'server' ? 'database' : 'browser'
+  const savedAt = formatPrivateDraftSavedAt(draftInfo?.lastSavedAt || draftInfo?.restoredAt)
+  const lastSavedMessage = savedAt ? ` Last saved: ${savedAt}.` : ''
+
+  if (status === 'restored') {
+    return {
+      title: `Private ${source} draft restored`,
+      message: `Continue editing this unfinished development record, or discard it.${lastSavedMessage}`,
+    }
+  }
+
+  if (status === 'unsaved') {
+    return {
+      title: 'Unsaved changes',
+      message: 'Changes are being prepared for private draft saving.',
+    }
+  }
+
+  if (status === 'saving') {
+    return {
+      title: 'Saving private draft',
+      message: 'This unfinished record is being saved privately.',
+    }
+  }
+
+  if (status === 'saved_local') {
+    return {
+      title: 'Private browser draft saved',
+      message: `The database draft is not available yet, so this record is saved in this browser only.${lastSavedMessage}`,
+    }
+  }
+
+  if (status === 'error') {
+    return {
+      title: 'Private draft save failed',
+      message: 'The latest database draft change could not be saved. Check the form before leaving this page.',
+    }
+  }
+
+  return {
+    title: `Private ${source} draft saved`,
+    message: `This unfinished record is available only to this signed-in staff profile.${lastSavedMessage}`,
+  }
 }
 
 const ASSESSMENT_PLAYER_FILTERS = [
@@ -445,6 +519,8 @@ export function CreateEvaluationPage() {
   const isPlatformOwner = isSuperAdmin(user)
   const formRef = useRef(null)
   const hasInitializedRef = useRef(false)
+  const privateDraftSaveTimerRef = useRef(null)
+  const serverDraftRestoreKeyRef = useRef('')
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -515,8 +591,28 @@ export function CreateEvaluationPage() {
   const [completionModal, setCompletionModal] = useState(null)
   const [completionNavigationUrl, setCompletionNavigationUrl] = useState('')
   const [archiveAfterNoPlace, setArchiveAfterNoPlace] = useState(false)
+  const [privateDraftInfo, setPrivateDraftInfo] = useState(null)
+  const [privateDraftStatus, setPrivateDraftStatus] = useState('idle')
 
   const draftStorageKey = getDraftStorageKey(user)
+  const buildCurrentPrivateDraftContext = useCallback((currentFormData = formData) => {
+    const playerName = normalizePlayerName(currentFormData.playerName)
+    const matchingPlayer = findSavedPlayerForEvaluation(
+      savedPlayers,
+      playerName,
+      currentFormData.team,
+      user?.activeTeamId,
+    )
+
+    return buildPrivateEvaluationDraftContext({
+      editingEvaluationId,
+      formData: {
+        ...currentFormData,
+        playerId: matchingPlayer?.id || currentFormData.playerId || '',
+      },
+      user,
+    })
+  }, [editingEvaluationId, formData, savedPlayers, user])
 
   useEffect(() => {
     if (!user) {
@@ -527,7 +623,21 @@ export function CreateEvaluationPage() {
     const requestedTeam = String(searchParams.get('team') ?? '').trim()
     const requestedSession = normalizeSessionValue(searchParams.get('session'))
     const requestedSection = String(searchParams.get('section') ?? '').trim()
-    const storedDraft = editingEvaluationId || shouldChooseAssessmentPlayer ? null : parseStoredDraft(draftStorageKey)
+    const privateDraftContext = buildPrivateEvaluationDraftContext({
+      formData: {
+        playerName: requestedPlayerName,
+        section: requestedSection,
+        session: requestedSession,
+        team: requestedTeam,
+      },
+      user,
+    })
+    const privateDraft = editingEvaluationId || shouldChooseAssessmentPlayer
+      ? null
+      : findPrivateEvaluationDraft({ context: privateDraftContext, user })
+    const storedDraft = editingEvaluationId || shouldChooseAssessmentPlayer
+      ? null
+      : parseStoredDraft(draftStorageKey) || privateDraft?.payload || null
     const restoredFormData =
       storedDraft?.formData && typeof storedDraft.formData === 'object' ? storedDraft.formData : {}
     const restoredOfflineDraftId = String(storedDraft?.offlineDraftId ?? '').trim()
@@ -559,8 +669,112 @@ export function CreateEvaluationPage() {
     )
     setLastUsedSession(nextSessionValue)
     setOfflineDraftId(restoredOfflineDraftId || createLocalId())
+    setPrivateDraftInfo(privateDraft ? {
+      id: privateDraft.id,
+      lastSavedAt: privateDraft.updatedAt,
+      restoredAt: privateDraft.updatedAt,
+      source: 'local',
+    } : null)
+    setPrivateDraftStatus(privateDraft ? 'restored' : 'idle')
     hasInitializedRef.current = true
   }, [draftStorageKey, editingEvaluationId, searchParams, searchParamsKey, shouldChooseAssessmentPlayer, user, userScopeKey])
+
+  useEffect(() => {
+    if (
+      !hasInitializedRef.current ||
+      !user ||
+      isPlatformOwner ||
+      isDemoUser(user) ||
+      editingEvaluationId ||
+      shouldChooseAssessmentPlayer
+    ) {
+      return undefined
+    }
+
+    const draftContext = buildCurrentPrivateDraftContext(formData)
+    const hasDraftContext = Boolean(draftContext.playerName || draftContext.playerId)
+
+    if (!hasDraftContext) {
+      return undefined
+    }
+
+    const restoreKey = `${draftContext.clubId}:${draftContext.createdByUserId}:${getEvaluationDraftContextKey(draftContext)}`
+
+    if (serverDraftRestoreKeyRef.current === restoreKey) {
+      return undefined
+    }
+
+    serverDraftRestoreKeyRef.current = restoreKey
+    let isMounted = true
+
+    const restoreServerDraft = async () => {
+      try {
+        const serverDraft = await findServerEvaluationDraft({
+          context: draftContext,
+          user,
+        })
+
+        if (!isMounted || !serverDraft?.payload || !hasPrivateEvaluationDraftContent(serverDraft.payload)) {
+          return
+        }
+
+        const restoredFormData =
+          serverDraft.payload.formData && typeof serverDraft.payload.formData === 'object'
+            ? serverDraft.payload.formData
+            : {}
+        const restoredOfflineDraftId = String(serverDraft.payload.offlineDraftId ?? '').trim()
+        const restoredSession = normalizeSessionValue(restoredFormData.session)
+        const rememberedSession = normalizeSessionValue(serverDraft.payload.lastUsedSession)
+        const nextSessionValue = restoredSession || rememberedSession || formData.session
+
+        setFormData(createInitialFormData(user, {
+          ...restoredFormData,
+          coachName: user.name || '',
+          session: nextSessionValue,
+        }))
+        setPreviewMode(['scored', 'email'].includes(String(serverDraft.payload.previewMode))
+          ? String(serverDraft.payload.previewMode)
+          : 'scored')
+        setEmailTemplateKey(String(serverDraft.payload.emailTemplateKey ?? ''))
+        setSelectedParentContactIndexes(
+          Array.isArray(serverDraft.payload.selectedParentContactIndexes) &&
+            serverDraft.payload.selectedParentContactIndexes.length > 0
+            ? serverDraft.payload.selectedParentContactIndexes
+            : [0],
+        )
+        setInviteDate(normalizeSessionValue(serverDraft.payload.inviteDate))
+        setResponseValues(
+          serverDraft.payload.responseValues && typeof serverDraft.payload.responseValues === 'object'
+            ? serverDraft.payload.responseValues
+            : {},
+        )
+        setLastUsedSession(nextSessionValue)
+        setOfflineDraftId(restoredOfflineDraftId || createLocalId())
+        setPrivateDraftInfo({
+          id: serverDraft.id,
+          lastSavedAt: serverDraft.lastSavedAt,
+          restoredAt: serverDraft.lastSavedAt,
+          source: 'server',
+        })
+        setPrivateDraftStatus('restored')
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    void restoreServerDraft()
+
+    return () => {
+      isMounted = false
+    }
+  }, [
+    buildCurrentPrivateDraftContext,
+    editingEvaluationId,
+    formData,
+    isPlatformOwner,
+    shouldChooseAssessmentPlayer,
+    user,
+  ])
 
   useEffect(() => {
     let isMounted = true
@@ -981,35 +1195,139 @@ export function CreateEvaluationPage() {
       return
     }
 
+    const draftPayload = {
+      formData,
+      responseValues,
+      lastUsedSession,
+      previewMode,
+      emailTemplateKey,
+      selectedParentContactIndexes,
+      inviteDate,
+      offlineDraftId,
+    }
+
     try {
       sessionStorage.setItem(
         draftStorageKey,
-        JSON.stringify({
-          formData,
-          responseValues,
-          lastUsedSession,
-          previewMode,
-          emailTemplateKey,
-          selectedParentContactIndexes,
-          inviteDate,
-          offlineDraftId,
-        }),
+        JSON.stringify(draftPayload),
       )
     } catch (error) {
       console.error(error)
+    }
+
+    if (privateDraftSaveTimerRef.current) {
+      window.clearTimeout(privateDraftSaveTimerRef.current)
+    }
+
+    if (!hasPrivateEvaluationDraftContent(draftPayload)) {
+      setPrivateDraftStatus('idle')
+      return
+    }
+
+    setPrivateDraftStatus('unsaved')
+    privateDraftSaveTimerRef.current = window.setTimeout(() => {
+      setPrivateDraftStatus('saving')
+
+      try {
+        const savedDraft = savePrivateEvaluationDraft({
+          context: buildCurrentPrivateDraftContext(formData),
+          existingDraftId: privateDraftInfo?.source === 'local'
+            ? privateDraftInfo.id
+            : privateDraftInfo?.localDraftId || '',
+          payload: draftPayload,
+          user,
+        })
+
+        const saveServerDraft = async () => {
+          if (isDemoUser(user)) {
+            setPrivateDraftInfo(savedDraft?.id
+              ? {
+                  id: savedDraft.id,
+                  lastSavedAt: savedDraft.updatedAt,
+                  restoredAt: privateDraftInfo?.restoredAt || '',
+                  source: 'local',
+                }
+              : null)
+            setPrivateDraftStatus(savedDraft?.id ? 'saved_local' : 'error')
+            return
+          }
+
+          const serverDraft = await saveServerEvaluationDraft({
+            context: buildCurrentPrivateDraftContext(formData),
+            existingDraftId: privateDraftInfo?.source === 'server' ? privateDraftInfo.id : '',
+            payload: draftPayload,
+            user,
+          })
+
+          if (serverDraft?.id) {
+            setPrivateDraftInfo({
+              id: serverDraft.id,
+              lastSavedAt: serverDraft.lastSavedAt,
+              localDraftId: savedDraft?.id || privateDraftInfo?.localDraftId || '',
+              restoredAt: privateDraftInfo?.restoredAt || '',
+              source: 'server',
+            })
+            setPrivateDraftStatus('saved')
+            return
+          }
+
+          if (savedDraft?.id) {
+            setPrivateDraftInfo({
+              id: savedDraft.id,
+              lastSavedAt: savedDraft.updatedAt,
+              restoredAt: privateDraftInfo?.restoredAt || '',
+              source: 'local',
+            })
+            setPrivateDraftStatus('saved_local')
+            return
+          }
+
+          setPrivateDraftStatus('error')
+        }
+
+        void saveServerDraft().catch((error) => {
+          console.error(error)
+
+          if (savedDraft?.id) {
+            setPrivateDraftInfo({
+              id: savedDraft.id,
+              lastSavedAt: savedDraft.updatedAt,
+              restoredAt: privateDraftInfo?.restoredAt || '',
+              source: 'local',
+            })
+          }
+
+          setPrivateDraftStatus(savedDraft?.id ? 'saved_local' : 'error')
+        })
+      } catch (error) {
+        console.error(error)
+        setPrivateDraftStatus('error')
+      }
+    }, 800)
+
+    return () => {
+      if (privateDraftSaveTimerRef.current) {
+        window.clearTimeout(privateDraftSaveTimerRef.current)
+      }
     }
   }, [
     draftStorageKey,
     editingEvaluationId,
     emailTemplateKey,
     formData,
+    buildCurrentPrivateDraftContext,
     inviteDate,
     isPlatformOwner,
     lastUsedSession,
     offlineDraftId,
     previewMode,
+    privateDraftInfo?.id,
+    privateDraftInfo?.localDraftId,
+    privateDraftInfo?.restoredAt,
+    privateDraftInfo?.source,
     responseValues,
     selectedParentContactIndexes,
+    user,
   ])
 
   useEffect(() => {
@@ -1170,6 +1488,60 @@ export function CreateEvaluationPage() {
     if (nextUrl) {
       navigate(nextUrl)
     }
+  }
+
+  const handleDiscardPrivateDraft = async () => {
+    setPrivateDraftStatus('saving')
+
+    if (privateDraftInfo?.id) {
+      if (privateDraftInfo.source === 'server') {
+        try {
+          await closeServerEvaluationDraft({
+            draftId: privateDraftInfo.id,
+            status: PRIVATE_EVALUATION_DRAFT_STATUSES.discarded,
+            user,
+          })
+        } catch (error) {
+          console.error(error)
+          showToast({
+            title: 'Private draft not discarded',
+            message: error.message || 'The database draft could not be closed. Try again before leaving this page.',
+            tone: 'error',
+          })
+          setPrivateDraftStatus('error')
+          return
+        }
+      }
+
+      clearPrivateEvaluationDraft({
+        draftId: privateDraftInfo.source === 'server'
+          ? privateDraftInfo.localDraftId || ''
+          : privateDraftInfo.id,
+        status: PRIVATE_EVALUATION_DRAFT_STATUSES.discarded,
+        user,
+      })
+    }
+
+    if (draftStorageKey) {
+      sessionStorage.removeItem(draftStorageKey)
+    }
+
+    const requestedPlayerName = String(searchParams.get('player') ?? '').trim()
+    const requestedTeam = String(searchParams.get('team') ?? '').trim()
+    const requestedSession = normalizeSessionValue(searchParams.get('session'))
+    const requestedSection = String(searchParams.get('section') ?? '').trim()
+
+    setFormData(createInitialFormData(user, {
+      playerName: requestedPlayerName,
+      team: requestedTeam || availableTeams[0]?.name || '',
+      section: EVALUATION_SECTIONS.includes(requestedSection) ? requestedSection : 'Trial',
+      session: requestedSession,
+      coachName: user?.name || '',
+    }))
+    setResponseValues(createEmptyResponseValues(dynamicFields))
+    setPrivateDraftInfo(null)
+    setPrivateDraftStatus('discarded')
+    showToast({ title: 'Private draft discarded', message: 'This browser draft has been cleared.' })
   }
 
   useEffect(() => {
@@ -1669,6 +2041,35 @@ export function CreateEvaluationPage() {
         sessionStorage.removeItem(draftStorageKey)
       }
 
+      if (privateDraftInfo?.id) {
+        if (privateDraftInfo.source === 'server') {
+          try {
+            await closeServerEvaluationDraft({
+              draftId: privateDraftInfo.id,
+              status: PRIVATE_EVALUATION_DRAFT_STATUSES.submitted,
+              user,
+            })
+          } catch (error) {
+            console.error(error)
+            showToast({
+              title: 'Private draft not closed',
+              message: error.message || 'The development record was saved, but the private draft could not be closed.',
+              tone: 'error',
+            })
+          }
+        }
+
+        clearPrivateEvaluationDraft({
+          draftId: privateDraftInfo.source === 'server'
+            ? privateDraftInfo.localDraftId || ''
+            : privateDraftInfo.id,
+          status: PRIVATE_EVALUATION_DRAFT_STATUSES.submitted,
+          user,
+        })
+        setPrivateDraftInfo(null)
+        setPrivateDraftStatus('idle')
+      }
+
       const postAssessmentNavigation = getPostAssessmentNavigation({
         assessmentSessionId,
         availableTeams,
@@ -1809,6 +2210,8 @@ export function CreateEvaluationPage() {
     }
   }
 
+  const privateDraftBanner = getPrivateDraftBannerCopy(privateDraftStatus, privateDraftInfo)
+
   return (
     <div className="space-y-5 sm:space-y-6">
       {shouldChooseAssessmentPlayer ? (
@@ -1932,6 +2335,28 @@ export function CreateEvaluationPage() {
 
         {offlineStatusMessage ? (
           <NoticeBanner title="Offline draft saved" message={offlineStatusMessage} tone="info" />
+        ) : null}
+
+        {privateDraftStatus !== 'idle' && privateDraftStatus !== 'discarded' ? (
+          <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#065f46] shadow-sm shadow-[#047857]/10">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-black">
+                  {privateDraftBanner.title}
+                </p>
+                <p className="mt-1 leading-6">
+                  {privateDraftBanner.message}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleDiscardPrivateDraft()}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#86efac] bg-white px-4 py-3 text-sm font-black text-[#065f46] transition hover:border-[#047857] hover:bg-[#f7faf8]"
+              >
+                Discard draft
+              </button>
+            </div>
+          </div>
         ) : null}
 
         {dataRefreshNotice ? <NoticeBanner title="Using available club data" message={dataRefreshNotice} tone="info" /> : null}
