@@ -59,8 +59,9 @@ test('parent portal route still requires parent portal role before rendering chi
   assert.notEqual(end, -1)
   const section = source.slice(start, end)
 
-  assert.match(section, /if \(!isParentPortalUser\(user\)\) \{/)
-  assert.match(section, /return <RedirectToWorkspaceHome user=\{user\} \/>/)
+  assert.match(section, /parentIntent: true/)
+  assert.match(section, /if \(!canOpenParentPortal\(user\)\) \{/)
+  assert.match(section, /return <ParentAccountIntentState type=\{isParentPortalUser\(user\) \? 'no-link' : 'mismatch'\} user=\{user\} \/>/)
   assert.match(section, /const location = useLocation\(\)/)
   assert.match(section, /if \(!isRecoveryPathVisible\(location\.pathname, \{ user \}\)\) \{/)
   assert.match(section, /return <Outlet \/>/)

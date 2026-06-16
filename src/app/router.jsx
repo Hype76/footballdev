@@ -26,7 +26,14 @@ import {
 } from '../lib/auth.js'
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
 import { hasPlanFeature, isPlanAccessActive } from '../lib/plans.js'
-import { getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import { buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
+import {
+  canOpenParentPortal,
+  getSignedInAccountEmail,
+  hasActiveParentPortalLink,
+  isParentIntentPath,
+  rememberParentAccessIntent,
+} from '../lib/parent-auth-intent.js'
 import { CURRENT_RECOVERY_PHASE, isRecoveryModuleVisible, isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
 function lazyRoute(importer, exportName) {
@@ -152,6 +159,18 @@ function isParentHost() {
   return isParentPortalHost()
 }
 
+function getParentLoginTarget() {
+  return isParentHost() ? '/parent-login' : buildParentAppUrl('/parent-login')
+}
+
+function ParentLoginRedirect() {
+  if (isParentHost()) {
+    return <Navigate to="/parent-login" replace />
+  }
+
+  return <ExternalRedirect to={buildParentAppUrl('/parent-login')} />
+}
+
 function NavigateToParentInvite() {
   return <Navigate to={window.location.pathname.replace(/^\/invite\//, '/parent-invite/')} replace />
 }
@@ -235,6 +254,49 @@ function AccountDetailsUnavailableState({ message }) {
           >
             Sign in again
           </button>
+        </>
+      )}
+    />
+  )
+}
+
+function ParentAccountIntentState({ session, type = 'mismatch', user }) {
+  const { signOut } = useAuth()
+  const email = getSignedInAccountEmail({ user, session })
+  const isNoLink = type === 'no-link'
+
+  const handleSwitchToParentLogin = async () => {
+    try {
+      await signOut()
+    } finally {
+      rememberParentAccessIntent()
+      window.location.assign(getParentLoginTarget())
+    }
+  }
+
+  return (
+    <RouteGateState
+      eyebrow="Parent portal"
+      title={isNoLink ? 'Parent access is not linked yet' : 'Use a parent account for the Parent Portal'}
+      message={isNoLink
+        ? 'This signed-in parent account is not linked to a child yet. Ask the club to send or refresh your parent invite, or sign out and continue with the linked parent account.'
+        : `You are currently signed in${email ? ` as ${email}` : ''}. To use the Parent Portal, sign out and continue with a parent account.`}
+      rules={[
+        { title: 'Parent access only', body: 'The Parent Portal opens only for accounts with an active parent-child link.' },
+        { title: 'Main session protected', body: 'A staff or main-platform session cannot silently open the Parent Portal or reroute this parent action.' },
+      ]}
+      actions={(
+        <>
+          <button
+            type="button"
+            onClick={handleSwitchToParentLogin}
+            className={primaryActionClassName}
+          >
+            Sign out and continue to Parent Login
+          </button>
+          <a href={getMainAppOrigin()} className={secondaryActionClassName}>
+            Go to main platform
+          </a>
         </>
       )}
     />
@@ -491,6 +553,7 @@ function useWorkspaceRouteGate({
   blockExpiredTester = true,
   requireActivePlan = false,
   showPlanAccessState = false,
+  parentIntent = false,
 } = {}) {
   const { authError, isLoading, isProfileLoading, session, user } = useAuth()
 
@@ -499,6 +562,10 @@ function useWorkspaceRouteGate({
   }
 
   if (!session?.user) {
+    if (parentIntent) {
+      return { element: <ParentLoginRedirect />, user: null }
+    }
+
     return { element: <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />, user: null }
   }
 
@@ -511,6 +578,18 @@ function useWorkspaceRouteGate({
       element: <AccountDetailsUnavailableState message={authError} />,
       user: null,
     }
+  }
+
+  if (parentIntent) {
+    if (!isParentPortalUser(user)) {
+      return { element: <ParentAccountIntentState session={session} user={user} />, user }
+    }
+
+    if (!hasActiveParentPortalLink(user)) {
+      return { element: <ParentAccountIntentState session={session} type="no-link" user={user} />, user }
+    }
+
+    return { element: null, user }
   }
 
   if (redirectSuperAdmin && isSuperAdmin(user)) {
@@ -752,14 +831,15 @@ function RequireParentPortalAccess() {
   const { element, user } = useWorkspaceRouteGate({
     redirectSuperAdmin: false,
     blockExpiredTester: false,
+    parentIntent: true,
   })
 
   if (element) {
     return element
   }
 
-  if (!isParentPortalUser(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canOpenParentPortal(user)) {
+    return <ParentAccountIntentState type={isParentPortalUser(user) ? 'no-link' : 'mismatch'} user={user} />
   }
 
   if (!isRecoveryPathVisible(location.pathname, { user })) {
@@ -858,6 +938,7 @@ function RequireMatchDayAccess() {
 }
 
 function PublicOnly() {
+  const location = useLocation()
   const { isLoading, session } = useAuth()
 
   if (isLoading && !session?.user) {
@@ -865,6 +946,10 @@ function PublicOnly() {
   }
 
   if (session?.user) {
+    if (isParentIntentPath(location.pathname)) {
+      return <Outlet />
+    }
+
     return <Navigate to={isParentHost() ? '/parent-portal' : '/'} replace />
   }
 
