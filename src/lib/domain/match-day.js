@@ -45,6 +45,49 @@ function normalizeTime(value) {
   return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : ''
 }
 
+function normalizeDateOnly(value) {
+  const normalizedValue = normalizeText(value)
+
+  if (!normalizedValue) {
+    return ''
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return normalizedValue
+  }
+
+  const parsedDate = new Date(normalizedValue)
+  return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
+}
+
+export function getTodayMatchDayDateValue(now = new Date()) {
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    return ''
+  }
+
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+export function isPastMatchDayDate(matchDate, now = new Date()) {
+  const normalizedMatchDate = normalizeDateOnly(matchDate)
+
+  if (!normalizedMatchDate) {
+    return false
+  }
+
+  return normalizedMatchDate < getTodayMatchDayDateValue(now)
+}
+
+function assertMatchDayDateIsCurrentOrFuture(matchDate) {
+  if (isPastMatchDayDate(matchDate)) {
+    throw new Error('Match Day date must be today or in the future.')
+  }
+}
+
 function normalizeParentAudience(value) {
   const normalizedValue = normalizeText(value)
   return MATCH_DAY_PARENT_AUDIENCES.includes(normalizedValue) ? normalizedValue : 'none'
@@ -319,6 +362,8 @@ export async function createMatchDay({ user, match }) {
     throw new Error('Opponent is required.')
   }
 
+  assertMatchDayDateIsCurrentOrFuture(match?.matchDate)
+
   if (parentVisible && parentAudience === 'all_team_parents' && !teamId) {
     throw new Error('Choose a team before sharing this fixture with all team parents.')
   }
@@ -342,7 +387,7 @@ export async function createMatchDay({ user, match }) {
       team_id: teamId,
       location_id: locationId || null,
       opponent,
-      match_date: normalizeText(match?.matchDate) || null,
+      match_date: normalizeDateOnly(match?.matchDate) || null,
       kickoff_time: normalizeTime(match?.kickoffTime) || null,
       arrival_time: normalizeTime(match?.arrivalTime) || null,
       home_away: normalizeHomeAway(match?.homeAway),
@@ -392,7 +437,10 @@ export async function updateMatchDay({ user, matchId, updates }) {
   }
 
   if (updates.opponent !== undefined) payload.opponent = normalizeText(updates.opponent)
-  if (updates.matchDate !== undefined) payload.match_date = normalizeText(updates.matchDate) || null
+  if (updates.matchDate !== undefined) {
+    assertMatchDayDateIsCurrentOrFuture(updates.matchDate)
+    payload.match_date = normalizeDateOnly(updates.matchDate) || null
+  }
   if (updates.kickoffTime !== undefined) payload.kickoff_time = normalizeTime(updates.kickoffTime) || null
   if (updates.arrivalTime !== undefined) payload.arrival_time = normalizeTime(updates.arrivalTime) || null
   if (updates.homeAway !== undefined) payload.home_away = normalizeHomeAway(updates.homeAway)

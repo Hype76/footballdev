@@ -13,6 +13,7 @@ import {
   addStaffMatchDayGoal,
   calculateArrivalTime,
   createMatchDay,
+  getTodayMatchDayDateValue,
   getMatchDays,
   getMatchLocations,
   getPlayers,
@@ -25,9 +26,10 @@ import {
   updateMatchDay,
   withRequestTimeout,
 } from '../lib/supabase.js'
-
-const FIXTURE_SETUP_STORAGE_KEY = 'football-open-fixture-setup'
-const FIXTURE_SETUP_EVENT = 'football-open-fixture-setup'
+import {
+  consumeFixtureSetupIntent,
+  FIXTURE_SETUP_EVENT,
+} from '../lib/matchday-workflow.js'
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
@@ -260,19 +262,31 @@ export function MatchDayPage() {
   )
 
   useEffect(() => {
-    const openFixtureSetup = () => {
+    const openFixtureSetup = (setupIntent = consumeFixtureSetupIntent()) => {
+      if (setupIntent) {
+        setForm((currentForm) => ({
+          ...currentForm,
+          ...setupIntent,
+          arrivalPreset: setupIntent.arrivalTime ? 'custom' : currentForm.arrivalPreset,
+          parentAudience: setupIntent.parentVisible ? setupIntent.parentAudience : 'none',
+        }))
+      }
+
       setIsFixtureFormOpen(true)
     }
 
-    if (window.sessionStorage.getItem(FIXTURE_SETUP_STORAGE_KEY)) {
-      window.sessionStorage.removeItem(FIXTURE_SETUP_STORAGE_KEY)
-      window.setTimeout(openFixtureSetup, 120)
+    const storedSetupIntent = consumeFixtureSetupIntent()
+
+    if (storedSetupIntent) {
+      window.setTimeout(() => openFixtureSetup(storedSetupIntent), 120)
     }
 
-    window.addEventListener(FIXTURE_SETUP_EVENT, openFixtureSetup)
+    const handleFixtureSetupEvent = () => openFixtureSetup()
+
+    window.addEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
 
     return () => {
-      window.removeEventListener(FIXTURE_SETUP_EVENT, openFixtureSetup)
+      window.removeEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
     }
   }, [])
 
@@ -1182,6 +1196,8 @@ function FixtureSetupModal({
   updateKickoffTime,
   user,
 }) {
+  const todayMatchDayDate = getTodayMatchDayDateValue()
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6">
       <section
@@ -1228,7 +1244,7 @@ function FixtureSetupModal({
 
               <label className="block">
                 <span className={labelClass}>Date</span>
-                <input type="date" value={form.matchDate} onChange={(event) => updateForm({ matchDate: event.target.value })} className={inputClass} />
+                <input type="date" min={todayMatchDayDate} value={form.matchDate} onChange={(event) => updateForm({ matchDate: event.target.value })} className={inputClass} />
               </label>
 
               <label className="block">

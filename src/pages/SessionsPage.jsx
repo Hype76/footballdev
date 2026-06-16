@@ -34,6 +34,7 @@ import {
   writeStoredSessionWorkspace,
 } from '../lib/session-page-utils.js'
 import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
+import { openMatchDayFixtureSetup } from '../lib/matchday-workflow.js'
 import {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
@@ -50,6 +51,7 @@ import {
   getCalendarEventInvites,
   getMatchDays,
   getPolls,
+  getTodayMatchDayDateValue,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
@@ -61,6 +63,7 @@ import {
   updateCalendarEvent,
   updateAssessmentSession,
   updateMatchDay,
+  isPastMatchDayDate,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -289,6 +292,10 @@ function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
   }
 
   if (isMatch) {
+    if (isPastMatchDayDate(date)) {
+      throw new Error('Match Day date must be today or in the future.')
+    }
+
     if (!title && !opponent) {
       throw new Error('Add an opponent or event title for this fixture.')
     }
@@ -1240,6 +1247,23 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         selectedPlayers: selectedCalendarInvitePlayers,
         user,
       })
+
+      if (isMatch && !sourceType) {
+        openMatchDayFixtureSetup({
+          arrivalTime: calendarForm.arrivalTime,
+          kickoffTime: calendarForm.startTime,
+          matchDate: calendarForm.date,
+          notes: calendarForm.notes,
+          opponent: trimmedOpponent || trimmedTitle,
+          parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
+          parentVisible: calendarForm.shareWithParents,
+          teamId: safeTeamId,
+          venueName: calendarForm.location,
+        }, { navigate })
+        setCalendarModal(null)
+        showToast({ title: 'Opening Match Day', message: 'Create this fixture in the full Match Day workflow.' })
+        return
+      }
 
       const fixtureEndTime = isMatch ? addMinutesToTime(calendarForm.startTime, 120) : calendarForm.endTime
       const recurrenceDates = isMatch
@@ -2385,7 +2409,7 @@ function CalendarEventModal({
             <div className="grid gap-4 md:grid-cols-3">
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Date</span>
-                <input name="date" type="date" value={form.date} onChange={onChange} required className={fieldClass} />
+                <input name="date" type="date" min={isMatchFixture ? getTodayMatchDayDateValue() : undefined} value={form.date} onChange={onChange} required className={fieldClass} />
               </label>
               {isMatchFixture ? (
                 <label className="block">

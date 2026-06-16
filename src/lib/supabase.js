@@ -179,6 +179,7 @@ export {
   calculateArrivalTime,
   createMatchDay,
   expressMatchDayScorerInterest,
+  getTodayMatchDayDateValue,
   getMatchDays,
   getMatchLocations,
   getParentPortalMatchDays,
@@ -188,6 +189,7 @@ export {
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults,
   selectMatchDayScorer,
+  isPastMatchDayDate,
   updateMatchDay,
   updateMatchDayScoreAsScorer,
 } from './domain/match-day.js'
