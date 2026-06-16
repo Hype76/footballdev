@@ -1,3 +1,5 @@
+import { FITNESS_BENCHMARK_FIELDS } from '../fitness-benchmarks.js'
+
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Club Admin', rank: 90, isSystem: true },
   { key: 'head_manager', label: 'Team Admin', rank: 70, isSystem: true },
@@ -95,6 +97,20 @@ const DEFAULT_FORM_FIELDS = [
     isEnabled: true,
     includeInProgressChart: false,
   },
+  ...FITNESS_BENCHMARK_FIELDS.map((field, index) => ({
+    id: `default-${field.benchmarkKey.replace(/_/g, '-')}`,
+    label: field.label,
+    type: 'text',
+    options: [],
+    required: false,
+    orderIndex: 9 + index,
+    isDefault: true,
+    isEnabled: false,
+    includeInProgressChart: false,
+    benchmarkKey: field.benchmarkKey,
+    benchmarkDirection: field.direction,
+    benchmarkUnit: field.unit,
+  })),
 ]
 
 export function getDefaultFormFields() {

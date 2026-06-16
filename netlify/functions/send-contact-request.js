@@ -121,7 +121,7 @@ export async function handler(event) {
       html,
     }, {
       context: {
-        emailType: 'contact_request',
+        emailType: 'system_support_email',
         actorEmail: email,
         targetEntityType: 'public_contact_request',
       },
