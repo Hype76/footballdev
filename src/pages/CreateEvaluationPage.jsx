@@ -515,6 +515,7 @@ export function CreateEvaluationPage() {
   const privateDraftInfoRef = useRef(null)
   const privateDraftQueueRef = useRef(Promise.resolve())
   const privateDraftSaveVersionRef = useRef(0)
+  const privateDraftSaveEpochRef = useRef(0)
   const latestPrivateDraftSaveRef = useRef(null)
   const isPrivateDraftClosingRef = useRef(false)
   const shouldWarnPrivateDraftRef = useRef(false)
@@ -757,16 +758,28 @@ export function CreateEvaluationPage() {
 
       privateDraftInfoRef.current = nextInfo
       setPrivateDraftInfo(nextInfo)
-      latestPrivateDraftSaveRef.current = { context, localDraft: savedDraft, payload, version }
+      latestPrivateDraftSaveRef.current = {
+        context,
+        localDraft: savedDraft,
+        payload,
+        saveEpoch: privateDraftSaveEpochRef.current,
+        version,
+      }
       return savedDraft
     }
 
-    latestPrivateDraftSaveRef.current = { context, localDraft: null, payload, version }
+    latestPrivateDraftSaveRef.current = {
+      context,
+      localDraft: null,
+      payload,
+      saveEpoch: privateDraftSaveEpochRef.current,
+      version,
+    }
     return null
   }, [draftStorageKey, user])
 
-  const saveServerDraftWithRetry = useCallback(async ({ context, localDraft, payload, version }) => {
-    if (isPrivateDraftClosingRef.current) {
+  const saveServerDraftWithRetry = useCallback(async ({ context, localDraft, payload, saveEpoch, version }) => {
+    if (isPrivateDraftClosingRef.current || saveEpoch !== privateDraftSaveEpochRef.current) {
       return localDraft?.id ? { localSaved: true, serverSaved: false } : { localSaved: false, serverSaved: false }
     }
 
@@ -779,7 +792,11 @@ export function CreateEvaluationPage() {
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
-        if (isPrivateDraftClosingRef.current || version < (latestPrivateDraftSaveRef.current?.version || 0)) {
+        if (
+          isPrivateDraftClosingRef.current ||
+          saveEpoch !== privateDraftSaveEpochRef.current ||
+          version < (latestPrivateDraftSaveRef.current?.version || 0)
+        ) {
           return { localSaved: Boolean(localDraft?.id), serverSaved: false, stale: true }
         }
 
@@ -791,7 +808,11 @@ export function CreateEvaluationPage() {
           user,
         })
 
-        if (version < (latestPrivateDraftSaveRef.current?.version || 0)) {
+        if (
+          isPrivateDraftClosingRef.current ||
+          saveEpoch !== privateDraftSaveEpochRef.current ||
+          version < (latestPrivateDraftSaveRef.current?.version || 0)
+        ) {
           return { localSaved: Boolean(localDraft?.id), serverSaved: Boolean(serverDraft?.id), stale: true }
         }
 
@@ -870,10 +891,15 @@ export function CreateEvaluationPage() {
 
     const context = currentSave?.context || buildCurrentPrivateDraftContext(payload.formData || formData)
     const localDraft = currentSave?.localDraft || savePrivateDraftLocalCopy({ context, payload, version })
+    const saveEpoch = currentSave?.saveEpoch ?? privateDraftSaveEpochRef.current
 
-    latestPrivateDraftSaveRef.current = { context, localDraft, payload, reason, version }
+    if (saveEpoch !== privateDraftSaveEpochRef.current || isPrivateDraftClosingRef.current) {
+      return { skipped: true }
+    }
+
+    latestPrivateDraftSaveRef.current = { context, localDraft, payload, reason, saveEpoch, version }
     setPrivateDraftStatus('saving')
-    return enqueueServerDraftSave({ context, localDraft, payload, reason, version })
+    return enqueueServerDraftSave({ context, localDraft, payload, reason, saveEpoch, version })
   }, [
     buildCurrentPrivateDraftContext,
     buildCurrentPrivateDraftPayload,
@@ -1766,25 +1792,43 @@ export function CreateEvaluationPage() {
     }
   }
 
-  const handleDiscardPrivateDraft = async () => {
+  const beginPrivateDraftClose = () => {
+    const draftInfo = privateDraftInfoRef.current
+    const latestSave = latestPrivateDraftSaveRef.current
+
     isPrivateDraftClosingRef.current = true
+    privateDraftSaveEpochRef.current += 1
+    shouldWarnPrivateDraftRef.current = false
+
     if (privateDraftSaveTimerRef.current) {
       window.clearTimeout(privateDraftSaveTimerRef.current)
       privateDraftSaveTimerRef.current = null
     }
+
+    latestPrivateDraftSaveRef.current = null
+
+    return { draftInfo, latestSave }
+  }
+
+  const handleDiscardPrivateDraft = async () => {
+    const closeSnapshot = beginPrivateDraftClose()
     setPrivateDraftStatus('saving')
 
     try {
       await privateDraftQueueRef.current.catch(() => {})
 
-      if (privateDraftInfo?.id) {
-        if (privateDraftInfo.source === 'server') {
+      if (closeSnapshot.draftInfo?.id) {
+        if (closeSnapshot.draftInfo.source === 'server') {
           try {
-            await closeServerEvaluationDraft({
-              draftId: privateDraftInfo.id,
+            const didCloseServerDraft = await closeServerEvaluationDraft({
+              draftId: closeSnapshot.draftInfo.id,
               status: PRIVATE_EVALUATION_DRAFT_STATUSES.discarded,
               user,
             })
+
+            if (!didCloseServerDraft) {
+              console.info('Private draft discard skipped because the server draft was already closed or unavailable.')
+            }
           } catch (error) {
             console.error(error)
             showToast({
@@ -1798,15 +1842,15 @@ export function CreateEvaluationPage() {
         }
 
         clearPrivateEvaluationDraft({
-          draftId: privateDraftInfo.source === 'server'
-            ? privateDraftInfo.localDraftId || ''
-            : privateDraftInfo.id,
+          draftId: closeSnapshot.draftInfo.source === 'server'
+            ? closeSnapshot.draftInfo.localDraftId || ''
+            : closeSnapshot.draftInfo.id,
           status: PRIVATE_EVALUATION_DRAFT_STATUSES.discarded,
           user,
         })
       }
 
-      const localDraftId = latestPrivateDraftSaveRef.current?.localDraft?.id || privateDraftInfo?.localDraftId || ''
+      const localDraftId = closeSnapshot.latestSave?.localDraft?.id || closeSnapshot.draftInfo?.localDraftId || ''
 
       if (localDraftId) {
         clearPrivateEvaluationDraft({
@@ -1844,11 +1888,7 @@ export function CreateEvaluationPage() {
   }
 
   const closeActivePrivateDraftAfterSubmit = async () => {
-    isPrivateDraftClosingRef.current = true
-    if (privateDraftSaveTimerRef.current) {
-      window.clearTimeout(privateDraftSaveTimerRef.current)
-      privateDraftSaveTimerRef.current = null
-    }
+    const closeSnapshot = beginPrivateDraftClose()
 
     try {
       await privateDraftQueueRef.current.catch(() => {})
@@ -1857,14 +1897,18 @@ export function CreateEvaluationPage() {
         sessionStorage.removeItem(draftStorageKey)
       }
 
-      if (privateDraftInfo?.id) {
-        if (privateDraftInfo.source === 'server') {
+      if (closeSnapshot.draftInfo?.id) {
+        if (closeSnapshot.draftInfo.source === 'server') {
           try {
-            await closeServerEvaluationDraft({
-              draftId: privateDraftInfo.id,
+            const didCloseServerDraft = await closeServerEvaluationDraft({
+              draftId: closeSnapshot.draftInfo.id,
               status: PRIVATE_EVALUATION_DRAFT_STATUSES.submitted,
               user,
             })
+
+            if (!didCloseServerDraft) {
+              console.info('Private draft submit close skipped because the server draft was already closed or unavailable.')
+            }
           } catch (error) {
             console.error(error)
             showToast({
@@ -1876,15 +1920,15 @@ export function CreateEvaluationPage() {
         }
 
         clearPrivateEvaluationDraft({
-          draftId: privateDraftInfo.source === 'server'
-            ? privateDraftInfo.localDraftId || ''
-            : privateDraftInfo.id,
+          draftId: closeSnapshot.draftInfo.source === 'server'
+            ? closeSnapshot.draftInfo.localDraftId || ''
+            : closeSnapshot.draftInfo.id,
           status: PRIVATE_EVALUATION_DRAFT_STATUSES.submitted,
           user,
         })
       }
 
-      const localDraftId = latestPrivateDraftSaveRef.current?.localDraft?.id || privateDraftInfo?.localDraftId || ''
+      const localDraftId = closeSnapshot.latestSave?.localDraft?.id || closeSnapshot.draftInfo?.localDraftId || ''
 
       if (localDraftId) {
         clearPrivateEvaluationDraft({

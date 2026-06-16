@@ -476,7 +476,28 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
   const closedAtColumn = closingStatus === 'submitted' ? 'submitted_at' : 'discarded_at'
   const supabase = await getSupabaseClient(supabaseClient)
   const now = new Date().toISOString()
-  const { error } = await supabase
+  const { data: activeDraft, error: lookupError } = await supabase
+    .from('evaluation_drafts')
+    .select('id, club_id, team_id, player_id, created_by_user_id, status')
+    .eq('id', normalizedDraftId)
+    .eq('created_by_user_id', user.id)
+    .eq('status', SERVER_DRAFT_STATUS)
+    .maybeSingle()
+
+  if (lookupError) {
+    if (isMissingServerDraftTableError(lookupError)) {
+      return false
+    }
+
+    console.error(lookupError)
+    throw lookupError
+  }
+
+  if (!activeDraft?.id) {
+    return false
+  }
+
+  let closeQuery = supabase
     .from('evaluation_drafts')
     .update({
       status: closingStatus,
@@ -486,6 +507,18 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
     .eq('id', normalizedDraftId)
     .eq('created_by_user_id', user.id)
     .eq('status', SERVER_DRAFT_STATUS)
+    .eq('club_id', activeDraft.club_id)
+
+  closeQuery = activeDraft.team_id
+    ? closeQuery.eq('team_id', activeDraft.team_id)
+    : closeQuery.is('team_id', null)
+  closeQuery = activeDraft.player_id
+    ? closeQuery.eq('player_id', activeDraft.player_id)
+    : closeQuery.is('player_id', null)
+
+  const { data, error } = await closeQuery
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     if (isMissingServerDraftTableError(error)) {
@@ -496,7 +529,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
     throw error
   }
 
-  return true
+  return Boolean(data?.id)
 }
 
 export function clearPrivateEvaluationDraft({ draftId = '', status = DRAFT_STATUSES.discarded, storage, user } = {}) {
