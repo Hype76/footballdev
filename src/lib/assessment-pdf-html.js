@@ -1,5 +1,11 @@
 import { sanitizeAssessmentEmailSections, sanitizeAssessmentOutputText } from './assessment-output-sanitizer.js'
 import { buildProgressionChartMarkup } from './progression-chart-markup.js'
+import {
+  DEFAULT_ASSESSMENT_SCORE_GUIDE,
+  formatDefaultAssessmentScoreForParent,
+  isDefaultAssessmentScoreLabel,
+  isDefaultAssessmentScoreValue,
+} from './assessment-scoring.js'
 
 function escapeHtml(value) {
   return sanitizeAssessmentOutputText(value)
@@ -15,27 +21,12 @@ function formatValue(value) {
   return normalizedValue || 'Not provided'
 }
 
-function isScoredResponseValue(value) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value > 0 && value <= 5
-  }
-
-  const normalizedValue = String(value ?? '').trim()
-  if (!/^\d+(\.\d+)?$/.test(normalizedValue)) {
-    return false
-  }
-
-  const score = Number(normalizedValue)
-  return Number.isFinite(score) && score > 0 && score <= 5
+function isScoredResponseItem(item) {
+  return isDefaultAssessmentScoreLabel(item?.label) && isDefaultAssessmentScoreValue(item?.value)
 }
 
-function formatScoreValue(value) {
-  const score = Number(value)
-  return Number.isInteger(score) ? String(score) : score.toFixed(1).replace(/\.0$/, '')
-}
-
-function formatParentResponseValue(value) {
-  return isScoredResponseValue(value) ? `${formatScoreValue(value)} / 5` : formatValue(value)
+function formatParentResponseValue(item) {
+  return isScoredResponseItem(item) ? formatDefaultAssessmentScoreForParent(item.value) : formatValue(item?.value)
 }
 
 function isExportableResponseValue(value) {
@@ -59,7 +50,7 @@ function buildResponseItems(responseItems = []) {
       (item) => `
         <div style="break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; background: #ffffff;">
           <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escapeHtml(item.label)}</p>
-          <p style="margin: 6px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(formatParentResponseValue(item.value))}</p>
+          <p style="margin: 6px 0 0; color: #334155; font-size: 12px; line-height: 1.45; white-space: pre-wrap;">${escapeHtml(formatParentResponseValue(item))}</p>
         </div>
       `,
     )
@@ -67,7 +58,7 @@ function buildResponseItems(responseItems = []) {
 }
 
 function buildScoringKey(responseItems = []) {
-  const hasScoredResponses = responseItems.some((item) => isScoredResponseValue(item?.value))
+  const hasScoredResponses = responseItems.some((item) => isScoredResponseItem(item))
 
   if (!hasScoredResponses) {
     return ''
@@ -76,7 +67,10 @@ function buildScoringKey(responseItems = []) {
   return `
       <div style="margin-top: 12px; break-inside: avoid; border: 1px solid #e7ece3; border-radius: 14px; background: #fbfcf9; padding: 12px;">
         <p style="margin: 0; color: #5a6b5b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">How scoring works</p>
-        <p style="margin: 8px 0 0; color: #334155; font-size: 12px; line-height: 1.45;">Player feedback is scored out of 5, with 5 meaning a really high standard. A 5 is rare and should only be used when a player truly stands out in that area. A player does not need to score 5 across everything. For example, they may score 5 for coachability because they listen well and take on feedback, while scoring lower in fitness or another area. This helps keep feedback fair, realistic, and focused on strengths and areas to improve.</p>
+        <p style="margin: 8px 0 8px; color: #334155; font-size: 12px; line-height: 1.45;">Player feedback is scored out of 10. A 5 means the player is broadly at the expected level, 6 shows slightly above expected performance, and 10 means exceptional for this context rather than flawless.</p>
+        ${DEFAULT_ASSESSMENT_SCORE_GUIDE.map((item) => `
+          <p style="margin: 4px 0 0; color: #334155; font-size: 11px; line-height: 1.35;"><strong>${item.score} - ${escapeHtml(item.label)}:</strong> ${escapeHtml(item.description)}</p>
+        `).join('')}
       </div>
   `
 }

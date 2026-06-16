@@ -337,6 +337,49 @@ test('server draft save writes only creator-owned private draft rows', async () 
   assert.equal(insertCall.payload.draft_data.formData.playerName, 'Sam Trialist')
 })
 
+test('server draft save updates an existing creator draft instead of inserting another row', async () => {
+  const context = buildPrivateEvaluationDraftContext({
+    formData: {
+      playerId: 'player-1',
+      playerName: 'Sam Trialist',
+      team: 'U12',
+    },
+    user: staffUser,
+  })
+  const supabaseClient = createSupabaseDraftMock({
+    existingRow: {
+      id: 'draft-server-1',
+      club_id: 'club-1',
+      created_by_user_id: 'coach-1',
+      status: 'draft',
+    },
+  })
+
+  await saveServerEvaluationDraft({
+    context,
+    existingDraftId: 'draft-server-1',
+    payload: {
+      formData: { playerName: 'Sam Trialist' },
+      responseValues: { tactical: '7' },
+    },
+    supabaseClient,
+    user: staffUser,
+  })
+
+  const updateCall = supabaseClient.calls.find((call) => call.action === 'update')
+  assert.ok(updateCall)
+  assert.equal(supabaseClient.calls.some((call) => call.action === 'insert'), false)
+  assert.deepEqual(
+    updateCall.filters,
+    [
+      { column: 'id', value: 'draft-server-1' },
+      { column: 'created_by_user_id', value: 'coach-1' },
+      { column: 'status', value: 'draft' },
+    ],
+  )
+  assert.equal(updateCall.payload.status, 'draft')
+})
+
 test('server draft close updates only the creator active draft row', async () => {
   const supabaseClient = createSupabaseDraftMock()
 
@@ -360,6 +403,25 @@ test('server draft close updates only the creator active draft row', async () =>
   )
   assert.equal(supabaseClient.calls[0].payload.status, 'submitted')
   assert.ok(supabaseClient.calls[0].payload.submitted_at)
+})
+
+test('server draft discard updates the active creator row without an insert path', async () => {
+  const supabaseClient = createSupabaseDraftMock()
+
+  assert.equal(
+    await closeServerEvaluationDraft({
+      draftId: 'draft-server-1',
+      status: PRIVATE_EVALUATION_DRAFT_STATUSES.discarded,
+      supabaseClient,
+      user: staffUser,
+    }),
+    true,
+  )
+
+  assert.equal(supabaseClient.calls.length, 1)
+  assert.equal(supabaseClient.calls[0].action, 'update')
+  assert.equal(supabaseClient.calls[0].payload.status, 'discarded')
+  assert.ok(supabaseClient.calls[0].payload.discarded_at)
 })
 
 test('server draft helpers fail closed when the migration has not been applied', async () => {
@@ -395,4 +457,33 @@ test('private assessment draft migration is additive and creator scoped', () => 
   assert.match(migration, /player\.club_id = evaluation_drafts\.club_id/)
   assert.match(migration, /team\.club_id = evaluation_drafts\.club_id/)
   assert.doesNotMatch(migration, /\b(drop table|drop column|truncate|delete from)\b/i)
+})
+
+test('private assessment draft RLS repair keeps drafts creator-only and parent-denied', () => {
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260616085834_repair_evaluation_drafts_creator_rls.sql', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(migration, /created_by_user_id = auth\.uid\(\)/)
+  assert.match(migration, /status = 'draft'/)
+  assert.match(migration, /status in \('draft', 'submitted', 'discarded'\)/)
+  assert.match(migration, /public\.current_user_role\(\) <> 'parent_portal'/)
+  assert.match(migration, /public\.current_user_role_rank\(\) >= 20/)
+  assert.match(migration, /team\.club_id = evaluation_drafts\.club_id/)
+  assert.match(migration, /player\.club_id = evaluation_drafts\.club_id/)
+  assert.doesNotMatch(migration, /join public\.team_staff/i)
+  assert.doesNotMatch(migration, /\b(drop table|drop column|truncate|delete from)\b/i)
+})
+
+test('draft database failure UI does not claim the server draft was saved', () => {
+  const source = readFileSync(
+    new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(
+    source,
+    /void saveServerDraft\(\)\.catch\([\s\S]+setPrivateDraftStatus\('error'\)[\s\S]+}\)/,
+  )
 })

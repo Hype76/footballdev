@@ -386,11 +386,11 @@ async function seedTeams(clubId, actorId) {
 
 async function seedFormFields(clubId, actorId) {
   const fields = [
-    { label: 'Technical', type: 'score_1_5', order_index: 1 },
-    { label: 'Tactical', type: 'score_1_5', order_index: 2 },
-    { label: 'Physical', type: 'score_1_5', order_index: 3 },
-    { label: 'Mentality', type: 'score_1_5', order_index: 4 },
-    { label: 'Coachability', type: 'score_1_5', order_index: 5 },
+    { label: 'Technical', type: 'score_1_10', order_index: 1 },
+    { label: 'Tactical', type: 'score_1_10', order_index: 2 },
+    { label: 'Physical', type: 'score_1_10', order_index: 3 },
+    { label: 'Mentality', type: 'score_1_10', order_index: 4 },
+    { label: 'Coachability', type: 'score_1_10', order_index: 5 },
     { label: 'Strengths', type: 'textarea', order_index: 6 },
     { label: 'Improvements', type: 'textarea', order_index: 7 },
     { label: 'Overall Comments', type: 'textarea', order_index: 8 },
@@ -401,7 +401,7 @@ async function seedFormFields(clubId, actorId) {
       fields.map((field) => ({
         ...field,
         club_id: clubId,
-        options: field.type === 'score_1_5' ? [1, 2, 3, 4, 5] : [],
+        options: field.type === 'score_1_10' ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : [],
         required: ['Technical', 'Tactical', 'Physical', 'Mentality', 'Coachability'].includes(field.label),
         is_default: true,
         is_enabled: true,

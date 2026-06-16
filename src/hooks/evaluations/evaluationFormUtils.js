@@ -7,6 +7,12 @@ import {
 } from '../../lib/email-templates.js'
 import { sendParentEmail } from '../../lib/email-builder.js'
 import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
+import {
+  formatDefaultAssessmentScoreForParent,
+  isAssessmentScoreFieldType,
+  isDefaultAssessmentScoreLabel,
+  isDefaultAssessmentScoreValue,
+} from '../../lib/assessment-scoring.js'
 
 export function createLocalId() {
   return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -50,7 +56,11 @@ function isEnteredAssessmentValue(value) {
   return String(value ?? '').trim() !== ''
 }
 
-function formatAssessmentValue(value) {
+function formatAssessmentValue(label, value) {
+  if (isDefaultAssessmentScoreLabel(label) && isDefaultAssessmentScoreValue(value)) {
+    return formatDefaultAssessmentScoreForParent(value)
+  }
+
   if (Array.isArray(value)) {
     return value.map((item) => String(item ?? '').trim()).filter(Boolean).join(', ')
   }
@@ -82,7 +92,7 @@ export function buildPreviousAssessmentItems(evaluation) {
     usedLabels.add(normalizedLabel)
     items.push({
       label: cleanLabel,
-      value: isEnteredAssessmentValue(value) ? formatAssessmentValue(value) : 'No data entered',
+      value: isEnteredAssessmentValue(value) ? formatAssessmentValue(cleanLabel, value) : 'No data entered',
     })
   }
 
@@ -153,7 +163,7 @@ export function createEmptyResponseValues(fields) {
 }
 
 export function isScoreFieldType(fieldType) {
-  return fieldType === 'score_1_5' || fieldType === 'score_1_10' || fieldType === 'number'
+  return isAssessmentScoreFieldType(fieldType)
 }
 
 export function normalizeResponseValue(field, value) {
@@ -214,6 +224,8 @@ export function createResponseItems(fields, responseValues, includeEmptyValues =
       }
 
       return {
+        fieldType: field.type,
+        isDefault: Boolean(field.isDefault),
         label: field.label,
         value,
       }

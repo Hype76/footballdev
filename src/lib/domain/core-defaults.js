@@ -1,4 +1,5 @@
 import { FITNESS_BENCHMARK_FIELDS } from '../fitness-benchmarks.js'
+import { DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE } from '../assessment-scoring.js'
 
 export const SYSTEM_ROLE_OPTIONS = [
   { key: 'admin', label: 'Club Admin', rank: 90, isSystem: true },
@@ -12,7 +13,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-technical',
     label: 'Technical',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 1,
@@ -23,7 +24,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-tactical',
     label: 'Tactical',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 2,
@@ -34,7 +35,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-physical',
     label: 'Physical',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 3,
@@ -45,7 +46,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-mentality',
     label: 'Mentality',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 4,
@@ -56,7 +57,7 @@ const DEFAULT_FORM_FIELDS = [
   {
     id: 'default-coachability',
     label: 'Coachability',
-    type: 'score_1_5',
+    type: DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE,
     options: [],
     required: true,
     orderIndex: 5,

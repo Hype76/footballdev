@@ -395,9 +395,9 @@ export async function getCoachAssessmentFields(user) {
   }
 
   return [
-    { id: 'technical', label: 'Technical', type: 'score_1_5', options: [], required: true, orderIndex: 1 },
-    { id: 'tactical', label: 'Tactical', type: 'score_1_5', options: [], required: true, orderIndex: 2 },
-    { id: 'attitude', label: 'Attitude', type: 'score_1_5', options: [], required: true, orderIndex: 3 },
+    { id: 'technical', label: 'Technical', type: 'score_1_10', options: [], required: true, orderIndex: 1 },
+    { id: 'tactical', label: 'Tactical', type: 'score_1_10', options: [], required: true, orderIndex: 2 },
+    { id: 'attitude', label: 'Attitude', type: 'score_1_10', options: [], required: true, orderIndex: 3 },
     { id: 'overall-comments', label: 'Overall Comments', type: 'textarea', options: [], required: false, orderIndex: 4 },
   ]
 }

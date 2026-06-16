@@ -92,7 +92,7 @@ function isProgressionScoreField(field = {}) {
   return Boolean(field.isDefault)
 }
 
-function normalizeScoreToFive(value, field = {}) {
+function normalizeScoreToTen(value, field = {}) {
   if (!isNumericValue(value)) {
     return null
   }
@@ -103,11 +103,11 @@ function normalizeScoreToFive(value, field = {}) {
     return null
   }
 
-  if (field.type === 'score_1_10') {
-    return Math.min(5, score / 2)
+  if (field.type === 'score_1_5') {
+    return Math.min(10, score * 2)
   }
 
-  return Math.min(5, score)
+  return Math.min(10, score)
 }
 
 function getChartFieldMap(fields = []) {
@@ -124,7 +124,7 @@ function getEvaluationChartScore(evaluation, chartFieldMap) {
   const values = Object.entries(evaluation.formResponses ?? {})
     .map(([label, value]) => {
       const field = chartFieldMap.get(normalizeFieldLabel(label))
-      return field ? normalizeScoreToFive(value, field) : null
+      return field ? normalizeScoreToTen(value, field) : null
     })
     .filter((value) => Number.isFinite(value))
 
@@ -202,7 +202,7 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
         return
       }
 
-      const normalizedScore = chartFieldMap.size ? normalizeScoreToFive(value, field) : Number(value)
+      const normalizedScore = chartFieldMap.size ? normalizeScoreToTen(value, field) : Number(value)
 
       if (!Number.isFinite(normalizedScore)) {
         return

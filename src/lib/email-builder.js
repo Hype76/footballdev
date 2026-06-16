@@ -3,6 +3,12 @@ import { buildMainAppUrl } from './app-origins.js'
 import { supabase } from './supabase-client.js'
 import { sanitizeAssessmentEmailSections, sanitizeAssessmentOutputText } from './assessment-output-sanitizer.js'
 import { buildProgressionChartMarkup } from './progression-chart-markup.js'
+import {
+  DEFAULT_ASSESSMENT_SCORE_GUIDE,
+  formatDefaultAssessmentScoreForParent,
+  isDefaultAssessmentScoreLabel,
+  isDefaultAssessmentScoreValue,
+} from './assessment-scoring.js'
 
 function escapeHtml(value) {
   return sanitizeAssessmentOutputText(value)
@@ -34,31 +40,16 @@ function normaliseResponses(responses) {
   return []
 }
 
-function isScoredResponseValue(value) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value > 0 && value <= 5
-  }
-
-  const normalizedValue = String(value ?? '').trim()
-  if (!/^\d+(\.\d+)?$/.test(normalizedValue)) {
-    return false
-  }
-
-  const score = Number(normalizedValue)
-  return Number.isFinite(score) && score > 0 && score <= 5
+function isScoredResponseItem(item) {
+  return isDefaultAssessmentScoreLabel(item?.label) && isDefaultAssessmentScoreValue(item?.value)
 }
 
-function formatScoreValue(value) {
-  const score = Number(value)
-  return Number.isInteger(score) ? String(score) : score.toFixed(1).replace(/\.0$/, '')
-}
-
-function formatParentResponseValue(value) {
-  return isScoredResponseValue(value) ? `${formatScoreValue(value)} / 5` : value
+function formatParentResponseValue(item) {
+  return isScoredResponseItem(item) ? formatDefaultAssessmentScoreForParent(item.value) : item?.value
 }
 
 function hasScoredResponses(responseItems) {
-  return responseItems.some((item) => isScoredResponseValue(item?.value))
+  return responseItems.some((item) => isScoredResponseItem(item))
 }
 
 function isExportableResponseValue(value) {
@@ -88,7 +79,17 @@ function buildScoringKeyMarkup(responseItems) {
   return `
     <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 20px;">
       <p style="margin: 0 0 8px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">How scoring works</p>
-      <p style="margin: 0; color: #142018; font-size: 13px; line-height: 1.55;">Player feedback is scored out of 5, with 5 meaning a really high standard. A 5 is rare and should only be used when a player truly stands out in that area. A player does not need to score 5 across everything. For example, they may score 5 for coachability because they listen well and take on feedback, while scoring lower in fitness or another area. This helps keep feedback fair, realistic, and focused on strengths and areas to improve.</p>
+      <p style="margin: 0 0 10px; color: #142018; font-size: 13px; line-height: 1.55;">Player feedback is scored out of 10. A 5 means the player is broadly at the expected level, 6 gives coaches a clear way to show slightly above expected performance, and 10 means exceptional for this context rather than flawless.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+        <tbody>
+          ${DEFAULT_ASSESSMENT_SCORE_GUIDE.map((item) => `
+            <tr>
+              <td style="padding: 3px 8px 3px 0; color: #142018; font-size: 12px; font-weight: 700; white-space: nowrap;">${item.score} - ${escapeHtml(item.label)}</td>
+              <td style="padding: 3px 0; color: #4f6552; font-size: 12px; line-height: 1.4;">${escapeHtml(item.description)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
     </div>
   `
 }
@@ -136,7 +137,7 @@ function buildResponseMarkup(responseItems) {
                       <td width="50%" style="padding: 0 6px 10px 0; vertical-align: top;">
                         <div style="border: 1px solid #e7ece3; border-radius: 10px; background: #ffffff; padding: 10px 12px; min-height: 54px;">
                           <p style="margin: 0 0 5px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">${escapeHtml(item.label)}</p>
-                          <p style="margin: 0; color: #142018; font-size: 13px; line-height: 1.45;">${formatLines(formatParentResponseValue(item.value) || 'No data entered')}</p>
+                          <p style="margin: 0; color: #142018; font-size: 13px; line-height: 1.45;">${formatLines(formatParentResponseValue(item) || 'No data entered')}</p>
                         </div>
                       </td>
                     `,

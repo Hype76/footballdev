@@ -226,7 +226,30 @@ export function canEditEvaluation(user, evaluation) {
     return false
   }
 
-  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
+  if (isParentPortalUser(user)) {
+    return false
+  }
+
+  if (isSuperAdmin(user)) {
+    return true
+  }
+
+  const evaluationClubId = evaluation.clubId || evaluation.club_id || ''
+
+  if (!user.clubId || (evaluationClubId && String(evaluationClubId) !== String(user.clubId))) {
+    return false
+  }
+
+  if (isClubAdmin(user) && !user.activeTeamId) {
+    return false
+  }
+
+  const evaluationTeamId = evaluation.teamId || evaluation.team_id || ''
+  if (evaluationTeamId && user.activeTeamId && String(evaluationTeamId) !== String(user.activeTeamId)) {
+    return false
+  }
+
+  if (Number(user.roleRank ?? 0) >= 50) {
     return true
   }
 
@@ -244,14 +267,27 @@ export function canViewEvaluation(user, evaluation) {
     return false
   }
 
-  if (isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50) {
+  if (isParentPortalUser(user)) {
+    return false
+  }
+
+  if (isSuperAdmin(user)) {
     return true
   }
 
   const evaluationClubId = evaluation.clubId || evaluation.club_id || ''
 
-  if (evaluationClubId && user.clubId) {
-    return canEditEvaluation(user, evaluation) && String(evaluationClubId) === String(user.clubId)
+  if (!user.clubId || (evaluationClubId && String(evaluationClubId) !== String(user.clubId))) {
+    return false
+  }
+
+  const evaluationTeamId = evaluation.teamId || evaluation.team_id || ''
+  if (evaluationTeamId && user.activeTeamId && String(evaluationTeamId) !== String(user.activeTeamId)) {
+    return false
+  }
+
+  if (Number(user.roleRank ?? 0) >= 50) {
+    return !isClubAdmin(user) || Boolean(user.activeTeamId)
   }
 
   return canEditEvaluation(user, evaluation)

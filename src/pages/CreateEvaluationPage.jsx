@@ -1297,7 +1297,7 @@ export function CreateEvaluationPage() {
             })
           }
 
-          setPrivateDraftStatus(savedDraft?.id ? 'saved_local' : 'error')
+          setPrivateDraftStatus('error')
         })
       } catch (error) {
         console.error(error)
