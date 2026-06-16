@@ -615,6 +615,23 @@ test('private assessment draft RLS repair keeps drafts creator-only and parent-d
   assert.doesNotMatch(migration, /\b(drop table|drop column|truncate|delete from)\b/i)
 })
 
+test('draft lifecycle select policy allows creator close status transition only', () => {
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260616181000_allow_creator_evaluation_draft_lifecycle_select.sql', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(migration, /drop policy if exists evaluation_drafts_select_own_active/)
+  assert.match(migration, /for select/)
+  assert.match(migration, /created_by_user_id = auth\.uid\(\)/)
+  assert.match(migration, /status in \('draft', 'submitted', 'discarded'\)/)
+  assert.match(migration, /club_id = public\.current_user_club_id\(\)/)
+  assert.match(migration, /public\.current_user_role\(\) <> 'parent_portal'/)
+  assert.match(migration, /public\.current_user_role_rank\(\) >= 20/)
+  assert.doesNotMatch(migration, /\b(drop table|drop column|truncate|delete from)\b/i)
+  assert.doesNotMatch(migration, /or true/i)
+})
+
 test('draft database failure UI does not claim the server draft was saved', () => {
   const source = readFileSync(
     new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
