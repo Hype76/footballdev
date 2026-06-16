@@ -487,3 +487,52 @@ test('draft database failure UI does not claim the server draft was saved', () =
     /void saveServerDraft\(\)\.catch\([\s\S]+setPrivateDraftStatus\('error'\)[\s\S]+}\)/,
   )
 })
+
+test('private draft banner exposes resume and discard actions', () => {
+  const source = readFileSync(
+    new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /handleResumePrivateDraft/)
+  assert.match(source, /Resume draft/)
+  assert.match(source, /Discard draft/)
+  assert.match(source, /findServerEvaluationDraft\([\s\S]+context: draftContext[\s\S]+user/)
+  assert.match(source, /findPrivateEvaluationDraft\([\s\S]+context: draftContext[\s\S]+user/)
+})
+
+test('private draft resume restores saved payload values', () => {
+  const source = readFileSync(
+    new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /setFormData\(createInitialFormData\(user, \{[\s\S]+restoredFormData/)
+  assert.match(source, /setResponseValues\([\s\S]+draft\.payload\.responseValues/)
+  assert.match(source, /setPrivateDraftStatus\('restored'\)/)
+})
+
+test('unclear football detail readiness card is removed', () => {
+  const source = readFileSync(
+    new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.doesNotMatch(source, /label="Football detail"/)
+  assert.doesNotMatch(source, /Nothing has been recorded yet\./)
+})
+
+test('manual review RLS repair keeps drafts creator-only while allowing same-club player context', () => {
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260616153314_repair_manual_review_eval_matchday.sql', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(migration, /created_by_user_id = auth\.uid\(\)/)
+  assert.match(migration, /public\.current_user_role\(\) <> 'parent_portal'/)
+  assert.match(migration, /public\.current_user_role_rank\(\) >= 20/)
+  assert.match(migration, /team\.club_id = evaluation_drafts\.club_id/)
+  assert.match(migration, /player\.club_id = evaluation_drafts\.club_id/)
+  assert.doesNotMatch(migration, /player\.team_id = evaluation_drafts\.team_id/)
+  assert.doesNotMatch(migration, /\b(drop table|drop column|truncate|delete from)\b/i)
+})

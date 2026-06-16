@@ -426,7 +426,6 @@ function RecordReadinessItem({ isReady, label, value }) {
 }
 
 function DevelopmentRecordCommandPanel({
-  averageScore,
   contactNounPlural,
   enabledFieldCount,
   formData,
@@ -469,7 +468,7 @@ function DevelopmentRecordCommandPanel({
         </div>
       </div>
 
-      <div className="grid gap-3 px-5 py-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 px-5 py-5 md:grid-cols-3">
         <RecordReadinessItem
           isReady={hasTeam}
           label="Team"
@@ -484,15 +483,6 @@ function DevelopmentRecordCommandPanel({
           isReady={hasFields}
           label="Development fields"
           value={hasFields ? `${enabledFieldCount} field${enabledFieldCount === 1 ? '' : 's'} available.` : 'No enabled fields found.'}
-        />
-        <RecordReadinessItem
-          isReady={selectedResponseCount > 0}
-          label="Football detail"
-          value={
-            selectedResponseCount > 0
-              ? `${selectedResponseCount} response${selectedResponseCount === 1 ? '' : 's'} entered. Score ${averageScore !== null ? averageScore.toFixed(1) : 'not scored'}.`
-              : 'Nothing has been recorded yet.'
-          }
         />
       </div>
 
@@ -1490,6 +1480,92 @@ export function CreateEvaluationPage() {
     }
   }
 
+  const handleResumePrivateDraft = async () => {
+    setPrivateDraftStatus('saving')
+
+    try {
+      const draftContext = buildCurrentPrivateDraftContext(formData)
+      let draft = null
+      let source = privateDraftInfo?.source || 'local'
+
+      if (privateDraftInfo?.source === 'server' && !isDemoUser(user)) {
+        draft = await findServerEvaluationDraft({
+          context: draftContext,
+          user,
+        })
+        source = 'server'
+      }
+
+      if (!draft?.payload) {
+        draft = findPrivateEvaluationDraft({
+          context: draftContext,
+          user,
+        })
+        source = 'local'
+      }
+
+      if (!draft?.payload || !hasPrivateEvaluationDraftContent(draft.payload)) {
+        showToast({
+          title: 'Private draft not opened',
+          message: 'No active private draft was found for this record context.',
+          tone: 'error',
+        })
+        setPrivateDraftStatus(privateDraftInfo?.id ? 'saved_local' : 'idle')
+        return
+      }
+
+      const restoredFormData =
+        draft.payload.formData && typeof draft.payload.formData === 'object'
+          ? draft.payload.formData
+          : {}
+      const restoredOfflineDraftId = String(draft.payload.offlineDraftId ?? '').trim()
+      const restoredSession = normalizeSessionValue(restoredFormData.session)
+      const rememberedSession = normalizeSessionValue(draft.payload.lastUsedSession)
+      const nextSessionValue = restoredSession || rememberedSession || formData.session
+
+      setFormData(createInitialFormData(user, {
+        ...restoredFormData,
+        coachName: user.name || '',
+        session: nextSessionValue,
+      }))
+      setPreviewMode(['scored', 'email'].includes(String(draft.payload.previewMode))
+        ? String(draft.payload.previewMode)
+        : 'scored')
+      setEmailTemplateKey(String(draft.payload.emailTemplateKey ?? ''))
+      setSelectedParentContactIndexes(
+        Array.isArray(draft.payload.selectedParentContactIndexes) &&
+          draft.payload.selectedParentContactIndexes.length > 0
+          ? draft.payload.selectedParentContactIndexes
+          : [0],
+      )
+      setInviteDate(normalizeSessionValue(draft.payload.inviteDate))
+      setResponseValues(
+        draft.payload.responseValues && typeof draft.payload.responseValues === 'object'
+          ? draft.payload.responseValues
+          : {},
+      )
+      setLastUsedSession(nextSessionValue)
+      setOfflineDraftId(restoredOfflineDraftId || createLocalId())
+      setPrivateDraftInfo({
+        id: draft.id,
+        lastSavedAt: draft.lastSavedAt || draft.updatedAt || privateDraftInfo?.lastSavedAt || '',
+        localDraftId: source === 'server' ? privateDraftInfo?.localDraftId || '' : draft.id,
+        restoredAt: draft.lastSavedAt || draft.updatedAt || privateDraftInfo?.restoredAt || '',
+        source,
+      })
+      setPrivateDraftStatus('restored')
+      showToast({ title: 'Private draft opened', message: 'The saved draft values have been restored.' })
+    } catch (error) {
+      console.error(error)
+      showToast({
+        title: 'Private draft not opened',
+        message: error.message || 'The private draft could not be opened.',
+        tone: 'error',
+      })
+      setPrivateDraftStatus('error')
+    }
+  }
+
   const handleDiscardPrivateDraft = async () => {
     setPrivateDraftStatus('saving')
 
@@ -2211,6 +2287,7 @@ export function CreateEvaluationPage() {
   }
 
   const privateDraftBanner = getPrivateDraftBannerCopy(privateDraftStatus, privateDraftInfo)
+  const canResumePrivateDraft = ['restored', 'saved', 'saved_local'].includes(privateDraftStatus) && Boolean(privateDraftInfo?.id)
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -2348,13 +2425,24 @@ export function CreateEvaluationPage() {
                   {privateDraftBanner.message}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => void handleDiscardPrivateDraft()}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#86efac] bg-white px-4 py-3 text-sm font-black text-[#065f46] transition hover:border-[#047857] hover:bg-[#f7faf8]"
-              >
-                Discard draft
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {canResumePrivateDraft ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleResumePrivateDraft()}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46]"
+                  >
+                    Resume draft
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void handleDiscardPrivateDraft()}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#86efac] bg-white px-4 py-3 text-sm font-black text-[#065f46] transition hover:border-[#047857] hover:bg-[#f7faf8]"
+                >
+                  Discard draft
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
@@ -2381,7 +2469,6 @@ export function CreateEvaluationPage() {
         ) : null}
 
         <DevelopmentRecordCommandPanel
-          averageScore={averageScore}
           contactNounPlural={contactNounPlural}
           enabledFieldCount={enabledFields.length}
           formData={formData}

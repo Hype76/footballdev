@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import {
@@ -67,6 +68,40 @@ test('fixture setup dispatches locally when no router navigate function is suppl
   openMatchDayFixtureSetup({ opponent: 'Riverside Juniors' }, { windowRef })
 
   assert.deepEqual(windowRef.dispatchedEvents, [FIXTURE_SETUP_EVENT])
+})
+
+test('calendar match type selection routes to Match Day instead of generic save', () => {
+  const source = readFileSync(
+    new URL('../src/pages/SessionsPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /openCalendarMatchDayWorkflow/)
+  assert.match(source, /name === 'eventType' && value === 'match' && calendarModal\?\.mode === 'create'/)
+  assert.match(source, /openMatchDayFixtureSetup\(/)
+  assert.match(source, /setCalendarModal\(null\)/)
+})
+
+test('match day calendar item edit opens Match Day workflow', () => {
+  const source = readFileSync(
+    new URL('../src/pages/SessionsPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /currentEvent\?\.sourceType === 'match-day'/)
+  assert.match(source, /navigate\(currentEvent\.href \|\| '\/match-day'\)/)
+})
+
+test('manual review Match Day migration removes missing player team assignment dependency', () => {
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260616153314_repair_manual_review_eval_matchday.sql', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(migration, /create or replace function public\.create_match_day_motm_poll/)
+  assert.match(migration, /player\.team_id = match_row\.team_id/)
+  assert.doesNotMatch(migration, /player_team_assignments/)
+  assert.doesNotMatch(migration, /create table.*player_team_assignments/is)
 })
 
 test('match day date helper blocks past dates and allows today', () => {

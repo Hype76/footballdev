@@ -1155,10 +1155,40 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     setCalendarModal({ mode: 'view', event })
   }
 
+  const openCalendarMatchDayWorkflow = (form) => {
+    const safeTeamId = getSafeCalendarTeamId(user, form.teamId)
+    const trimmedTitle = getTrimmedFormValue(form.title)
+    const trimmedOpponent = getTrimmedFormValue(form.opponent)
+
+    openMatchDayFixtureSetup({
+      arrivalTime: form.arrivalTime,
+      kickoffTime: form.startTime,
+      matchDate: form.date,
+      notes: form.notes,
+      opponent: trimmedOpponent || trimmedTitle,
+      parentAudience: form.shareWithParents ? form.parentAudience : 'none',
+      parentVisible: form.shareWithParents,
+      teamId: safeTeamId,
+      venueName: form.location,
+    }, { navigate })
+    setCalendarModal(null)
+    showToast({ title: 'Opening Match Day', message: 'Create this fixture in the full Match Day workflow.' })
+  }
+
   const handleCalendarFormChange = (event) => {
     const { checked, name, type, value } = event.target
 
     setErrorMessage('')
+
+    if (name === 'eventType' && value === 'match' && calendarModal?.mode === 'create' && !calendarModal?.event) {
+      openCalendarMatchDayWorkflow({
+        ...calendarForm,
+        eventType: 'match',
+        endTime: addMinutesToTime(calendarForm.startTime, 120),
+      })
+      return
+    }
+
     setCalendarForm((current) => {
       if (name === 'invitedPlayerIds') {
         const currentIds = Array.isArray(current.invitedPlayerIds) ? current.invitedPlayerIds : []
@@ -1926,7 +1956,15 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           onCancel={() => setCalendarModal(null)}
           onChange={handleCalendarFormChange}
           onDelete={handleCalendarDelete}
-          onEdit={() => setCalendarModal((current) => ({ ...current, mode: 'edit' }))}
+          onEdit={() => {
+            const currentEvent = calendarModal?.event
+            if (currentEvent?.sourceType === 'match-day') {
+              setCalendarModal(null)
+              navigate(currentEvent.href || '/match-day')
+              return
+            }
+            setCalendarModal((current) => ({ ...current, mode: 'edit' }))
+          }}
           onOpenWorkflow={() => {
             const href = calendarModal?.event?.href
             setCalendarModal(null)
@@ -2216,7 +2254,15 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         onCancel={() => setCalendarModal(null)}
         onChange={handleCalendarFormChange}
         onDelete={handleCalendarDelete}
-        onEdit={() => setCalendarModal((current) => ({ ...current, mode: 'edit' }))}
+        onEdit={() => {
+          const currentEvent = calendarModal?.event
+          if (currentEvent?.sourceType === 'match-day') {
+            setCalendarModal(null)
+            navigate(currentEvent.href || '/match-day')
+            return
+          }
+          setCalendarModal((current) => ({ ...current, mode: 'edit' }))
+        }}
         onOpenWorkflow={() => {
           const href = calendarModal?.event?.href
           setCalendarModal(null)
