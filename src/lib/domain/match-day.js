@@ -173,8 +173,61 @@ export function normalizeMatchDay(row) {
 }
 
 function assertStaffMatchDayAccess(user) {
-  if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin' || Number(user.roleRank ?? 0) < 20) {
+  if (
+    !user?.clubId ||
+    !user.activeTeamId ||
+    user.role === 'admin' ||
+    user.role === 'parent_portal' ||
+    user.role === 'super_admin' ||
+    Number(user.roleRank ?? 0) < 20
+  ) {
     throw new Error('Coach or manager access is required for Match Day.')
+  }
+}
+
+function assertMatchInActiveTeamScope(user, match) {
+  const activeTeamId = normalizeText(user?.activeTeamId)
+  const matchTeamId = normalizeText(match?.teamId ?? match?.team_id)
+
+  if (activeTeamId && matchTeamId && matchTeamId !== activeTeamId) {
+    throw new Error('This match day is not linked to your active team.')
+  }
+}
+
+function scopeMatchDayQueryToActiveTeam(query, user) {
+  const activeTeamId = normalizeText(user?.activeTeamId)
+
+  if (!activeTeamId) {
+    return query.eq('team_id', '__no_active_team__')
+  }
+
+  return query.or(`team_id.is.null,team_id.eq.${activeTeamId}`)
+}
+
+async function assertMatchDayRecordInActiveTeamScope(user, matchId) {
+  const normalizedMatchId = normalizeText(matchId)
+
+  if (!normalizedMatchId) {
+    throw new Error('Choose a match day first.')
+  }
+
+  let query = supabase
+    .from('match_days')
+    .select('id')
+    .eq('id', normalizedMatchId)
+    .eq('club_id', user.clubId)
+
+  query = scopeMatchDayQueryToActiveTeam(query, user)
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  if (!data?.id) {
+    throw new Error('This match day is not linked to your active team.')
   }
 }
 
@@ -375,11 +428,15 @@ export async function updateMatchDay({ user, matchId, updates }) {
     payload.location_id = locationId || null
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('match_days')
     .update(payload)
     .eq('id', matchId)
     .eq('club_id', user.clubId)
+
+  query = scopeMatchDayQueryToActiveTeam(query, user)
+
+  const { data, error } = await query
     .select(buildMatchSelect())
     .single()
 
@@ -395,10 +452,13 @@ export async function updateMatchDay({ user, matchId, updates }) {
 export async function selectMatchDayScorer({ user, match, interest }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
 
   if (!match?.id || !interest?.parentLinkId) {
     throw new Error('Choose an interested parent first.')
   }
+
+  await assertMatchDayRecordInActiveTeamScope(user, match.id)
 
   const { error: insertError } = await supabase
     .from('match_day_scorer_assignments')
@@ -438,6 +498,7 @@ export async function selectMatchDayScorer({ user, match, interest }) {
 export async function addStaffMatchDayGoal({ user, match, goal }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
 
   const teamSide = normalizeText(goal?.teamSide) === 'opponent' ? 'opponent' : 'club'
   let nextHomeScore = Number(match.homeScore ?? 0)
@@ -475,7 +536,7 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
     created_by_name: getEntryUserName(user),
   }
 
-  const { error: updateError } = await supabase
+  let matchUpdateQuery = supabase
     .from('match_days')
     .update({
       home_score: nextHomeScore,
@@ -486,9 +547,19 @@ export async function addStaffMatchDayGoal({ user, match, goal }) {
     .eq('id', match.id)
     .eq('club_id', user.clubId)
 
+  matchUpdateQuery = scopeMatchDayQueryToActiveTeam(matchUpdateQuery, user)
+
+  const { data: updatedMatch, error: updateError } = await matchUpdateQuery
+    .select('id')
+    .single()
+
   if (updateError) {
     console.error(updateError)
     throw updateError
+  }
+
+  if (!updatedMatch?.id) {
+    throw new Error('This match day is not linked to your active team.')
   }
 
   const { data, error } = await supabase
@@ -522,6 +593,10 @@ export async function resetPreviousMatchDayResults({ user, teamId = '' } = {}) {
     .is('previous_hidden_at', null)
 
   const normalizedTeamId = normalizeText(teamId) || user.activeTeamId || ''
+
+  if (normalizedTeamId && normalizedTeamId !== user.activeTeamId) {
+    throw new Error('This match day is not linked to your active team.')
+  }
 
   if (normalizedTeamId) {
     query = query.eq('team_id', normalizedTeamId)

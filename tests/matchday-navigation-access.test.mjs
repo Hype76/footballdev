@@ -15,6 +15,8 @@ import {
 
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.url)
+const authUrl = new URL('../src/lib/auth.js', import.meta.url)
+const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 
 function staffUser(overrides = {}) {
   return {
@@ -112,6 +114,77 @@ test('team chooser does not auto-select a single team for club admins', async ()
   assert.notEqual(clubAdminGuardIndex, -1)
   assert.notEqual(autoSelectIndex, -1)
   assert.ok(clubAdminGuardIndex < autoSelectIndex)
+})
+
+test('stored team context cannot select an unassigned team', async () => {
+  const source = await readFile(authUrl, 'utf8')
+  const applyStart = source.indexOf('const applyTeamSelection = async (profile) => {')
+  assert.notEqual(applyStart, -1)
+  const applyEnd = source.indexOf('const applyDemoRolePreview =', applyStart)
+  assert.notEqual(applyEnd, -1)
+  const applySection = source.slice(applyStart, applyEnd)
+
+  assert.match(applySection, /const assignedTeams = isClubAdmin\(profile\) \? await getTeams\(profile\) : await getAssignedTeamsForUser\(profile\)/)
+  assert.match(applySection, /const selectedTeam = assignedTeams\.find\(\(team\) => String\(team\.id\) === selectedTeamId\)/)
+  assert.match(applySection, /window\.sessionStorage\.removeItem\(SELECTED_TEAM_STORAGE_KEY\)/)
+  assert.match(applySection, /activeTeamId: ''/)
+
+  const selectStart = source.indexOf('const selectTeam = async (teamId) => {')
+  assert.notEqual(selectStart, -1)
+  const selectEnd = source.indexOf('const selectPlatformAdmin = async () => {', selectStart)
+  assert.notEqual(selectEnd, -1)
+  const selectSection = source.slice(selectStart, selectEnd)
+
+  assert.match(selectSection, /let selectedTeam = teamOptions\.find\(\(team\) => String\(team\.id\) === String\(teamId\)\)/)
+  assert.match(selectSection, /await getAssignedTeamsForUser\(userRef\.current\)/)
+  assert.match(selectSection, /throw new Error\('This team is not linked to your account\.'\)/)
+})
+
+test('match day domain scopes reads and mutations to the active team', async () => {
+  const source = await readFile(matchDayDomainUrl, 'utf8')
+
+  assert.match(source, /!user\.activeTeamId/)
+  assert.match(source, /user\.role === 'admin'/)
+  assert.match(source, /function scopeMatchDayQueryToActiveTeam\(query, user\)/)
+  assert.match(source, /return query\.or\(`team_id\.is\.null,team_id\.eq\.\$\{activeTeamId\}`\)/)
+
+  const getStart = source.indexOf('export async function getMatchDays')
+  const getEnd = source.indexOf('export async function getMatchLocations', getStart)
+  assert.notEqual(getStart, -1)
+  assert.notEqual(getEnd, -1)
+  const getSection = source.slice(getStart, getEnd)
+  assert.match(getSection, /query = query\.or\(`team_id\.is\.null,team_id\.eq\.\$\{user\.activeTeamId\}`\)/)
+
+  const updateStart = source.indexOf('export async function updateMatchDay')
+  const updateEnd = source.indexOf('export async function selectMatchDayScorer', updateStart)
+  assert.notEqual(updateStart, -1)
+  assert.notEqual(updateEnd, -1)
+  const updateSection = source.slice(updateStart, updateEnd)
+  assert.match(updateSection, /query = scopeMatchDayQueryToActiveTeam\(query, user\)/)
+
+  const scorerStart = source.indexOf('export async function selectMatchDayScorer')
+  const scorerEnd = source.indexOf('export async function addStaffMatchDayGoal', scorerStart)
+  assert.notEqual(scorerStart, -1)
+  assert.notEqual(scorerEnd, -1)
+  const scorerSection = source.slice(scorerStart, scorerEnd)
+  assert.match(scorerSection, /assertMatchInActiveTeamScope\(user, match\)/)
+  assert.match(scorerSection, /await assertMatchDayRecordInActiveTeamScope\(user, match\.id\)/)
+
+  const goalStart = source.indexOf('export async function addStaffMatchDayGoal')
+  const goalEnd = source.indexOf('export async function resetPreviousMatchDayResults', goalStart)
+  assert.notEqual(goalStart, -1)
+  assert.notEqual(goalEnd, -1)
+  const goalSection = source.slice(goalStart, goalEnd)
+  assert.match(goalSection, /assertMatchInActiveTeamScope\(user, match\)/)
+  assert.match(goalSection, /matchUpdateQuery = scopeMatchDayQueryToActiveTeam\(matchUpdateQuery, user\)/)
+  assert.match(goalSection, /if \(!updatedMatch\?\.id\)/)
+
+  const resetStart = source.indexOf('export async function resetPreviousMatchDayResults')
+  const resetEnd = source.indexOf('export async function getParentPortalMatchDays', resetStart)
+  assert.notEqual(resetStart, -1)
+  assert.notEqual(resetEnd, -1)
+  const resetSection = source.slice(resetStart, resetEnd)
+  assert.match(resetSection, /normalizedTeamId && normalizedTeamId !== user\.activeTeamId/)
 })
 
 test('direct match day route checks recovery, team context, and staff permission', async () => {
