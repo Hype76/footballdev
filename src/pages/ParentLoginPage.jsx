@@ -231,7 +231,7 @@ export function ParentLoginPage() {
             Open the football updates linked to your child.
           </h1>
           <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#4b5f55]">
-            Use the parent account confirmed by email. This view only shows club-shared messages, polls, match cards, and development reports for linked children.
+            Use the parent account confirmed by email. This view only shows club-shared updates, match cards, and child information the club has chosen to share.
           </p>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">

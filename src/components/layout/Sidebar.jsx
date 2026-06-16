@@ -160,6 +160,13 @@ export function Sidebar({ isOpen, onClose }) {
 
       try {
         if (isParentPortalUser(user)) {
+          if (!isRecoveryPathVisible('/parent-polls', { user })) {
+            if (isMounted) {
+              setOpenPollCount(0)
+            }
+            return
+          }
+
           const links = Array.isArray(user.parentPortalLinks) ? user.parentPortalLinks : []
           const pollBatches = await Promise.all(
             links.map((link) => getParentPortalPolls({ parentLinkId: link.id }).catch(() => [])),

@@ -22,6 +22,13 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+function isMissingTableError(error) {
+  const code = String(error?.code ?? '').trim()
+  const message = String(error?.message ?? '').toLowerCase()
+
+  return code === '42P01' || message.includes('relation') && message.includes('does not exist')
+}
+
 async function getAuthUser(event) {
   const token = getBearerToken(event)
 
@@ -139,6 +146,11 @@ async function getTargetParentLinks(payload) {
   const { data, error } = await query
 
   if (error) {
+    if (isMissingTableError(error)) {
+      console.warn('Mobile push devices table is not available; skipping native parent push.')
+      return []
+    }
+
     throw error
   }
 
@@ -195,6 +207,11 @@ async function logNotificationEvents({ devices, payload, status }) {
     })))
 
   if (error) {
+    if (isMissingTableError(error)) {
+      console.warn('Notification events table is not available; skipping parent mobile push event log.')
+      return
+    }
+
     console.error('Parent mobile notification event log failed', error)
   }
 }
@@ -216,6 +233,11 @@ async function revokeMobileDeviceTokens(deviceTokens) {
     .in('device_token', tokens)
 
   if (error) {
+    if (isMissingTableError(error)) {
+      console.warn('Mobile push devices table is not available; skipping invalid token revocation.')
+      return
+    }
+
     console.error('Parent mobile push device revoke failed', error)
   }
 }
