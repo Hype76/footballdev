@@ -765,6 +765,10 @@ function PublicLandingOrWorkspaceHome() {
     )
   }
 
+  if (isParentHost()) {
+    return <Navigate to="/parent-portal" replace />
+  }
+
   return (
     <PageSuspense>
       <WorkspaceHome />

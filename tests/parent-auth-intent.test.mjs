@@ -11,6 +11,7 @@ import {
 
 const parentLoginUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
+const netlifyRedirectsUrl = new URL('../public/_redirects', import.meta.url)
 
 test('parent intent paths include login portal and legacy parent entry points', () => {
   assert.equal(isParentIntentPath('/parent-login'), true)
@@ -58,6 +59,9 @@ test('parent login blocks an existing non-parent session instead of submitting u
 
 test('parent routes preserve parent intent while main sign-in remains separate', async () => {
   const source = await readFile(routerUrl, 'utf8')
+  const rootStart = source.indexOf('function PublicLandingOrWorkspaceHome()')
+  const rootEnd = source.indexOf('function RequireUser()', rootStart)
+  const rootSection = source.slice(rootStart, rootEnd)
   const requireUserStart = source.indexOf('function RequireUser()')
   const requireUserEnd = source.indexOf('function RequireClubWorkspace()', requireUserStart)
   const requireUserSection = source.slice(requireUserStart, requireUserEnd)
@@ -71,6 +75,9 @@ test('parent routes preserve parent intent while main sign-in remains separate',
   const parentAccessEnd = source.indexOf('function RequireParentLinkingAccess()', parentAccessStart)
   const parentAccessSection = source.slice(parentAccessStart, parentAccessEnd)
 
+  assert.match(rootSection, /if \(!session\?\.user\) \{\s*return isParentHost\(\) \? \(/)
+  assert.match(rootSection, /<Navigate to="\/parent-login" replace \/>/)
+  assert.match(rootSection, /if \(isParentHost\(\)\) \{\s*return <Navigate to="\/parent-portal" replace \/>/)
   assert.match(requireUserSection, /const location = useLocation\(\)/)
   assert.match(requireUserSection, /if \(isParentIntentPath\(location\.pathname\)\) \{\s*return <ParentLoginRedirect \/>/)
   assert.match(requireUserSection, /return <Navigate to=\{isParentHost\(\) \? '\/parent-login' : '\/sign-in'\} replace \/>/)
@@ -82,4 +89,12 @@ test('parent routes preserve parent intent while main sign-in remains separate',
   assert.match(publicSection, /return <Navigate to=\{isParentHost\(\) \? '\/parent-portal' : '\/'\} replace \/>/)
   assert.match(parentAccessSection, /parentIntent: true/)
   assert.doesNotMatch(parentAccessSection, /RedirectToWorkspaceHome/)
+})
+
+test('netlify serves parent host routes through the SPA router', async () => {
+  const redirects = await readFile(netlifyRedirectsUrl, 'utf8')
+
+  assert.match(redirects, /\/\*\s+\/index\.html\s+200/)
+  assert.doesNotMatch(redirects, /parent\.footballplayer\.online/)
+  assert.doesNotMatch(redirects, /footballplayer\.online\/?\s+30[1278]/)
 })
