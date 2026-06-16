@@ -6,7 +6,7 @@ import {
   normalizeParentContacts,
   normalizePlayerContactType,
 } from '../../lib/supabase.js'
-import { formatUkDate, formatUkDateTime } from '../../lib/date-format.js'
+import { formatUkDate, formatUkDateTime, formatUkDateWords } from '../../lib/date-format.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   DIRECT_EMAIL_TEMPLATE_SECTION,
@@ -158,10 +158,10 @@ export function buildEvaluationSummary(evaluation, mode = 'scored') {
 
 export function formatTrendDate(evaluation) {
   if (evaluation.date) {
-    return evaluation.date
+    return formatUkDateWords(evaluation.date, evaluation.date)
   }
 
-  return evaluation.createdAt ? formatUkDate(evaluation.createdAt, 'No date entered') : 'No date entered'
+  return evaluation.createdAt ? formatUkDateWords(evaluation.createdAt, 'No date entered') : 'No date entered'
 }
 
 export function buildRatingTrend(evaluations) {

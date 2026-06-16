@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { canDeletePlayer, canEditEvaluation } from '../../lib/auth.js'
 import { hasPlanFeature } from '../../lib/plans.js'
 import { EMAIL_SECTION_OPTIONS } from '../../lib/player-progression.js'
-import { buildEvaluationSummary } from '../../hooks/players/playerProfileUtils.js'
+import { buildEvaluationSummary, formatTrendDate } from '../../hooks/players/playerProfileUtils.js'
 import { EvaluationExportFieldsSelector } from '../evaluations/EvaluationExportFieldsSelector.jsx'
 
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
@@ -82,6 +82,7 @@ export function EvaluationHistoryCard({
           ? 'Parent and player email is not included in this plan.'
           : undefined
   const removePlayerDisabledReason = isDeleting ? 'Please wait while this player is being removed.' : undefined
+  const evaluationDateLabel = formatTrendDate(evaluation)
 
   return (
     <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
@@ -93,7 +94,7 @@ export function EvaluationHistoryCard({
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-lg font-black text-[#101828]">{evaluation.date || 'No date entered'}</p>
+            <p className="text-lg font-black text-[#101828]">{evaluationDateLabel}</p>
             {evaluation.session ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Session: {evaluation.session}</p> : null}
             <p className="mt-1 text-sm font-semibold text-[#4b5f55]">Section: {evaluation.section || 'Trial'}</p>
           </div>

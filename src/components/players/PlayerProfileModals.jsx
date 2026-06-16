@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
 import { ScheduleDateTimePicker } from '../ui/ScheduleDateTimePicker.jsx'
+import { formatUkDateWords } from '../../lib/date-format.js'
+import { formatTrendDate } from '../../hooks/players/playerProfileUtils.js'
 
 const optionPanelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10'
 const choiceClass = 'flex min-h-11 items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10'
@@ -64,7 +66,7 @@ export function PlayerProfileModals({
         message="This removes the development record from the player history and average score calculations."
         items={[
           `Player: ${evaluationDeleteTarget?.playerName || routePlayerName}`,
-          `Date: ${evaluationDeleteTarget?.date || 'No date entered'}`,
+          `Date: ${evaluationDeleteTarget ? formatTrendDate(evaluationDeleteTarget) : 'No date entered'}`,
           `Session: ${evaluationDeleteTarget?.session || 'No session entered'}`,
           `Team: ${evaluationDeleteTarget?.team || 'No team entered'}`,
         ]}
@@ -83,7 +85,7 @@ export function PlayerProfileModals({
         items={[
           `From player: ${routePlayerName}`,
           `To player: ${reassignConfirmTarget?.targetPlayer?.playerName || 'Selected player'}`,
-          `Record date: ${reassignConfirmTarget?.evaluation?.date || 'No date entered'}`,
+          `Record date: ${reassignConfirmTarget?.evaluation ? formatTrendDate(reassignConfirmTarget.evaluation) : 'No date entered'}`,
         ]}
         confirmLabel="Move record"
         onCancel={onCancelReassign}
@@ -146,7 +148,7 @@ export function PlayerProfileModals({
           `Attachment: ${canAttachPdf && isPdfAttachmentApproved ? 'PDF approved' : 'No PDF attached'}`,
           `Development fields: ${canAttachAssessmentFields && isAssessmentFieldsApproved ? `${fieldCount} attached` : 'Not attached'}`,
           `Extra sections: ${emailSectionNames || 'None selected'}`,
-          emailConfirmTarget?.inviteDate ? `Invite date: ${emailConfirmTarget.inviteDate}` : 'Invite date: Not included',
+          emailConfirmTarget?.inviteDate ? `Invite date: ${formatUkDateWords(emailConfirmTarget.inviteDate, emailConfirmTarget.inviteDate)}` : 'Invite date: Not included',
         ]}
         confirmLabel={emailSendMode === 'scheduled' ? 'Schedule Email' : 'Send Now'}
         confirmDisabled={emailSendMode === 'scheduled' && !scheduledEmailDateTime}

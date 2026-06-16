@@ -192,7 +192,82 @@ export function hasPrivateEvaluationDraftContent(payload = {}) {
     hasEnteredValue(payload.responseValues) ||
     hasEnteredValue(payload.formData?.parentContacts) ||
     hasEnteredValue(payload.emailTemplateKey) ||
-    hasEnteredValue(payload.inviteDate)
+    hasEnteredValue(payload.inviteDate) ||
+    hasEnteredValue(payload.selectedExportLabels) ||
+    hasEnteredValue(payload.scheduledEmailDateTime) ||
+    payload.isPdfAttachmentApproved === true ||
+    payload.includeAttendanceSummary === false ||
+    payload.emailSendMode === 'scheduled' ||
+    payload.archiveAfterNoPlace === true
+}
+
+export function createPrivateEvaluationDraftPayload({
+  archiveAfterNoPlace = false,
+  emailSendMode = 'now',
+  emailTemplateKey = '',
+  formData = {},
+  includeAttendanceSummary = true,
+  inviteDate = '',
+  isPdfAttachmentApproved = false,
+  lastUsedSession = '',
+  offlineDraftId = '',
+  previewMode = 'scored',
+  responseValues = {},
+  saveVersion = 0,
+  scheduledEmailDateTime = '',
+  selectedExportLabels = null,
+  selectedParentContactIndexes = [0],
+  savedAt = '',
+} = {}) {
+  return {
+    formData,
+    responseValues,
+    lastUsedSession,
+    previewMode,
+    emailTemplateKey,
+    selectedParentContactIndexes,
+    inviteDate,
+    offlineDraftId,
+    isPdfAttachmentApproved,
+    includeAttendanceSummary,
+    emailSendMode,
+    scheduledEmailDateTime,
+    selectedExportLabels,
+    archiveAfterNoPlace,
+    draftMeta: {
+      clientSaveVersion: Number(saveVersion) || 0,
+      clientSavedAt: savedAt || new Date().toISOString(),
+    },
+  }
+}
+
+export function getPrivateEvaluationDraftSavedAt(draft = {}) {
+  return normalizeText(
+    draft.lastSavedAt ||
+      draft.updatedAt ||
+      draft.createdAt ||
+      draft.payload?.draftMeta?.clientSavedAt ||
+      draft.draftMeta?.clientSavedAt,
+  )
+}
+
+export function getPrivateEvaluationDraftSaveVersion(draft = {}) {
+  const version = Number(draft.payload?.draftMeta?.clientSaveVersion ?? draft.draftMeta?.clientSaveVersion ?? 0)
+  return Number.isFinite(version) ? version : 0
+}
+
+export function chooseLatestPrivateEvaluationDraft(candidates = []) {
+  return candidates
+    .filter((draft) => draft?.payload && hasPrivateEvaluationDraftContent(draft.payload))
+    .sort((left, right) => {
+      const versionDiff = getPrivateEvaluationDraftSaveVersion(right) - getPrivateEvaluationDraftSaveVersion(left)
+
+      if (versionDiff !== 0) {
+        return versionDiff
+      }
+
+      return getPrivateEvaluationDraftSavedAt(right).localeCompare(getPrivateEvaluationDraftSavedAt(left))
+    })[0] || null
 }
 
 export function findPrivateEvaluationDraft({ context = {}, storage, user } = {}) {

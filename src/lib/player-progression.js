@@ -1,4 +1,4 @@
-import { formatUkDate } from './date-format.js'
+import { formatUkDateWords, formatUkMonthYear } from './date-format.js'
 
 export const EMAIL_SECTION_DEFAULTS = {
   latestSessionNotes: true,
@@ -67,7 +67,11 @@ function getEvaluationDate(evaluation) {
 
 function formatProgressDate(value) {
   const date = toDateValue(value)
-  return date ? formatUkDate(date.toISOString().slice(0, 10), 'No date entered') : 'No date entered'
+  return date ? formatUkDateWords(date.toISOString().slice(0, 10), 'No date entered') : 'No date entered'
+}
+
+function formatProgressMonthYear(date) {
+  return date ? formatUkMonthYear(date.toISOString().slice(0, 10), 'No date entered') : 'No date entered'
 }
 
 function isNumericValue(value) {
@@ -178,7 +182,7 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
     const current = evaluationMonths.get(key) ?? {
       key,
-      label: date.toLocaleString('en-GB', { month: 'short', year: '2-digit' }),
+      label: formatProgressMonthYear(date),
       assessments: 0,
       matches: 0,
       training: 0,

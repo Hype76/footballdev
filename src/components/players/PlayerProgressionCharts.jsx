@@ -1,3 +1,5 @@
+import { formatUkDateWords } from '../../lib/date-format.js'
+
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
@@ -33,13 +35,12 @@ function buildLinePath(points) {
 
 function formatCompactLabel(label) {
   const rawLabel = String(label ?? '').trim()
-  const parsedDate = new Date(rawLabel)
 
-  if (!Number.isNaN(parsedDate.getTime())) {
-    return parsedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawLabel) || /^\d{2}\/\d{2}\/\d{4}$/.test(rawLabel)) {
+    return formatUkDateWords(rawLabel, rawLabel)
   }
 
-  return rawLabel.length > 10 ? rawLabel.slice(0, 10) : rawLabel
+  return rawLabel
 }
 
 export function PlayerProgressionCharts({

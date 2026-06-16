@@ -4,8 +4,10 @@ import { test } from 'node:test'
 
 import {
   buildPrivateEvaluationDraftContext,
+  chooseLatestPrivateEvaluationDraft,
   clearPrivateEvaluationDraft,
   closeServerEvaluationDraft,
+  createPrivateEvaluationDraftPayload,
   findPrivateEvaluationDraft,
   findServerEvaluationDraft,
   getEvaluationDraftContextKey,
@@ -268,6 +270,70 @@ test('server draft context key stays stable when player id becomes available', (
   assert.equal(getEvaluationDraftContextKey(contextWithId), getEvaluationDraftContextKey(contextWithoutId))
 })
 
+test('private draft payload includes assessment, output, and delivery settings', () => {
+  const payload = createPrivateEvaluationDraftPayload({
+    archiveAfterNoPlace: true,
+    emailSendMode: 'scheduled',
+    emailTemplateKey: 'invite-back',
+    formData: {
+      playerName: 'Sam Trialist',
+      session: '2026-06-20',
+    },
+    includeAttendanceSummary: false,
+    inviteDate: '2026-06-27',
+    isPdfAttachmentApproved: true,
+    lastUsedSession: '2026-06-20',
+    offlineDraftId: 'offline-1',
+    previewMode: 'email',
+    responseValues: {
+      technical: '8',
+      comment: 'Sharper first touch',
+    },
+    saveVersion: 7,
+    scheduledEmailDateTime: '2026-06-20T18:30',
+    selectedExportLabels: ['Technical', 'Comment'],
+    selectedParentContactIndexes: [0, 1],
+    savedAt: '2026-06-16T10:00:00.000Z',
+  })
+
+  assert.equal(payload.responseValues.technical, '8')
+  assert.equal(payload.isPdfAttachmentApproved, true)
+  assert.equal(payload.includeAttendanceSummary, false)
+  assert.equal(payload.emailSendMode, 'scheduled')
+  assert.equal(payload.scheduledEmailDateTime, '2026-06-20T18:30')
+  assert.deepEqual(payload.selectedExportLabels, ['Technical', 'Comment'])
+  assert.equal(payload.archiveAfterNoPlace, true)
+  assert.equal(payload.draftMeta.clientSaveVersion, 7)
+  assert.equal(payload.draftMeta.clientSavedAt, '2026-06-16T10:00:00.000Z')
+})
+
+test('latest private draft selection prefers the newest safe local or server draft', () => {
+  const olderServerDraft = {
+    id: 'server-draft',
+    lastSavedAt: '2026-06-16T09:00:00.000Z',
+    payload: createPrivateEvaluationDraftPayload({
+      formData: { playerName: 'Sam Trialist' },
+      responseValues: { technical: '7' },
+      saveVersion: 2,
+      savedAt: '2026-06-16T09:00:00.000Z',
+    }),
+    source: 'server',
+  }
+  const newerLocalDraft = {
+    id: 'local-draft',
+    payload: createPrivateEvaluationDraftPayload({
+      formData: { playerName: 'Sam Trialist' },
+      responseValues: { technical: '9' },
+      saveVersion: 3,
+      savedAt: '2026-06-16T09:05:00.000Z',
+    }),
+    source: 'local',
+    updatedAt: '2026-06-16T09:05:00.000Z',
+  }
+
+  assert.equal(chooseLatestPrivateEvaluationDraft([olderServerDraft, newerLocalDraft])?.id, 'local-draft')
+})
+
 test('server draft lookup is scoped to creator, club, report type, context, and draft status', async () => {
   const context = buildPrivateEvaluationDraftContext({
     formData: {
@@ -482,10 +548,37 @@ test('draft database failure UI does not claim the server draft was saved', () =
     'utf8',
   )
 
-  assert.match(
-    source,
-    /void saveServerDraft\(\)\.catch\([\s\S]+setPrivateDraftStatus\('error'\)[\s\S]+}\)/,
+  assert.match(source, /title: 'Private draft save failed'/)
+  assert.match(source, /setPrivateDraftStatus\('saved_local'\)/)
+  assert.match(source, /setPrivateDraftStatus\('error'\)/)
+  assert.match(source, /if \(localDraft\?\.id\) \{[\s\S]+setPrivateDraftStatus\('saved_local'\)/)
+})
+
+test('private draft autosave queues latest server save and retries failures', () => {
+  const source = readFileSync(
+    new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
+    'utf8',
   )
+
+  assert.match(source, /privateDraftQueueRef/)
+  assert.match(source, /latestPrivateDraftSaveRef/)
+  assert.match(source, /version < \(latestPrivateDraftSaveRef\.current\?\.version \|\| 0\)/)
+  assert.match(source, /for \(let attempt = 1; attempt <= 3; attempt \+= 1\)/)
+})
+
+test('private draft submit and discard paths flush or close the active draft safely', () => {
+  const source = readFileSync(
+    new URL('../src/pages/CreateEvaluationPage.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /await flushPrivateDraftSave\(\{ reason: 'submit' \}\)/)
+  assert.match(source, /const closeActivePrivateDraftAfterSubmit = async/)
+  assert.match(source, /await privateDraftQueueRef\.current\.catch\(\(\) => \{\}\)/)
+  assert.match(source, /status: PRIVATE_EVALUATION_DRAFT_STATUSES\.discarded/)
+  assert.match(source, /status: PRIVATE_EVALUATION_DRAFT_STATUSES\.submitted/)
+  assert.match(source, /window\.addEventListener\('beforeunload', handleBeforeUnload\)/)
+  assert.match(source, /document\.addEventListener\('click', handleInternalDraftNavigation, true\)/)
 })
 
 test('private draft banner exposes resume and discard actions', () => {
@@ -497,6 +590,7 @@ test('private draft banner exposes resume and discard actions', () => {
   assert.match(source, /handleResumePrivateDraft/)
   assert.match(source, /Resume draft/)
   assert.match(source, /Discard draft/)
+  assert.match(source, /chooseLatestPrivateEvaluationDraft\(/)
   assert.match(source, /findServerEvaluationDraft\([\s\S]+context: draftContext[\s\S]+user/)
   assert.match(source, /findPrivateEvaluationDraft\([\s\S]+context: draftContext[\s\S]+user/)
 })
@@ -507,8 +601,10 @@ test('private draft resume restores saved payload values', () => {
     'utf8',
   )
 
+  assert.match(source, /const restorePrivateDraftPayload = useCallback/)
   assert.match(source, /setFormData\(createInitialFormData\(user, \{[\s\S]+restoredFormData/)
-  assert.match(source, /setResponseValues\([\s\S]+draft\.payload\.responseValues/)
+  assert.match(source, /setResponseValues\(payload\.responseValues/)
+  assert.match(source, /restoredPrivateDraftExportLabelsRef/)
   assert.match(source, /setPrivateDraftStatus\('restored'\)/)
 })
 
