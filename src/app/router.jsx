@@ -773,6 +773,7 @@ function PublicLandingOrWorkspaceHome() {
 }
 
 function RequireUser() {
+  const location = useLocation()
   const { isLoading, session } = useAuth()
 
   if (isLoading && !session?.user) {
@@ -780,6 +781,10 @@ function RequireUser() {
   }
 
   if (!session?.user) {
+    if (isParentIntentPath(location.pathname)) {
+      return <ParentLoginRedirect />
+    }
+
     return <Navigate to={isParentHost() ? '/parent-login' : '/sign-in'} replace />
   }
 

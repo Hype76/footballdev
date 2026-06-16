@@ -58,6 +58,9 @@ test('parent login blocks an existing non-parent session instead of submitting u
 
 test('parent routes preserve parent intent while main sign-in remains separate', async () => {
   const source = await readFile(routerUrl, 'utf8')
+  const requireUserStart = source.indexOf('function RequireUser()')
+  const requireUserEnd = source.indexOf('function RequireClubWorkspace()', requireUserStart)
+  const requireUserSection = source.slice(requireUserStart, requireUserEnd)
   const gateStart = source.indexOf('function useWorkspaceRouteGate')
   const gateEnd = source.indexOf('function WorkspaceHome', gateStart)
   const gateSection = source.slice(gateStart, gateEnd)
@@ -68,6 +71,9 @@ test('parent routes preserve parent intent while main sign-in remains separate',
   const parentAccessEnd = source.indexOf('function RequireParentLinkingAccess()', parentAccessStart)
   const parentAccessSection = source.slice(parentAccessStart, parentAccessEnd)
 
+  assert.match(requireUserSection, /const location = useLocation\(\)/)
+  assert.match(requireUserSection, /if \(isParentIntentPath\(location\.pathname\)\) \{\s*return <ParentLoginRedirect \/>/)
+  assert.match(requireUserSection, /return <Navigate to=\{isParentHost\(\) \? '\/parent-login' : '\/sign-in'\} replace \/>/)
   assert.match(gateSection, /parentIntent = false/)
   assert.match(gateSection, /if \(parentIntent\) \{\s*return \{ element: <ParentLoginRedirect \/>/)
   assert.match(gateSection, /return \{ element: <ParentAccountIntentState session=\{session\} user=\{user\} \/>/)
