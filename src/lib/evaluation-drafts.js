@@ -516,9 +516,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
     ? closeQuery.eq('player_id', activeDraft.player_id)
     : closeQuery.is('player_id', null)
 
-  const { data, error } = await closeQuery
-    .select('id')
-    .maybeSingle()
+  const { error } = await closeQuery
 
   if (error) {
     if (isMissingServerDraftTableError(error)) {
@@ -529,7 +527,7 @@ export async function closeServerEvaluationDraft({ draftId = '', status = DRAFT_
     throw error
   }
 
-  return Boolean(data?.id)
+  return true
 }
 
 export function clearPrivateEvaluationDraft({ draftId = '', status = DRAFT_STATUSES.discarded, storage, user } = {}) {

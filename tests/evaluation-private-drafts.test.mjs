@@ -70,6 +70,7 @@ function createSupabaseDraftMock({ existingRow = null, insertRow = null, updateR
         maybeSingle() {
           calls.push({
             action: this.action,
+            columns: this.columns,
             filters: this.filters,
             order: this.orderValue,
             payload: this.payload,
@@ -97,6 +98,7 @@ function createSupabaseDraftMock({ existingRow = null, insertRow = null, updateR
         single() {
           calls.push({
             action: this.action,
+            columns: this.columns,
             filters: this.filters,
             payload: this.payload,
             table,
@@ -111,6 +113,7 @@ function createSupabaseDraftMock({ existingRow = null, insertRow = null, updateR
         then(resolve, reject) {
           calls.push({
             action: this.action,
+            columns: this.columns,
             filters: this.filters,
             payload: this.payload,
             table,
@@ -473,6 +476,7 @@ test('server draft close updates only the creator active draft row', async () =>
   )
 
   assert.equal(supabaseClient.calls[0].action, 'select')
+  assert.equal(supabaseClient.calls[0].columns, 'id, club_id, team_id, player_id, created_by_user_id, status')
   assert.deepEqual(
     supabaseClient.calls[0].filters,
     [
@@ -481,6 +485,8 @@ test('server draft close updates only the creator active draft row', async () =>
       { column: 'status', value: 'draft' },
     ],
   )
+  assert.equal(supabaseClient.calls[1].action, 'update')
+  assert.equal(supabaseClient.calls[1].columns, undefined)
   assert.deepEqual(
     supabaseClient.calls[1].filters,
     [
@@ -534,6 +540,7 @@ test('server draft discard updates the active creator row without an insert path
   )
   assert.equal(supabaseClient.calls[1].payload.status, 'discarded')
   assert.ok(supabaseClient.calls[1].payload.discarded_at)
+  assert.equal(supabaseClient.calls[1].columns, undefined)
   assert.equal(supabaseClient.calls.some((call) => call.action === 'insert'), false)
 })
 
@@ -738,4 +745,32 @@ test('draft close lifecycle RLS permits creator close without weakening draft sa
     '',
   )
   assert.doesNotMatch(migrationWithoutSafeRevokes, /\b(drop table|drop column|truncate|delete from)\b/i)
+})
+
+test('draft close follow-up keeps creator-only close separate from active draft edits', () => {
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260616175500_allow_creator_evaluation_draft_close.sql', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(migration, /create policy evaluation_drafts_close_own_active/)
+  assert.match(migration, /for update/)
+  assert.match(migration, /created_by_user_id = auth\.uid\(\)/)
+  assert.match(migration, /status = 'draft'/)
+  assert.match(migration, /status in \('submitted', 'discarded'\)/)
+  assert.match(migration, /club_id = public\.current_user_club_id\(\)/)
+  assert.match(migration, /public\.current_user_role\(\) <> 'parent_portal'/)
+  assert.doesNotMatch(migration, /current_user_role_rank\(\) >= 20/)
+  assert.doesNotMatch(migration, /\b(drop table|drop column|truncate|delete from)\b/i)
+})
+
+test('server draft close does not request a returned row after changing status', () => {
+  const source = readFileSync(
+    new URL('../src/lib/evaluation-drafts.js', import.meta.url),
+    'utf8',
+  )
+  const closeSource = source.slice(source.indexOf('export async function closeServerEvaluationDraft'))
+
+  assert.match(closeSource, /\.update\(\{[\s\S]+status: closingStatus/)
+  assert.doesNotMatch(closeSource, /\.update\(\{[\s\S]+?\.select\('id'\)/)
 })
