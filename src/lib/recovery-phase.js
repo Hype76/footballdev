@@ -8,7 +8,7 @@ export const RECOVERY_MODULES = {
   billing: { phase: 4, platformAdminOnlyDuringRecovery: true },
   clubSetup: { phase: 1 },
   emailMessages: { phase: 4 },
-  formBuilder: { phase: 1, clubAdminOnlyDuringRecovery: true },
+  formBuilder: { phase: 1 },
   help: { phase: 1 },
   matchDay: { phase: 1 },
   parentInvites: { phase: 3 },

@@ -878,6 +878,10 @@ function RequireFormBuilderAccess() {
     return element
   }
 
+  if (!isRecoveryModuleVisible('formBuilder', { user })) {
+    return <RecoveryPhaseBlockedState />
+  }
+
   if (!canManageFormFields(user)) {
     return <FormBuilderUnavailableState />
   }
@@ -932,6 +936,10 @@ function RequireBillingAccess() {
 
   if (element) {
     return element
+  }
+
+  if (!isRecoveryModuleVisible('billing', { user })) {
+    return <RecoveryPhaseBlockedState />
   }
 
   if (!canViewBilling(user)) {

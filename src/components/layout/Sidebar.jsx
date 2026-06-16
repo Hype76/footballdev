@@ -182,6 +182,13 @@ export function Sidebar({ isOpen, onClose }) {
         }
 
         if (canManagePolls(user)) {
+          if (!isRecoveryModuleVisible('pollsAvailability', { user })) {
+            if (isMounted) {
+              setOpenPollCount(0)
+            }
+            return
+          }
+
           const polls = await getPolls({ user })
           const count = polls.filter((poll) => poll.status === 'open').length
 
@@ -214,7 +221,11 @@ export function Sidebar({ isOpen, onClose }) {
     let isMounted = true
 
     async function loadQueuedEmailCount() {
-      if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
+      if (
+        !canManageEmailQueue(user)
+        || !hasPlanFeature(user, 'parentEmail')
+        || !isRecoveryModuleVisible('emailMessages', { user })
+      ) {
         setQueuedEmailCount(0)
         return
       }
@@ -258,7 +269,7 @@ export function Sidebar({ isOpen, onClose }) {
   }
 
   const getVisibleNavigationItems = (items) => items.filter((item) => {
-    if (item.path !== '/form-builder' && !isRecoveryPathVisible(item.path, { user: displayUser })) {
+    if (!isRecoveryPathVisible(item.path, { user: displayUser })) {
       return false
     }
 

@@ -35,6 +35,7 @@ import {
 } from '../lib/session-page-utils.js'
 import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
 import { openMatchDayFixtureSetup } from '../lib/matchday-workflow.js'
+import { isRecoveryModuleVisible } from '../lib/recovery-phase.js'
 import {
   addPlayersToAssessmentSession,
   clearAssessmentSessionPlayers,
@@ -581,6 +582,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     () => getAssessmentCountForSession(evaluations, selectedSession),
     [evaluations, selectedSession],
   )
+  const canShowPollsInCalendar = isRecoveryModuleVisible('pollsAvailability', { user })
   const deleteSessionDisabledReason = selectedSession?.isHistorical
     ? 'This is a development history group. It cannot be deleted as a session.'
     : ''
@@ -606,10 +608,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
       calendarEvents: calendarItems,
       evaluations: isClubWideCalendar ? [] : evaluations,
       matchDays: isClubWideCalendar ? [] : matchDays,
-      polls: isClubWideCalendar ? [] : polls,
+      polls: isClubWideCalendar || !canShowPollsInCalendar ? [] : polls,
       sessions: isClubWideCalendar ? [] : combinedSessions,
     }),
-    [assessmentReminders, calendarItems, combinedSessions, evaluations, isClubWideCalendar, matchDays, polls],
+    [assessmentReminders, calendarItems, canShowPollsInCalendar, combinedSessions, evaluations, isClubWideCalendar, matchDays, polls],
   )
   const calendarInvitePlayers = useMemo(
     () => getCalendarInvitePlayers(players, getSafeCalendarTeamId(user, calendarForm.teamId)),
@@ -724,7 +726,9 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           withRequestTimeout(() => getAvailableTeamsForUser(user), 'Could not load teams.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load historical sessions.'),
           withRequestTimeout(() => getMatchDays({ user }), 'Could not load match days.'),
-          withRequestTimeout(() => getPolls({ user }), 'Could not load response cut offs.'),
+          canShowPollsInCalendar
+            ? withRequestTimeout(() => getPolls({ user }), 'Could not load response cut offs.')
+            : Promise.resolve([]),
           withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.'),
           withRequestTimeout(() => getCalendarEventInvites({ user }), 'Could not load calendar invites.'),
           withRequestTimeout(() => getAssessmentReminderLogs({ user }), 'Could not load assessment reminders.'),
@@ -828,7 +832,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           teams: nextTeams,
           evaluations: nextEvaluations,
           matchDays: nextMatchDays,
-          polls: nextPolls,
+          polls: canShowPollsInCalendar ? nextPolls : [],
           calendarItems: nextCalendarItems,
           calendarInvites: nextCalendarInvites,
           assessmentReminders: nextAssessmentReminders,
@@ -856,7 +860,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, completedSessionId, isClubWideCalendar, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
+  }, [cacheKey, canShowPollsInCalendar, completedSessionId, isClubWideCalendar, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
 
   useEffect(() => {
     let isMounted = true
