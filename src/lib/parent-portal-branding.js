@@ -23,6 +23,7 @@ function sameClub(left, right) {
 export function resolveParentPortalBranding({ selectedLink, links = [] } = {}) {
   const parentLinks = Array.isArray(links) ? links : []
   const selectedClubLinks = parentLinks.filter((link) => sameClub(link, selectedLink))
+  // Clubs do not expose theme fields yet, so use the first themed link in the selected club group.
   const clubBrandingSource = selectedClubLinks.find(hasThemeValue) || (hasThemeValue(selectedLink) ? selectedLink : null)
 
   return {
