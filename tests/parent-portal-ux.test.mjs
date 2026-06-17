@@ -137,12 +137,13 @@ test('batch 1 to 4 recovery routes are available while parent dashboard stays fo
 
 test('parent host shell remains isolated from main app chrome', async () => {
   const source = await readFile(layoutUrl, 'utf8')
-  const branchStart = source.indexOf('if (isParentShellHost) {')
+  const branchStart = source.indexOf('if (shouldBypassMainShell) {')
   const sidebarStart = source.indexOf('<Sidebar', branchStart)
   const parentHostBranch = source.slice(branchStart, sidebarStart)
 
   assert.notEqual(branchStart, -1)
   assert.notEqual(sidebarStart, -1)
+  assert.match(source, /const shouldBypassMainShell = isParentShellHost \|\| isParentIntentRoute/)
   assert.match(parentHostBranch, /<Outlet \/>/)
   assert.doesNotMatch(parentHostBranch, /<Topbar/)
   assert.doesNotMatch(parentHostBranch, /OnboardingProvider/)

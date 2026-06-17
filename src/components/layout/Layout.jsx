@@ -22,6 +22,7 @@ import {
   normalizeThemeMode,
 } from '../../lib/theme.js'
 import { isParentPortalHost } from '../../lib/app-origins.js'
+import { isParentIntentPath } from '../../lib/parent-auth-intent.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
@@ -38,6 +39,8 @@ export function Layout() {
   const location = useLocation()
   const matches = useMatches()
   const isParentShellHost = isParentPortalHost()
+  const isParentIntentRoute = isParentIntentPath(location.pathname)
+  const shouldBypassMainShell = isParentShellHost || isParentIntentRoute
   const activeTitle = [...matches].reverse().find((match) => match.handle?.title)?.handle?.title ?? 'Dashboard'
   const resolvedTheme = useMemo(
     () => (themeMode === 'system' ? systemTheme : themeMode),
@@ -139,7 +142,7 @@ export function Layout() {
   }, [location.pathname])
 
   useEffect(() => {
-    if (isParentShellHost || !user?.id) {
+    if (shouldBypassMainShell || !user?.id) {
       return
     }
 
@@ -153,10 +156,10 @@ export function Layout() {
         title: activeTitle,
       },
     })
-  }, [activeTitle, isParentShellHost, location.pathname, location.search, user])
+  }, [activeTitle, location.pathname, location.search, shouldBypassMainShell, user])
 
   useEffect(() => {
-    if (isParentShellHost || !user?.id) {
+    if (shouldBypassMainShell || !user?.id) {
       return undefined
     }
 
@@ -202,7 +205,7 @@ export function Layout() {
     return () => {
       document.removeEventListener('click', handleTrackedClick, true)
     }
-  }, [isParentShellHost, location.pathname, user])
+  }, [location.pathname, shouldBypassMainShell, user])
 
   const handleClubSelect = async (clubId) => {
     setClubSelectionError('')
@@ -242,7 +245,7 @@ export function Layout() {
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
   const shouldSuppressOnboardingSetup = false
 
-  if (isParentShellHost) {
+  if (shouldBypassMainShell) {
     return (
       <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
         <div className="fixed inset-0 -z-10 bg-[var(--app-bg)]" />

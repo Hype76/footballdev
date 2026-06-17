@@ -148,31 +148,34 @@ test('netlify serves parent host routes through the SPA router', async () => {
   assert.doesNotMatch(redirects, /footballplayer\.online\/?\s+30[1278]/)
 })
 
-test('parent host layout bypasses main app shell chrome', async () => {
+test('parent host and parent intent routes bypass main app shell chrome', async () => {
   const source = await readFile(layoutUrl, 'utf8')
 
   assert.match(source, /import \{ isParentPortalHost \} from '\.\.\/\.\.\/lib\/app-origins\.js'/)
+  assert.match(source, /import \{ isParentIntentPath \} from '\.\.\/\.\.\/lib\/parent-auth-intent\.js'/)
   assert.match(source, /const isParentShellHost = isParentPortalHost\(\)/)
+  assert.match(source, /const isParentIntentRoute = isParentIntentPath\(location\.pathname\)/)
+  assert.match(source, /const shouldBypassMainShell = isParentShellHost \|\| isParentIntentRoute/)
 
-  const branchStart = source.indexOf('if (isParentShellHost) {')
+  const branchStart = source.indexOf('if (shouldBypassMainShell) {')
   const sidebarStart = source.indexOf('<Sidebar', branchStart)
   assert.notEqual(branchStart, -1)
   assert.notEqual(sidebarStart, -1)
 
-  const parentHostBranch = source.slice(branchStart, sidebarStart)
-  assert.match(parentHostBranch, /<Outlet \/>/)
-  assert.doesNotMatch(parentHostBranch, /<Sidebar/)
-  assert.doesNotMatch(parentHostBranch, /<Topbar/)
-  assert.doesNotMatch(parentHostBranch, /OnboardingProvider/)
-  assert.doesNotMatch(parentHostBranch, /QuickActionHotbar/)
-  assert.doesNotMatch(parentHostBranch, /WorkspaceSelection/)
+  const parentRouteBranch = source.slice(branchStart, sidebarStart)
+  assert.match(parentRouteBranch, /<Outlet \/>/)
+  assert.doesNotMatch(parentRouteBranch, /<Sidebar/)
+  assert.doesNotMatch(parentRouteBranch, /<Topbar/)
+  assert.doesNotMatch(parentRouteBranch, /OnboardingProvider/)
+  assert.doesNotMatch(parentRouteBranch, /QuickActionHotbar/)
+  assert.doesNotMatch(parentRouteBranch, /WorkspaceSelection/)
 })
 
-test('parent host layout does not run main shell audit hooks', async () => {
+test('parent shell bypass routes do not run main shell audit hooks', async () => {
   const source = await readFile(layoutUrl, 'utf8')
-  const guardMatches = source.match(/if \(isParentShellHost \|\| !user\?\.id\)/g) ?? []
+  const guardMatches = source.match(/if \(shouldBypassMainShell \|\| !user\?\.id\)/g) ?? []
 
   assert.equal(guardMatches.length, 2)
-  assert.match(source, /\[activeTitle, isParentShellHost, location\.pathname, location\.search, user\]/)
-  assert.match(source, /\[isParentShellHost, location\.pathname, user\]/)
+  assert.match(source, /\[activeTitle, location\.pathname, location\.search, shouldBypassMainShell, user\]/)
+  assert.match(source, /\[location\.pathname, shouldBypassMainShell, user\]/)
 })
