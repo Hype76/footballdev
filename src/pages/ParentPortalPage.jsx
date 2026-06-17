@@ -41,6 +41,14 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
+const parentPortalSections = [
+  { id: 'overview', label: 'Overview', description: 'Start here' },
+  { id: 'calendar', label: 'Calendar', description: 'Shared dates' },
+  { id: 'invites', label: 'Invites', description: 'Sessions and events' },
+  { id: 'matches', label: 'Match cards', description: 'Live and upcoming' },
+  { id: 'results', label: 'Results', description: 'Previous games' },
+  { id: 'account', label: 'Account', description: 'Notifications' },
+]
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
@@ -194,6 +202,7 @@ export function ParentPortalPage() {
   const [isUpdatingPush, setIsUpdatingPush] = useState(false)
   const [matchError, setMatchError] = useState('')
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
+  const [activeSection, setActiveSection] = useState('overview')
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
@@ -619,110 +628,95 @@ export function ParentPortalPage() {
               selectedLink={selectedLink}
             />
 
-            <PushNotificationPanel
-              hasPushSubscription={hasPushSubscription}
-              isUpdatingPush={isUpdatingPush}
-              onDisable={handleDisableNotifications}
-              onEnable={handleEnableNotifications}
-              pushState={pushState}
+            <ParentPortalSectionNav
+              activeSection={activeSection}
+              eventInvites={eventInvites}
+              matchCount={activeMatches.length}
+              onSelect={setActiveSection}
+              previousCount={previousMatches.length}
+              sharedDateCount={parentCalendarEvents.length}
             />
           </aside>
 
-          <div className="min-w-0 space-y-5">
-            <ParentCalendarPanel
-              calendarCursor={calendarCursor}
-              calendarEvents={parentCalendarEvents}
-              calendarView={calendarView}
-              isLoading={isLoadingMatches}
-              onCursorChange={setCalendarCursor}
-              onOpenEvent={setSelectedCalendarEvent}
-              onViewChange={setCalendarView}
-              selectedLink={selectedLink}
-            />
+          <div className="min-w-0">
+            {activeSection === 'overview' ? (
+              <ParentOverviewPanel
+                activeMatches={activeMatches}
+                calendarEvents={parentCalendarEvents}
+                eventInvites={eventInvites}
+                isLoading={isLoadingMatches}
+                onSelectSection={setActiveSection}
+                previousMatches={previousMatches}
+                selectedLink={selectedLink}
+              />
+            ) : null}
 
-            <ParentUpcomingEvents
-              eventInvites={eventInvites}
-              isLoading={isLoadingMatches}
-              selectedLink={selectedLink}
-            />
+            {activeSection === 'calendar' ? (
+              <ParentCalendarPanel
+                calendarCursor={calendarCursor}
+                calendarEvents={parentCalendarEvents}
+                calendarView={calendarView}
+                isLoading={isLoadingMatches}
+                onCursorChange={setCalendarCursor}
+                onOpenEvent={setSelectedCalendarEvent}
+                onViewChange={setCalendarView}
+                selectedLink={selectedLink}
+              />
+            ) : null}
 
-            <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className={eyebrowClass}>Live and upcoming</p>
-                  <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Match cards</h3>
-                </div>
-                <p className="text-sm font-black text-[#4b5f55]">{activeMatches.length} active</p>
-              </div>
+            {activeSection === 'invites' ? (
+              <ParentUpcomingEvents
+                eventInvites={eventInvites}
+                isLoading={isLoadingMatches}
+                selectedLink={selectedLink}
+              />
+            ) : null}
 
-              <div className="mt-4">
-                {!selectedLink ? (
-                  <p className={emptyClass}>
-                    {noChildMessage}
+            {activeSection === 'matches' ? (
+              <ParentMatchCardsPanel
+                activeMatchId={activeMatchId}
+                activeMatches={activeMatches}
+                clockNow={clockNow}
+                goalForms={goalForms}
+                handleAddGoal={handleAddGoal}
+                handlePlayerPick={handlePlayerPick}
+                handleScoreSave={handleScoreSave}
+                handleStartMatch={handleStartMatch}
+                handleVolunteer={handleVolunteer}
+                isLoading={isLoadingMatches}
+                selectedLink={selectedLink}
+                setScoreDrafts={setScoreDrafts}
+                scoreDrafts={scoreDrafts}
+                squadPlayers={squadPlayers}
+                updateGoalForm={updateGoalForm}
+              />
+            ) : null}
+
+            {activeSection === 'results' ? (
+              <ParentResultsPanel
+                previousMatches={previousMatches}
+                onOpen={setSelectedPreviousMatch}
+              />
+            ) : null}
+
+            {activeSection === 'account' ? (
+              <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+                  <p className={eyebrowClass}>Account</p>
+                  <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
+                  <p className={`mt-3 ${bodyTextClass}`}>
+                    Manage the selected child view and device notifications. More account tools will stay hidden until they are ready for parent testing.
                   </p>
-                ) : isLoadingMatches ? (
-                  <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
-                    Loading match cards...
-                  </p>
-                ) : activeMatches.length > 0 ? (
-                  <div className="space-y-4">
-                    {activeMatches.map((match) => (
-                      <ParentMatchCard
-                        key={match.id}
-                        activeMatchId={activeMatchId}
-                        goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
-                        match={match}
-                        onAddGoal={handleAddGoal}
-                        onGoalFormChange={updateGoalForm}
-                        onPlayerPick={handlePlayerPick}
-                        onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
-                          ...currentDrafts,
-                          [match.id]: {
-                            homeScore: match.homeScore,
-                            awayScore: match.awayScore,
-                            status: match.status,
-                            ...(currentDrafts[match.id] ?? {}),
-                            ...updates,
-                          },
-                        }))}
-                        onScoreSave={handleScoreSave}
-                        onStartMatch={handleStartMatch}
-                        onVolunteer={handleVolunteer}
-                        now={clockNow}
-                        players={squadPlayers}
-                        scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className={emptyClass}>
-                    No match cards are shared for this child right now. When staff open a match card for parents, it will appear here.
-                  </p>
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className={eyebrowClass}>Previous games</p>
-                  <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Shared results</h3>
                 </div>
-                <p className="text-sm font-black text-[#4b5f55]">{previousMatches.length} complete</p>
-              </div>
-
-              {previousMatches.length > 0 ? (
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {previousMatches.map((match) => (
-                    <PreviousGameCard key={match.id} match={match} onOpen={setSelectedPreviousMatch} />
-                  ))}
-                </div>
-              ) : (
-                <p className={`mt-4 ${emptyClass}`}>
-                  Previous shared results will appear here after the club completes and shares match cards.
-                </p>
-              )}
-            </section>
+                <PushNotificationPanel
+                  hasPushSubscription={hasPushSubscription}
+                  isUpdatingPush={isUpdatingPush}
+                  onDisable={handleDisableNotifications}
+                  onEnable={handleEnableNotifications}
+                  pushState={pushState}
+                />
+              </section>
+            ) : null}
           </div>
         </div>
       </section>
@@ -865,6 +859,134 @@ function ParentMatchMetric({ caption, isLoading, label, value }) {
   )
 }
 
+function ParentPortalSectionNav({
+  activeSection,
+  eventInvites,
+  matchCount,
+  onSelect,
+  previousCount,
+  sharedDateCount,
+}) {
+  const counts = {
+    calendar: sharedDateCount,
+    invites: eventInvites.length,
+    matches: matchCount,
+    results: previousCount,
+  }
+
+  return (
+    <nav aria-label="Parent portal sections" className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
+      <p className="px-2 text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Sections</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+        {parentPortalSections.map((section) => {
+          const isActive = activeSection === section.id
+          const count = counts[section.id]
+
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => onSelect(section.id)}
+              className={[
+                'flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
+                isActive
+                  ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
+                  : 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828] hover:border-[#047857] hover:bg-white',
+              ].join(' ')}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-black">{section.label}</span>
+                <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
+              </span>
+              {typeof count === 'number' ? (
+                <span className="shrink-0 rounded-full border border-[#d7e5dc] bg-white px-2 py-1 text-xs font-black text-[#047857]">
+                  {count}
+                </span>
+              ) : null}
+            </button>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
+function ParentOverviewPanel({
+  activeMatches,
+  calendarEvents,
+  eventInvites,
+  isLoading,
+  onSelectSection,
+  previousMatches,
+  selectedLink,
+}) {
+  const nextMatch = activeMatches[0]
+  const nextCalendarEvent = calendarEvents[0]
+  const overviewItems = [
+    {
+      id: 'calendar',
+      label: 'Calendar',
+      title: nextCalendarEvent ? nextCalendarEvent.title : 'No shared dates yet',
+      detail: nextCalendarEvent ? [nextCalendarEvent.date, nextCalendarEvent.time].filter(Boolean).join(', ') : 'Shared dates will appear when the club opens them to parents.',
+    },
+    {
+      id: 'invites',
+      label: 'Invites',
+      title: eventInvites.length > 0 ? `${eventInvites.length} invite${eventInvites.length === 1 ? '' : 's'} available` : 'No invites waiting',
+      detail: eventInvites.length > 0 ? 'Open invites to review session and event details.' : 'Invites stay quiet until the club shares one.',
+    },
+    {
+      id: 'matches',
+      label: 'Match cards',
+      title: nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No active match card',
+      detail: nextMatch ? formatMatchDate(nextMatch) : 'Live and upcoming match cards appear only when shared.',
+    },
+    {
+      id: 'results',
+      label: 'Results',
+      title: previousMatches.length > 0 ? `${previousMatches.length} previous result${previousMatches.length === 1 ? '' : 's'}` : 'No shared results yet',
+      detail: previousMatches.length > 0 ? 'Open results to review completed match cards.' : 'Completed shared match cards will appear here.',
+    },
+  ]
+
+  return (
+    <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className={eyebrowClass}>Overview</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
+            {selectedLink?.playerName ? `${selectedLink.playerName}'s shared updates` : 'Waiting for a linked child'}
+          </h3>
+          <p className={`mt-3 ${bodyTextClass}`}>
+            {selectedLink
+              ? 'Use the sections to move between dates, invites, match cards, results, and notifications.'
+              : noChildMessage}
+          </p>
+        </div>
+        <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#4b5f55]">
+          {isLoading ? 'Loading...' : `${calendarEvents.length + eventInvites.length + activeMatches.length + previousMatches.length} shared items`}
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        {overviewItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelectSection(item.id)}
+            className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 text-left shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-white"
+          >
+            <p className={eyebrowClass}>{item.label}</p>
+            <p className="mt-2 text-lg font-black text-[#101828]">{item.title}</p>
+            <p className={`mt-2 ${bodyTextClass}`}>{item.detail}</p>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function ParentCalendarPanel({
   calendarCursor,
   calendarEvents,
@@ -889,16 +1011,118 @@ function ParentCalendarPanel({
     <section className="space-y-3">
       <FootballCalendar
         cursor={calendarCursor}
+        description="Sessions, match days, response deadlines, and shared development updates."
         events={calendarEvents}
         isLoading={isLoading}
         onCursorChange={onCursorChange}
         onOpenEvent={onOpenEvent}
         onViewChange={onViewChange}
+        title="Activity"
         view={calendarView}
       />
       {!isLoading && calendarEvents.length === 0 ? (
         <p className={emptyClass}>No shared calendar activity is available for this child yet. When the club shares a parent-visible date, it will appear here.</p>
       ) : null}
+    </section>
+  )
+}
+
+function ParentMatchCardsPanel({
+  activeMatchId,
+  activeMatches,
+  clockNow,
+  goalForms,
+  handleAddGoal,
+  handlePlayerPick,
+  handleScoreSave,
+  handleStartMatch,
+  handleVolunteer,
+  isLoading,
+  selectedLink,
+  setScoreDrafts,
+  scoreDrafts,
+  squadPlayers,
+  updateGoalForm,
+}) {
+  return (
+    <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className={eyebrowClass}>Live and upcoming</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Match cards</h3>
+        </div>
+        <p className="text-sm font-black text-[#4b5f55]">{activeMatches.length} active</p>
+      </div>
+
+      <div className="mt-4">
+        {!selectedLink ? (
+          <p className={emptyClass}>{noChildMessage}</p>
+        ) : isLoading ? (
+          <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
+            Loading match cards...
+          </p>
+        ) : activeMatches.length > 0 ? (
+          <div className="space-y-4">
+            {activeMatches.map((match) => (
+              <ParentMatchCard
+                key={match.id}
+                activeMatchId={activeMatchId}
+                goalForm={goalForms[match.id] ?? EMPTY_GOAL_FORM}
+                match={match}
+                onAddGoal={handleAddGoal}
+                onGoalFormChange={updateGoalForm}
+                onPlayerPick={handlePlayerPick}
+                onScoreDraftChange={(updates) => setScoreDrafts((currentDrafts) => ({
+                  ...currentDrafts,
+                  [match.id]: {
+                    homeScore: match.homeScore,
+                    awayScore: match.awayScore,
+                    status: match.status,
+                    ...(currentDrafts[match.id] ?? {}),
+                    ...updates,
+                  },
+                }))}
+                onScoreSave={handleScoreSave}
+                onStartMatch={handleStartMatch}
+                onVolunteer={handleVolunteer}
+                now={clockNow}
+                players={squadPlayers}
+                scoreDraft={scoreDrafts[match.id] ?? { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className={emptyClass}>
+            No match cards are shared for this child right now. When staff open a match card for parents, it will appear here.
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ParentResultsPanel({ onOpen, previousMatches }) {
+  return (
+    <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className={eyebrowClass}>Previous games</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Shared results</h3>
+        </div>
+        <p className="text-sm font-black text-[#4b5f55]">{previousMatches.length} complete</p>
+      </div>
+
+      {previousMatches.length > 0 ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {previousMatches.map((match) => (
+            <PreviousGameCard key={match.id} match={match} onOpen={onOpen} />
+          ))}
+        </div>
+      ) : (
+        <p className={`mt-4 ${emptyClass}`}>
+          Previous shared results will appear here after the club completes and shares match cards.
+        </p>
+      )}
     </section>
   )
 }

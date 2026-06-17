@@ -84,11 +84,13 @@ function getWeekDates(cursor) {
 
 function getMonthGrid(cursor) {
   const firstDay = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
+  const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate()
   const startOffset = (firstDay.getDay() + 6) % 7
+  const visibleDayCount = Math.ceil((startOffset + daysInMonth) / 7) * 7
   const startDate = new Date(firstDay)
   startDate.setDate(firstDay.getDate() - startOffset)
 
-  return Array.from({ length: 42 }, (_, index) => {
+  return Array.from({ length: visibleDayCount }, (_, index) => {
     const date = new Date(startDate)
     date.setDate(startDate.getDate() + index)
     return date
@@ -115,11 +117,13 @@ function getEventScopeLabel(event) {
 
 export function FootballCalendar({
   cursor,
+  description = 'Sessions, match days, response deadlines, and shared development updates.',
   events,
   isLoading,
   onCursorChange,
   onOpenEvent,
   onViewChange,
+  title = 'Activity',
   view,
 }) {
   const [expandedDay, setExpandedDay] = useState(null)
@@ -153,17 +157,17 @@ export function FootballCalendar({
 
   return (
     <section className={calendarCardClass}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Calendar</p>
-          <h2 className="mt-2 text-xl font-black tracking-tight text-[#101828]">Football activity</h2>
+          <h2 className="mt-2 text-xl font-black tracking-tight text-[#101828]">{title}</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Sessions, match days, parent response cut offs, and saved development activity.
+            {description}
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center xl:min-w-[31rem]">
+          <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-1.5">
             {['month', 'week'].map((item) => (
               <button
                 key={item}
@@ -180,17 +184,19 @@ export function FootballCalendar({
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2">
-            <button type="button" onClick={() => moveCursor(-1)} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
-              Prev
-            </button>
-            <button type="button" onClick={moveToToday} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
-              Today
-            </button>
-            <p className="min-w-[6.5rem] text-center text-xs font-black text-[#101828] sm:min-w-[9rem] sm:text-sm">{titleLabel}</p>
-            <button type="button" onClick={() => moveCursor(1)} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
-              Next
-            </button>
+          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-2">
+            <p className="mb-2 min-w-0 text-center text-sm font-black text-[#101828]">{titleLabel}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button type="button" onClick={() => moveCursor(-1)} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
+                Prev
+              </button>
+              <button type="button" onClick={moveToToday} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
+                Today
+              </button>
+              <button type="button" onClick={() => moveCursor(1)} className={viewButtonClass + ' border-[#d7e5dc] bg-white text-[#101828]'}>
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </div>

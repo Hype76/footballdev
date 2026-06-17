@@ -11,6 +11,7 @@ const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.
 const parentLoginPageUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
 const publicParentLoginBoxUrl = new URL('../src/components/login/ParentPortalLoginBox.jsx', import.meta.url)
 const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
+const footballCalendarUrl = new URL('../src/components/sessions/FootballCalendar.jsx', import.meta.url)
 
 test('parent dashboard explains no linked child state in plain English', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
@@ -30,6 +31,45 @@ test('parent dashboard explains linked child and multiple child selection', asyn
   assert.match(source, /Other linked children/)
   assert.match(source, /You are only viewing information the club has shared for this child/)
   assert.match(source, /Choose a linked child, then check the calendar, invites, and match cards/)
+})
+
+test('parent dashboard uses section navigation instead of one long page', async () => {
+  const source = await readFile(parentPortalPageUrl, 'utf8')
+
+  assert.match(source, /const parentPortalSections = \[/)
+  assert.match(source, /id: 'overview', label: 'Overview'/)
+  assert.match(source, /id: 'calendar', label: 'Calendar'/)
+  assert.match(source, /id: 'invites', label: 'Invites'/)
+  assert.match(source, /id: 'matches', label: 'Match cards'/)
+  assert.match(source, /id: 'results', label: 'Results'/)
+  assert.match(source, /id: 'account', label: 'Account'/)
+  assert.match(source, /aria-label="Parent portal sections"/)
+  assert.match(source, /activeSection === 'calendar'/)
+  assert.match(source, /activeSection === 'matches'/)
+  assert.match(source, /activeSection === 'results'/)
+})
+
+test('parent calendar wording is plain and does not repeat football context', async () => {
+  const [parentSource, calendarSource] = await Promise.all([
+    readFile(parentPortalPageUrl, 'utf8'),
+    readFile(footballCalendarUrl, 'utf8'),
+  ])
+  const combinedSource = `${parentSource}\n${calendarSource}`
+
+  assert.doesNotMatch(combinedSource, /Football activity/)
+  assert.match(calendarSource, /title = 'Activity'/)
+  assert.match(calendarSource, /Sessions, match days, response deadlines, and shared development updates\./)
+  assert.doesNotMatch(calendarSource, /parent response cut offs/)
+})
+
+test('calendar controls are grouped and month grid rows are not hard-coded to six weeks', async () => {
+  const source = await readFile(footballCalendarUrl, 'utf8')
+
+  assert.match(source, /visibleDayCount = Math\.ceil\(\(startOffset \+ daysInMonth\) \/ 7\) \* 7/)
+  assert.doesNotMatch(source, /Array\.from\(\{ length: 42 \}/)
+  assert.match(source, /grid gap-3 sm:grid-cols-\[auto_minmax\(0,1fr\)\]/)
+  assert.match(source, /grid grid-cols-2 gap-1\.5 rounded-lg/)
+  assert.match(source, /grid grid-cols-3 gap-2/)
 })
 
 test('parent dashboard no data states are helpful and not errors', async () => {
