@@ -295,6 +295,18 @@ export function normalizeSessionValue(value) {
   return parsedDate.toISOString().slice(0, 10)
 }
 
+export function normalizeOptionalUuid(value) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue || ['null', 'undefined', 'none'].includes(normalizedValue.toLowerCase())) {
+    return ''
+  }
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedValue)
+    ? normalizedValue
+    : ''
+}
+
 export function formatSessionForInput(value) {
   const normalizedValue = normalizeSessionValue(value)
 
@@ -379,16 +391,18 @@ export function createEvaluationPayload({
   const normalizedPlayerName = normalizePlayerName(formData.playerName)
   const matchingTeam = availableTeams.find((team) => team.name === String(formData.team).trim())
   const matchingPlayer = findSavedPlayerForEvaluation(savedPlayers, normalizedPlayerName, formData.team, matchingTeam?.id)
+  const normalizedAssessmentSessionId = normalizeOptionalUuid(assessmentSessionId)
+  const normalizedId = normalizeOptionalUuid(editingEvaluation?.id || id)
 
   return {
     ...(editingEvaluation || {}),
-    id: editingEvaluation?.id || id,
+    ...(normalizedId ? { id: normalizedId } : {}),
     playerName: normalizedPlayerName,
     playerId: matchingPlayer?.id || '',
     team: String(formData.team).trim(),
     teamId: matchingTeam?.id || '',
     section: formData.section,
-    assessmentSessionId,
+    assessmentSessionId: normalizedAssessmentSessionId,
     clubId: user?.clubId,
     coachId: user?.id,
     coach: String(user?.name || formData.coachName).trim(),
@@ -411,6 +425,32 @@ export function createEvaluationPayload({
     status: editingEvaluation?.status || 'Submitted',
     createdAt: editingEvaluation?.createdAt || new Date().toISOString(),
   }
+}
+
+export function getDevelopmentRecordSaveFailureMessage(error) {
+  const message = String(error?.message ?? '').toLowerCase()
+  const details = String(error?.details ?? '').toLowerCase()
+  const hint = String(error?.hint ?? '').toLowerCase()
+  const combinedMessage = [message, details, hint].filter(Boolean).join(' ')
+  const code = String(error?.code ?? '').trim()
+
+  if (code === '22P02' || combinedMessage.includes('invalid input syntax for type uuid')) {
+    return 'The selected player or session link is no longer valid. Reopen the player from the squad list and save again.'
+  }
+
+  if (code === '23503' || combinedMessage.includes('foreign key constraint')) {
+    return 'The selected player, team, or session could not be matched. Refresh the player details and try again.'
+  }
+
+  if (code === '42501' || combinedMessage.includes('row-level security') || combinedMessage.includes('permission denied')) {
+    return 'Your account does not have permission to save this development record for the selected player.'
+  }
+
+  if (combinedMessage.includes('club_id') || combinedMessage.includes('coach_id')) {
+    return 'Your staff account is missing the club or team details needed to save this development record.'
+  }
+
+  return 'This development record could not be saved right now. Check the player details and try again.'
 }
 
 export function getContactCopy(normalizedContactType) {

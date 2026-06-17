@@ -66,6 +66,7 @@ import {
   getAverageScore,
   getContactCopy,
   getCurrentMonthEvaluationCount,
+  getDevelopmentRecordSaveFailureMessage,
   getMatchedPlayerFieldUpdate,
   getNextExportLabels,
   getNextSelectedContactIndexes,
@@ -2513,7 +2514,7 @@ export function CreateEvaluationPage() {
         }
       }
 
-      setActionErrorMessage('This development record could not be saved right now. Check the player details and try again.')
+      setActionErrorMessage(getDevelopmentRecordSaveFailureMessage(error))
     } finally {
       setIsSendingParentEmail(false)
       setIsSubmitting(false)
