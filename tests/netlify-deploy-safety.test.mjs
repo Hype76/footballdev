@@ -107,3 +107,19 @@ test('real deploy safety blocks mixed or missing Supabase refs', () => {
   assert.match(mixedResult.failures.join('\n'), /Both live and legacy staging Supabase refs/)
   assert.match(missingResult.failures.join('\n'), /No known Supabase ref/)
 })
+
+test('real deploy safety allows the parent staging branch host', () => {
+  const result = evaluateSafety({
+    command: 'netlify deploy --build --context branch:parent-staging --site site-1',
+    currentBranch: 'parent-staging',
+    deployContext: 'branch:parent-staging',
+    dist: stagingDist,
+    expectedSupabaseRef: legacyStagingProjectRef,
+    intendedUrl: 'https://parent-staging.staging.footballplayer.online',
+    mode: 'deploy',
+    siteId: 'site-1',
+    targetBranch: 'parent-staging',
+  })
+
+  assert.deepEqual(result.failures, [])
+})

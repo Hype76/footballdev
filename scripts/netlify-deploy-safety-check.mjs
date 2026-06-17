@@ -5,6 +5,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const safeStagingBranch = 'football-os-staging'
+const approvedStagingBranches = new Set([safeStagingBranch, 'parent-staging'])
 const stagingUrl = 'https://football-os-staging.staging.footballplayer.online'
 export const liveProjectRef = 'hvapkizujvsahvgspser'
 export const legacyStagingProjectRef = 'llpufwzvgxyczxcjwupu'
@@ -259,8 +260,8 @@ export function evaluateSafety({
     failures.push('Target branch is main.')
   }
 
-  if (targetBranch !== safeStagingBranch) {
-    failures.push(`Target branch must be ${safeStagingBranch} for staging work.`)
+  if (!approvedStagingBranches.has(targetBranch)) {
+    failures.push(`Target branch must be one of ${Array.from(approvedStagingBranches).join(', ')} for staging work.`)
   }
 
   if (!deployContext) {
@@ -271,7 +272,9 @@ export function evaluateSafety({
     failures.push('Deploy context is production.')
   }
 
-  if (deployContext && deployContext !== 'branch-deploy' && deployContext !== `branch:${safeStagingBranch}`) {
+  const approvedBranchContext = approvedStagingBranches.has(String(deployContext).replace(/^branch:/, ''))
+
+  if (deployContext && deployContext !== 'branch-deploy' && !approvedBranchContext) {
     failures.push('Deploy context is not an approved staging context.')
   }
 
@@ -283,8 +286,10 @@ export function evaluateSafety({
     failures.push('The command or target can trigger production.')
   }
 
-  if (command && !command.includes(safeStagingBranch)) {
-    failures.push('Command under review does not include the safe staging branch.')
+  const commandIncludesApprovedBranch = Array.from(approvedStagingBranches).some((branch) => command.includes(branch))
+
+  if (command && !commandIncludesApprovedBranch) {
+    failures.push('Command under review does not include an approved staging branch.')
   }
 
   if (command && command.toLowerCase().includes('netlify deploy --trigger')) {
