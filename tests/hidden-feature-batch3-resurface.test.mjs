@@ -76,7 +76,7 @@ test('surfaced email queue does not send or process emails from page load', asyn
   assert.match(pageSource, /getScheduledEmails\(\{ user \}\)/)
   assert.match(pageSource, /updateScheduledEmail\(\{/)
   assert.match(pageSource, /deleteScheduledEmail\(\{/)
-  assert.doesNotMatch(pageSource, /sendScheduledEmailNow|sendNowTarget|setSendNowTarget|Send queued email now|Send now/)
+  assert.doesNotMatch(pageSource, /sendScheduledEmailNow|sendNowTarget|setSendNowTarget|Send queued email now|send now/i)
   assert.doesNotMatch(pageSource, /processDueScheduledEmails/)
 
   const listSectionStart = domainSource.indexOf('export async function getScheduledEmails')
@@ -94,6 +94,20 @@ test('sidebar email queue count can load without processing due sends', async ()
   assert.match(sidebarSource, /!isRecoveryModuleVisible\('emailMessages', \{ user \}\)/)
   assert.match(sidebarSource, /getScheduledEmails\(\{ silentUnavailable: true, user \}\)/)
   assert.doesNotMatch(scheduledEmailsSource, /export async function getScheduledEmails[\s\S]*processDueScheduledEmails\(\)/)
+})
+
+test('sidebar keeps email queue reachable even when no messages are queued', async () => {
+  const sidebarSource = await readFile(sidebarUrl, 'utf8')
+  const emailQueueFilterStart = sidebarSource.indexOf("if (item.path === '/email-queue')")
+  assert.notEqual(emailQueueFilterStart, -1)
+  const emailQueueFilterEnd = sidebarSource.indexOf("if (item.path === '/polls')", emailQueueFilterStart)
+  assert.notEqual(emailQueueFilterEnd, -1)
+  const emailQueueFilter = sidebarSource.slice(emailQueueFilterStart, emailQueueFilterEnd)
+
+  assert.match(emailQueueFilter, /canUseTeamWorkflow/)
+  assert.match(emailQueueFilter, /canManageEmailQueue\(displayUser\)/)
+  assert.match(emailQueueFilter, /hasPlanFeature\(displayUser, 'parentEmail'\)/)
+  assert.doesNotMatch(emailQueueFilter, /queuedEmailCount\s*>\s*0/)
 })
 
 test('parent email templates stay team scoped and do not send messages', async () => {

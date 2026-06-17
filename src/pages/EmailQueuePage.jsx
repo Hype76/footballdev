@@ -205,7 +205,7 @@ export function EmailQueuePage() {
               Hold parent and player emails until they are ready to leave.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Review scheduled football messages before send time. Fix failures, change timing, send now, or delete a message before it reaches families.
+              Review scheduled football messages before send time. Fix failures, change timing, or delete a message before it reaches families.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {queueRules.map((rule) => (

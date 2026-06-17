@@ -296,7 +296,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (item.path === '/email-queue') {
-      return canUseTeamWorkflow && canManageEmailQueue(displayUser) && hasPlanFeature(displayUser, 'parentEmail') && queuedEmailCount > 0
+      return canUseTeamWorkflow && canManageEmailQueue(displayUser) && hasPlanFeature(displayUser, 'parentEmail')
     }
 
     if (item.path === '/polls') {
