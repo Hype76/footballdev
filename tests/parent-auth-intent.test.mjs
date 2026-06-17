@@ -11,6 +11,7 @@ import {
 
 const parentLoginUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
+const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
 const netlifyRedirectsUrl = new URL('../public/_redirects', import.meta.url)
 
 test('parent intent paths include login portal and legacy parent entry points', () => {
@@ -97,4 +98,33 @@ test('netlify serves parent host routes through the SPA router', async () => {
   assert.match(redirects, /\/\*\s+\/index\.html\s+200/)
   assert.doesNotMatch(redirects, /parent\.footballplayer\.online/)
   assert.doesNotMatch(redirects, /footballplayer\.online\/?\s+30[1278]/)
+})
+
+test('parent host layout bypasses main app shell chrome', async () => {
+  const source = await readFile(layoutUrl, 'utf8')
+
+  assert.match(source, /import \{ isParentPortalHost \} from '\.\.\/\.\.\/lib\/app-origins\.js'/)
+  assert.match(source, /const isParentShellHost = isParentPortalHost\(\)/)
+
+  const branchStart = source.indexOf('if (isParentShellHost) {')
+  const sidebarStart = source.indexOf('<Sidebar', branchStart)
+  assert.notEqual(branchStart, -1)
+  assert.notEqual(sidebarStart, -1)
+
+  const parentHostBranch = source.slice(branchStart, sidebarStart)
+  assert.match(parentHostBranch, /<Outlet \/>/)
+  assert.doesNotMatch(parentHostBranch, /<Sidebar/)
+  assert.doesNotMatch(parentHostBranch, /<Topbar/)
+  assert.doesNotMatch(parentHostBranch, /OnboardingProvider/)
+  assert.doesNotMatch(parentHostBranch, /QuickActionHotbar/)
+  assert.doesNotMatch(parentHostBranch, /WorkspaceSelection/)
+})
+
+test('parent host layout does not run main shell audit hooks', async () => {
+  const source = await readFile(layoutUrl, 'utf8')
+  const guardMatches = source.match(/if \(isParentShellHost \|\| !user\?\.id\)/g) ?? []
+
+  assert.equal(guardMatches.length, 2)
+  assert.match(source, /\[activeTitle, isParentShellHost, location\.pathname, location\.search, user\]/)
+  assert.match(source, /\[isParentShellHost, location\.pathname, user\]/)
 })

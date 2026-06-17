@@ -21,6 +21,7 @@ import {
   normalizeThemeButtonStyle,
   normalizeThemeMode,
 } from '../../lib/theme.js'
+import { isParentPortalHost } from '../../lib/app-origins.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
@@ -36,6 +37,7 @@ export function Layout() {
   const lastClickAuditRef = useRef({ key: '', timestamp: 0 })
   const location = useLocation()
   const matches = useMatches()
+  const isParentShellHost = isParentPortalHost()
   const activeTitle = [...matches].reverse().find((match) => match.handle?.title)?.handle?.title ?? 'Dashboard'
   const resolvedTheme = useMemo(
     () => (themeMode === 'system' ? systemTheme : themeMode),
@@ -137,7 +139,7 @@ export function Layout() {
   }, [location.pathname])
 
   useEffect(() => {
-    if (!user?.id) {
+    if (isParentShellHost || !user?.id) {
       return
     }
 
@@ -151,10 +153,10 @@ export function Layout() {
         title: activeTitle,
       },
     })
-  }, [activeTitle, location.pathname, location.search, user])
+  }, [activeTitle, isParentShellHost, location.pathname, location.search, user])
 
   useEffect(() => {
-    if (!user?.id) {
+    if (isParentShellHost || !user?.id) {
       return undefined
     }
 
@@ -200,7 +202,7 @@ export function Layout() {
     return () => {
       document.removeEventListener('click', handleTrackedClick, true)
     }
-  }, [location.pathname, user])
+  }, [isParentShellHost, location.pathname, user])
 
   const handleClubSelect = async (clubId) => {
     setClubSelectionError('')
@@ -239,6 +241,19 @@ export function Layout() {
   const needsClubSelection = !needsAccessModeSelection && !isSuperAdmin(user) && clubOptions.length > 1
   const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
   const shouldSuppressOnboardingSetup = false
+
+  if (isParentShellHost) {
+    return (
+      <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
+        <div className="fixed inset-0 -z-10 bg-[var(--app-bg)]" />
+        <main className="min-h-screen px-4 py-5 sm:px-6 md:px-8">
+          <div className="mx-auto w-full max-w-6xl">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
