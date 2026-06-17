@@ -299,6 +299,12 @@ export function ParentLoginPage() {
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
             Log in with the same email that received the club invite.
           </p>
+          <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+            <p className="text-sm font-black text-[#101828]">No invite or cannot get in?</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              Ask your club or team contact to send a parent invite to this email. If you already have an invite, try password reset or ask the club to resend the link.
+            </p>
+          </div>
 
         {isSigningOutConfirmedSession || (shouldClearExistingSession && session?.user) || existingSessionCanOpenParentPortal ? (
           <p className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#4b5f55]">

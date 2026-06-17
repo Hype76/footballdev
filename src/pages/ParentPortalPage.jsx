@@ -40,6 +40,7 @@ const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rou
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
+const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
@@ -214,17 +215,17 @@ export function ParentPortalPage() {
     {
       label: 'Linked children',
       value: links.length,
-      caption: 'Children this parent account can open.',
+      caption: 'Children connected to this parent account.',
     },
     {
-      label: 'Live or upcoming',
+      label: 'Shared now',
       value: activeMatches.length + eventInvites.length,
-      caption: 'Shared cards and event invites currently active.',
+      caption: 'Match cards and invites available for the selected child.',
     },
     {
       label: 'Previous games',
       value: previousMatches.length,
-      caption: 'Completed fixtures shared by the club.',
+      caption: 'Completed match cards the club has shared.',
     },
   ]
 
@@ -594,17 +595,17 @@ export function ParentPortalPage() {
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-5 border-b border-[#d7e5dc] bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
           <div>
-            <p className={eyebrowClass}>Match day workspace</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-[#101828]">Follow the selected player</h2>
+            <p className={eyebrowClass}>Family updates</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-[#101828]">Follow the selected child</h2>
             <p className={`mt-2 ${bodyTextClass}`}>
-              Select a child, enable useful alerts, then open live cards when the club has shared match day access.
+              Choose a linked child, then check the calendar, invites, and match cards the club has shared for them.
             </p>
           </div>
 
           <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
-            <p className={eyebrowClass}>Parent rule</p>
+            <p className={eyebrowClass}>What you can see</p>
             <p className={`mt-2 ${bodyTextClass}`}>
-              Parents can view shared updates and respond where invited. Club staff still own team selection, records, and final match day control.
+              This portal only shows information linked to your child and shared by the club. Staff notes and team admin tools stay private.
             </p>
           </div>
         </div>
@@ -657,11 +658,11 @@ export function ParentPortalPage() {
               <div className="mt-4">
                 {!selectedLink ? (
                   <p className={emptyClass}>
-                    No child links are active for this parent account.
+                    {noChildMessage}
                   </p>
                 ) : isLoadingMatches ? (
                   <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
-                    Loading Match Day...
+                    Loading match cards...
                   </p>
                 ) : activeMatches.length > 0 ? (
                   <div className="space-y-4">
@@ -695,7 +696,7 @@ export function ParentPortalPage() {
                   </div>
                 ) : (
                   <p className={emptyClass}>
-                    No Match Day updates are available for this child right now.
+                    No match cards are shared for this child right now. When staff open a match card for parents, it will appear here.
                   </p>
                 )}
               </div>
@@ -718,7 +719,7 @@ export function ParentPortalPage() {
                 </div>
               ) : (
                 <p className={`mt-4 ${emptyClass}`}>
-                  No previous games have been shared yet.
+                  Previous shared results will appear here after the club completes and shares match cards.
                 </p>
               )}
             </section>
@@ -805,18 +806,24 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
 
 function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selectedLink, summary }) {
   const nextMatch = activeMatches[0]
+  const heroTitle = selectedLink?.playerName
+    ? `Viewing updates for ${selectedLink.playerName}.`
+    : 'Your family portal is waiting for a linked child.'
+  const heroCopy = selectedLink?.playerName
+    ? 'See only the updates the club has opened for this child. Follow shared match cards, club dates, and invited events in one place.'
+    : 'Once the club links a child to this email address, their shared calendar items, event invites, and match cards will appear here.'
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
       <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
         <div className="px-5 py-6 sm:px-6 lg:px-8">
           <div className="max-w-5xl">
-            <p className={eyebrowClass}>Family match day</p>
+            <p className={eyebrowClass}>Family portal</p>
             <h1 className="mt-3 text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-              The match feed for {selectedLink?.playerName || 'the player'}.
+              {heroTitle}
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              See only the updates the club has opened for your child. Volunteer as scorer when asked, follow the live score, and review previous football fixtures.
+              {heroCopy}
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {summary.map((item) => (
@@ -833,13 +840,13 @@ function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selecte
               {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No active match'}
             </p>
             <p className={`mt-2 ${bodyTextClass}`}>
-              {nextMatch ? formatMatchDate(nextMatch) : previousMatches.length > 0 ? 'Open previous games to review shared results.' : 'The club has not shared a match card yet.'}
+              {nextMatch ? formatMatchDate(nextMatch) : previousMatches.length > 0 ? 'Open previous games below to review shared results.' : selectedLink ? 'The club has not shared a match card for this child yet.' : 'Ask the club to send a parent invite for your child.'}
             </p>
           </div>
           <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Next action</p>
             <p className={`mt-1 ${bodyTextClass}`}>
-              Check the selected child first. Enable notifications only on the device you want to use on match day.
+              {selectedLink ? 'Check the selected child first. Parent actions only appear when the club has opened them.' : 'Use the parent invite sent by the club. If you do not have one, ask the club to resend it.'}
             </p>
           </div>
         </div>
@@ -873,7 +880,7 @@ function ParentCalendarPanel({
       <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
         <p className={eyebrowClass}>Calendar</p>
         <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Family calendar</h3>
-        <p className={`mt-4 ${emptyClass}`}>No child links are active for this parent account.</p>
+        <p className={`mt-4 ${emptyClass}`}>{noChildMessage}</p>
       </section>
     )
   }
@@ -890,7 +897,7 @@ function ParentCalendarPanel({
         view={calendarView}
       />
       {!isLoading && calendarEvents.length === 0 ? (
-        <p className={emptyClass}>No shared calendar activity is available for this child yet.</p>
+        <p className={emptyClass}>No shared calendar activity is available for this child yet. When the club shares a parent-visible date, it will appear here.</p>
       ) : null}
     </section>
   )
@@ -964,7 +971,7 @@ function ParentUpcomingEvents({ eventInvites, isLoading, selectedLink }) {
 
       <div className="mt-4">
         {!selectedLink ? (
-          <p className={emptyClass}>No child links are active for this parent account.</p>
+          <p className={emptyClass}>{noChildMessage}</p>
         ) : isLoading ? (
           <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
             Loading event invites...
@@ -984,7 +991,7 @@ function ParentUpcomingEvents({ eventInvites, isLoading, selectedLink }) {
             ))}
           </div>
         ) : (
-          <p className={emptyClass}>No club event invites are active for this child yet.</p>
+          <p className={emptyClass}>No event invites are waiting for this child. If the club invites them to a session or event, it will appear here.</p>
         )}
       </div>
     </section>
@@ -992,10 +999,20 @@ function ParentUpcomingEvents({ eventInvites, isLoading, selectedLink }) {
 }
 
 function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
+  if (!selectedLink) {
+    return (
+      <div className={panelClass}>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Child being viewed</p>
+        <p className="mt-2 text-lg font-black text-[#101828]">No linked child yet</p>
+        <p className={`mt-2 ${bodyTextClass}`}>{noChildMessage}</p>
+      </div>
+    )
+  }
+
   return (
     <div className={panelClass}>
       <label htmlFor="parent-portal-child" className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">
-        Current player
+        Child being viewed
       </label>
       <select
         id="parent-portal-child"
@@ -1005,13 +1022,17 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
       >
         {links.map((link) => (
           <option key={link.id} value={link.id}>
-            {link.playerName}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
+            {link.playerName || 'Linked child'}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
           </option>
         ))}
       </select>
+      <p className={`mt-3 ${bodyTextClass}`}>
+        You are only viewing information the club has shared for this child.
+      </p>
 
       {otherLinks.length > 0 ? (
         <div className="mt-4 space-y-2">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Other linked children</p>
           {otherLinks.map((link) => (
             <button
               key={link.id}
@@ -1019,7 +1040,7 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
               onClick={() => onSelect(link.id)}
               className="block w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-left transition hover:border-[#047857] hover:bg-white"
             >
-              <p className="text-sm font-black text-[#101828]">{link.playerName}</p>
+              <p className="text-sm font-black text-[#101828]">{link.playerName || 'Linked child'}</p>
               <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}</p>
             </button>
           ))}

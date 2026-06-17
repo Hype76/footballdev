@@ -283,7 +283,8 @@ test('parent with no active link has no player data in fixtures and page has an 
   assert.deepEqual(linkedPlayersForParent({ authUserId: 'parent-with-no-links' }), [])
 
   const source = await readFile(parentPortalPageUrl, 'utf8')
-  assert.match(source, /No child links are active for this parent account\./)
+  assert.match(source, /No child is linked to this parent account yet/)
+  assert.match(source, /Ask your club or team contact to send a parent invite/)
   assert.match(source, /setMatches\(\[\]\)/)
   assert.match(source, /setEventInvites\(\[\]\)/)
   assert.match(source, /setPlayers\(\[\]\)/)
@@ -388,6 +389,7 @@ test('staff note storage remains staff scoped and absent from parent portal outp
 
   assert.match(staffNotesMigration, /create table if not exists public\.player_staff_notes/)
   assert.match(staffNotesMigration, /public\.current_user_role_rank\(\) >= 20/)
-  assert.doesNotMatch(parentPageSource, /player_staff_notes|staff notes|staffNotes|StaffNotes/i)
+  assert.match(parentPageSource, /Staff notes and team admin tools stay private/)
+  assert.doesNotMatch(parentPageSource, /player_staff_notes|staffNotes|StaffNotes/)
   assert.doesNotMatch(playerPickerMigration, /player_staff_notes/i)
 })
