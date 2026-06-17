@@ -83,11 +83,10 @@ test('parent dashboard no data states are helpful and not errors', async () => {
   assert.doesNotMatch(source, /No Match Day updates are available for this child right now/)
 })
 
-test('parent dashboard does not expose unavailable parent feature clutter', async () => {
+test('parent dashboard does not expose secondary parent feature clutter', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
   assert.doesNotMatch(source, /Messages/)
-  assert.doesNotMatch(source, /Polls/)
   assert.doesNotMatch(source, /Friends/)
   assert.doesNotMatch(source, /coming soon/i)
 })
@@ -116,18 +115,24 @@ test('parent login gives a clear invite and access support path', async () => {
   }
 })
 
-test('unavailable parent routes stay hidden by recovery gates', () => {
+test('batch 1 to 4 recovery routes are available while parent dashboard stays focused', () => {
   const parentUser = {
     role: 'parent_portal',
     roleRank: 0,
   }
 
-  assert.equal(getRecoveryModuleForPath('/parent-messages'), 'emailMessages')
+  assert.equal(getRecoveryModuleForPath('/parent-messages'), 'parentMessages')
   assert.equal(getRecoveryModuleForPath('/parent-polls'), 'pollsAvailability')
-  assert.equal(getRecoveryModuleForPath('/friends-family'), 'parentInvites')
-  assert.equal(isRecoveryPathVisible('/parent-messages', { user: parentUser }), false)
-  assert.equal(isRecoveryPathVisible('/parent-polls', { user: parentUser }), false)
-  assert.equal(isRecoveryPathVisible('/friends-family', { user: parentUser }), false)
+  assert.equal(getRecoveryModuleForPath('/friends-family'), 'familySharing')
+  assert.equal(getRecoveryModuleForPath('/email-queue'), 'emailMessages')
+  assert.equal(getRecoveryModuleForPath('/parent-email-templates'), 'emailMessages')
+  assert.equal(getRecoveryModuleForPath('/end-season-stats'), 'reports')
+  assert.equal(isRecoveryPathVisible('/parent-messages', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/parent-polls', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/friends-family', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/email-queue', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/parent-email-templates', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/end-season-stats', { user: parentUser }), true)
 })
 
 test('parent host shell remains isolated from main app chrome', async () => {

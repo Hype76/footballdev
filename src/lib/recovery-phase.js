@@ -7,17 +7,19 @@ export const RECOVERY_MODULES = {
   assessments: { phase: 1 },
   billing: { phase: 4, platformAdminOnlyDuringRecovery: true },
   clubSetup: { phase: 1 },
-  emailMessages: { phase: 4 },
+  emailMessages: { phase: 1 },
+  familySharing: { phase: 1 },
   formBuilder: { phase: 1 },
   help: { phase: 1 },
   matchDay: { phase: 1 },
-  parentInvites: { phase: 3 },
+  parentInvites: { phase: 1 },
+  parentMessages: { phase: 1 },
   parentPortal: { phase: 1 },
   platformAdmin: { phase: 0, platformAdminOnlyDuringRecovery: true },
   platformFeedback: { phase: 6, platformAdminOnlyDuringRecovery: true },
   players: { phase: 1 },
-  pollsAvailability: { phase: 4 },
-  reports: { phase: 4 },
+  pollsAvailability: { phase: 1 },
+  reports: { phase: 1 },
   sessions: { phase: 1 },
   shell: { phase: 1 },
   teamsStaff: { phase: 1 },
@@ -61,7 +63,7 @@ export function getRecoveryModuleForPath(path) {
   }
 
   if (normalizedPath === '/parent-messages') {
-    return 'emailMessages'
+    return 'parentMessages'
   }
 
   if (normalizedPath === '/parent-polls') {
@@ -69,7 +71,7 @@ export function getRecoveryModuleForPath(path) {
   }
 
   if (normalizedPath === '/friends-family') {
-    return 'parentInvites'
+    return 'familySharing'
   }
 
   if (['/email-queue', '/parent-email-templates'].includes(normalizedPath)) {

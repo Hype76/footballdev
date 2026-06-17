@@ -105,7 +105,7 @@ test('mobile push senders skip absent native push tables safely', async () => {
   }
 })
 
-test('hidden parent polls do not trigger sidebar poll count RPC calls', async () => {
+test('parent poll count remains behind the parent poll recovery path check', async () => {
   const source = await readFile(sidebarUrl, 'utf8')
   const parentBranchStart = source.indexOf('if (isParentPortalUser(user))')
   assert.notEqual(parentBranchStart, -1)

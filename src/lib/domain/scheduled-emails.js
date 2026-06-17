@@ -89,8 +89,6 @@ export async function processDueScheduledEmails({ force = false } = {}) {
 }
 
 export async function getScheduledEmails({ silentUnavailable = false, user }) {
-  await processDueScheduledEmails().catch(() => null)
-
   let result
 
   try {

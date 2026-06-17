@@ -9,7 +9,6 @@ import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
 import {
   deleteScheduledEmail,
   getScheduledEmails,
-  sendScheduledEmailNow,
   updateScheduledEmail,
 } from '../lib/domain/scheduled-emails.js'
 
@@ -49,7 +48,6 @@ function createEditDraft(item) {
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
-const primaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-black text-[#101828] transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-[#f4b6b6] bg-[#fff5f5] px-4 py-2 text-sm font-black text-[#b42318] transition hover:bg-[#fee4e2] disabled:cursor-not-allowed disabled:opacity-60'
 
@@ -77,7 +75,6 @@ export function EmailQueuePage() {
   const [editingItem, setEditingItem] = useState(null)
   const [editDraft, setEditDraft] = useState(() => createEditDraft(null))
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [sendNowTarget, setSendNowTarget] = useState(null)
   const [busyId, setBusyId] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}` : ''
 
@@ -198,27 +195,6 @@ export function EmailQueuePage() {
     }
   }
 
-  const confirmSendNow = async () => {
-    if (!sendNowTarget) {
-      return
-    }
-
-    setBusyId(sendNowTarget.id)
-    setErrorMessage('')
-
-    try {
-      await sendScheduledEmailNow({ user, id: sendNowTarget.id })
-      setQueue((current) => current.filter((item) => item.id !== sendNowTarget.id))
-      showToast({ title: 'Queued email sent' })
-      setSendNowTarget(null)
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Queued email could not be sent.')
-    } finally {
-      setBusyId('')
-    }
-  }
-
   return (
     <div className="space-y-5 sm:space-y-6">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -315,14 +291,6 @@ export function EmailQueuePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSendNowTarget(item)}
-                      disabled={Boolean(busyId)}
-                      className={primaryButtonClass}
-                    >
-                      Send now
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => setDeleteTarget(item)}
                       disabled={Boolean(busyId)}
                       className={dangerButtonClass}
@@ -394,18 +362,6 @@ export function EmailQueuePage() {
         onCancel={() => setDeleteTarget(null)}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void confirmDelete()}
-      />
-
-      <ConfirmModal
-        isOpen={Boolean(sendNowTarget)}
-        isBusy={busyId === sendNowTarget?.id}
-        title="Send queued email now"
-        message="This sends the queued email immediately and removes it from the queue."
-        items={[sendNowTarget?.subject || 'Queued email', sendNowTarget?.toEmail || 'No recipient']}
-        confirmLabel="Send now"
-        onCancel={() => setSendNowTarget(null)}
-        onClose={() => setSendNowTarget(null)}
-        onConfirm={() => void confirmSendNow()}
       />
 
       {!hasPlanFeature(user, 'parentEmail') ? (

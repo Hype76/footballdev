@@ -40,18 +40,29 @@ function getFunctionSection(source, functionName) {
   return source.slice(start, nextFunction === -1 ? source.length : nextFunction)
 }
 
-test('poll recovery module is hidden while parent portal calendar and match day are active', () => {
+test('batch 1 to 4 modules are visible while later modules stay hidden', () => {
   const user = staffUser()
 
-  assert.equal(isRecoveryModuleVisible('pollsAvailability', { user }), false)
-  assert.equal(isRecoveryPathVisible('/polls', { user }), false)
-  assert.equal(isRecoveryPathVisible('/parent-polls', { user: { ...user, role: 'parent_portal', roleRank: 0 } }), false)
+  assert.equal(isRecoveryModuleVisible('pollsAvailability', { user }), true)
+  assert.equal(isRecoveryModuleVisible('parentInvites', { user }), true)
+  assert.equal(isRecoveryModuleVisible('parentMessages', { user }), true)
+  assert.equal(isRecoveryModuleVisible('familySharing', { user }), true)
+  assert.equal(isRecoveryModuleVisible('emailMessages', { user }), true)
+  assert.equal(isRecoveryModuleVisible('reports', { user }), true)
+  assert.equal(isRecoveryPathVisible('/polls', { user }), true)
+  assert.equal(isRecoveryPathVisible('/parent-linking', { user }), true)
+  assert.equal(isRecoveryPathVisible('/parent-polls', { user: { ...user, role: 'parent_portal', roleRank: 0 } }), true)
+  assert.equal(isRecoveryPathVisible('/parent-messages', { user: { ...user, role: 'parent_portal', roleRank: 0 } }), true)
+  assert.equal(isRecoveryPathVisible('/friends-family', { user: { ...user, role: 'parent_portal', roleRank: 0 } }), true)
+  assert.equal(isRecoveryPathVisible('/email-queue', { user }), true)
+  assert.equal(isRecoveryPathVisible('/parent-email-templates', { user }), true)
+  assert.equal(isRecoveryPathVisible('/end-season-stats', { user }), true)
   assert.equal(isRecoveryPathVisible('/parent-portal', { user }), true)
   assert.equal(isRecoveryPathVisible('/match-day', { user }), true)
   assert.equal(getRecoveryModuleForPath('/sessions'), '')
 })
 
-test('sessions calendar does not load polls while polls are recovery hidden', async () => {
+test('sessions calendar poll loading remains explicitly gated by the poll module', async () => {
   const source = await readFile(sessionsPageUrl, 'utf8')
   const guardIndex = source.indexOf("const canShowPollsInCalendar = isRecoveryModuleVisible('pollsAvailability', { user })")
   const getPollsIndex = source.indexOf('withRequestTimeout(() => getPolls({ user })')
@@ -77,7 +88,7 @@ test('poll-derived calendar events stay behind the sessions poll gate', async ()
   assert.match(sessionsSource, /canShowPollsInCalendar[\s\S]*\? withRequestTimeout\(\(\) => getPolls\(\{ user \}\)/)
 })
 
-test('staff sidebar does not fetch hidden poll or email counts', async () => {
+test('staff sidebar keeps count fetches behind module checks', async () => {
   const source = await readFile(sidebarUrl, 'utf8')
   const staffPollBranch = source.indexOf('if (canManagePolls(user))')
   const pollRecoveryGate = source.indexOf("!isRecoveryModuleVisible('pollsAvailability', { user })", staffPollBranch)
@@ -104,7 +115,7 @@ test('role quick links exclude recovery gated destinations', () => {
     roleRank: 1000,
   })).map((link) => link.path)
 
-  assert.equal(managerLinks.includes('/parent-email-templates'), false)
+  assert.equal(managerLinks.includes('/parent-email-templates'), true)
   assert.equal(managerLinks.includes('/activity-log'), false)
   assert.equal(managerLinks.includes('/billing'), false)
   assert.equal(managerLinks.includes('/platform-feedback'), false)
@@ -148,12 +159,12 @@ test('direct routes for hidden modules remain protected', async () => {
     assert.match(source, new RegExp(`isRecoveryModuleVisible\\('${moduleKey}', \\{ user \\}\\)`))
   }
 
-  assert.equal(isRecoveryPathVisible('/parent-messages', { user: staffUser() }), false)
-  assert.equal(isRecoveryPathVisible('/parent-polls', { user: staffUser() }), false)
-  assert.equal(isRecoveryPathVisible('/friends-family', { user: staffUser() }), false)
-  assert.equal(isRecoveryPathVisible('/parent-linking', { user: staffUser() }), false)
-  assert.equal(isRecoveryPathVisible('/email-queue', { user: staffUser() }), false)
-  assert.equal(isRecoveryPathVisible('/parent-email-templates', { user: staffUser() }), false)
-  assert.equal(isRecoveryPathVisible('/end-season-stats', { user: staffUser() }), false)
+  assert.equal(isRecoveryPathVisible('/parent-messages', { user: staffUser() }), true)
+  assert.equal(isRecoveryPathVisible('/parent-polls', { user: staffUser() }), true)
+  assert.equal(isRecoveryPathVisible('/friends-family', { user: staffUser() }), true)
+  assert.equal(isRecoveryPathVisible('/parent-linking', { user: staffUser() }), true)
+  assert.equal(isRecoveryPathVisible('/email-queue', { user: staffUser() }), true)
+  assert.equal(isRecoveryPathVisible('/parent-email-templates', { user: staffUser() }), true)
+  assert.equal(isRecoveryPathVisible('/end-season-stats', { user: staffUser() }), true)
   assert.equal(isRecoveryPathVisible('/activity-log', { user: staffUser() }), false)
 })

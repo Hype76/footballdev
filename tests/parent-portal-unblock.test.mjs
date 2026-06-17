@@ -25,28 +25,34 @@ test('phase 1 keeps the signed-in parent portal route visible', () => {
   assert.equal(isRecoveryPathVisible('/parent-portal', { user: parentUser }), true)
 })
 
-test('parent adjacent routes remain recovery gated until their own modules are ready', () => {
+test('batch 1 to 4 recovery routes are visible while parent role guards stay separate', () => {
   const parentUser = {
     role: 'parent_portal',
     roleRank: 0,
   }
 
-  assert.equal(getRecoveryModuleForPath('/parent-messages'), 'emailMessages')
+  assert.equal(getRecoveryModuleForPath('/parent-messages'), 'parentMessages')
   assert.equal(getRecoveryModuleForPath('/parent-polls'), 'pollsAvailability')
-  assert.equal(getRecoveryModuleForPath('/friends-family'), 'parentInvites')
-  assert.equal(isRecoveryPathVisible('/parent-messages', { user: parentUser }), false)
-  assert.equal(isRecoveryPathVisible('/parent-polls', { user: parentUser }), false)
-  assert.equal(isRecoveryPathVisible('/friends-family', { user: parentUser }), false)
+  assert.equal(getRecoveryModuleForPath('/friends-family'), 'familySharing')
+  assert.equal(getRecoveryModuleForPath('/email-queue'), 'emailMessages')
+  assert.equal(getRecoveryModuleForPath('/parent-email-templates'), 'emailMessages')
+  assert.equal(getRecoveryModuleForPath('/end-season-stats'), 'reports')
+  assert.equal(isRecoveryPathVisible('/parent-messages', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/parent-polls', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/friends-family', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/email-queue', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/parent-email-templates', { user: parentUser }), true)
+  assert.equal(isRecoveryPathVisible('/end-season-stats', { user: parentUser }), true)
 })
 
-test('match day is restored while unrelated recovery routes stay hidden for non-admin users', () => {
+test('match day and batch 1 parent management are visible while unrelated recovery routes stay hidden', () => {
   const coachUser = {
     role: 'coach',
     roleRank: 30,
   }
 
   assert.equal(isRecoveryPathVisible('/match-day', { user: coachUser }), true)
-  assert.equal(isRecoveryPathVisible('/parent-linking', { user: coachUser }), false)
+  assert.equal(isRecoveryPathVisible('/parent-linking', { user: coachUser }), true)
   assert.equal(isRecoveryPathVisible('/activity-log', { user: coachUser }), false)
   assert.equal(isRecoveryPathVisible('/platform-feedback', { user: coachUser }), false)
 })
