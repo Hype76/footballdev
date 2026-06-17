@@ -178,15 +178,15 @@ function NavigateToParentInvite() {
 const accountRecoveryRules = [
   {
     title: 'Session is active',
-    body: 'The browser still has a Supabase login session.',
+    body: 'This browser is signed in, but the account still needs a matching profile or parent portal link.',
   },
   {
-    title: 'Profile is missing',
-    body: 'This workspace cannot match that login to a club, parent, team, or platform profile.',
+    title: 'Parent link is missing',
+    body: 'We could not find an active parent portal link for this account.',
   },
   {
-    title: 'Use the right account',
-    body: 'Use an account that belongs to this workspace. Test and live workspaces keep accounts separate.',
+    title: 'Use the invite email',
+    body: 'Make sure you are using the same email address that received the parent portal invite.',
   },
 ]
 
@@ -236,7 +236,7 @@ function AccountDetailsUnavailableState({ message }) {
   return (
     <RouteGateState
       title="Account details unavailable"
-      message={message || 'Your login session is active, but this workspace could not find a matching account profile. Retry once after a refresh. If it still appears, sign in again with an account that belongs to this workspace.'}
+      message={message || 'Your login session is active, but this account is not linked to an active parent portal profile. Ask your club or team contact to resend your parent portal invite, then sign in with the same email address that received it.'}
       rules={accountRecoveryRules}
       actions={(
         <>

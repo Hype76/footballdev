@@ -12,6 +12,7 @@ import {
 const parentLoginUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
+const parentProfileSourceUrl = new URL('../src/lib/domain/core.js', import.meta.url)
 const netlifyRedirectsUrl = new URL('../public/_redirects', import.meta.url)
 
 test('parent intent paths include login portal and legacy parent entry points', () => {
@@ -56,6 +57,35 @@ test('parent login blocks an existing non-parent session instead of submitting u
   assert.match(source, /handleSignOutForParentLogin/)
   assert.match(source, /rememberParentAccessIntent\(\)/)
   assert.match(source, /preferredAccessMode: 'parent'/)
+})
+
+test('account unavailable copy is production-safe for live parent portal users', async () => {
+  const source = await readFile(routerUrl, 'utf8')
+  const rulesStart = source.indexOf('const accountRecoveryRules = [')
+  const stateStart = source.indexOf('function AccountDetailsUnavailableState', rulesStart)
+  const stateEnd = source.indexOf('function ParentAccountIntentState', stateStart)
+  const section = source.slice(rulesStart, stateEnd)
+
+  assert.match(section, /We could not find an active parent portal link for this account\./)
+  assert.match(section, /Ask your club or team contact to resend your parent portal invite/)
+  assert.match(section, /same email address that received/)
+  assert.doesNotMatch(section, /staging account/i)
+  assert.doesNotMatch(section, /test workspace/i)
+  assert.doesNotMatch(section, /fresh test invite/i)
+  assert.doesNotMatch(section, /staging test account/i)
+  assert.doesNotMatch(section, /Test and live workspaces keep accounts separate/)
+})
+
+test('active parent-player link resolves to parent portal profile without app user row', async () => {
+  const source = await readFile(parentProfileSourceUrl, 'utf8')
+  const profileStart = source.indexOf('export async function fetchUserProfile')
+  const profileEnd = source.indexOf('export async function updatePassword', profileStart)
+  const section = source.slice(profileStart, profileEnd)
+
+  assert.match(section, /const parentLinks = isDemoAuthUser \? \[\] : await getParentPortalMemberships\(authUser\)/)
+  assert.match(section, /const hasParentAccess = parentLinks\.length > 0/)
+  assert.match(section, /if \(hasParentAccess && selectedAccessMode === 'parent'\) \{\s*return normalizeParentPortalProfile\(authUser, parentLinks\)/)
+  assert.match(section, /if \(hasParentAccess\) \{\s*return normalizeParentPortalProfile\(authUser, parentLinks\)/)
 })
 
 test('parent routes preserve parent intent while main sign-in remains separate', async () => {
