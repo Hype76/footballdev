@@ -600,6 +600,10 @@ function useWorkspaceRouteGate({
     return { element: <ExternalRedirect to={getMainAppOrigin()} />, user }
   }
 
+  if (isParentHost() && isParentPortalUser(user)) {
+    return { element: <Navigate to="/parent-portal" replace />, user }
+  }
+
   if (!redirectSuperAdmin && isParentPortalUser(user)) {
     return { element: null, user }
   }

@@ -86,6 +86,15 @@ test('parent routes preserve parent intent while main sign-in remains separate',
   assert.match(gateSection, /if \(parentIntent\) \{\s*return \{ element: <ParentLoginRedirect \/>/)
   assert.match(gateSection, /return \{ element: <ParentAccountIntentState session=\{session\} user=\{user\} \/>/)
   assert.match(gateSection, /return \{ element: <ParentAccountIntentState session=\{session\} type="no-link" user=\{user\} \/>/)
+  assert.match(gateSection, /if \(isParentHost\(\) && isParentPortalUser\(user\)\) \{\s*return \{ element: <Navigate to="\/parent-portal" replace \/>/)
+
+  const parentHostNonParentRedirect = gateSection.indexOf('if (isParentHost() && !isParentPortalUser(user))')
+  const parentHostParentRedirect = gateSection.indexOf('if (isParentHost() && isParentPortalUser(user))')
+  const parentIntentPassThrough = gateSection.indexOf('if (!redirectSuperAdmin && isParentPortalUser(user))')
+  assert.ok(parentHostNonParentRedirect > -1)
+  assert.ok(parentHostParentRedirect > parentHostNonParentRedirect)
+  assert.ok(parentIntentPassThrough > parentHostParentRedirect)
+
   assert.match(publicSection, /if \(isParentIntentPath\(location\.pathname\)\) \{\s*return <Outlet \/>/)
   assert.match(publicSection, /return <Navigate to=\{isParentHost\(\) \? '\/parent-portal' : '\/'\} replace \/>/)
   assert.match(parentAccessSection, /parentIntent: true/)
