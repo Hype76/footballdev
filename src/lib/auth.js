@@ -810,7 +810,7 @@ export function AuthProvider({ children }) {
       return {
         needsEmailVerification: false,
         user: profile,
-        message: prepareResult.message || 'Staging tester access is ready. Continue into your test workspace.',
+        message: prepareResult.message || 'Access is ready. Continue into your workspace.',
       }
     }
 

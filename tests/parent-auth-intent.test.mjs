@@ -13,6 +13,7 @@ const parentLoginUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.u
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
 const parentProfileSourceUrl = new URL('../src/lib/domain/core.js', import.meta.url)
+const authSourceUrl = new URL('../src/lib/auth.js', import.meta.url)
 const netlifyRedirectsUrl = new URL('../public/_redirects', import.meta.url)
 
 test('parent intent paths include login portal and legacy parent entry points', () => {
@@ -74,6 +75,14 @@ test('account unavailable copy is production-safe for live parent portal users',
   assert.doesNotMatch(section, /fresh test invite/i)
   assert.doesNotMatch(section, /staging test account/i)
   assert.doesNotMatch(section, /Test and live workspaces keep accounts separate/)
+})
+
+test('production auth success copy avoids staging workspace wording', async () => {
+  const source = await readFile(authSourceUrl, 'utf8')
+
+  assert.match(source, /Access is ready\. Continue into your workspace\./)
+  assert.doesNotMatch(source, /Staging tester access is ready/i)
+  assert.doesNotMatch(source, /Continue into your test workspace/i)
 })
 
 test('active parent-player link resolves to parent portal profile without app user row', async () => {
