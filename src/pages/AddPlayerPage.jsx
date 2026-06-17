@@ -305,7 +305,7 @@ export function AddPlayerPage() {
           teamName: invite.teamName,
           clubName: invite.clubName || user.clubName,
           playerName: invite.playerName,
-          subject: `Family portal invite for ${invite.playerName}`,
+          subject: `Parent portal invite for ${invite.playerName}`,
           inviteUrl: invite.inviteUrl,
         }),
       ),
@@ -333,7 +333,7 @@ export function AddPlayerPage() {
       setParentPortalInviteTarget(null)
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'Family portal invite could not be sent.')
+      setErrorMessage(error.message || 'Parent portal invite could not be sent.')
     } finally {
       setIsSendingParentPortalLink(false)
     }
@@ -390,14 +390,14 @@ export function AddPlayerPage() {
       <ConfirmModal
         isOpen={Boolean(parentPortalInviteTarget)}
         isBusy={isSendingParentPortalLink}
-        title="Send family portal link"
-        message="This player has been added straight to Squad. Send the family portal invite now?"
+        title="Send parent portal invite"
+        message="This player has been added straight to Squad. Send the parent portal invite now?"
         items={[
           `Player: ${parentPortalInviteTarget?.playerName || 'Selected player'}`,
           `Team: ${parentPortalInviteTarget?.team || 'No team entered'}`,
         ]}
         cancelLabel="Not now"
-        confirmLabel="Send parent link"
+        confirmLabel="Send parent invite"
         onCancel={() => setParentPortalInviteTarget(null)}
         onConfirm={() => void confirmSendParentPortalLink()}
       />

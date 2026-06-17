@@ -251,7 +251,7 @@ export async function revokeFamilyPortalLink({ linkId }) {
   return normalizeParentLink(revokedRow)
 }
 
-export async function createParentPortalInvites({ user, player, contacts }) {
+export async function createParentPortalInvites({ user, player, contacts, includeSentPending = false }) {
   if (!user?.clubId || !player?.id) {
     throw new Error('Choose a player before creating parent links.')
   }
@@ -309,20 +309,20 @@ export async function createParentPortalInvites({ user, player, contacts }) {
   )
   const resendRows = normalizedContacts
     .map((contact) => existingRowsByEmail.get(contact.email))
-    .filter((row) => row && row.status === 'pending' && !row.invite_sent_at)
+    .filter((row) => row && row.status === 'pending' && (includeSentPending || !row.invite_sent_at))
   const rows = normalizedContacts
     .filter((contact) => !existingRowsByEmail.has(contact.email) && !existingSentOrAcceptedEmails.has(contact.email))
     .map((contact) => ({
-    club_id: user.clubId,
-    team_id: teamId,
-    player_id: player.id,
-    link_type: 'parent',
-    email: contact.email,
-    status: 'pending',
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    invited_by: user.id,
-    invited_by_name: user.displayName || user.username || user.name || user.email,
-  }))
+      club_id: user.clubId,
+      team_id: teamId,
+      player_id: player.id,
+      link_type: 'parent',
+      email: contact.email,
+      status: 'pending',
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      invited_by: user.id,
+      invited_by_name: user.displayName || user.username || user.name || user.email,
+    }))
 
   if (rows.length === 0) {
     return resendRows.map((row) => ({

@@ -5,6 +5,10 @@ import {
 } from '../../lib/supabase.js'
 import { getDraftParentContacts } from '../../hooks/players/playerProfileUtils.js'
 import { isInviteEmailTemplate } from '../../lib/email-templates.js'
+import {
+  getParentPortalInviteActionForContact,
+  normalizeParentPortalInviteEmail,
+} from '../../lib/parent-portal-invite-actions.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
@@ -33,8 +37,11 @@ export function PlayerDetailsSection({
   onSavePlayer,
   onSelectedDirectInviteDateChange,
   onSelectedDirectEmailTemplateChange,
+  onSendParentPortalInviteForContact = () => {},
   onSendDirectEmail,
   onStartEditingPlayer,
+  parentPortalInviteSendingKey = '',
+  parentPortalLinksByPlayerId = {},
   playerDrafts,
   profilePlayers,
   selectedDirectInviteDates,
@@ -91,8 +98,11 @@ export function PlayerDetailsSection({
                     onRefreshEmailTemplates={onRefreshEmailTemplates}
                     onSelectedDirectInviteDateChange={(value) => onSelectedDirectInviteDateChange(player.id, value)}
                     onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
+                    onSendParentPortalInviteForContact={(contact) => onSendParentPortalInviteForContact(player, contact)}
                     onSendDirectEmail={() => onSendDirectEmail(player)}
                     onStartEditingPlayer={() => onStartEditingPlayer(player)}
+                    parentPortalInviteSendingKey={parentPortalInviteSendingKey}
+                    parentPortalLinks={parentPortalLinksByPlayerId[player.id] || []}
                     player={player}
                   />
                 )}
@@ -283,8 +293,11 @@ function PlayerDetailsSummary({
   onRefreshEmailTemplates,
   onSelectedDirectInviteDateChange,
   onSelectedDirectEmailTemplateChange,
+  onSendParentPortalInviteForContact = () => {},
   onSendDirectEmail,
   onStartEditingPlayer,
+  parentPortalInviteSendingKey = '',
+  parentPortalLinks = [],
   player,
   selectedDirectInviteDate,
   selectedDirectEmailTemplateKey,
@@ -309,11 +322,47 @@ function PlayerDetailsSummary({
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Contacts</p>
           <div className="mt-2 space-y-1">
             {contacts.length > 0 ? (
-              contacts.map((contact, index) => (
-                <p key={index} className="break-words text-sm font-black text-[#101828]">
-                  Contact: {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}{contact.email ? `, Email: ${contact.email}` : ''}
-                </p>
-              ))
+              contacts.map((contact, index) => {
+                const email = normalizeParentPortalInviteEmail(contact.email)
+                const sendingKey = email ? `${player.id}:${email}` : ''
+                const inviteAction = getParentPortalInviteActionForContact({
+                  contact,
+                  isSending: parentPortalInviteSendingKey === sendingKey,
+                  links: parentPortalLinks,
+                  player,
+                })
+
+                return (
+                  <div key={index} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 shadow-sm shadow-[#047857]/10">
+                    <p className="break-words text-sm font-black text-[#101828]">
+                      Contact: {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}
+                    </p>
+                    {contact.email ? (
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="break-all text-sm font-black text-[#101828]">Email: {contact.email}</span>
+                        <div className="flex flex-col gap-2 sm:items-end">
+                          {inviteAction.statusLabel ? (
+                            <span className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
+                              {inviteAction.statusLabel}
+                            </span>
+                          ) : null}
+                          {inviteAction.label ? (
+                            <button
+                              type="button"
+                              disabled={!inviteAction.canSend}
+                              title={inviteAction.title}
+                              onClick={() => onSendParentPortalInviteForContact(contact)}
+                              className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#047857] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {parentPortalInviteSendingKey === sendingKey ? 'Sending...' : inviteAction.label}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              })
             ) : (
               <p className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-3 py-2 text-sm font-black text-[#4b5f55]">
                 Add parent or player contact details before sending portal invites or direct emails.

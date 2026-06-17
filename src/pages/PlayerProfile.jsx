@@ -34,6 +34,10 @@ import {
 } from '../lib/evaluation-export-selection.js'
 import { buildAssessmentPdfHtml } from '../lib/assessment-pdf-html.js'
 import {
+  isParentPortalInviteEligiblePlayer,
+  normalizeParentPortalInviteEmail,
+} from '../lib/parent-portal-invite-actions.js'
+import {
   EMAIL_SECTION_DEFAULTS,
   buildProgressionEmailSections,
   buildPlayerProgressionData,
@@ -93,6 +97,7 @@ import {
   normalizePlayerContactType,
   clearViewCaches,
   createParentPortalInvites,
+  getParentLinksForPlayer,
   movePlayerToTrial,
   promotePlayerToSquad,
   readViewCache,
@@ -185,6 +190,8 @@ export function PlayerProfile() {
   const [staffNoteDeleteTarget, setStaffNoteDeleteTarget] = useState(null)
   const [promoteConfirmTarget, setPromoteConfirmTarget] = useState(null)
   const [sendParentPortalLinkOnPromote, setSendParentPortalLinkOnPromote] = useState(true)
+  const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
+  const [parentPortalInviteSendingKey, setParentPortalInviteSendingKey] = useState('')
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
@@ -401,6 +408,44 @@ export function PlayerProfile() {
       : null
 
   const profilePlayers = useMemo(() => getProfilePlayers(players), [players])
+  useEffect(() => {
+    let isMounted = true
+    const squadPlayers = profilePlayers.filter(isParentPortalInviteEligiblePlayer)
+
+    const loadParentPortalLinks = async () => {
+      if (squadPlayers.length === 0) {
+        setParentPortalLinksByPlayerId({})
+        return
+      }
+
+      const results = await Promise.allSettled(
+        squadPlayers.map(async (player) => [player.id, await getParentLinksForPlayer({ playerId: player.id })]),
+      )
+
+      if (!isMounted) {
+        return
+      }
+
+      setParentPortalLinksByPlayerId(
+        Object.fromEntries(
+          results
+            .filter((result) => result.status === 'fulfilled')
+            .map((result) => result.value),
+        ),
+      )
+
+      results
+        .filter((result) => result.status === 'rejected')
+        .forEach((result) => console.error(result.reason))
+    }
+
+    void loadParentPortalLinks()
+
+    return () => {
+      isMounted = false
+    }
+  }, [profilePlayers, userScopeKey])
+
   const lastSection = profilePlayers[0]?.section || evaluations[0]?.section || 'Trial'
   const lastTeam = profilePlayers[0]?.team || evaluations[0]?.team || ''
   const primaryPlayer = profilePlayers[0]
@@ -1391,6 +1436,77 @@ export function PlayerProfile() {
     return invites
   }
 
+  const refreshParentPortalLinksForPlayer = async (playerId) => {
+    if (!playerId) {
+      return
+    }
+
+    const nextLinks = await getParentLinksForPlayer({ playerId })
+    setParentPortalLinksByPlayerId((current) => ({
+      ...current,
+      [playerId]: nextLinks,
+    }))
+  }
+
+  const handleSendParentPortalInviteForContact = async (player, contact) => {
+    const email = normalizeParentPortalInviteEmail(contact?.email)
+
+    if (!isParentPortalInviteEligiblePlayer(player)) {
+      setErrorMessage('Parent portal invites can only be sent for Squad players.')
+      return
+    }
+
+    if (!email) {
+      setErrorMessage('Add a parent email before sending a parent portal invite.')
+      return
+    }
+
+    const sendingKey = `${player.id}:${email}`
+    setParentPortalInviteSendingKey(sendingKey)
+    setErrorMessage('')
+
+    try {
+      const invites = await createParentPortalInvites({
+        user,
+        player,
+        contacts: [contact],
+        includeSentPending: true,
+      })
+
+      if (invites.length > 0) {
+        await Promise.all(
+          invites.map((invite) =>
+            sendParentPortalInvite({
+              clubId: invite.clubId,
+              inviteLinkId: invite.id,
+              parentEmail: invite.email,
+              senderEmail: user.email,
+              displayName: user.displayName || user.username || user.name,
+              teamName: invite.teamName,
+              clubName: invite.clubName || user.clubName,
+              playerName: invite.playerName,
+              subject: `Parent portal invite for ${invite.playerName}`,
+              inviteUrl: invite.inviteUrl,
+            }),
+          ),
+        )
+      }
+
+      await refreshParentPortalLinksForPlayer(player.id)
+      showToast({
+        title: invites.length > 0 ? 'Parent invite sent' : 'No new invite needed',
+        message: invites.length > 0
+          ? `Parent portal invite sent to ${email}.`
+          : 'This parent already has active portal access for this player.',
+      })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Parent portal invite could not be sent.')
+    } finally {
+      setParentPortalInviteSendingKey('')
+    }
+  }
+
   const confirmPromotePlayer = async () => {
     if (!promoteConfirmTarget?.id) {
       return
@@ -1419,7 +1535,7 @@ export function PlayerProfile() {
         } catch (error) {
           console.error(error)
           inviteError = error
-          setErrorMessage(error.message || 'Player was promoted, but the family portal invite could not be sent.')
+          setErrorMessage(error.message || 'Player was promoted, but the parent portal invite could not be sent.')
         }
       }
 
@@ -1609,8 +1725,11 @@ export function PlayerProfile() {
             [`direct:${playerId}`]: value,
           }))
         }
+        onSendParentPortalInviteForContact={(player, contact) => void handleSendParentPortalInviteForContact(player, contact)}
         onSendDirectEmail={(player) => void handleSendDirectEmail(player)}
         onStartEditingPlayer={handleStartEditingPlayer}
+        parentPortalInviteSendingKey={parentPortalInviteSendingKey}
+        parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
         playerDrafts={playerDrafts}
         profilePlayers={profilePlayers}
         selectedDirectInviteDates={selectedDirectInviteDates}
@@ -1684,11 +1803,11 @@ export function PlayerProfile() {
             className="mt-1 h-4 w-4 accent-[#047857] disabled:cursor-not-allowed"
           />
           <span>
-            <span className="block font-black">Send family portal link</span>
+            <span className="block font-black">Send parent portal invite</span>
             <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
               {getPlayerPortalContacts(promoteConfirmTarget).length > 0
                 ? 'Parent contacts saved on this player will receive the portal invite.'
-                : 'Add a parent email before sending a family portal link.'}
+                : 'Add a parent email before sending a parent portal invite.'}
             </span>
           </span>
         </label>
