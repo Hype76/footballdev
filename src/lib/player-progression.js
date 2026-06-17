@@ -82,10 +82,18 @@ function normalizeFieldLabel(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
-function isProgressionScoreField(field = {}) {
+export function isProgressionNumericField(field = {}) {
   const type = String(field.type ?? '').trim()
 
   if (!['score_1_5', 'score_1_10', 'number'].includes(type)) {
+    return false
+  }
+
+  return true
+}
+
+function isProgressionScoreField(field = {}) {
+  if (!isProgressionNumericField(field)) {
     return false
   }
 
@@ -120,6 +128,12 @@ function getChartFieldMap(fields = []) {
   return new Map(chartFields.map((field) => [normalizeFieldLabel(field.label), field]))
 }
 
+export function getProgressionNumericFieldMap(fields = []) {
+  const numericFields = Array.isArray(fields) ? fields.filter(isProgressionNumericField) : []
+
+  return new Map(numericFields.map((field) => [normalizeFieldLabel(field.label), field]))
+}
+
 function getEvaluationChartScore(evaluation, chartFieldMap) {
   if (!chartFieldMap.size) {
     return isNumericValue(evaluation.averageScore) ? Number(evaluation.averageScore) : null
@@ -148,8 +162,19 @@ function normaliseNote(note) {
   }
 }
 
-export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], fields = [] } = {}) {
-  const chronologicalEvaluations = [...evaluations].sort((left, right) => getEvaluationDate(left) - getEvaluationDate(right))
+export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], fields = [], currentDate } = {}) {
+  const today = toDateValue(currentDate) || new Date()
+  const todayKey = today.toISOString().slice(0, 10)
+  const historicalEvaluations = evaluations.filter((evaluation) => {
+    const date = getEvaluationDate(evaluation)
+
+    if (!date || date.getTime() === 0) {
+      return true
+    }
+
+    return date.toISOString().slice(0, 10) <= todayKey
+  })
+  const chronologicalEvaluations = [...historicalEvaluations].sort((left, right) => getEvaluationDate(left) - getEvaluationDate(right))
   const chartFieldMap = getChartFieldMap(fields)
   const scoreTrend = chronologicalEvaluations
     .map((evaluation) => {
@@ -198,15 +223,16 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
   })
 
   const numericFields = new Map()
+  const numericFieldMap = getProgressionNumericFieldMap(fields)
   chronologicalEvaluations.forEach((evaluation) => {
     Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
-      const field = chartFieldMap.get(normalizeFieldLabel(label))
+      const field = numericFieldMap.get(normalizeFieldLabel(label))
 
-      if (chartFieldMap.size && !field) {
+      if (!field) {
         return
       }
 
-      const normalizedScore = chartFieldMap.size ? normalizeScoreToTen(value, field) : Number(value)
+      const normalizedScore = normalizeScoreToTen(value, field)
 
       if (!Number.isFinite(normalizedScore)) {
         return

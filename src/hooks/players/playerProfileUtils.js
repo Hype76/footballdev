@@ -13,7 +13,7 @@ import {
   renderParentEmailTemplate,
 } from '../../lib/email-templates.js'
 import { buildAssessmentPdfHtml } from '../../lib/assessment-pdf-html.js'
-import { buildProgressionEmailSections } from '../../lib/player-progression.js'
+import { buildProgressionEmailSections, getProgressionNumericFieldMap } from '../../lib/player-progression.js'
 
 export const PROFILE_EVALUATION_PAGE_SIZE = 5
 
@@ -170,15 +170,20 @@ export function buildRatingTrend(evaluations) {
     .sort((left, right) => left.createdAt - right.createdAt)
 }
 
-export function buildFieldMovement(evaluations) {
+export function buildFieldMovement(evaluations, fields = []) {
   const chronologicalEvaluations = [...evaluations].sort((left, right) => left.createdAt - right.createdAt)
   const fieldValues = new Map()
+  const numericFieldMap = getProgressionNumericFieldMap(fields)
 
   chronologicalEvaluations.forEach((evaluation) => {
     Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
+      if (!numericFieldMap.has(String(label ?? '').trim().toLowerCase())) {
+        return
+      }
+
       const numericValue = Number(value)
 
-      if (Number.isNaN(numericValue)) {
+      if (!Number.isFinite(numericValue)) {
         return
       }
 

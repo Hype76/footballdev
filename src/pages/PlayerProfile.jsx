@@ -389,7 +389,7 @@ export function PlayerProfile() {
     [evaluationPage, evaluations],
   )
   const ratingTrend = useMemo(() => buildRatingTrend(evaluations), [evaluations])
-  const fieldMovement = useMemo(() => buildFieldMovement(evaluations), [evaluations])
+  const fieldMovement = useMemo(() => buildFieldMovement(evaluations, dynamicFields), [dynamicFields, evaluations])
   const progressionData = useMemo(
     () => buildPlayerProgressionData({ evaluations, staffNotes, fields: dynamicFields }),
     [dynamicFields, evaluations, staffNotes],
