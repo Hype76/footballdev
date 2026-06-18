@@ -17,7 +17,7 @@
     "deploy:live": "npm run build:live && npm run verify:build-env && netlify deploy --prod --dir=dist",
     "lint": "eslint .",
     "test:email": "node --test tests/email-provider.test.mjs tests/email-send-events-rls.test.mjs",
-    "test:platform": "node --test tests/platform-stats-normalizers.test.mjs tests/platform-create-club.test.mjs tests/live-qa-hardening.test.mjs tests/matchday-parent-calendar-safety.test.mjs tests/matchday-rls-staff-scope.test.mjs tests/parent-portal-cleanup.test.mjs tests/parent-auth-intent.test.mjs tests/parent-data-safety.test.mjs tests/parent-portal-ux.test.mjs tests/parent-portal-branding.test.mjs tests/netlify-deploy-safety.test.mjs",
+    "test:platform": "node --test tests/platform-stats-normalizers.test.mjs tests/platform-create-club.test.mjs tests/live-qa-hardening.test.mjs tests/matchday-parent-calendar-safety.test.mjs tests/matchday-rls-staff-scope.test.mjs tests/parent-portal-cleanup.test.mjs tests/parent-auth-intent.test.mjs tests/parent-data-safety.test.mjs tests/parent-portal-ux.test.mjs tests/parent-portal-branding.test.mjs tests/netlify-deploy-safety.test.mjs tests/platform-admin-auth-bootstrap.test.mjs",
     "test:v1-stabilise": "node --test tests/evaluation-private-drafts.test.mjs tests/assessment-scoring-10-point.test.mjs tests/matchday-fixture-workflow.test.mjs tests/fitness-benchmarks.test.mjs tests/system-support-email-gating.test.mjs",
     "mobile:doctor": "node apps/scripts/mobile-doctor-check.mjs",
     "mobile:export:web": "node apps/scripts/mobile-export-web-check.mjs",

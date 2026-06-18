@@ -52,6 +52,7 @@ let teamDataModulePromise = null
 const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
 const SELECTED_TEAM_STORAGE_KEY = 'selected-team-id'
 const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
+const SELECTED_ACCESS_MODE_EXPLICIT_KEY = 'selected-access-mode-explicit'
 const PLATFORM_ADMIN_ACCESS_OPTION = {
   id: 'platform_admin',
   label: 'Platform Admin',
@@ -314,6 +315,7 @@ export function AuthProvider({ children }) {
     window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
     window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'platform_admin')
+    window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
     setClubOptions(result.user.clubOptions ?? [])
     setTeamOptions([])
     setHasPlatformAdminAccess(true)
@@ -351,6 +353,7 @@ export function AuthProvider({ children }) {
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
       window.sessionStorage.removeItem(DEMO_ROLE_STORAGE_KEY)
       setDemoRoleKeyState('')
       finishBootstrap()
@@ -378,9 +381,10 @@ export function AuthProvider({ children }) {
         const { fetchUserProfile } = await loadAuthDataModule()
         const selectedClubId = window.sessionStorage.getItem(SELECTED_CLUB_STORAGE_KEY) || ''
         const selectedAccessMode = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_STORAGE_KEY) || ''
+        const selectedAccessModeIsExplicit = window.sessionStorage.getItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY) === 'true'
         const hasPlatformAccess = await refreshPlatformAdminAccess(nextSession.user)
 
-        if (selectedAccessMode === 'platform_admin' && hasPlatformAccess) {
+        if (hasPlatformAccess && selectedAccessMode !== 'parent' && (selectedAccessMode !== 'team' || !selectedAccessModeIsExplicit)) {
           const platformProfile = await openPlatformAdminProfile()
 
           if (!isMounted || activeSyncIdRef.current !== syncId) {
@@ -548,10 +552,12 @@ export function AuthProvider({ children }) {
       }
 
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextPreferredAccessMode)
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     } else {
       window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
+      window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
     }
@@ -579,6 +585,8 @@ export function AuthProvider({ children }) {
     try {
       const { selectUserClub } = await loadAuthDataModule()
       const profile = await selectUserClub(authUser, clubId)
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'team')
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
       window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       const profileWithTeam = await applyTeamSelection(profile)
@@ -618,6 +626,7 @@ export function AuthProvider({ children }) {
 
       const { fetchUserProfile } = await loadAuthDataModule()
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextAccessMode)
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY, 'true')
       window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       const profile = await fetchUserProfile(authUser, {

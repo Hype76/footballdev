@@ -408,7 +408,7 @@ export function Sidebar({ isOpen, onClose }) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#047857]">
-                    {isParentPortal ? 'Family portal' : isCoachOnly ? 'Coach tools' : 'Football OS'}
+                    {isParentPortal ? 'Family portal' : isCoachOnly ? 'Coach tools' : 'Football Player'}
                   </p>
                   <h2 className="mt-1 max-w-[min(12.5rem,calc(100vw-9rem))] truncate whitespace-nowrap text-lg font-black tracking-tight text-[#101828]">{clubLabel}</h2>
                 </div>
