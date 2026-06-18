@@ -14,6 +14,30 @@ export function normalizeDateOnly(value) {
     return `${year}-${month}-${day}`
   }
 
+  const monthWordMatch = normalizedValue.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/)
+
+  if (monthWordMatch) {
+    const [, dayValue, monthValue, yearValue] = monthWordMatch
+    const monthIndex = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ].indexOf(monthValue.slice(0, 3).toLowerCase())
+
+    if (monthIndex >= 0) {
+      return `${yearValue}-${String(monthIndex + 1).padStart(2, '0')}-${String(Number(dayValue)).padStart(2, '0')}`
+    }
+  }
+
   const parsedDate = new Date(normalizedValue)
 
   if (Number.isNaN(parsedDate.getTime())) {

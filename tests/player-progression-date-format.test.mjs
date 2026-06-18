@@ -9,6 +9,7 @@ import { buildFieldMovement, buildRatingTrend, formatTrendDate } from '../src/ho
 test('British date helpers use unambiguous record and month labels', () => {
   assert.equal(formatUkDateWords('2026-05-27'), '27 May 2026')
   assert.equal(formatUkDateWords('11/06/2026'), '11 Jun 2026')
+  assert.equal(formatUkDateWords('12 Jun 2026'), '12 Jun 2026')
   assert.equal(formatUkMonthYear('2026-05-27'), 'May 2026')
 })
 
@@ -234,6 +235,53 @@ test('same day scored records get stable sequenced chart labels', () => {
   assert.equal(progression.hasScoreTrend, true)
   assert.deepEqual(progression.scoreTrend.map((point) => point.dateKey), ['2026-06-12#01', '2026-06-12#02'])
   assert.deepEqual(progression.scoreTrend.map((point) => point.label), ['12 Jun 2026 #1', '12 Jun 2026 #2'])
+})
+
+test('progression uses merge-visible player records including no-session same-day and section-mixed scores', () => {
+  const fields = [
+    { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+    { label: 'Tactical', type: 'score_1_10', includeInProgressChart: true },
+    { label: 'Physical', type: 'score_1_10', includeInProgressChart: true },
+    { label: 'Mentality', type: 'score_1_10', includeInProgressChart: true },
+    { label: 'Coachability', type: 'score_1_10', includeInProgressChart: true },
+    { label: 'Strengths', type: 'textarea', includeInProgressChart: false },
+  ]
+  const evaluations = [
+    { id: '12-jun-high', date: '12 Jun 2026', session: '', section: 'Squad', averageScore: 7.6, formResponses: { Technical: 7.6, Tactical: 7.6, Physical: 7.6, Mentality: 7.6, Coachability: 7.6 } },
+    { id: '12-jun-low', date: '12 Jun 2026', session: '', section: 'Squad', averageScore: 6.0, formResponses: { Technical: 6, Tactical: 6, Physical: 6, Mentality: 6, Coachability: 6 } },
+    { id: '11-jun-high', date: '11 Jun 2026', session: '2026-06-11', section: 'Squad', averageScore: 5.6, formResponses: { Technical: 5.6, Tactical: 5.6, Physical: 5.6, Mentality: 5.6, Coachability: 5.6 } },
+    { id: '11-jun-low', date: '11 Jun 2026', session: '2026-06-11', section: 'Squad', averageScore: 3.6, formResponses: { Technical: 3.6, Tactical: 3.6, Physical: 3.6, Mentality: 3.6, Coachability: 3.6 } },
+    { id: '9-jun-low', date: '9 Jun 2026', session: '', section: 'Squad', averageScore: 4.0, formResponses: { Technical: 4, Tactical: 4, Physical: 4, Mentality: 4, Coachability: 4 } },
+    { id: '9-jun-high', date: '9 Jun 2026', session: '', section: 'Squad', averageScore: 5.6, formResponses: { Technical: 5.6, Tactical: 5.6, Physical: 5.6, Mentality: 5.6, Coachability: 5.6 } },
+    { id: '27-may-mobile', date: '27 May 2026', session: 'Mobile assessment', section: 'Squad', averageScore: 6.0, formResponses: { Technical: 6, Tactical: 6, Physical: 6, Mentality: 6, Coachability: 6 } },
+    { id: '8-may-squad', date: '8 May 2026', session: '2026-05-06', section: 'Squad', averageScore: 6.8, formResponses: { Technical: 6.8, Tactical: 6.8, Physical: 6.8, Mentality: 6.8, Coachability: 6.8 } },
+    { id: '8-may-trial', date: '8 May 2026', session: '2026-05-08', section: 'Trial', averageScore: 6.8, formResponses: { Technical: 6.8, Tactical: 6.8, Physical: 6.8, Mentality: 6.8, Coachability: 6.8 } },
+  ]
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-18',
+    evaluations,
+    fields,
+  })
+  const overallLine = progression.trendLines.find((line) => line.key === 'overall')
+
+  assert.equal(progression.historicalEvaluationCount, 9)
+  assert.equal(progression.eligibilityBreakdown.scoredRecords, 9)
+  assert.equal(progression.eligibilityBreakdown.chartEligibleRecords, 9)
+  assert.equal(progression.evaluationCount, 9)
+  assert.equal(progression.hasScoreTrend, true)
+  assert.equal(progression.trainingCount, 9)
+  assert.equal(progression.matchCount, 0)
+  assert.equal(overallLine.points.length, 9)
+  assert.deepEqual(
+    progression.scoreTrend.map((point) => point.id),
+    ['8-may-squad', '8-may-trial', '27-may-mobile', '9-jun-low', '9-jun-high', '11-jun-high', '11-jun-low', '12-jun-high', '12-jun-low'],
+  )
+  assert.deepEqual(
+    progression.scoreTrend.map((point) => point.label),
+    ['8 May 2026 #1', '8 May 2026 #2', '27 May 2026', '9 Jun 2026 #1', '9 Jun 2026 #2', '11 Jun 2026 #1', '11 Jun 2026 #2', '12 Jun 2026 #1', '12 Jun 2026 #2'],
+  )
+  assert.equal(progression.scoreTrend.some((point) => point.label === 'No date entered'), false)
+  assert.deepEqual(progression.focusAreas.map((item) => item.label), ['Technical', 'Tactical', 'Physical', 'Mentality'])
 })
 
 test('player profile rating cards format stored dates in British wording', () => {
