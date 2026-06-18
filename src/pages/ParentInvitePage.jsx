@@ -17,14 +17,18 @@ function getFriendlySignupError(error) {
   const normalizedMessage = rawMessage.toLowerCase()
 
   if (normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists')) {
-    return 'An account already exists for this email. Use parent login to open the child link.'
+    return 'An account already exists for this email. Use sign in to open the child link.'
   }
 
   if (normalizedMessage.includes('rate limit')) {
     return 'Too many confirmation emails have been sent. Please wait a few minutes, then try again.'
   }
 
-  return rawMessage || 'Parent account could not be created.'
+  if (normalizedMessage.includes('staging') || normalizedMessage.includes('test workspace') || normalizedMessage.includes('platform admin')) {
+    return 'This access link is not available. Please ask the club to send a new invite.'
+  }
+
+  return rawMessage || 'Account could not be created.'
 }
 
 async function withTimeout(promise, message, timeoutMs = 15000) {
@@ -70,6 +74,7 @@ export function ParentInvitePage() {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [password, setPassword] = useState('')
+  const [isConfirmationState, setIsConfirmationState] = useState(false)
   const isParentHost = isParentInviteHost()
   const canAcceptSignedInSession = Boolean(session?.user || directSessionReady)
 
@@ -82,6 +87,18 @@ export function ParentInvitePage() {
   }, [isParentHost])
 
   useEffect(() => {
+    if (!isConfirmationState) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      window.close()
+    }, 30000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [isConfirmationState])
+
+  useEffect(() => {
     let isMounted = true
 
     const loadInvite = async () => {
@@ -90,7 +107,7 @@ export function ParentInvitePage() {
       }
 
       if (!token) {
-        setErrorMessage('Parent invite token is missing.')
+        setErrorMessage('This access link is not available. Please ask the club to send a new invite.')
         setIsInviteLoading(false)
         return
       }
@@ -105,7 +122,7 @@ export function ParentInvitePage() {
         const result = await response.json().catch(() => ({}))
 
         if (!response.ok || result.success === false || !result.invite) {
-          throw new Error(result.message || 'Parent invite details could not be loaded.')
+          throw new Error(result.message || 'This access link is not available. Please ask the club to send a new invite.')
         }
 
         if (isMounted) {
@@ -116,8 +133,8 @@ export function ParentInvitePage() {
         console.error(error)
         if (isMounted) {
           setErrorMessage(error.name === 'AbortError'
-            ? 'Parent invite details took too long to load. Refresh the page and try again.'
-            : error.message || 'Parent invite details could not be loaded.')
+            ? 'This access link took too long to load. Refresh the page and try again.'
+            : getFriendlySignupError(error))
         }
       } finally {
         if (isMounted) {
@@ -257,13 +274,13 @@ export function ParentInvitePage() {
       try {
         const link = await withTimeout(
           acceptParentPortalInvite(token),
-          'Parent access took too long to open. Refresh the page and try again.',
+          'Family access took too long to open. Refresh the page and try again.',
         )
         await withTimeout(
           session?.user
             ? selectAccessMode('parent')
             : Promise.resolve(window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')),
-          'Parent workspace took too long to open. Refresh the page and try again.',
+          'Family workspace took too long to open. Refresh the page and try again.',
         )
         if (isMounted) {
           setAcceptedLink(link)
@@ -272,7 +289,7 @@ export function ParentInvitePage() {
       } catch (error) {
         console.error(error)
         if (isMounted) {
-          setErrorMessage(error.message || 'This parent link could not be opened.')
+          setErrorMessage(getFriendlySignupError(error) || 'This access link could not be opened.')
         }
       } finally {
         if (isMounted) {
@@ -316,7 +333,8 @@ export function ParentInvitePage() {
 
       if (result?.needsEmailVerification) {
         setPassword('')
-        setMessage('Parent account created. Check your email, confirm the account, then log in on the parent login page.')
+        setMessage('')
+        setIsConfirmationState(true)
       } else {
         window.location.assign(buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&created=1`))
       }
@@ -335,16 +353,30 @@ export function ParentInvitePage() {
       <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Guardian access</p>
       <h1 className="mt-3 text-2xl font-black tracking-tight">Create your family portal login</h1>
       <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-        Use this login only for the child shown below. Parent accounts do not open staff tools or other club records.
+        Use this login only for the child shown below. Family accounts do not open staff tools or other club records.
       </p>
+
+      {isConfirmationState ? (
+        <div className="mt-5 space-y-4">
+          <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4">
+            <p className="text-2xl font-black tracking-tight text-[#101828]">Please confirm your email.</p>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+              A confirmation email has been sent. Click the link in that email to finish account setup and open the sign-in page.
+            </p>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
+              This page will try to close after 30 seconds. You can close this tab after confirming your email.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {isInviteLoading || isLoading || isAccepting ? (
         <p className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#4b5f55]">
-          Opening parent access...
+          Opening family access...
         </p>
       ) : null}
 
-      {invite && !session?.user && !acceptedLink ? (
+      {invite && !session?.user && !acceptedLink && !isConfirmationState ? (
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Player access</p>
@@ -397,7 +429,7 @@ export function ParentInvitePage() {
             </div>
           </label>
 
-          {errorMessage ? <NoticeBanner title="Parent access not created" message={errorMessage} /> : null}
+          {errorMessage ? <NoticeBanner title="Account not created" message={errorMessage} /> : null}
 
           {message ? (
             <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#065f46]">
@@ -410,19 +442,19 @@ export function ParentInvitePage() {
             disabled={isSubmitting || !email.trim()}
             className={primaryButtonClass}
           >
-            {isSubmitting ? 'Creating account...' : 'Create parent account'}
+            {isSubmitting ? 'Creating account...' : 'Create account'}
           </button>
 
           <a
             href={buildParentAppUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}`)}
             className={secondaryButtonClass}
           >
-            Already have parent access?
+            Already have an account?
           </a>
         </form>
       ) : null}
 
-      {errorMessage && (!invite || session?.user) ? <div className="mt-5"><NoticeBanner title="Parent access not opened" message={errorMessage} /></div> : null}
+      {errorMessage && (!invite || session?.user) ? <div className="mt-5"><NoticeBanner title="Family access not opened" message={errorMessage} /></div> : null}
 
       {acceptedLink ? (
         <div className="mt-5 space-y-4">

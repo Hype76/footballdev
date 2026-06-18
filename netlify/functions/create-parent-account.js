@@ -28,7 +28,7 @@ function escapeHtml(value) {
 }
 
 function getDisplayName(email) {
-  return String(email ?? '').split('@')[0]?.replace(/[._-]+/g, ' ').trim() || 'Parent'
+  return String(email ?? '').split('@')[0]?.replace(/[._-]+/g, ' ').trim() || 'Parent or guardian'
 }
 
 function isExistingUserError(error) {
@@ -75,7 +75,7 @@ function buildConfirmationEmailHtml({ actionLink, invite, email }) {
       <div style="border: 1px solid #e5eadf; border-radius: 12px; overflow: hidden;">
         <div style="background: #101510; color: #ffffff; padding: 24px;">
           <p style="margin: 0 0 8px; color: #d8ff2f; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">Family portal</p>
-          <h1 style="margin: 0; font-size: 24px;">Confirm parent access</h1>
+          <h1 style="margin: 0; font-size: 24px;">Confirm family access</h1>
         </div>
         <div style="padding: 24px;">
           <p style="margin: 0 0 16px;">Confirm ${escapeHtml(email)} to open family portal access for ${escapeHtml(childName)}.</p>
@@ -84,7 +84,7 @@ function buildConfirmationEmailHtml({ actionLink, invite, email }) {
             <p style="margin: 4px 0 0; color: #52645a; font-size: 14px;">${escapeHtml(teamCopy)}</p>
           </div>
           <p style="margin: 0 0 22px;">
-            <a href="${escapeHtml(actionLink)}" style="display: inline-block; background: #d8ff2f; color: #050805; padding: 12px 18px; border-radius: 8px; font-weight: 800; text-decoration: none;">Confirm parent account</a>
+            <a href="${escapeHtml(actionLink)}" style="display: inline-block; background: #d8ff2f; color: #050805; padding: 12px 18px; border-radius: 8px; font-weight: 800; text-decoration: none;">Confirm account</a>
           </p>
           <p style="margin: 0; color: #52645a; font-size: 13px;">This confirmation link is for this email address only.</p>
           <div style="border-top: 1px solid #e5eadf; margin-top: 20px; padding-top: 14px;">
@@ -104,15 +104,15 @@ async function getInvite(supabaseAdmin, token) {
     .maybeSingle()
 
   if (error || !data) {
-    throw Object.assign(new Error('This parent invite could not be found.'), { statusCode: 404 })
+    throw Object.assign(new Error('This access link is not available. Please ask the club to send a new invite.'), { statusCode: 404 })
   }
 
   if (data.status === 'revoked') {
-    throw Object.assign(new Error('This parent invite is no longer available.'), { statusCode: 403 })
+    throw Object.assign(new Error('This access link is not available. Please ask the club to send a new invite.'), { statusCode: 403 })
   }
 
   if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
-    throw Object.assign(new Error('This parent invite has expired. Ask the team to send a new family portal link.'), { statusCode: 410 })
+    throw Object.assign(new Error('This access link has expired. Please ask the club to send a new invite.'), { statusCode: 410 })
   }
 
   const player = Array.isArray(data.players) ? data.players[0] : data.players
@@ -194,14 +194,14 @@ export async function handler(event) {
     }
 
     if (!inviteToken) {
-      return failureResponse(400, 'Parent invite token is required.')
+      return failureResponse(400, 'This access link is not available. Please ask the club to send a new invite.')
     }
 
     const invite = await getInvite(supabaseAdmin, inviteToken)
     const lockedEmail = String(invite.email ?? '').trim().toLowerCase()
 
     if (lockedEmail && lockedEmail !== email) {
-      return failureResponse(403, 'This parent invite is for a different email address.')
+      return failureResponse(403, 'This access link is for a different email address.')
     }
 
     const baseUrl = getBaseUrl(event)
@@ -236,19 +236,19 @@ export async function handler(event) {
         data = retryResult.data
         error = retryResult.error
       } else {
-        return failureResponse(409, 'An account already exists for this email. Use parent login to open the child link.')
+        return failureResponse(409, 'An account already exists for this email. Use sign in to open the child link.')
       }
     }
 
     if (error) {
       console.error(error)
-      return failureResponse(400, error.message || 'Parent account could not be created.')
+      return failureResponse(400, error.message || 'Account could not be created.')
     }
 
     const actionLink = data?.properties?.action_link
 
     if (!actionLink) {
-      return failureResponse(500, 'Parent confirmation link could not be created.')
+      return failureResponse(500, 'Confirmation link could not be created.')
     }
 
     try {
@@ -264,7 +264,7 @@ export async function handler(event) {
           targetEntityType: 'parent_invite',
           targetEntityId: inviteToken,
         },
-        publicMessage: 'Parent confirmation email could not be sent. Please try again in a moment.',
+        publicMessage: 'Confirmation email could not be sent. Please try again in a moment.',
       })
     } catch (sendError) {
       await deleteUnconfirmedAuthUser(supabaseAdmin, email, data?.user).catch((deleteError) => console.error(deleteError))
@@ -279,8 +279,8 @@ export async function handler(event) {
   } catch (error) {
     console.error(error)
     const publicMessage = error.publicMessage
-      ? getPublicEmailErrorMessage(error, 'Parent account could not be created. Please try again in a moment.')
-      : error.message || 'Parent account could not be created.'
+      ? getPublicEmailErrorMessage(error, 'Account could not be created. Please try again in a moment.')
+      : error.message || 'Account could not be created.'
     return failureResponse(error.statusCode || 500, publicMessage)
   }
 }

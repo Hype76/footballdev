@@ -259,7 +259,28 @@ async function getParentPortalMemberships(authUser) {
     return []
   }
 
-  return (data ?? []).map((row) => {
+  const normalizedAuthEmail = String(authUser.email ?? '').trim().toLowerCase()
+  const rows = data ?? []
+
+  if (normalizedAuthEmail && rows.some((row) => String(row.email ?? '').trim().toLowerCase() !== normalizedAuthEmail)) {
+    const { data: syncedRows, error: syncError } = await supabase
+      .from('parent_player_links')
+      .update({
+        email: normalizedAuthEmail,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('auth_user_id', authUser.id)
+      .eq('status', 'active')
+      .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url)')
+
+    if (syncError) {
+      console.error(syncError)
+    } else {
+      rows.splice(0, rows.length, ...(syncedRows ?? []))
+    }
+  }
+
+  return rows.map((row) => {
     const player = Array.isArray(row.players) ? row.players[0] : row.players
     const team = Array.isArray(row.teams) ? row.teams[0] : row.teams
     const club = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs

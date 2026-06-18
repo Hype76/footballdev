@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
+import { ParentPortalSectionNav } from '../components/parent-portal/ParentPortalShell.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
@@ -19,7 +20,11 @@ import {
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   getParentPortalSharedCalendarEvents,
+  requestLoginEmailChange,
   updateMatchDayScoreAsScorer,
+  updateOwnParentPortalLinksEmail,
+  updateParentPortalDisplayName,
+  updateSignedInPassword,
 } from '../lib/supabase.js'
 import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
@@ -29,7 +34,6 @@ import {
   parentMatchDayLoadErrorMessage,
   parentMatchDayLoadErrorTitle,
 } from '../lib/parent-matchday-errors.js'
-import { isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
 const EMPTY_GOAL_FORM = {
   teamSide: 'club',
@@ -50,17 +54,7 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
-const parentPortalSections = [
-  { id: 'overview', label: 'Overview', description: 'Start here' },
-  { id: 'calendar', label: 'Calendar', description: 'Shared dates' },
-  { id: 'invites', label: 'Invites', description: 'Sessions and events' },
-  { id: 'matches', label: 'Match cards', description: 'Live and upcoming' },
-  { id: 'results', label: 'Results', description: 'Previous games' },
-  { id: 'messages', label: 'Messages', description: 'Club messages', path: '/parent-messages' },
-  { id: 'polls', label: 'Polls', description: 'Questions to answer', path: '/parent-polls' },
-  { id: 'family', label: 'Family', description: 'Shared access', path: '/friends-family' },
-  { id: 'settings', label: 'Settings', description: 'Profile and preferences' },
-]
+const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'settings'])
 
 function confirmMatchDayAction(message) {
   return window.confirm(message)
@@ -224,8 +218,9 @@ function orderPlayersWithRecentScorers(players, match) {
 }
 
 export function ParentPortalPage() {
-  const { user } = useAuth()
+  const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
   const { showToast } = useToast()
+  const [searchParams] = useSearchParams()
   const links = Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
@@ -258,6 +253,14 @@ export function ParentPortalPage() {
     () => buildParentCalendarEvents({ eventInvites, matches, sharedCalendarEvents }),
     [eventInvites, matches, sharedCalendarEvents],
   )
+  const parentNavCounts = useMemo(() => ({
+    calendar: parentCalendarEvents.length,
+    invites: eventInvites.length,
+    matches: activeMatches.length,
+    results: previousMatches.length,
+    messages: 0,
+    polls: 0,
+  }), [activeMatches.length, eventInvites.length, parentCalendarEvents.length, previousMatches.length])
   const squadPlayers = useMemo(
     () =>
       players
@@ -265,6 +268,22 @@ export function ParentPortalPage() {
         .sort((left, right) => String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))),
     [players],
   )
+
+  useEffect(() => {
+    const requestedSection = String(searchParams.get('section') ?? '').trim()
+    if (parentPortalSectionIds.has(requestedSection)) {
+      setActiveSection(requestedSection)
+    }
+  }, [searchParams])
+
+  const handleSectionSelect = (sectionId) => {
+    if (!parentPortalSectionIds.has(sectionId)) {
+      return
+    }
+
+    setActiveSection(sectionId)
+  }
+
   useEffect(() => {
     if (!selectedLink?.id) {
       return
@@ -676,11 +695,8 @@ export function ParentPortalPage() {
         <ParentPortalSectionNav
           activeSection={activeSection}
           className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
-          eventInvites={eventInvites}
-          matchCount={activeMatches.length}
-          onSelect={setActiveSection}
-          previousCount={previousMatches.length}
-          sharedDateCount={parentCalendarEvents.length}
+          counts={parentNavCounts}
+          onSelect={handleSectionSelect}
           user={user}
           variant="desktop"
         />
@@ -748,11 +764,14 @@ export function ParentPortalPage() {
 
           {activeSection === 'settings' ? (
             <ParentSettingsPanel
+              authUser={authUser}
               hasPushSubscription={hasPushSubscription}
               isUpdatingPush={isUpdatingPush}
               onDisableNotifications={handleDisableNotifications}
               onEnableNotifications={handleEnableNotifications}
               onThemePreferenceChange={handleParentThemePreferenceChange}
+              resetPassword={resetPassword}
+              updateCurrentUserDetails={updateCurrentUserDetails}
               parentEmail={getParentEmail(user)}
               parentName={getParentDisplayName(user)}
               pushState={pushState}
@@ -766,11 +785,8 @@ export function ParentPortalPage() {
       <ParentPortalSectionNav
         activeSection={activeSection}
         className="lg:hidden"
-        eventInvites={eventInvites}
-        matchCount={activeMatches.length}
-        onSelect={setActiveSection}
-        previousCount={previousMatches.length}
-        sharedDateCount={parentCalendarEvents.length}
+        counts={parentNavCounts}
+        onSelect={handleSectionSelect}
         user={user}
         variant="mobile"
       />
@@ -782,6 +798,7 @@ export function ParentPortalPage() {
 }
 
 function ParentSettingsPanel({
+  authUser,
   hasPushSubscription,
   isUpdatingPush,
   onDisableNotifications,
@@ -790,10 +807,136 @@ function ParentSettingsPanel({
   parentEmail,
   parentName,
   pushState,
+  resetPassword,
   selectedLink,
   themePreference,
+  updateCurrentUserDetails,
 }) {
+  const { showToast } = useToast()
   const themeOptions = ['system', 'light', 'dark']
+  const [displayName, setDisplayName] = useState(parentName)
+  const [email, setEmail] = useState(parentEmail)
+  const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' })
+  const [statusMessage, setStatusMessage] = useState('')
+  const [settingsError, setSettingsError] = useState('')
+  const [isSavingName, setIsSavingName] = useState(false)
+  const [isSavingEmail, setIsSavingEmail] = useState(false)
+  const [isSavingPassword, setIsSavingPassword] = useState(false)
+  const [isSendingReset, setIsSendingReset] = useState(false)
+
+  useEffect(() => {
+    setDisplayName(parentName)
+  }, [parentName])
+
+  useEffect(() => {
+    setEmail(parentEmail)
+  }, [parentEmail])
+
+  const clearMessages = () => {
+    setStatusMessage('')
+    setSettingsError('')
+  }
+
+  const handleDisplayNameSubmit = async (event) => {
+    event.preventDefault()
+    const normalizedDisplayName = displayName.trim()
+
+    setIsSavingName(true)
+    clearMessages()
+
+    try {
+      const updatedProfile = await updateParentPortalDisplayName({ displayName: normalizedDisplayName })
+      updateCurrentUserDetails(updatedProfile)
+      setStatusMessage('Display name updated.')
+      showToast({ title: 'Display name updated', message: 'Your family portal profile name has been saved.' })
+    } catch (error) {
+      console.error(error)
+      setSettingsError(error.message || 'Display name could not be updated.')
+      showToast({ title: 'Display name not saved', message: error.message || 'Display name could not be updated.', tone: 'error' })
+    } finally {
+      setIsSavingName(false)
+    }
+  }
+
+  const handleEmailSubmit = async (event) => {
+    event.preventDefault()
+    const normalizedEmail = email.trim().toLowerCase()
+    const currentEmail = String(parentEmail || authUser?.email || '').trim().toLowerCase()
+
+    setIsSavingEmail(true)
+    clearMessages()
+
+    try {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        throw new Error('Enter a valid email address.')
+      }
+
+      if (normalizedEmail === currentEmail) {
+        throw new Error('No change made. Enter a different email address.')
+      }
+
+      const result = await requestLoginEmailChange({ authUser, email: normalizedEmail })
+
+      if (result.pendingConfirmation) {
+        setStatusMessage('Email change requested. Confirm the change from your inbox, then sign in again so linked child access can sync to the new email.')
+        showToast({ title: 'Email change requested', message: 'Check your inbox to confirm the new login email.' })
+      } else {
+        const parentLinks = await updateOwnParentPortalLinksEmail({ authUser, email: result.email })
+        updateCurrentUserDetails(parentLinks.length > 0
+          ? { email: result.email, parentPortalLinks: parentLinks }
+          : { email: result.email })
+        setStatusMessage('Email updated for login and linked child access.')
+        showToast({ title: 'Email updated', message: 'Your login and family portal contact email have been updated.' })
+      }
+    } catch (error) {
+      console.error(error)
+      setSettingsError(error.message || 'Email could not be updated.')
+      showToast({ title: 'Email not updated', message: error.message || 'Email could not be updated.', tone: 'error' })
+    } finally {
+      setIsSavingEmail(false)
+    }
+  }
+
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault()
+
+    setIsSavingPassword(true)
+    clearMessages()
+
+    try {
+      if (passwordData.password !== passwordData.confirmPassword) {
+        throw new Error('Passwords do not match.')
+      }
+
+      await updateSignedInPassword(passwordData.password)
+      setPasswordData({ password: '', confirmPassword: '' })
+      setStatusMessage('Password updated.')
+      showToast({ title: 'Password updated', message: 'Your password has been changed.' })
+    } catch (error) {
+      console.error(error)
+      setSettingsError(error.message || 'Password could not be updated.')
+      showToast({ title: 'Password not updated', message: error.message || 'Password could not be updated.', tone: 'error' })
+    } finally {
+      setIsSavingPassword(false)
+    }
+  }
+
+  const handlePasswordReset = async () => {
+    setIsSendingReset(true)
+    clearMessages()
+
+    try {
+      await resetPassword(parentEmail || authUser?.email)
+      setStatusMessage('Password reset email sent if that account exists.')
+      showToast({ title: 'Reset email sent', message: 'Check your inbox for the password reset link.' })
+    } catch (error) {
+      console.error(error)
+      setSettingsError(error.message || 'Password reset email could not be sent.')
+      showToast({ title: 'Reset email failed', message: error.message || 'Password reset email could not be sent.', tone: 'error' })
+    } finally {
+      setIsSendingReset(false)
+    }
+  }
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
@@ -802,21 +945,99 @@ function ParentSettingsPanel({
           <p className={eyebrowClass}>Settings</p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
           <p className={`mt-3 ${bodyTextClass}`}>
-            Manage how this portal appears on this device. Secure account changes stay guided until the parent profile tools are ready here.
+            Manage your family portal account, linked children, notifications, and display preference.
           </p>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className={softPanelClass}>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Display name</p>
-            <p className="mt-2 text-lg font-black text-[#101828]">{parentName}</p>
-            <p className={`mt-2 ${bodyTextClass}`}>Profile name editing will be added when secure parent profile updates are available.</p>
+        {statusMessage ? (
+          <p className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#047857]">
+            {statusMessage}
+          </p>
+        ) : null}
+
+        {settingsError ? <NoticeBanner title="Settings not saved" message={settingsError} /> : null}
+
+        <form className={softPanelClass} onSubmit={handleDisplayNameSubmit}>
+          <label className="block">
+            <span className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Display name</span>
+            <input
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              minLength={2}
+              maxLength={80}
+              required
+              className={`mt-2 ${fieldClass}`}
+            />
+          </label>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            This changes the name used by the family portal. Staff-side contact display name sync needs a parent contact display-name field before it can be guaranteed everywhere.
+          </p>
+          <button type="submit" disabled={isSavingName} className={`mt-4 ${primaryButtonClass}`}>
+            {isSavingName ? 'Saving...' : 'Save display name'}
+          </button>
+        </form>
+
+        <form className={softPanelClass} onSubmit={handleEmailSubmit}>
+          <label className="block">
+            <span className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Email address</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              className={`mt-2 ${fieldClass}`}
+            />
+          </label>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            Email changes may require inbox confirmation. After confirmation, active linked-child records sync to the confirmed login email so club contact views stay aligned.
+          </p>
+          <button type="submit" disabled={isSavingEmail} className={`mt-4 ${primaryButtonClass}`}>
+            {isSavingEmail ? 'Requesting...' : 'Change email'}
+          </button>
+        </form>
+
+        <form className={panelClass} onSubmit={handlePasswordSubmit}>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Password</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-black text-[#4b5f55]">New password</span>
+              <input
+                type="password"
+                value={passwordData.password}
+                onChange={(event) => setPasswordData((current) => ({ ...current, password: event.target.value }))}
+                minLength={8}
+                autoComplete="new-password"
+                className={fieldClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-black text-[#4b5f55]">Confirm password</span>
+              <input
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(event) => setPasswordData((current) => ({ ...current, confirmPassword: event.target.value }))}
+                minLength={8}
+                autoComplete="new-password"
+                className={fieldClass}
+              />
+            </label>
           </div>
-          <div className={softPanelClass}>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Email address</p>
-            <p className="mt-2 break-words text-lg font-black text-[#101828]">{parentEmail || 'Email not available'}</p>
-            <p className={`mt-2 ${bodyTextClass}`}>Email changes are handled by the club for now so parent-child access stays linked to the right address.</p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <button type="submit" disabled={isSavingPassword || !passwordData.password || !passwordData.confirmPassword} className={primaryButtonClass}>
+              {isSavingPassword ? 'Updating...' : 'Update password'}
+            </button>
+            <button type="button" onClick={handlePasswordReset} disabled={isSendingReset} className={secondaryButtonClass}>
+              {isSendingReset ? 'Sending...' : 'Send reset email'}
+            </button>
           </div>
+        </form>
+
+        <div className={panelClass}>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Linked children</p>
+          <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink ? selectedLink.playerName : 'No child selected'}</p>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            This account can view {selectedLink ? `${selectedLink.playerName} at ${selectedLink.clubName || 'the club'}` : 'linked child records once the club shares access'}.
+          </p>
         </div>
 
         <div className={panelClass}>
@@ -847,12 +1068,6 @@ function ParentSettingsPanel({
           </p>
         </div>
 
-        <div className={panelClass}>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Password and access</p>
-          <p className={`mt-2 ${bodyTextClass}`}>
-            Use the password reset link on the parent login screen if you need a new password. Email address changes should be requested through the club so access stays attached to {selectedLink?.playerName || 'the selected child'}.
-          </p>
-        </div>
       </div>
 
       <PushNotificationPanel
@@ -888,6 +1103,7 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
       title: event.title || 'Shared event',
       description: [event.location, event.notes].filter(Boolean).join(', '),
       location: event.location,
+      teamName: event.teamName || '',
       editable: false,
       data: event,
     }))
@@ -904,6 +1120,7 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
       title: invite.title || 'Invited event',
       description: [invite.arrivalTime ? `Meet ${invite.arrivalTime}` : '', invite.location, invite.notes].filter(Boolean).join(', '),
       location: invite.location,
+      teamName: invite.teamName || '',
       editable: false,
       data: invite,
     }))
@@ -920,6 +1137,7 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
       title: `${match.teamName || 'Team'} v ${match.opponent || 'Opponent'}`,
       description: [match.arrivalTime ? `Meet ${match.arrivalTime}` : '', match.kickoffTime ? `Kick-off ${match.kickoffTime}` : '', match.venueName].filter(Boolean).join(', '),
       location: match.venueName,
+      teamName: match.teamName || '',
       editable: false,
       data: match,
     }))
@@ -934,83 +1152,6 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
     left.date.localeCompare(right.date) ||
     String(left.time || '').localeCompare(String(right.time || '')) ||
     left.title.localeCompare(right.title),
-  )
-}
-
-function ParentPortalSectionNav({
-  activeSection,
-  className = '',
-  eventInvites,
-  matchCount,
-  onSelect,
-  previousCount,
-  sharedDateCount,
-  user,
-  variant = 'desktop',
-}) {
-  const counts = {
-    calendar: sharedDateCount,
-    invites: eventInvites.length,
-    matches: matchCount,
-    results: previousCount,
-  }
-  const visibleSections = parentPortalSections.filter((section) => !section.path || isRecoveryPathVisible(section.path, { user }))
-  const itemClass = (isActive) => [
-    'flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
-    variant === 'mobile' ? 'w-[8.5rem] shrink-0' : 'w-full',
-    isActive
-      ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
-      : 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828] hover:border-[#047857] hover:bg-white',
-  ].join(' ')
-  const wrapperClass = variant === 'mobile'
-    ? `fixed inset-x-0 bottom-0 z-[60] border-t border-[#d7e5dc] bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-[#047857]/15 backdrop-blur ${className}`.trim()
-    : `rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 ${className}`.trim()
-  const listClass = variant === 'mobile'
-    ? 'flex gap-2 overflow-x-auto overscroll-x-contain pb-1'
-    : 'grid gap-2'
-
-  return (
-    <nav aria-label="Parent portal sections" className={wrapperClass}>
-      <div className={listClass}>
-        {visibleSections.map((section) => {
-          const isActive = activeSection === section.id
-          const count = counts[section.id]
-          const content = (
-            <>
-              <span className="min-w-0">
-                <span className="block text-sm font-black">{section.label}</span>
-                <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
-              </span>
-              {typeof count === 'number' ? (
-                <span className="shrink-0 rounded-full border border-[#d7e5dc] bg-white px-2 py-1 text-xs font-black text-[#047857]">
-                  {count}
-                </span>
-              ) : null}
-            </>
-          )
-
-          if (section.path) {
-            return (
-              <Link key={section.id} to={section.path} className={itemClass(false)}>
-                {content}
-              </Link>
-            )
-          }
-
-          return (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => onSelect(section.id)}
-              className={itemClass(isActive)}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              {content}
-            </button>
-          )
-        })}
-      </div>
-    </nav>
   )
 }
 

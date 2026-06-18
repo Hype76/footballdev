@@ -93,6 +93,8 @@ export {
   markParentPortalMessageRead,
   revokeFamilyPortalLink,
   revokeParentPortalLink,
+  updateOwnParentPortalLinksEmail,
+  updateParentPortalDisplayName,
 } from './domain/parent-portal.js'
 
 export {

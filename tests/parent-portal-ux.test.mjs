@@ -12,6 +12,12 @@ import {
 } from '../src/lib/parent-matchday-errors.js'
 
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
+const parentPortalShellUrl = new URL('../src/components/parent-portal/ParentPortalShell.jsx', import.meta.url)
+const parentMessagesPageUrl = new URL('../src/pages/ParentMessagesPage.jsx', import.meta.url)
+const parentPollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url)
+const friendsFamilyPageUrl = new URL('../src/pages/FriendsFamilyPage.jsx', import.meta.url)
+const parentInvitePageUrl = new URL('../src/pages/ParentInvitePage.jsx', import.meta.url)
+const createParentAccountFunctionUrl = new URL('../netlify/functions/create-parent-account.js', import.meta.url)
 const parentLoginPageUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
 const publicParentLoginBoxUrl = new URL('../src/components/login/ParentPortalLoginBox.jsx', import.meta.url)
 const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
@@ -39,20 +45,23 @@ test('parent dashboard explains linked child and multiple child selection', asyn
 })
 
 test('parent dashboard uses section navigation instead of one long page', async () => {
-  const source = await readFile(parentPortalPageUrl, 'utf8')
+  const [source, shellSource] = await Promise.all([
+    readFile(parentPortalPageUrl, 'utf8'),
+    readFile(parentPortalShellUrl, 'utf8'),
+  ])
 
-  assert.match(source, /const parentPortalSections = \[/)
-  assert.match(source, /id: 'overview', label: 'Overview'/)
-  assert.match(source, /id: 'calendar', label: 'Calendar'/)
-  assert.match(source, /id: 'invites', label: 'Invites'/)
-  assert.match(source, /id: 'matches', label: 'Match cards'/)
-  assert.match(source, /id: 'results', label: 'Results'/)
-  assert.match(source, /id: 'messages', label: 'Messages'/)
-  assert.match(source, /id: 'polls', label: 'Polls'/)
-  assert.match(source, /id: 'family', label: 'Family'/)
-  assert.match(source, /id: 'settings', label: 'Settings'/)
-  assert.match(source, /aria-label="Parent portal sections"/)
-  assert.match(source, /isRecoveryPathVisible\(section\.path, \{ user \}\)/)
+  assert.match(shellSource, /const parentPortalSections = \[/)
+  assert.match(shellSource, /id: 'overview', label: 'Overview'/)
+  assert.match(shellSource, /id: 'calendar', label: 'Calendar'/)
+  assert.match(shellSource, /id: 'invites', label: 'Invites'/)
+  assert.match(shellSource, /id: 'matches', label: 'Match cards'/)
+  assert.match(shellSource, /id: 'results', label: 'Results'/)
+  assert.match(shellSource, /id: 'messages', label: 'Messages'/)
+  assert.match(shellSource, /id: 'polls', label: 'Polls'/)
+  assert.match(shellSource, /id: 'family', label: 'Family'/)
+  assert.match(shellSource, /id: 'settings', label: 'Settings'/)
+  assert.match(shellSource, /aria-label="Parent portal sections"/)
+  assert.match(shellSource, /isRecoveryPathVisible\(section\.recoveryPath, \{ user \}\)/)
   assert.match(source, /activeSection === 'calendar'/)
   assert.match(source, /activeSection === 'matches'/)
   assert.match(source, /activeSection === 'results'/)
@@ -91,7 +100,7 @@ test('calendar controls are grouped and month grid rows are not hard-coded to si
   assert.match(source, /visibleDayCount = Math\.ceil\(\(startOffset \+ daysInMonth\) \/ 7\) \* 7/)
   assert.doesNotMatch(source, /Array\.from\(\{ length: 42 \}/)
   assert.match(source, /grid gap-3 sm:grid-cols-\[auto_minmax\(0,1fr\)\]/)
-  assert.match(source, /grid grid-cols-2 gap-1\.5 rounded-lg/)
+  assert.match(source, /grid grid-cols-3 gap-1\.5 rounded-lg/)
   assert.match(source, /grid grid-cols-3 gap-2/)
 })
 
@@ -126,17 +135,20 @@ test('parent match day load failures show parent-friendly copy instead of raw Sa
 })
 
 test('parent dashboard exposes surfaced parent links without feature clutter', async () => {
-  const source = await readFile(parentPortalPageUrl, 'utf8')
+  const [source, shellSource] = await Promise.all([
+    readFile(parentPortalPageUrl, 'utf8'),
+    readFile(parentPortalShellUrl, 'utf8'),
+  ])
 
-  assert.match(source, /label: 'Messages'/)
-  assert.match(source, /label: 'Polls'/)
-  assert.match(source, /label: 'Family'/)
-  assert.match(source, /id: 'settings', label: 'Settings'/)
-  assert.doesNotMatch(source, /id: 'account', label: 'Account'/)
-  assert.match(source, /fixed inset-x-0 bottom-0 z-\[60\]/)
+  assert.match(shellSource, /label: 'Messages'/)
+  assert.match(shellSource, /label: 'Polls'/)
+  assert.match(shellSource, /label: 'Family'/)
+  assert.match(shellSource, /id: 'settings', label: 'Settings'/)
+  assert.doesNotMatch(shellSource, /id: 'account', label: 'Account'/)
+  assert.match(shellSource, /fixed inset-x-0 bottom-0 z-\[60\]/)
   assert.match(source, /lg:grid-cols-\[16rem_minmax\(0,1fr\)\]/)
-  assert.match(source, /hidden lg:block lg:sticky/)
-  assert.match(source, /pb-\[max\(0\.75rem,env\(safe-area-inset-bottom\)\)\]/)
+  assert.match(shellSource, /hidden lg:block lg:sticky/)
+  assert.match(shellSource, /pb-\[max\(0\.75rem,env\(safe-area-inset-bottom\)\)\]/)
   assert.doesNotMatch(source, /coming soon/i)
   assert.doesNotMatch(source, /staff shell/i)
   assert.doesNotMatch(source, /admin shell/i)
@@ -148,13 +160,88 @@ test('parent settings expose safe profile, notification, and theme controls', as
   assert.match(source, /function ParentSettingsPanel/)
   assert.match(source, /Display name/)
   assert.match(source, /Email address/)
+  assert.match(source, /Save display name/)
+  assert.match(source, /Change email/)
+  assert.match(source, /Update password/)
+  assert.match(source, /Send reset email/)
+  assert.match(source, /Linked children/)
   assert.match(source, /Theme preference/)
   assert.match(source, /const themeOptions = \['system', 'light', 'dark'\]/)
-  assert.match(source, /Email changes are handled by the club for now/)
-  assert.match(source, /password reset link on the parent login screen/)
+  assert.match(source, /updateParentPortalDisplayName/)
+  assert.match(source, /requestLoginEmailChange/)
+  assert.match(source, /updateOwnParentPortalLinksEmail/)
+  assert.match(source, /updateSignedInPassword/)
   assert.match(source, /<PushNotificationPanel/)
   assert.match(source, /getParentDisplayName/)
   assert.match(source, /!value\.includes\('@'\)/)
+})
+
+test('parent portal shell persists navigation on messages polls and family routes', async () => {
+  const [messagesSource, pollsSource, familySource, shellSource] = await Promise.all([
+    readFile(parentMessagesPageUrl, 'utf8'),
+    readFile(parentPollsPageUrl, 'utf8'),
+    readFile(friendsFamilyPageUrl, 'utf8'),
+    readFile(parentPortalShellUrl, 'utf8'),
+  ])
+
+  assert.match(messagesSource, /<ParentPortalRouteShell activeSection="messages"/)
+  assert.match(pollsSource, /<ParentPortalRouteShell activeSection="polls"/)
+  assert.match(familySource, /<ParentPortalRouteShell activeSection="family"/)
+  assert.match(shellSource, /variant="desktop"/)
+  assert.match(shellSource, /variant="mobile"/)
+  assert.doesNotMatch(shellSource, /coach|admin|staff/i)
+})
+
+test('parent messages use compact unread total stat and keep linked children in settings', async () => {
+  const [messagesSource, settingsSource] = await Promise.all([
+    readFile(parentMessagesPageUrl, 'utf8'),
+    readFile(parentPortalPageUrl, 'utf8'),
+  ])
+
+  assert.match(messagesSource, /label: 'Unread messages'/)
+  assert.match(messagesSource, /value: `\$\{unreadCount\} \/ \$\{messages\.length\}`/)
+  assert.doesNotMatch(messagesSource, /label: 'Linked children'/)
+  assert.match(settingsSource, /Linked children/)
+})
+
+test('messages and polls nav badges use scoped page counts', async () => {
+  const [messagesSource, pollsSource, shellSource] = await Promise.all([
+    readFile(parentMessagesPageUrl, 'utf8'),
+    readFile(parentPollsPageUrl, 'utf8'),
+    readFile(parentPortalShellUrl, 'utf8'),
+  ])
+
+  assert.match(messagesSource, /messages: unreadCount/)
+  assert.match(pollsSource, /polls: unansweredPollCount/)
+  assert.match(shellSource, /typeof count === 'number'/)
+})
+
+test('friends and family invite wording and success flow are neutral', async () => {
+  const [inviteSource, functionSource] = await Promise.all([
+    readFile(parentInvitePageUrl, 'utf8'),
+    readFile(createParentAccountFunctionUrl, 'utf8'),
+  ])
+  const combinedSource = `${inviteSource}\n${functionSource}`
+
+  assert.match(inviteSource, /Create account/)
+  assert.match(inviteSource, /Already have an account\?/)
+  assert.match(inviteSource, /Please confirm your email\./)
+  assert.match(inviteSource, /window\.setTimeout\(\(\) => \{[\s\S]*window\.close\(\)[\s\S]*\}, 30000\)/)
+  assert.match(functionSource, /Confirm family access/)
+  assert.match(functionSource, /Confirm account/)
+  assert.match(combinedSource, /This access link is not available\. Please ask the club to send a new invite\./)
+  assert.doesNotMatch(combinedSource, /Create parent account|Already have parent access|Parent access not opened|staging account|platform admin for a fresh test invite/)
+})
+
+test('calendar includes agenda view with grouped chronological events', async () => {
+  const calendarSource = await readFile(footballCalendarUrl, 'utf8')
+
+  assert.match(calendarSource, /\['month', 'week', 'agenda'\]/)
+  assert.match(calendarSource, /Agenda/)
+  assert.match(calendarSource, /function groupAgendaEvents\(events\)/)
+  assert.match(calendarSource, /orderedEvents\.forEach/)
+  assert.match(calendarSource, /No upcoming agenda items are available/)
+  assert.match(calendarSource, /grid grid-cols-3 gap-1\.5 rounded-lg/)
 })
 
 test('parent overview includes neutral helper engagement summary from parent-visible match cards', async () => {

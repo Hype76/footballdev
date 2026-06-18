@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ParentPortalRouteShell } from '../components/parent-portal/ParentPortalShell.jsx'
 import { useAuth } from '../lib/auth.js'
 import {
   canDownloadMessagePdf,
@@ -35,21 +36,15 @@ export function ParentMessagesPage() {
   const hasUnreadMessages = messages.some((message) => !message.readAt)
   const unreadCount = messages.filter((message) => !message.readAt).length
   const latestMessage = messages[0]
+  const parentNavCounts = {
+    messages: unreadCount,
+    polls: 0,
+  }
   const messageSummary = [
     {
-      label: 'Linked children',
-      value: links.length,
-      caption: 'Children this parent account can view.',
-    },
-    {
-      label: 'Messages',
-      value: messages.length,
-      caption: 'Emails shared into this portal.',
-    },
-    {
-      label: 'Unread',
-      value: unreadCount,
-      caption: 'Messages still waiting to be opened.',
+      label: 'Unread messages',
+      value: `${unreadCount} / ${messages.length}`,
+      caption: 'Unread from total shared messages.',
     },
   ]
 
@@ -174,7 +169,8 @@ export function ParentMessagesPage() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <ParentPortalRouteShell activeSection="messages" counts={parentNavCounts} user={user}>
+      <div className="space-y-5 sm:space-y-6">
       <ParentInboxHero
         isLoading={isLoadingMessages}
         latestMessage={latestMessage}
@@ -269,7 +265,8 @@ export function ParentMessagesPage() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </ParentPortalRouteShell>
   )
 }
 
@@ -286,7 +283,7 @@ function ParentInboxHero({ isLoading, latestMessage, selectedLink, summary }) {
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
               Use this inbox for practical football updates: development notes, PDF records, team information, and parent actions.
             </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:max-w-xs">
               {summary.map((item) => (
                 <InboxMetric key={item.label} isLoading={isLoading} {...item} />
               ))}

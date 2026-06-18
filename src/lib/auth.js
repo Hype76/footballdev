@@ -1031,7 +1031,7 @@ export function AuthProvider({ children }) {
     const result = await response.json().catch(() => ({}))
 
     if (!response.ok || result.success === false) {
-      const error = new Error(result.message || 'Parent account could not be created.')
+      const error = new Error(result.message || 'Account could not be created.')
       console.error(error)
       setAuthError(error.message)
       throw error

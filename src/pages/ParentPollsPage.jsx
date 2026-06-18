@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ParentPortalRouteShell } from '../components/parent-portal/ParentPortalShell.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
@@ -52,6 +53,11 @@ export function ParentPollsPage() {
     [links, selectedLinkId, user?.selectedParentLinkId],
   )
   const answeredPollCount = polls.filter((poll) => getSelectedOptionIds(poll).length > 0).length
+  const unansweredPollCount = Math.max(polls.length - answeredPollCount, 0)
+  const parentNavCounts = {
+    messages: 0,
+    polls: unansweredPollCount,
+  }
   const pollSummary = [
     {
       label: 'Linked children',
@@ -144,7 +150,8 @@ export function ParentPollsPage() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <ParentPortalRouteShell activeSection="polls" counts={parentNavCounts} user={user}>
+      <div className="space-y-5 sm:space-y-6">
       <ParentPollsHero
         answeredPollCount={answeredPollCount}
         isLoading={isLoadingPolls}
@@ -213,7 +220,8 @@ export function ParentPollsPage() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </ParentPortalRouteShell>
   )
 }
 

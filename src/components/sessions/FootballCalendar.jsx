@@ -59,6 +59,20 @@ function getWeekTitle(date) {
   return `${firstLabel} to ${lastLabel}`
 }
 
+function getAgendaTitle(events) {
+  const firstEvent = events[0]
+  const lastEvent = events[events.length - 1]
+
+  if (!firstEvent || !lastEvent) {
+    return 'Agenda'
+  }
+
+  const firstLabel = formatDateLabel(firstEvent.date)
+  const lastLabel = formatDateLabel(lastEvent.date)
+
+  return firstLabel === lastLabel ? firstLabel : `${firstLabel} to ${lastLabel}`
+}
+
 function getDateKey(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return ''
@@ -115,6 +129,34 @@ function getEventScopeLabel(event) {
   return event?.isClubWide || event?.isInheritedClubEvent ? 'Club-wide' : ''
 }
 
+function groupAgendaEvents(events) {
+  const todayKey = getDateKey(new Date())
+  const orderedEvents = [...events]
+    .filter((event) => event.date >= todayKey)
+    .sort((left, right) =>
+      left.date.localeCompare(right.date) ||
+      String(left.time || '').localeCompare(String(right.time || '')) ||
+      left.title.localeCompare(right.title),
+    )
+  const groupedEvents = []
+
+  orderedEvents.forEach((event) => {
+    const lastGroup = groupedEvents[groupedEvents.length - 1]
+
+    if (!lastGroup || lastGroup.date !== event.date) {
+      groupedEvents.push({
+        date: event.date,
+        events: [event],
+      })
+      return
+    }
+
+    lastGroup.events.push(event)
+  })
+
+  return groupedEvents
+}
+
 export function FootballCalendar({
   cursor,
   description = 'Sessions, match days, response deadlines, and shared development updates.',
@@ -136,11 +178,13 @@ export function FootballCalendar({
   }, new Map())
   const monthDates = getMonthGrid(cursor)
   const weekDates = getWeekDates(cursor)
+  const agendaGroups = groupAgendaEvents(events)
+  const agendaEvents = agendaGroups.flatMap((group) => group.events)
   const todayKey = getDateKey(new Date())
 
   const moveCursor = (offset) => {
     const nextDate = new Date(cursor)
-    if (view === 'week') {
+    if (view === 'week' || view === 'agenda') {
       nextDate.setDate(cursor.getDate() + offset * 7)
     } else {
       nextDate.setMonth(cursor.getMonth() + offset)
@@ -152,7 +196,7 @@ export function FootballCalendar({
     onCursorChange(new Date())
   }
 
-  const titleLabel = view === 'week' ? getWeekTitle(cursor) : getMonthTitle(cursor)
+  const titleLabel = view === 'agenda' ? getAgendaTitle(agendaEvents) : view === 'week' ? getWeekTitle(cursor) : getMonthTitle(cursor)
   const expandedDayEvents = expandedDay ? eventByDate.get(expandedDay) ?? [] : []
 
   return (
@@ -167,8 +211,8 @@ export function FootballCalendar({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center xl:min-w-[31rem]">
-          <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-1.5">
-            {['month', 'week'].map((item) => (
+          <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-1.5">
+            {['month', 'week', 'agenda'].map((item) => (
               <button
                 key={item}
                 type="button"
@@ -180,7 +224,7 @@ export function FootballCalendar({
                     : 'border-[#d7e5dc] bg-white text-[#101828] hover:border-[#047857] hover:bg-[#ecfdf5]',
                 ].join(' ')}
               >
-                {item === 'month' ? 'Month' : 'Week'}
+                {item === 'month' ? 'Month' : item === 'week' ? 'Week' : 'Agenda'}
               </button>
             ))}
           </div>
@@ -277,7 +321,7 @@ export function FootballCalendar({
             })}
           </div>
         </div>
-      ) : (
+      ) : view === 'week' ? (
         <div className="mt-5 overflow-hidden rounded-lg border border-[#d7e5dc] bg-[#f7faf8]">
           <div className="divide-y divide-[#d7e5dc] sm:hidden">
             {weekDates.map((date) => {
@@ -374,6 +418,46 @@ export function FootballCalendar({
               )
             })}
           </div>
+        </div>
+      ) : (
+        <div className="mt-5 space-y-4">
+          {agendaGroups.length > 0 ? (
+            agendaGroups.map((group) => (
+              <section key={group.date} className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+                <div className="border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{formatDateLabel(group.date)}</p>
+                  <p className="mt-1 text-sm font-bold text-[#4b5f55]">{group.events.length} item{group.events.length === 1 ? '' : 's'}</p>
+                </div>
+                <div className="divide-y divide-[#d7e5dc]">
+                  {group.events.map((event) => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => onOpenEvent(event)}
+                      className="block w-full px-4 py-4 text-left transition hover:bg-[#f7faf8]"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <span className={`inline-flex w-fit rounded-md border px-2 py-1 text-xs font-black ${getEventTone(event.type)}`}>
+                            {event.type === 'match-day' ? 'Match day' : event.type === 'club-event' ? 'Club event' : event.type}
+                          </span>
+                          <p className="mt-2 text-base font-black text-[#101828]">{event.title}</p>
+                          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
+                            {[event.time ? `Time: ${event.time}` : '', event.location, event.teamName ? `Team: ${event.teamName}` : '', getEventScopeLabel(event)].filter(Boolean).join(', ') || 'Details will appear when the club shares them.'}
+                          </p>
+                        </div>
+                        <span className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">Open</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))
+          ) : (
+            <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-bold text-[#4b5f55]">
+              No upcoming agenda items are available.
+            </p>
+          )}
         </div>
       )}
       {expandedDay ? (

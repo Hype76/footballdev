@@ -79,6 +79,63 @@ export async function getParentPortalLinks() {
   return (data ?? []).map(normalizeParentLink)
 }
 
+export async function updateParentPortalDisplayName({ displayName }) {
+  const normalizedDisplayName = String(displayName ?? '').trim()
+
+  if (normalizedDisplayName.length < 2) {
+    throw new Error('Enter a display name with at least 2 characters.')
+  }
+
+  if (normalizedDisplayName.length > 80) {
+    throw new Error('Display name must be 80 characters or fewer.')
+  }
+
+  const { data, error } = await supabase.auth.updateUser({
+    data: {
+      display_name: normalizedDisplayName,
+      name: normalizedDisplayName,
+      username: normalizedDisplayName,
+    },
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return {
+    displayName: normalizedDisplayName,
+    name: normalizedDisplayName,
+    username: normalizedDisplayName,
+    authEmail: String(data?.user?.email ?? '').trim().toLowerCase(),
+  }
+}
+
+export async function updateOwnParentPortalLinksEmail({ authUser, email }) {
+  const normalizedEmail = normalizeEmail(email)
+
+  if (!authUser?.id || !normalizedEmail) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('parent_player_links')
+    .update({
+      email: normalizedEmail,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('auth_user_id', authUser.id)
+    .eq('status', 'active')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name)')
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return (data ?? []).map(normalizeParentLink)
+}
+
 export async function getParentPortalMessages({ parentLinkId }) {
   const normalizedParentLinkId = String(parentLinkId ?? '').trim()
 
