@@ -47,6 +47,7 @@ export {
 } from './auth-permissions.js'
 
 const AuthContext = createContext(null)
+const AUTH_ACCESS_BROWSER_FIXTURES_ENABLED = import.meta.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES === 'true'
 let authDataModulePromise = null
 let teamDataModulePromise = null
 const SELECTED_CLUB_STORAGE_KEY = 'selected-club-id'
@@ -104,6 +105,68 @@ function buildAccessModeOptions(options = [], hasPlatformAdminAccess = false) {
   return nextOptions
 }
 
+function FixtureAuthProviderLoader({ children }) {
+  const [FixtureAuthProvider, setFixtureAuthProvider] = useState(null)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+
+    import(/* @vite-ignore */ '/src/lib/auth-access-browser-fixtures.js')
+      .then((module) => {
+        if (isMounted) {
+          setFixtureAuthProvider(() => module.FixtureAuthProvider)
+        }
+      })
+      .catch((error) => {
+        console.error(error)
+        if (isMounted) {
+          setLoadError('Browser auth fixtures could not be loaded.')
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  if (loadError) {
+    return createElement(AuthContext.Provider, {
+      value: {
+        session: null,
+        authUser: null,
+        user: null,
+        clubOptions: [],
+        accessModeOptions: [],
+        teamOptions: [],
+        hasPlatformAdminAccess: false,
+        isLoading: false,
+        isProfileLoading: false,
+        authError: loadError,
+      },
+    }, children)
+  }
+
+  if (!FixtureAuthProvider) {
+    return createElement(AuthContext.Provider, {
+      value: {
+        session: null,
+        authUser: null,
+        user: null,
+        clubOptions: [],
+        accessModeOptions: [],
+        teamOptions: [],
+        hasPlatformAdminAccess: false,
+        isLoading: true,
+        isProfileLoading: false,
+        authError: '',
+      },
+    }, children)
+  }
+
+  return createElement(FixtureAuthProvider, { AuthContext }, children)
+}
+
 export async function verifyCurrentUserPassword(email, password) {
   const normalizedEmail = String(email ?? '').trim()
   const normalizedPassword = String(password ?? '')
@@ -125,6 +188,10 @@ export async function verifyCurrentUserPassword(email, password) {
 }
 
 export function AuthProvider({ children }) {
+  if (AUTH_ACCESS_BROWSER_FIXTURES_ENABLED) {
+    return createElement(FixtureAuthProviderLoader, null, children)
+  }
+
   const [session, setSession] = useState(null)
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)

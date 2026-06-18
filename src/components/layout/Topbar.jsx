@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.png'
 import { DEMO_ROLE_OPTIONS, isDemoUser } from '../../lib/demo.js'
 import { getRoleLabel, getWorkspaceHomeCopy, isClubAdmin, useAuth } from '../../lib/auth.js'
@@ -10,6 +10,7 @@ export function Topbar({ title, onMenuClick }) {
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
   const displayUser = user
   const isWorkspaceHome = location.pathname === '/coach' || location.pathname === '/home'
   const displayTitle = isWorkspaceHome ? getWorkspaceHomeCopy(displayUser).title : title
@@ -86,6 +87,7 @@ export function Topbar({ title, onMenuClick }) {
       try {
         setIsSwitchingTeam(true)
         await selectAccessMode('parent')
+        navigate('/parent-portal')
       } catch (error) {
         console.error(error)
       } finally {
