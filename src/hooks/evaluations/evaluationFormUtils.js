@@ -1,5 +1,5 @@
 import { getClubSettings } from '../../lib/supabase.js'
-import { formatUkDate } from '../../lib/date-format.js'
+import { formatUkDate, normalizeDateOnly } from '../../lib/date-format.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
   normalizeEmailTemplateAudience,
@@ -393,6 +393,11 @@ export function createEvaluationPayload({
   const matchingPlayer = findSavedPlayerForEvaluation(savedPlayers, normalizedPlayerName, formData.team, matchingTeam?.id)
   const normalizedAssessmentSessionId = normalizeOptionalUuid(assessmentSessionId)
   const normalizedId = normalizeOptionalUuid(editingEvaluation?.id || id)
+  const normalizedReportDate = normalizeDateOnly(formData.reportDate || formData.session || editingEvaluation?.date)
+
+  if (!normalizedReportDate) {
+    throw new Error('Please enter a report date before saving.')
+  }
 
   return {
     ...(editingEvaluation || {}),
@@ -416,7 +421,7 @@ export function createEvaluationPayload({
     parentContacts,
     contactType: normalizedContactType,
     session: formData.session,
-    date: formatUkDate(new Date().toISOString().slice(0, 10)),
+    date: formatUkDate(normalizedReportDate),
     scores,
     averageScore: averageScore !== null ? Number(averageScore.toFixed(1)) : null,
     comments,
@@ -448,6 +453,10 @@ export function getDevelopmentRecordSaveFailureMessage(error) {
 
   if (combinedMessage.includes('club_id') || combinedMessage.includes('coach_id')) {
     return 'Your staff account is missing the club or team details needed to save this development record.'
+  }
+
+  if (combinedMessage.includes('report date')) {
+    return 'Please enter a report date before saving.'
   }
 
   return 'This development record could not be saved right now. Check the player details and try again.'

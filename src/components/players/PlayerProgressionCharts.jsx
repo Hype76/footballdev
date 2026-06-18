@@ -92,6 +92,10 @@ export function PlayerProgressionCharts({
     : []
   const maxInvolvement = Math.max(1, ...progressionData.involvementByMonth.map((item) => item.assessments))
   const historicalEvaluationCount = Number(progressionData.historicalEvaluationCount ?? progressionData.evaluationCount ?? 0)
+  const eligibilityBreakdown = progressionData.eligibilityBreakdown ?? {}
+  const scoredRecordCount = Number(eligibilityBreakdown.scoredRecords ?? progressionData.evaluationCount ?? 0)
+  const undatedScoredRecordCount = Number(eligibilityBreakdown.undatedScoredRecords ?? 0)
+  const futureDatedScoredRecordCount = Number(eligibilityBreakdown.futureDatedScoredRecords ?? 0)
   const yTicks = scoreMax === 10 ? [0, 2, 4, 6, 8, 10] : [0, 1, 2, 3, 4, 5]
   const xLabels = xKeys
     .map((key) => ({
@@ -124,6 +128,12 @@ export function PlayerProgressionCharts({
           {historicalEvaluationCount !== progressionData.evaluationCount ? (
             <p className={`mt-2 ${bodyClass}`}>
               {progressionData.evaluationCount} scored records from {historicalEvaluationCount} saved development records are eligible for the coach rating trend.
+            </p>
+          ) : null}
+          {undatedScoredRecordCount > 0 || futureDatedScoredRecordCount > 0 ? (
+            <p className={`mt-2 ${bodyClass}`}>
+              {undatedScoredRecordCount > 0 ? `${undatedScoredRecordCount} scored legacy record${undatedScoredRecordCount === 1 ? '' : 's'} need a valid date before charting. ` : ''}
+              {futureDatedScoredRecordCount > 0 ? `${futureDatedScoredRecordCount} future-dated scored record${futureDatedScoredRecordCount === 1 ? '' : 's'} are excluded from historical progression.` : ''}
             </p>
           ) : null}
         </div>
@@ -223,7 +233,11 @@ export function PlayerProgressionCharts({
             </div>
           ) : (
             <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-bold text-[#4b5f55]">
-              {progressionData.evaluationCount > 1
+              {progressionData.evaluationCount === 1
+                ? 'Progression trend will appear after at least two dated scored records.'
+                : scoredRecordCount > progressionData.evaluationCount
+                  ? 'Scored records exist, but they need valid report dates before a trend can be drawn.'
+                  : progressionData.evaluationCount > 1
                 ? 'The selected trend needs at least two scored records before a line can be drawn.'
                 : 'Progression appears after this player has multiple scored records.'}
             </p>
@@ -248,7 +262,11 @@ export function PlayerProgressionCharts({
                   </div>
                 </div>
               )) : (
-                <p className={bodyClass}>No dated development records yet.</p>
+                <p className={bodyClass}>
+                  {scoredRecordCount > 0
+                    ? 'Scored development records exist, but none have a usable historical report date yet.'
+                    : 'No dated development records yet.'}
+                </p>
               )}
             </div>
           </div>

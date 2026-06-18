@@ -46,7 +46,7 @@ function createBasePayload(overrides = {}) {
       parentName: 'Parent One',
       playerName: 'Clyde Bates',
       section: 'Squad',
-      session: '',
+      session: overrides.session ?? '2026-06-18',
       team: 'Demo Team',
     },
     formResponses: {
@@ -117,6 +117,21 @@ test('final development record payload keeps valid scheduled session ids', () =>
 
   assert.equal(payload.assessmentSessionId, assessmentSessionId)
   assert.equal(row.assessment_session_id, assessmentSessionId)
+})
+
+test('final development record payload requires a valid report date', () => {
+  assert.throws(
+    () => createBasePayload({ session: '' }),
+    /Please enter a report date before saving\./,
+  )
+})
+
+test('final development record row saves the report date from the session date field', () => {
+  const payload = createBasePayload({ session: '2026-06-17' })
+  const row = mapEvaluationToRow(payload)
+
+  assert.equal(payload.date, '17/06/2026')
+  assert.equal(row.date, '17/06/2026')
 })
 
 test('final development record payload does not send invalid fallback ids to uuid primary key', () => {
@@ -224,5 +239,9 @@ test('save failure message gives safe diagnostics for final database failures', 
   assert.equal(
     getDevelopmentRecordSaveFailureMessage({ message: 'unknown failure' }),
     'This development record could not be saved right now. Check the player details and try again.',
+  )
+  assert.equal(
+    getDevelopmentRecordSaveFailureMessage({ message: 'Please enter a report date before saving.' }),
+    'Please enter a report date before saving.',
   )
 })

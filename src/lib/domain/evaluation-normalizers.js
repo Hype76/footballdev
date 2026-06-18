@@ -1,4 +1,4 @@
-import { formatUkDate } from '../date-format.js'
+import { formatUkDate, normalizeDateOnly } from '../date-format.js'
 import {
   normalizeParentContacts,
   normalizePlayerContactType,
@@ -142,9 +142,7 @@ export function normalizeEvaluationRow(row) {
     parentContacts,
     contactType: normalizePlayerContactType(row.contact_type ?? row.contactType ?? (row.is_adult || row.isAdult ? 'self' : 'parent')),
     session: String(row.session ?? '').trim(),
-    date:
-      String(row.date ?? '').trim() ||
-      (row.created_at ? formatUkDate(row.created_at, '') : ''),
+    date: String(row.date ?? '').trim(),
     scores,
     averageScore: averageScore !== null ? Number(averageScore) : null,
     comments,
@@ -159,6 +157,23 @@ export function normalizeEvaluationRow(row) {
 }
 
 export function mapEvaluationToRow(data) {
+  const normalizedRecordDate = normalizeDateOnly(
+    data.date ||
+    data.reportDate ||
+    data.report_date ||
+    data.assessmentDate ||
+    data.assessment_date ||
+    data.developmentDate ||
+    data.development_date ||
+    data.sessionDate ||
+    data.session_date ||
+    data.session,
+  )
+
+  if (!normalizedRecordDate) {
+    throw new Error('Please enter a report date before saving.')
+  }
+
   const parentContacts = normalizeParentContacts(data.parentContacts, {
     parentName: data.parentName,
     parentEmail: data.parentEmail,
@@ -193,7 +208,7 @@ export function mapEvaluationToRow(data) {
     parent_contacts: parentContacts,
     contact_type: normalizePlayerContactType(data.contactType ?? data.contact_type ?? (data.isAdult || data.is_adult ? 'self' : 'parent')),
     session: data.session,
-    date: data.date,
+    date: formatUkDate(normalizedRecordDate),
     scores: data.scores,
     average_score: data.averageScore,
     comments: data.comments,

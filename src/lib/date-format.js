@@ -1,4 +1,4 @@
-function getDateOnlyValue(value) {
+export function normalizeDateOnly(value) {
   const normalizedValue = String(value ?? '').trim()
 
   if (!normalizedValue) {
@@ -25,7 +25,7 @@ function getDateOnlyValue(value) {
 
 export function formatUkDate(value, fallback = 'No date entered') {
   const normalizedValue = String(value ?? '').trim()
-  const dateOnlyValue = getDateOnlyValue(normalizedValue)
+  const dateOnlyValue = normalizeDateOnly(normalizedValue)
 
   if (!dateOnlyValue) {
     return normalizedValue || fallback
@@ -37,7 +37,7 @@ export function formatUkDate(value, fallback = 'No date entered') {
 
 export function formatUkDateWords(value, fallback = 'No date entered') {
   const normalizedValue = String(value ?? '').trim()
-  const dateOnlyValue = getDateOnlyValue(normalizedValue)
+  const dateOnlyValue = normalizeDateOnly(normalizedValue)
 
   if (!dateOnlyValue) {
     return normalizedValue || fallback
@@ -59,7 +59,7 @@ export function formatUkDateWords(value, fallback = 'No date entered') {
 
 export function formatUkMonthYear(value, fallback = 'No date entered') {
   const normalizedValue = String(value ?? '').trim()
-  const dateOnlyValue = getDateOnlyValue(normalizedValue)
+  const dateOnlyValue = normalizeDateOnly(normalizedValue)
 
   if (!dateOnlyValue) {
     return normalizedValue || fallback

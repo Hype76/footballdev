@@ -1,4 +1,4 @@
-import { formatUkDateWords, formatUkMonthYear } from './date-format.js'
+import { formatUkDateWords, formatUkMonthYear, normalizeDateOnly } from './date-format.js'
 
 export const EMAIL_SECTION_DEFAULTS = {
   latestSessionNotes: true,
@@ -61,18 +61,80 @@ function toDateValue(value) {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate
 }
 
-function getEvaluationDate(evaluation) {
-  return toDateValue(evaluation?.date) || toDateValue(evaluation?.createdAt) || new Date(0)
+const explicitDateFields = [
+  'date',
+  'reportDate',
+  'report_date',
+  'assessmentDate',
+  'assessment_date',
+  'developmentDate',
+  'development_date',
+]
+
+const linkedDateFields = [
+  'sessionDate',
+  'session_date',
+  'eventDate',
+  'event_date',
+  'matchDate',
+  'match_date',
+  'trainingDate',
+  'training_date',
+  'session',
+]
+
+const savedDateFields = [
+  'savedDate',
+  'saved_date',
+  'recordDate',
+  'record_date',
+]
+
+function getFirstDateCandidate(evaluation, fields) {
+  for (const field of fields) {
+    const dateKey = normalizeDateOnly(evaluation?.[field])
+
+    if (dateKey) {
+      return {
+        date: toDateValue(dateKey),
+        key: dateKey,
+        source: field,
+      }
+    }
+  }
+
+  return null
+}
+
+export function resolveProgressionRecordDate(evaluation) {
+  return (
+    getFirstDateCandidate(evaluation, explicitDateFields) ||
+    getFirstDateCandidate(evaluation, linkedDateFields) ||
+    getFirstDateCandidate(evaluation, savedDateFields) ||
+    getFirstDateCandidate(evaluation, ['createdAt', 'created_at']) ||
+    {
+      date: null,
+      key: '',
+      source: 'missing',
+    }
+  )
 }
 
 function getEvaluationDateKey(evaluation) {
-  const date = getEvaluationDate(evaluation)
-  return date && date.getTime() !== 0 ? date.toISOString().slice(0, 10) : ''
+  if (evaluation?.__progressionDateKey) {
+    return evaluation.__progressionDateKey
+  }
+
+  return resolveProgressionRecordDate(evaluation).key
 }
 
 function formatProgressDate(value) {
   const date = toDateValue(value)
   return date ? formatUkDateWords(date.toISOString().slice(0, 10), 'No date entered') : 'No date entered'
+}
+
+function getEvaluationProgressionLabel(evaluation) {
+  return evaluation?.__progressionLabel || formatProgressDate(getEvaluationDateKey(evaluation))
 }
 
 function formatProgressMonthYear(date) {
@@ -175,6 +237,22 @@ function getEvaluationChartScore(evaluation, chartFieldMap) {
   return values.reduce((sum, value) => sum + value, 0) / values.length
 }
 
+function hasAnyProgressionScore(evaluation, numericFieldMap = new Map(), chartFieldMap = new Map()) {
+  if (Number.isFinite(getEvaluationChartScore(evaluation, chartFieldMap))) {
+    return true
+  }
+
+  return Object.entries(evaluation.formResponses ?? {}).some(([label, value]) => {
+    const field = numericFieldMap.get(normalizeFieldLabel(label))
+
+    if (!field) {
+      return false
+    }
+
+    return Number.isFinite(normalizeScoreToTen(value, field))
+  })
+}
+
 function normaliseNote(note) {
   return {
     id: note?.id ?? '',
@@ -230,7 +308,7 @@ function buildCategoryTrendLines(chronologicalEvaluations, fields = []) {
 
   chronologicalEvaluations.forEach((evaluation) => {
     const dateKey = getEvaluationDateKey(evaluation)
-    const label = formatProgressDate(evaluation.date || evaluation.createdAt)
+    const label = getEvaluationProgressionLabel(evaluation)
 
     Object.entries(evaluation.formResponses ?? {}).forEach(([responseLabel, value]) => {
       const series = fieldMap.get(normalizeFieldLabel(responseLabel))
@@ -284,20 +362,67 @@ export function buildProgressionTrendLines({ scoreTrend = [], fieldSeries = [] }
 export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], fields = [], currentDate } = {}) {
   const today = toDateValue(currentDate) || new Date()
   const todayKey = today.toISOString().slice(0, 10)
-  const historicalEvaluations = evaluations.filter((evaluation) => {
-    const date = getEvaluationDate(evaluation)
-
-    if (!date || date.getTime() === 0) {
-      return true
-    }
-
-    return date.toISOString().slice(0, 10) <= todayKey
-  })
-  const chronologicalEvaluations = [...historicalEvaluations].sort((left, right) => getEvaluationDate(left) - getEvaluationDate(right))
   const chartFieldMap = getChartFieldMap(fields)
+  const numericFieldMap = getProgressionNumericFieldMap(fields)
+  const eligibilityRecords = (Array.isArray(evaluations) ? evaluations : []).map((evaluation, index) => {
+    const resolvedDate = resolveProgressionRecordDate(evaluation)
+    const chartScore = getEvaluationChartScore(evaluation, chartFieldMap)
+    const hasScore = hasAnyProgressionScore(evaluation, numericFieldMap, chartFieldMap)
+    const isFutureDated = Boolean(resolvedDate.key && resolvedDate.key > todayKey)
+    const isDated = Boolean(resolvedDate.key)
+    const isChartEligible = hasScore && isDated && !isFutureDated
+
+    return {
+      evaluation,
+      index,
+      date: resolvedDate.date,
+      dateKey: resolvedDate.key,
+      dateSource: resolvedDate.source,
+      chartScore,
+      hasScore,
+      isDated,
+      isFutureDated,
+      isChartEligible,
+    }
+  })
+  const chartEligibleRecords = eligibilityRecords.filter((record) => record.isChartEligible)
+  const sortedChartEligibleRecords = [...chartEligibleRecords].sort((left, right) =>
+    left.dateKey.localeCompare(right.dateKey) ||
+    left.index - right.index)
+  const sameDayTotals = new Map()
+  sortedChartEligibleRecords.forEach((record) => {
+    sameDayTotals.set(record.dateKey, (sameDayTotals.get(record.dateKey) ?? 0) + 1)
+  })
+  const sameDaySeen = new Map()
+  const chronologicalRecords = sortedChartEligibleRecords.map((record) => {
+    const dayIndex = (sameDaySeen.get(record.dateKey) ?? 0) + 1
+    sameDaySeen.set(record.dateKey, dayIndex)
+    const sameDayTotal = sameDayTotals.get(record.dateKey) ?? 0
+    const sequenceSuffix = sameDayTotal > 1 ? ` #${dayIndex}` : ''
+
+    return {
+      ...record,
+      evaluation: {
+        ...record.evaluation,
+        __progressionDateKey: sameDayTotal > 1 ? `${record.dateKey}#${String(dayIndex).padStart(2, '0')}` : record.dateKey,
+        __progressionLabel: `${formatProgressDate(record.dateKey)}${sequenceSuffix}`,
+      },
+    }
+  })
+  const chronologicalEvaluations = chronologicalRecords.map((record) => record.evaluation)
+  const eligibilityBreakdown = {
+    totalDevelopmentRecords: eligibilityRecords.length,
+    scoredRecords: eligibilityRecords.filter((record) => record.hasScore).length,
+    datedScoredRecords: eligibilityRecords.filter((record) => record.hasScore && record.isDated && !record.isFutureDated).length,
+    undatedScoredRecords: eligibilityRecords.filter((record) => record.hasScore && !record.isDated).length,
+    futureDatedScoredRecords: eligibilityRecords.filter((record) => record.hasScore && record.isFutureDated).length,
+    textOnlyRecordsExcluded: eligibilityRecords.filter((record) => !record.hasScore).length,
+    chartEligibleRecords: chartEligibleRecords.length,
+  }
   const scoreTrend = chronologicalEvaluations
     .map((evaluation) => {
       const chartScore = getEvaluationChartScore(evaluation, chartFieldMap)
+      const dateKey = getEvaluationDateKey(evaluation)
 
       if (!Number.isFinite(chartScore)) {
         return null
@@ -306,8 +431,8 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
       return {
         id: evaluation.id,
         evaluationId: evaluation.id,
-        dateKey: getEvaluationDateKey(evaluation),
-        label: formatProgressDate(evaluation.date || evaluation.createdAt),
+        dateKey,
+        label: getEvaluationProgressionLabel(evaluation),
         value: chartScore,
         session: String(evaluation.session ?? '').trim(),
         team: String(evaluation.team ?? '').trim(),
@@ -320,8 +445,9 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
   const evaluationMonths = new Map()
 
   chronologicalEvaluations.forEach((evaluation) => {
-    const date = getEvaluationDate(evaluation)
-    if (!date || date.getTime() === 0) {
+    const resolvedDate = resolveProgressionRecordDate(evaluation)
+    const date = resolvedDate.date
+    if (!date || !resolvedDate.key) {
       return
     }
 
@@ -351,8 +477,9 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
   const latestComments = latestEvaluation?.comments ?? {}
 
   return {
-    hasAnyData: chronologicalEvaluations.length > 0 || notes.length > 0,
+    hasAnyData: eligibilityBreakdown.totalDevelopmentRecords > 0 || notes.length > 0,
     hasScoreTrend: scoreTrend.length >= 2,
+    eligibilityBreakdown,
     scoreTrend,
     trendLines,
     fieldSeries,
@@ -363,7 +490,7 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
     focusAreas,
     nextFocusAreas: focusAreas,
     evaluationCount: scoreTrend.length,
-    historicalEvaluationCount: chronologicalEvaluations.length,
+    historicalEvaluationCount: eligibilityBreakdown.totalDevelopmentRecords,
     staffNoteCount: notes.length,
     matchCount: Array.from(evaluationMonths.values()).reduce((sum, item) => sum + item.matches, 0),
     trainingCount: Array.from(evaluationMonths.values()).reduce((sum, item) => sum + item.training, 0),

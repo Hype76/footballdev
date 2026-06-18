@@ -111,6 +111,131 @@ test('progression trend lines stay oldest to newest for overall and numeric cate
   assert.equal(progression.trendLines.some((line) => line.points.some((point) => point.evaluationId === 'future')), false)
 })
 
+test('progression excludes undated scored records from chart points and reports eligibility breakdown', () => {
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-18',
+    fields: [
+      { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+      { label: 'Strengths', type: 'textarea', includeInProgressChart: false },
+    ],
+    evaluations: [
+      {
+        id: 'dated-explicit',
+        date: '2026-06-01',
+        averageScore: 6,
+        formResponses: {
+          Technical: 6,
+        },
+      },
+      {
+        id: 'dated-linked-session',
+        sessionDate: '2026-06-08',
+        averageScore: 7,
+        formResponses: {
+          Technical: 7,
+        },
+      },
+      {
+        id: 'legacy-created-at',
+        createdAt: '2026-06-15T09:00:00.000Z',
+        averageScore: 8,
+        formResponses: {
+          Technical: 8,
+        },
+      },
+      {
+        id: 'undated-scored',
+        averageScore: 9,
+        formResponses: {
+          Technical: 9,
+        },
+      },
+      {
+        id: 'future-scored',
+        date: '2026-08-01',
+        averageScore: 10,
+        formResponses: {
+          Technical: 10,
+        },
+      },
+      {
+        id: 'text-only',
+        date: '2026-06-10',
+        formResponses: {
+          Strengths: 'Great attitude',
+        },
+      },
+    ],
+  })
+
+  assert.deepEqual(
+    progression.scoreTrend.map((point) => point.id),
+    ['dated-explicit', 'dated-linked-session', 'legacy-created-at'],
+  )
+  assert.equal(progression.scoreTrend.some((point) => point.label === 'No date entered'), false)
+  assert.equal(progression.eligibilityBreakdown.totalDevelopmentRecords, 6)
+  assert.equal(progression.eligibilityBreakdown.scoredRecords, 5)
+  assert.equal(progression.eligibilityBreakdown.datedScoredRecords, 3)
+  assert.equal(progression.eligibilityBreakdown.undatedScoredRecords, 1)
+  assert.equal(progression.eligibilityBreakdown.futureDatedScoredRecords, 1)
+  assert.equal(progression.eligibilityBreakdown.textOnlyRecordsExcluded, 1)
+  assert.equal(progression.eligibilityBreakdown.chartEligibleRecords, 3)
+})
+
+test('one dated scored record gives an honest no-trend state', () => {
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-18',
+    fields: [
+      { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+    ],
+    evaluations: [
+      {
+        id: 'single-record',
+        date: '2026-06-01',
+        averageScore: 6,
+        formResponses: {
+          Technical: 6,
+        },
+      },
+    ],
+  })
+
+  assert.equal(progression.evaluationCount, 1)
+  assert.equal(progression.hasScoreTrend, false)
+  assert.equal(progression.eligibilityBreakdown.chartEligibleRecords, 1)
+})
+
+test('same day scored records get stable sequenced chart labels', () => {
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-18',
+    fields: [
+      { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+    ],
+    evaluations: [
+      {
+        id: 'same-day-second',
+        date: '2026-06-12',
+        averageScore: 7,
+        formResponses: {
+          Technical: 7,
+        },
+      },
+      {
+        id: 'same-day-first',
+        date: '2026-06-12',
+        averageScore: 6,
+        formResponses: {
+          Technical: 6,
+        },
+      },
+    ],
+  })
+
+  assert.equal(progression.hasScoreTrend, true)
+  assert.deepEqual(progression.scoreTrend.map((point) => point.dateKey), ['2026-06-12#01', '2026-06-12#02'])
+  assert.deepEqual(progression.scoreTrend.map((point) => point.label), ['12 Jun 2026 #1', '12 Jun 2026 #2'])
+})
+
 test('player profile rating cards format stored dates in British wording', () => {
   assert.equal(formatTrendDate({ date: '2026-05-27' }), '27 May 2026')
   assert.equal(formatTrendDate({ date: '08/05/2026' }), '8 May 2026')
@@ -393,15 +518,17 @@ test('progression counts saved scored records even when old records lack current
     ],
   })
 
-  assert.equal(progression.historicalEvaluationCount, 6)
+  assert.equal(progression.historicalEvaluationCount, 7)
   assert.equal(progression.evaluationCount, 5)
+  assert.equal(progression.eligibilityBreakdown.futureDatedScoredRecords, 1)
+  assert.equal(progression.eligibilityBreakdown.textOnlyRecordsExcluded, 1)
   assert.equal(progression.hasScoreTrend, true)
   assert.deepEqual(
     progression.scoreTrend.map((point) => point.id),
     ['legacy-scored-no-session-1', 'legacy-scored-no-session-2', 'current-training', 'current-match', 'current-no-session'],
   )
   assert.deepEqual(progression.scoreTrend.map((point) => point.value), [5.2, 5.6, 6, 7, 7.5])
-  assert.equal(progression.trainingCount, 5)
+  assert.equal(progression.trainingCount, 4)
   assert.equal(progression.matchCount, 1)
   assert.equal(progression.involvementByMonth.some((item) => item.label === 'Aug 2026'), false)
   assert.equal(progression.focusAreas.some((item) => item.label === 'Strengths'), false)
@@ -422,6 +549,8 @@ test('progression component labels scored record counts when saved history diffe
   assert.match(source, /Overall only/)
   assert.match(source, /xKeys\.indexOf\(point\.dateKey\)/)
   assert.match(source, /Oldest records are on the left and newest records are on the right/)
+  assert.match(source, /Progression trend will appear after at least two dated scored records/)
+  assert.match(source, /need a valid date before charting/)
 })
 
 test('player profile date displays use the shared British formatter', () => {
