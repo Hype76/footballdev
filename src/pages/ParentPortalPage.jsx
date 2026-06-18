@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -22,6 +23,7 @@ import {
 } from '../lib/supabase.js'
 import { THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
+import { isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
 const EMPTY_GOAL_FORM = {
   teamSide: 'club',
@@ -48,6 +50,9 @@ const parentPortalSections = [
   { id: 'invites', label: 'Invites', description: 'Sessions and events' },
   { id: 'matches', label: 'Match cards', description: 'Live and upcoming' },
   { id: 'results', label: 'Results', description: 'Previous games' },
+  { id: 'messages', label: 'Messages', description: 'Club messages', path: '/parent-messages' },
+  { id: 'polls', label: 'Polls', description: 'Questions to answer', path: '/parent-polls' },
+  { id: 'family', label: 'Family', description: 'Shared access', path: '/friends-family' },
   { id: 'account', label: 'Account', description: 'Notifications' },
 ]
 
@@ -221,24 +226,6 @@ export function ParentPortalPage() {
         .sort((left, right) => String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))),
     [players],
   )
-  const parentPortalSummary = [
-    {
-      label: 'Linked children',
-      value: links.length,
-      caption: 'Children connected to this parent account.',
-    },
-    {
-      label: 'Shared now',
-      value: activeMatches.length + eventInvites.length,
-      caption: 'Match cards and invites available for the selected child.',
-    },
-    {
-      label: 'Previous games',
-      value: previousMatches.length,
-      caption: 'Completed match cards the club has shared.',
-    },
-  ]
-
   useEffect(() => {
     if (!selectedLink?.id) {
       return
@@ -593,135 +580,122 @@ export function ParentPortalPage() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <ParentMatchDayHero
-        activeMatches={activeMatches}
-        isLoading={isLoadingMatches}
-        previousMatches={previousMatches}
-        selectedLink={selectedLink}
-        summary={parentPortalSummary}
+    <div className="space-y-4 sm:space-y-5">
+      <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
+          <div className="min-w-0">
+            <p className={eyebrowClass}>Family portal</p>
+            <h1 className="mt-2 truncate text-3xl font-black tracking-tight text-[#101828] sm:text-4xl">
+              {selectedLink?.playerName || 'Parent portal'}
+            </h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              Updates shared by the club
+            </p>
+            <p className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+              You only see updates the club has shared for this child.
+            </p>
+          </div>
+
+          <ParentChildSelector
+            links={links}
+            onSelect={setSelectedLinkId}
+            otherLinks={otherLinks}
+            selectedLink={selectedLink}
+          />
+        </div>
+      </section>
+
+      <ParentPortalSectionNav
+        activeSection={activeSection}
+        eventInvites={eventInvites}
+        matchCount={activeMatches.length}
+        onSelect={setActiveSection}
+        previousCount={previousMatches.length}
+        sharedDateCount={parentCalendarEvents.length}
+        user={user}
       />
 
       {matchError ? <NoticeBanner title="Match Day action failed" message={matchError} /> : null}
 
-      <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-        <div className="grid gap-5 border-b border-[#d7e5dc] bg-white px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-          <div>
-            <p className={eyebrowClass}>Family updates</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-[#101828]">Follow the selected child</h2>
-            <p className={`mt-2 ${bodyTextClass}`}>
-              Choose a linked child, then check the calendar, invites, and match cards the club has shared for them.
-            </p>
-          </div>
+      <section className="min-w-0">
+        {activeSection === 'overview' ? (
+          <ParentOverviewPanel
+            activeMatches={activeMatches}
+            calendarEvents={parentCalendarEvents}
+            eventInvites={eventInvites}
+            isLoading={isLoadingMatches}
+            onSelectSection={setActiveSection}
+            previousMatches={previousMatches}
+            selectedLink={selectedLink}
+          />
+        ) : null}
 
-          <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
-            <p className={eyebrowClass}>What you can see</p>
-            <p className={`mt-2 ${bodyTextClass}`}>
-              This portal only shows information linked to your child and shared by the club. Staff notes and team admin tools stay private.
-            </p>
-          </div>
-        </div>
+        {activeSection === 'calendar' ? (
+          <ParentCalendarPanel
+            calendarCursor={calendarCursor}
+            calendarEvents={parentCalendarEvents}
+            calendarView={calendarView}
+            isLoading={isLoadingMatches}
+            onCursorChange={setCalendarCursor}
+            onOpenEvent={setSelectedCalendarEvent}
+            onViewChange={setCalendarView}
+            selectedLink={selectedLink}
+          />
+        ) : null}
 
-        <div className="grid gap-5 bg-[#f7faf8] px-5 py-5 sm:px-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-          <aside className="space-y-4">
-            <ParentChildSelector
-              links={links}
-              onSelect={setSelectedLinkId}
-              otherLinks={otherLinks}
-              selectedLink={selectedLink}
+        {activeSection === 'invites' ? (
+          <ParentUpcomingEvents
+            eventInvites={eventInvites}
+            isLoading={isLoadingMatches}
+            selectedLink={selectedLink}
+          />
+        ) : null}
+
+        {activeSection === 'matches' ? (
+          <ParentMatchCardsPanel
+            activeMatchId={activeMatchId}
+            activeMatches={activeMatches}
+            clockNow={clockNow}
+            goalForms={goalForms}
+            handleAddGoal={handleAddGoal}
+            handlePlayerPick={handlePlayerPick}
+            handleScoreSave={handleScoreSave}
+            handleStartMatch={handleStartMatch}
+            handleVolunteer={handleVolunteer}
+            isLoading={isLoadingMatches}
+            selectedLink={selectedLink}
+            setScoreDrafts={setScoreDrafts}
+            scoreDrafts={scoreDrafts}
+            squadPlayers={squadPlayers}
+            updateGoalForm={updateGoalForm}
+          />
+        ) : null}
+
+        {activeSection === 'results' ? (
+          <ParentResultsPanel
+            previousMatches={previousMatches}
+            onOpen={setSelectedPreviousMatch}
+          />
+        ) : null}
+
+        {activeSection === 'account' ? (
+          <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+              <p className={eyebrowClass}>Account</p>
+              <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
+              <p className={`mt-3 ${bodyTextClass}`}>
+                Manage the selected child view and device notifications. More account tools will stay hidden until they are ready for parent testing.
+              </p>
+            </div>
+            <PushNotificationPanel
+              hasPushSubscription={hasPushSubscription}
+              isUpdatingPush={isUpdatingPush}
+              onDisable={handleDisableNotifications}
+              onEnable={handleEnableNotifications}
+              pushState={pushState}
             />
-
-            <ParentPortalSectionNav
-              activeSection={activeSection}
-              eventInvites={eventInvites}
-              matchCount={activeMatches.length}
-              onSelect={setActiveSection}
-              previousCount={previousMatches.length}
-              sharedDateCount={parentCalendarEvents.length}
-            />
-          </aside>
-
-          <div className="min-w-0">
-            {activeSection === 'overview' ? (
-              <ParentOverviewPanel
-                activeMatches={activeMatches}
-                calendarEvents={parentCalendarEvents}
-                eventInvites={eventInvites}
-                isLoading={isLoadingMatches}
-                onSelectSection={setActiveSection}
-                previousMatches={previousMatches}
-                selectedLink={selectedLink}
-              />
-            ) : null}
-
-            {activeSection === 'calendar' ? (
-              <ParentCalendarPanel
-                calendarCursor={calendarCursor}
-                calendarEvents={parentCalendarEvents}
-                calendarView={calendarView}
-                isLoading={isLoadingMatches}
-                onCursorChange={setCalendarCursor}
-                onOpenEvent={setSelectedCalendarEvent}
-                onViewChange={setCalendarView}
-                selectedLink={selectedLink}
-              />
-            ) : null}
-
-            {activeSection === 'invites' ? (
-              <ParentUpcomingEvents
-                eventInvites={eventInvites}
-                isLoading={isLoadingMatches}
-                selectedLink={selectedLink}
-              />
-            ) : null}
-
-            {activeSection === 'matches' ? (
-              <ParentMatchCardsPanel
-                activeMatchId={activeMatchId}
-                activeMatches={activeMatches}
-                clockNow={clockNow}
-                goalForms={goalForms}
-                handleAddGoal={handleAddGoal}
-                handlePlayerPick={handlePlayerPick}
-                handleScoreSave={handleScoreSave}
-                handleStartMatch={handleStartMatch}
-                handleVolunteer={handleVolunteer}
-                isLoading={isLoadingMatches}
-                selectedLink={selectedLink}
-                setScoreDrafts={setScoreDrafts}
-                scoreDrafts={scoreDrafts}
-                squadPlayers={squadPlayers}
-                updateGoalForm={updateGoalForm}
-              />
-            ) : null}
-
-            {activeSection === 'results' ? (
-              <ParentResultsPanel
-                previousMatches={previousMatches}
-                onOpen={setSelectedPreviousMatch}
-              />
-            ) : null}
-
-            {activeSection === 'account' ? (
-              <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-                <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
-                  <p className={eyebrowClass}>Account</p>
-                  <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
-                  <p className={`mt-3 ${bodyTextClass}`}>
-                    Manage the selected child view and device notifications. More account tools will stay hidden until they are ready for parent testing.
-                  </p>
-                </div>
-                <PushNotificationPanel
-                  hasPushSubscription={hasPushSubscription}
-                  isUpdatingPush={isUpdatingPush}
-                  onDisable={handleDisableNotifications}
-                  onEnable={handleEnableNotifications}
-                  pushState={pushState}
-                />
-              </section>
-            ) : null}
-          </div>
-        </div>
+          </section>
+        ) : null}
       </section>
 
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
@@ -801,67 +775,6 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
   )
 }
 
-function ParentMatchDayHero({ activeMatches, isLoading, previousMatches, selectedLink, summary }) {
-  const nextMatch = activeMatches[0]
-  const heroTitle = selectedLink?.playerName
-    ? `Viewing updates for ${selectedLink.playerName}.`
-    : 'Your family portal is waiting for a linked child.'
-  const heroCopy = selectedLink?.playerName
-    ? 'See only the updates the club has opened for this child. Follow shared match cards, club dates, and invited events in one place.'
-    : 'Once the club links a child to this email address, their shared calendar items, event invites, and match cards will appear here.'
-
-  return (
-    <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
-      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
-        <div className="px-5 py-6 sm:px-6 lg:px-8">
-          <div className="max-w-5xl">
-            <p className={eyebrowClass}>Family portal</p>
-            <h1 className="mt-3 text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-              {heroTitle}
-            </h1>
-            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              {heroCopy}
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {summary.map((item) => (
-                <ParentMatchMetric key={item.label} isLoading={isLoading} {...item} />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid content-between border-t border-[#d7e5dc] bg-[#ecfdf5] p-5 sm:p-6 xl:border-l xl:border-t-0">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Next match card</p>
-            <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-              {nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No active match'}
-            </p>
-            <p className={`mt-2 ${bodyTextClass}`}>
-              {nextMatch ? formatMatchDate(nextMatch) : previousMatches.length > 0 ? 'Open previous games below to review shared results.' : selectedLink ? 'The club has not shared a match card for this child yet.' : 'Ask the club to send a parent invite for your child.'}
-            </p>
-          </div>
-          <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Next action</p>
-            <p className={`mt-1 ${bodyTextClass}`}>
-              {selectedLink ? 'Check the selected child first. Parent actions only appear when the club has opened them.' : 'Use the parent invite sent by the club. If you do not have one, ask the club to resend it.'}
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function ParentMatchMetric({ caption, isLoading, label, value }) {
-  return (
-    <article className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
-      <p className={eyebrowClass}>{label}</p>
-      <p className="mt-3 text-4xl font-black tracking-tight text-[#101828]">{isLoading ? '...' : value}</p>
-      <p className={`mt-2 ${bodyTextClass}`}>{caption}</p>
-    </article>
-  )
-}
-
 function ParentPortalSectionNav({
   activeSection,
   eventInvites,
@@ -869,6 +782,7 @@ function ParentPortalSectionNav({
   onSelect,
   previousCount,
   sharedDateCount,
+  user,
 }) {
   const counts = {
     calendar: sharedDateCount,
@@ -876,28 +790,22 @@ function ParentPortalSectionNav({
     matches: matchCount,
     results: previousCount,
   }
+  const visibleSections = parentPortalSections.filter((section) => !section.path || isRecoveryPathVisible(section.path, { user }))
+  const itemClass = (isActive) => [
+    'flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
+    isActive
+      ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
+      : 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828] hover:border-[#047857] hover:bg-white',
+  ].join(' ')
 
   return (
     <nav aria-label="Parent portal sections" className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
-      <p className="px-2 text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Sections</p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-        {parentPortalSections.map((section) => {
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {visibleSections.map((section) => {
           const isActive = activeSection === section.id
           const count = counts[section.id]
-
-          return (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => onSelect(section.id)}
-              className={[
-                'flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
-                isActive
-                  ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
-                  : 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828] hover:border-[#047857] hover:bg-white',
-              ].join(' ')}
-              aria-current={isActive ? 'page' : undefined}
-            >
+          const content = (
+            <>
               <span className="min-w-0">
                 <span className="block text-sm font-black">{section.label}</span>
                 <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
@@ -907,6 +815,26 @@ function ParentPortalSectionNav({
                   {count}
                 </span>
               ) : null}
+            </>
+          )
+
+          if (section.path) {
+            return (
+              <Link key={section.id} to={section.path} className={itemClass(false)}>
+                {content}
+              </Link>
+            )
+          }
+
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => onSelect(section.id)}
+              className={itemClass(isActive)}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              {content}
             </button>
           )
         })}
@@ -926,66 +854,86 @@ function ParentOverviewPanel({
 }) {
   const nextMatch = activeMatches[0]
   const nextCalendarEvent = calendarEvents[0]
+  const sharedItemCount = calendarEvents.length + eventInvites.length + activeMatches.length + previousMatches.length
   const overviewItems = [
     {
       id: 'calendar',
       label: 'Calendar',
+      count: calendarEvents.length,
       title: nextCalendarEvent ? nextCalendarEvent.title : 'No shared dates yet',
       detail: nextCalendarEvent ? [nextCalendarEvent.date, nextCalendarEvent.time].filter(Boolean).join(', ') : 'Shared dates will appear when the club opens them to parents.',
     },
     {
       id: 'invites',
       label: 'Invites',
+      count: eventInvites.length,
       title: eventInvites.length > 0 ? `${eventInvites.length} invite${eventInvites.length === 1 ? '' : 's'} available` : 'No invites waiting',
       detail: eventInvites.length > 0 ? 'Open invites to review session and event details.' : 'Invites stay quiet until the club shares one.',
     },
     {
       id: 'matches',
       label: 'Match cards',
+      count: activeMatches.length,
       title: nextMatch ? `${nextMatch.teamName || 'Our team'} v ${nextMatch.opponent}` : 'No active match card',
       detail: nextMatch ? formatMatchDate(nextMatch) : 'Live and upcoming match cards appear only when shared.',
     },
     {
       id: 'results',
       label: 'Results',
+      count: previousMatches.length,
       title: previousMatches.length > 0 ? `${previousMatches.length} previous result${previousMatches.length === 1 ? '' : 's'}` : 'No shared results yet',
       detail: previousMatches.length > 0 ? 'Open results to review completed match cards.' : 'Completed shared match cards will appear here.',
     },
   ]
+  const visibleOverviewItems = isLoading ? overviewItems : overviewItems.filter((item) => item.count > 0)
 
   return (
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className={eyebrowClass}>Overview</p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-            {selectedLink?.playerName ? `${selectedLink.playerName}'s shared updates` : 'Waiting for a linked child'}
-          </h3>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">What's shared</h3>
           <p className={`mt-3 ${bodyTextClass}`}>
             {selectedLink
-              ? 'Use the sections to move between dates, invites, match cards, results, and notifications.'
+              ? 'Dates, invites, match cards, and results appear here when the club shares them.'
               : noChildMessage}
           </p>
         </div>
         <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#4b5f55]">
-          {isLoading ? 'Loading...' : `${calendarEvents.length + eventInvites.length + activeMatches.length + previousMatches.length} shared items`}
+          {isLoading ? 'Loading...' : `${sharedItemCount} shared items`}
         </p>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
-        {overviewItems.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelectSection(item.id)}
-            className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 text-left shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-white"
-          >
-            <p className={eyebrowClass}>{item.label}</p>
-            <p className="mt-2 text-lg font-black text-[#101828]">{item.title}</p>
-            <p className={`mt-2 ${bodyTextClass}`}>{item.detail}</p>
-          </button>
-        ))}
-      </div>
+      {!isLoading && selectedLink && sharedItemCount === 0 ? (
+        <div className="mt-5 rounded-lg border border-dashed border-[#b8cbc0] bg-[#f7faf8] p-4">
+          <p className="text-base font-black text-[#101828]">Nothing has been shared yet.</p>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            When the club shares dates, invites, match cards, messages, or results, they'll appear here.
+          </p>
+        </div>
+      ) : null}
+
+      {visibleOverviewItems.length > 0 ? (
+        <div className="mt-5 grid gap-2">
+          {visibleOverviewItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelectSection(item.id)}
+              className="flex w-full items-start justify-between gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3 text-left transition hover:border-[#047857] hover:bg-white"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-[#101828]">{item.label}</span>
+                <span className="mt-1 block text-sm font-semibold leading-6 text-[#4b5f55]">{item.title}</span>
+                <span className="mt-1 block text-xs font-semibold leading-5 text-[#60756a]">{item.detail}</span>
+              </span>
+              <span className="shrink-0 rounded-full border border-[#d7e5dc] bg-white px-2 py-1 text-xs font-black text-[#047857]">
+                {isLoading ? '...' : item.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -1249,10 +1197,13 @@ function ParentChildSelector({ links, onSelect, otherLinks, selectedLink }) {
       >
         {links.map((link) => (
           <option key={link.id} value={link.id}>
-            {link.playerName || 'Linked child'}, Team: {link.teamName || 'No team assigned'}, Club: {link.clubName || 'No club assigned'}
+            {link.playerName || 'Linked child'}
           </option>
         ))}
       </select>
+      <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">
+        Team: {selectedLink.teamName || 'No team assigned'}, Club: {selectedLink.clubName || 'No club assigned'}
+      </p>
       <p className={`mt-3 ${bodyTextClass}`}>
         You are only viewing information the club has shared for this child.
       </p>

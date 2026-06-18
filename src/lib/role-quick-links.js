@@ -8,7 +8,7 @@ import {
   canViewBilling,
   canViewPlatformFeedback,
   isSuperAdmin,
-} from './auth.js'
+} from './auth-permissions.js'
 import { hasPlanFeature } from './plans.js'
 import { isRecoveryPathVisible } from './recovery-phase.js'
 

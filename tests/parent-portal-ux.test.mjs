@@ -18,7 +18,7 @@ test('parent dashboard explains no linked child state in plain English', async (
 
   assert.match(source, /No child is linked to this parent account yet/)
   assert.match(source, /Ask your club or team contact to send a parent invite/)
-  assert.match(source, /Your family portal is waiting for a linked child/)
+  assert.match(source, /Parent portal/)
   assert.match(source, /No linked child yet/)
   assert.doesNotMatch(source, /No child links are active for this parent account\./)
 })
@@ -26,11 +26,12 @@ test('parent dashboard explains no linked child state in plain English', async (
 test('parent dashboard explains linked child and multiple child selection', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
-  assert.match(source, /Viewing updates for \$\{selectedLink\.playerName\}/)
+  assert.match(source, /\{selectedLink\?\.playerName \|\| 'Parent portal'\}/)
+  assert.match(source, /Updates shared by the club/)
   assert.match(source, /Child being viewed/)
   assert.match(source, /Other linked children/)
-  assert.match(source, /You are only viewing information the club has shared for this child/)
-  assert.match(source, /Choose a linked child, then check the calendar, invites, and match cards/)
+  assert.match(source, /You only see updates the club has shared for this child/)
+  assert.match(source, /Dates, invites, match cards, and results appear here when the club shares them/)
 })
 
 test('parent dashboard uses section navigation instead of one long page', async () => {
@@ -42,11 +43,29 @@ test('parent dashboard uses section navigation instead of one long page', async 
   assert.match(source, /id: 'invites', label: 'Invites'/)
   assert.match(source, /id: 'matches', label: 'Match cards'/)
   assert.match(source, /id: 'results', label: 'Results'/)
+  assert.match(source, /id: 'messages', label: 'Messages'/)
+  assert.match(source, /id: 'polls', label: 'Polls'/)
+  assert.match(source, /id: 'family', label: 'Family'/)
   assert.match(source, /id: 'account', label: 'Account'/)
   assert.match(source, /aria-label="Parent portal sections"/)
+  assert.match(source, /isRecoveryPathVisible\(section\.path, \{ user \}\)/)
   assert.match(source, /activeSection === 'calendar'/)
   assert.match(source, /activeSection === 'matches'/)
   assert.match(source, /activeSection === 'results'/)
+})
+
+test('parent child selector is placed before dashboard content', async () => {
+  const source = await readFile(parentPortalPageUrl, 'utf8')
+
+  const selectorIndex = source.indexOf('<ParentChildSelector')
+  const navIndex = source.indexOf('<ParentPortalSectionNav')
+  const overviewIndex = source.indexOf('<ParentOverviewPanel')
+
+  assert.notEqual(selectorIndex, -1)
+  assert.notEqual(navIndex, -1)
+  assert.notEqual(overviewIndex, -1)
+  assert.ok(selectorIndex < navIndex)
+  assert.ok(navIndex < overviewIndex)
 })
 
 test('parent calendar wording is plain and does not repeat football context', async () => {
@@ -75,20 +94,29 @@ test('calendar controls are grouped and month grid rows are not hard-coded to si
 test('parent dashboard no data states are helpful and not errors', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
+  assert.match(source, /Nothing has been shared yet/)
+  assert.match(source, /When the club shares dates, invites, match cards, messages, or results, they'll appear here/)
   assert.match(source, /No shared calendar activity is available for this child yet/)
   assert.match(source, /When the club shares a parent-visible date, it will appear here/)
   assert.match(source, /No event invites are waiting for this child/)
   assert.match(source, /No match cards are shared for this child right now/)
   assert.match(source, /Previous shared results will appear here/)
   assert.doesNotMatch(source, /No Match Day updates are available for this child right now/)
+  assert.doesNotMatch(source, /Follow the selected child/)
+  assert.doesNotMatch(source, /What you can see/)
+  assert.doesNotMatch(source, /ParentMatchDayHero/)
+  assert.doesNotMatch(source, /ParentMatchMetric/)
 })
 
-test('parent dashboard does not expose secondary parent feature clutter', async () => {
+test('parent dashboard exposes surfaced parent links without feature clutter', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
-  assert.doesNotMatch(source, /Messages/)
-  assert.doesNotMatch(source, /Friends/)
+  assert.match(source, /label: 'Messages'/)
+  assert.match(source, /label: 'Polls'/)
+  assert.match(source, /label: 'Family'/)
   assert.doesNotMatch(source, /coming soon/i)
+  assert.doesNotMatch(source, /staff shell/i)
+  assert.doesNotMatch(source, /admin shell/i)
 })
 
 test('parent copy avoids internal implementation language', async () => {

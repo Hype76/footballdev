@@ -389,7 +389,8 @@ test('staff note storage remains staff scoped and absent from parent portal outp
 
   assert.match(staffNotesMigration, /create table if not exists public\.player_staff_notes/)
   assert.match(staffNotesMigration, /public\.current_user_role_rank\(\) >= 20/)
-  assert.match(parentPageSource, /Staff notes and team admin tools stay private/)
+  assert.match(parentPageSource, /You only see updates the club has shared for this child/)
+  assert.doesNotMatch(parentPageSource, /staff notes|team admin tools/i)
   assert.doesNotMatch(parentPageSource, /player_staff_notes|staffNotes|StaffNotes/)
   assert.doesNotMatch(playerPickerMigration, /player_staff_notes/i)
 })
