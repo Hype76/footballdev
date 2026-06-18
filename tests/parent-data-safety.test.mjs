@@ -346,6 +346,19 @@ test('parent portal dashboard only loads current parent data sources', async () 
   assert.doesNotMatch(source, /player_staff_notes|getStaff|staffNotes|StaffNotes/)
 })
 
+test('parent portal dashboard does not call staff-only match day actions', async () => {
+  const source = await readFile(parentPortalPageUrl, 'utf8')
+
+  assert.doesNotMatch(source, /\bgetMatchDays\(\{ user/)
+  assert.doesNotMatch(source, /\bcreateMatchDay\(/)
+  assert.doesNotMatch(source, /\bupdateMatchDay\(\{ user/)
+  assert.doesNotMatch(source, /\bselectMatchDayScorer\(/)
+  assert.doesNotMatch(source, /\baddStaffMatchDayGoal\(/)
+  assert.doesNotMatch(source, /send-match-day-availability-requests/)
+  assert.match(source, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\)/)
+  assert.match(source, /getParentPortalMatchDayPlayers\(\{ parentLinkId: selectedLink\.id \}\)/)
+})
+
 test('hardened player picker RPC is selected link and auth user scoped', async () => {
   const migration = await readFile(playerPickerMigrationUrl, 'utf8')
   const rpc = getFunctionSection(migration, 'get_parent_portal_match_day_players')

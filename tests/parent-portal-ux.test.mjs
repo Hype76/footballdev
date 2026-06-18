@@ -6,6 +6,10 @@ import {
   getRecoveryModuleForPath,
   isRecoveryPathVisible,
 } from '../src/lib/recovery-phase.js'
+import {
+  getParentMatchDayErrorMessage,
+  parentMatchDayLoadErrorMessage,
+} from '../src/lib/parent-matchday-errors.js'
 
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentLoginPageUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
@@ -106,6 +110,19 @@ test('parent dashboard no data states are helpful and not errors', async () => {
   assert.doesNotMatch(source, /What you can see/)
   assert.doesNotMatch(source, /ParentMatchDayHero/)
   assert.doesNotMatch(source, /ParentMatchMetric/)
+})
+
+test('parent match day load failures show parent-friendly copy instead of raw Safari errors', async () => {
+  const source = await readFile(parentPortalPageUrl, 'utf8')
+
+  assert.equal(getParentMatchDayErrorMessage(new TypeError('Load failed')), parentMatchDayLoadErrorMessage)
+  assert.equal(getParentMatchDayErrorMessage(new TypeError('Failed to fetch')), parentMatchDayLoadErrorMessage)
+  assert.equal(getParentMatchDayErrorMessage(new Error('Network request failed')), parentMatchDayLoadErrorMessage)
+  assert.equal(getParentMatchDayErrorMessage(new Error('Parent link is not active.'), 'Could not load shared match day items. Please refresh or try again.'), 'Parent link is not active.')
+  assert.match(source, /setMatchErrorTitle\(parentMatchDayLoadErrorTitle\)/)
+  assert.match(source, /setMatchError\(getParentMatchDayErrorMessage\(error, parentMatchDayLoadErrorMessage\)\)/)
+  assert.match(source, /<NoticeBanner title=\{matchErrorTitle\} message=\{matchError\} \/>/)
+  assert.doesNotMatch(source, /setMatchError\(error\.message \|\| 'Match Day could not be loaded\.'\)/)
 })
 
 test('parent dashboard exposes surfaced parent links without feature clutter', async () => {

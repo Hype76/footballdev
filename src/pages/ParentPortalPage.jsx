@@ -23,6 +23,12 @@ import {
 } from '../lib/supabase.js'
 import { THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
+import {
+  getParentMatchDayErrorMessage,
+  parentMatchDayActionErrorTitle,
+  parentMatchDayLoadErrorMessage,
+  parentMatchDayLoadErrorTitle,
+} from '../lib/parent-matchday-errors.js'
 import { isRecoveryPathVisible } from '../lib/recovery-phase.js'
 
 const EMPTY_GOAL_FORM = {
@@ -207,6 +213,7 @@ export function ParentPortalPage() {
   const [hasPushSubscription, setHasPushSubscription] = useState(false)
   const [isUpdatingPush, setIsUpdatingPush] = useState(false)
   const [matchError, setMatchError] = useState('')
+  const [matchErrorTitle, setMatchErrorTitle] = useState(parentMatchDayActionErrorTitle)
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [activeSection, setActiveSection] = useState('overview')
   const selectedLink = links.find((link) => link.id === selectedLinkId)
@@ -263,12 +270,15 @@ export function ParentPortalPage() {
         setEventInvites([])
         setPlayers([])
         setSharedCalendarEvents([])
+        setMatchError('')
+        setMatchErrorTitle(parentMatchDayLoadErrorTitle)
         return
       }
 
       if (showLoading) {
         setIsLoadingMatches(true)
         setMatchError('')
+        setMatchErrorTitle(parentMatchDayLoadErrorTitle)
       }
 
       try {
@@ -295,7 +305,8 @@ export function ParentPortalPage() {
             setPlayers([])
             setSharedCalendarEvents([])
           }
-          setMatchError(error.message || 'Match Day could not be loaded.')
+          setMatchErrorTitle(parentMatchDayLoadErrorTitle)
+          setMatchError(getParentMatchDayErrorMessage(error, parentMatchDayLoadErrorMessage))
         }
       } finally {
         if (isCurrent && showLoading) {
@@ -368,6 +379,7 @@ export function ParentPortalPage() {
 
     setActiveMatchId(match.id)
     setMatchError('')
+    setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
       await expressMatchDayScorerInterest({
@@ -378,7 +390,7 @@ export function ParentPortalPage() {
       showToast({ title: 'Interest sent', message: 'The coach or manager can now select you as scorer.' })
     } catch (error) {
       console.error(error)
-      setMatchError(error.message || 'Your scorer interest could not be saved.')
+      setMatchError(getParentMatchDayErrorMessage(error, 'Your scorer interest could not be saved. Please refresh or try again.'))
     } finally {
       setActiveMatchId('')
     }
@@ -395,6 +407,7 @@ export function ParentPortalPage() {
 
     setIsUpdatingPush(true)
     setMatchError('')
+    setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
       await subscribeToParentPush({ parentLinkId: selectedLink.id })
@@ -403,7 +416,7 @@ export function ParentPortalPage() {
       showToast({ title: 'Notifications enabled', message: 'Match Day updates can now appear on this device.' })
     } catch (error) {
       console.error(error)
-      setMatchError(error.message || 'Notifications could not be enabled.')
+      setMatchError(getParentMatchDayErrorMessage(error, 'Notifications could not be enabled. Please refresh or try again.'))
       setPushState(getPushSupportState())
     } finally {
       setIsUpdatingPush(false)
@@ -421,6 +434,7 @@ export function ParentPortalPage() {
 
     setIsUpdatingPush(true)
     setMatchError('')
+    setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
       await unsubscribeFromParentPush({ parentLinkId: selectedLink.id })
@@ -428,7 +442,7 @@ export function ParentPortalPage() {
       showToast({ title: 'Notifications disabled', message: 'This device will no longer receive Match Day push notifications.' })
     } catch (error) {
       console.error(error)
-      setMatchError(error.message || 'Notifications could not be disabled.')
+      setMatchError(getParentMatchDayErrorMessage(error, 'Notifications could not be disabled. Please refresh or try again.'))
     } finally {
       setIsUpdatingPush(false)
     }
@@ -451,6 +465,7 @@ export function ParentPortalPage() {
 
     setActiveMatchId(match.id)
     setMatchError('')
+    setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
       await updateMatchDayScoreAsScorer({
@@ -471,7 +486,7 @@ export function ParentPortalPage() {
       showToast({ title: 'Score updated', message: 'The live score has been updated.' })
     } catch (error) {
       console.error(error)
-      setMatchError(error.message || 'Score could not be updated.')
+      setMatchError(getParentMatchDayErrorMessage(error, 'Score could not be updated. Please refresh or try again.'))
     } finally {
       setActiveMatchId('')
     }
@@ -488,6 +503,7 @@ export function ParentPortalPage() {
 
     setActiveMatchId(match.id)
     setMatchError('')
+    setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
       await updateMatchDayScoreAsScorer({
@@ -506,7 +522,7 @@ export function ParentPortalPage() {
       showToast({ title: 'Match started', message: 'The live match clock has started.' })
     } catch (error) {
       console.error(error)
-      setMatchError(error.message || 'Match could not be started.')
+      setMatchError(getParentMatchDayErrorMessage(error, 'Match could not be started. Please refresh or try again.'))
     } finally {
       setActiveMatchId('')
     }
@@ -549,6 +565,7 @@ export function ParentPortalPage() {
 
     setActiveMatchId(match.id)
     setMatchError('')
+    setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
       const eventId = await addMatchDayGoalAsScorer({
@@ -573,7 +590,7 @@ export function ParentPortalPage() {
       showToast({ title: 'Goal added', message: 'The live feed has been updated.' })
     } catch (error) {
       console.error(error)
-      setMatchError(error.message || 'Goal could not be added.')
+      setMatchError(getParentMatchDayErrorMessage(error, 'Goal could not be added. Please refresh or try again.'))
     } finally {
       setActiveMatchId('')
     }
@@ -615,7 +632,7 @@ export function ParentPortalPage() {
         user={user}
       />
 
-      {matchError ? <NoticeBanner title="Match Day action failed" message={matchError} /> : null}
+      {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
 
       <section className="min-w-0">
         {activeSection === 'overview' ? (
