@@ -441,12 +441,12 @@ export function PollsPage() {
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div className="px-5 py-6 sm:px-6 lg:px-8">
             <div className="max-w-5xl">
-              <p className={eyebrowClass}>Availability board</p>
+              <p className={eyebrowClass}>Polls</p>
               <h1 className="mt-3 text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-                Know who can play before match day moves.
+                Create polls before match day moves.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                Run availability as a live football board. Ask parents or staff for one clear answer, watch replies come in, then close the request when the team decision is made.
+                Ask parents or staff for one clear answer, watch replies come in, then close the poll when the team decision is made.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {pollRuleCards.map((item) => (
@@ -462,7 +462,7 @@ export function PollsPage() {
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">This week</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {openPollCount} open requests
+                {openPollCount} open polls
               </p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -472,7 +472,7 @@ export function PollsPage() {
               <DecisionMetric label="Visible" value={visiblePolls.length} isLoading={isLoading} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Use this board before team selection, session planning, and match day squads. Old requests should be closed once the answer is acted on.
+              Use this board before team selection, session planning, and match day squads. Old polls should be closed once the answer is acted on.
             </p>
           </div>
         </div>
@@ -503,10 +503,10 @@ export function PollsPage() {
 
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm">
         <div className={sectionHeaderClass}>
-          <p className={eyebrowClass}>Create request</p>
+          <p className={eyebrowClass}>Create poll</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Ask for one clear answer</h2>
           <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-            Choose the request type, set the team lane, and publish it to the people who need to reply.
+            Choose the poll type, set the team lane, and publish it to the people who need to reply.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleCreatePoll}>
@@ -675,7 +675,7 @@ export function PollsPage() {
             disabled={isSaving}
             className={`${primaryButtonClass} w-full sm:w-auto`}
           >
-            {isSaving ? 'Creating...' : 'Create request'}
+            {isSaving ? 'Creating...' : 'Create poll'}
           </button>
           </div>
         </form>
@@ -685,9 +685,9 @@ export function PollsPage() {
         <div className="grid gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div>
             <p className={eyebrowClass}>Reply board</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Availability requests</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Polls and availability</h2>
             <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-              Review open and closed requests, answer staff questions, and use reply totals before committing the squad.
+              Review open and closed polls, answer staff questions, and use reply totals before committing the squad.
             </p>
           </div>
           <select
@@ -703,7 +703,7 @@ export function PollsPage() {
         <div className="px-5 py-5 sm:px-6">
         {isLoading ? (
           <p className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10">
-            Loading availability requests...
+            Loading polls...
           </p>
         ) : visiblePolls.length > 0 ? (
           <div className="space-y-4">
@@ -722,7 +722,7 @@ export function PollsPage() {
           </div>
         ) : (
           <p className={emptyStateClass}>
-            No availability requests have been created yet.
+            No polls have been created yet.
           </p>
         )}
         </div>

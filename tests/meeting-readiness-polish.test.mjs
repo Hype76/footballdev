@@ -1,0 +1,108 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import { test } from 'node:test'
+
+import { canManagePolls } from '../src/lib/auth-permissions.js'
+
+const navigationUrl = new URL('../src/app/navigation.js', import.meta.url)
+const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.url)
+const layoutUrl = new URL('../src/components/layout/Layout.jsx', import.meta.url)
+const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
+const pollsPageUrl = new URL('../src/pages/PollsPage.jsx', import.meta.url)
+const parentPollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url)
+const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
+
+function staffUser(overrides = {}) {
+  return {
+    activeTeamId: 'team-1',
+    clubId: 'club-1',
+    planStatus: 'active',
+    role: 'coach',
+    roleRank: 30,
+    ...overrides,
+  }
+}
+
+test('staff navigation surfaces Polls with role and recovery gates', async () => {
+  const [navigationSource, sidebarSource] = await Promise.all([
+    readFile(navigationUrl, 'utf8'),
+    readFile(sidebarUrl, 'utf8'),
+  ])
+
+  assert.match(navigationSource, /label: 'Polls'[\s\S]*path: '\/polls'/)
+  assert.match(navigationSource, /helper: 'Create and track replies'/)
+
+  const pollGateStart = sidebarSource.indexOf("if (item.path === '/polls')")
+  const pollGateEnd = sidebarSource.indexOf("if (item.path === '/match-day')", pollGateStart)
+  assert.notEqual(pollGateStart, -1)
+  assert.notEqual(pollGateEnd, -1)
+  const pollGateSource = sidebarSource.slice(pollGateStart, pollGateEnd)
+  assert.match(pollGateSource, /canManagePolls\(displayUser\)/)
+  assert.doesNotMatch(pollGateSource, /canUseTeamWorkflow/)
+  assert.match(sidebarSource, /if \(!isRecoveryPathVisible\(item\.path, \{ user: displayUser \}\)\) \{/)
+})
+
+test('quick actions expose Create Poll only to permitted staff', async () => {
+  const source = await readFile(layoutUrl, 'utf8')
+
+  assert.match(source, /import \{ canCreateEvaluation, canManagePolls,/)
+  assert.match(source, /const canUsePollQuickAction = canManagePolls\(user\) && isRecoveryPathVisible\('\/polls', \{ user \}\)/)
+  assert.match(source, /label: 'Create Poll', href: '\/polls\?action=create-poll', isVisible: canUsePollQuickAction/)
+  assert.match(source, /const visibleActions = actions\.filter\(\(action\) => action\.isVisible !== false\)/)
+  assert.equal(canManagePolls(staffUser()), true)
+  assert.equal(canManagePolls(staffUser({ roleRank: 10 })), false)
+  assert.equal(canManagePolls(staffUser({ role: 'parent_portal', roleRank: 0 })), false)
+})
+
+test('direct poll routes stay role-gated and parent route stays parent-safe', async () => {
+  const [routerSource, parentPollsSource] = await Promise.all([
+    readFile(routerUrl, 'utf8'),
+    readFile(parentPollsPageUrl, 'utf8'),
+  ])
+  const start = routerSource.indexOf('function RequirePollAccess()')
+  const end = routerSource.indexOf('function RequireMatchDayAccess()', start)
+  assert.notEqual(start, -1)
+  assert.notEqual(end, -1)
+  const section = routerSource.slice(start, end)
+
+  assert.match(section, /isRecoveryModuleVisible\('pollsAvailability', \{ user \}\)/)
+  assert.match(section, /canManagePolls\(user\)/)
+  assert.doesNotMatch(section, /needsTeamWorkflowContext\(user\)/)
+  assert.match(section, /return <RedirectToWorkspaceHome user=\{user\} \/>/)
+  assert.match(section, /return <Outlet \/>/)
+  assert.match(parentPollsSource, /Parent polls/)
+  assert.match(parentPollsSource, /No parent polls are open for this child right now/)
+  assert.doesNotMatch(parentPollsSource, /Create Poll|Create poll|Staff poll|Poll management/)
+})
+
+test('poll management page uses visible poll language and create affordance', async () => {
+  const source = await readFile(pollsPageUrl, 'utf8')
+
+  assert.match(source, /<p className=\{eyebrowClass\}>Polls<\/p>/)
+  assert.match(source, /Create poll/)
+  assert.match(source, /Polls and availability/)
+  assert.match(source, /No polls have been created yet/)
+  assert.doesNotMatch(source, /Availability board/)
+})
+
+test('fixture and squad modals use mobile-safe flex scroll layouts', async () => {
+  const source = await readFile(matchDayPageUrl, 'utf8')
+  const fixtureStart = source.indexOf('function FixtureSetupModal(')
+  const squadStart = source.indexOf('function FixtureSquadSelectionModal(')
+  assert.notEqual(fixtureStart, -1)
+  assert.notEqual(squadStart, -1)
+  const fixtureSection = source.slice(fixtureStart, squadStart)
+  const squadSection = source.slice(squadStart)
+
+  assert.match(fixtureSection, /items-stretch[\s\S]*sm:items-center/)
+  assert.match(fixtureSection, /max-h-\[calc\(100dvh-1\.5rem\)\][\s\S]*flex-col[\s\S]*overflow-hidden/)
+  assert.match(fixtureSection, /className="flex min-h-0 flex-1 flex-col overflow-hidden"/)
+  assert.match(fixtureSection, /className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-28/)
+  assert.match(fixtureSection, /className="shrink-0 flex flex-col-reverse/)
+
+  assert.match(squadSection, /items-stretch[\s\S]*sm:items-center/)
+  assert.match(squadSection, /max-h-\[calc\(100dvh-1\.5rem\)\][\s\S]*flex-col[\s\S]*overflow-hidden/)
+  assert.match(squadSection, /className="min-h-0 flex-1 overflow-y-auto overscroll-contain/)
+  assert.match(squadSection, /className="shrink-0 flex flex-col-reverse/)
+  assert.doesNotMatch(squadSection, /max-h-\[58vh\]/)
+})

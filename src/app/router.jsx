@@ -917,10 +917,6 @@ function RequirePollAccess() {
     return <RecoveryPhaseBlockedState />
   }
 
-  if (needsTeamWorkflowContext(user)) {
-    return <TeamContextRequiredState />
-  }
-
   if (!canManagePolls(user)) {
     return <RedirectToWorkspaceHome user={user} />
   }

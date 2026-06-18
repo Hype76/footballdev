@@ -25,9 +25,9 @@ export const primaryNavigation = [
     helper: 'Parent email queue',
   },
   {
-    label: 'Availability',
+    label: 'Polls',
     path: '/polls',
-    helper: 'Parent replies',
+    helper: 'Create and track replies',
   },
   {
     label: 'Match Day',

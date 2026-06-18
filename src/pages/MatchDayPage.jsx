@@ -1199,14 +1199,14 @@ function FixtureSetupModal({
   const todayMatchDayDate = getTodayMatchDayDateValue()
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6">
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-[#101828]/55 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="fixture-setup-title"
-        className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[92vh]"
       >
-        <div className="flex flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+        <div className="shrink-0 flex flex-col gap-4 border-b border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:py-5">
           <div>
             <p className={eyebrowClass}>Fixture setup</p>
             <h3 id="fixture-setup-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Create fixture</h3>
@@ -1219,8 +1219,8 @@ function FixtureSetupModal({
           </button>
         </div>
 
-        <form className="max-h-[70vh] overflow-y-auto" onSubmit={handleCreateMatch}>
-          <div className="space-y-4 px-5 py-5 sm:px-6">
+        <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleCreateMatch}>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-28 space-y-4 px-4 py-4 sm:px-6 sm:py-5">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Opponent</span>
@@ -1371,7 +1371,7 @@ function FixtureSetupModal({
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
             <button type="button" onClick={onClose} disabled={isSaving} className={secondaryButtonClass}>Cancel</button>
             <button type="submit" disabled={isSaving} className={primaryButtonClass}>{isSaving ? 'Creating...' : 'Continue to squad'}</button>
           </div>
@@ -1398,14 +1398,14 @@ function FixtureSquadSelectionModal({
   const selectedCount = selectedIds.size
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/55 px-4 py-6">
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-[#101828]/55 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="fixture-squad-title"
-        className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[90vh]"
       >
-        <div className="border-b border-[#d7e5dc] bg-[#ecfdf5] px-5 py-5 sm:px-6">
+        <div className="shrink-0 border-b border-[#d7e5dc] bg-[#ecfdf5] px-4 py-4 sm:px-6 sm:py-5">
           <p className={eyebrowClass}>Squad availability</p>
           <h3 id="fixture-squad-title" className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
             Choose who should be asked.
@@ -1415,7 +1415,7 @@ function FixtureSquadSelectionModal({
           </p>
         </div>
 
-        <div className="max-h-[58vh] overflow-y-auto px-5 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
@@ -1474,7 +1474,7 @@ function FixtureSquadSelectionModal({
           </div>
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+        <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
           <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>
             Cancel
           </button>

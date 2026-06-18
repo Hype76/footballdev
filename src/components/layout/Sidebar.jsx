@@ -300,7 +300,7 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (item.path === '/polls') {
-      return canUseTeamWorkflow && canManagePolls(displayUser)
+      return canManagePolls(displayUser)
     }
 
     if (item.path === '/match-day') {

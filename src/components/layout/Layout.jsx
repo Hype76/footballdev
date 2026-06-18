@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useMatches } from 'react-router-dom'
-import { canCreateEvaluation, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
+import { canCreateEvaluation, canManagePolls, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import {
   assignPlayerStaffNote,
   createAuditLog,
@@ -23,6 +23,7 @@ import {
 } from '../../lib/theme.js'
 import { isParentPortalHost } from '../../lib/app-origins.js'
 import { isParentIntentPath } from '../../lib/parent-auth-intent.js'
+import { isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 import { Sidebar } from './Sidebar.jsx'
 import { Topbar } from './Topbar.jsx'
 import { OnboardingProvider } from '../onboarding/OnboardingProvider.jsx'
@@ -334,12 +335,14 @@ function QuickActionHotbar({ user }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isVoiceNoteOpen, setIsVoiceNoteOpen] = useState(false)
   const panelRef = useRef(null)
+  const canUseEvaluationQuickActions = canCreateEvaluation(user)
+  const canUsePollQuickAction = canManagePolls(user) && isRecoveryPathVisible('/polls', { user })
   const canShowQuickActions =
     Boolean(user?.clubId)
     && !isSuperAdmin(user)
     && !isParentPortalUser(user)
     && Number(user?.roleRank ?? 0) >= 20
-    && canCreateEvaluation(user)
+    && (canUseEvaluationQuickActions || canUsePollQuickAction)
 
   useEffect(() => {
     if (!isOpen) {
@@ -374,12 +377,14 @@ function QuickActionHotbar({ user }) {
   }
 
   const actions = [
-    { label: 'Add Player', href: '/add-player' },
-    { label: 'Add Session', href: '/sessions/start?action=create-session' },
-    { label: 'Add Assessment', href: '/assess-player/new?choosePlayer=1' },
-    { label: 'Add Event', href: '/calendar?action=add-event' },
-    { label: 'Add Voice Note', type: 'voice-note' },
+    { label: 'Add Player', href: '/add-player', isVisible: canUseEvaluationQuickActions },
+    { label: 'Add Session', href: '/sessions/start?action=create-session', isVisible: canUseEvaluationQuickActions },
+    { label: 'Add Assessment', href: '/assess-player/new?choosePlayer=1', isVisible: canUseEvaluationQuickActions },
+    { label: 'Add Event', href: '/calendar?action=add-event', isVisible: canUseEvaluationQuickActions },
+    { label: 'Create Poll', href: '/polls?action=create-poll', isVisible: canUsePollQuickAction },
+    { label: 'Add Voice Note', type: 'voice-note', isVisible: canUseEvaluationQuickActions },
   ]
+  const visibleActions = actions.filter((action) => action.isVisible !== false)
 
   return (
     <>
@@ -388,7 +393,7 @@ function QuickActionHotbar({ user }) {
           <div className="w-[min(18rem,calc(100vw-2.5rem))] rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-2xl shadow-[#047857]/20">
             <p className="px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Quick add</p>
             <div className="grid gap-1.5">
-              {actions.map((action) => (
+              {visibleActions.map((action) => (
                 action.href ? (
                   <Link
                     key={action.href}
