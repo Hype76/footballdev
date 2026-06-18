@@ -567,7 +567,7 @@ export function buildProgressionEmailSections({ progressionData, sections = {} }
     items.push({
       key: 'progressionChart',
       title: 'Progression chart',
-      body: progressionData.scoreTrend.map((point) => `${point.label}: ${point.value.toFixed(1)}`).join(' | '),
+      body: 'Scores are charted oldest to newest out of 10.',
       chartPoints: progressionData.scoreTrend,
     })
   }

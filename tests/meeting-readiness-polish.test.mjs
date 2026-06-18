@@ -11,6 +11,7 @@ const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const pollsPageUrl = new URL('../src/pages/PollsPage.jsx', import.meta.url)
 const parentPollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url)
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
+const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 
 function staffUser(overrides = {}) {
   return {
@@ -105,4 +106,17 @@ test('fixture and squad modals use mobile-safe flex scroll layouts', async () =>
   assert.match(squadSection, /className="min-h-0 flex-1 overflow-y-auto overscroll-contain/)
   assert.match(squadSection, /className="shrink-0 flex flex-col-reverse/)
   assert.doesNotMatch(squadSection, /max-h-\[58vh\]/)
+})
+
+test('calendar event modal uses mobile keyboard-safe flex scroll layout', async () => {
+  const source = await readFile(sessionsPageUrl, 'utf8')
+  const modalStart = source.indexOf('function CalendarEventModal(')
+  assert.notEqual(modalStart, -1)
+  const modalSection = source.slice(modalStart)
+
+  assert.match(modalSection, /items-stretch[\s\S]*sm:items-center/)
+  assert.match(modalSection, /max-h-\[calc\(100dvh-1\.5rem\)\][\s\S]*flex-col[\s\S]*overflow-hidden/)
+  assert.match(modalSection, /className="flex min-h-0 flex-1 flex-col overflow-hidden"/)
+  assert.match(modalSection, /className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32/)
+  assert.match(modalSection, /className="shrink-0 flex flex-col-reverse/)
 })

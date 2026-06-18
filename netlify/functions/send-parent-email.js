@@ -226,7 +226,7 @@ function embedProgressionChartsInPdfHtml(html, chartAttachments = []) {
       return svgMarkup
     }
 
-    return `<img src="data:image/png;base64,${chartAttachment.content}" alt="Progression score chart out of 10" width="360" style="display: block; width: 100%; max-width: 360px; height: auto;" />`
+    return `<img src="data:image/png;base64,${chartAttachment.content}" alt="Progression score chart out of 10" width="640" style="display: block; width: 100%; max-width: 640px; height: auto;" />`
   })
 }
 

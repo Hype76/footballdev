@@ -127,6 +127,75 @@ async function listQueue({ profile }) {
   return (data ?? []).map(normalizeRow)
 }
 
+async function createQueueItem({ body, profile }) {
+  const recipients = normalizeRecipients(body.toEmail)
+
+  if (recipients.length === 0 || !recipients.every(isValidEmail)) {
+    throw Object.assign(new Error('Enter at least one valid recipient email.'), { statusCode: 400 })
+  }
+
+  if (recipients.length > 5) {
+    throw Object.assign(new Error('Too many emails in one queue item.'), { statusCode: 400 })
+  }
+
+  const subject = String(body.subject ?? '').trim() || 'Football Player'
+  const html = String(body.html ?? '').trim() || '<p>No content</p>'
+  const scheduledAt = parseScheduledAt(body.scheduledAt)
+  const teamId = String(body.teamId ?? '').trim() || null
+  const communicationLog = body.communicationLog && typeof body.communicationLog === 'object'
+    ? {
+        ...body.communicationLog,
+        metadata: {
+          ...(body.communicationLog.metadata || {}),
+          subject,
+          body: html,
+          scheduledAt,
+        },
+      }
+    : null
+  const payload = {
+    resendPayload: {
+      to: recipients,
+      subject,
+      html,
+    },
+    displayName: String(body.displayName ?? '').trim(),
+    teamName: String(body.teamName ?? '').trim(),
+    clubName: String(body.clubName ?? '').trim(),
+    playerName: String(body.playerName ?? '').trim(),
+    parentName: String(body.parentName ?? '').trim(),
+    clubId: profile.clubId,
+    teamId,
+    actorId: String(profile.id ?? '').trim(),
+    actorEmail: String(profile.email ?? '').trim().toLowerCase(),
+    requiredFeature: 'parentEmail',
+    communicationLog,
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('scheduled_email_queue')
+    .insert({
+      club_id: profile.clubId,
+      team_id: teamId,
+      created_by: payload.actorId || null,
+      created_by_email: payload.actorEmail,
+      to_email: recipients.join(', '),
+      subject,
+      scheduled_at: scheduledAt,
+      status: 'scheduled',
+      payload,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw new Error('Email could not be added to the queue.')
+  }
+
+  return normalizeRow(data)
+}
+
 async function updateQueueItem({ body, profile }) {
   const row = await getQueueRow({ id: body.id, profile })
 
@@ -346,6 +415,10 @@ export async function handler(event) {
 
     if (action === 'list') {
       return successResponse({ queue: await listQueue({ profile }) })
+    }
+
+    if (action === 'create') {
+      return successResponse({ item: await createQueueItem({ body, profile }) })
     }
 
     if (action === 'update') {

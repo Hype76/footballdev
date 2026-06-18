@@ -4,6 +4,9 @@ import { test } from 'node:test'
 
 const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const parentProfileSourceUrl = new URL('../src/lib/domain/core.js', import.meta.url)
+const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
+const scheduledEmailsDomainUrl = new URL('../src/lib/domain/scheduled-emails.js', import.meta.url)
+const manageScheduledEmailsFunctionUrl = new URL('../netlify/functions/manage-scheduled-emails.js', import.meta.url)
 const parentCalendarMigrationUrl = new URL('../supabase/migrations/20260613120000_parent_calendar_visibility_controls.sql', import.meta.url)
 const playerPickerMigrationUrl = new URL('../supabase/migrations/20260617085000_parent_data_safety_match_day_players.sql', import.meta.url)
 const staffNotesMigrationUrl = new URL('../supabase/migrations/20260501100000_player_activity_and_staff_notes.sql', import.meta.url)
@@ -344,6 +347,35 @@ test('parent portal dashboard only loads current parent data sources', async () 
   assert.match(source, /getParentPortalSharedCalendarEvents\(\{ parentLinkId: selectedLink\.id \}\)/)
   assert.doesNotMatch(source, /getParentPortalMessages|getParentPortalPolls|getParent.*Assessment|getParent.*Feedback/)
   assert.doesNotMatch(source, /player_staff_notes|getStaff|staffNotes|StaffNotes/)
+})
+
+test('parent event invite query is scoped to the active parent link and visible event audience', async () => {
+  const source = await readFile(new URL('../src/lib/domain/calendar-event-invites.js', import.meta.url), 'utf8')
+
+  assert.match(source, /\.eq\('parent_link_id', normalizedParentLinkId\)/)
+  assert.match(source, /calendar_events:calendar_event_id \(id, title, event_type, starts_at, ends_at, location, notes, parent_visible, parent_audience\)/)
+  assert.match(source, /calendarEvent\.parent_visible === true && calendarEvent\.parent_audience === 'involved_players'/)
+})
+
+test('event invited family notification uses the scheduled email holding queue', async () => {
+  const sessionsSource = await readFile(sessionsPageUrl, 'utf8')
+  const scheduledEmailsSource = await readFile(scheduledEmailsDomainUrl, 'utf8')
+  const manageQueueSource = await readFile(manageScheduledEmailsFunctionUrl, 'utf8')
+
+  assert.match(sessionsSource, /import \{ createScheduledEmail \} from '..\/lib\/domain\/scheduled-emails\.js'/)
+  assert.match(sessionsSource, /calendarForm\.notifyInvitedFamilies[\s\S]*hasPlanFeature\(user, 'parentEmail'\)/)
+  assert.match(sessionsSource, /\.filter\(\(invite\) => invite\.notifyRequested\)/)
+  assert.match(sessionsSource, /\.filter\(\(invite\) => String\(invite\.parentContactEmail \?\? ''\)\.trim\(\)\)/)
+  assert.match(sessionsSource, /source: 'calendar_event_invite'/)
+  assert.match(sessionsSource, /Parent portal invites were still saved\./)
+  assert.match(sessionsSource, /adds a parent email to the holding queue for review before send time/)
+
+  assert.match(scheduledEmailsSource, /action: 'create'/)
+  assert.match(manageQueueSource, /async function createQueueItem/)
+  assert.match(manageQueueSource, /\.from\('scheduled_email_queue'\)[\s\S]*\.insert\(/)
+  assert.match(manageQueueSource, /status: 'scheduled'/)
+  assert.match(manageQueueSource, /resendPayload/)
+  assert.match(manageQueueSource, /if \(action === 'create'\)/)
 })
 
 test('parent portal dashboard does not call staff-only match day actions', async () => {

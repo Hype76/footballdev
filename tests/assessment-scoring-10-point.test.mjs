@@ -13,7 +13,7 @@ import { getDefaultFormFields } from '../src/lib/domain/core-defaults.js'
 import { buildEmailHtml } from '../src/lib/email-builder.js'
 import { buildPreviousAssessmentItems } from '../src/hooks/evaluations/evaluationFormUtils.js'
 import { buildPlayerProgressionData } from '../src/lib/player-progression.js'
-import { getProgressionChartSummary } from '../src/lib/progression-chart-markup.js'
+import { buildProgressionChartMarkup, getProgressionChartSummary } from '../src/lib/progression-chart-markup.js'
 
 test('default assessment score options and guide use the 1 to 10 model', () => {
   const options = getDefaultAssessmentScoreOptions()
@@ -108,6 +108,49 @@ test('progression chart scoring is displayed on a 10 point scale', () => {
   assert.equal(progression.scoreTrend[1].value, 9)
   assert.match(summary, /\/ 10/)
   assert.doesNotMatch(summary, /\/ 5/)
+})
+
+test('PDF progression chart uses clean static chart labels without raw value dumps', () => {
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-18',
+    fields: [
+      { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+    ],
+    evaluations: [
+      {
+        id: 'first',
+        date: '2026-06-12',
+        averageScore: 6,
+        formResponses: { Technical: 6 },
+      },
+      {
+        id: 'second',
+        date: '2026-06-12',
+        averageScore: 7.5,
+        formResponses: { Technical: 7.5 },
+      },
+    ],
+  })
+  const chartMarkup = buildProgressionChartMarkup(progression.scoreTrend)
+  const pdfHtml = buildAssessmentPdfHtml({
+    clubName: 'Club',
+    playerName: 'Player',
+    emailSections: [
+      {
+        key: 'progressionChart',
+        title: 'Progression chart',
+        body: 'Scores are charted oldest to newest out of 10.',
+        chartPoints: progression.scoreTrend,
+      },
+    ],
+    teamName: 'U12',
+  })
+
+  assert.match(chartMarkup, />12 Jun #1</)
+  assert.match(chartMarkup, />12 Jun #2</)
+  assert.doesNotMatch(chartMarkup, /12 Jun 2026 #1: 6\.0 \/ 10/)
+  assert.doesNotMatch(pdfHtml, /12 Jun 2026 #1: 6\.0\s*\|\s*12 Jun 2026 #2: 7\.5/)
+  assert.doesNotMatch(pdfHtml, /No date entered/)
 })
 
 test('score migration is guarded and converts only built-in score labels', () => {

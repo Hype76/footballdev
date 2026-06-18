@@ -10,6 +10,7 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
 import { canCreateEvaluation, isClubAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
+import { hasPlanFeature } from '../lib/plans.js'
 import {
   AVAILABLE_PLAYER_PAGE_SIZE,
   SESSION_PLAYER_PAGE_SIZE,
@@ -68,6 +69,7 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+import { createScheduledEmail } from '../lib/domain/scheduled-emails.js'
 
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#065f46]'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
@@ -264,6 +266,69 @@ function getSafeCalendarTeamId(user, teamId) {
 
 function getTrimmedFormValue(value) {
   return String(value ?? '').trim()
+}
+
+function escapeEventInviteHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
+
+function formatEventInviteDateTime(date, time) {
+  const dateValue = formatDateInput(date)
+  const timeValue = formatTimeInput(time)
+
+  if (!dateValue && !timeValue) {
+    return 'Time to be confirmed'
+  }
+
+  return `${dateValue || 'Date to be confirmed'}${timeValue ? ` at ${timeValue}` : ''}`
+}
+
+function buildCalendarEventInviteEmailHtml({
+  clubName,
+  eventTitle,
+  eventType,
+  location,
+  notes,
+  parentName,
+  playerName,
+  startsAtLabel,
+  teamName,
+}) {
+  const resolvedParent = parentName || 'Parent or guardian'
+  const resolvedPlayer = playerName || 'your child'
+  const resolvedClub = clubName || 'Your club'
+  const resolvedTeam = teamName || 'their team'
+  const resolvedTitle = eventTitle || 'Club event'
+
+  return `
+    <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 720px; margin: 0 auto;">
+      <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Event invite</p>
+      <h1 style="margin: 0 0 14px; font-size: 24px; line-height: 1.2;">${escapeEventInviteHtml(resolvedTitle)}</h1>
+      <p style="margin: 0 0 18px; font-size: 15px;">Hi ${escapeEventInviteHtml(resolvedParent)}, ${escapeEventInviteHtml(resolvedPlayer)} has been invited to this Football Player event.</p>
+      <div style="border: 1px solid #e7ece3; border-radius: 12px; background: #fbfcf9; padding: 14px 16px; margin: 0 0 20px;">
+        <p style="margin: 0 0 8px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">Details</p>
+        <p style="margin: 0 0 6px; font-size: 14px;"><strong>When:</strong> ${escapeEventInviteHtml(startsAtLabel)}</p>
+        <p style="margin: 0 0 6px; font-size: 14px;"><strong>Team:</strong> ${escapeEventInviteHtml(resolvedTeam)}</p>
+        <p style="margin: 0 0 6px; font-size: 14px;"><strong>Type:</strong> ${escapeEventInviteHtml(eventType || 'Event')}</p>
+        ${location ? `<p style="margin: 0 0 6px; font-size: 14px;"><strong>Location:</strong> ${escapeEventInviteHtml(location)}</p>` : ''}
+        ${notes ? `<p style="margin: 0; font-size: 14px;"><strong>Notes:</strong> ${escapeEventInviteHtml(notes)}</p>` : ''}
+      </div>
+      <p style="margin: 0 0 18px; font-size: 14px;">You can also see this invite in the parent portal.</p>
+      <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeEventInviteHtml(resolvedClub)} | ${escapeEventInviteHtml(resolvedTeam)}</p>
+      <div style="border-top: 1px solid #e7ece3; margin-top: 20px; padding-top: 14px;">
+        <p style="margin: 0; color: #7a8578; font-size: 11px; line-height: 1.45;">Powered by Football Player | footballplayer.online</p>
+      </div>
+    </div>
+  `
+}
+
+function getEventInviteScheduledAt() {
+  return new Date(Date.now() + 10 * 60 * 1000).toISOString()
 }
 
 function validateCalendarForm({ form, safeTeamId, sourceType, user }) {
@@ -1255,6 +1320,83 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     ]
   }
 
+  const queueCalendarEventInviteEmails = async ({
+    assessmentSessionId = '',
+    calendarEventId = '',
+    savedInvites = [],
+    sourceTitle = '',
+  } = {}) => {
+    if (!calendarForm.notifyInvitedFamilies || !hasPlanFeature(user, 'parentEmail')) {
+      return { queued: 0, failed: 0 }
+    }
+
+    const sourceColumn = calendarEventId ? 'calendarEventId' : 'assessmentSessionId'
+    const sourceId = calendarEventId || assessmentSessionId
+    const previousInvites = calendarInvites.filter((invite) => invite[sourceColumn] === sourceId)
+    const previouslyRequestedPlayerIds = new Set(
+      previousInvites
+        .filter((invite) => invite.notifyRequested)
+        .map((invite) => String(invite.playerId ?? '')),
+    )
+    const invitesToQueue = savedInvites
+      .filter((invite) => invite.notifyRequested)
+      .filter((invite) => !previouslyRequestedPlayerIds.has(String(invite.playerId ?? '')))
+      .filter((invite) => String(invite.parentContactEmail ?? '').trim())
+
+    if (invitesToQueue.length === 0) {
+      return { queued: 0, failed: 0 }
+    }
+
+    const startsAtLabel = formatEventInviteDateTime(calendarForm.date, calendarForm.startTime)
+    const scheduledAt = getEventInviteScheduledAt()
+    const results = await Promise.allSettled(invitesToQueue.map((invite) => createScheduledEmail({
+      user,
+      item: {
+        clubName: user?.clubName || 'Football Player',
+        communicationLog: {
+          clubId: user?.clubId,
+          playerId: invite.playerId,
+          userId: user?.id,
+          userName: user?.displayName || user?.name || '',
+          userEmail: user?.email || '',
+          recipientEmail: invite.parentContactEmail,
+          metadata: {
+            source: 'calendar_event_invite',
+            calendarEventId,
+            assessmentSessionId,
+            calendarEventInviteId: invite.id,
+            eventTitle: sourceTitle,
+            startsAt: buildDateTime(calendarForm.date, calendarForm.startTime),
+          },
+        },
+        displayName: user?.displayName || user?.name || 'Football Player',
+        html: buildCalendarEventInviteEmailHtml({
+          clubName: user?.clubName || 'Football Player',
+          eventTitle: sourceTitle,
+          eventType: calendarForm.eventType,
+          location: calendarForm.location,
+          notes: calendarForm.notes,
+          parentName: invite.parentContactName,
+          playerName: invite.player?.playerName,
+          startsAtLabel,
+          teamName,
+        }),
+        parentName: invite.parentContactName,
+        playerName: invite.player?.playerName,
+        scheduledAt,
+        subject: `Football Player: ${sourceTitle || 'Event invite'}`,
+        teamId: safeTeamId,
+        teamName,
+        toEmail: invite.parentContactEmail,
+      },
+    })))
+
+    return {
+      queued: results.filter((result) => result.status === 'fulfilled').length,
+      failed: results.filter((result) => result.status === 'rejected').length,
+    }
+  }
+
   const handleCalendarSave = async (event) => {
     event.preventDefault()
     setIsSaving(true)
@@ -1308,8 +1450,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           until: calendarForm.recurrenceUntil,
         })
       let nextCalendarInvites = calendarInvites
+      let queuedInviteEmails = 0
+      let failedInviteEmails = 0
       const shouldSyncInvites = Boolean(safeTeamId)
-      const syncInvites = async ({ calendarEventId = '', assessmentSessionId = '' } = {}) => {
+      const syncInvites = async ({ calendarEventId = '', assessmentSessionId = '', sourceTitle = '' } = {}) => {
         if (!shouldSyncInvites) {
           return
         }
@@ -1323,6 +1467,16 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           players: sharedInvolvedPlayers ? selectedCalendarInvitePlayers : [],
           notifyRequested: sharedInvolvedPlayers && calendarForm.notifyInvitedFamilies,
         })
+        if (sharedInvolvedPlayers && calendarForm.notifyInvitedFamilies) {
+          const queueResult = await queueCalendarEventInviteEmails({
+            assessmentSessionId,
+            calendarEventId,
+            savedInvites,
+            sourceTitle,
+          })
+          queuedInviteEmails += queueResult.queued
+          failedInviteEmails += queueResult.failed
+        }
         nextCalendarInvites = replaceInvitesForSource(nextCalendarInvites, { calendarEventId, assessmentSessionId }, savedInvites)
       }
 
@@ -1362,7 +1516,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         }
 
         for (const savedSession of savedSessions) {
-          await syncInvites({ assessmentSessionId: savedSession.id })
+          await syncInvites({ assessmentSessionId: savedSession.id, sourceTitle: savedSession.title })
         }
 
         const savedSessionIds = savedSessions.map((session) => session.id)
@@ -1392,7 +1546,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         if (sourceType === 'session') {
           const savedSession = await updateAssessmentSession({ user, sessionId: activeEvent.sourceId, session: payload })
           const nextSessions = [savedSession, ...sessions.filter((session) => session.id !== savedSession.id)]
-          await syncInvites({ assessmentSessionId: savedSession.id })
+          await syncInvites({ assessmentSessionId: savedSession.id, sourceTitle: savedSession.title })
           setSessions(nextSessions)
           setCalendarInvites(nextCalendarInvites)
           writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
@@ -1418,7 +1572,7 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           showToast({ title: 'Fixture updated', message: savedMatch.opponent || 'Calendar updated.' })
         } else {
           const savedSession = await createAssessmentSession({ user, session: payload })
-          await syncInvites({ assessmentSessionId: savedSession.id })
+          await syncInvites({ assessmentSessionId: savedSession.id, sourceTitle: savedSession.title })
           const nextSessions = [savedSession, ...sessions.filter((session) => session.id !== savedSession.id)]
           setSessions(nextSessions)
           setCalendarInvites(nextCalendarInvites)
@@ -1450,12 +1604,27 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
         const savedEvent = sourceType === 'calendar'
           ? await updateCalendarEvent({ user, eventId: activeEvent.sourceId, event: payload })
           : await createCalendarEvent({ user, event: payload })
-        await syncInvites({ calendarEventId: savedEvent.id })
+        await syncInvites({ calendarEventId: savedEvent.id, sourceTitle: savedEvent.title })
         const nextCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
         setCalendarItems(nextCalendarItems)
         setCalendarInvites(nextCalendarInvites)
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
+      }
+
+      if (queuedInviteEmails > 0) {
+        showToast({
+          title: 'Family emails queued',
+          message: `${queuedInviteEmails} event invite email${queuedInviteEmails === 1 ? '' : 's'} added to the email queue.`,
+        })
+      }
+
+      if (failedInviteEmails > 0) {
+        showToast({
+          title: 'Some emails were not queued',
+          message: `${failedInviteEmails} event invite email${failedInviteEmails === 1 ? '' : 's'} could not be added to the queue. Parent portal invites were still saved.`,
+          tone: 'error',
+        })
       }
 
       setCalendarModal(null)
@@ -2327,11 +2496,11 @@ function CalendarEventModal({
   ]
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#101828]/45 px-4 py-6">
+    <div className="fixed inset-0 z-[80] flex items-stretch justify-center overflow-hidden bg-[#101828]/45 px-3 py-3 sm:items-center sm:px-4 sm:py-6">
       <div
         role="dialog"
         aria-modal="true"
-        className="relative max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-xl shadow-[#047857]/15 sm:p-6"
+        className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15 sm:max-h-[calc(100vh-2rem)]"
       >
         <button
           type="button"
@@ -2342,21 +2511,24 @@ function CalendarEventModal({
         >
           X
         </button>
-        <p className={eyebrowClass}>Calendar</p>
-        <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-          {isSessionCreate
-            ? 'Create a training or match session with time, location, notes, repeats, and player invites.'
-            : 'Add, move, edit, or cancel football activity from one place.'}
-        </p>
-        {isInheritedClubEvent ? (
-          <p className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#065f46]">
-            This is a club-wide event managed by the Club Admin.
+        <div className="shrink-0 border-b border-[#d7e5dc] px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
+          <p className={eyebrowClass}>Calendar</p>
+          <h2 className="mt-3 pr-12 text-2xl font-black tracking-tight text-[#101828]">{title}</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+            {isSessionCreate
+              ? 'Create a training or match session with time, location, notes, repeats, and player invites.'
+              : 'Add, move, edit, or cancel football activity from one place.'}
           </p>
-        ) : null}
+          {isInheritedClubEvent ? (
+            <p className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-black text-[#065f46]">
+              This is a club-wide event managed by the Club Admin.
+            </p>
+          ) : null}
+        </div>
 
         {!isEditing ? (
-          <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">{event?.sourceType || 'event'}</p>
             <h3 className="mt-2 text-xl font-black text-[#101828]">{event?.title || form.title || 'Calendar event'}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
@@ -2402,11 +2574,14 @@ function CalendarEventModal({
               </div>
             ) : null}
           </div>
+          </div>
         ) : null}
 
         {isEditing ? (
-          <form onSubmit={onSubmit} className="mt-5 grid gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
+          <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-32 px-5 py-5 sm:px-6">
+            <div className="grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Type</span>
                 <select
@@ -2560,10 +2735,10 @@ function CalendarEventModal({
                     <option value="none">Not shared</option>
                     {parentAudienceOptions.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+                  ))}
+                </select>
+              </label>
+            </div>
               {form.shareWithParents && form.parentAudience === 'involved_players' ? (
                 <p className="mt-3 rounded-lg border border-[#fedf89] bg-white px-3 py-3 text-xs font-bold leading-5 text-[#92400e]">
                   Only involved players fails closed unless at least one player is attached below.
@@ -2657,7 +2832,7 @@ function CalendarEventModal({
                       <span>
                         Notify invited families
                         <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
-                          Saved as a notification request. No calendar email is sent from this screen yet.
+                          Saves the invite and adds a parent email to the holding queue for review before send time.
                         </span>
                       </span>
                     </label>
@@ -2665,8 +2840,10 @@ function CalendarEventModal({
                 )}
               </div>
             ) : null}
+            </div>
+            </div>
 
-            <div className="flex flex-col gap-3 border-t border-[#d7e5dc] pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div>
                 {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
               </div>
