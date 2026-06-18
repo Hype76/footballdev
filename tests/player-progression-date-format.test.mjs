@@ -4,7 +4,7 @@ import { test } from 'node:test'
 
 import { formatUkDateWords, formatUkMonthYear } from '../src/lib/date-format.js'
 import { buildPlayerProgressionData } from '../src/lib/player-progression.js'
-import { buildFieldMovement, formatTrendDate } from '../src/hooks/players/playerProfileUtils.js'
+import { buildFieldMovement, buildRatingTrend, formatTrendDate } from '../src/hooks/players/playerProfileUtils.js'
 
 test('British date helpers use unambiguous record and month labels', () => {
   assert.equal(formatUkDateWords('2026-05-27'), '27 May 2026')
@@ -99,6 +99,50 @@ test('field movement only renders numeric field metadata as range cards', () => 
   assert.equal(movement.some((item) => item.label === 'Legacy Narrative'), false)
 })
 
+test('profile trend helpers exclude future dated records', () => {
+  const fields = [
+    { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+    { label: 'Strengths', type: 'textarea', includeInProgressChart: false },
+  ]
+  const evaluations = [
+    {
+      id: 'past-scored',
+      date: '2026-06-01',
+      createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      averageScore: 6,
+      formResponses: {
+        Technical: 6,
+        Strengths: '1',
+      },
+    },
+    {
+      id: 'current-scored',
+      date: '2026-06-18',
+      createdAt: new Date('2026-06-18T10:00:00.000Z'),
+      averageScore: 7,
+      formResponses: {
+        Technical: 7,
+      },
+    },
+    {
+      id: 'future-scored',
+      date: '2026-08-01',
+      createdAt: new Date('2026-08-01T10:00:00.000Z'),
+      averageScore: 10,
+      formResponses: {
+        Technical: 10,
+      },
+    },
+  ]
+
+  const ratingTrend = buildRatingTrend(evaluations, { currentDate: '2026-06-18' })
+  const movement = buildFieldMovement(evaluations, fields, { currentDate: '2026-06-18' })
+
+  assert.deepEqual(ratingTrend.map((evaluation) => evaluation.id), ['past-scored', 'current-scored'])
+  assert.equal(movement.find((item) => item.label === 'Technical')?.latestValue, 7)
+  assert.equal(movement.some((item) => item.label === 'Strengths'), false)
+})
+
 test('progression focus areas ignore text fields and future involvement months', () => {
   const progression = buildPlayerProgressionData({
     currentDate: '2026-06-17',
@@ -151,6 +195,114 @@ test('progression focus areas ignore text fields and future involvement months',
   assert.equal(progression.focusAreas.some((item) => item.label === 'Strengths'), false)
   assert.equal(progression.focusAreas.some((item) => item.label === 'Overall Comments'), false)
   assert.deepEqual(progression.scoreTrend.map((point) => point.id), ['past-training', 'current-match'])
+})
+
+test('progression counts saved scored records even when old records lack current chart fields or session links', () => {
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-18',
+    fields: [
+      { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+      { label: 'Physical', type: 'score_1_10', includeInProgressChart: true },
+      { label: 'Strengths', type: 'textarea', includeInProgressChart: false },
+      { label: 'Overall Comments', type: 'textarea', includeInProgressChart: false },
+    ],
+    evaluations: [
+      {
+        id: 'legacy-scored-no-session-1',
+        averageScore: 5.2,
+        date: '2026-05-01',
+        formResponses: {
+          'Old technical score': 5,
+          Strengths: '1',
+        },
+        session: '',
+      },
+      {
+        id: 'legacy-scored-no-session-2',
+        averageScore: 5.6,
+        date: '2026-05-08',
+        formResponses: {
+          'Archived coach rating': 6,
+          'Overall Comments': '1',
+        },
+        session: '',
+      },
+      {
+        id: 'current-training',
+        averageScore: 6,
+        date: '2026-05-15',
+        formResponses: {
+          Technical: 6,
+          Physical: 6,
+        },
+        session: 'Training',
+      },
+      {
+        id: 'current-match',
+        averageScore: 7,
+        date: '2026-05-22',
+        formResponses: {
+          Technical: 7,
+          Physical: 7,
+        },
+        session: 'Match vs City',
+      },
+      {
+        id: 'current-no-session',
+        averageScore: 7.5,
+        date: '2026-06-01',
+        formResponses: {
+          Technical: 8,
+          Physical: 7,
+        },
+        session: '',
+      },
+      {
+        id: 'future-scored',
+        averageScore: 10,
+        date: '2026-08-01',
+        formResponses: {
+          Technical: 10,
+          Physical: 10,
+        },
+        session: 'Training',
+      },
+      {
+        id: 'past-text-only',
+        date: '2026-06-02',
+        formResponses: {
+          Strengths: 'Great attitude',
+          'Overall Comments': 'Keep going',
+        },
+        session: 'Training',
+      },
+    ],
+  })
+
+  assert.equal(progression.historicalEvaluationCount, 6)
+  assert.equal(progression.evaluationCount, 5)
+  assert.equal(progression.hasScoreTrend, true)
+  assert.deepEqual(
+    progression.scoreTrend.map((point) => point.id),
+    ['legacy-scored-no-session-1', 'legacy-scored-no-session-2', 'current-training', 'current-match', 'current-no-session'],
+  )
+  assert.deepEqual(progression.scoreTrend.map((point) => point.value), [5.2, 5.6, 6, 7, 7.5])
+  assert.equal(progression.trainingCount, 5)
+  assert.equal(progression.matchCount, 1)
+  assert.equal(progression.involvementByMonth.some((item) => item.label === 'Aug 2026'), false)
+  assert.equal(progression.focusAreas.some((item) => item.label === 'Strengths'), false)
+  assert.equal(progression.focusAreas.some((item) => item.label === 'Overall Comments'), false)
+})
+
+test('progression component labels scored record counts when saved history differs', () => {
+  const source = readFileSync(
+    new URL('../src/components/players/PlayerProgressionCharts.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /label="Scored records"/)
+  assert.match(source, /scored records from/)
+  assert.match(source, /saved development records are eligible/)
 })
 
 test('player profile date displays use the shared British formatter', () => {

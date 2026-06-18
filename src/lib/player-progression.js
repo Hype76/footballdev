@@ -147,7 +147,7 @@ function getEvaluationChartScore(evaluation, chartFieldMap) {
     .filter((value) => Number.isFinite(value))
 
   if (!values.length) {
-    return null
+    return isNumericValue(evaluation.averageScore) ? Number(evaluation.averageScore) : null
   }
 
   return values.reduce((sum, value) => sum + value, 0) / values.length
@@ -268,7 +268,8 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
     latestEvaluation,
     latestComments,
     focusAreas,
-    evaluationCount: chronologicalEvaluations.length,
+    evaluationCount: scoreTrend.length,
+    historicalEvaluationCount: chronologicalEvaluations.length,
     staffNoteCount: notes.length,
     matchCount: Array.from(evaluationMonths.values()).reduce((sum, item) => sum + item.matches, 0),
     trainingCount: Array.from(evaluationMonths.values()).reduce((sum, item) => sum + item.training, 0),
@@ -333,10 +334,11 @@ export function buildProgressionEmailSections({ progressionData, sections = {} }
   }
 
   if (enabled.attendanceSummary) {
+    const historicalEvaluationCount = Number(progressionData.historicalEvaluationCount ?? progressionData.evaluationCount ?? 0)
     items.push({
       key: 'attendanceSummary',
       title: 'Attendance summary',
-      body: `${progressionData.evaluationCount} development record${progressionData.evaluationCount === 1 ? '' : 's'} logged. Training involvement: ${progressionData.trainingCount}. Match involvement: ${progressionData.matchCount}.`,
+      body: `${historicalEvaluationCount} development record${historicalEvaluationCount === 1 ? '' : 's'} logged. Training involvement: ${progressionData.trainingCount}. Match involvement: ${progressionData.matchCount}.`,
     })
   }
 

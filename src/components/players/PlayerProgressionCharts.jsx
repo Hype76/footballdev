@@ -63,6 +63,7 @@ export function PlayerProgressionCharts({
   const chartPoints = progressionData.hasScoreTrend ? getPointCoordinates(progressionData.scoreTrend, scoreMax) : []
   const linePath = buildLinePath(chartPoints)
   const maxInvolvement = Math.max(1, ...progressionData.involvementByMonth.map((item) => item.assessments))
+  const historicalEvaluationCount = Number(progressionData.historicalEvaluationCount ?? progressionData.evaluationCount ?? 0)
   const yTicks = scoreMax === 10 ? [0, 2, 4, 6, 8, 10] : [0, 1, 2, 3, 4, 5]
   const xLabels = chartPoints.filter((_, index) => (
     chartPoints.length <= 4 ||
@@ -80,9 +81,14 @@ export function PlayerProgressionCharts({
           <p className={`mt-2 ${bodyClass}`}>
             Real trend data for {playerName}, built from saved development records and staff notes.
           </p>
+          {historicalEvaluationCount !== progressionData.evaluationCount ? (
+            <p className={`mt-2 ${bodyClass}`}>
+              {progressionData.evaluationCount} scored records from {historicalEvaluationCount} saved development records are eligible for the coach rating trend.
+            </p>
+          ) : null}
         </div>
         <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[22rem]">
-          <Metric label="Records" value={progressionData.evaluationCount} />
+          <Metric label="Scored records" value={progressionData.evaluationCount} />
           <Metric label="Training" value={progressionData.trainingCount} />
           <Metric label="Matches" value={progressionData.matchCount} />
         </div>

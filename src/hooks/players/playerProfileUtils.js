@@ -164,14 +164,48 @@ export function formatTrendDate(evaluation) {
   return evaluation.createdAt ? formatUkDateWords(evaluation.createdAt, 'No date entered') : 'No date entered'
 }
 
-export function buildRatingTrend(evaluations) {
-  return [...evaluations]
-    .filter((evaluation) => evaluation.averageScore !== null)
-    .sort((left, right) => left.createdAt - right.createdAt)
+function getHistoricalCutoffKey(currentDate = new Date()) {
+  const parsedDate = currentDate instanceof Date ? currentDate : new Date(currentDate)
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().slice(0, 10)
 }
 
-export function buildFieldMovement(evaluations, fields = []) {
-  const chronologicalEvaluations = [...evaluations].sort((left, right) => left.createdAt - right.createdAt)
+function getEvaluationHistoryDateKey(evaluation) {
+  const value = evaluation?.date || evaluation?.createdAt
+  const parsedDate = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().slice(0, 10)
+}
+
+function isHistoricalEvaluation(evaluation, cutoffKey) {
+  if (!cutoffKey) {
+    return true
+  }
+
+  const dateKey = getEvaluationHistoryDateKey(evaluation)
+  return !dateKey || dateKey <= cutoffKey
+}
+
+export function buildRatingTrend(evaluations, { currentDate } = {}) {
+  const cutoffKey = getHistoricalCutoffKey(currentDate)
+
+  return [...evaluations]
+    .filter((evaluation) => evaluation.averageScore !== null)
+    .filter((evaluation) => isHistoricalEvaluation(evaluation, cutoffKey))
+    .sort((left, right) => {
+      const leftTime = new Date(left.date || left.createdAt).getTime()
+      const rightTime = new Date(right.date || right.createdAt).getTime()
+      return leftTime - rightTime
+    })
+}
+
+export function buildFieldMovement(evaluations, fields = [], { currentDate } = {}) {
+  const cutoffKey = getHistoricalCutoffKey(currentDate)
+  const chronologicalEvaluations = [...evaluations]
+    .filter((evaluation) => isHistoricalEvaluation(evaluation, cutoffKey))
+    .sort((left, right) => {
+      const leftTime = new Date(left.date || left.createdAt).getTime()
+      const rightTime = new Date(right.date || right.createdAt).getTime()
+      return leftTime - rightTime
+    })
   const fieldValues = new Map()
   const numericFieldMap = getProgressionNumericFieldMap(fields)
 
