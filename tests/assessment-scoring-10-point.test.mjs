@@ -36,7 +36,7 @@ test('built-in development score fields default to score_1_10 without enabling f
   assert.equal(scoreFields.length, 5)
   assert.equal(scoreFields.every((field) => field.type === 'score_1_10'), true)
   assert.equal(scoreFields.every((field) => field.includeInProgressChart === true), true)
-  assert.equal(fitnessFields.every((field) => field.type === 'text'), true)
+  assert.equal(fitnessFields.every((field) => field.type === 'number'), true)
   assert.equal(fitnessFields.every((field) => field.includeInProgressChart === false), true)
 })
 

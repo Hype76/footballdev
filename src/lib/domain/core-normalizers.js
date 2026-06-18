@@ -79,10 +79,6 @@ export function normalizeFieldType(value) {
   const normalizedValue = String(value ?? '').trim().toLowerCase()
   const allowedTypes = ['text', 'textarea', 'number', 'select', 'score_1_5', 'score_1_10']
 
-  if (normalizedValue === 'number') {
-    return 'score_1_5'
-  }
-
   return allowedTypes.includes(normalizedValue) ? normalizedValue : 'text'
 }
 

@@ -101,7 +101,7 @@ const DEFAULT_FORM_FIELDS = [
   ...FITNESS_BENCHMARK_FIELDS.map((field, index) => ({
     id: `default-${field.benchmarkKey.replace(/_/g, '-')}`,
     label: field.label,
-    type: 'text',
+    type: 'number',
     options: [],
     required: false,
     orderIndex: 9 + index,

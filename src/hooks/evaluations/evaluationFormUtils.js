@@ -172,6 +172,11 @@ export function normalizeResponseValue(field, value) {
     return Number.isNaN(numericValue) ? '' : numericValue
   }
 
+  if (field.type === 'number') {
+    const numericValue = Number(value)
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : ''
+  }
+
   return String(value ?? '').trim()
 }
 
@@ -183,9 +188,19 @@ export function buildFormResponses(fields, responseValues) {
   )
 }
 
-export function buildScores(formResponses) {
+export function buildScores(formResponses, fields = []) {
+  const scoreLabels = Array.isArray(fields) && fields.length > 0
+    ? new Set(fields.filter((field) => isScoreFieldType(field.type)).map((field) => normalizeAssessmentLabel(field.label)))
+    : null
+
   return Object.fromEntries(
-    Object.entries(formResponses).filter(([, value]) => typeof value === 'number' && !Number.isNaN(value)),
+    Object.entries(formResponses).filter(([label, value]) => {
+      if (scoreLabels && !scoreLabels.has(normalizeAssessmentLabel(label))) {
+        return false
+      }
+
+      return typeof value === 'number' && !Number.isNaN(value)
+    }),
   )
 }
 
@@ -202,8 +217,9 @@ export function buildComments(formResponses) {
   }
 }
 
-export function getAverageScore(formResponses) {
-  const values = Object.values(formResponses)
+export function getAverageScore(formResponses, fields = []) {
+  const scores = buildScores(formResponses, fields)
+  const values = Object.values(scores)
     .map((value) => Number(value))
     .filter((value) => !Number.isNaN(value))
 

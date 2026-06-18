@@ -1600,9 +1600,9 @@ export function CreateEvaluationPage() {
 
   const enabledFields = useMemo(() => dynamicFields.filter((field) => field.isEnabled), [dynamicFields])
   const formResponses = useMemo(() => buildFormResponses(enabledFields, responseValues), [enabledFields, responseValues])
-  const scores = useMemo(() => buildScores(formResponses), [formResponses])
+  const scores = useMemo(() => buildScores(formResponses, enabledFields), [enabledFields, formResponses])
   const comments = useMemo(() => buildComments(formResponses), [formResponses])
-  const averageScore = useMemo(() => getAverageScore(formResponses), [formResponses])
+  const averageScore = useMemo(() => getAverageScore(formResponses, enabledFields), [enabledFields, formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
   const canSubmitEvaluation = availableTeams.length > 0
   const canUseParentEmail = hasPlanFeature(user, 'parentEmail')

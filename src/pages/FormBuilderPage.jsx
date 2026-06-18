@@ -14,6 +14,7 @@ import {
   createDraftMap,
   createScoreOptions,
   FIELD_PAGE_SIZE,
+  buildReorderedFormFields,
   getFieldTypeLabel,
   getOptionsForType,
   initialFieldForm,
@@ -223,18 +224,7 @@ export function FormBuilderPage() {
   }
 
   const saveFieldOrder = async (nextGroupFields) => {
-    if (fieldGroup === 'default') {
-      setErrorMessage('Default development fields cannot be reordered from team-level access.')
-      return
-    }
-
-    const nextFields = fieldGroup === 'default'
-      ? [...nextGroupFields, ...customFields]
-      : [...defaultFields, ...nextGroupFields]
-    const normalizedFields = nextFields.map((field, index) => ({
-      ...field,
-      orderIndex: index + 1,
-    }))
+    const normalizedFields = buildReorderedFormFields({ customFields, defaultFields, fieldGroup, nextGroupFields })
     const previousFields = fields
     const previousDrafts = fieldDrafts
 
@@ -371,11 +361,6 @@ export function FormBuilderPage() {
   }
 
   const handleToggleEnabled = async (field) => {
-    if (field.isDefault) {
-      setErrorMessage('Default development fields cannot be enabled or disabled from team-level access.')
-      return
-    }
-
     const draft = fieldDrafts[field.id] ?? createDraftFromField(field)
     const nextEnabled = !draft.isEnabled
 
@@ -409,11 +394,6 @@ export function FormBuilderPage() {
       return
     }
 
-    if (field.isDefault) {
-      setErrorMessage('Default development fields cannot be changed from team-level access.')
-      return
-    }
-
     setIsSaving(true)
     setErrorMessage('')
     setSuccessMessage('')
@@ -443,10 +423,6 @@ export function FormBuilderPage() {
   }
 
   const handleSaveField = async (field) => {
-    if (field.isDefault) {
-      return
-    }
-
     const draft = fieldDrafts[field.id]
 
     if (!draft) {
@@ -468,7 +444,7 @@ export function FormBuilderPage() {
           isEnabled: draft.isEnabled,
           includeInProgressChart: isScoreType(draft.type) ? draft.includeInProgressChart : false,
           orderIndex: field.orderIndex,
-          isDefault: false,
+          isDefault: field.isDefault,
         },
         user,
       )

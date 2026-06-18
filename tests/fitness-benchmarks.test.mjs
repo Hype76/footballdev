@@ -18,6 +18,7 @@ test('fitness benchmark defaults are optional and disabled until staff enable th
   assert.equal(defaultFields.length, 4)
 
   for (const field of defaultFields) {
+    assert.equal(field.type, 'number')
     assert.equal(field.required, false)
     assert.equal(field.isEnabled, false)
     assert.equal(field.includeInProgressChart, false)

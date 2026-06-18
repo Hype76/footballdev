@@ -68,7 +68,7 @@ export function isDefaultAssessmentScoreLabel(label) {
 }
 
 export function isAssessmentScoreFieldType(type) {
-  return type === LEGACY_ASSESSMENT_SCORE_FIELD_TYPE || type === DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE || type === 'number'
+  return type === LEGACY_ASSESSMENT_SCORE_FIELD_TYPE || type === DEFAULT_ASSESSMENT_SCORE_FIELD_TYPE
 }
 
 export function getAssessmentScoreMax(type) {

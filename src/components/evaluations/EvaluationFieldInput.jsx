@@ -104,6 +104,21 @@ export function EvaluationFieldInput({ field, value, onChange }) {
     )
   }
 
+  if (field.type === 'number') {
+    return (
+      <input
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        value={value}
+        onChange={(event) => onChange(field.id, event.target.value)}
+        required={field.required}
+        className={sharedClassName}
+      />
+    )
+  }
+
   return (
     <input
       type="text"

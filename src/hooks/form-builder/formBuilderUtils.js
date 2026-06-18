@@ -1,6 +1,7 @@
 export const FIELD_TYPE_OPTIONS = [
   { value: 'score_1_5', label: 'Score 1 to 5' },
   { value: 'score_1_10', label: 'Score 1 to 10' },
+  { value: 'number', label: 'Number' },
   { value: 'text', label: 'Text' },
   { value: 'textarea', label: 'Textarea' },
   { value: 'select', label: 'Select' },
@@ -24,7 +25,7 @@ function normalizeOptions(optionsText) {
 }
 
 export function isScoreType(type) {
-  return type === 'score_1_5' || type === 'score_1_10' || type === 'number'
+  return type === 'score_1_5' || type === 'score_1_10'
 }
 
 export function createScoreOptions(type) {
@@ -61,4 +62,15 @@ export function createDraftFromField(field) {
 
 export function createDraftMap(fields) {
   return Object.fromEntries(fields.map((field) => [field.id, createDraftFromField(field)]))
+}
+
+export function buildReorderedFormFields({ customFields, defaultFields, fieldGroup, nextGroupFields }) {
+  const nextFields = fieldGroup === 'default'
+    ? [...nextGroupFields, ...customFields]
+    : [...defaultFields, ...nextGroupFields]
+
+  return nextFields.map((field, index) => ({
+    ...field,
+    orderIndex: index + 1,
+  }))
 }

@@ -50,6 +50,16 @@ function assertActiveTeamField(user, field = {}) {
   }
 }
 
+function assertClubDefaultField(user, field = {}) {
+  if (!field?.is_default && !field?.isDefault) {
+    return
+  }
+
+  if (!user?.clubId || String(field.club_id ?? field.clubId ?? '') !== String(user.clubId)) {
+    throw new Error('Default development fields can only be managed for the current club.')
+  }
+}
+
 export async function getConfiguredFormFields({ user } = {}) {
   if (!user?.clubId) {
     return []
@@ -165,7 +175,7 @@ export async function updateFormField(id, fieldData, user) {
 
   const { data: existingField, error: existingFieldError } = await supabase
     .from('form_fields')
-    .select('id, team_id, is_default, type')
+    .select('id, club_id, team_id, is_default, type')
     .eq('id', id)
     .single()
 
@@ -175,14 +185,14 @@ export async function updateFormField(id, fieldData, user) {
   }
 
   if (existingField?.is_default) {
-    throw new Error('Default development fields cannot be edited from team-level access.')
+    assertClubDefaultField(user, existingField)
+  } else {
+    assertActiveTeamField(user, existingField)
   }
-
-  assertActiveTeamField(user, existingField)
 
   let safeFieldData = {
     ...fieldData,
-    teamId: existingField.team_id ?? user.activeTeamId,
+    teamId: existingField.is_default ? null : existingField.team_id ?? user.activeTeamId,
   }
 
   if (fieldData?.includeInProgressChart !== undefined && fieldData.type === undefined) {
@@ -274,7 +284,7 @@ export async function reorderFormFields(fields, user) {
   })
 
   await Promise.all(
-    fields.filter((field) => !field.isDefault).map((field, index) =>
+    fields.map((field, index) =>
       updateFormField(
         field.id,
         {

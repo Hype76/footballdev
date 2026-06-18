@@ -4,7 +4,6 @@ import {
   createScoreOptions,
   FIELD_PAGE_SIZE,
   FIELD_TYPE_OPTIONS,
-  getFieldTypeLabel,
   isScoreType,
 } from '../../hooks/form-builder/formBuilderUtils.js'
 import { Pagination } from '../ui/Pagination.jsx'
@@ -221,15 +220,12 @@ function FormFieldCard({
       : undefined
   const savingDisabledReason = isSaving ? 'Please wait while field changes are being saved.' : undefined
   const isSharedField = field.isDefault
-  const protectedFieldDisabledReason = field.isDefault
-    ? 'Default fields are shared and cannot be changed from team-level access.'
-    : undefined
 
   return (
     <div
-      draggable={!isSaving && !isDragLocked && !isSharedField}
+      draggable={!isSaving && !isDragLocked}
       onDragStart={(event) => {
-        if (isDragLocked || isSharedField) {
+        if (isDragLocked) {
           event.preventDefault()
           return
         }
@@ -240,7 +236,7 @@ function FormFieldCard({
       }}
       onDragEnd={onDragEnd}
       onDragOver={(event) => {
-        if (isDragLocked || isSharedField) {
+        if (isDragLocked) {
           return
         }
 
@@ -254,7 +250,7 @@ function FormFieldCard({
         }
       }}
       onDrop={(event) => {
-        if (isDragLocked || isSharedField) {
+        if (isDragLocked) {
           return
         }
 
@@ -264,81 +260,66 @@ function FormFieldCard({
       }}
       className={[
         'rounded-lg border bg-white p-4 shadow-sm shadow-[#047857]/10 transition',
-        isSaving || isDragLocked || isSharedField ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
+        isSaving || isDragLocked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
         isDragging ? 'opacity-60' : '',
         isDragOver ? 'border-[#047857] ring-2 ring-[#d1fae5]' : 'border-[#d7e5dc]',
       ].join(' ')}
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="grid gap-4 md:grid-cols-2">
-          {isSharedField ? (
-            <>
-              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Label</p>
-                <p className="mt-2 text-sm font-black text-[#101828]">{field.label}</p>
-              </div>
-              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Type</p>
-                <p className="mt-2 text-sm font-black text-[#101828]">{getFieldTypeLabel(field.type)}</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <label className="block">
-                <span className={labelClass}>Label</span>
-                <input
-                  type="text"
-                  value={draft.label}
-                  onChange={(event) => onDraftChange(field.id, 'label', event.target.value)}
-                  className={fieldClass}
-                />
-              </label>
-              <label className="block">
-                <span className={labelClass}>Type</span>
-                <select
-                  value={draft.type}
-                  onChange={(event) => onDraftChange(field.id, 'type', event.target.value)}
-                  className={fieldClass}
-                >
-                  {FIELD_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          <label className="block">
+            <span className={labelClass}>Label</span>
+            <input
+              type="text"
+              value={draft.label}
+              onChange={(event) => onDraftChange(field.id, 'label', event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <label className="block">
+            <span className={labelClass}>Type</span>
+            <select
+              value={draft.type}
+              onChange={(event) => onDraftChange(field.id, 'type', event.target.value)}
+              className={fieldClass}
+            >
+              {FIELD_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-              {draft.type === 'select' ? (
-                <label className="block md:col-span-2">
-                  <span className={labelClass}>Options</span>
-                  <input
-                    type="text"
-                    value={draft.options}
-                    onChange={(event) => onDraftChange(field.id, 'options', event.target.value)}
-                    placeholder="Option A, Option B, Option C"
-                    className={fieldClass}
-                  />
-                </label>
-              ) : null}
+          {draft.type === 'select' ? (
+            <label className="block md:col-span-2">
+              <span className={labelClass}>Options</span>
+              <input
+                type="text"
+                value={draft.options}
+                onChange={(event) => onDraftChange(field.id, 'options', event.target.value)}
+                placeholder="Option A, Option B, Option C"
+                className={fieldClass}
+              />
+            </label>
+          ) : null}
 
-              {isScoreType(draft.type) ? (
-                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 md:col-span-2">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Score options</p>
-                  <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{createScoreOptions(draft.type).join(', ')}</p>
-                </div>
-              ) : null}
+          {isScoreType(draft.type) ? (
+            <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 md:col-span-2">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Score options</p>
+              <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{createScoreOptions(draft.type).join(', ')}</p>
+            </div>
+          ) : null}
 
-              <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
-                <input
-                  type="checkbox"
-                  checked={draft.required}
-                  onChange={(event) => onDraftChange(field.id, 'required', event.target.checked)}
-                  className="h-4 w-4 rounded border-[#d7e5dc] bg-white accent-[#047857]"
-                />
-                <span>Required field</span>
-              </label>
-            </>
-          )}
+          <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
+            <input
+              type="checkbox"
+              checked={draft.required}
+              onChange={(event) => onDraftChange(field.id, 'required', event.target.checked)}
+              className="h-4 w-4 rounded border-[#d7e5dc] bg-white accent-[#047857]"
+            />
+            <span>Required field</span>
+          </label>
 
           {isScoreType(draft.type) ? (
             <label className="inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] md:col-span-2">
@@ -366,8 +347,8 @@ function FormFieldCard({
         <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:flex-col">
           <button
             type="button"
-            disabled={isSaving || isSharedField || fieldIndex === 0}
-            title={protectedFieldDisabledReason || moveUpDisabledReason}
+            disabled={isSaving || fieldIndex === 0}
+            title={moveUpDisabledReason}
             onClick={() => onMoveField(field.id, -1)}
             className={secondaryButtonClass}
           >
@@ -375,8 +356,8 @@ function FormFieldCard({
           </button>
           <button
             type="button"
-            disabled={isSaving || isSharedField || fieldIndex === fieldsCount - 1}
-            title={protectedFieldDisabledReason || moveDownDisabledReason}
+            disabled={isSaving || fieldIndex === fieldsCount - 1}
+            title={moveDownDisabledReason}
             onClick={() => onMoveField(field.id, 1)}
             className={secondaryButtonClass}
           >
@@ -384,39 +365,31 @@ function FormFieldCard({
           </button>
           <button
             type="button"
-            disabled={isSaving || isSharedField}
-            title={protectedFieldDisabledReason || savingDisabledReason}
+            disabled={isSaving}
+            title={savingDisabledReason}
             onClick={() => onToggleEnabled(field)}
             className={secondaryButtonClass}
           >
             {draft.isEnabled ? 'Disable' : 'Enable'}
           </button>
-          {isSharedField ? (
-            <div className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#4b5f55]">
-              Default field
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                disabled={isSaving}
-                title={savingDisabledReason}
-                onClick={() => onSaveField(field)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                disabled={isSaving}
-                title={savingDisabledReason}
-                onClick={() => onDeleteField(field.id)}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Delete
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            disabled={isSaving}
+            title={savingDisabledReason}
+            onClick={() => onSaveField(field)}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            disabled={isSaving || isSharedField}
+            title={savingDisabledReason}
+            onClick={() => onDeleteField(field.id)}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Delete
+          </button>
         </div>
       </div>
 
