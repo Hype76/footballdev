@@ -1,10 +1,13 @@
+import { useMemo, useState } from 'react'
 import { formatUkDateWords } from '../../lib/date-format.js'
 
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.18em] text-[#047857]'
 const bodyClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 
-function getPointCoordinates(points, maxValue) {
+const lineColours = ['#047857', '#2563eb', '#f97316', '#7c3aed', '#dc2626', '#0891b2', '#65a30d']
+
+function getPointCoordinates(points, maxValue, xKeys = []) {
   const width = 760
   const height = 300
   const padding = {
@@ -17,7 +20,9 @@ function getPointCoordinates(points, maxValue) {
   const innerHeight = height - padding.top - padding.bottom
 
   return points.map((point, index) => {
-    const x = points.length === 1 ? padding.left + innerWidth / 2 : padding.left + (index / (points.length - 1)) * innerWidth
+    const pointIndex = xKeys.length > 0 ? Math.max(0, xKeys.indexOf(point.dateKey)) : index
+    const pointCount = xKeys.length > 0 ? xKeys.length : points.length
+    const x = pointCount === 1 ? padding.left + innerWidth / 2 : padding.left + (pointIndex / (pointCount - 1)) * innerWidth
     const normalizedValue = Math.min(maxValue, Math.max(0, Number(point.value ?? 0)))
     const y = padding.top + innerHeight - (normalizedValue / maxValue) * innerHeight
 
@@ -47,6 +52,9 @@ export function PlayerProgressionCharts({
   progressionData,
   playerName,
 }) {
+  const availableTrendLines = useMemo(() => progressionData?.trendLines ?? [], [progressionData])
+  const [selectedTrendKeys, setSelectedTrendKeys] = useState(['overall'])
+
   if (!progressionData?.hasAnyData) {
     return (
       <section className={panelClass}>
@@ -59,18 +67,50 @@ export function PlayerProgressionCharts({
     )
   }
 
-  const scoreMax = progressionData.scoreTrend.some((point) => Number(point.value) > 5) ? 10 : 5
-  const chartPoints = progressionData.hasScoreTrend ? getPointCoordinates(progressionData.scoreTrend, scoreMax) : []
-  const linePath = buildLinePath(chartPoints)
+  const selectedTrendLines = availableTrendLines.filter((line) => selectedTrendKeys.includes(line.key))
+  const visibleTrendLines = selectedTrendLines.length > 0
+    ? selectedTrendLines
+    : availableTrendLines.filter((line) => line.key === 'overall')
+  const chartSourcePoints = visibleTrendLines.flatMap((line) => line.points)
+  const xKeyLabels = new Map()
+
+  chartSourcePoints.forEach((point) => {
+    if (point.dateKey && !xKeyLabels.has(point.dateKey)) {
+      xKeyLabels.set(point.dateKey, point.label)
+    }
+  })
+
+  const xKeys = Array.from(xKeyLabels.keys()).sort()
+  const hasVisibleTrend = visibleTrendLines.some((line) => line.points.length >= 2)
+  const scoreMax = chartSourcePoints.some((point) => Number(point.value) > 5) ? 10 : 5
+  const chartLines = hasVisibleTrend
+    ? visibleTrendLines.map((line, index) => ({
+        ...line,
+        colour: lineColours[index % lineColours.length],
+        points: getPointCoordinates(line.points, scoreMax, xKeys),
+      }))
+    : []
   const maxInvolvement = Math.max(1, ...progressionData.involvementByMonth.map((item) => item.assessments))
   const historicalEvaluationCount = Number(progressionData.historicalEvaluationCount ?? progressionData.evaluationCount ?? 0)
   const yTicks = scoreMax === 10 ? [0, 2, 4, 6, 8, 10] : [0, 1, 2, 3, 4, 5]
-  const xLabels = chartPoints.filter((_, index) => (
-    chartPoints.length <= 4 ||
-    index === 0 ||
-    index === chartPoints.length - 1 ||
-    index === Math.floor((chartPoints.length - 1) / 2)
-  ))
+  const xLabels = xKeys
+    .map((key) => ({
+      key,
+      label: xKeyLabels.get(key),
+      x: getPointCoordinates([{ dateKey: key, value: 0 }], scoreMax, xKeys)[0]?.x ?? 56,
+    }))
+    .filter((_, index) => (
+      xKeys.length <= 4 ||
+      index === 0 ||
+      index === xKeys.length - 1 ||
+      index === Math.floor((xKeys.length - 1) / 2)
+    ))
+  const toggleTrendLine = (key) => {
+    setSelectedTrendKeys((current) =>
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key])
+  }
 
   return (
     <section className={panelClass}>
@@ -98,9 +138,9 @@ export function PlayerProgressionCharts({
         <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 sm:p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-base font-black text-[#101828]">Coach rating over time</p>
+              <p className="text-base font-black text-[#101828]">Selectable score trends</p>
               <p className={`mt-1 ${bodyClass}`}>
-                {progressionData.hasScoreTrend ? 'Saved scores shown in date order.' : 'Two scored records are needed for a trend line.'}
+                {hasVisibleTrend ? 'Oldest records are on the left and newest records are on the right.' : 'Two scored records are needed for the selected trend line.'}
               </p>
             </div>
             <span className="inline-flex min-h-9 items-center rounded-lg border border-[#bbf7d0] bg-white px-3 py-2 text-xs font-black text-[#047857]">
@@ -108,7 +148,40 @@ export function PlayerProgressionCharts({
             </span>
           </div>
 
-          {progressionData.hasScoreTrend ? (
+          {availableTrendLines.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {availableTrendLines.map((line) => (
+                <label
+                  key={line.key}
+                  className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5] focus-within:ring-2 focus-within:ring-[#93c5fd]"
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-[#b6d8c5] text-[#047857] focus:ring-[#047857]"
+                    checked={selectedTrendKeys.includes(line.key)}
+                    onChange={() => toggleTrendLine(line.key)}
+                  />
+                  {line.label}
+                </label>
+              ))}
+              <button
+                type="button"
+                onClick={() => setSelectedTrendKeys(availableTrendLines.map((line) => line.key))}
+                className="inline-flex min-h-10 items-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#065f46] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+              >
+                Show all
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTrendKeys(['overall'])}
+                className="inline-flex min-h-10 items-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#93c5fd]"
+              >
+                Overall only
+              </button>
+            </div>
+          ) : null}
+
+          {hasVisibleTrend ? (
             <div className="mt-4 overflow-hidden rounded-lg border border-[#d7e5dc] bg-white px-2 py-3 sm:px-4 sm:py-4">
               <svg viewBox="0 0 760 300" role="img" aria-label="Player score progression chart" className="h-auto w-full overflow-visible">
                 {yTicks.map((tick) => {
@@ -122,23 +195,37 @@ export function PlayerProgressionCharts({
                 })}
                 <line x1="56" y1="244" x2="732" y2="244" stroke="#d7e5dc" strokeWidth="2" />
                 <line x1="56" y1="28" x2="56" y2="244" stroke="#d7e5dc" strokeWidth="2" />
-                <path d={linePath} fill="none" stroke="#047857" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                {chartPoints.map((point) => (
-                  <g key={point.id || `${point.label}-${point.value}`}>
-                    <circle cx={point.x} cy={point.y} r="5" fill="#ccff00" stroke="#047857" strokeWidth="2" />
-                    <title>{`${formatCompactLabel(point.label)}: ${Number(point.value).toFixed(1)}`}</title>
+                {chartLines.map((line) => (
+                  <g key={line.key}>
+                    <path d={buildLinePath(line.points)} fill="none" stroke={line.colour} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                    {line.points.map((point) => (
+                      <g key={`${line.key}-${point.id || `${point.label}-${point.value}`}`}>
+                        <circle cx={point.x} cy={point.y} r="5" fill="#fff" stroke={line.colour} strokeWidth="2" />
+                        <title>{`${line.label} | ${formatCompactLabel(point.label)}: ${Number(point.value).toFixed(1)}`}</title>
+                      </g>
+                    ))}
                   </g>
                 ))}
                 {xLabels.map((point) => (
-                  <text key={`label-${point.id || point.label}`} x={point.x} y="274" textAnchor="middle" fill="#4b5f55" fontSize="13" fontWeight="800">
+                  <text key={`label-${point.key}`} x={point.x} y="274" textAnchor="middle" fill="#4b5f55" fontSize="13" fontWeight="800">
                     {formatCompactLabel(point.label)}
                   </text>
                 ))}
               </svg>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {chartLines.map((line) => (
+                  <span key={`legend-${line.key}`} className="inline-flex items-center gap-2 text-xs font-black text-[#4b5f55]">
+                    <span className="h-2.5 w-6 rounded-full" style={{ backgroundColor: line.colour }} />
+                    {line.label}
+                  </span>
+                ))}
+              </div>
             </div>
           ) : (
             <p className="mt-4 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-bold text-[#4b5f55]">
-              Progression appears after this player has multiple saved records.
+              {progressionData.evaluationCount > 1
+                ? 'The selected trend needs at least two scored records before a line can be drawn.'
+                : 'Progression appears after this player has multiple scored records.'}
             </p>
           )}
         </div>

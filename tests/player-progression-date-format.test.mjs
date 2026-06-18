@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { formatUkDateWords, formatUkMonthYear } from '../src/lib/date-format.js'
-import { buildPlayerProgressionData } from '../src/lib/player-progression.js'
+import { buildPlayerProgressionData, buildProgressionEmailSections } from '../src/lib/player-progression.js'
 import { buildFieldMovement, buildRatingTrend, formatTrendDate } from '../src/hooks/players/playerProfileUtils.js'
 
 test('British date helpers use unambiguous record and month labels', () => {
@@ -46,6 +46,69 @@ test('player progression labels do not use ambiguous two digit years', () => {
   assert.deepEqual(progression.scoreTrend.map((point) => point.label), ['27 May 2026', '11 Jun 2026'])
   assert.deepEqual(progression.involvementByMonth.map((item) => item.label), ['May 2026', 'Jun 2026'])
   assert.equal(progression.involvementByMonth.some((item) => /\b\d{2}$/.test(item.label)), false)
+})
+
+test('progression trend lines stay oldest to newest for overall and numeric categories', () => {
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-18',
+    fields: [
+      { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+      { label: 'Physical', type: 'score_1_10', includeInProgressChart: true },
+      { label: 'Strengths', type: 'textarea', includeInProgressChart: false },
+    ],
+    evaluations: [
+      {
+        id: 'newest',
+        averageScore: 8,
+        date: '2026-06-12',
+        formResponses: {
+          Technical: 8,
+          Physical: 6,
+          Strengths: 'Good energy',
+        },
+      },
+      {
+        id: 'oldest',
+        averageScore: 5,
+        date: '2026-05-01',
+        formResponses: {
+          Technical: 5,
+          Physical: 7,
+          Strengths: 'Settling in',
+        },
+      },
+      {
+        id: 'middle',
+        averageScore: 7,
+        date: '2026-05-24',
+        formResponses: {
+          Technical: 7,
+          Physical: 6,
+          Strengths: 'Improving',
+        },
+      },
+      {
+        id: 'future',
+        averageScore: 10,
+        date: '2026-08-01',
+        formResponses: {
+          Technical: 10,
+          Physical: 10,
+        },
+      },
+    ],
+  })
+
+  const overallLine = progression.trendLines.find((line) => line.key === 'overall')
+  const technicalLine = progression.trendLines.find((line) => line.label === 'Technical')
+  const physicalLine = progression.trendLines.find((line) => line.label === 'Physical')
+
+  assert.deepEqual(progression.scoreTrend.map((point) => point.id), ['oldest', 'middle', 'newest'])
+  assert.deepEqual(overallLine.points.map((point) => point.evaluationId), ['oldest', 'middle', 'newest'])
+  assert.deepEqual(technicalLine.points.map((point) => point.evaluationId), ['oldest', 'middle', 'newest'])
+  assert.deepEqual(physicalLine.points.map((point) => point.value), [7, 6, 6])
+  assert.equal(progression.trendLines.some((line) => line.label === 'Strengths'), false)
+  assert.equal(progression.trendLines.some((line) => line.points.some((point) => point.evaluationId === 'future')), false)
 })
 
 test('player profile rating cards format stored dates in British wording', () => {
@@ -141,6 +204,57 @@ test('profile trend helpers exclude future dated records', () => {
   assert.deepEqual(ratingTrend.map((evaluation) => evaluation.id), ['past-scored', 'current-scored'])
   assert.equal(movement.find((item) => item.label === 'Technical')?.latestValue, 7)
   assert.equal(movement.some((item) => item.label === 'Strengths'), false)
+})
+
+test('website and email next focus areas use the same shared ordering', () => {
+  const progression = buildPlayerProgressionData({
+    currentDate: '2026-06-18',
+    fields: [
+      { label: 'Technical', type: 'score_1_10', includeInProgressChart: true },
+      { label: 'Physical', type: 'score_1_10', includeInProgressChart: true },
+      { label: 'Coachability', type: 'score_1_10', includeInProgressChart: true },
+      { label: 'Overall Comments', type: 'textarea', includeInProgressChart: false },
+    ],
+    evaluations: [
+      {
+        id: 'first',
+        date: '2026-06-01',
+        averageScore: 7,
+        formResponses: {
+          Technical: 7,
+          Physical: 6,
+          Coachability: 8,
+          'Overall Comments': 'Bright start',
+        },
+      },
+      {
+        id: 'latest',
+        date: '2026-06-12',
+        averageScore: 6,
+        formResponses: {
+          Technical: 6,
+          Physical: 6,
+          Coachability: 6,
+          'Overall Comments': 'Needs focus',
+        },
+      },
+    ],
+  })
+  const emailFocus = buildProgressionEmailSections({
+    progressionData: progression,
+    sections: {
+      attendanceSummary: false,
+      coachComments: false,
+      latestSessionNotes: false,
+      matchNotes: false,
+      progressionChart: false,
+      nextFocusAreas: true,
+    },
+  }).find((section) => section.key === 'nextFocusAreas')
+
+  assert.deepEqual(progression.focusAreas.map((item) => item.label), ['Coachability', 'Technical', 'Physical'])
+  assert.equal(emailFocus.body, 'Coachability: latest score 6\nTechnical: latest score 6\nPhysical: latest score 6')
+  assert.equal(progression.focusAreas.some((item) => item.label === 'Overall Comments'), false)
 })
 
 test('progression focus areas ignore text fields and future involvement months', () => {
@@ -303,6 +417,11 @@ test('progression component labels scored record counts when saved history diffe
   assert.match(source, /label="Scored records"/)
   assert.match(source, /scored records from/)
   assert.match(source, /saved development records are eligible/)
+  assert.match(source, /Selectable score trends/)
+  assert.match(source, /Show all/)
+  assert.match(source, /Overall only/)
+  assert.match(source, /xKeys\.indexOf\(point\.dateKey\)/)
+  assert.match(source, /Oldest records are on the left and newest records are on the right/)
 })
 
 test('player profile date displays use the shared British formatter', () => {

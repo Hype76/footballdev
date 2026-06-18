@@ -65,6 +65,11 @@ function getEvaluationDate(evaluation) {
   return toDateValue(evaluation?.date) || toDateValue(evaluation?.createdAt) || new Date(0)
 }
 
+function getEvaluationDateKey(evaluation) {
+  const date = getEvaluationDate(evaluation)
+  return date && date.getTime() !== 0 ? date.toISOString().slice(0, 10) : ''
+}
+
 function formatProgressDate(value) {
   const date = toDateValue(value)
   return date ? formatUkDateWords(date.toISOString().slice(0, 10), 'No date entered') : 'No date entered'
@@ -134,6 +139,23 @@ export function getProgressionNumericFieldMap(fields = []) {
   return new Map(numericFields.map((field) => [normalizeFieldLabel(field.label), field]))
 }
 
+function getProgressionNumericFields(fields = []) {
+  const seenLabels = new Set()
+
+  return (Array.isArray(fields) ? fields : [])
+    .filter(isProgressionNumericField)
+    .filter((field) => {
+      const key = normalizeFieldLabel(field.label)
+
+      if (!key || seenLabels.has(key)) {
+        return false
+      }
+
+      seenLabels.add(key)
+      return true
+    })
+}
+
 function getEvaluationChartScore(evaluation, chartFieldMap) {
   if (!chartFieldMap.size) {
     return isNumericValue(evaluation.averageScore) ? Number(evaluation.averageScore) : null
@@ -162,6 +184,103 @@ function normaliseNote(note) {
   }
 }
 
+export function buildProgressionFocusAreas(fieldSeries = [], { limit = 4 } = {}) {
+  return fieldSeries
+    .map((series, index) => {
+      const values = Array.isArray(series?.points)
+        ? series.points.map((point) => Number(point.value)).filter((value) => Number.isFinite(value))
+        : []
+
+      if (!values.length) {
+        return null
+      }
+
+      const first = values[0]
+      const latest = values[values.length - 1]
+
+      return {
+        label: series.label,
+        latest,
+        first,
+        movement: latest - first,
+        count: values.length,
+        order: Number(series.order ?? index),
+      }
+    })
+    .filter(Boolean)
+    .sort((left, right) =>
+      left.latest - right.latest ||
+      left.movement - right.movement ||
+      left.order - right.order ||
+      left.label.localeCompare(right.label))
+    .slice(0, limit)
+}
+
+function buildCategoryTrendLines(chronologicalEvaluations, fields = []) {
+  const numericFields = getProgressionNumericFields(fields)
+  const fieldMap = new Map(numericFields.map((field, index) => [
+    normalizeFieldLabel(field.label),
+    {
+      field,
+      label: String(field.label ?? '').trim(),
+      order: index,
+      points: [],
+    },
+  ]))
+
+  chronologicalEvaluations.forEach((evaluation) => {
+    const dateKey = getEvaluationDateKey(evaluation)
+    const label = formatProgressDate(evaluation.date || evaluation.createdAt)
+
+    Object.entries(evaluation.formResponses ?? {}).forEach(([responseLabel, value]) => {
+      const series = fieldMap.get(normalizeFieldLabel(responseLabel))
+
+      if (!series) {
+        return
+      }
+
+      const normalizedScore = normalizeScoreToTen(value, series.field)
+
+      if (!Number.isFinite(normalizedScore)) {
+        return
+      }
+
+      series.points.push({
+        id: `${evaluation.id || dateKey}-${series.label}`,
+        evaluationId: evaluation.id,
+        dateKey,
+        label,
+        value: normalizedScore,
+        session: String(evaluation.session ?? '').trim(),
+        team: String(evaluation.team ?? '').trim(),
+      })
+    })
+  })
+
+  return Array.from(fieldMap.values())
+    .map(({ field, ...series }) => series)
+    .filter((series) => series.points.length > 0)
+}
+
+export function buildProgressionTrendLines({ scoreTrend = [], fieldSeries = [] } = {}) {
+  const overallLine = {
+    key: 'overall',
+    label: 'Overall score',
+    kind: 'overall',
+    order: -1,
+    points: Array.isArray(scoreTrend) ? scoreTrend : [],
+  }
+  const categoryLines = fieldSeries.map((series, index) => ({
+    key: `field-${normalizeFieldLabel(series.label).replace(/[^a-z0-9]+/g, '-')}`,
+    label: series.label,
+    kind: 'category',
+    order: Number(series.order ?? index),
+    points: series.points,
+  }))
+
+  return [overallLine, ...categoryLines].filter((line) => line.points.length > 0)
+}
+
 export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], fields = [], currentDate } = {}) {
   const today = toDateValue(currentDate) || new Date()
   const todayKey = today.toISOString().slice(0, 10)
@@ -186,6 +305,8 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
 
       return {
         id: evaluation.id,
+        evaluationId: evaluation.id,
+        dateKey: getEvaluationDateKey(evaluation),
         label: formatProgressDate(evaluation.date || evaluation.createdAt),
         value: chartScore,
         session: String(evaluation.session ?? '').trim(),
@@ -222,39 +343,9 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
     evaluationMonths.set(key, current)
   })
 
-  const numericFields = new Map()
-  const numericFieldMap = getProgressionNumericFieldMap(fields)
-  chronologicalEvaluations.forEach((evaluation) => {
-    Object.entries(evaluation.formResponses ?? {}).forEach(([label, value]) => {
-      const field = numericFieldMap.get(normalizeFieldLabel(label))
-
-      if (!field) {
-        return
-      }
-
-      const normalizedScore = normalizeScoreToTen(value, field)
-
-      if (!Number.isFinite(normalizedScore)) {
-        return
-      }
-
-      if (!numericFields.has(label)) {
-        numericFields.set(label, [])
-      }
-
-      numericFields.get(label).push(normalizedScore)
-    })
-  })
-
-  const focusAreas = Array.from(numericFields.entries())
-    .map(([label, values]) => ({
-      label,
-      latest: values[values.length - 1],
-      first: values[0],
-      count: values.length,
-    }))
-    .sort((left, right) => left.latest - right.latest)
-    .slice(0, 4)
+  const fieldSeries = buildCategoryTrendLines(chronologicalEvaluations, fields)
+  const focusAreas = buildProgressionFocusAreas(fieldSeries)
+  const trendLines = buildProgressionTrendLines({ scoreTrend, fieldSeries })
 
   const latestEvaluation = [...chronologicalEvaluations].reverse()[0] ?? null
   const latestComments = latestEvaluation?.comments ?? {}
@@ -263,11 +354,14 @@ export function buildPlayerProgressionData({ evaluations = [], staffNotes = [], 
     hasAnyData: chronologicalEvaluations.length > 0 || notes.length > 0,
     hasScoreTrend: scoreTrend.length >= 2,
     scoreTrend,
+    trendLines,
+    fieldSeries,
     involvementByMonth: Array.from(evaluationMonths.values()).slice(-6),
     latestNote,
     latestEvaluation,
     latestComments,
     focusAreas,
+    nextFocusAreas: focusAreas,
     evaluationCount: scoreTrend.length,
     historicalEvaluationCount: chronologicalEvaluations.length,
     staffNoteCount: notes.length,

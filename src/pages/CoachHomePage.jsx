@@ -693,13 +693,20 @@ export function CoachHomePage() {
         </div>
         <div className="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-3">
           {recentEvaluations.map((evaluation) => (
-            <div key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`} className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
+            <Link
+              key={evaluation.id || `${evaluation.playerName}-${evaluation.createdAt}`}
+              to={`/player/${encodeURIComponent(evaluation.playerName)}`}
+              className="group rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10 transition hover:-translate-y-0.5 hover:border-[#047857] hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#93c5fd] focus:ring-offset-2 focus:ring-offset-white"
+            >
               <p className="truncate text-sm font-black text-[#101828]">{evaluation.playerName}</p>
               <p className="mt-2 text-xs font-semibold text-[#4b5f55]">{getEvaluationContextLabel(evaluation, user)}</p>
               <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-[#4b5f55]">
                 {getEvaluationSummary(evaluation)}
               </p>
-            </div>
+              <span className="mt-3 inline-flex text-xs font-black uppercase tracking-[0.14em] text-[#047857] group-hover:text-[#065f46]">
+                Open player profile
+              </span>
+            </Link>
           ))}
           {!isLoading && recentEvaluations.length === 0 ? (
             <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55] lg:col-span-3">
