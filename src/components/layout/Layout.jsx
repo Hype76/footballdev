@@ -250,8 +250,8 @@ export function Layout() {
     return (
       <div className="min-h-screen overflow-x-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
         <div className="fixed inset-0 -z-10 bg-[var(--app-bg)]" />
-        <main className="min-h-screen px-4 py-5 sm:px-6 md:px-8">
-          <div className="mx-auto w-full max-w-6xl">
+        <main className="min-h-screen px-4 py-5 sm:px-6 md:px-8 xl:px-10">
+          <div className="mx-auto w-full max-w-[108rem]">
             <Outlet />
           </div>
         </main>
@@ -334,6 +334,7 @@ export function Layout() {
 function QuickActionHotbar({ user }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isVoiceNoteOpen, setIsVoiceNoteOpen] = useState(false)
+  const [hasActiveOverlay, setHasActiveOverlay] = useState(false)
   const panelRef = useRef(null)
   const canUseEvaluationQuickActions = canCreateEvaluation(user)
   const canUsePollQuickAction = canManagePolls(user) && isRecoveryPathVisible('/polls', { user })
@@ -372,6 +373,32 @@ function QuickActionHotbar({ user }) {
     }
   }, [isOpen])
 
+  useEffect(() => {
+    const updateOverlayState = () => {
+      setHasActiveOverlay(Boolean(document.querySelector('[aria-modal="true"], [role="dialog"]')))
+    }
+    const observer = new MutationObserver(updateOverlayState)
+
+    updateOverlayState()
+    observer.observe(document.body, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    })
+    document.addEventListener('focusin', updateOverlayState)
+
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('focusin', updateOverlayState)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (hasActiveOverlay) {
+      setIsOpen(false)
+    }
+  }, [hasActiveOverlay])
+
   if (!canShowQuickActions) {
     return null
   }
@@ -388,7 +415,14 @@ function QuickActionHotbar({ user }) {
 
   return (
     <>
-      <div ref={panelRef} className="fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3">
+      <div
+        ref={panelRef}
+        className={[
+          'fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3 transition duration-150',
+          hasActiveOverlay ? 'pointer-events-none translate-y-2 opacity-0' : 'opacity-100',
+        ].join(' ')}
+        aria-hidden={hasActiveOverlay ? 'true' : undefined}
+      >
         {isOpen ? (
           <div className="w-[min(18rem,calc(100vw-2.5rem))] rounded-lg border border-[#d7e5dc] bg-white p-2 shadow-2xl shadow-[#047857]/20">
             <p className="px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Quick add</p>

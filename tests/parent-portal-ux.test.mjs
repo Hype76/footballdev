@@ -50,7 +50,7 @@ test('parent dashboard uses section navigation instead of one long page', async 
   assert.match(source, /id: 'messages', label: 'Messages'/)
   assert.match(source, /id: 'polls', label: 'Polls'/)
   assert.match(source, /id: 'family', label: 'Family'/)
-  assert.match(source, /id: 'account', label: 'Account'/)
+  assert.match(source, /id: 'settings', label: 'Settings'/)
   assert.match(source, /aria-label="Parent portal sections"/)
   assert.match(source, /isRecoveryPathVisible\(section\.path, \{ user \}\)/)
   assert.match(source, /activeSection === 'calendar'/)
@@ -131,9 +131,56 @@ test('parent dashboard exposes surfaced parent links without feature clutter', a
   assert.match(source, /label: 'Messages'/)
   assert.match(source, /label: 'Polls'/)
   assert.match(source, /label: 'Family'/)
+  assert.match(source, /id: 'settings', label: 'Settings'/)
+  assert.doesNotMatch(source, /id: 'account', label: 'Account'/)
+  assert.match(source, /fixed inset-x-0 bottom-0 z-\[60\]/)
+  assert.match(source, /lg:grid-cols-\[16rem_minmax\(0,1fr\)\]/)
+  assert.match(source, /hidden lg:block lg:sticky/)
+  assert.match(source, /pb-\[max\(0\.75rem,env\(safe-area-inset-bottom\)\)\]/)
   assert.doesNotMatch(source, /coming soon/i)
   assert.doesNotMatch(source, /staff shell/i)
   assert.doesNotMatch(source, /admin shell/i)
+})
+
+test('parent settings expose safe profile, notification, and theme controls', async () => {
+  const source = await readFile(parentPortalPageUrl, 'utf8')
+
+  assert.match(source, /function ParentSettingsPanel/)
+  assert.match(source, /Display name/)
+  assert.match(source, /Email address/)
+  assert.match(source, /Theme preference/)
+  assert.match(source, /const themeOptions = \['system', 'light', 'dark'\]/)
+  assert.match(source, /Email changes are handled by the club for now/)
+  assert.match(source, /password reset link on the parent login screen/)
+  assert.match(source, /<PushNotificationPanel/)
+  assert.match(source, /getParentDisplayName/)
+  assert.match(source, /!value\.includes\('@'\)/)
+})
+
+test('parent overview includes neutral helper engagement summary from parent-visible match cards', async () => {
+  const source = await readFile(parentPortalPageUrl, 'utf8')
+
+  assert.match(source, /function getParentEngagementSummary\(matches = \[\]\)/)
+  assert.match(source, /status === 'scorer_request' \|\| Boolean\(match\.scorerRequestMessage\)/)
+  assert.match(source, /match\.hasInterest/)
+  assert.match(source, /match\.isScorer/)
+  assert.match(source, /Only parent-visible match cards are counted/)
+  assert.match(source, /Scorer offers received/)
+  assert.match(source, /Interest sent/)
+  assert.match(source, /Selected scorer roles/)
+  assert.doesNotMatch(source, /missed|ignored|failed to help|blame|shame/i)
+})
+
+test('parent calendar modal uses mobile keyboard-safe flex scroll layout', async () => {
+  const source = await readFile(parentPortalPageUrl, 'utf8')
+  const modalStart = source.indexOf('function ParentCalendarEventModal(')
+  assert.notEqual(modalStart, -1)
+  const modalSection = source.slice(modalStart)
+
+  assert.match(modalSection, /items-stretch[\s\S]*sm:items-center/)
+  assert.match(modalSection, /max-h-\[calc\(100dvh-1\.5rem\)\][\s\S]*flex-col[\s\S]*overflow-hidden/)
+  assert.match(modalSection, /className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-28/)
+  assert.match(modalSection, /className="shrink-0 flex items-start justify-between/)
 })
 
 test('parent copy avoids internal implementation language', async () => {

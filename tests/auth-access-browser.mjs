@@ -252,6 +252,7 @@ try {
     await page.getByLabel('Access view').selectOption({ label: 'Family portal' })
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
     await assertVisibleText(page, 'Family portal')
+    await page.getByLabel('Access view').waitFor({ state: 'detached', timeout: 15000 })
     assert.equal(await page.getByLabel('Access view').count(), 0)
     await context.close()
   })

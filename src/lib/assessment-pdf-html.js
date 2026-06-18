@@ -142,8 +142,8 @@ export function buildAssessmentPdfHtml({
           ${buildResponseItems(responseItems)}
         </div>
       </div>
-      ${buildScoringKey(responseItems)}
       ${buildEmailSections(emailSections)}
+      ${buildScoringKey(responseItems)}
     </section>
   `
 }

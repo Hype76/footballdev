@@ -50,9 +50,26 @@ test('quick actions expose Create Poll only to permitted staff', async () => {
   assert.match(source, /const canUsePollQuickAction = canManagePolls\(user\) && isRecoveryPathVisible\('\/polls', \{ user \}\)/)
   assert.match(source, /label: 'Create Poll', href: '\/polls\?action=create-poll', isVisible: canUsePollQuickAction/)
   assert.match(source, /const visibleActions = actions\.filter\(\(action\) => action\.isVisible !== false\)/)
+  assert.match(source, /const \[hasActiveOverlay, setHasActiveOverlay\] = useState\(false\)/)
+  assert.match(source, /document\.querySelector\('\[aria-modal="true"\], \[role="dialog"\]'\)/)
+  assert.match(source, /hasActiveOverlay \? 'pointer-events-none translate-y-2 opacity-0' : 'opacity-100'/)
   assert.equal(canManagePolls(staffUser()), true)
   assert.equal(canManagePolls(staffUser({ roleRank: 10 })), false)
   assert.equal(canManagePolls(staffUser({ role: 'parent_portal', roleRank: 0 })), false)
+})
+
+test('parent bypass shell uses the wider app content width without staff chrome', async () => {
+  const source = await readFile(layoutUrl, 'utf8')
+  const branchStart = source.indexOf('if (shouldBypassMainShell) {')
+  const branchEnd = source.indexOf('<Sidebar', branchStart)
+  assert.notEqual(branchStart, -1)
+  assert.notEqual(branchEnd, -1)
+  const parentBranch = source.slice(branchStart, branchEnd)
+
+  assert.match(parentBranch, /max-w-\[108rem\]/)
+  assert.match(parentBranch, /<Outlet \/>/)
+  assert.doesNotMatch(parentBranch, /<Sidebar/)
+  assert.doesNotMatch(parentBranch, /QuickActionHotbar/)
 })
 
 test('direct poll routes stay role-gated and parent route stays parent-safe', async () => {

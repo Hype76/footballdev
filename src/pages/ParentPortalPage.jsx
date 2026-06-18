@@ -21,7 +21,7 @@ import {
   getParentPortalSharedCalendarEvents,
   updateMatchDayScoreAsScorer,
 } from '../lib/supabase.js'
-import { THEME_CHANGED_EVENT } from '../lib/theme.js'
+import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
 import {
   getParentMatchDayErrorMessage,
@@ -59,7 +59,7 @@ const parentPortalSections = [
   { id: 'messages', label: 'Messages', description: 'Club messages', path: '/parent-messages' },
   { id: 'polls', label: 'Polls', description: 'Questions to answer', path: '/parent-polls' },
   { id: 'family', label: 'Family', description: 'Shared access', path: '/friends-family' },
-  { id: 'account', label: 'Account', description: 'Notifications' },
+  { id: 'settings', label: 'Settings', description: 'Profile and preferences' },
 ]
 
 function confirmMatchDayAction(message) {
@@ -161,6 +161,37 @@ function isPreviousMatch(match) {
   return new Date(`${match.matchDate}T23:59:59`).getTime() < Date.now()
 }
 
+function getParentDisplayName(user) {
+  const candidates = [
+    user?.displayName,
+    user?.parentName,
+    user?.name,
+    user?.fullName,
+  ]
+
+  const displayName = candidates
+    .map((value) => String(value ?? '').trim())
+    .find((value) => value && !value.includes('@'))
+
+  return displayName || 'Parent or guardian'
+}
+
+function getParentEmail(user) {
+  return String(user?.email ?? user?.authEmail ?? '').trim()
+}
+
+function getParentEngagementSummary(matches = []) {
+  const helperOffers = matches.filter((match) => match.status === 'scorer_request' || Boolean(match.scorerRequestMessage))
+  const interestSent = matches.filter((match) => match.hasInterest)
+  const selectedScorer = matches.filter((match) => match.isScorer)
+
+  return {
+    helperOffersReceived: helperOffers.length,
+    helperOffersAnswered: interestSent.length,
+    selectedScorerCount: selectedScorer.length,
+  }
+}
+
 function getPlayerSortName(player) {
   return String(player.playerName ?? '').trim().toLowerCase()
 }
@@ -216,6 +247,7 @@ export function ParentPortalPage() {
   const [matchErrorTitle, setMatchErrorTitle] = useState(parentMatchDayActionErrorTitle)
   const [selectedPreviousMatch, setSelectedPreviousMatch] = useState(null)
   const [activeSection, setActiveSection] = useState('overview')
+  const [parentThemePreference, setParentThemePreference] = useState(() => normalizeThemeMode(getStoredThemeMode()))
   const selectedLink = links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
@@ -240,16 +272,32 @@ export function ParentPortalPage() {
 
     const branding = resolveParentPortalBranding({ selectedLink, links })
 
-    window.dispatchEvent(
-      new CustomEvent(THEME_CHANGED_EVENT, {
-        detail: {
-          mode: branding.mode,
-          accent: branding.accent,
-          buttonStyle: branding.buttonStyle,
-        },
-      }),
-    )
-  }, [links, selectedLink])
+    saveThemePreferences({
+      mode: parentThemePreference,
+      accent: branding.accent,
+      buttonStyle: branding.buttonStyle,
+    })
+  }, [links, parentThemePreference, selectedLink])
+
+  const handleParentThemePreferenceChange = (mode) => {
+    const nextMode = normalizeThemeMode(mode)
+    setParentThemePreference(nextMode)
+
+    if (selectedLink?.id) {
+      const branding = resolveParentPortalBranding({ selectedLink, links })
+      saveThemePreferences({
+        mode: nextMode,
+        accent: branding.accent,
+        buttonStyle: branding.buttonStyle,
+      })
+    } else {
+      window.dispatchEvent(
+        new CustomEvent(THEME_CHANGED_EVENT, {
+          detail: { mode: nextMode },
+        }),
+      )
+    }
+  }
 
   async function loadMatches() {
     if (!selectedLink?.id) {
@@ -597,7 +645,7 @@ export function ParentPortalPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="space-y-4 pb-28 sm:space-y-5 lg:pb-0">
       <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
           <div className="min-w-0">
@@ -622,102 +670,199 @@ export function ParentPortalPage() {
         </div>
       </section>
 
+      {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
+
+      <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]">
+        <ParentPortalSectionNav
+          activeSection={activeSection}
+          className="hidden lg:block lg:sticky lg:top-5 lg:self-start"
+          eventInvites={eventInvites}
+          matchCount={activeMatches.length}
+          onSelect={setActiveSection}
+          previousCount={previousMatches.length}
+          sharedDateCount={parentCalendarEvents.length}
+          user={user}
+          variant="desktop"
+        />
+
+        <section className="min-w-0">
+          {activeSection === 'overview' ? (
+            <ParentOverviewPanel
+              activeMatches={activeMatches}
+              calendarEvents={parentCalendarEvents}
+              eventInvites={eventInvites}
+              isLoading={isLoadingMatches}
+              onSelectSection={setActiveSection}
+              previousMatches={previousMatches}
+              selectedLink={selectedLink}
+            />
+          ) : null}
+
+          {activeSection === 'calendar' ? (
+            <ParentCalendarPanel
+              calendarCursor={calendarCursor}
+              calendarEvents={parentCalendarEvents}
+              calendarView={calendarView}
+              isLoading={isLoadingMatches}
+              onCursorChange={setCalendarCursor}
+              onOpenEvent={setSelectedCalendarEvent}
+              onViewChange={setCalendarView}
+              selectedLink={selectedLink}
+            />
+          ) : null}
+
+          {activeSection === 'invites' ? (
+            <ParentUpcomingEvents
+              eventInvites={eventInvites}
+              isLoading={isLoadingMatches}
+              selectedLink={selectedLink}
+            />
+          ) : null}
+
+          {activeSection === 'matches' ? (
+            <ParentMatchCardsPanel
+              activeMatchId={activeMatchId}
+              activeMatches={activeMatches}
+              clockNow={clockNow}
+              goalForms={goalForms}
+              handleAddGoal={handleAddGoal}
+              handlePlayerPick={handlePlayerPick}
+              handleScoreSave={handleScoreSave}
+              handleStartMatch={handleStartMatch}
+              handleVolunteer={handleVolunteer}
+              isLoading={isLoadingMatches}
+              selectedLink={selectedLink}
+              setScoreDrafts={setScoreDrafts}
+              scoreDrafts={scoreDrafts}
+              squadPlayers={squadPlayers}
+              updateGoalForm={updateGoalForm}
+            />
+          ) : null}
+
+          {activeSection === 'results' ? (
+            <ParentResultsPanel
+              previousMatches={previousMatches}
+              onOpen={setSelectedPreviousMatch}
+            />
+          ) : null}
+
+          {activeSection === 'settings' ? (
+            <ParentSettingsPanel
+              hasPushSubscription={hasPushSubscription}
+              isUpdatingPush={isUpdatingPush}
+              onDisableNotifications={handleDisableNotifications}
+              onEnableNotifications={handleEnableNotifications}
+              onThemePreferenceChange={handleParentThemePreferenceChange}
+              parentEmail={getParentEmail(user)}
+              parentName={getParentDisplayName(user)}
+              pushState={pushState}
+              selectedLink={selectedLink}
+              themePreference={parentThemePreference}
+            />
+          ) : null}
+        </section>
+      </div>
+
       <ParentPortalSectionNav
         activeSection={activeSection}
+        className="lg:hidden"
         eventInvites={eventInvites}
         matchCount={activeMatches.length}
         onSelect={setActiveSection}
         previousCount={previousMatches.length}
         sharedDateCount={parentCalendarEvents.length}
         user={user}
+        variant="mobile"
       />
-
-      {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
-
-      <section className="min-w-0">
-        {activeSection === 'overview' ? (
-          <ParentOverviewPanel
-            activeMatches={activeMatches}
-            calendarEvents={parentCalendarEvents}
-            eventInvites={eventInvites}
-            isLoading={isLoadingMatches}
-            onSelectSection={setActiveSection}
-            previousMatches={previousMatches}
-            selectedLink={selectedLink}
-          />
-        ) : null}
-
-        {activeSection === 'calendar' ? (
-          <ParentCalendarPanel
-            calendarCursor={calendarCursor}
-            calendarEvents={parentCalendarEvents}
-            calendarView={calendarView}
-            isLoading={isLoadingMatches}
-            onCursorChange={setCalendarCursor}
-            onOpenEvent={setSelectedCalendarEvent}
-            onViewChange={setCalendarView}
-            selectedLink={selectedLink}
-          />
-        ) : null}
-
-        {activeSection === 'invites' ? (
-          <ParentUpcomingEvents
-            eventInvites={eventInvites}
-            isLoading={isLoadingMatches}
-            selectedLink={selectedLink}
-          />
-        ) : null}
-
-        {activeSection === 'matches' ? (
-          <ParentMatchCardsPanel
-            activeMatchId={activeMatchId}
-            activeMatches={activeMatches}
-            clockNow={clockNow}
-            goalForms={goalForms}
-            handleAddGoal={handleAddGoal}
-            handlePlayerPick={handlePlayerPick}
-            handleScoreSave={handleScoreSave}
-            handleStartMatch={handleStartMatch}
-            handleVolunteer={handleVolunteer}
-            isLoading={isLoadingMatches}
-            selectedLink={selectedLink}
-            setScoreDrafts={setScoreDrafts}
-            scoreDrafts={scoreDrafts}
-            squadPlayers={squadPlayers}
-            updateGoalForm={updateGoalForm}
-          />
-        ) : null}
-
-        {activeSection === 'results' ? (
-          <ParentResultsPanel
-            previousMatches={previousMatches}
-            onOpen={setSelectedPreviousMatch}
-          />
-        ) : null}
-
-        {activeSection === 'account' ? (
-          <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
-              <p className={eyebrowClass}>Account</p>
-              <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
-              <p className={`mt-3 ${bodyTextClass}`}>
-                Manage the selected child view and device notifications. More account tools will stay hidden until they are ready for parent testing.
-              </p>
-            </div>
-            <PushNotificationPanel
-              hasPushSubscription={hasPushSubscription}
-              isUpdatingPush={isUpdatingPush}
-              onDisable={handleDisableNotifications}
-              onEnable={handleEnableNotifications}
-              pushState={pushState}
-            />
-          </section>
-        ) : null}
-      </section>
 
       <PreviousGameDetailModal match={selectedPreviousMatch} onClose={() => setSelectedPreviousMatch(null)} />
       <ParentCalendarEventModal event={selectedCalendarEvent} onClose={() => setSelectedCalendarEvent(null)} />
     </div>
+  )
+}
+
+function ParentSettingsPanel({
+  hasPushSubscription,
+  isUpdatingPush,
+  onDisableNotifications,
+  onEnableNotifications,
+  onThemePreferenceChange,
+  parentEmail,
+  parentName,
+  pushState,
+  selectedLink,
+  themePreference,
+}) {
+  const themeOptions = ['system', 'light', 'dark']
+
+  return (
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="space-y-4">
+        <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+          <p className={eyebrowClass}>Settings</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
+          <p className={`mt-3 ${bodyTextClass}`}>
+            Manage how this portal appears on this device. Secure account changes stay guided until the parent profile tools are ready here.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className={softPanelClass}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Display name</p>
+            <p className="mt-2 text-lg font-black text-[#101828]">{parentName}</p>
+            <p className={`mt-2 ${bodyTextClass}`}>Profile name editing will be added when secure parent profile updates are available.</p>
+          </div>
+          <div className={softPanelClass}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Email address</p>
+            <p className="mt-2 break-words text-lg font-black text-[#101828]">{parentEmail || 'Email not available'}</p>
+            <p className={`mt-2 ${bodyTextClass}`}>Email changes are handled by the club for now so parent-child access stays linked to the right address.</p>
+          </div>
+        </div>
+
+        <div className={panelClass}>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Theme preference</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {themeOptions.map((option) => {
+              const isSelected = themePreference === option
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => onThemePreferenceChange(option)}
+                  aria-pressed={isSelected}
+                  className={[
+                    'min-h-11 rounded-lg border px-3 py-2 text-sm font-black capitalize transition',
+                    isSelected
+                      ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
+                      : 'border-[#d7e5dc] bg-[#f7faf8] text-[#4b5f55] hover:border-[#047857] hover:bg-white',
+                  ].join(' ')}
+                >
+                  {option}
+                </button>
+              )
+            })}
+          </div>
+          <p className={`mt-3 ${bodyTextClass}`}>
+            System, Light, and Dark only change this device preference. Club colours still come from the linked child workspace.
+          </p>
+        </div>
+
+        <div className={panelClass}>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Password and access</p>
+          <p className={`mt-2 ${bodyTextClass}`}>
+            Use the password reset link on the parent login screen if you need a new password. Email address changes should be requested through the club so access stays attached to {selectedLink?.playerName || 'the selected child'}.
+          </p>
+        </div>
+      </div>
+
+      <PushNotificationPanel
+        hasPushSubscription={hasPushSubscription}
+        isUpdatingPush={isUpdatingPush}
+        onDisable={onDisableNotifications}
+        onEnable={onEnableNotifications}
+        pushState={pushState}
+      />
+    </section>
   )
 }
 
@@ -794,12 +939,14 @@ function buildParentCalendarEvents({ eventInvites = [], matches = [], sharedCale
 
 function ParentPortalSectionNav({
   activeSection,
+  className = '',
   eventInvites,
   matchCount,
   onSelect,
   previousCount,
   sharedDateCount,
   user,
+  variant = 'desktop',
 }) {
   const counts = {
     calendar: sharedDateCount,
@@ -809,15 +956,22 @@ function ParentPortalSectionNav({
   }
   const visibleSections = parentPortalSections.filter((section) => !section.path || isRecoveryPathVisible(section.path, { user }))
   const itemClass = (isActive) => [
-    'flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
+    'flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
+    variant === 'mobile' ? 'w-[8.5rem] shrink-0' : 'w-full',
     isActive
       ? 'border-[#047857] bg-[#ecfdf5] text-[#101828]'
       : 'border-[#d7e5dc] bg-[#f7faf8] text-[#101828] hover:border-[#047857] hover:bg-white',
   ].join(' ')
+  const wrapperClass = variant === 'mobile'
+    ? `fixed inset-x-0 bottom-0 z-[60] border-t border-[#d7e5dc] bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-[#047857]/15 backdrop-blur ${className}`.trim()
+    : `rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 ${className}`.trim()
+  const listClass = variant === 'mobile'
+    ? 'flex gap-2 overflow-x-auto overscroll-x-contain pb-1'
+    : 'grid gap-2'
 
   return (
-    <nav aria-label="Parent portal sections" className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <nav aria-label="Parent portal sections" className={wrapperClass}>
+      <div className={listClass}>
         {visibleSections.map((section) => {
           const isActive = activeSection === section.id
           const count = counts[section.id]
@@ -872,6 +1026,7 @@ function ParentOverviewPanel({
   const nextMatch = activeMatches[0]
   const nextCalendarEvent = calendarEvents[0]
   const sharedItemCount = calendarEvents.length + eventInvites.length + activeMatches.length + previousMatches.length
+  const engagementSummary = getParentEngagementSummary([...activeMatches, ...previousMatches])
   const overviewItems = [
     {
       id: 'calendar',
@@ -951,6 +1106,30 @@ function ParentOverviewPanel({
           ))}
         </div>
       ) : null}
+
+      <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Family activity</p>
+            <h4 className="mt-2 text-lg font-black text-[#101828]">Helper summary</h4>
+          </div>
+          <p className="text-sm font-black text-[#4b5f55]">Only parent-visible match cards are counted.</p>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
+            <p className="text-2xl font-black text-[#101828]">{engagementSummary.helperOffersReceived}</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Scorer offers received</p>
+          </div>
+          <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
+            <p className="text-2xl font-black text-[#101828]">{engagementSummary.helperOffersAnswered}</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Interest sent</p>
+          </div>
+          <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-3">
+            <p className="text-2xl font-black text-[#101828]">{engagementSummary.selectedScorerCount}</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Selected scorer roles</p>
+          </div>
+        </div>
+      </div>
     </section>
   )
 }
@@ -1113,13 +1292,13 @@ function ParentCalendarEventModal({ event, onClose }) {
         : 'Club event'
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#101828]/45 px-4 py-4 sm:items-center">
+    <div className="fixed inset-0 z-[90] flex items-stretch justify-center bg-[#101828]/45 px-3 py-3 sm:items-center sm:px-4 sm:py-4">
       <div
         role="dialog"
         aria-modal="true"
-        className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-xl shadow-[#047857]/15"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl shadow-[#047857]/15"
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="shrink-0 flex items-start justify-between gap-4 border-b border-[#d7e5dc] p-4 sm:p-5">
           <div>
             <p className={eyebrowClass}>{typeLabel}</p>
             <h3 className="mt-2 text-xl font-black tracking-tight text-[#101828]">{event.title}</h3>
@@ -1133,17 +1312,19 @@ function ParentCalendarEventModal({ event, onClose }) {
           </button>
         </div>
 
-        <div className="mt-5 space-y-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
-          <p className="text-sm font-black text-[#101828]">
-            {[event.date, startLabel ? `Time: ${startLabel}` : '', meetLabel].filter(Boolean).join(', ')}
-          </p>
-          {event.location ? <p className="text-sm font-semibold text-[#4b5f55]">{event.location}</p> : null}
-          {event.description ? <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{event.description}</p> : null}
-          {isMatch && data.opponent ? (
-            <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
-              Opponent: {data.opponent}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-28 p-4 sm:p-5">
+          <div className="space-y-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+            <p className="text-sm font-black text-[#101828]">
+              {[event.date, startLabel ? `Time: ${startLabel}` : '', meetLabel].filter(Boolean).join(', ')}
             </p>
-          ) : null}
+            {event.location ? <p className="text-sm font-semibold text-[#4b5f55]">{event.location}</p> : null}
+            {event.description ? <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{event.description}</p> : null}
+            {isMatch && data.opponent ? (
+              <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+                Opponent: {data.opponent}
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

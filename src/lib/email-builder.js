@@ -290,12 +290,11 @@ export function buildEmailHtml({
         ${buildResponseMarkup(responseItems)}
       </div>
 
-      ${buildScoringKeyMarkup(responseItems)}
-
       ${buildEmailSectionMarkup(emailSections, { useChartContentIds })}
 
       <p style="margin: 0 0 18px; font-size: 14px;">If you have any questions, just reply to this email.</p>
       <p style="margin: 0; color: #5a6b5b; font-size: 13px;">${escapeHtml(resolvedClub || 'Club')} | ${escapeHtml(resolvedTeam || 'Team')}</p>
+      ${buildScoringKeyMarkup(responseItems)}
       ${buildPoweredByFooterMarkup()}
     </div>
   `

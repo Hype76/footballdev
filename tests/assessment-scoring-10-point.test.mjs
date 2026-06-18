@@ -68,6 +68,44 @@ test('parent email and PDF scoring guide render 1 to 10 language', () => {
   }
 })
 
+test('parent email and PDF place scoring guide after report sections', () => {
+  const responses = [
+    { label: 'Technical', value: 6 },
+    { label: 'Tactical', value: 7 },
+  ]
+  const emailSections = [
+    {
+      key: 'coachUpdate',
+      title: 'Coach update marker',
+      body: 'Player-specific notes belong before the scoring guide.',
+    },
+  ]
+  const emailHtml = buildEmailHtml({
+    clubName: 'Club',
+    parentName: 'Parent',
+    playerName: 'Player',
+    responses,
+    emailSections,
+    teamName: 'U12',
+  })
+  const pdfHtml = buildAssessmentPdfHtml({
+    clubName: 'Club',
+    playerName: 'Player',
+    responseItems: responses,
+    emailSections,
+    teamName: 'U12',
+  })
+
+  for (const html of [emailHtml, pdfHtml]) {
+    const coachUpdateIndex = html.indexOf('Coach update marker')
+    const scoringGuideIndex = html.indexOf('How scoring works')
+
+    assert.notEqual(coachUpdateIndex, -1)
+    assert.notEqual(scoringGuideIndex, -1)
+    assert.ok(scoringGuideIndex > coachUpdateIndex)
+  }
+})
+
 test('submitted assessment summaries show default 1 to 10 labels only for default score fields', () => {
   const items = buildPreviousAssessmentItems({
     formResponses: {
