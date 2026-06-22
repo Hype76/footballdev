@@ -1,137 +1,165 @@
 # Paywall Production Release Result
 
-Date: 2026-06-22 08:09:23 +01:00
+Date: 2026-06-22 08:38:58 +01:00
 
-Goal: FP-PAYWALL-PROD-FINAL-17
+Goal: FP-PAYWALL-PROD-FINAL-19
 
 Release branch: `codex/paywall-release`
 
-Release commit checked: `7e2820f86597a8bd567119da0a7b7e52cbb4c016`
+Release commit deployed: `92abe69a20722d44d28b7674ef584228a3097b82`
 
 Production Supabase ref: `hvapkizujvsahvgspser`
 
 Netlify site: `footballplayer-online` / `264c7a36-8b0d-4a35-bedd-9d18482aaf69`
 
-Status: Red
+Production URL: `https://footballplayer.online`
+
+Netlify deploy ID: `6a38e4f96f569ab451b69eaa`
+
+Status: Amber
 
 ## Verdict
 
-The final controlled Footballplayer.online paywall production release stopped during the production Supabase migration step.
+The final controlled Footballplayer.online paywall production release was executed.
 
-The production deployment did not happen. The Netlify production deploy was not triggered because the first approved Supabase migration failed.
+The two approved Supabase migrations were applied to production, the corrected server function signature was verified, and the release branch artifact was deployed to Netlify production.
 
-No Netlify production deploy, Stripe object change, subscription migration, repricing, environment variable edit, customer announcement, staging cleanup, or `football-os-staging` use occurred.
+The release is operationally Green for migration, deployment, bundle targeting, route protection, and checkout gating. Overall status remains Amber because live Stripe price object verification through the Stripe connector was not available, and the Supabase postgres log endpoint returned an internal MCP error during monitoring.
 
-## Gates Completed
+No Stripe products, Stripe prices, subscriptions, repricing, environment variables, customer announcements, staging cleanup, or `football-os-staging` changes were made.
+
+## Production Release Gates
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | Clean release worktree | Passed | `git status --short` returned clean before production changes. |
 | Release branch | Passed | Current branch was `codex/paywall-release`. |
-| Release commit | Passed | Local HEAD and `origin/codex/paywall-release` both matched `7e2820f86597a8bd567119da0a7b7e52cbb4c016`. |
-| Required release documents | Passed | All required paywall decision, audit, runbook, config, release, and reconciliation documents were present. |
-| Approved migration files | Passed | `20260622043000_paywall_plan_key_foundation.sql` SHA-256 `6A89486915B89B673D4280AA934908BEF737106E7A6A0382B06C5CBF8E13FE61`; `20260622050850_paywall_server_enforcement.sql` SHA-256 `2FE5B059D9FCB46DAAE2579076392627C685AE5E3FE16F0040A1E82888078A40`. |
+| Release commit | Passed | Local HEAD and `origin/codex/paywall-release` both matched `92abe69a20722d44d28b7674ef584228a3097b82`. |
+| Approved migration files | Passed | `20260622043000_paywall_plan_key_foundation.sql` SHA-256 `AA67BB7627D0819C585224C41B2195E980C61663075E87C57B6172F3393B99A6`; `20260622050850_paywall_server_enforcement.sql` SHA-256 `E5CD902DD429B1A4C9B3409D83F93A4919F34A80DD3695F9BF4CCA77A6B30F2E`. |
 | Local build | Passed | `npm.cmd run build` passed and `verify-web-build-env.mjs` confirmed the live Supabase project in the web build. |
-| Paywall tests | Passed | `node --test tests/paywall-plan-normalization.test.mjs tests/paywall-access-model.test.mjs tests/paywall-ui-alignment.test.mjs tests/paywall-server-enforcement.test.mjs tests/paywall-commerce-alignment.test.mjs tests/paywall-hardening-matrix.test.mjs` passed 37 of 37. |
+| Paywall tests | Passed | Paywall suite passed 37 of 37. |
 | Platform tests | Passed | `npm.cmd run test:platform` passed 102 of 102. |
 | V1 stabilization tests | Passed | `npm.cmd run test:v1-stabilise` passed 47 of 47. |
 | Local live safety | Passed | `npm.cmd run check:local-live-validation-safety` passed; live ref present in `dist`, retired staging ref absent. |
 | Diff check | Passed | `git diff --check` passed. |
 | Supabase project identity | Passed | `supabase projects list -o json` showed `FootballDev` ref `hvapkizujvsahvgspser`, region `eu-west-2`, status `ACTIVE_HEALTHY`, and linked `true`. |
-| Supabase backup visibility | Passed | `supabase backups list --project-ref hvapkizujvsahvgspser -o json` showed latest completed physical backup at `2026-06-22T03:56:11.220Z`; PITR was `false`. |
-| Final migration dry-run | Passed | `supabase db push --dry-run --linked` showed only `20260622043000_paywall_plan_key_foundation.sql` and `20260622050850_paywall_server_enforcement.sql`. |
-| Netlify project identity | Passed | Netlify project reader confirmed `footballplayer-online`, primary URL `https://footballplayer.online`, site id `264c7a36-8b0d-4a35-bedd-9d18482aaf69`, current ready deploy `6a3628095179a5d5dbf1d34e`. |
-| Netlify CLI state | Amber | CLI was authenticated, but the clean release worktree was not linked. The deploy would have used explicit site id if migration had succeeded. |
-| Stripe production env gate | Amber accepted | Netlify environment metadata confirmed Single Team and Small Club production price variables exist with `price_` format, Stripe secret and webhook secret are present as masked secrets, and no Development Club production price id is configured. Live Stripe object verification remains an accepted Amber condition because secrets are masked. |
+| Supabase backup visibility | Passed | Latest completed physical backup was `2026-06-22T03:56:11.220Z`; PITR was `false`. |
+| Final migration dry-run | Passed | `supabase db push --dry-run --linked` showed only the two approved migrations. |
+| Production migration apply | Passed | `supabase db push --linked --yes` applied `20260622043000_paywall_plan_key_foundation.sql` and `20260622050850_paywall_server_enforcement.sql`. |
+| Netlify project identity | Passed | Netlify project reader confirmed `footballplayer-online`, primary URL `https://footballplayer.online`, site id `264c7a36-8b0d-4a35-bedd-9d18482aaf69`. |
+| Netlify production deploy | Passed | Deploy `6a38e4f96f569ab451b69eaa` reached `ready`, published at `2026-06-22T07:36:04.759Z`, production URL `https://footballplayer.online`. |
+| Stripe production env gate | Amber accepted | Netlify environment metadata confirmed Single Team and Small Club production price variables exist with `price_` format, Stripe secret and webhook secret are masked production secrets, and no Development Club production price id is configured. Stripe connector price-id lookup was unavailable. |
 
-## Stop Evidence
+## Production Migration Verification
 
-The approved deploy rule says to stop and not deploy the application if the production migration fails.
+Remote migration history now includes:
 
-The final dry-run was clean, but the live migration apply failed while applying the first approved migration:
+- `20260622043000` / `paywall_plan_key_foundation`
+- `20260622050850` / `paywall_server_enforcement`
+
+Read-only production SQL verified:
+
+- `public.can_use_plan_feature(target_club_id uuid, feature_name text)` remains the active function signature.
+- `public.normalize_subscription_plan_key('Development Club')` returns `development_club`.
+- Missing plan values normalize to `individual`.
+- Unknown malformed plan values fail closed to an empty value.
+- `clubs`, `tester_access_codes`, and `club_owner_invites` plan constraints now include `development_club`.
+- Unknown feature checks return `false`.
+
+## Deploy Verification
+
+Netlify deployed the release through the production context using:
 
 ```text
-Applying migration 20260622043000_paywall_plan_key_foundation.sql...
-ERROR: cannot change name of input parameter "feature_name" (SQLSTATE 42P13)
-At statement: 7
-create or replace function public.can_use_plan_feature(target_club_id uuid, feature_key text)
+npx.cmd netlify deploy --prod --dir=dist --site 264c7a36-8b0d-4a35-bedd-9d18482aaf69 --message "Paywall release 92abe69"
 ```
 
-Read-only production inspection showed the existing function signature is:
+Netlify build evidence:
 
-```text
-can_use_plan_feature(uuid,text)
-proargnames: target_club_id, feature_name
-```
+- Production context used.
+- `npm run build:live && npm run verify:build-env` passed.
+- `verify-web-build-env.mjs` confirmed the live Supabase project.
+- 49 Netlify functions deployed.
+- Current production deploy is `6a38e4f96f569ab451b69eaa`.
 
-The approved migration attempts to replace the same function signature using the second input parameter name `feature_key`. PostgreSQL rejects that parameter-name change through `CREATE OR REPLACE FUNCTION`.
+Bundle and public asset checks:
 
-## Production State After Stop
+- `https://footballplayer.online` returned HTTP 200.
+- Live Supabase ref `hvapkizujvsahvgspser` is present in public bundle assets.
+- Retired staging ref `llpufwzvgxyczxcjwupu` is absent from public bundle assets.
+- Public bundle scan did not find `STRIPE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `sk_live_`, or `whsec_`.
 
-Read-only checks after the failed apply confirmed the failed migration was not recorded in migration history:
+## Production Smoke Tests
 
-- Remote migration history still omits `20260622043000`.
-- Remote migration history still omits `20260622050850`.
-- `supabase migration list --linked` still shows both approved paywall migrations as local-only and pending.
+Live checkout smoke against `https://footballplayer.online/.netlify/functions/create-checkout-session`:
 
-Read-only schema checks also showed no partial paywall foundation state persisted from the failed attempt:
+| Plan | Billing cycle | Result |
+| --- | --- | --- |
+| Single Team | Monthly | HTTP 200 with Stripe Checkout URL. |
+| Single Team | Annual | HTTP 200 with Stripe Checkout URL. |
+| Small Club | Monthly | HTTP 200 with Stripe Checkout URL. |
+| Small Club | Annual | HTTP 200 with Stripe Checkout URL. |
+| Development Club | Monthly | HTTP 400, no Stripe Checkout URL, message `This plan is not available for checkout yet`. |
+| Large Club | Monthly | HTTP 400, no Stripe Checkout URL, message `This plan is not available for self-service checkout.` |
+| Individual Coach - Free | Monthly | HTTP 400, no Stripe Checkout URL, message `This plan is not available for self-service checkout.` |
+| Unknown plan | Monthly | HTTP 400, no Stripe Checkout URL, message `Choose a valid billing plan.` |
+| Single Team | Invalid weekly cycle | HTTP 400, no Stripe Checkout URL, message `Choose a valid billing cycle.` |
 
-- `public.normalize_subscription_plan_key(text)` does not exist.
-- `public.clubs` plan constraint still allows only `individual`, `single_team`, `small_club`, and `large_club`.
-- `public.tester_access_codes` plan constraint still allows only `individual`, `single_team`, `small_club`, and `large_club`.
-- `public.club_owner_invites` plan constraint still allows only `individual`, `single_team`, `small_club`, and `large_club`.
+Four live Stripe Checkout sessions were created as smoke artifacts for Single Team and Small Club monthly and annual plans. No payment was made, and no subscription, product, or price was created by Codex.
 
-## Steps Not Run
+Playwright production route smoke:
 
-These steps were intentionally not run after the migration failed:
+- `/pricing` showed all five approved pricing tiers and Development Club `Request demo` copy.
+- `/sign-in` showed the sign-in surface and no protected app content flash.
+- `/parent-login` redirected to `https://parent.footballplayer.online/parent-login`, showed the parent login surface, and no staff app content flash.
+- `/platform-admin` redirected unauthenticated users to `/sign-in` and did not expose Platform Admin content.
 
-- `supabase db push` retry or workaround.
-- Any unapproved migration edit or production SQL repair.
-- Post-migration validation queries that depend on the approved migrations being applied.
-- Netlify production deploy.
-- Production checkout smoke.
-- Production route smoke.
-- Function log monitoring for a new deploy.
-- Stripe object creation or price creation.
-- Subscription migration or repricing.
-- Customer or investor announcement.
+## Monitoring
 
-## Stripe And Checkout Status
+Netlify deploy monitoring:
 
-No Stripe objects or prices were created.
+- Deploy `6a38e4f96f569ab451b69eaa` state is `ready`.
+- Current project deploy is `6a38e4f96f569ab451b69eaa`.
+- Netlify summary reported 54 new files uploaded, 2 redirect rules processed, 5 header rules processed, and 49 functions deployed.
 
-Netlify production environment metadata remains:
+Supabase monitoring:
 
-- Single Team production price variable exists and has `price_` format.
-- Small Club production price variable exists and has `price_` format.
-- `STRIPE_SECRET_KEY` is present as a masked secret.
-- `STRIPE_WEBHOOK_SECRET` is present as a masked secret.
-- Development Club production price variable is missing.
+- API logs showed successful `200` scheduled email queue reads and CLI health checks around the release window.
+- Auth logs returned no entries.
+- Postgres log retrieval via MCP returned an internal error, so postgres-log monitoring remains an Amber limitation.
 
-Development Club must remain visible in pricing but demo-request gated. Direct Development Club checkout must remain fail-closed until a real approved live Price ID is configured.
+Netlify function log stream was not read from CLI because the release worktree is not linked to the Netlify site. Deploy metadata and live function smoke were used instead.
 
 ## Rollback Readiness
 
-Application rollback path: no new Netlify deploy occurred. The previous production deploy remains `6a3628095179a5d5dbf1d34e`.
+Application rollback path:
 
-Database rollback path: no migration history entry was added for the failed migration. Read-only checks showed the first migration did not leave the paywall foundation state in place. If later evidence shows otherwise, use a reviewed forward-fix migration rather than manual console edits.
+- Previous production deploy before this release was `6a3628095179a5d5dbf1d34e`.
+- Current production deploy is `6a38e4f96f569ab451b69eaa`.
+- If rollback is needed, restore production alias to `6a3628095179a5d5dbf1d34e` from Netlify.
 
-Stripe rollback path: no Stripe or Netlify env changes were made, so no Stripe rollback is required.
+Database rollback path:
 
-Rollback threshold for any future retry: stop immediately if migration apply fails, migration history diverges, live checkout errors spike, protected routes become public, or any unexpected Stripe checkout path opens.
+- The approved migrations are forward changes now recorded in production migration history.
+- If a database issue appears, use a reviewed forward-fix migration rather than manual console edits.
+
+Stripe rollback path:
+
+- No products, prices, subscriptions, repricing, or environment variables were changed.
+- No Stripe rollback is required for this release.
+
+Rollback threshold:
+
+- Roll back or forward-fix immediately if live checkout errors spike, protected routes expose authenticated content, migration history diverges, Development Club checkout opens before an approved live price is configured, or the retired staging Supabase ref appears in production assets.
+
+## Remaining Amber Items
+
+- Stripe live price object lookup could not be completed through the available Stripe connector because the exposed price and subscription tools returned `Unknown tool`, and Stripe Search does not support direct `id` lookup for prices.
+- Postgres log retrieval via Supabase MCP returned an internal error.
+- The Netlify CLI is authenticated but the clean release worktree is not linked to the site, so future CLI log commands should either link the worktree intentionally or use Netlify dashboard logs.
 
 ## Required Next Action
 
-Create a separate approved database-release fix for the first paywall migration. The fix should preserve the existing `can_use_plan_feature(uuid, text)` parameter identity or explicitly drop and recreate the function in a reviewed migration path before retrying production release.
+Monitor production checkout and protected-route access for the next release window. Do not configure Development Club self-service checkout until an approved live Stripe Price ID is created and added to production environment variables.
 
-Do not deploy the paywall app artifact to production before the approved migrations apply cleanly to `hvapkizujvsahvgspser`.
-
-## Follow-Up Migration Fix
-
-The failed pending migration was fixed in the release branch on 2026-06-22 without applying production migrations.
-
-The fix preserves the existing production `public.can_use_plan_feature(uuid, text)` input parameter name `feature_name` in both pending paywall migrations.
-
-See `docs/releases/paywall-migration-fix-2026-06-22.md` for the validation record. Production migration execution and Netlify deploy remain not performed in this release result.
-
-Final status: Red.
+Final status: Amber.
