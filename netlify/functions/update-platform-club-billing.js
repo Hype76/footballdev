@@ -3,8 +3,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from './_supabase.js'
 import { json, normalizePlanStatus } from './_stripe-billing.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
-
-const VALID_PLAN_KEYS = ['individual', 'single_team', 'small_club', 'large_club']
+import { normalizePlanKey } from '../../src/lib/plans.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -104,7 +103,15 @@ export async function handler(event) {
       throw clubError
     }
 
-    const nextPlanKey = VALID_PLAN_KEYS.includes(body.planKey) ? body.planKey : currentClub.plan_key || 'small_club'
+    const hasRequestedPlanKey = Object.prototype.hasOwnProperty.call(body, 'planKey')
+    const nextPlanKey = hasRequestedPlanKey
+      ? normalizePlanKey(body.planKey)
+      : normalizePlanKey(currentClub.plan_key, { mapMissingToFree: true })
+
+    if (!nextPlanKey) {
+      return json(400, { success: false, message: 'Choose a valid billing plan.' })
+    }
+
     const nextPlanStatus = normalizePlanStatus(body.planStatus || currentClub.plan_status || 'active')
     const nextIsPlanComped = Boolean(body.isPlanComped)
     const shouldChangePause = Boolean(currentClub.is_plan_comped) !== nextIsPlanComped

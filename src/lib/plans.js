@@ -4,97 +4,217 @@ export const PLAN_KEYS = {
   individual: 'individual',
   singleTeam: 'single_team',
   smallClub: 'small_club',
+  developmentClub: 'development_club',
   largeClub: 'large_club',
 }
+
+export const PLAN_PURCHASE_MODES = {
+  free: 'free',
+  selfService: 'self_service',
+  contactSales: 'contact_sales',
+  none: 'none',
+}
+
+export const PLAN_STATES = {
+  active: 'active',
+  deprecated: 'deprecated',
+  unsupported: 'unsupported',
+}
+
+export const PLAN_KEY_ALIASES = Object.freeze({
+  coach_free: PLAN_KEYS.individual,
+  free: PLAN_KEYS.individual,
+  individual: PLAN_KEYS.individual,
+  individual_coach: PLAN_KEYS.individual,
+  individual_coach_free: PLAN_KEYS.individual,
+  individual_free: PLAN_KEYS.individual,
+  individualcoachfree: PLAN_KEYS.individual,
+  single: PLAN_KEYS.singleTeam,
+  single_team: PLAN_KEYS.singleTeam,
+  singleteam: PLAN_KEYS.singleTeam,
+  team: PLAN_KEYS.singleTeam,
+  small_club: PLAN_KEYS.smallClub,
+  smallclub: PLAN_KEYS.smallClub,
+  development: PLAN_KEYS.developmentClub,
+  development_club: PLAN_KEYS.developmentClub,
+  developmentclub: PLAN_KEYS.developmentClub,
+  dev_club: PLAN_KEYS.developmentClub,
+  devclub: PLAN_KEYS.developmentClub,
+  contact: PLAN_KEYS.largeClub,
+  contact_sales: PLAN_KEYS.largeClub,
+  enterprise: PLAN_KEYS.largeClub,
+  large_club: PLAN_KEYS.largeClub,
+  largeclub: PLAN_KEYS.largeClub,
+  negotiated: PLAN_KEYS.largeClub,
+})
+
+const PLAN_FEATURES_NONE = Object.freeze({
+  pdfExport: false,
+  parentEmail: false,
+  customFormFields: false,
+  basicBranding: false,
+  customBranding: false,
+  themes: false,
+  auditLogs: false,
+  approvalWorkflow: false,
+})
+
+const PLAN_FEATURES_SINGLE_TEAM = Object.freeze({
+  pdfExport: true,
+  parentEmail: true,
+  customFormFields: true,
+  basicBranding: true,
+  customBranding: false,
+  themes: false,
+  auditLogs: false,
+  approvalWorkflow: false,
+})
+
+const PLAN_FEATURES_CLUB = Object.freeze({
+  pdfExport: true,
+  parentEmail: true,
+  customFormFields: true,
+  basicBranding: true,
+  customBranding: true,
+  themes: true,
+  auditLogs: true,
+  approvalWorkflow: true,
+})
+
+const UNKNOWN_PLAN = Object.freeze({
+  key: '',
+  name: 'Unknown plan',
+  displayName: 'Unknown plan',
+  headlineMonthlyPrice: 'Unknown',
+  price: 'Unknown',
+  isFree: false,
+  isPaid: false,
+  purchaseMode: PLAN_PURCHASE_MODES.none,
+  state: PLAN_STATES.unsupported,
+  isDeprecated: true,
+  limits: Object.freeze({
+    teams: 0,
+    staffLogins: 0,
+    players: 0,
+    monthlyEvaluations: 0,
+  }),
+  features: PLAN_FEATURES_NONE,
+  legacyAliases: Object.freeze([]),
+  safeDefaultBehavior: 'fail_closed_no_paid_entitlement',
+})
 
 export const PLAN_OPTIONS = [
   {
     key: PLAN_KEYS.individual,
-    name: 'Individual',
-    price: 'Free',
+    name: 'Individual Coach - Free',
+    displayName: 'Individual Coach - Free',
+    headlineMonthlyPrice: 'GBP 0',
+    price: 'GBP 0',
+    isFree: true,
+    isPaid: false,
+    purchaseMode: PLAN_PURCHASE_MODES.free,
+    state: PLAN_STATES.active,
+    isDeprecated: false,
     limits: {
       teams: 1,
       staffLogins: 1,
       players: 5,
       monthlyEvaluations: 10,
     },
-    features: {
-      pdfExport: false,
-      parentEmail: false,
-      customFormFields: false,
-      basicBranding: false,
-      customBranding: false,
-      themes: false,
-      auditLogs: false,
-      approvalWorkflow: false,
-    },
+    features: PLAN_FEATURES_NONE,
+    legacyAliases: ['Individual', 'Free', 'Individual Coach Free'],
+    safeDefaultBehavior: 'explicit_free_tier_for_missing_paid_subscription',
   },
   {
     key: PLAN_KEYS.singleTeam,
     name: 'Single Team',
-    price: '£9.99/month',
+    displayName: 'Single Team',
+    headlineMonthlyPrice: 'GBP 12.99/month',
+    price: 'GBP 12.99/month',
+    isFree: false,
+    isPaid: true,
+    purchaseMode: PLAN_PURCHASE_MODES.selfService,
+    state: PLAN_STATES.active,
+    isDeprecated: false,
     limits: {
       teams: 1,
-      staffLogins: 3,
-      players: 20,
+      staffLogins: 5,
+      players: 30,
       monthlyEvaluations: null,
     },
-    features: {
-      pdfExport: true,
-      parentEmail: true,
-      customFormFields: true,
-      basicBranding: true,
-      customBranding: false,
-      themes: false,
-      auditLogs: false,
-      approvalWorkflow: false,
-    },
+    features: PLAN_FEATURES_SINGLE_TEAM,
+    legacyAliases: ['Single Team', 'single_team'],
+    safeDefaultBehavior: 'self_service_paid_plan_requires_explicit_key',
   },
   {
     key: PLAN_KEYS.smallClub,
     name: 'Small Club',
-    price: '£24.99/month',
+    displayName: 'Small Club',
+    headlineMonthlyPrice: 'GBP 34.99/month',
+    price: 'GBP 34.99/month',
+    isFree: false,
+    isPaid: true,
+    purchaseMode: PLAN_PURCHASE_MODES.selfService,
+    state: PLAN_STATES.active,
+    isDeprecated: false,
+    limits: {
+      teams: 5,
+      staffLogins: null,
+      players: null,
+      monthlyEvaluations: null,
+    },
+    features: PLAN_FEATURES_CLUB,
+    legacyAliases: ['Small Club', 'small_club'],
+    safeDefaultBehavior: 'self_service_paid_plan_requires_explicit_key',
+    limitNotes: 'Staff and player limits preserve the currently enforced unlimited values until explicit numeric limits are approved.',
+  },
+  {
+    key: PLAN_KEYS.developmentClub,
+    name: 'Development Club',
+    displayName: 'Development Club',
+    headlineMonthlyPrice: 'GBP 59.99/month',
+    price: 'GBP 59.99/month',
+    isFree: false,
+    isPaid: true,
+    purchaseMode: PLAN_PURCHASE_MODES.selfService,
+    state: PLAN_STATES.active,
+    isDeprecated: false,
     limits: {
       teams: 10,
       staffLogins: null,
       players: null,
       monthlyEvaluations: null,
     },
-    features: {
-      pdfExport: true,
-      parentEmail: true,
-      customFormFields: true,
-      basicBranding: true,
-      customBranding: true,
-      themes: true,
-      auditLogs: true,
-      approvalWorkflow: true,
-    },
+    features: PLAN_FEATURES_CLUB,
+    legacyAliases: ['Development Club', 'development_club'],
+    safeDefaultBehavior: 'self_service_paid_plan_requires_explicit_key',
+    limitNotes: 'Staff and player limits preserve the currently enforced unlimited values until explicit numeric limits are approved.',
   },
   {
     key: PLAN_KEYS.largeClub,
     name: 'Large Club',
-    price: 'Contact us',
+    displayName: 'Large Club',
+    headlineMonthlyPrice: 'GBP 99.99+/month',
+    price: 'GBP 99.99+/month',
+    isFree: false,
+    isPaid: true,
+    purchaseMode: PLAN_PURCHASE_MODES.contactSales,
+    state: PLAN_STATES.active,
+    isDeprecated: false,
     limits: {
       teams: null,
       staffLogins: null,
       players: null,
       monthlyEvaluations: null,
     },
-    features: {
-      pdfExport: true,
-      parentEmail: true,
-      customFormFields: true,
-      basicBranding: true,
-      customBranding: true,
-      themes: true,
-      auditLogs: true,
-      approvalWorkflow: true,
-    },
+    features: PLAN_FEATURES_CLUB,
+    legacyAliases: ['Large Club', 'large_club', 'Contact', 'Contact sales'],
+    safeDefaultBehavior: 'negotiated_plan_requires_explicit_key',
   },
 ]
 
 const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, plan]))
+export const PLAN_KEY_SET = new Set(PLAN_OPTIONS.map((plan) => plan.key))
 
 const FEATURE_UPGRADE_COPY = {
   approvalWorkflow: {
@@ -131,16 +251,42 @@ const FEATURE_UPGRADE_COPY = {
   },
 }
 
-export function getPlanKey(value) {
-  const rawValue = typeof value === 'string'
+function getRawPlanValue(value) {
+  return typeof value === 'string'
     ? value
     : value?.planKey ?? value?.plan_key ?? value?.clubPlanKey ?? value?.club_plan_key
+}
 
-  return PLAN_BY_KEY[rawValue] ? rawValue : PLAN_KEYS.smallClub
+function normalizePlanToken(value) {
+  return String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[^\w]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase()
+}
+
+export function normalizePlanKey(value, { fallbackKey = '', mapMissingToFree = false } = {}) {
+  const rawValue = getRawPlanValue(value)
+  const normalizedText = String(rawValue ?? '').trim()
+
+  if (!normalizedText) {
+    return mapMissingToFree ? PLAN_KEYS.individual : fallbackKey
+  }
+
+  const alias = normalizePlanToken(normalizedText)
+  return PLAN_KEY_ALIASES[alias] || fallbackKey
+}
+
+export function isKnownPlanKey(value) {
+  return Boolean(normalizePlanKey(value))
+}
+
+export function getPlanKey(value, options = {}) {
+  return normalizePlanKey(value, { mapMissingToFree: true, ...options })
 }
 
 export function getPlan(planOrUser) {
-  return PLAN_BY_KEY[getPlanKey(planOrUser)] ?? PLAN_BY_KEY[PLAN_KEYS.smallClub]
+  return PLAN_BY_KEY[getPlanKey(planOrUser)] ?? UNKNOWN_PLAN
 }
 
 export function isPlanComped(value) {
@@ -152,7 +298,17 @@ export function isPlanComped(value) {
 }
 
 export function isPlanAccessActive(value) {
-  if (value?.role === 'super_admin' || isPlanComped(value)) {
+  if (value?.role === 'super_admin') {
+    return true
+  }
+
+  const planKey = getPlanKey(value)
+
+  if (!planKey) {
+    return false
+  }
+
+  if (isPlanComped(value)) {
     return true
   }
 

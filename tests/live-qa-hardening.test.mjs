@@ -115,7 +115,16 @@ test('single team staff access counts active and pending unique emails', () => {
   assert.equal(getUniqueStaffAccessEmails(members, invites).size, 3)
   assert.equal(canAddStaffAccessEmail(singleTeamUser, 'pending@example.com', members, invites), true)
   assert.equal(canAddStaffAccessEmail(singleTeamUser, 'coach@example.com', members, invites), true)
-  assert.equal(canAddStaffAccessEmail(singleTeamUser, 'new@example.com', members, invites), false)
+  assert.equal(canAddStaffAccessEmail(singleTeamUser, 'new@example.com', members, invites), true)
+  assert.equal(
+    canAddStaffAccessEmail(
+      singleTeamUser,
+      'sixth@example.com',
+      [...members, { email: 'new@example.com' }, { email: 'fifth@example.com' }],
+      invites,
+    ),
+    false,
+  )
   assert.equal(
     canAddStaffAccessEmail({ ...singleTeamUser, planKey: PLAN_KEYS.smallClub }, 'new@example.com', members, invites),
     true,

@@ -37,6 +37,7 @@ import {
 } from './staff-voice-notes.js'
 import {
   canEditClubIdentity,
+  PLAN_KEYS,
 } from '../plans.js'
 import {
   assertPlayerLimitForUpsert,
@@ -316,7 +317,7 @@ function normalizeParentPortalProfile(authUser, parentLinks) {
     roleLabel: 'Parent',
     roleRank: 0,
     accountStatus: 'active',
-    planKey: 'small_club',
+    planKey: PLAN_KEYS.individual,
     planStatus: 'active',
     isPlanComped: false,
     clubId: selectedLink?.clubId ?? '',

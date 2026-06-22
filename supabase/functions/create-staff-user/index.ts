@@ -57,18 +57,54 @@ function isExistingAuthUserError(error: { message?: string } | null | undefined)
 
 const STAFF_LOGIN_LIMITS: Record<string, number | null> = {
   individual: 1,
-  single_team: 3,
+  single_team: 5,
   small_club: null,
+  development_club: null,
   large_club: null,
 }
 
+function normalizePlanKey(value: unknown) {
+  const normalizedValue = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  const aliases: Record<string, string> = {
+    individual: 'individual',
+    individual_coach: 'individual',
+    individual_coach_free: 'individual',
+    individual_free: 'individual',
+    free: 'individual',
+    single: 'single_team',
+    single_team: 'single_team',
+    team: 'single_team',
+    small_club: 'small_club',
+    development: 'development_club',
+    development_club: 'development_club',
+    dev_club: 'development_club',
+    large_club: 'large_club',
+    contact: 'large_club',
+    contact_sales: 'large_club',
+    enterprise: 'large_club',
+    negotiated: 'large_club',
+  }
+
+  return normalizedValue ? aliases[normalizedValue] ?? '' : 'individual'
+}
+
 function getStaffLoginLimit(club: { plan_key?: string | null; is_plan_comped?: boolean | null } | null | undefined) {
+  const planKey = normalizePlanKey(club?.plan_key)
+
+  if (!planKey) {
+    return 0
+  }
+
   if (club?.is_plan_comped) {
     return null
   }
 
-  const planKey = String(club?.plan_key ?? 'small_club').trim() || 'small_club'
-  return STAFF_LOGIN_LIMITS[planKey] ?? STAFF_LOGIN_LIMITS.small_club
+  return STAFF_LOGIN_LIMITS[planKey] ?? 0
 }
 
 async function getClubAccessEmails(adminClient: ReturnType<typeof createClient>, clubId: string) {

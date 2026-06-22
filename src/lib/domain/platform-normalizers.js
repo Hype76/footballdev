@@ -1,10 +1,12 @@
+import { normalizePlanKey } from '../plans.js'
+
 export function normalizePlatformClubRow(row) {
   return {
     id: row.id,
     name: String(row.name ?? '').trim() || 'Unnamed club',
     contactEmail: String(row.contact_email ?? '').trim(),
     contactPhone: String(row.contact_phone ?? '').trim(),
-    planKey: String(row.plan_key ?? 'small_club').trim() || 'small_club',
+    planKey: normalizePlanKey(row.plan_key, { mapMissingToFree: true }),
     planStatus: String(row.plan_status ?? 'active').trim() || 'active',
     isPlanComped: Boolean(row.is_plan_comped ?? false),
     stripeCustomerId: String(row.stripe_customer_id ?? '').trim(),
@@ -51,7 +53,7 @@ export function normalizePlatformStatsPayload(stats) {
       name: String(club.name ?? '').trim() || 'Unnamed club',
       contactEmail: String(club.contactEmail ?? '').trim(),
       contactPhone: String(club.contactPhone ?? '').trim(),
-      planKey: String(club.planKey ?? 'small_club').trim() || 'small_club',
+      planKey: normalizePlanKey(club.planKey, { mapMissingToFree: true }),
       planStatus: String(club.planStatus ?? 'active').trim() || 'active',
       isPlanComped: Boolean(club.isPlanComped),
       status: String(club.status ?? 'active').trim() || 'active',

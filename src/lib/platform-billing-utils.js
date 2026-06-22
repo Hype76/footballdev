@@ -1,4 +1,5 @@
 import { formatUkDate } from './date-format.js'
+import { PLAN_OPTIONS } from './plans.js'
 
 export const defaultCouponForm = {
   name: '',
@@ -21,10 +22,7 @@ export const defaultTesterCodeForm = {
 }
 
 export const testerPlanOptions = [
-  { key: 'individual', label: 'Individual' },
-  { key: 'single_team', label: 'Single Team' },
-  { key: 'small_club', label: 'Small Club' },
-  { key: 'large_club', label: 'Large Club' },
+  ...PLAN_OPTIONS.map((plan) => ({ key: plan.key, label: plan.name })),
 ]
 
 export function formatDate(value) {

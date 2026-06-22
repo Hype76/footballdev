@@ -2,8 +2,8 @@ import process from 'node:process'
 import { randomUUID } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './_email-provider.js'
 import { createSupabaseAdminClient, isStagingRequest } from './_supabase.js'
+import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
-const VALID_PLAN_KEYS = new Set(['individual', 'single_team', 'small_club', 'large_club'])
 const VALID_BILLING_MODES = new Set(['paid', 'unpaid'])
 
 class PlatformClubCreateError extends Error {
@@ -159,17 +159,6 @@ function cleanHeaderPart(value, fallback) {
   return cleanedValue || fallback
 }
 
-function getPlanName(planKey) {
-  const planNames = {
-    individual: 'Individual',
-    single_team: 'Single Team',
-    small_club: 'Small Club',
-    large_club: 'Large Club',
-  }
-
-  return planNames[planKey] || planNames.small_club
-}
-
 async function getPlatformAdminProfile(supabaseAdmin, event) {
   const token = getBearerToken(event)
 
@@ -257,7 +246,7 @@ export async function createPlatformClubResult(event, {
     const contactEmail = normalizeEmail(body.contactEmail)
     const contactPhone = normalizeText(body.contactPhone)
     const ownerEmail = normalizeEmail(body.ownerEmail || body.contactEmail)
-    const planKey = VALID_PLAN_KEYS.has(body.planKey) ? body.planKey : 'small_club'
+    const planKey = normalizePlanKey(body.planKey)
     const billingMode = VALID_BILLING_MODES.has(body.billingMode) ? body.billingMode : 'paid'
 
     if (!name) {
@@ -266,6 +255,10 @@ export async function createPlatformClubResult(event, {
 
     if (!isValidEmail(ownerEmail)) {
       return failureResponse(400, 'Owner invite email is required.')
+    }
+
+    if (!planKey) {
+      return failureResponse(400, 'Choose a valid billing plan.')
     }
 
     if (contactEmail && !isValidEmail(contactEmail)) {

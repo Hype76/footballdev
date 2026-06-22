@@ -1,4 +1,5 @@
 import { getMainAppOrigin } from './app-origins.js'
+import { normalizePlanKey } from './plans.js'
 
 export function getPasswordResetRedirectUrl() {
   return `${getMainAppOrigin()}/reset-password`
@@ -44,7 +45,7 @@ export async function claimStripeCheckoutForProfile(session, profile) {
 
     return {
       ...profile,
-      planKey: String(result.club.planKey ?? profile.planKey ?? 'small_club').trim(),
+      planKey: normalizePlanKey(result.club.planKey ?? profile.planKey, { mapMissingToFree: true }),
       planStatus: String(result.club.planStatus ?? profile.planStatus ?? 'active').trim(),
       isPlanComped: Boolean(result.club.isPlanComped ?? profile.isPlanComped ?? false),
       role: result.user?.role ?? profile.role,

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './_supabase.js'
 import { arePaymentsDisabled, json } from './_stripe-billing.js'
 import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './_billing-role-promotion.js'
+import { normalizePlanKey, PLAN_KEYS, PLAN_KEY_SET } from '../../src/lib/plans.js'
 
 const USER_PROFILE_SELECT = [
   'id',
@@ -27,9 +28,9 @@ const USER_PROFILE_SELECT = [
 
 const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
 const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
-const FREE_PLAN_KEY = 'individual'
-const TEST_SIGNUP_PLAN_KEY = 'small_club'
-const TEST_SIGNUP_PLAN_KEYS = new Set(['individual', 'single_team', 'small_club', 'large_club'])
+const FREE_PLAN_KEY = PLAN_KEYS.individual
+const TEST_SIGNUP_PLAN_KEY = PLAN_KEYS.smallClub
+const TEST_SIGNUP_PLAN_KEYS = PLAN_KEY_SET
 const ORPHAN_STAGING_ACCOUNT_MESSAGE = 'This staging account is not linked to an active test workspace. Ask the platform admin for a fresh test invite or create a new staging test account.'
 const TEAM_MANAGER_ROLE = {
   role: 'head_manager',
@@ -136,19 +137,19 @@ function getTestSignupPlanKey(authUser, requestedPlanKey) {
 }
 
 function getExplicitTestSignupPlanKey(authUser, requestedPlanKey) {
-  const explicitPlanKey = String(requestedPlanKey ?? '').trim()
+  const explicitPlanKey = normalizePlanKey(requestedPlanKey)
 
   if (TEST_SIGNUP_PLAN_KEYS.has(explicitPlanKey)) {
     return explicitPlanKey
   }
 
-  const metadataPlanKey = String(
+  const metadataPlanKey = normalizePlanKey(
     authUser?.user_metadata?.test_signup_plan_key ??
       authUser?.user_metadata?.plan_key ??
       authUser?.raw_user_meta_data?.test_signup_plan_key ??
       authUser?.raw_user_meta_data?.plan_key ??
       '',
-  ).trim()
+  )
 
   if (TEST_SIGNUP_PLAN_KEYS.has(metadataPlanKey)) {
     return metadataPlanKey
@@ -176,7 +177,7 @@ function hasExplicitSignupIntent(authUser, body, testerAccessCode, checkoutRecor
 
   const requestedClubName = String(body?.clubName ?? '').trim()
   const hasFormSignupIntent = Boolean(body?.signupIntent) && Boolean(requestedClubName)
-  const requestedPlanKey = String(body?.planKey ?? '').trim()
+  const requestedPlanKey = normalizePlanKey(body?.planKey)
 
   if (paymentsDisabled) {
     return Boolean(

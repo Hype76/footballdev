@@ -5,6 +5,7 @@ import { createAuditLog } from './audit.js'
 import { blockDemoMutation } from './demo-guards.js'
 import { logPlatformStatsDiagnostic, normalizePlatformClubRow, normalizePlatformStatsPayload } from './platform-normalizers.js'
 import { normalizeUserProfile } from './profile-normalizers.js'
+import { normalizePlanKey } from '../plans.js'
 
 export async function createPlatformClub({
   user,
@@ -107,9 +108,12 @@ export async function updatePlatformClubPlan({ user, clubId, planKey, planStatus
     throw new Error('Only platform admins can update club plans.')
   }
 
-  const normalizedPlanKey = ['individual', 'single_team', 'small_club', 'large_club'].includes(planKey)
-    ? planKey
-    : 'small_club'
+  const normalizedPlanKey = normalizePlanKey(planKey)
+
+  if (!normalizedPlanKey) {
+    throw new Error('Choose a valid billing plan.')
+  }
+
   const normalizedPlanStatus = ['active', 'trialing', 'past_due', 'cancelled'].includes(planStatus)
     ? planStatus
     : 'active'
@@ -530,7 +534,7 @@ export async function getPlatformStats(user) {
           name: String(club.name ?? '').trim() || 'Unnamed club',
           contactEmail: String(club.contact_email ?? '').trim(),
           contactPhone: String(club.contact_phone ?? '').trim(),
-          planKey: String(club.plan_key ?? 'small_club').trim() || 'small_club',
+          planKey: normalizePlanKey(club.plan_key, { mapMissingToFree: true }),
           planStatus: String(club.plan_status ?? 'active').trim() || 'active',
           isPlanComped: Boolean(club.is_plan_comped ?? false),
           status: String(club.status ?? 'active').trim() || 'active',

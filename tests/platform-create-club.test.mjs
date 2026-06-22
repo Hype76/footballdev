@@ -173,6 +173,7 @@ test('createPlatformClubResult rejects missing platform admin identity', async (
     () => createPlatformClubResult(createEvent({
       name: 'Test FC',
       ownerEmail: 'owner@example.test',
+      planKey: 'small_club',
     }), {
       supabaseAdmin: mock.supabaseAdmin,
     }),
@@ -211,6 +212,7 @@ test('createPlatformClubResult preserves the club when owner invite insert fails
     () => createPlatformClubResult(createEvent({
       name: 'Test FC',
       ownerEmail: 'owner@example.test',
+      planKey: 'small_club',
     }), {
       supabaseAdmin: mock.supabaseAdmin,
     }),
@@ -229,6 +231,7 @@ test('createPlatformClubResult preserves invite link when email provider rejects
   const response = await createPlatformClubResult(createEvent({
     name: 'Test FC',
     ownerEmail: 'owner@example.test',
+    planKey: 'small_club',
   }), {
     sendOwnerInviteEmailImpl: async () => {
       const error = new Error('Domain is not verified')
@@ -254,6 +257,7 @@ test('createPlatformClubResult ignores stale cached stats and uses authoritative
   const response = await createPlatformClubResult(createEvent({
     name: 'Fresh Club FC',
     ownerEmail: 'owner@example.test',
+    planKey: 'small_club',
     stats: { clubs: [null, {}] },
   }), {
     sendOwnerInviteEmailImpl: async () => ({ data: { id: 'email-1' } }),

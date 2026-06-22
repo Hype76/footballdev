@@ -19,6 +19,7 @@ const testPlanByName = {
   Individual: 'individual',
   'Single Team': 'single_team',
   'Small Club': 'small_club',
+  'Development Club': 'development_club',
   'Large Club': 'large_club',
 }
 

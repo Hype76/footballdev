@@ -190,12 +190,17 @@ function ClubSummary({
         <label className="block">
           <span className={eyebrowClass}>Plan</span>
           <select
-            value={club.planKey || 'small_club'}
+            value={club.planKey || ''}
             disabled={updatingClubId === clubId}
             title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
             onChange={(event) => void onClubPlanChange(club, 'planKey', event.target.value)}
             className={fieldClass}
           >
+            {!club.planKey ? (
+              <option value="" disabled>
+                Unknown plan
+              </option>
+            ) : null}
             {PLAN_OPTIONS.map((plan) => (
               <option key={plan.key} value={plan.key}>
                 {plan.name}

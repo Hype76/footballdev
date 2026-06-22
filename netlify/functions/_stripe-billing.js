@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { normalizePlanKey as normalizeCanonicalPlanKey } from '../../src/lib/plans.js'
 
 const STAGING_PROJECT_REF = 'llpufwzvgxyczxcjwupu'
 const LIVE_PROJECT_REF = 'hvapkizujvsahvgspser'
@@ -7,6 +8,8 @@ const STAGING_BRANCHES = new Set(['football-os-staging', 'staging', 'codex/footb
 export const PLAN_BY_NAME = {
   'Single Team': 'single_team',
   'Small Club': 'small_club',
+  'Development Club': 'development_club',
+  'Large Club': 'large_club',
 }
 
 export function getPriceMap() {
@@ -40,13 +43,7 @@ export function getPlanFromPriceId(priceId) {
 }
 
 export function normalizePlanKey(value) {
-  const normalizedValue = String(value ?? '').trim()
-
-  if (['individual', 'single_team', 'small_club', 'large_club'].includes(normalizedValue)) {
-    return normalizedValue
-  }
-
-  return PLAN_BY_NAME[normalizedValue] || ''
+  return normalizeCanonicalPlanKey(PLAN_BY_NAME[String(value ?? '').trim()] || value)
 }
 
 export function normalizePlanStatus(status) {

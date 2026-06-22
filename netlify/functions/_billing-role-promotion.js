@@ -8,7 +8,8 @@ const PLAN_RANKS = {
   individual: 0,
   single_team: 1,
   small_club: 2,
-  large_club: 3,
+  development_club: 3,
+  large_club: 4,
 }
 
 function normalizeEmail(value) {

@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from './_supabase.js'
+import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -14,17 +15,6 @@ function failureResponse(statusCode, message) {
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
-}
-
-function getPlanName(planKey) {
-  const planNames = {
-    individual: 'Individual',
-    single_team: 'Single Team',
-    small_club: 'Small Club',
-    large_club: 'Large Club',
-  }
-
-  return planNames[planKey] || planNames.small_club
 }
 
 export async function handler(event) {
@@ -63,6 +53,7 @@ export async function handler(event) {
     }
 
     const club = Array.isArray(data.clubs) ? data.clubs[0] : data.clubs
+    const planKey = normalizePlanKey(data.plan_key, { mapMissingToFree: true })
 
     return jsonResponse(200, {
       success: true,
@@ -70,8 +61,8 @@ export async function handler(event) {
         token: data.invite_token,
         invitedEmail: normalizeEmail(data.invited_email),
         billingMode: data.billing_mode === 'unpaid' ? 'unpaid' : 'paid',
-        planKey: data.plan_key || 'small_club',
-        planName: getPlanName(data.plan_key),
+        planKey,
+        planName: getPlanName(planKey),
         clubName: String(club?.name ?? '').trim(),
         logoUrl: String(club?.logo_url ?? '').trim(),
         contactEmail: normalizeEmail(club?.contact_email),

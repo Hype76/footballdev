@@ -1,4 +1,4 @@
-import { createFeatureUpgradeMessage, hasPlanFeature, isPlanAccessActive } from '../../src/lib/plans.js'
+import { createFeatureUpgradeMessage, hasPlanFeature, isPlanAccessActive, normalizePlanKey } from '../../src/lib/plans.js'
 import { supabaseAdmin } from './_supabase.js'
 
 function normalizeEmail(value) {
@@ -38,7 +38,7 @@ function normalizePlanProfile(profile, authEmail) {
     clubId: String(profile.club_id ?? '').trim(),
     accountStatus: String(profile.status ?? 'active').trim() || 'active',
     clubStatus: String(club?.status ?? 'active').trim() || 'active',
-    planKey: String(club?.plan_key ?? profile.plan_key ?? 'small_club').trim() || 'small_club',
+    planKey: normalizePlanKey(club?.plan_key ?? profile.plan_key, { mapMissingToFree: true }),
     planStatus: String(club?.plan_status ?? profile.plan_status ?? 'active').trim() || 'active',
     isPlanComped: testerAccessExpired ? false : Boolean(club?.is_plan_comped ?? profile.is_plan_comped),
     testerAccessExpired,

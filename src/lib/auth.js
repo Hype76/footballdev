@@ -12,6 +12,7 @@ import {
   isSuperAdmin,
 } from './auth-permissions.js'
 import { isParentPortalHost } from './app-origins.js'
+import { normalizePlanKey, PLAN_KEYS } from './plans.js'
 
 export {
   canAssignRole,
@@ -813,15 +814,13 @@ export function AuthProvider({ children }) {
     setUser(applyDemoRolePreview(profileWithTeam))
   }
 
-  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = 'small_club' }) => {
+  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = PLAN_KEYS.smallClub }) => {
     setAuthError('')
     const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
     const normalizedEmail = String(email ?? '').trim()
     const normalizedClubName = String(clubName ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
-    const normalizedPlanKey = ['individual', 'single_team', 'small_club', 'large_club'].includes(planKey)
-      ? planKey
-      : 'small_club'
+    const normalizedPlanKey = normalizePlanKey(planKey) || PLAN_KEYS.smallClub
 
     if (testSignupWithoutPayment) {
       const prepareResponse = await fetch('/.netlify/functions/prepare-staging-test-signup', {
@@ -1103,7 +1102,7 @@ export function AuthProvider({ children }) {
         clubLogoUrl: String(clubDetails.logoUrl ?? current.clubLogoUrl ?? '').trim(),
         clubContactEmail: String(clubDetails.contactEmail ?? current.clubContactEmail ?? '').trim(),
         clubContactPhone: String(clubDetails.contactPhone ?? current.clubContactPhone ?? '').trim(),
-        planKey: String(clubDetails.planKey ?? current.planKey ?? 'small_club').trim(),
+        planKey: normalizePlanKey(clubDetails.planKey ?? current.planKey, { mapMissingToFree: true }),
         planStatus: String(clubDetails.planStatus ?? current.planStatus ?? 'active').trim(),
         isPlanComped: Boolean(clubDetails.isPlanComped ?? current.isPlanComped ?? false),
         stripeCustomerId: String(clubDetails.stripeCustomerId ?? current.stripeCustomerId ?? '').trim(),

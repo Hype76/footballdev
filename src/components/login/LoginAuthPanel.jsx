@@ -125,6 +125,7 @@ export function LoginAuthPanel({
                 <option value="individual">Individual</option>
                 <option value="single_team">Single Team</option>
                 <option value="small_club">Small Club</option>
+                <option value="development_club">Development Club</option>
                 <option value="large_club">Large Club</option>
               </select>
               <span className="mt-2 block text-xs font-semibold leading-5 text-white/58">

@@ -1,20 +1,21 @@
 import process from 'node:process'
 import Stripe from 'stripe'
 import { arePaymentsDisabled, json } from './_stripe-billing.js'
+import { getPlanName, normalizePlanKey, PLAN_KEYS } from '../../src/lib/plans.js'
 
-function getPriceId(planName, billingCycle) {
+function getPriceId(planKey, billingCycle) {
   const prices = {
-    'Single Team': {
+    [PLAN_KEYS.singleTeam]: {
       monthly: process.env.VITE_STRIPE_SINGLE_TEAM_MONTHLY_PRICE_ID,
       annual: process.env.VITE_STRIPE_SINGLE_TEAM_ANNUAL_PRICE_ID,
     },
-    'Small Club': {
+    [PLAN_KEYS.smallClub]: {
       monthly: process.env.VITE_STRIPE_SMALL_CLUB_MONTHLY_PRICE_ID,
       annual: process.env.VITE_STRIPE_SMALL_CLUB_ANNUAL_PRICE_ID,
     },
   }
 
-  return prices[planName]?.[billingCycle] || ''
+  return prices[planKey]?.[billingCycle] || ''
 }
 
 function cleanString(value) {
@@ -60,12 +61,14 @@ async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
     subscription_data: {
       trial_period_days: 14,
       metadata: {
+        planKey: params.planKey,
         planName: params.planName,
         billingCycle: params.billingCycle,
         clubName: params.clubName,
       },
     },
     metadata: {
+      planKey: params.planKey,
       planName: params.planName,
       billingCycle: params.billingCycle,
       clubName: params.clubName,
@@ -96,11 +99,12 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event.body || '{}')
-    const planName = cleanString(body.planName)
+    const planKey = normalizePlanKey(body.planKey || body.planName)
+    const planName = getPlanName(planKey)
     const billingCycle = cleanString(body.billingCycle)
     const customerEmail = cleanString(body.customerEmail)
     const clubName = cleanString(body.clubName)
-    const priceId = getPriceId(planName, billingCycle)
+    const priceId = getPriceId(planKey, billingCycle)
 
     if (!priceId) {
       return json(400, { success: false, message: 'This plan is not available for checkout yet' })
@@ -117,6 +121,7 @@ export async function handler(event) {
       billingCycle,
       clubName,
       customerEmail,
+      planKey,
       planName,
       priceId,
     }
