@@ -432,6 +432,14 @@ export function createFeatureUpgradeMessage(featureName, planOrUser = null) {
     return `${featureCopy.label} is included in ${getPlanName(planOrUser)}, but this workspace billing status is ${getPlanStatusLabel(planOrUser)}. Update billing or mark the club as active before changing it.`
   }
 
+  if (planOrUser && planOrUser.role === 'parent_portal') {
+    return `${featureCopy.label} is not available for this parent account. Ask your club contact if you need access.`
+  }
+
+  if (planOrUser && planOrUser.role !== 'admin' && planOrUser.role !== 'super_admin' && Number(planOrUser.roleRank ?? 0) < 90) {
+    return `${featureCopy.label} is not available for your current workspace. Ask a Club Admin to review the plan.`
+  }
+
   return `${featureCopy.label} is not available in your current billing tier. Upgrade to ${getUpgradePlanForFeature(featureName, planOrUser)} to ${featureCopy.action}.`
 }
 

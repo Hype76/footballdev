@@ -55,8 +55,8 @@ test('email queue route still requires email queue permission and parentEmail pl
   assert.match(section, /isRecoveryModuleVisible\('emailMessages', \{ user \}\)/)
   assert.match(section, /needsTeamWorkflowContext\(user\)/)
   assert.match(section, /canManageEmailQueue\(user\)/)
-  assert.match(section, /hasPlanFeature\(user, 'parentEmail'\)/)
-  assert.match(section, /return <RedirectToWorkspaceHome user=\{user\} \/>/)
+  assert.match(section, /canUseUiFeature\(user, CAPABILITIES\.parentEmails\)/)
+  assert.match(section, /return <FeatureUnavailableState capability=\{CAPABILITIES\.parentEmails\} user=\{user\} \/>/)
 })
 
 test('parent email template route still requires manager permission and parentEmail plan access', async () => {
@@ -65,8 +65,8 @@ test('parent email template route still requires manager permission and parentEm
 
   assert.match(section, /canManageParentEmailTemplates\(user\)/)
   assert.match(section, /isRecoveryModuleVisible\('emailMessages', \{ user \}\)/)
-  assert.match(section, /hasPlanFeature\(user, 'parentEmail'\)/)
-  assert.match(section, /return <EmailTemplatesUnavailableState \/>/)
+  assert.match(section, /canUseUiFeature\(user, CAPABILITIES\.parentEmails\)/)
+  assert.match(section, /return <FeatureUnavailableState capability=\{CAPABILITIES\.parentEmails\} user=\{user\} \/>/)
 })
 
 test('surfaced email queue does not send or process emails from page load', async () => {
@@ -106,7 +106,7 @@ test('sidebar keeps email queue reachable even when no messages are queued', asy
 
   assert.match(emailQueueFilter, /canUseTeamWorkflow/)
   assert.match(emailQueueFilter, /canManageEmailQueue\(displayUser\)/)
-  assert.match(emailQueueFilter, /hasPlanFeature\(displayUser, 'parentEmail'\)/)
+  assert.match(emailQueueFilter, /canUseUiFeature\(displayUser, CAPABILITIES\.parentEmails\)/)
   assert.doesNotMatch(emailQueueFilter, /queuedEmailCount\s*>\s*0/)
 })
 

@@ -363,7 +363,7 @@ test('event invited family notification uses the scheduled email holding queue',
   const manageQueueSource = await readFile(manageScheduledEmailsFunctionUrl, 'utf8')
 
   assert.match(sessionsSource, /import \{ createScheduledEmail \} from '..\/lib\/domain\/scheduled-emails\.js'/)
-  assert.match(sessionsSource, /calendarForm\.notifyInvitedFamilies[\s\S]*hasPlanFeature\(user, 'parentEmail'\)/)
+  assert.match(sessionsSource, /calendarForm\.notifyInvitedFamilies[\s\S]*canUseUiFeature\(user, CAPABILITIES\.parentEmails\)/)
   assert.match(sessionsSource, /\.filter\(\(invite\) => invite\.notifyRequested\)/)
   assert.match(sessionsSource, /\.filter\(\(invite\) => String\(invite\.parentContactEmail \?\? ''\)\.trim\(\)\)/)
   assert.match(sessionsSource, /source: 'calendar_event_invite'/)

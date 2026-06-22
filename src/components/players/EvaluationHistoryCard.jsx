@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { canDeletePlayer, canEditEvaluation } from '../../lib/auth.js'
-import { hasPlanFeature } from '../../lib/plans.js'
+import { CAPABILITIES } from '../../lib/paywall-access.js'
+import { canUseUiFeature } from '../../lib/paywall-ui.js'
 import { EMAIL_SECTION_OPTIONS } from '../../lib/player-progression.js'
 import { buildEvaluationSummary, formatTrendDate } from '../../hooks/players/playerProfileUtils.js'
 import { EvaluationExportFieldsSelector } from '../evaluations/EvaluationExportFieldsSelector.jsx'
@@ -54,6 +55,7 @@ export function EvaluationHistoryCard({
   user,
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const deleteAssessmentDisabledReason =
     isDeletingEvaluationId === evaluation.id ? 'Please wait while this development record is being deleted.' : undefined
   const reassignSelectDisabledReason =
@@ -67,7 +69,7 @@ export function EvaluationHistoryCard({
     ? 'Please wait while the email is being sent.'
     : !canShare
       ? 'You can only email development records you are allowed to view or edit.'
-      : !hasPlanFeature(user, 'parentEmail')
+      : !canUseParentEmail
         ? 'Parent email is not included in this plan.'
         : availableEmailTemplates.length === 0
           ? 'Create an email template before emailing parents.'
@@ -78,7 +80,7 @@ export function EvaluationHistoryCard({
       ? 'You can only send tests for development records you are allowed to view or edit.'
       : !user?.email
         ? 'Your account email is not available, so the test cannot be sent.'
-        : !hasPlanFeature(user, 'parentEmail')
+        : !canUseParentEmail
           ? 'Parent and player email is not included in this plan.'
           : undefined
   const removePlayerDisabledReason = isDeleting ? 'Please wait while this player is being removed.' : undefined
@@ -228,7 +230,7 @@ export function EvaluationHistoryCard({
             <button
               type="button"
               onClick={() => onSendTestEmail(evaluation)}
-              disabled={emailSendingId === `test:${evaluation.id}` || !canShare || !user?.email || !hasPlanFeature(user, 'parentEmail')}
+              disabled={emailSendingId === `test:${evaluation.id}` || !canShare || !user?.email || !canUseParentEmail}
               title={testEmailDisabledReason || 'Send a test copy to your email address'}
               className={secondaryButtonClass}
             >
@@ -237,7 +239,7 @@ export function EvaluationHistoryCard({
             <button
               type="button"
               onClick={() => onSendParentEmail(evaluation)}
-              disabled={emailSendingId === evaluation.id || !canShare || !hasPlanFeature(user, 'parentEmail') || availableEmailTemplates.length === 0}
+              disabled={emailSendingId === evaluation.id || !canShare || !canUseParentEmail || availableEmailTemplates.length === 0}
               title={emailParentsDisabledReason || 'Email parents'}
               className={secondaryButtonClass}
             >

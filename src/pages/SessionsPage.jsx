@@ -10,7 +10,8 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
 import { canCreateEvaluation, isClubAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
-import { hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature } from '../lib/paywall-ui.js'
 import {
   AVAILABLE_PLAYER_PAGE_SIZE,
   SESSION_PLAYER_PAGE_SIZE,
@@ -1324,9 +1325,11 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
     assessmentSessionId = '',
     calendarEventId = '',
     savedInvites = [],
+    safeTeamId = '',
     sourceTitle = '',
+    teamName = '',
   } = {}) => {
-    if (!calendarForm.notifyInvitedFamilies || !hasPlanFeature(user, 'parentEmail')) {
+    if (!calendarForm.notifyInvitedFamilies || !canUseUiFeature(user, CAPABILITIES.parentEmails)) {
       return { queued: 0, failed: 0 }
     }
 
@@ -1471,8 +1474,10 @@ export function SessionsPage({ calendarOnly = false, setupOpen = false }) {
           const queueResult = await queueCalendarEventInviteEmails({
             assessmentSessionId,
             calendarEventId,
+            safeTeamId,
             savedInvites,
             sourceTitle,
+            teamName,
           })
           queuedInviteEmails += queueResult.queued
           failedInviteEmails += queueResult.failed

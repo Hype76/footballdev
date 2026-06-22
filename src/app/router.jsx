@@ -25,7 +25,9 @@ import {
   useAuth,
 } from '../lib/auth.js'
 import { clearChunkRecoveryMarker, isDynamicImportError, recoverFromStaleChunk } from '../lib/chunkRecovery.js'
-import { hasPlanFeature, isPlanAccessActive } from '../lib/plans.js'
+import { isPlanAccessActive } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseRouteFeature, canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../lib/paywall-ui.js'
 import { buildParentAppUrl, getMainAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 import {
   canOpenParentPortal,
@@ -492,6 +494,32 @@ function TeamContextRequiredState() {
   )
 }
 
+function FeatureUnavailableState({ capability, user }) {
+  const title = capability ? 'This feature is not available' : 'This area is not available'
+  const message = createUiFeatureUnavailableMessage(user, capability)
+
+  return (
+    <RouteGateState
+      eyebrow="Plan access"
+      title={title}
+      message={message}
+      rules={[
+        { title: 'No data changed', body: 'This block only prevents access to a feature that is not available for this workspace.' },
+        { title: 'Existing records stay safe', body: 'Saved club, team, player, and parent records are not removed by plan access checks.' },
+      ]}
+      actions={(
+        <a href="/coach" className={secondaryActionClassName}>
+          Return to workspace
+        </a>
+      )}
+    />
+  )
+}
+
+function RouteFeatureUnavailableState({ path, user }) {
+  return <FeatureUnavailableState capability={getRouteCapability(path)} user={user} />
+}
+
 function isClubSuspended(user) {
   return user?.clubStatus === 'suspended'
 }
@@ -815,6 +843,7 @@ function RequireClubWorkspace() {
 function RequirePlayerWorkflowAccess() {
   const { element, user } = useWorkspaceRouteGate()
   const location = useLocation()
+  const routeCapability = getRouteCapability(location.pathname)
 
   if (element) {
     return element
@@ -825,14 +854,22 @@ function RequirePlayerWorkflowAccess() {
   }
 
   if ((location.pathname === '/calendar' || location.pathname.startsWith('/calendar/')) && isClubAdmin(user)) {
-    return <Outlet />
+    if (canUseRouteFeature(user, location.pathname)) {
+      return <Outlet />
+    }
+
+    return <RouteFeatureUnavailableState path={location.pathname} user={user} />
   }
 
   if (needsTeamWorkflowContext(user) || !hasTeamWorkflowContext(user)) {
     return <TeamContextRequiredState />
   }
 
-  if (!canCreateEvaluation(user)) {
+  if (!canCreateEvaluation(user) || !canUseUiFeature(user, routeCapability)) {
+    if (routeCapability) {
+      return <FeatureUnavailableState capability={routeCapability} user={user} />
+    }
+
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -877,8 +914,8 @@ function RequireParentLinkingAccess() {
     return <TeamContextRequiredState />
   }
 
-  if (!canManageParentLinks(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageParentLinks(user) || !canUseUiFeature(user, CAPABILITIES.parentInvitations)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.parentInvitations} user={user} />
   }
 
   return <Outlet />
@@ -899,8 +936,8 @@ function RequireEmailQueueAccess() {
     return <TeamContextRequiredState />
   }
 
-  if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageEmailQueue(user) || !canUseUiFeature(user, CAPABILITIES.parentEmails)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.parentEmails} user={user} />
   }
 
   return <Outlet />
@@ -917,8 +954,8 @@ function RequirePollAccess() {
     return <RecoveryPhaseBlockedState />
   }
 
-  if (!canManagePolls(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManagePolls(user) || !canUseUiFeature(user, CAPABILITIES.teamPolls)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.teamPolls} user={user} />
   }
 
   return <Outlet />
@@ -939,8 +976,8 @@ function RequireMatchDayAccess() {
     return <TeamContextRequiredState />
   }
 
-  if (!canManageMatchDay(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageMatchDay(user) || !canUseUiFeature(user, CAPABILITIES.matchDay)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.matchDay} user={user} />
   }
 
   return <Outlet />
@@ -980,8 +1017,8 @@ function RequireFormBuilderAccess() {
     return <FormBuilderUnavailableState />
   }
 
-  if (!hasPlanFeature(user, 'customFormFields')) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.customDevelopmentFields} user={user} />
   }
 
   return <Outlet />
@@ -1002,8 +1039,8 @@ function RequireParentEmailTemplatesAccess() {
     return <EmailTemplatesUnavailableState />
   }
 
-  if (!hasPlanFeature(user, 'parentEmail')) {
-    return <EmailTemplatesUnavailableState />
+  if (!canUseUiFeature(user, CAPABILITIES.parentEmails)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.parentEmails} user={user} />
   }
 
   return <Outlet />
@@ -1016,8 +1053,8 @@ function RequireClubSettingsAccess() {
     return element
   }
 
-  if (!canManageClubSettings(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageClubSettings(user) || !canUseUiFeature(user, CAPABILITIES.basicLogoBranding)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.basicLogoBranding} user={user} />
   }
 
   return <Outlet />
@@ -1050,8 +1087,8 @@ function RequireUserAccess() {
     return element
   }
 
-  if (!canManageUsers(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageUsers(user) || !canUseUiFeature(user, CAPABILITIES.teamStaffRoles)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.teamStaffRoles} user={user} />
   }
 
   return <Outlet />
@@ -1064,8 +1101,8 @@ function RequireTeamSettingsAccess() {
     return element
   }
 
-  if (!canManageTeamSettings(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canManageTeamSettings(user) || !canUseUiFeature(user, CAPABILITIES.teamStaffRoles)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.teamStaffRoles} user={user} />
   }
 
   return <Outlet />
@@ -1078,8 +1115,8 @@ function RequireEndSeasonStatsAccess() {
     return element
   }
 
-  if (!canViewEndSeasonStats(user)) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!canViewEndSeasonStats(user) || !canUseUiFeature(user, CAPABILITIES.basicClubAnalytics)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.basicClubAnalytics} user={user} />
   }
 
   if (!isRecoveryModuleVisible('reports', { user })) {
@@ -1106,8 +1143,8 @@ function RequireActivityLogAccess() {
     return <RecoveryPhaseBlockedState />
   }
 
-  if (!isSuperAdmin(user) && !hasPlanFeature(user, 'auditLogs')) {
-    return <RedirectToWorkspaceHome user={user} />
+  if (!isSuperAdmin(user) && !canUseUiFeature(user, CAPABILITIES.fullOperationalAuditLog)) {
+    return <FeatureUnavailableState capability={CAPABILITIES.fullOperationalAuditLog} user={user} />
   }
 
   return <Outlet />

@@ -9,7 +9,8 @@ import {
   canViewPlatformFeedback,
   isSuperAdmin,
 } from './auth-permissions.js'
-import { hasPlanFeature } from './plans.js'
+import { CAPABILITIES } from './paywall-access.js'
+import { canUseUiFeature } from './paywall-ui.js'
 import { isRecoveryPathVisible } from './recovery-phase.js'
 
 function pushVisibleLink(links, user, link) {
@@ -49,20 +50,24 @@ export function getRoleQuickLinks(user) {
   }
 
   if (canCreateEvaluation(user)) {
-    pushVisibleLink(links, user, { label: 'Sessions', path: '/sessions', primary: links.length === 0 })
+    if (canUseUiFeature(user, CAPABILITIES.teamCalendar)) {
+      pushVisibleLink(links, user, { label: 'Sessions', path: '/sessions', primary: links.length === 0 })
+    }
     pushVisibleLink(links, user, { label: 'Players', path: '/players' })
-    pushVisibleLink(links, user, { label: 'Development', path: '/assess-player' })
+    if (canUseUiFeature(user, CAPABILITIES.assessments)) {
+      pushVisibleLink(links, user, { label: 'Development', path: '/assess-player' })
+    }
   }
 
-  if (canManageFormFields(user) && hasPlanFeature(user, 'customFormFields')) {
+  if (canManageFormFields(user) && canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)) {
     pushVisibleLink(links, user, { label: 'Development Fields', path: '/form-builder' })
   }
 
-  if (canManageParentEmailTemplates(user) && hasPlanFeature(user, 'parentEmail')) {
+  if (canManageParentEmailTemplates(user) && canUseUiFeature(user, CAPABILITIES.parentEmails)) {
     pushVisibleLink(links, user, { label: 'Email Templates', path: '/parent-email-templates' })
   }
 
-  if (canViewActivityLog(user) && hasPlanFeature(user, 'auditLogs')) {
+  if (canViewActivityLog(user) && canUseUiFeature(user, CAPABILITIES.fullOperationalAuditLog)) {
     pushVisibleLink(links, user, { label: 'Activity Log', path: '/activity-log' })
   }
 

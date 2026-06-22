@@ -3,7 +3,6 @@ import {
   FIELD_TYPE_OPTIONS,
   isScoreType,
 } from '../../hooks/form-builder/formBuilderUtils.js'
-import { createFeatureUpgradeMessage } from '../../lib/plans.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
 const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
@@ -13,6 +12,7 @@ const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-cen
 export function AddFieldSection({
   canUseCustomFields,
   fieldForm,
+  featureUnavailableMessage = 'Custom development fields are not available for this workspace.',
   isSaving,
   onAddField,
   onFormChange,
@@ -20,7 +20,7 @@ export function AddFieldSection({
   const addFieldDisabledReason = isSaving
     ? 'Please wait while this field is being saved.'
     : !canUseCustomFields
-      ? createFeatureUpgradeMessage('customFormFields')
+      ? featureUnavailableMessage
       : undefined
 
   return (
@@ -30,7 +30,7 @@ export function AddFieldSection({
       description={
         canUseCustomFields
           ? 'Create one useful field at a time. Prefer fields that a coach can complete quickly.'
-          : createFeatureUpgradeMessage('customFormFields')
+          : featureUnavailableMessage
       }
     >
       <form className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10" onSubmit={onAddField}>

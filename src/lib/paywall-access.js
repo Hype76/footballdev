@@ -56,7 +56,7 @@ export function normalizeAccessContext(context = {}) {
     paymentStatus,
     isPlanComped: isPlanComped(context),
     clubId: String(context.clubId ?? context.club_id ?? '').trim(),
-    teamId: String(context.teamId ?? context.team_id ?? '').trim(),
+    teamId: String(context.teamId ?? context.team_id ?? context.activeTeamId ?? context.active_team_id ?? '').trim(),
     playerId: String(context.playerId ?? context.player_id ?? '').trim(),
     ownsResource: normalizeBoolean(context.ownsResource ?? context.isOwner ?? context.is_owner),
   }

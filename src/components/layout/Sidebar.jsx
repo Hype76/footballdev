@@ -24,7 +24,8 @@ import {
 } from '../../lib/auth.js'
 import { getScheduledEmails } from '../../lib/domain/scheduled-emails.js'
 import { openOnboarding } from '../../lib/onboarding.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../../lib/plans.js'
+import { CAPABILITIES } from '../../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage, getRouteCapability } from '../../lib/paywall-ui.js'
 import { getParentPortalPolls, getPolls } from '../../lib/supabase.js'
 import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recovery-phase.js'
 
@@ -109,7 +110,12 @@ function OperationsStrip({ canUseTeamWorkflow, displayUser, isParentPortal, onCl
         { label: 'Players', path: '/players/current', icon: 'players' },
         { label: 'Parents', path: '/parent-linking', icon: 'parents' },
       ] : []
-  const visibleActions = actions.filter((action) => isRecoveryPathVisible(action.path, { user: displayUser }))
+  const visibleActions = actions.filter((action) => {
+    const capability = getRouteCapability(action.path)
+
+    return isRecoveryPathVisible(action.path, { user: displayUser })
+      && canUseUiFeature(displayUser, capability)
+  })
 
   if (visibleActions.length === 0) {
     return null
@@ -223,7 +229,7 @@ export function Sidebar({ isOpen, onClose }) {
     async function loadQueuedEmailCount() {
       if (
         !canManageEmailQueue(user)
-        || !hasPlanFeature(user, 'parentEmail')
+        || !canUseUiFeature(user, CAPABILITIES.parentEmails)
         || !isRecoveryModuleVisible('emailMessages', { user })
       ) {
         setQueuedEmailCount(0)
@@ -283,56 +289,62 @@ export function Sidebar({ isOpen, onClose }) {
 
     if (
       item.path === '/assess-player' ||
-      item.path === '/add-player' ||
       item.path === '/sessions' ||
+      item.path === '/calendar'
+    ) {
+      return canUseTeamWorkflow && canCreateEvaluation(displayUser) && canUseUiFeature(displayUser, getRouteCapability(item.path))
+    }
+
+    if (
+      item.path === '/add-player' ||
       item.path === '/players' ||
       item.path === '/archived-players'
     ) {
-      return canUseTeamWorkflow && canCreateEvaluation(displayUser)
+      return canUseTeamWorkflow && canCreateEvaluation(displayUser) && canUseUiFeature(displayUser, getRouteCapability(item.path))
     }
 
     if (item.path === '/parent-linking') {
-      return canUseTeamWorkflow && canManageParentLinks(displayUser)
+      return canUseTeamWorkflow && canManageParentLinks(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.parentInvitations)
     }
 
     if (item.path === '/email-queue') {
-      return canUseTeamWorkflow && canManageEmailQueue(displayUser) && hasPlanFeature(displayUser, 'parentEmail')
+      return canUseTeamWorkflow && canManageEmailQueue(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.parentEmails)
     }
 
     if (item.path === '/polls') {
-      return canManagePolls(displayUser)
+      return canManagePolls(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.teamPolls)
     }
 
     if (item.path === '/match-day') {
-      return canUseTeamWorkflow && canManageMatchDay(displayUser)
+      return canUseTeamWorkflow && canManageMatchDay(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.matchDay)
     }
 
     if (item.path === '/user-access') {
-      return canManageUsers(displayUser)
+      return canManageUsers(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.teamStaffRoles)
     }
 
     if (item.path === '/teams') {
-      return canManageTeamSettings(displayUser)
+      return canManageTeamSettings(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.teamStaffRoles)
     }
 
     if (item.path === '/end-season-stats') {
-      return canViewEndSeasonStats(displayUser)
+      return canViewEndSeasonStats(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.basicClubAnalytics)
     }
 
     if (item.path === '/activity-log') {
-      return canViewActivityLog(displayUser)
+      return canViewActivityLog(displayUser) && (isSuperAdmin(displayUser) || canUseUiFeature(displayUser, CAPABILITIES.fullOperationalAuditLog))
     }
 
     if (item.path === '/form-builder') {
-      return canManageFormFields(displayUser)
+      return canManageFormFields(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.customDevelopmentFields)
     }
 
     if (item.path === '/parent-email-templates') {
-      return canManageParentEmailTemplates(displayUser)
+      return canManageParentEmailTemplates(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.parentEmails)
     }
 
     if (item.path === '/club-settings') {
-      return canManageClubSettings(displayUser)
+      return canManageClubSettings(displayUser) && canUseUiFeature(displayUser, CAPABILITIES.basicLogoBranding)
     }
 
     if (item.path === '/billing') {
@@ -341,20 +353,10 @@ export function Sidebar({ isOpen, onClose }) {
 
     return true
   }).map((item) => {
-    if (item.path === '/activity-log' && !hasPlanFeature(displayUser, 'auditLogs')) {
-      return { ...item, disabled: true, disabledMessage: createFeatureUpgradeMessage('auditLogs') }
-    }
+    const capability = getRouteCapability(item.path)
 
-    if (item.path === '/form-builder' && !hasPlanFeature(displayUser, 'customFormFields')) {
-      return { ...item, disabled: true, disabledMessage: createFeatureUpgradeMessage('customFormFields') }
-    }
-
-    if (item.path === '/parent-email-templates' && !hasPlanFeature(displayUser, 'parentEmail')) {
-      return { ...item, disabled: true, disabledMessage: createFeatureUpgradeMessage('parentEmail') }
-    }
-
-    if (item.path === '/email-queue' && !hasPlanFeature(displayUser, 'parentEmail')) {
-      return { ...item, disabled: true, disabledMessage: createFeatureUpgradeMessage('parentEmail') }
+    if (capability && !canUseUiFeature(displayUser, capability)) {
+      return { ...item, disabled: true, disabledMessage: createUiFeatureUnavailableMessage(displayUser, capability) }
     }
 
     return item

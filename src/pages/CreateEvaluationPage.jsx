@@ -22,10 +22,10 @@ import { isDemoUser } from '../lib/demo.js'
 import { sendParentEmail } from '../lib/email-builder.js'
 import { buildPlayerProgressionData, buildProgressionEmailSections } from '../lib/player-progression.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
-  createFeatureUpgradeMessage,
   createLimitUpgradeMessage,
-  hasPlanFeature,
   isWithinPlanLimit,
 } from '../lib/plans.js'
 import {
@@ -526,6 +526,7 @@ export function CreateEvaluationPage() {
   const { showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const searchParamsKey = searchParams.toString()
   const editingEvaluationId = String(searchParams.get('evaluationId') ?? '').trim()
   const requestedAssessmentSection = String(searchParams.get('section') ?? '').trim()
@@ -1410,7 +1411,7 @@ export function CreateEvaluationPage() {
     let isMounted = true
 
     const loadEmailTemplates = async () => {
-      if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+      if (!user?.clubId || !canUseParentEmail) {
         setEmailTemplates([])
         return
       }
@@ -1444,7 +1445,7 @@ export function CreateEvaluationPage() {
     return () => {
       isMounted = false
     }
-  }, [user, userScopeKey])
+  }, [canUseParentEmail, user, userScopeKey])
 
   useEffect(() => {
     if (!isSaved) {
@@ -1605,7 +1606,6 @@ export function CreateEvaluationPage() {
   const averageScore = useMemo(() => getAverageScore(formResponses, enabledFields), [enabledFields, formResponses])
   const responseItems = useMemo(() => createResponseItems(enabledFields, responseValues), [enabledFields, responseValues])
   const canSubmitEvaluation = availableTeams.length > 0
-  const canUseParentEmail = hasPlanFeature(user, 'parentEmail')
   const canConfigureEmailTemplates = canManageParentEmailTemplates(user) && canUseParentEmail
   const assessmentPlayerOptions = useMemo(() => {
     const activeTeamId = String(user?.activeTeamId ?? '').trim()
@@ -2292,7 +2292,7 @@ export function CreateEvaluationPage() {
       if (previewMode === 'email' && selectedParentEmail) {
         try {
           if (!canUseParentEmail) {
-            throw new Error(createFeatureUpgradeMessage('parentEmail'))
+            throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
           }
 
           setIsSendingParentEmail(true)

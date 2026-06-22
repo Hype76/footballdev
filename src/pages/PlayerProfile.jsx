@@ -25,7 +25,8 @@ import {
 import { sendParentEmail, sendParentPortalInvite } from '../lib/email-builder.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import { isDemoUser } from '../lib/demo.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   getSavedEvaluationExportLabels,
   getSelectedEvaluationResponses,
@@ -192,6 +193,7 @@ export function PlayerProfile() {
   const [sendParentPortalLinkOnPromote, setSendParentPortalLinkOnPromote] = useState(true)
   const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
   const [parentPortalInviteSendingKey, setParentPortalInviteSendingKey] = useState('')
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
   const recordingStartedAtRef = useRef(0)
@@ -352,7 +354,7 @@ export function PlayerProfile() {
   }, [fieldsCacheKey, hasCachedFieldConfig, user, userScopeKey])
 
   const loadEmailTemplates = useCallback(async () => {
-    if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+    if (!user?.clubId || !canUseParentEmail) {
       setEmailTemplates([])
       return
     }
@@ -367,7 +369,7 @@ export function PlayerProfile() {
       console.error(error)
       setEmailTemplates(mergeEmailTemplatesWithDefaults([], 'all'))
     }
-  }, [user])
+  }, [canUseParentEmail, user])
 
   useEffect(() => {
     let isMounted = true
@@ -697,8 +699,8 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      if (!hasPlanFeature(user, 'parentEmail')) {
-        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+      if (!canUseParentEmail) {
+        setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
         return
       }
 
@@ -728,8 +730,8 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      if (!hasPlanFeature(user, 'parentEmail')) {
-        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+      if (!canUseParentEmail) {
+        setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
         return
       }
 
@@ -818,8 +820,8 @@ export function PlayerProfile() {
     setErrorMessage('')
 
     try {
-      if (!hasPlanFeature(user, 'parentEmail')) {
-        setErrorMessage(createFeatureUpgradeMessage('parentEmail'))
+      if (!canUseParentEmail) {
+        setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails))
         return
       }
 

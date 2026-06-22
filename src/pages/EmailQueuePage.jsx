@@ -5,7 +5,8 @@ import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { ScheduleDateTimePicker } from '../components/ui/ScheduleDateTimePicker.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageEmailQueue, useAuth } from '../lib/auth.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   deleteScheduledEmail,
   getScheduledEmails,
@@ -77,6 +78,7 @@ export function EmailQueuePage() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [busyId, setBusyId] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}` : ''
+  const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
 
   const sortedQueue = useMemo(
     () => [...queue].sort((first, second) => new Date(first.scheduledAt).getTime() - new Date(second.scheduledAt).getTime()),
@@ -91,7 +93,7 @@ export function EmailQueuePage() {
     let isMounted = true
 
     async function loadQueue() {
-      if (!user?.clubId || !hasPlanFeature(user, 'parentEmail')) {
+      if (!user?.clubId || !canUseParentEmail) {
         setIsLoading(false)
         return
       }
@@ -123,9 +125,9 @@ export function EmailQueuePage() {
     return () => {
       isMounted = false
     }
-  }, [user, userScopeKey])
+  }, [canUseParentEmail, user, userScopeKey])
 
-  if (!canManageEmailQueue(user) || !hasPlanFeature(user, 'parentEmail')) {
+  if (!canManageEmailQueue(user) || !canUseParentEmail) {
     return <Navigate to="/" replace />
   }
 
@@ -364,8 +366,8 @@ export function EmailQueuePage() {
         onConfirm={() => void confirmDelete()}
       />
 
-      {!hasPlanFeature(user, 'parentEmail') ? (
-        <NoticeBanner title="Email queue unavailable" message={createFeatureUpgradeMessage('parentEmail')} tone="info" />
+      {!canUseParentEmail ? (
+        <NoticeBanner title="Email queue unavailable" message={createUiFeatureUnavailableMessage(user, CAPABILITIES.parentEmails)} tone="info" />
       ) : null}
     </div>
   )

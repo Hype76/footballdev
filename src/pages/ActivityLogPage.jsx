@@ -4,7 +4,8 @@ import { RecentActivitySection } from '../components/activity/RecentActivitySect
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { canViewActivityLog, isSuperAdmin, useAuth } from '../lib/auth.js'
 import { BACKUP_PAGE_SIZE, LOG_PAGE_SIZE, formatActivityAction } from '../lib/activity-log-utils.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import { getAuditLogs, getRecordBackups, withRequestTimeout } from '../lib/supabase.js'
 
 const activityRules = [
@@ -33,7 +34,7 @@ export function ActivityLogPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const canViewSystemLogs = isSuperAdmin(user)
-  const canUseAuditLogs = hasPlanFeature(user, 'auditLogs')
+  const canUseAuditLogs = isSuperAdmin(user) || canUseUiFeature(user, CAPABILITIES.fullOperationalAuditLog)
 
   useEffect(() => {
     let isMounted = true
@@ -171,7 +172,7 @@ export function ActivityLogPage() {
       <div className="space-y-5 sm:space-y-6">
         <ActivityAccessState
           title="Activity log unavailable"
-          description={createFeatureUpgradeMessage('auditLogs')}
+          description={createUiFeatureUnavailableMessage(user, CAPABILITIES.fullOperationalAuditLog)}
         />
       </div>
     )

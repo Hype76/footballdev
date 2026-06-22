@@ -8,7 +8,8 @@ import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageFormFields, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
-import { createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   createDraftFromField,
   createDraftMap,
@@ -160,7 +161,7 @@ export function FormBuilderPage() {
   const customFields = fields.filter((field) => !field.isDefault)
   const visibleFields = fieldGroup === 'default' ? defaultFields : customFields
   const paginatedFields = getPaginatedItems(visibleFields, fieldPage, FIELD_PAGE_SIZE)
-  const canUseCustomFields = hasPlanFeature(user, 'customFormFields')
+  const canUseCustomFields = canUseUiFeature(user, CAPABILITIES.customDevelopmentFields)
   const enabledFieldsCount = fields.filter((field) => field.isEnabled).length
 
   const handleFormChange = (event) => {
@@ -255,7 +256,7 @@ export function FormBuilderPage() {
 
     try {
       if (!canUseCustomFields) {
-        throw new Error(createFeatureUpgradeMessage('customFormFields'))
+        throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.customDevelopmentFields))
       }
 
       const createdField = await addFormField({
@@ -498,7 +499,7 @@ export function FormBuilderPage() {
               <FormMetric label="Total" value={fields.length} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              {canUseCustomFields ? 'Custom development fields are available for this team.' : createFeatureUpgradeMessage('customFormFields')}
+              {canUseCustomFields ? 'Custom development fields are available for this team.' : createUiFeatureUnavailableMessage(user, CAPABILITIES.customDevelopmentFields)}
             </p>
           </div>
         </div>
@@ -516,6 +517,7 @@ export function FormBuilderPage() {
 
       <AddFieldSection
         canUseCustomFields={canUseCustomFields}
+        featureUnavailableMessage={createUiFeatureUnavailableMessage(user, CAPABILITIES.customDevelopmentFields)}
         fieldForm={fieldForm}
         isSaving={isSaving}
         onAddField={handleAddField}

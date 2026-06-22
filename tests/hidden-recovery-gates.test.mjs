@@ -148,7 +148,7 @@ test('form builder phase config, sidebar visibility, and route access agree', as
   assert.doesNotMatch(sidebarSource, /item\.path !== '\/form-builder'/)
   assert.match(formBuilderSection, /isRecoveryModuleVisible\('formBuilder', \{ user \}\)/)
   assert.match(formBuilderSection, /canManageFormFields\(user\)/)
-  assert.match(formBuilderSection, /hasPlanFeature\(user, 'customFormFields'\)/)
+  assert.match(formBuilderSection, /canUseUiFeature\(user, CAPABILITIES\.customDevelopmentFields\)/)
   assert.equal(isRecoveryPathVisible('/form-builder', { user: staffUser() }), true)
 })
 

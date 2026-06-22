@@ -16,7 +16,9 @@ import {
   updateOwnUserSettings,
   updateSignedInPassword,
 } from '../lib/supabase.js'
-import { canEditClubIdentity, createFeatureUpgradeMessage, hasPlanFeature } from '../lib/plans.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
+import { canEditClubIdentity } from '../lib/plans.js'
 import {
   getStoredThemeAccent,
   getStoredThemeButtonStyle,
@@ -379,11 +381,11 @@ export function UserSettingsPage() {
   }
 
   const senderPreview = `${displayName || 'Display Name'} (${emailTeamName || 'Team'} - ${emailClubName || 'Club'})`
-  const canEditClubBranding = isClubAdminSettings && hasPlanFeature(user, 'themes')
+  const canEditClubBranding = isClubAdminSettings && canUseUiFeature(user, CAPABILITIES.customColoursBranding)
   const brandingUnavailableMessage = !isClubAdminSettings
     ? 'Club branding is set by a Club Admin. You can still choose your own display mode.'
-    : !hasPlanFeature(user, 'themes')
-        ? createFeatureUpgradeMessage('themes', user)
+    : !canUseUiFeature(user, CAPABILITIES.customColoursBranding)
+        ? createUiFeatureUnavailableMessage(user, CAPABILITIES.customColoursBranding)
         : ''
   const canEditEmailClubName = showSenderIdentity && canEditClubIdentity(user)
   const workspaceLabel = isParentSettings
