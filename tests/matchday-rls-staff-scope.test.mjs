@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
-const migrationUrl = new URL('../supabase/migrations/20260616050750_harden_match_days_staff_select_scope.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260616051157_harden_match_days_staff_select_scope.sql', import.meta.url)
 
 function getPolicySection(source) {
   const start = source.indexOf('create policy match_days_staff_select_scoped')

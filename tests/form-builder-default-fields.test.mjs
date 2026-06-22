@@ -122,7 +122,7 @@ test('reordering default fields preserves custom field relative order', () => {
 
 test('migration repairs default fitness fields without rewriting evaluations', async () => {
   const migration = await readFile(
-    new URL('../supabase/migrations/20260618103000_player_form_defaults_fitness_numeric.sql', import.meta.url),
+    new URL('../supabase/archived-migrations/not-applied-production/20260618103000_player_form_defaults_fitness_numeric.sql', import.meta.url),
     'utf8',
   )
 

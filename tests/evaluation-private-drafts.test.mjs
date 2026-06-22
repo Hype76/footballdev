@@ -585,7 +585,7 @@ test('server draft helpers fail closed when the migration has not been applied',
 
 test('private assessment draft migration is additive and creator scoped', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616055708_private_assessment_drafts.sql', import.meta.url),
+    new URL('../supabase/migrations/20260616062006_20260616055708_private_assessment_drafts.sql', import.meta.url),
     'utf8',
   )
 
@@ -600,7 +600,7 @@ test('private assessment draft migration is additive and creator scoped', () => 
 
 test('private assessment draft RLS repair keeps drafts creator-only and parent-denied', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616085834_repair_evaluation_drafts_creator_rls.sql', import.meta.url),
+    new URL('../supabase/migrations/20260616091722_repair_evaluation_drafts_creator_rls.sql', import.meta.url),
     'utf8',
   )
 
@@ -617,7 +617,7 @@ test('private assessment draft RLS repair keeps drafts creator-only and parent-d
 
 test('draft lifecycle select policy allows creator close status transition only', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616181000_allow_creator_evaluation_draft_lifecycle_select.sql', import.meta.url),
+    new URL('../supabase/migrations/20260616170649_allow_creator_evaluation_draft_lifecycle_select.sql', import.meta.url),
     'utf8',
   )
 
@@ -727,7 +727,7 @@ test('unclear football detail readiness card is removed', () => {
 
 test('manual review RLS repair keeps drafts creator-only while allowing same-club player context', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616153314_repair_manual_review_eval_matchday.sql', import.meta.url),
+    new URL('../supabase/migrations/20260616153836_repair_manual_review_eval_matchday.sql', import.meta.url),
     'utf8',
   )
 
@@ -742,7 +742,7 @@ test('manual review RLS repair keeps drafts creator-only while allowing same-clu
 
 test('draft close lifecycle RLS permits creator close without weakening draft saves', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616162746_harden_evaluation_draft_close_lifecycle.sql', import.meta.url),
+    new URL('../supabase/migrations/20260616163613_harden_evaluation_draft_close_lifecycle.sql', import.meta.url),
     'utf8',
   )
 
@@ -766,7 +766,7 @@ test('draft close lifecycle RLS permits creator close without weakening draft sa
 
 test('draft close follow-up keeps creator-only close separate from active draft edits', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616175500_allow_creator_evaluation_draft_close.sql', import.meta.url),
+    new URL('../supabase/migrations/20260616165423_allow_creator_evaluation_draft_close.sql', import.meta.url),
     'utf8',
   )
 

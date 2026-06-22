@@ -193,7 +193,7 @@ test('PDF progression chart uses clean static chart labels without raw value dum
 
 test('score migration is guarded and converts only built-in score labels', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616085824_default_assessment_scores_10_point.sql', import.meta.url),
+    new URL('../supabase/migrations/20260616091650_default_assessment_scores_10_point.sql', import.meta.url),
     'utf8',
   )
 

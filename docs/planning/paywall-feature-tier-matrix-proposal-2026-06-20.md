@@ -263,7 +263,7 @@ Risk if it includes too little: Large organisations may not see enough value to 
 - Development Club does not currently appear as a plan key in the completed audit.
 - Unknown plan keys currently fall back to Small Club in JavaScript. Evidence: `src/lib/plans.js`.
 - Calendar is not clearly tier-owned. Evidence: `src/lib/domain/calendar-events.js`, `supabase/migrations/20260609104500_restrict_calendar_club_events.sql`.
-- Match day is not clearly tier-owned. Evidence: `src/app/router.jsx`, `supabase/migrations/20260613120000_parent_calendar_visibility_controls.sql`.
+- Match day is not clearly tier-owned. Evidence: `src/app/router.jsx`, `supabase/migrations/20260614030531_20260613120000_parent_calendar_visibility_controls.sql`.
 - Parent portal is not clearly tier-owned. Evidence: `src/app/router.jsx`, parent RPC migrations.
 - Mobile/PWA/native app access is not clearly tier-owned by the current web plan model.
 - Activity logs need separation between basic safety/security auditability and the full operational audit log.
@@ -371,7 +371,7 @@ Likely implementation work:
 - Public pricing copy evidence is in `src/lib/login-pricing.js` and `src/pages/PublicPricingPage.jsx`.
 - Route and navigation evidence is in `src/app/router.jsx` and `src/components/layout/Sidebar.jsx`.
 - Netlify plan/function evidence is in `netlify/functions/_plan-gate.js`, `netlify/functions/create-checkout-session.js`, `netlify/functions/send-parent-email.js`, `netlify/functions/manage-scheduled-emails.js`, and `netlify/functions/manage-team.js`.
-- Supabase limit, feature, calendar, parent visibility, match day, and audit evidence is in the migrations referenced by the audit, including `supabase/migrations/20260507162000_enforce_plan_feature_limits.sql`, `supabase/migrations/20260508133000_enforce_active_plan_access.sql`, `supabase/migrations/20260609104500_restrict_calendar_club_events.sql`, and `supabase/migrations/20260613120000_parent_calendar_visibility_controls.sql`.
+- Supabase limit, feature, calendar, parent visibility, match day, and audit evidence is in the migrations referenced by the audit, including `supabase/migrations/20260507162000_enforce_plan_feature_limits.sql`, `supabase/migrations/20260508133000_enforce_active_plan_access.sql`, `supabase/migrations/20260609104500_restrict_calendar_club_events.sql`, and `supabase/migrations/20260614030531_20260613120000_parent_calendar_visibility_controls.sql`.
 - Where this proposal says Unclear, Future, or Upsell, it means the completed audit did not prove a final current tier owner or confirmed implementation state.
 
 ## Validation

@@ -7,7 +7,7 @@ import {
   isRecoveryPathVisible,
 } from '../src/lib/recovery-phase.js'
 
-const pollVisibilityMigrationUrl = new URL('../supabase/migrations/20260617191000_harden_parent_poll_vote_visibility.sql', import.meta.url)
+const pollVisibilityMigrationUrl = new URL('../supabase/archived-migrations/not-applied-production/20260617191000_harden_parent_poll_vote_visibility.sql', import.meta.url)
 const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const parentLinkingPageUrl = new URL('../src/pages/ParentLinkingPage.jsx', import.meta.url)
 const parentPollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url)

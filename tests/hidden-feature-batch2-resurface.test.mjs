@@ -7,7 +7,7 @@ import {
   isRecoveryPathVisible,
 } from '../src/lib/recovery-phase.js'
 
-const cleanupMigrationUrl = new URL('../supabase/migrations/20260616070626_harden_parent_portal_cleanup.sql', import.meta.url)
+const cleanupMigrationUrl = new URL('../supabase/migrations/20260616072046_20260616070626_harden_parent_portal_cleanup.sql', import.meta.url)
 const messagesMigrationUrl = new URL('../supabase/migrations/20260518153000_parent_portal_message_reads.sql', import.meta.url)
 const revokeFamilyMigrationUrl = new URL('../supabase/migrations/20260516232000_parent_revoke_family_links.sql', import.meta.url)
 const parentPortalDomainUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)

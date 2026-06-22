@@ -94,7 +94,7 @@ test('match day calendar item edit opens Match Day workflow', () => {
 
 test('manual review Match Day migration removes missing player team assignment dependency', () => {
   const migration = readFileSync(
-    new URL('../supabase/migrations/20260616153314_repair_manual_review_eval_matchday.sql', import.meta.url),
+    new URL('../supabase/migrations/20260616153836_repair_manual_review_eval_matchday.sql', import.meta.url),
     'utf8',
   )
 

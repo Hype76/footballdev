@@ -11,7 +11,7 @@ const routerUrl = new URL('../src/app/router.jsx', import.meta.url)
 const endSeasonPageUrl = new URL('../src/pages/EndSeasonStatsPage.jsx', import.meta.url)
 const seasonStatsDomainUrl = new URL('../src/lib/domain/season-stats.js', import.meta.url)
 const seasonStatsMigrationUrl = new URL('../supabase/migrations/20260519213000_end_season_stats.sql', import.meta.url)
-const hardeningMigrationUrl = new URL('../supabase/migrations/20260617193000_harden_end_season_stats_visibility.sql', import.meta.url)
+const hardeningMigrationUrl = new URL('../supabase/archived-migrations/not-applied-production/20260617193000_harden_end_season_stats_visibility.sql', import.meta.url)
 
 function managerUser(overrides = {}) {
   return {
